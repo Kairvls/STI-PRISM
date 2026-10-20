@@ -1,15 +1,16 @@
 @extends('layouts.maintenance-layout')
 
-@section('title', 'Personnel Directory')
+@section('title', 'Reporters Directory')
 
 @section('content')
 @php
     $statusClass = [
         'Pending' => 'bg-amber-50 text-amber-700 ring-amber-200',
         'Processing' => 'bg-blue-50 text-blue-700 ring-blue-200',
-        'Resolved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
         'For Replacement' => 'bg-violet-50 text-violet-700 ring-violet-200',
+        'Resolved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
         'Rejected' => 'bg-rose-50 text-rose-700 ring-rose-200',
+        'Closed / Cancelled' => 'bg-slate-200 text-slate-700 ring-slate-300',
     ];
     $chipClass = fn (bool $active) => 'inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ring-1 transition '
         .($active ? 'bg-slate-100 text-slate-900 ring-slate-300' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50');
@@ -77,7 +78,7 @@
                 <div class="relative">
                     <select name="record_status" class="h-9 min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs font-medium text-slate-600 outline-none transition focus:border-slate-400">
                         <option value="">All Status</option>
-                        @foreach (['Pending', 'Processing', 'Resolved', 'For Replacement', 'Rejected'] as $option)
+                        @foreach (\App\Support\ReportStatuses::ALL as $option)
                             <option value="{{ $option }}" @selected(request('record_status') === $option)>{{ $option }}</option>
                         @endforeach
                     </select>
@@ -105,7 +106,7 @@
                             <th class="w-[20%] px-5 py-3">Issue</th>
                             <th class="w-[16%] px-5 py-3">Equipment</th>
                             <th class="w-[14%] px-5 py-3">Room</th>
-                            <th class="w-[10%] px-5 py-3">Urgency</th>
+                            <th class="w-[10%] px-5 py-3">Priority</th>
                             <th class="w-[12%] px-5 py-3">Status</th>
                             <th class="w-[14%] px-5 py-3">Submitted</th>
                         </tr>
@@ -131,11 +132,11 @@
                                 <td class="px-5 py-3 text-slate-600">{{ $record->room_name ?: '—' }}</td>
 
                                 <td class="px-5 py-3">
-                                    @if ($record->report_urgency_level)
-                                        <span class="rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $record->report_urgency_level === 'Urgent' ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $record->report_urgency_level }}</span>
-                                    @else
-                                        <span class="text-slate-400">—</span>
-                                    @endif
+                                    @php
+                                        $recordPriority = \App\Support\ReportSeverity::forReport($record);
+                                        $recordPriorityPill = \App\Support\ReportSeverity::meta($recordPriority)['pill'];
+                                    @endphp
+                                    <span class="rounded-md px-2 py-0.5 text-[11px] font-medium {{ $recordPriorityPill }}">{{ $recordPriority }}</span>
                                 </td>
                                 <td class="px-5 py-3">
                                     <span class="whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $statusClass[$record->report_current_status] ?? 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $record->report_current_status }}</span>

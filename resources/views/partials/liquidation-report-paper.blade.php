@@ -73,20 +73,20 @@
                 @endphp
                 <tr>
                     <td class="h-9 border border-black px-2 text-left align-middle">
-                        @if($editable)<input type="text" name="items[{{ $i }}][particulars]" value="{{ $p }}" class="w-full border-0 bg-transparent px-1 outline-none">@else{{ $p }}@endif
+                        @if($editable)<input type="text" name="items[{{ $i }}][particulars]" value="{{ $p }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="w-full border-0 bg-transparent px-1 outline-none">@else{{ $p }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">
-                        @if($editable)<input type="number" step="0.01" name="items[{{ $i }}][amount]" value="{{ $a }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($a) }}@endif
+                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][amount]" value="{{ $a }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($a) }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">
-                        @if($editable)<input type="number" step="0.01" name="items[{{ $i }}][actual_amount]" value="{{ $aa }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($aa) }}@endif
+                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][actual_amount]" value="{{ $aa }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($aa) }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">
-                        @if($editable)<input type="number" step="0.01" name="items[{{ $i }}][actual_total]" value="{{ $at }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($at) }}@endif
+                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][actual_total]" value="{{ $at }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($at) }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">{{ $editable ? '' : $fmt($v) }}</td>
                     <td class="h-9 border border-black px-2 text-center align-middle">
-                        @if($editable)<input type="text" name="items[{{ $i }}][ref_no]" value="{{ $ref }}" class="w-full border-0 bg-transparent text-center outline-none">@else{{ $ref }}@endif
+                        @if($editable)<input type="text" name="items[{{ $i }}][ref_no]" value="{{ $ref }}" maxlength="{{ \App\Support\InputLimits::SHORT }}" class="w-full border-0 bg-transparent text-center outline-none">@else{{ $ref }}@endif
                     </td>
                 </tr>
             @endfor
@@ -124,6 +124,7 @@
                             type="text"
                             name="liquidation_report_cash_returned_or_no"
                             value="{{ old('liquidation_report_cash_returned_or_no', $liq?->liquidation_report_cash_returned_or_no ?? '') }}"
+                            maxlength="{{ \App\Support\InputLimits::SHORT }}"
                             class="h-8 min-h-[2rem] max-w-xs flex-1 border-0 border-b border-black bg-transparent outline-none"
                             placeholder="Required when unused cash remains"
                             data-cash-returned-input

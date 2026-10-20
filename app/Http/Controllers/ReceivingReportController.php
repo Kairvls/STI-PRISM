@@ -229,6 +229,9 @@ class ReceivingReportController extends Controller
                 'receiving_report_created_at' => $now,
                 'receiving_report_updated_at' => $now,
             ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')) {
+                $payload['receiving_report_or_number'] = $validated['receiving_report_or_number'] ?? null;
+            }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')) {
                 $payload['receiving_report_or_amount'] = $orMoney['orAmount'];
                 $payload['receiving_report_check_amount'] = $orMoney['checkAmount'];
@@ -236,8 +239,7 @@ class ReceivingReportController extends Controller
             }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')) {
                 $payload['receiving_report_or_attachment_path'] = $orFile['path'];
-                $payload['receiving_report_or_attachment_name'] = $orFile['name'];
-                $payload['receiving_report_or_attachment_mime'] = $orFile['mime'];
+                $payload['receiving_report_or_attachment_name'] = $orFile['name'];                $payload['receiving_report_or_attachment_mime'] = $orFile['mime'];
             }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
                 $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
@@ -254,7 +256,7 @@ class ReceivingReportController extends Controller
 
             $id = DB::table('receiving_reports_table')->insertGetId($payload);
 
-            $this->replaceItems($id, $validated['items'] ?? []);
+            $this->replaceItems($id, $validated['items'] ?? [], $request);
             if (!$isDraft && !$this->hasCompleteRrItem($id)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'items' => 'Add at least one item with quantity of 1 or more before submitting.',
@@ -351,6 +353,9 @@ class ReceivingReportController extends Controller
                 'receiving_report_submitted_at' => $isDraft ? $rr->receiving_report_submitted_at : $now,
                 'receiving_report_updated_at' => $now,
             ];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')) {
+                $payload['receiving_report_or_number'] = $validated['receiving_report_or_number'] ?? null;
+            }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')) {
                 $payload['receiving_report_or_amount'] = $orMoney['orAmount'];
                 $payload['receiving_report_check_amount'] = $orMoney['checkAmount'];
@@ -370,7 +375,7 @@ class ReceivingReportController extends Controller
 
             DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($payload);
 
-            $this->replaceItems($id, $validated['items'] ?? []);
+            $this->replaceItems($id, $validated['items'] ?? [], $request);
             if (!$isDraft && !$this->hasCompleteRrItem($id)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'items' => 'Add at least one item with quantity of 1 or more before submitting.',
@@ -431,7 +436,10 @@ class ReceivingReportController extends Controller
                 return back()->with('error', 'Date is required before submitting.');
             }
 
-            if (blank($rr->receiving_report_invoice_no ?? null)) {
+            if (
+                Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')
+                && blank($rr->receiving_report_or_number ?? null)
+            ) {
                 return back()->with('error', 'Official Receipt (OR) number is required before submitting. Open Edit and enter the OR details.');
             }
             if (
@@ -575,7 +583,11 @@ class ReceivingReportController extends Controller
             'receiving_report_date' => [$isDraft ? 'nullable' : 'required', 'date'],
             'receiving_report_received_from' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'receiving_report_supplier_address_override' => ['nullable', 'string', 'max:2000'],
-            'receiving_report_invoice_no' => [$isDraft ? 'nullable' : 'required', 'string', 'max:100'],
+            'receiving_report_invoice_no' => \App\Support\InputLimits::docRefRules(false),
+            'receiving_report_dr_no' => \App\Support\InputLimits::docRefRules(false),
+            'receiving_report_or_number' => Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')
+                ? \App\Support\InputLimits::docRefRules(! $isDraft)
+                : ['nullable', 'string', 'max:'.\App\Support\InputLimits::DOC_REF_NO],
             'receiving_report_or_amount' => [
                 $isDraft ? 'nullable' : 'required',
                 'numeric',
@@ -602,7 +614,6 @@ class ReceivingReportController extends Controller
                 'max:10240',
                 'mimes:pdf,jpg,jpeg,png',
             ],
-            'receiving_report_dr_no' => ['nullable', 'string', 'max:100'],
             'receiving_report_delivery_date' => ['nullable', 'date'],
             'receiving_report_received_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'receiving_report_received_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
@@ -620,13 +631,25 @@ class ReceivingReportController extends Controller
             'items.*.item_id' => ['nullable', 'integer'],
             'items.*.damaged_qty' => ['nullable', 'integer', 'min:0', 'max:9999999', 'lte:items.*.quantity'],
             'items.*.damage_remarks' => ['nullable', 'string', 'max:500'],
+            'items.*.photo' => ['nullable', 'image', 'max:5120', 'mimes:jpg,jpeg,png,webp'],
+            'items.*.clear_photo' => ['nullable', 'boolean'],
+            'items.*.unit_photos' => ['nullable', 'array', 'max:50'],
+            'items.*.unit_photos.*' => ['nullable', 'image', 'max:5120', 'mimes:jpg,jpeg,png,webp'],
+            'items.*.clear_unit_photos' => ['nullable', 'array', 'max:50'],
+            'items.*.clear_unit_photos.*' => ['nullable', 'integer', 'min:0', 'max:49'],
         ], [
             'items.*.damaged_qty.lte' => 'Damaged units cannot be more than the quantity received.',
             'receiving_report_form_number.required' => 'Receiving Report number is required before submitting.',
             'receiving_report_form_number.regex' => 'Receiving Report number must follow the format RR-YYYYMMDD-0000001.',
             'receiving_report_form_number.unique' => 'This Receiving Report number is already in use.',
-            'receiving_report_invoice_no.required' => 'Official Receipt (OR) number is required before submitting.',
+            'receiving_report_or_number.required' => 'Official Receipt (OR) number is required before submitting.',
             'receiving_report_or_amount.required' => 'OR amount from the Official Receipt is required before submitting.',
+            'receiving_report_invoice_no.regex' => 'Refer Invoice No. may only use letters, numbers, hyphens, and slashes (max 16).',
+            'receiving_report_dr_no.regex' => 'D.R. No. may only use letters, numbers, hyphens, and slashes (max 16).',
+            'receiving_report_or_number.regex' => 'OR number may only use letters, numbers, hyphens, and slashes (max 16).',
+            'receiving_report_invoice_no.max' => 'Refer Invoice No. may be at most 16 characters.',
+            'receiving_report_dr_no.max' => 'D.R. No. may be at most 16 characters.',
+            'receiving_report_or_number.max' => 'OR number may be at most 16 characters.',
         ]);
     }
 
@@ -643,34 +666,48 @@ class ReceivingReportController extends Controller
             'mime' => $existing->receiving_report_or_attachment_mime ?? null,
         ];
 
-        if (! $request->hasFile('or_attachment')) {
-            return $kept;
+        $clear = $request->boolean('clear_or_attachment');
+
+        if ($request->hasFile('or_attachment')) {
+            $file = $request->file('or_attachment');
+            if ($file && $file->isValid()) {
+                $dir = 'receiving-reports/or';
+                $stored = $file->store($dir, 'public');
+                if ($stored) {
+                    if (! empty($kept['path'])) {
+                        try {
+                            Storage::disk('public')->delete($kept['path']);
+                        } catch (\Throwable $e) {
+                            // ignore missing old file
+                        }
+                    }
+
+                    return [
+                        'path' => $stored,
+                        'name' => $file->getClientOriginalName(),
+                        'mime' => $file->getClientMimeType(),
+                    ];
+                }
+            }
         }
 
-        $file = $request->file('or_attachment');
-        if (! $file || ! $file->isValid()) {
-            return $kept;
-        }
-
-        $dir = 'receiving-reports/or';
-        $stored = $file->store($dir, 'public');
-        if (! $stored) {
-            return $kept;
-        }
-
-        if (! empty($kept['path'])) {
+        if ($clear) {
+            if (! empty($kept['path'])) {
                 try {
                     Storage::disk('public')->delete($kept['path']);
                 } catch (\Throwable $e) {
                     // ignore missing old file
                 }
+            }
+
+            return [
+                'path' => null,
+                'name' => null,
+                'mime' => null,
+            ];
         }
 
-        return [
-            'path' => $stored,
-            'name' => $file->getClientOriginalName(),
-            'mime' => $file->getClientMimeType(),
-        ];
+        return $kept;
     }
 
     private function resolveOrMoneyFields(array $validated, ?int $rfcId): array
@@ -752,16 +789,36 @@ class ReceivingReportController extends Controller
 
     /**
      * Rows already verified at second count are kept untouched; the rest are re-inserted in form order
-     * and their back order links move to the new row ids.
+     * and their back order links move to the new row ids. Item photos are carried over unless replaced or cleared.
      */
-    private function replaceItems($rrId, array $items): void
+    private function replaceItems($rrId, array $items, ?Request $request = null): void
     {
         $table = 'receiving_report_items_table';
         $hasVerified = Schema::hasColumn($table, 'receiving_report_item_verified');
+        $hasPhotoPath = Schema::hasColumn($table, 'receiving_report_item_photo_path');
+        $hasUnitPhotos = Schema::hasColumn($table, 'receiving_report_item_unit_photos');
         $existing = DB::table($table)->where('receiving_report_id', $rrId)->orderBy('receiving_report_item_id')->get();
         [$verifiedRows, $oldRows] = $existing->partition(fn ($row) => $hasVerified && !empty($row->receiving_report_item_verified));
         $verifiedIds = $verifiedRows->pluck('receiving_report_item_id')->map(fn ($itemId) => (int) $itemId)->all();
         $oldIds = $oldRows->pluck('receiving_report_item_id')->map(fn ($itemId) => (int) $itemId)->values()->all();
+
+        $oldPhotos = [];
+        $oldUnitPhotos = [];
+        foreach ($oldRows as $old) {
+            $oldId = (int) $old->receiving_report_item_id;
+            if ($hasPhotoPath && ! empty($old->receiving_report_item_photo_path)) {
+                $oldPhotos[$oldId] = [
+                    'path' => $old->receiving_report_item_photo_path,
+                    'name' => $old->receiving_report_item_photo_name ?? null,
+                ];
+            }
+            if ($hasUnitPhotos) {
+                $decoded = $this->decodeUnitPhotos($old->receiving_report_item_unit_photos ?? null);
+                if ($decoded !== []) {
+                    $oldUnitPhotos[$oldId] = $decoded;
+                }
+            }
+        }
 
         DB::table($table)->where('receiving_report_id', $rrId)
             ->when($verifiedIds !== [], fn ($q) => $q->whereNotIn('receiving_report_item_id', $verifiedIds))
@@ -774,7 +831,8 @@ class ReceivingReportController extends Controller
         $hasDamagedColumn = Schema::hasColumn($table, 'receiving_report_item_damaged_qty');
 
         $newIds = [];
-        foreach (array_slice($items, 0, 50) as $row) {
+        $keptPhotoPaths = [];
+        foreach (array_slice($items, 0, 50, true) as $key => $row) {
             if (in_array((int) ($row['item_id'] ?? 0), $verifiedIds, true)) {
                 continue;
             }
@@ -839,14 +897,144 @@ class ReceivingReportController extends Controller
                     : null;
             }
 
-            $newId = (int) DB::table($table)->insertGetId($itemRow, 'receiving_report_item_id');
             $postedId = (int) ($row['item_id'] ?? 0);
+            if ($hasPhotoPath) {
+                $clearPhoto = filter_var($row['clear_photo'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                $file = $request?->file('items.'.$key.'.photo');
+                if ($file && $file->isValid()) {
+                    $stored = $file->store('receiving-reports/items', 'public');
+                    if ($stored) {
+                        $itemRow['receiving_report_item_photo_path'] = $stored;
+                        $itemRow['receiving_report_item_photo_name'] = $file->getClientOriginalName();
+                        $keptPhotoPaths[] = $stored;
+                    }
+                } elseif (! $clearPhoto && isset($oldPhotos[$postedId])) {
+                    $itemRow['receiving_report_item_photo_path'] = $oldPhotos[$postedId]['path'];
+                    $itemRow['receiving_report_item_photo_name'] = $oldPhotos[$postedId]['name'];
+                    $keptPhotoPaths[] = $oldPhotos[$postedId]['path'];
+                } else {
+                    $itemRow['receiving_report_item_photo_path'] = null;
+                    $itemRow['receiving_report_item_photo_name'] = null;
+                }
+            }
+
+            if ($hasUnitPhotos) {
+                $unitLimit = min(50, max(0, (int) ($qty ?: 0)));
+                $carried = $oldUnitPhotos[$postedId] ?? [];
+                $clearUnitIndexes = collect($row['clear_unit_photos'] ?? [])
+                    ->map(fn ($idx) => (int) $idx)
+                    ->filter(fn ($idx) => $idx >= 0 && $idx < 50)
+                    ->unique()
+                    ->all();
+                $unitFiles = $request?->file('items.'.$key.'.unit_photos') ?? [];
+                if (! is_array($unitFiles)) {
+                    $unitFiles = [];
+                }
+
+                $unitPhotos = [];
+                for ($u = 0; $u < $unitLimit; $u++) {
+                    $clearUnit = in_array($u, $clearUnitIndexes, true);
+                    $unitFile = $unitFiles[$u] ?? null;
+                    if ($unitFile && $unitFile->isValid()) {
+                        $stored = $unitFile->store('receiving-reports/items/units', 'public');
+                        if ($stored) {
+                            $unitPhotos[$u] = [
+                                'path' => $stored,
+                                'name' => $unitFile->getClientOriginalName(),
+                            ];
+                            $keptPhotoPaths[] = $stored;
+                        }
+                    } elseif (! $clearUnit && isset($carried[$u]['path'])) {
+                        $unitPhotos[$u] = [
+                            'path' => $carried[$u]['path'],
+                            'name' => $carried[$u]['name'] ?? null,
+                        ];
+                        $keptPhotoPaths[] = $carried[$u]['path'];
+                    }
+                }
+
+                if ($unitPhotos === []) {
+                    $itemRow['receiving_report_item_unit_photos'] = null;
+                } else {
+                    $encoded = [];
+                    foreach ($unitPhotos as $idx => $entry) {
+                        $encoded[] = [
+                            'index' => (int) $idx,
+                            'path' => $entry['path'],
+                            'name' => $entry['name'] ?? null,
+                        ];
+                    }
+                    $itemRow['receiving_report_item_unit_photos'] = json_encode($encoded);
+                }
+            }
+
+            $newId = (int) DB::table($table)->insertGetId($itemRow, 'receiving_report_item_id');
             if (in_array($postedId, $oldIds, true)) {
                 $newIds[$postedId] = $newId;
             }
         }
 
+        $orphanPaths = [];
+        foreach ($oldPhotos as $info) {
+            $path = $info['path'] ?? null;
+            if ($path && ! in_array($path, $keptPhotoPaths, true)) {
+                $orphanPaths[] = $path;
+            }
+        }
+        foreach ($oldUnitPhotos as $units) {
+            foreach ($units as $info) {
+                $path = $info['path'] ?? null;
+                if ($path && ! in_array($path, $keptPhotoPaths, true)) {
+                    $orphanPaths[] = $path;
+                }
+            }
+        }
+        foreach (array_unique($orphanPaths) as $path) {
+            try {
+                Storage::disk('public')->delete($path);
+            } catch (\Throwable $e) {
+                // ignore missing old file
+            }
+        }
+
         $this->relinkBackOrders($rrId, $oldIds, $newIds);
+    }
+
+    /**
+     * @return array<int, array{path: string, name: ?string}>
+     */
+    private function decodeUnitPhotos(mixed $raw): array
+    {
+        if (blank($raw)) {
+            return [];
+        }
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+        } elseif (is_array($raw)) {
+            $decoded = $raw;
+        } else {
+            return [];
+        }
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($decoded as $entry) {
+            if (! is_array($entry) || empty($entry['path'])) {
+                continue;
+            }
+            $index = isset($entry['index']) ? (int) $entry['index'] : count($out);
+            if ($index < 0 || $index >= 50) {
+                continue;
+            }
+            $out[$index] = [
+                'path' => (string) $entry['path'],
+                'name' => isset($entry['name']) ? (string) $entry['name'] : null,
+            ];
+        }
+
+        return $out;
     }
 
     /**

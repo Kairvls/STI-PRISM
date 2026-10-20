@@ -7,7 +7,20 @@
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
         <span class="text-slate-400">Asset tag</span>
-        <span class="max-w-[60%] truncate text-right font-medium text-slate-800" x-text="selectedLayoutAsset()?.asset_tag || '—'"></span>
+        <span class="group/asset-tag relative max-w-[60%] text-right font-medium text-slate-800">
+            <span
+                class="block cursor-default truncate"
+                :title="selectedLayoutAsset()?.asset_tag || ''"
+                x-text="selectedLayoutAsset()?.asset_tag || '—'"
+            ></span>
+            <template x-if="selectedLayoutAsset()?.asset_tag">
+                <span
+                    class="pointer-events-none absolute bottom-full right-0 z-30 mb-1.5 max-w-[min(280px,70vw)] -translate-y-0.5 whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/asset-tag:opacity-100"
+                    x-text="selectedLayoutAsset()?.asset_tag"
+                    role="tooltip"
+                ></span>
+            </template>
+        </span>
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
         <span class="text-slate-400">Brand</span>
@@ -22,7 +35,7 @@
         <span class="max-w-[60%] truncate text-right font-medium text-slate-800" x-text="selectedLayoutAsset()?.serial_number || '—'"></span>
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
-        <span class="text-slate-400">Category</span>
+        <span class="text-slate-400">Classification</span>
         <span class="max-w-[60%] truncate text-right font-medium text-slate-800" x-text="selectedLayoutAsset()?.category_name || '—'"></span>
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
@@ -65,7 +78,10 @@
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
         <span class="text-slate-400">Zone</span>
-        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location || '—'"></span>
+        <span
+            class="font-medium text-slate-800"
+            x-text="placementZoneLabel(selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location)"
+        ></span>
     </div>
     <div class="border-b border-slate-50 py-3">
         <div class="flex items-center justify-between gap-3">

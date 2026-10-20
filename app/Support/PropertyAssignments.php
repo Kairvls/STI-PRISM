@@ -802,6 +802,8 @@ class PropertyAssignments
                 ]);
             }
 
+            Departments::syncEquipmentChargeFromHolder($equipmentId, $custodianId);
+
             return $assignment;
         });
     }

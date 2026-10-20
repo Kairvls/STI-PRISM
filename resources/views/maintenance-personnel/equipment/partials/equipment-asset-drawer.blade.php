@@ -97,8 +97,14 @@
 
             if (label === 'Good') {
                 el.classList.add('bg-emerald-50', 'text-emerald-700');
+            } else if (label === 'Under Maintenance') {
+                el.classList.add('bg-amber-50', 'text-amber-700');
+            } else if (label === 'Defective') {
+                el.classList.add('bg-orange-50', 'text-orange-700');
             } else if (label === 'Damaged') {
                 el.classList.add('bg-rose-50', 'text-rose-700');
+            } else if (label === 'Disposed') {
+                el.classList.add('bg-slate-200', 'text-slate-700');
             } else {
                 el.classList.add('bg-slate-100', 'text-slate-600');
             }

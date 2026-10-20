@@ -116,7 +116,7 @@
                     <thead>
                         <tr>
                             <th>Equipment</th>
-                            <th>Category</th>
+                            <th>Classification</th>
                             <th>Reason</th>
                             <th>Location</th>
                             <th>Inventory</th>

@@ -149,61 +149,14 @@
 
                     @else
                         <option value="">All Statuses</option>
-
-                        <option
-                            value="Pending"
-                            {{
-                                request("status") == "Pending"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            Pending
-                        </option>
-
-                        <option
-                            value="Processing"
-                            {{
-                                request("status") == "Processing"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            Processing
-                        </option>
-
-                        <option
-                            value="Resolved"
-                            {{
-                                request("status") == "Resolved"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            Resolved
-                        </option>
-
-                        <option
-                            value="Rejected"
-                            {{
-                                request("status") == "Rejected"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            Rejected
-                        </option>
-
-                        <option
-                            value="For Replacement"
-                            {{
-                                request("status") == "For Replacement"
-                                    ? "selected"
-                                    : ""
-                            }}
-                        >
-                            For Replacement
-                        </option>
+                        @foreach (\App\Support\ReportStatuses::ALL as $statusOption)
+                            <option
+                                value="{{ $statusOption }}"
+                                {{ request("status") == $statusOption ? "selected" : "" }}
+                            >
+                                {{ $statusOption }}
+                            </option>
+                        @endforeach
 
                     @endif
                 </select>
@@ -225,20 +178,11 @@
                         class="h-9 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[160px]"
                     >
                         <option value="">All Priorities</option>
-
-                        @foreach (\App\Support\ReportSeverity::levels() as $severityOption)
-                            <option value="{{ $severityOption }}" @selected(request("urgency") === $severityOption)>
-                                {{ $severityOption }}
+                        @foreach (\App\Support\ReportSeverity::priorities() as $priorityOption)
+                            <option value="{{ $priorityOption }}" @selected(request("urgency") === $priorityOption || request("priority") === $priorityOption)>
+                                {{ $priorityOption }}
                             </option>
                         @endforeach
-
-                        <option value="Urgent" @selected(request("urgency") === "Urgent")>
-                            Critical + High
-                        </option>
-
-                        <option value="Non-Urgent" @selected(request("urgency") === "Non-Urgent")>
-                            Medium + Low
-                        </option>
                     </select>
                     <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path d="m6 9 6 6 6-6" />
@@ -486,7 +430,7 @@
                     <th
                         class="w-[10%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
-                        Urgency
+                        Priority
                     </th>
                     <th
                         class="w-[12%] bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
@@ -514,9 +458,10 @@
                         $statusMap = [
                             "Pending" => "bg-orange-50 text-orange-700",
                             "Processing" => "bg-sky-50 text-sky-700",
+                            "For Replacement" => "bg-violet-50 text-violet-700",
                             "Resolved" => "bg-emerald-50 text-emerald-700",
                             "Rejected" => "bg-rose-50 text-rose-700",
-                            "For Replacement" => "bg-orange-50 text-orange-700",
+                            "Closed / Cancelled" => "bg-slate-200 text-slate-700",
                         ];
                         $currentStatus = $report->report_current_status;
                         $canClaimPurchaserUrgent = $isPurchaserUrgent
@@ -526,13 +471,13 @@
                         $canArchivePurchaserUrgent = $isPurchaserUrgent
                             && ! $report->report_is_archived
                             && empty($report->report_assigned_personnel_id)
-                            && in_array($currentStatus, ['Resolved', 'Rejected', 'For Replacement'], true)
+                            && in_array($currentStatus, ['Resolved', 'Rejected', 'For Replacement', 'Closed / Cancelled'], true)
                             && (
                                 (int) $report->report_assigned_purchaser_id === (int) auth()->id()
                                 || ($currentStatus === 'Rejected' && empty($report->report_assigned_purchaser_id))
                             );
                         $statusPill = $statusMap[$currentStatus] ?? "bg-slate-100 text-slate-600";
-                        $canUpdate = in_array($currentStatus, ["Pending", "Processing"]);
+                        $canUpdate = in_array($currentStatus, ["Pending", "Processing", "For Replacement"]);
                         $rowBg = $loop->even ? "bg-gray-50/40" : "";
                     @endphp
                     <tr
@@ -938,9 +883,10 @@
         $statusDotClasses = match ($report->report_current_status) {
             'Pending' => 'bg-amber-500',
             'Processing' => 'bg-blue-500',
+            'For Replacement' => 'bg-violet-500',
             'Resolved' => 'bg-emerald-500',
             'Rejected' => 'bg-red-500',
-            'For Replacement' => 'bg-orange-500',
+            'Closed / Cancelled' => 'bg-slate-500',
             default => 'bg-gray-400',
         };
         $updateItems = collect($report->report_items ?? []);
@@ -1071,10 +1017,18 @@
                                 @if ($report->report_current_status == "Pending")
                                     <option value="" selected disabled>Select status</option>
                                     <option value="Processing">Processing</option>
+                                    <option value="Rejected">Rejected</option>
+                                    <option value="Closed / Cancelled">Closed / Cancelled</option>
                                 @elseif ($report->report_current_status == "Processing" || $openUpdateItems->isNotEmpty())
                                     <option value="" selected disabled>Select status</option>
-                                    <option value="Resolved">Resolved</option>
                                     <option value="For Replacement">For Replacement</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Rejected">Rejected</option>
+                                    <option value="Closed / Cancelled">Closed / Cancelled</option>
+                                @elseif ($report->report_current_status == "For Replacement")
+                                    <option value="" selected disabled>Select status</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Closed / Cancelled">Closed / Cancelled</option>
                                 @else
                                     <option value="{{ $report->report_current_status }}" selected disabled>
                                         {{ $report->report_current_status }}
@@ -1103,6 +1057,7 @@
                                 id="remarks-{{ $report->report_id }}"
                                 name="remarks"
                                 rows="4"
+                                maxlength="{{ \App\Support\InputLimits::NOTES }}"
                                 placeholder="Findings, actions taken, or justification"
                                 class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                             ></textarea>
@@ -1252,6 +1207,7 @@
                                 id="reject-remarks-{{ $report->report_id }}"
                                 name="remarks"
                                 rows="4"
+                                maxlength="{{ \App\Support\InputLimits::NOTES }}"
                                 placeholder="Findings, actions taken, or justification"
                                 class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                             ></textarea>

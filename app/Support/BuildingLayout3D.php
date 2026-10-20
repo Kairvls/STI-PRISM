@@ -30,7 +30,7 @@ class BuildingLayout3D
 
     public const COLOR_NORMAL = '#3B82F6';
 
-    private const CLOSED_REPORT_STATUSES = ['Resolved', 'Rejected', 'For Replacement'];
+    private const CLOSED_REPORT_STATUSES = ['Resolved', 'Rejected', 'For Replacement', 'Closed / Cancelled'];
 
     public static function floors(): Collection
     {
@@ -80,9 +80,10 @@ class BuildingLayout3D
         $roomIds = $rooms->pluck('room_id')->map(fn ($id) => (int) $id)->all();
         $departments = RoomDepartments::forRooms($roomIds);
         $reportCounts = self::reportCountsByRoom($roomIds, $from, $to, $isLive);
-        $maintenanceRooms = self::underMaintenanceRoomIds($roomIds, $from, $to, $isLive);
+        $maintenanceByRoom = self::underMaintenanceByRoom($roomIds, $from, $to, $isLive);
+        $palette = RoomStatusPalette::colors();
 
-        return $rooms->transform(function ($room) use ($reportCounts, $maintenanceRooms, $departments, $from, $to, $preset) {
+        return $rooms->transform(function ($room) use ($reportCounts, $maintenanceByRoom, $departments, $from, $to, $preset, $palette) {
             $counts = $reportCounts[(int) $room->room_id] ?? [
                 'total' => 0,
                 'critical' => 0,
@@ -91,13 +92,22 @@ class BuildingLayout3D
                 'low' => 0,
             ];
 
+            $maintenance = $maintenanceByRoom[(int) $room->room_id] ?? [
+                'schedules' => [],
+                'scopes' => [],
+                'next_date' => null,
+            ];
+
             $room->departments = $departments[(int) $room->room_id] ?? [];
             $room->report_count = (int) $counts['total'];
             $room->critical_report_count = (int) $counts['critical'];
             $room->high_report_count = (int) $counts['high'];
             $room->medium_report_count = (int) $counts['medium'];
             $room->low_report_count = (int) $counts['low'];
-            $room->under_maintenance_scheduled = isset($maintenanceRooms[(int) $room->room_id]);
+            $room->under_maintenance_scheduled = $maintenance['schedules'] !== [];
+            $room->maintenance_schedules = $maintenance['schedules'];
+            $room->maintenance_scopes = $maintenance['scopes'];
+            $room->room_inspection_next_date = $maintenance['next_date'];
 
             // Legacy keys kept so older JS still reads something sensible.
             $room->active_report_count = $room->report_count;
@@ -107,15 +117,15 @@ class BuildingLayout3D
             if ($room->critical_report_count > 0) {
                 $room->dashboard_status = self::STATUS_CRITICAL;
                 $room->dashboard_label = RoomStatuses::CRITICAL;
-                $room->status_color = self::COLOR_CRITICAL;
+                $room->status_color = $palette['critical'];
             } elseif ($room->under_maintenance_scheduled) {
                 $room->dashboard_status = self::STATUS_UNDER_MAINTENANCE;
                 $room->dashboard_label = RoomStatuses::UNDER_MAINTENANCE;
-                $room->status_color = self::COLOR_UNDER_MAINTENANCE;
+                $room->status_color = $palette['under_maintenance'];
             } else {
                 $room->dashboard_status = self::STATUS_NORMAL;
                 $room->dashboard_label = RoomStatuses::NORMAL;
-                $room->status_color = self::COLOR_NORMAL;
+                $room->status_color = $palette['normal'];
             }
 
             $room->period_preset = $preset;
@@ -195,7 +205,12 @@ class BuildingLayout3D
             ];
         }
 
-        $underMaintenance = isset(self::underMaintenanceRoomIds([$roomId], $from, $to, $isLive)[$roomId]);
+        $maintenance = self::underMaintenanceByRoom([$roomId], $from, $to, $isLive)[$roomId] ?? [
+            'schedules' => [],
+            'scopes' => [],
+            'next_date' => null,
+        ];
+        $underMaintenance = $maintenance['schedules'] !== [];
         $layoutStatus = $counts['critical'] > 0
             ? self::STATUS_CRITICAL
             : ($underMaintenance ? self::STATUS_UNDER_MAINTENANCE : self::STATUS_NORMAL);
@@ -208,6 +223,9 @@ class BuildingLayout3D
             ],
             'counts' => $counts,
             'under_maintenance_scheduled' => $underMaintenance,
+            'maintenance_scopes' => $maintenance['scopes'],
+            'maintenance_schedules' => $maintenance['schedules'],
+            'room_inspection_next_date' => $maintenance['next_date'],
             'layout_status' => $layoutStatus,
             'layout_label' => match ($layoutStatus) {
                 self::STATUS_CRITICAL => RoomStatuses::CRITICAL,
@@ -239,6 +257,9 @@ class BuildingLayout3D
                 'mediumReportCount' => (int) $room->medium_report_count,
                 'lowReportCount' => (int) $room->low_report_count,
                 'underMaintenanceScheduled' => (bool) $room->under_maintenance_scheduled,
+                'maintenanceScopes' => $room->maintenance_scopes ?? [],
+                'maintenanceSchedules' => $room->maintenance_schedules ?? [],
+                'roomInspectionNextDate' => $room->room_inspection_next_date,
                 'periodPreset' => $room->period_preset,
                 'periodFrom' => $room->period_from,
                 'periodTo' => $room->period_to,
@@ -389,35 +410,105 @@ class BuildingLayout3D
     }
 
     /**
-     * Rooms with an active/overdue room-inspection schedule overlapping the period.
+     * Active/overdue room-inspection schedules overlapping the period, keyed by room.
      *
      * @param  list<int>  $roomIds
-     * @return array<int, true>
+     * @return array<int, array{schedules: list<array<string,mixed>>, scopes: list<string>, next_date: ?string}>
      */
-    private static function underMaintenanceRoomIds(array $roomIds, Carbon $from, Carbon $to, bool $isLive): array
+    private static function underMaintenanceByRoom(array $roomIds, Carbon $from, Carbon $to, bool $isLive): array
     {
         if ($roomIds === [] || ! RoomInspections::ready()) {
             return [];
         }
 
-        $query = DB::table(RoomInspections::SCHEDULES)
-            ->whereIn('room_inspection_schedule_room_id', $roomIds)
-            ->whereIn('room_inspection_schedule_status', ['Active', 'Overdue']);
+        $hasDepartmentColumn = Schema::hasColumn(
+            RoomInspections::SCHEDULES,
+            'room_inspection_schedule_department_id'
+        );
 
-        if ($isLive) {
-            // Due today or overdue — currently scheduled room maintenance.
-            $query->whereDate('room_inspection_schedule_next_date', '<=', $to->toDateString());
-        } else {
-            // Look back: schedules whose next due date falls inside the selected window.
-            $query->whereDate('room_inspection_schedule_next_date', '>=', $from->toDateString())
-                ->whereDate('room_inspection_schedule_next_date', '<=', $to->toDateString());
+        $select = [
+            's.room_inspection_schedule_id',
+            's.room_inspection_schedule_room_id',
+            's.room_inspection_schedule_title',
+            's.room_inspection_schedule_status',
+            's.room_inspection_schedule_next_date',
+            's.room_inspection_schedule_frequency',
+        ];
+
+        $query = DB::table(RoomInspections::SCHEDULES.' as s')
+            ->whereIn('s.room_inspection_schedule_room_id', $roomIds)
+            ->whereIn('s.room_inspection_schedule_status', ['Active', 'Overdue']);
+
+        if ($hasDepartmentColumn) {
+            $select[] = 's.room_inspection_schedule_department_id';
+            if (Schema::hasTable('departments_table')) {
+                $query->leftJoin(
+                    'departments_table as dept',
+                    'dept.department_id',
+                    '=',
+                    's.room_inspection_schedule_department_id'
+                );
+                $select[] = 'dept.department_name';
+            }
         }
 
-        $ids = $query->pluck('room_inspection_schedule_room_id');
+        if ($isLive) {
+            $query->whereDate('s.room_inspection_schedule_next_date', '<=', $to->toDateString());
+        } else {
+            $query->whereDate('s.room_inspection_schedule_next_date', '>=', $from->toDateString())
+                ->whereDate('s.room_inspection_schedule_next_date', '<=', $to->toDateString());
+        }
+
+        $rows = $query
+            ->orderBy('s.room_inspection_schedule_next_date')
+            ->get($select);
 
         $map = [];
-        foreach ($ids as $id) {
-            $map[(int) $id] = true;
+        foreach ($rows as $row) {
+            $roomId = (int) $row->room_inspection_schedule_room_id;
+            $deptId = $hasDepartmentColumn
+                ? (int) ($row->room_inspection_schedule_department_id ?? 0)
+                : 0;
+            $scope = $deptId > 0
+                ? (string) ($row->department_name ?? 'Department')
+                : 'Entire room';
+
+            if (! isset($map[$roomId])) {
+                $map[$roomId] = [
+                    'schedules' => [],
+                    'scopes' => [],
+                    'next_date' => null,
+                ];
+            }
+
+            $nextDate = $row->room_inspection_schedule_next_date
+                ? Carbon::parse($row->room_inspection_schedule_next_date)->toDateString()
+                : null;
+
+            $map[$roomId]['schedules'][] = [
+                'id' => (int) $row->room_inspection_schedule_id,
+                'title' => (string) ($row->room_inspection_schedule_title ?? 'Room inspection'),
+                'status' => (string) ($row->room_inspection_schedule_status ?? ''),
+                'next_date' => $nextDate,
+                'frequency' => (string) ($row->room_inspection_schedule_frequency ?? ''),
+                'department_id' => $deptId > 0 ? $deptId : null,
+                'scope' => $scope,
+                'entire_room' => $deptId <= 0,
+            ];
+
+            if (! in_array($scope, $map[$roomId]['scopes'], true)) {
+                $map[$roomId]['scopes'][] = $scope;
+            }
+
+            if (
+                $nextDate
+                && (
+                    $map[$roomId]['next_date'] === null
+                    || $nextDate < $map[$roomId]['next_date']
+                )
+            ) {
+                $map[$roomId]['next_date'] = $nextDate;
+            }
         }
 
         return $map;

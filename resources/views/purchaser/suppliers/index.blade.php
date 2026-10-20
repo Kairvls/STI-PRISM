@@ -443,16 +443,16 @@
                                             @if($supplier->supplier_store_type === 'Physical Store')
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Company Name <span class="text-red-500">*</span></label>
-                                                    <input type="text" name="company_name" value="{{ $editName }}" required class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="company_name" value="{{ $editName }}" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                                 <div class="grid gap-4 sm:grid-cols-2">
                                                     <div>
                                                         <label class="mb-1.5 block text-xs font-medium text-slate-500">Contact Person</label>
-                                                        <input type="text" name="contact_person" value="{{ $editContactPerson }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                        <input type="text" name="contact_person" value="{{ $editContactPerson }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                     </div>
                                                     <div>
                                                         <label class="mb-1.5 block text-xs font-medium text-slate-500">Email</label>
-                                                        <input type="email" name="email_address" value="{{ $editEmail }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                        <input type="email" name="email_address" value="{{ $editEmail }}" maxlength="{{ \App\Support\InputLimits::EMAIL }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                     </div>
                                                 </div>
                                                 <div class="grid gap-4 sm:grid-cols-2">
@@ -476,16 +476,16 @@
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Company Address</label>
-                                                    <textarea name="company_address" rows="3" class="box-border w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">{{ $editAddress }}</textarea>
+                                                    <textarea name="company_address" rows="3" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="box-border w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">{{ $editAddress }}</textarea>
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Operating Hours</label>
-                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM" maxlength="255" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                             @else
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Shop Name <span class="text-red-500">*</span></label>
-                                                    <input type="text" name="shop_name" value="{{ $editName }}" required class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="shop_name" value="{{ $editName }}" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Primary Platform <span class="text-red-500">*</span></label>
@@ -499,7 +499,7 @@
                                                 <div class="grid gap-4 sm:grid-cols-2">
                                                     <div>
                                                         <label class="mb-1.5 block text-xs font-medium text-slate-500">Contact Person</label>
-                                                        <input type="text" name="contact_person" value="{{ $editContactPerson }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                        <input type="text" name="contact_person" value="{{ $editContactPerson }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                     </div>
                                                     <div>
                                                         <label class="mb-1.5 block text-xs font-medium text-slate-500">Contact Number</label>
@@ -512,19 +512,19 @@
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Email</label>
-                                                    <input type="email" name="email_address" value="{{ $editEmail }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="email" name="email_address" value="{{ $editEmail }}" maxlength="{{ \App\Support\InputLimits::EMAIL }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Store URL</label>
-                                                    <input type="text" name="store_url" value="{{ $editStoreUrl }}" placeholder="https://shopee.ph/shop/..." class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="store_url" value="{{ $editStoreUrl }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="https://shopee.ph/shop/..." class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Seller / Store ID</label>
-                                                    <input type="text" name="seller_id" value="{{ $editSellerId }}" placeholder="Platform seller or store ID" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="seller_id" value="{{ $editSellerId }}" maxlength="{{ \App\Support\InputLimits::SHORT }}" placeholder="Platform seller or store ID" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Operating Hours</label>
-                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Mon–Sun 8:00 AM – 10:00 PM" maxlength="255" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Mon–Sun 8:00 AM – 10:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                             @endif
                                         </div>
@@ -701,6 +701,7 @@
                                         name="supplier_name"
                                         value="{{ old('supplier_name', old('company_name', old('shop_name'))) }}"
                                         required
+                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
                                         placeholder="Enter supplier name"
                                         class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                     >
@@ -712,6 +713,7 @@
                                         type="text"
                                         name="contact_person"
                                         value="{{ old('contact_person') }}"
+                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
                                         placeholder="Enter contact person"
                                         class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                     >
@@ -726,6 +728,7 @@
                                         type="email"
                                         name="email_address"
                                         value="{{ old('email_address') }}"
+                                        maxlength="{{ \App\Support\InputLimits::EMAIL }}"
                                         placeholder="name@example.com"
                                         class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                     >
@@ -790,6 +793,7 @@
                                 <textarea
                                     name="company_address"
                                     rows="3"
+                                    maxlength="{{ \App\Support\InputLimits::NOTES }}"
                                     placeholder="Street, barangay, city..."
                                     class="box-border w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                     x-bind:disabled="supplierType !== 'Physical Store'"
@@ -836,6 +840,7 @@
                                         type="text"
                                         name="store_url"
                                         value="{{ old('store_url') }}"
+                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
                                         placeholder="https://shopee.ph/shop/..."
                                         class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                         x-bind:disabled="supplierType !== 'Online Store'"
@@ -847,6 +852,7 @@
                                         type="text"
                                         name="seller_id"
                                         value="{{ old('seller_id') }}"
+                                        maxlength="{{ \App\Support\InputLimits::SHORT }}"
                                         placeholder="Platform seller or store ID"
                                         class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                         x-bind:disabled="supplierType !== 'Online Store'"

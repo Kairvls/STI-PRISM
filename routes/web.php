@@ -537,6 +537,7 @@ Route::middleware(['auth', 'admin'])
 
         Route::get('/infrastructure', [InfrastructureController::class, 'index'])->name('infrastructure.index');
         Route::get('/infrastructure/status', [InfrastructureController::class, 'buildingStatus'])->name('infrastructure.status');
+        Route::put('/infrastructure/status-palette', [InfrastructureController::class, 'updateStatusPalette'])->name('infrastructure.status-palette.update');
         Route::get('/infrastructure/campus', [InfrastructureController::class, 'loadCampus'])->name('infrastructure.campus.load');
         Route::post('/infrastructure/campus', [InfrastructureController::class, 'storeCampus'])->name('infrastructure.campus.store');
         Route::post('/infrastructure/campus/unlock-verify', [InfrastructureController::class, 'verifySetupUnlockCredential'])->name('infrastructure.campus.unlock-verify');
@@ -544,6 +545,8 @@ Route::middleware(['auth', 'admin'])
         Route::match(['put', 'patch'], '/infrastructure/rooms/{room}', [InfrastructureController::class, 'updateRoom'])->name('infrastructure.rooms.update');
         Route::delete('/infrastructure/rooms/{room}', [InfrastructureController::class, 'archiveRoom'])->name('infrastructure.rooms.archive');
         Route::get('/infrastructure/rooms/{room}/equipment', [InfrastructureController::class, 'roomEquipment'])->name('infrastructure.room-equipment');
+        Route::get('/infrastructure/rooms/{room}/placeable-stock', [InfrastructureController::class, 'placeableStock'])->name('infrastructure.rooms.placeable-stock');
+        Route::post('/infrastructure/rooms/{room}/place-from-storage', [InfrastructureController::class, 'placeFromStorage'])->name('infrastructure.rooms.place-from-storage');
         Route::get('/infrastructure/rooms/{room}/layout', [InfrastructureController::class, 'getLayout'])->name('infrastructure.room-layout');
         Route::post('/infrastructure/rooms/{room}/transfer-equipment', [InfrastructureController::class, 'transferRoomEquipment'])->name('infrastructure.rooms.transfer-equipment');
         Route::post('/infrastructure/rooms/{room}/workstation-slots', [InfrastructureController::class, 'storeWorkstationSlots'])->name('infrastructure.workstation-slots.store');
@@ -884,6 +887,11 @@ Route::middleware(['auth', 'school_admin'])
         Route::get('/departments/{department}', [DepartmentController::class, 'show'])
             ->whereNumber('department')
             ->name('departments.show');
+
+        // Faculty & Staff: view-only identity (Administrator manages edits)
+        Route::get('/persons/{id}', [PersonController::class, 'show'])
+            ->whereNumber('id')
+            ->name('persons.show');
 
         $schoolAdminModuleRoutes();
         $schoolAdminRisActionRoutes();

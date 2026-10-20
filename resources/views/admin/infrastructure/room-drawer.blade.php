@@ -119,7 +119,7 @@
 
                                         <label class="mb-1 block text-xs font-semibold text-slate-600">
 
-                                            Category
+                                            Classification
 
                                         </label>
 
@@ -133,7 +133,7 @@
 
                                             <option value="">
 
-                                                Select Category
+                                                Select Classification
 
                                             </option>
 
@@ -206,23 +206,11 @@
                                                 class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
                                             >
 
-                                                <option
-                                                    
-                                                >
-                                                    Good
-                                                </option>
-
-                                                <option
-                                                    
-                                                >
-                                                    Under Maintenance
-                                                </option>
-
-                                                <option
-                                                    
-                                                >
-                                                    Damaged
-                                                </option>
+                                                <option>Good</option>
+                                                <option>Under Maintenance</option>
+                                                <option>Defective</option>
+                                                <option>Damaged</option>
+                                                <option>Disposed</option>
 
                                             </select>
 

@@ -1,6 +1,6 @@
 @extends('layouts.maintenance-layout')
 
-@section('title', 'Personnel Directory')
+@section('title', 'Reporters Directory')
 
 @section('content')
 @php
@@ -18,7 +18,7 @@
 
 <div class="space-y-6">
 
-    <div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
+    <!--<div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
         <div class="flex items-start gap-3">
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0025cc]/5 text-[#0025cc]">
                 <i data-lucide="book-user" class="h-4 w-4"></i>
@@ -36,11 +36,11 @@
                 </p>
             </div>
         </div>
-    </div>
+    </div>-->
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-            <h2 class="text-base font-semibold text-slate-900">Faculty and staff</h2>
+            <h2 class="text-base font-semibold text-slate-900">Faculty & Staff</h2>
             <form method="GET" action="{{ route('maintenance.personnel-directory.index') }}" class="flex flex-col gap-2 sm:flex-row">
                 @foreach (['status' => $status, 'type' => $type] as $key => $value)
                     @if ($value !== '')

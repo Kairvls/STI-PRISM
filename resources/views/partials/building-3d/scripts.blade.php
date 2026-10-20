@@ -22,6 +22,7 @@
             ->all();
         $building3DProperty = \App\Support\PropertyAssignments::roomSummaries($building3DRoomIds);
         $building3DCustodians = \App\Support\PropertyAssignments::custodianDirectory($building3DRoomIds);
+        $building3DStatusPalette = \App\Support\RoomStatusPalette::colors();
 
         $building3DData = $floors
             ->map(function ($floor) use ($roomsByFloor, $building3DProperty) {
@@ -53,6 +54,9 @@
                                 "mediumReportCount" => (int) ($room->medium_report_count ?? 0),
                                 "lowReportCount" => (int) ($room->low_report_count ?? 0),
                                 "underMaintenanceScheduled" => (bool) ($room->under_maintenance_scheduled ?? false),
+                                "maintenanceScopes" => $room->maintenance_scopes ?? [],
+                                "maintenanceSchedules" => $room->maintenance_schedules ?? [],
+                                "roomInspectionNextDate" => $room->room_inspection_next_date ?? null,
 
                                 // Legacy keys for older helpers
                                 "activeReportCount" => (int) ($room->report_count ?? 0),
@@ -115,6 +119,8 @@
         const building3DData = @json ($building3DData);
 
         const building3DCustodians = @json ($building3DCustodians);
+
+        let building3DStatusPalette = @json ($building3DStatusPalette);
 
         // "__ROOM__" is replaced with the room id; null opens the maintenance room layout.
         const building3DRoomViewUrl = @json ($building3DRoomViewUrl ?? null);
@@ -1124,34 +1130,60 @@
                     status: String(data.roomStatus || data.status || "normal"),
                     label: String(data.roomLabel || data.label || "Normal"),
                     departments: Array.isArray(data.departments) ? data.departments : [],
+                    maintenanceScopes: Array.isArray(data.maintenanceScopes)
+                        ? data.maintenanceScopes.filter(Boolean)
+                        : [],
                 };
             }
 
+            function hexToNumber(cssHex, fallback) {
+                const raw = String(cssHex || fallback || "#3B82F6").replace("#", "");
+                const normalized =
+                    raw.length === 3
+                        ? raw[0] + raw[0] + raw[1] + raw[1] + raw[2] + raw[2]
+                        : raw;
+                const value = Number.parseInt(normalized, 16);
+                return Number.isFinite(value) ? value : Number.parseInt(String(fallback).replace("#", ""), 16);
+            }
+
+            function hexToGlow(cssHex) {
+                const num = hexToNumber(cssHex, "#3B82F6");
+                const r = (num >> 16) & 255;
+                const g = (num >> 8) & 255;
+                const b = num & 255;
+                return `rgba(${r}, ${g}, ${b}, 0.9)`;
+            }
+
             function statusColorFor(status) {
+                const palette = building3DStatusPalette || {};
+
                 if (status === "critical") {
+                    const css = palette.critical || "#EF4444";
                     return {
-                        hex: 0xef4444,
-                        css: "#EF4444",
-                        glow: "rgba(239, 68, 68, 0.9)",
+                        hex: hexToNumber(css, "#EF4444"),
+                        css,
+                        glow: hexToGlow(css),
                         selectedIntensity: 1.2,
                         hoverIntensity: 0.55,
                     };
                 }
 
                 if (status === "under-maintenance" || status === "maintenance" || status === "needs-repair") {
+                    const css = palette.under_maintenance || "#F59E0B";
                     return {
-                        hex: 0xf59e0b,
-                        css: "#F59E0B",
-                        glow: "rgba(245, 158, 11, 0.9)",
+                        hex: hexToNumber(css, "#F59E0B"),
+                        css,
+                        glow: hexToGlow(css),
                         selectedIntensity: 1.1,
                         hoverIntensity: 0.5,
                     };
                 }
 
+                const css = palette.normal || "#3B82F6";
                 return {
-                    hex: 0x3b82f6,
-                    css: "#3B82F6",
-                    glow: "rgba(59, 130, 246, 0.9)",
+                    hex: hexToNumber(css, "#3B82F6"),
+                    css,
+                    glow: hexToGlow(css),
                     selectedIntensity: 0.95,
                     hoverIntensity: 0.4,
                 };
@@ -1324,7 +1356,10 @@
                 }
 
                 if (data.underMaintenance || data.status === "under-maintenance") {
-                    return "Under Maintenance";
+                    const scopes = data.maintenanceScopes || [];
+                    return scopes.length
+                        ? `Under Maintenance · ${scopes.join(", ")}`
+                        : "Under Maintenance · Entire room";
                 }
 
                 if (data.total > 0) {
@@ -1411,6 +1446,9 @@
                 });
                 if (!response.ok) throw new Error("Could not refresh room status");
                 const payload = await response.json();
+                if (payload.palette) {
+                    building3DStatusPalette = payload.palette;
+                }
                 const byId = new Map((payload.rooms || []).map((room) => [Number(room.id), room]));
 
                 scene.traverse((obj) => {
@@ -1427,6 +1465,9 @@
                     obj.userData.mediumReportCount = next.mediumReportCount || 0;
                     obj.userData.lowReportCount = next.lowReportCount || 0;
                     obj.userData.underMaintenanceScheduled = !!next.underMaintenanceScheduled;
+                    obj.userData.maintenanceScopes = next.maintenanceScopes || [];
+                    obj.userData.maintenanceSchedules = next.maintenanceSchedules || [];
+                    obj.userData.roomInspectionNextDate = next.roomInspectionNextDate || null;
                     obj.userData.activeReportCount = next.reportCount || 0;
                     obj.userData.urgentReportCount = next.criticalReportCount || 0;
                     obj.userData.maintenanceEquipmentCount = next.underMaintenanceScheduled ? 1 : 0;
@@ -2541,6 +2582,9 @@
                         mediumReportCount: roomData.mediumReportCount || 0,
                         lowReportCount: roomData.lowReportCount || 0,
                         underMaintenanceScheduled: !!roomData.underMaintenanceScheduled,
+                        maintenanceScopes: roomData.maintenanceScopes || [],
+                        maintenanceSchedules: roomData.maintenanceSchedules || [],
+                        roomInspectionNextDate: roomData.roomInspectionNextDate || null,
 
                         activeReportCount: roomData.activeReportCount || 0,
                         urgentReportCount: roomData.urgentReportCount || 0,

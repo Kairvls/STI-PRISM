@@ -486,6 +486,7 @@
                                 type="text"
                                 name="equipment_name"
                                 x-model="name"
+                                maxlength="{{ \App\Support\InputLimits::NAME }}"
                                 @input="clearError('name'); onNameInput(); syncAssetTag()"
                                 placeholder="e.g. Mouse"
                                 class="{{ $eqField }}"
@@ -494,7 +495,7 @@
                             <p x-show="errors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.name"></p>
                         </div>
                         <div>
-                            <label for="add_equipment_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
+                            <label for="add_equipment_category" class="{{ $eqLabel }}">Classification <span class="text-rose-500">*</span></label>
                             <select
                                 id="add_equipment_category"
                                 name="equipment_category_id"
@@ -503,7 +504,7 @@
                                 class="{{ $eqField }}"
                                 :class="errors.category ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                             >
-                                <option value="">Select category</option>
+                                <option value="">Select classification</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
                                 @endforeach
@@ -514,21 +515,21 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name</label>
-                                <input id="add_equipment_brand" type="text" name="equipment_brand_name" x-model="brand" placeholder="e.g. Logitech" class="{{ $eqField }}" />
+                                <input id="add_equipment_brand" type="text" name="equipment_brand_name" x-model="brand" maxlength="{{ \App\Support\InputLimits::BRAND }}" placeholder="e.g. Logitech" class="{{ $eqField }}" />
                             </div>
                             <div>
                                 <label for="add_equipment_model" class="{{ $eqLabel }}">Model</label>
-                                <input id="add_equipment_model" type="text" name="equipment_model" x-model="model" placeholder="e.g. B100" class="{{ $eqField }}" />
+                                <input id="add_equipment_model" type="text" name="equipment_model" x-model="model" maxlength="{{ \App\Support\InputLimits::MODEL }}" placeholder="e.g. B100" class="{{ $eqField }}" />
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3" x-show="!needsItemStep()">
                             <div>
                                 <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
-                                <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" x-model="assetTag" @input="assetTagManual = true" class="{{ $eqField }}" />
+                                <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" x-model="assetTag" maxlength="{{ \App\Support\InputLimits::ASSET_TAG }}" @input="assetTagManual = true" class="{{ $eqField }}" />
                             </div>
                             <div>
                                 <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
-                                <input id="add_equipment_serial" type="text" name="equipment_serial_number" x-model="serial" class="{{ $eqField }}" />
+                                <input id="add_equipment_serial" type="text" name="equipment_serial_number" x-model="serial" maxlength="{{ \App\Support\InputLimits::SERIAL }}" class="{{ $eqField }}" />
                             </div>
                         </div>
                         <p x-show="needsItemStep()" x-cloak class="text-xs text-slate-400">Asset tag and serial number are entered per unit on the Units step.</p>
@@ -573,8 +574,9 @@
                                     class="{{ $eqField }}"
                                 >
                                     <option value="Good">Good</option>
+                                    <option value="Under Maintenance">Under Maintenance</option>
+                                    <option value="Defective">Defective</option>
                                     <option value="Damaged">Damaged</option>
-                                    <option value="Under Maintenance">Under maintenance</option>
                                     <option value="Disposed">Disposed</option>
                                 </select>
                             </div>
@@ -582,12 +584,20 @@
                         <div>
                             <label class="{{ $eqLabel }}">Tracking mode</label>
                             <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                <button type="button" @click="tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
+                                <button
+                                    type="button"
+                                    @click="if (rrLocksIndividual()) return; tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()"
+                                    class="flex-1 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+                                    :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                                    :disabled="rrLocksIndividual()"
+                                >Bulk</button>
                                 <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                             </div>
-                            <p class="mt-1.5 text-xs text-slate-400" x-text="tracking === 'Bulk'
-                                ? 'One record with the combined quantity.'
-                                : 'Creates separate trackable assets (asset tag, serial, QR per unit).'"></p>
+                            <p class="mt-1.5 text-xs text-slate-400" x-text="rrLocksIndividual()
+                                ? 'RR equipment must be Individual (one identity per unit). Bulk is only for consumables/supplies.'
+                                : (tracking === 'Bulk'
+                                    ? 'One record with the combined quantity.'
+                                    : 'Creates separate trackable assets (asset tag, serial, QR per unit).')"></p>
                         </div>
                         <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
                             <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
@@ -648,8 +658,9 @@
                                         class="h-8 rounded-lg border-0 bg-white py-0 pl-2.5 pr-8 text-xs font-medium text-slate-700 ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#0025cc]/30"
                                     >
                                         <option value="Good">Good</option>
+                                        <option value="Under Maintenance">Under Maintenance</option>
+                                        <option value="Defective">Defective</option>
                                         <option value="Damaged">Damaged</option>
-                                        <option value="Under Maintenance">Under maintenance</option>
                                         <option value="Disposed">Disposed</option>
                                     </select>
                                     <button
@@ -675,7 +686,7 @@
                                     <p x-show="multiError(row, 'name')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'name')"></p>
                                 </div>
                                 <div>
-                                    <label class="{{ $eqLabel }}" :for="'multi_category_' + row.id">Category <span class="text-rose-500">*</span></label>
+                                    <label class="{{ $eqLabel }}" :for="'multi_category_' + row.id">Classification <span class="text-rose-500">*</span></label>
                                     <select
                                         :id="'multi_category_' + row.id"
                                         x-model="row.category"
@@ -683,7 +694,7 @@
                                         class="{{ $eqField }}"
                                         :class="multiError(row, 'category') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     >
-                                        <option value="">Select category</option>
+                                        <option value="">Select classification</option>
                                         @foreach ($categories as $category)
                                             <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
                                         @endforeach
@@ -719,7 +730,13 @@
                                     <div>
                                         <p class="{{ $eqLabel }}">Tracking</p>
                                         <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                            <button type="button" @click="row.tracking = 'Bulk'" class="flex-1 rounded-lg text-xs font-medium transition" :class="row.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
+                                            <button
+                                                type="button"
+                                                @click="if (!rowAllowsBulk(row)) return; row.tracking = 'Bulk'"
+                                                class="flex-1 rounded-lg text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+                                                :class="row.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                                                :disabled="!rowAllowsBulk(row)"
+                                            >Bulk</button>
                                             <button type="button" @click="row.tracking = 'Individual'; syncPieces(row)" class="flex-1 rounded-lg text-xs font-medium transition" :class="row.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                                         </div>
                                     </div>
@@ -1086,7 +1103,13 @@
                                         <option value="{{ $candidate->equipment_id }}">{{ $candidate->equipment_name }}{{ $candidate->equipment_asset_tag ? ' · '.$candidate->equipment_asset_tag : '' }}{{ $candidate->room_name ? ' · '.$candidate->room_name : '' }}</option>
                                     @endforeach
                                 </select>
-                                <p class="mt-1.5 text-xs text-slate-400">Links the old unit marked “For replacement” to this new one. RR deliveries from a replacement request link automatically.</p>
+                                <p
+                                    class="mt-1.5 text-xs"
+                                    :class="stockAndLinkMode || replacesId ? 'font-medium text-violet-700' : 'text-slate-400'"
+                                    x-text="stockAndLinkMode || replacesId
+                                        ? 'Stock & Link: new Individual units will be tied to this replaced equipment in the audit trail.'
+                                        : 'Links the old unit marked “For replacement” to this new one. RR deliveries from a replacement request link automatically.'"
+                                ></p>
                             </div>
                         </div>
                     @endif
@@ -1257,8 +1280,9 @@
                                             class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
                                         >
                                             <option value="Good">Good</option>
-                                            <option value="Damaged">Damaged</option>
                                             <option value="Under Maintenance">Under Maintenance</option>
+                                            <option value="Defective">Defective</option>
+                                            <option value="Damaged">Damaged</option>
                                             <option value="Disposed">Disposed</option>
                                         </select>
                                     </td>
@@ -1511,8 +1535,10 @@
                 deployRoom: '',
                 custodianId: '',
                 replacesId: '',
+                stockAndLinkMode: false,
                 fullscreen: false,
                 tracking: 'Individual',
+                consumableNeedles: @json(\App\Support\EquipmentTrackingModes::CONSUMABLE_NEEDLES),
                 name: '',
                 category: '',
                 categoryManual: false,
@@ -1881,6 +1907,10 @@
                     if (detected) {
                         row.category = String(detected);
                         this.clearMultiError(row, 'category');
+                        if (!this.rowAllowsBulk(row)) {
+                            row.tracking = 'Individual';
+                            this.syncPieces(row);
+                        }
                     }
                 },
                 multiError(row, field) {
@@ -1905,6 +1935,7 @@
                     if (!line) {
                         this.purchaseDate = '';
                         this.purchaseCost = '';
+                        this.applyRrTrackingLock();
                         return;
                     }
                     if (!String(this.name || '').trim()) {
@@ -1915,8 +1946,37 @@
                     this.quantity = Math.min(200, Math.max(1, qty));
                     this.purchaseDate = line.purchase_date || '';
                     this.purchaseCost = line.unit_cost != null ? String(line.unit_cost) : '';
+                    if (line.replaces_equipment_id && !this.replacesId) {
+                        this.replacesId = String(line.replaces_equipment_id);
+                    }
                     this.clearError('quantity');
                     this.syncAssetTag();
+                    this.applyRrTrackingLock();
+                },
+                isConsumableCategory(categoryId) {
+                    const name = String(this.categoryName(categoryId) || '').toLowerCase();
+                    if (!name) return false;
+                    return (this.consumableNeedles || []).some((needle) => name.includes(String(needle)));
+                },
+                rrLocksIndividual() {
+                    return String(this.rrItemId || '') !== '' && !this.isConsumableCategory(this.category);
+                },
+                rowAllowsBulk(row) {
+                    return this.isConsumableCategory(row?.category);
+                },
+                applyRrTrackingLock() {
+                    if (this.rrLocksIndividual() && this.tracking !== 'Individual') {
+                        this.tracking = 'Individual';
+                        this.assetTagManual = false;
+                        this.syncAssetTag();
+                        this.onSharedPhotoModeChange();
+                    }
+                    (this.rrMultiLines || []).forEach((row) => {
+                        if (!this.rowAllowsBulk(row) && row.tracking !== 'Individual') {
+                            row.tracking = 'Individual';
+                            this.syncPieces(row);
+                        }
+                    });
                 },
                 onImageChange(event) {
                     const file = event.target.files?.[0];
@@ -2385,7 +2445,7 @@
                         this.multiLines.forEach((row) => {
                             const rowError = {};
                             if (!String(row.name || '').trim()) rowError.name = 'Equipment name is required.';
-                            if (!String(row.category || '').trim()) rowError.category = 'Please select a category.';
+                            if (!String(row.category || '').trim()) rowError.category = 'Please select a classification.';
                             const qty = Number(row.quantity);
                             if (!Number.isInteger(qty) || qty < 1) {
                                 rowError.quantity = 'Quantity must be at least 1.';
@@ -2408,7 +2468,7 @@
                             next.name = 'Equipment name is required.';
                         }
                         if (!String(this.category || '').trim()) {
-                            next.category = 'Please select a category.';
+                            next.category = 'Please select a classification.';
                         }
                         const qty = Number(this.quantity);
                         if (!Number.isFinite(qty) || qty < 1) {
@@ -2516,24 +2576,29 @@
                     if (!String(this.name || '').trim()) {
                         this.categoryManual = false;
                         this.category = '';
+                        this.applyRrTrackingLock();
                         return;
                     }
                     if (this.categoryManual) {
+                        this.applyRrTrackingLock();
                         return;
                     }
                     if (typeof detectEquipmentCategoryId === 'function') {
                         this.category = detectEquipmentCategoryId(this.name) || '';
                         if (this.category) this.clearError('category');
                     }
+                    this.applyRrTrackingLock();
                 },
                 onCategoryChange() {
                     if (
                         typeof detectEquipmentCategoryId === 'function'
                         && String(this.category) === String(detectEquipmentCategoryId(this.name) || '')
                     ) {
+                        this.applyRrTrackingLock();
                         return;
                     }
                     this.categoryManual = true;
+                    this.applyRrTrackingLock();
                 },
                 reset() {
                     this.step = 1;
@@ -2542,6 +2607,7 @@
                     this.deployRoom = '';
                     this.custodianId = '';
                     this.replacesId = '';
+                    this.stockAndLinkMode = false;
                     this.fullscreen = false;
                     this.tracking = 'Individual';
                     this.name = '';
@@ -2583,16 +2649,26 @@
                     const borrowable = document.getElementById('add_equipment_borrowable');
                     if (borrowable) borrowable.checked = false;
                 },
-                show(rrItemId = null) {
+                show(rrItemId = null, options = {}) {
                     this.reset();
                     @if (old('equipment_room_id'))
                         this.room = @json((string) old('equipment_room_id'));
                     @endif
+                    this.stockAndLinkMode = !!(options && options.stockAndLink);
+                    if (options && options.replacesId != null && String(options.replacesId) !== '') {
+                        this.replacesId = String(options.replacesId);
+                    }
                     this.open = true;
                     this.loadRrLines().then(() => {
                         if (!rrItemId) return;
                         const line = (this.rrGuide || []).find((row) => String(row.id) === String(rrItemId));
-                        if (line) this.selectRrLine(line);
+                        if (line) {
+                            this.selectRrLine(line);
+                            if (!this.replacesId && line.replaces_equipment_id) {
+                                this.replacesId = String(line.replaces_equipment_id);
+                            }
+                        }
+                        this.applyRrTrackingLock();
                     });
                     this.$nextTick(() => {
                         document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
@@ -2650,7 +2726,7 @@
                     }
                     const rows = [
                         ['Name', this.name || '—'],
-                        ['Category', this.optionText('add_equipment_category') || '—'],
+                        ['Classification', this.optionText('add_equipment_category') || '—'],
                         ['Brand / model', [this.brand, this.model].filter(Boolean).join(' · ') || '—'],
                         ['Quantity', this.quantity + ' · ' + this.tracking],
                         ['Condition', this.manualIntake() ? this.condition : 'Good (new delivery)'],
@@ -2973,14 +3049,21 @@
             };
         }
 
-        function openAddEquipmentModal(rrItemId = null) {
+        function openAddEquipmentModal(rrItemId = null, options = {}) {
             const modal = document.getElementById('addEquipmentModal');
             if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
-                modal._x_dataStack[0].show(rrItemId);
+                modal._x_dataStack[0].show(rrItemId, options || {});
                 return;
             }
             modal?.classList.remove('hidden');
             modal?.classList.add('flex');
+        }
+
+        function openStockAndLinkModal(rrItemId, replacesEquipmentId = null) {
+            openAddEquipmentModal(rrItemId, {
+                replacesId: replacesEquipmentId || '',
+                stockAndLink: true,
+            });
         }
 
         function closeAddEquipmentModal() {

@@ -20,7 +20,14 @@ class PersonnelDirectoryController extends Controller
 
     public const OPEN_REPORT_STATUSES = ['Pending', 'Processing', 'For Replacement'];
 
-    public const REPORT_STATUSES = ['Pending', 'Processing', 'For Replacement', 'Resolved', 'Rejected'];
+    public const REPORT_STATUSES = [
+        'Pending',
+        'Processing',
+        'For Replacement',
+        'Resolved',
+        'Rejected',
+        'Closed / Cancelled',
+    ];
 
     public function index(Request $request)
     {

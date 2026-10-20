@@ -227,7 +227,7 @@ class PurchaserAttentionSummary
                             WHERE duplicate_reports.report_equipment_id = reports_table.report_equipment_id
                               AND duplicate_reports.report_room_id = reports_table.report_room_id
                               AND duplicate_reports.report_is_archived = 0
-                              AND duplicate_reports.report_current_status IN (?, ?, ?, ?)
+                              AND duplicate_reports.report_current_status IN ('.ReportGrouping::groupedStatusPlaceholders().')
                               AND '.ReportGrouping::groupBucketSql('duplicate_reports').'
                                 = '.ReportGrouping::groupBucketSql('reports_table').'
                         )',

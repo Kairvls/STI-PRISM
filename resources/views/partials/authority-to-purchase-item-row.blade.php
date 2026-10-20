@@ -81,6 +81,7 @@
                         x-on:click.stop
                         x-on:keydown.enter.prevent="filtered.length && pick(filtered[0])"
                         placeholder="Search..."
+                        maxlength="{{ \App\Support\InputLimits::SHORT }}"
                         class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:border-gray-300 focus:bg-white"
                     >
                 </div>
@@ -114,7 +115,7 @@
         </div>
     </td>
     <td class="border border-black p-1">
-        <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" class="{{ $atpCellClass }}">
+        <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="{{ $atpCellClass }}">
     </td>
     <td class="border border-black p-1">
         <input

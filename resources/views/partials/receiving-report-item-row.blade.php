@@ -18,6 +18,8 @@
     $damagedQty = (int) (is_array($row) ? ($row['damaged_qty'] ?? 0) : ($row->receiving_report_item_damaged_qty ?? 0));
     $damageRemarks = is_array($row) ? '' : (string) ($row->receiving_report_item_damage_remarks ?? '');
     $replacement = $backOrderId !== '' && $backOrderId !== null ? ($replacementLabels[(int) $backOrderId] ?? null) : null;
+    $orderedHasValue = $orderedQty !== '' && $orderedQty !== null;
+    $orderedLocked = $editable && ($orderedHasValue || !$cellsEditable);
 @endphp
 <tr
     class="h-8 {{ $replacement ? 'bg-sky-50/60' : '' }}"
@@ -25,14 +27,21 @@
     @if($editable) data-doc-row @endif
     @if($editable && $isVerified) data-doc-row-locked title="Verified at second count — this row cannot be deleted" @endif
 >
-    <td class="border border-black">
+    <td
+        class="border border-black {{ $orderedLocked ? 'bg-slate-50/80' : '' }}"
+        @if($orderedLocked) title="Ordered qty is locked from the purchase authority" @endif
+        data-rr-ordered-cell
+    >
         @if($editable && $itemId > 0)
             <input type="hidden" name="items[{{ $i }}][item_id]" value="{{ $itemId }}">
         @endif
-        @if($cellsEditable)
-            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][ordered_qty]" value="{{ $orderedQty }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+        @if($cellsEditable && !$orderedHasValue)
+            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][ordered_qty]" value="" data-rr-ordered-input class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+        @elseif($editable)
+            <input type="hidden" name="items[{{ $i }}][ordered_qty]" value="{{ $orderedQty }}" data-rr-ordered-input>
+            <span data-rr-ordered-display class="block text-center text-[11px] text-slate-700">{{ $orderedHasValue ? $orderedQty : '—' }}</span>
         @else
-            {{ $orderedQty !== '' && $orderedQty !== null ? $orderedQty : '—' }}
+            {{ $orderedHasValue ? $orderedQty : '—' }}
         @endif
     </td>
     <td class="border border-black">
@@ -111,6 +120,7 @@
                             x-on:click.stop
                             x-on:keydown.enter.prevent="filtered.length && pick(filtered[0])"
                             placeholder="Search..."
+                            maxlength="{{ \App\Support\InputLimits::SHORT }}"
                             class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:border-gray-300 focus:bg-white"
                         >
                     </div>
@@ -148,8 +158,8 @@
     </td>
     <td class="border border-black text-left px-2">
         @if($cellsEditable)
-            <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" class="h-7 w-full border-0 bg-transparent outline-none">
-            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" placeholder="Remarks for missing / damaged units" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
+            <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="h-7 w-full border-0 bg-transparent outline-none">
+            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" placeholder="Remarks for missing / damaged units" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
             @if($backOrderId !== '' && $backOrderId !== null)
                 <input type="hidden" name="items[{{ $i }}][back_order_id]" value="{{ $backOrderId }}">
             @endif
@@ -218,7 +228,7 @@
             <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $supplierName }}">
         </td>
         <td class="border border-black">
-            <input type="number" step="0.01" min="0" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+            <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
         </td>
     @elseif($allowMultiSupplier && !$editable)
         <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>

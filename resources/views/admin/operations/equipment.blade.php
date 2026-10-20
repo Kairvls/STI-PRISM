@@ -41,9 +41,10 @@
 
     $conditionPill = fn ($status) => match ((string) $status) {
         'Good' => 'bg-emerald-50 text-emerald-700',
-        'Fair' => 'bg-sky-50 text-sky-700',
-        'Damaged', 'Under Maintenance' => 'bg-amber-50 text-amber-700',
-        'Critical', 'Disposed' => 'bg-rose-50 text-rose-700',
+        'Under Maintenance' => 'bg-amber-50 text-amber-700',
+        'Defective' => 'bg-orange-50 text-orange-700',
+        'Damaged' => 'bg-rose-50 text-rose-700',
+        'Disposed' => 'bg-slate-200 text-slate-700',
         default => 'bg-slate-100 text-slate-600',
     };
     $statusPill = fn ($status) => match ((string) $status) {

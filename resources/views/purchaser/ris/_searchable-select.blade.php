@@ -48,6 +48,7 @@
                 x-on:click.stop
                 x-on:keydown.escape.stop="closeRisSelect()"
                 placeholder="Search..."
+                maxlength="{{ \App\Support\InputLimits::SHORT }}"
                 class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:border-gray-300 focus:bg-white"
             >
         </div>

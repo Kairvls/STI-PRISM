@@ -121,7 +121,7 @@
                         <span id="eqAssetModal_serial" class="max-w-[60%] truncate text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                     <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
-                        <span class="text-sm text-slate-500">Category</span>
+                        <span class="text-sm text-slate-500">Classification</span>
                         <span id="eqAssetModal_category" class="text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                     <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">

@@ -85,7 +85,15 @@
                 const unitPrice = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
                 const supplier = form.querySelector('[name=\'items[' + i + '][supplier_id]\']');
                 if (qty) qty.value = item.quantity ?? '';
-                if (ordered) ordered.value = item.ordered_qty ?? '';
+                if (ordered) {
+                    const hasOrdered = item.ordered_qty != null && item.ordered_qty !== '';
+                    ordered.value = hasOrdered ? item.ordered_qty : '';
+                    if (hasOrdered && window.rrLockOrderedCell) {
+                        window.rrLockOrderedCell(ordered);
+                    } else if (!hasOrdered && window.rrUnlockOrderedCell) {
+                        window.rrUnlockOrderedCell(ordered);
+                    }
+                }
                 if (damaged) damaged.value = '';
                 if (unit) {
                     unit.value = item.unit ?? '';
@@ -173,9 +181,7 @@
         $rrHasFilters = request()->filled('search')
             || request()->filled('status')
             || request()->filled('date')
-            || request()->filled('completeness')
-            || request()->boolean('replacement')
-            || request()->boolean('new_supplier');
+            || request()->filled('completeness');
         $rrClearUrl = $archiveView
             ? route(($pp ?? 'purchaser').'.rr.index', ['view' => 'archive'])
             : route(($pp ?? 'purchaser').'.rr.index');
@@ -188,7 +194,7 @@
             </div>
         @endif
         <div class="border-b border-gray-100 px-5 py-5">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex flex-col gap-4">
                 <div>
                     <div class="flex items-center gap-3">
                         <h2 class="text-base font-semibold text-gray-950">
@@ -208,7 +214,7 @@
                     action="{{ route(($pp ?? 'purchaser').'.rr.index') }}"
                     role="search"
                     aria-label="Filter receiving reports"
-                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+                    class="flex flex-wrap items-center gap-2"
                 >
                     @if(!empty($attentionFocus))
                         <input type="hidden" name="focus" value="{{ request('focus') }}">
@@ -216,7 +222,7 @@
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
-                    <div class="relative">
+                    <div class="relative min-w-[12rem] flex-1">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
                         </svg>
@@ -227,33 +233,24 @@
                             value="{{ request('search') }}"
                             placeholder="Search RR, RFC, supplier, invoice"
                             aria-label="Search receiving reports"
-                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                            class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
                         >
                     </div>
 
-                    <select id="rr-status" name="status" aria-label="Filter by status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <select id="rr-status" name="status" aria-label="Filter by status" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Incomplete','Completed','Returned'] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
                         @endforeach
                     </select>
 
-                    <select id="rr-completeness" name="completeness" aria-label="Filter by delivery completeness" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <select id="rr-completeness" name="completeness" aria-label="Filter by delivery completeness" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">Complete &amp; incomplete</option>
                         <option value="complete" @selected(($completeness ?? null) === 'complete')>Complete only</option>
                         <option value="incomplete" @selected(($completeness ?? null) === 'incomplete')>Incomplete only</option>
                     </select>
 
-                    <label class="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-600" title="RRs with replacement rows added from back orders">
-                        <input type="checkbox" name="replacement" value="1" @checked(request()->boolean('replacement')) class="h-4 w-4 rounded border-gray-300 text-[#0025cc]">
-                        Replacement rows
-                    </label>
-                    <label class="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-600" title="RRs with replacement items bought from a different supplier">
-                        <input type="checkbox" name="new_supplier" value="1" @checked(request()->boolean('new_supplier')) class="h-4 w-4 rounded border-gray-300 text-[#0025cc]">
-                        New supplier
-                    </label>
-
-                    <input id="rr-date" type="date" name="date" value="{{ request('date') }}" aria-label="Filter by date" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <input id="rr-date" type="date" name="date" value="{{ request('date') }}" aria-label="Filter by date" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
 
                     <button
                         type="submit"
@@ -337,47 +334,30 @@
                                     @endif
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <div
-                                            class="relative"
-                                            x-data="{ openActions: false }"
-                                            @keydown.escape.window="openActions = false"
+                                        @php
+                                            $rrSubmitLabel = $rr->receiving_report_status === 'Minor Revision'
+                                                ? 'Resubmit to Receiving Officer'
+                                                : 'Submit to Receiving Officer';
+                                        @endphp
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}"
+                                            data-pur-confirm="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit this Receiving Report for review?' : 'Submit this Receiving Report for review?' }}"
+                                            data-pur-confirm-title="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit RR' : 'Submit RR' }}"
+                                            data-pur-confirm-ok="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
+                                            data-pur-confirm-reviewer-role="Receiving Officer"
+                                            class="inline-flex"
                                         >
+                                            @csrf
                                             <button
-                                                type="button"
-                                                x-on:click="openActions = !openActions"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                                title="More actions"
-                                                aria-label="More actions"
-                                                :aria-expanded="openActions.toString()"
+                                                type="submit"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
+                                                title="{{ $rrSubmitLabel }}"
+                                                aria-label="{{ $rrSubmitLabel }}"
                                             >
-                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                                <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
-                                            <div
-                                                x-show="openActions"
-                                                x-cloak
-                                                x-transition
-                                                @click.outside="openActions = false"
-                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
-                                            >
-                                                <form
-                                                    method="POST"
-                                                    action="{{ route(($pp ?? 'purchaser').'.rr.submit', $rr->receiving_report_id) }}"
-                                                    data-pur-confirm="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit this Receiving Report for review?' : 'Submit this Receiving Report for review?' }}"
-                                                    data-pur-confirm-title="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit RR' : 'Submit RR' }}"
-                                                    data-pur-confirm-ok="{{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
-                                                    data-pur-confirm-reviewer-role="Receiving Officer"
-                                                >
-                                                    @csrf
-                                                    <button
-                                                        type="submit"
-                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                    >
-                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        {{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit to Receiving Officer' : 'Submit to Receiving Officer' }}
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
+                                        </form>
                                     @endif
                                     @if(
                                         !$archiveView
@@ -737,7 +717,7 @@
                                     @if($rr->receiving_report_status === 'Minor Revision')
                                         Save your corrections here, then use <strong>⋮ → Resubmit to Receiving Officer</strong> in the list.
                                     @else
-                                        Save your changes here (including signature), then use <strong>⋮ → Submit to Receiving Officer</strong> in the list.
+                                        Save your changes here (including signature), then use the <strong>Send</strong> action in the list to submit to the Receiving Officer.
                                     @endif
                                 </p>
                                 <button
@@ -809,7 +789,14 @@
                 </div>
 
                 <div class="bg-slate-100 p-3 md:p-5">
-                    @include('partials.receiving-report-paper', ['editable' => false, 'rr' => null, 'rows' => collect(), 'printId' => 'rr-print-blank'])
+                    @include('partials.receiving-report-paper', [
+                        'editable' => false,
+                        'rr' => null,
+                        'rows' => collect(),
+                        'printId' => 'rr-print-blank',
+                        'showOrCard' => false,
+                        'showItemPhotos' => false,
+                    ])
                 </div>
 
                 <div class="print-hidden flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-4">

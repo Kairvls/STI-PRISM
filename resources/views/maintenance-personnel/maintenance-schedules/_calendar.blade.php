@@ -406,7 +406,7 @@
                 class="inline-flex h-9 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-medium text-slate-200 transition hover:bg-blue-800"
             >
             <i data-lucide="plus" class="h-4 w-4 mr-2"></i>
-                Add schedule
+                New schedule
             </button>
             </div>
         </div>

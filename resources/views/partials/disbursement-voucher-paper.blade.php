@@ -393,7 +393,7 @@
         <div class="flex min-w-0 flex-1 items-end gap-2">
             <span class="shrink-0 text-[12px] font-bold">PAY TO:</span>
             @if($editable)
-                <input type="text" name="dv_payee" value="{{ $payee }}" required class="dv-line-input flex-1 text-[13px] font-bold uppercase tracking-wide">
+                <input type="text" name="dv_payee" value="{{ $payee }}" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="dv-line-input flex-1 text-[13px] font-bold uppercase tracking-wide">
             @else
                 <span class="dv-line-input flex-1 text-[13px] font-bold uppercase tracking-wide">{!! $payee !== '' ? e($payee) : '&nbsp;' !!}</span>
             @endif
@@ -484,6 +484,7 @@
                                         <textarea
                                             class="dv-acct-free"
                                             rows="8"
+                                            maxlength="{{ \App\Support\InputLimits::NOTES }}"
                                             data-dv-acct-free="account"
                                             placeholder="e.g. Postage, Telephone & Telegram&#10;Cash In Bank -PSB"
                                         >{{ $acctFreeText }}</textarea>
@@ -500,6 +501,7 @@
                                         <textarea
                                             class="dv-acct-free is-amount"
                                             rows="8"
+                                            maxlength="{{ \App\Support\InputLimits::NOTES }}"
                                             data-dv-acct-free="amount"
                                             placeholder="0.00"
                                         >{{ $amtFreeText }}</textarea>

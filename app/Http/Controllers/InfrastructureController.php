@@ -18,8 +18,11 @@ use App\Support\EquipmentAcquisition;
 use App\Support\RoleAccess;
 use App\Support\BuildingLayout3D;
 use App\Support\RoomCategories;
+use App\Support\RoomStatusPalette;
 use App\Support\RoomStatuses;
 use App\Support\TransferLocks;
+use App\Support\EquipmentConditions;
+use App\Support\EquipmentInventoryStatuses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,7 +100,9 @@ class InfrastructureController extends Controller
             $layout = $layoutStatusByRoom->get($room->room_id);
             $layoutStatus = (string) ($layout->dashboard_status ?? BuildingLayout3D::STATUS_NORMAL);
             $layoutLabel = (string) ($layout->dashboard_label ?? RoomStatuses::NORMAL);
-            $statusColor = (string) ($layout->status_color ?? BuildingLayout3D::COLOR_NORMAL);
+            $statusColor = (string) ($layout->status_color ?? RoomStatusPalette::colorForStatus(
+                $layoutStatus
+            ));
 
             $room->layout_status = $layoutStatus;
             $room->layout_label = $layoutLabel;
@@ -109,6 +114,9 @@ class InfrastructureController extends Controller
             $room->medium_report_count = (int) ($layout->medium_report_count ?? 0);
             $room->low_report_count = (int) ($layout->low_report_count ?? 0);
             $room->under_maintenance_scheduled = (bool) ($layout->under_maintenance_scheduled ?? false);
+            $room->maintenance_scopes = $layout->maintenance_scopes ?? [];
+            $room->maintenance_schedules = $layout->maintenance_schedules ?? [];
+            $room->room_inspection_next_date = $layout->room_inspection_next_date ?? null;
 
             $room->monitoring = [
 
@@ -117,19 +125,23 @@ class InfrastructureController extends Controller
                 'equipment_quantity' => $room->equipment->sum('equipment_quantity'),
 
                 'equipment_good' => $room->equipment
-                    ->where('equipment_condition_status', 'Good')
+                    ->where('equipment_condition_status', EquipmentConditions::GOOD)
                     ->count(),
 
                 'equipment_damaged' => $room->equipment
-                    ->where('equipment_condition_status', 'Damaged')
+                    ->where('equipment_condition_status', EquipmentConditions::DAMAGED)
+                    ->count(),
+
+                'equipment_defective' => $room->equipment
+                    ->where('equipment_condition_status', EquipmentConditions::DEFECTIVE)
                     ->count(),
 
                 'equipment_maintenance' => $room->equipment
-                    ->where('equipment_condition_status', 'Under Maintenance')
+                    ->where('equipment_condition_status', EquipmentConditions::UNDER_MAINTENANCE)
                     ->count(),
 
                 'equipment_disposed' => $room->equipment
-                    ->where('equipment_condition_status', 'Disposed')
+                    ->where('equipment_condition_status', EquipmentConditions::DISPOSED)
                     ->count(),
 
                 'active_reports' => (int) ($layout->report_count ?? $metric->active_count ?? 0),
@@ -185,18 +197,19 @@ class InfrastructureController extends Controller
                         )
                         ->max('equipment_maintenance_completed_at'),
 
-                    'next_maintenance' => DB::table('maintenance_schedules_table')
-                        ->join(
-                            'equipment_table',
-                            'maintenance_schedules_table.maintenance_schedule_equipment_id',
-                            '=',
-                            'equipment_table.equipment_id'
-                        )
-                        ->where(
-                            'equipment_table.equipment_room_id',
-                            $room->room_id
-                        )
-                        ->min('maintenance_schedule_next_date'),
+                    'next_maintenance' => $layout->room_inspection_next_date
+                        ?? DB::table('maintenance_schedules_table')
+                            ->join(
+                                'equipment_table',
+                                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                                '=',
+                                'equipment_table.equipment_id'
+                            )
+                            ->where(
+                                'equipment_table.equipment_room_id',
+                                $room->room_id
+                            )
+                            ->min('maintenance_schedule_next_date'),
 
                     'last_updated' => $room->room_updated_at,
 
@@ -204,6 +217,11 @@ class InfrastructureController extends Controller
                     'status' => $layoutLabel,
                     'layout_status' => $layoutStatus,
                     'status_color' => $statusColor,
+                    'under_maintenance_scheduled' => (bool) ($layout->under_maintenance_scheduled ?? false),
+                    'maintenance_scopes' => $layout->maintenance_scopes ?? [],
+                    'maintenance_schedules' => $layout->maintenance_schedules ?? [],
+                    'room_inspection_next_date' => $layout->room_inspection_next_date ?? null,
+                    'critical_report_count' => (int) ($layout->critical_report_count ?? 0),
 
                 ],
 
@@ -252,6 +270,9 @@ class InfrastructureController extends Controller
             'requestedFloorId' => $requestedFloorId,
             'usedAssetTags' => $usedAssetTags,
             'buildingStatusUrl' => route('admin.infrastructure.status'),
+            'statusPaletteUrl' => route('admin.infrastructure.status-palette.update'),
+            'statusPalette' => RoomStatusPalette::colors(),
+            'statusPaletteDefaults' => RoomStatusPalette::defaults(),
         ]);
     }
 
@@ -276,6 +297,27 @@ class InfrastructureController extends Controller
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
             ],
+            'palette' => RoomStatusPalette::colors(),
+        ]);
+    }
+
+    public function updateStatusPalette(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'normal' => ['nullable', 'string', 'max:32'],
+            'under_maintenance' => ['nullable', 'string', 'max:32'],
+            'critical' => ['nullable', 'string', 'max:32'],
+            'reset' => ['sometimes', 'boolean'],
+        ]);
+
+        $colors = ! empty($validated['reset'])
+            ? RoomStatusPalette::reset()
+            : RoomStatusPalette::update($validated);
+
+        return response()->json([
+            'message' => 'Status colors updated.',
+            'palette' => $colors,
+            'defaults' => RoomStatusPalette::defaults(),
         ]);
     }
 
@@ -334,6 +376,215 @@ class InfrastructureController extends Controller
                 ->map(fn ($item) => LayoutEquipmentPayload::fromModel($item, $custodians[$item->equipment_id] ?? null))
                 ->values()
         );
+    }
+
+    /**
+     * Active RR-linked equipment currently in storage, available to place into this room.
+     */
+    public function placeableStock(Room $room): JsonResponse
+    {
+        abort_if($room->room_is_archived, 404);
+
+        if (RoomCategories::isStorageType($room->room_type ?? null)) {
+            return response()->json([
+                'items' => [],
+                'message' => 'Select a non-storage room to place equipment from stock.',
+            ]);
+        }
+
+        if (! Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id')) {
+            return response()->json(['items' => []]);
+        }
+
+        $storageRoomIds = $this->storageRoomIds();
+        if ($storageRoomIds === []) {
+            return response()->json(['items' => []]);
+        }
+
+        $query = DB::table('equipment_table as e')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
+            ->leftJoin(
+                'equipment_categories_table as c',
+                'c.equipment_category_id',
+                '=',
+                'e.equipment_category_id'
+            )
+            ->whereIn('e.equipment_room_id', $storageRoomIds)
+            ->where('e.equipment_inventory_status', 'Active')
+            ->where('e.equipment_receiving_report_item_id', '>', 0)
+            ->where('e.equipment_room_id', '!=', $room->room_id)
+            ->orderBy('e.equipment_name')
+            ->orderBy('e.equipment_id');
+
+        if (Schema::hasTable('receiving_report_items_table')) {
+            $query->leftJoin(
+                'receiving_report_items_table as rri',
+                'rri.receiving_report_item_id',
+                '=',
+                'e.equipment_receiving_report_item_id'
+            );
+            if (Schema::hasTable('receiving_reports_table')) {
+                $query->leftJoin(
+                    'receiving_reports_table as rr',
+                    'rr.receiving_report_id',
+                    '=',
+                    'rri.receiving_report_id'
+                );
+            }
+        }
+
+        $select = [
+            'e.equipment_id',
+            'e.equipment_name',
+            'e.equipment_asset_tag',
+            'e.equipment_serial_number',
+            'e.equipment_brand_name',
+            'e.equipment_model',
+            'e.equipment_condition_status',
+            'e.equipment_inventory_status',
+            'e.equipment_room_id',
+            'e.equipment_receiving_report_item_id',
+            'r.room_name as storage_room_name',
+            'c.equipment_category_name',
+        ];
+
+        if (Schema::hasTable('receiving_reports_table')
+            && Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
+            $select[] = 'rr.receiving_report_form_number';
+            $select[] = 'rr.receiving_report_id';
+        }
+
+        $rows = $query->get($select);
+        $loans = TransferLocks::openLoans($rows->pluck('equipment_id')->all());
+
+        $items = $rows
+            ->reject(fn ($row) => TransferLocks::reason($row, $loans) !== null)
+            ->map(function ($row) {
+                $rrNo = trim((string) ($row->receiving_report_form_number ?? ''));
+                $rrId = (int) ($row->receiving_report_id ?? 0);
+
+                return [
+                    'id' => (int) $row->equipment_id,
+                    'name' => (string) ($row->equipment_name ?? 'Equipment'),
+                    'asset_tag' => $row->equipment_asset_tag,
+                    'serial_number' => $row->equipment_serial_number,
+                    'brand' => $row->equipment_brand_name,
+                    'model' => $row->equipment_model,
+                    'condition' => $row->equipment_condition_status,
+                    'category_name' => $row->equipment_category_name,
+                    'storage_room_id' => (int) $row->equipment_room_id,
+                    'storage_room_name' => (string) ($row->storage_room_name ?? 'Storage'),
+                    'receiving_report_item_id' => (int) $row->equipment_receiving_report_item_id,
+                    'receiving_report_id' => $rrId > 0 ? $rrId : null,
+                    'receiving_report_number' => $rrNo !== ''
+                        ? $rrNo
+                        : ($rrId > 0 ? 'RR #'.$rrId : null),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json(['items' => $items]);
+    }
+
+    /**
+     * Move selected storage RR-linked assets into this room (Holding).
+     */
+    public function placeFromStorage(Request $request, Room $room): JsonResponse
+    {
+        abort_if($room->room_is_archived, 404);
+
+        if (RoomCategories::isStorageType($room->room_type ?? null)) {
+            throw ValidationException::withMessages([
+                'room' => ['Cannot place equipment into a storage room from this action.'],
+            ]);
+        }
+
+        $validated = $request->validate([
+            'equipment_ids' => ['required', 'array', 'min:1'],
+            'equipment_ids.*' => ['required', 'integer', 'exists:equipment_table,equipment_id'],
+            'department_id' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $destinationId = (int) $room->room_id;
+        $departmentId = $this->resolvedTransferDepartmentId($validated['department_id'] ?? null);
+        $storageRoomIds = $this->storageRoomIds();
+        $hasRrFk = Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id');
+
+        if ($storageRoomIds === []) {
+            throw ValidationException::withMessages([
+                'equipment_ids' => ['No storage rooms are configured.'],
+            ]);
+        }
+
+        $moved = 0;
+
+        DB::transaction(function () use (
+            $validated,
+            $destinationId,
+            $departmentId,
+            $storageRoomIds,
+            $hasRrFk,
+            &$moved
+        ): void {
+            foreach ($validated['equipment_ids'] as $equipmentId) {
+                $equipment = Equipment::query()->findOrFail((int) $equipmentId);
+
+                if (! in_array((int) $equipment->equipment_room_id, $storageRoomIds, true)) {
+                    throw ValidationException::withMessages([
+                        'equipment_ids' => [
+                            ($equipment->equipment_name ?: 'Equipment').' is not in storage.',
+                        ],
+                    ]);
+                }
+
+                if ($hasRrFk && (int) ($equipment->equipment_receiving_report_item_id ?? 0) < 1) {
+                    throw ValidationException::withMessages([
+                        'equipment_ids' => [
+                            ($equipment->equipment_name ?: 'Equipment').' is not linked to an RR. Stock it from Inventory first.',
+                        ],
+                    ]);
+                }
+
+                if ((string) ($equipment->equipment_inventory_status ?? '') !== 'Active') {
+                    throw ValidationException::withMessages([
+                        'equipment_ids' => [
+                            ($equipment->equipment_name ?: 'Equipment').' must be Active to place.',
+                        ],
+                    ]);
+                }
+
+                $this->moveEquipmentToRoom($equipment, $destinationId, $departmentId);
+                $moved++;
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'moved' => $moved,
+            'message' => $moved === 1
+                ? '1 asset placed from storage.'
+                : "{$moved} assets placed from storage.",
+        ]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function storageRoomIds(): array
+    {
+        $query = Room::query()->select(['room_id', 'room_type']);
+        if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
+            $query->where('room_is_archived', false);
+        }
+
+        return $query
+            ->get()
+            ->filter(fn (Room $room) => RoomCategories::isStorageType($room->room_type ?? null))
+            ->pluck('room_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
     }
 
     public function getLayout(Room $room): JsonResponse
@@ -482,9 +733,9 @@ class InfrastructureController extends Controller
         $request->merge($this->sanitizeCampusWizardPayload($request->all()));
 
         $validated = $request->validateWithBag('campusWizard', [
-            'building_name' => ['required', 'string', 'max:255'],
+            'building_name' => ['required', 'string', 'max:'.\App\Support\InputLimits::BUILDING_NAME],
 
-            'building_logo' => ['nullable', 'string', 'max:255'],
+            'building_logo' => ['nullable', 'string', 'max:'.\App\Support\InputLimits::NAME],
 
             'building_address' => ['nullable', 'string'],
             'floors' => ['required', 'array', 'min:1'],
@@ -498,7 +749,7 @@ class InfrastructureController extends Controller
 
             ],
             'floors.*.rooms' => ['nullable', 'array'],
-            'floors.*.rooms.*.name' => ['required', 'string', 'max:255'],
+            'floors.*.rooms.*.name' => ['required', 'string', 'max:'.\App\Support\InputLimits::ROOM_NAME],
             'floors.*.rooms.*.type' => ['required', Rule::in(array_values(array_unique(array_merge(
                 RoomCategories::values(),
                 [
@@ -508,10 +759,10 @@ class InfrastructureController extends Controller
             ))))],
             'floors.*.rooms.*.status' => ['required', Rule::in(RoomStatuses::all())],
             'floors.*.rooms.*.equipment' => ['nullable', 'array'],
-            'floors.*.rooms.*.equipment.*.name' => ['required', 'string', 'max:255'],
+            'floors.*.rooms.*.equipment.*.name' => ['required', 'string', 'max:'.\App\Support\InputLimits::NAME],
             'floors.*.rooms.*.equipment.*.category_id' => ['nullable', 'integer', 'exists:equipment_categories_table,equipment_category_id'],
             'floors.*.rooms.*.equipment.*.quantity' => ['required', 'integer', 'min:1', 'max:500'],
-            'floors.*.rooms.*.equipment.*.condition' => ['required', Rule::in(['Good', 'Damaged', 'Under Maintenance', 'Disposed'])],
+            'floors.*.rooms.*.equipment.*.condition' => ['required', Rule::in(EquipmentConditions::ALL)],
             'floors.*.rooms.*.equipment.*.zone' => [
                 'required',
                 'string',
@@ -804,7 +1055,7 @@ class InfrastructureController extends Controller
                     'room_y' => $room['y'],
                     'room_width' => $room['width'],
                     'room_height' => $room['height'],
-                    'room_color' => $room['color'] ?? $roomModel->room_color,
+                    // room_color is unused for map fill (global status palette).
                     'room_metadata' => $metadata,
                 ]);
             }
@@ -866,26 +1117,17 @@ class InfrastructureController extends Controller
             'room_name'=>[
                 'required',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::ROOM_NAME,
             ],
 
             'room_type'=>[
                 'nullable',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::NAME,
             ],
 
-            'room_color'=>[
-                'nullable',
-                'string',
-                'max:32'
-            ],
-
-            'room_status'=>[
-                'nullable',
-                Rule::in(RoomStatuses::all()),
-            ],
-
+            // room_status and room_color are not editable here:
+            // status is layout-derived; colors come from the global status palette.
         ]);
 
         $room->update([
@@ -893,12 +1135,6 @@ class InfrastructureController extends Controller
             'room_name'=>$validated['room_name'],
 
             'room_type'=>$validated['room_type'] ?? $room->room_type,
-
-            'room_color'=>$validated['room_color'] ?? $room->room_color,
-
-            'room_status'=> isset($validated['room_status'])
-                ? RoomStatuses::normalize($validated['room_status'])
-                : $room->room_status,
 
         ]);
 
@@ -915,19 +1151,19 @@ class InfrastructureController extends Controller
             'activity_title'=>'Room Updated',
 
             'activity_description' =>
-                'Renamed to '.$room->room_name.
-                ' and status changed to '.$room->room_status,
+                'Updated room details to '.$room->room_name.
+                ' ('.$room->room_type.')',
 
             'created_at'=>now()
 
         ]);
 
         return response()->json([
-            'message' => 'Room name updated.',
+            'message' => 'Room updated.',
             'room' => [
                 'id' => $room->room_id,
                 'name' => $room->room_name,
-                'color' => $room->room_color,
+                'type' => $room->room_type,
             ],
         ]);
     }
@@ -950,7 +1186,7 @@ class InfrastructureController extends Controller
             'equipment_name' => [
                 'required',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::NAME,
             ],
 
             'equipment_category_id' => [
@@ -962,23 +1198,19 @@ class InfrastructureController extends Controller
             'equipment_quantity' => [
                 'required',
                 'integer',
-                'min:1'
+                'min:1',
+                'max:'.\App\Support\InputLimits::QTY,
             ],
 
             'equipment_condition_status' => [
                 'required',
-                Rule::in([
-                    'Good',
-                    'Damaged',
-                    'Under Maintenance',
-                    'Disposed'
-                ])
+                Rule::in(EquipmentConditions::ALL),
             ],
 
             'equipment_current_location' => [
                 'nullable',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::LOCATION,
             ],
 
         ]);
@@ -986,19 +1218,10 @@ class InfrastructureController extends Controller
         // ===============================
         // Sync inventory status
         // ===============================
-        
 
-        $inventoryStatus = match ($validated['equipment_condition_status']) {
-
-            'Disposed' => 'Disposed',
-
-            'Under Maintenance' => 'Under Maintenance',
-
-            default => 'Active',
-
-        };
-
-        $validated['equipment_inventory_status'] = $inventoryStatus;
+        $validated['equipment_inventory_status'] = EquipmentConditions::syncInventoryStatus(
+            $validated['equipment_condition_status']
+        );
 
         // =====================================
         // Automatically move equipment when
@@ -1067,14 +1290,21 @@ class InfrastructureController extends Controller
         $validated = $request->validate([
             'room_id' => [
                 'required',
-                'exists:rooms_table,room_id'
-            ]
+                'exists:rooms_table,room_id',
+            ],
+            'department_id' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
         ]);
 
-        $this->moveEquipmentToRoom($equipment, (int) $validated['room_id']);
+        $departmentId = $this->resolvedTransferDepartmentId($validated['department_id'] ?? null);
+
+        $this->moveEquipmentToRoom($equipment, (int) $validated['room_id'], $departmentId);
 
         return response()->json([
-            'success' => true
+            'success' => true,
         ]);
     }
 
@@ -1094,6 +1324,11 @@ class InfrastructureController extends Controller
                 'integer',
                 'exists:rooms_table,room_id',
             ],
+            'transfers.*.department_id' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
         ]);
 
         $moved = 0;
@@ -1102,6 +1337,7 @@ class InfrastructureController extends Controller
             foreach ($validated['transfers'] as $transfer) {
                 $equipmentId = (int) $transfer['equipment_id'];
                 $destinationId = (int) $transfer['room_id'];
+                $departmentId = $this->resolvedTransferDepartmentId($transfer['department_id'] ?? null);
 
                 if ($destinationId === (int) $room->room_id) {
                     throw ValidationException::withMessages([
@@ -1116,7 +1352,7 @@ class InfrastructureController extends Controller
                     ]);
                 }
 
-                $this->moveEquipmentToRoom($equipment, $destinationId);
+                $this->moveEquipmentToRoom($equipment, $destinationId, $departmentId);
                 $moved++;
             }
         });
@@ -1130,11 +1366,31 @@ class InfrastructureController extends Controller
         ]);
     }
 
-    private function moveEquipmentToRoom(Equipment $equipment, int $destinationRoomId): void
+    private function resolvedTransferDepartmentId(mixed $departmentId): ?int
+    {
+        $id = (int) ($departmentId ?? 0);
+        if ($id <= 0) {
+            return null;
+        }
+
+        if (
+            Schema::hasTable('departments_table')
+            && ! DB::table('departments_table')->where('department_id', $id)->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'department_id' => ['Selected department was not found.'],
+            ]);
+        }
+
+        return $id;
+    }
+
+    private function moveEquipmentToRoom(Equipment $equipment, int $destinationRoomId, ?int $departmentId = null): void
     {
         $oldRoom = $equipment->equipment_room_id;
+        $sameRoom = (int) $oldRoom === $destinationRoomId;
 
-        if ((int) $oldRoom === $destinationRoomId) {
+        if ($sameRoom && $departmentId === null) {
             return;
         }
 
@@ -1142,45 +1398,65 @@ class InfrastructureController extends Controller
             throw ValidationException::withMessages(['transfers' => [$locked]]);
         }
 
-        $equipment->update([
-            'equipment_room_id' => $destinationRoomId,
-            // Clear layout placement so it lands in holding at the destination.
-            'equipment_placement_zone' => 'Holding',
-            'equipment_current_location' => 'Holding',
-            'equipment_position_x' => 50,
-            'equipment_position_y' => 90,
-        ]);
+        $updates = [];
+
+        if (! $sameRoom) {
+            $updates = [
+                'equipment_room_id' => $destinationRoomId,
+                // Clear layout placement so it lands in holding at the destination.
+                'equipment_placement_zone' => 'Holding',
+                'equipment_current_location' => 'Holding',
+                'equipment_position_x' => 50,
+                'equipment_position_y' => 90,
+            ];
+        }
+
+        if ($departmentId !== null && Schema::hasColumn('equipment_table', 'equipment_department_id')) {
+            $updates['equipment_department_id'] = $departmentId;
+        }
+
+        if ($updates !== []) {
+            $equipment->update($updates);
+        }
 
         if (Schema::hasTable('equipment_transfer_history_table')) {
-            DB::table('equipment_transfer_history_table')->insert([
+            $history = [
                 'equipment_id' => $equipment->equipment_id,
                 'from_room_id' => $oldRoom,
                 'to_room_id' => $destinationRoomId,
                 'transferred_by' => Auth::check() ? Auth::id() : null,
                 'remarks' => 'Transferred via Building Layout',
                 'created_at' => now(),
-            ]);
+            ];
+
+            if ($departmentId !== null && Schema::hasColumn('equipment_transfer_history_table', 'to_department_id')) {
+                $history['to_department_id'] = $departmentId;
+            }
+
+            DB::table('equipment_transfer_history_table')->insert($history);
         }
 
-        RoomActivityLog::create([
-            'room_id' => $oldRoom,
-            'equipment_id' => $equipment->equipment_id,
-            'user_id' => Auth::check() ? Auth::id() : null,
-            'activity_type' => 'equipment_transfer_out',
-            'activity_title' => 'Equipment Transferred',
-            'activity_description' => $equipment->equipment_name . ' moved to another room.',
-            'created_at' => now(),
-        ]);
+        if (! $sameRoom) {
+            RoomActivityLog::create([
+                'room_id' => $oldRoom,
+                'equipment_id' => $equipment->equipment_id,
+                'user_id' => Auth::check() ? Auth::id() : null,
+                'activity_type' => 'equipment_transfer_out',
+                'activity_title' => 'Equipment Transferred',
+                'activity_description' => $equipment->equipment_name.' moved to another room.',
+                'created_at' => now(),
+            ]);
 
-        RoomActivityLog::create([
-            'room_id' => $destinationRoomId,
-            'equipment_id' => $equipment->equipment_id,
-            'user_id' => Auth::check() ? Auth::id() : null,
-            'activity_type' => 'equipment_transfer_in',
-            'activity_title' => 'Equipment Received',
-            'activity_description' => $equipment->equipment_name . ' transferred into this room.',
-            'created_at' => now(),
-        ]);
+            RoomActivityLog::create([
+                'room_id' => $destinationRoomId,
+                'equipment_id' => $equipment->equipment_id,
+                'user_id' => Auth::check() ? Auth::id() : null,
+                'activity_type' => 'equipment_transfer_in',
+                'activity_title' => 'Equipment Received',
+                'activity_description' => $equipment->equipment_name.' transferred into this room.',
+                'created_at' => now(),
+            ]);
+        }
     }
 
     public function archiveEquipment(
@@ -1236,7 +1512,7 @@ class InfrastructureController extends Controller
             'equipment_name'=>[
                 'required',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::NAME,
             ],
 
             'equipment_category_id'=>[
@@ -1248,7 +1524,7 @@ class InfrastructureController extends Controller
                 'required',
                 'integer',
                 'min:1',
-                'max:200',
+                'max:'.min(200, \App\Support\InputLimits::QTY),
             ],
 
             'equipment_tracking_mode'=>[
@@ -1267,30 +1543,31 @@ class InfrastructureController extends Controller
 
             'equipment_condition_status'=>[
                 'required',
-                Rule::in(['Good', 'Damaged', 'Under Maintenance', 'Disposed']),
+                Rule::in(EquipmentConditions::ALL),
             ],
 
             'equipment_current_location'=>[
                 'nullable',
-                'string'
+                'string',
+                'max:'.\App\Support\InputLimits::LOCATION,
             ],
 
             'equipment_placement_zone'=>[
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::LOCATION,
             ],
 
             'equipment_brand_name' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::BRAND,
             ],
 
             'equipment_model' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::MODEL,
             ],
 
             'equipment_warranty_expiration' => [
@@ -1301,13 +1578,13 @@ class InfrastructureController extends Controller
             'equipment_asset_tag' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::ASSET_TAG,
             ],
 
             'equipment_serial_number' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::SERIAL,
             ],
 
             'equipment_is_borrowable' => [
@@ -1324,30 +1601,30 @@ class InfrastructureController extends Controller
             'items.*.equipment_asset_tag' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::ASSET_TAG,
             ],
 
             'items.*.equipment_serial_number' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::SERIAL,
             ],
 
             'items.*.equipment_brand_name' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::BRAND,
             ],
 
             'items.*.equipment_model' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::MODEL,
             ],
 
             'items.*.equipment_condition_status' => [
                 'nullable',
-                Rule::in(['Good', 'Damaged', 'Under Maintenance', 'Disposed']),
+                Rule::in(EquipmentConditions::ALL),
             ],
 
             'items.*.equipment_warranty_expiration' => [
@@ -1358,13 +1635,13 @@ class InfrastructureController extends Controller
             'items.*.equipment_placement_zone' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::LOCATION,
             ],
 
             'items.*.equipment_current_location' => [
                 'nullable',
                 'string',
-                'max:255',
+                'max:'.\App\Support\InputLimits::LOCATION,
             ],
 
             'equipment_purchase_date' => ['nullable', 'date'],
@@ -1412,15 +1689,9 @@ class InfrastructureController extends Controller
 
         $this->assertUniqueEquipmentIdentifiers($items, $validated);
 
-        $defaultInventoryStatus = match ($validated['equipment_condition_status']) {
-
-            'Disposed' => 'Disposed',
-
-            'Under Maintenance' => 'Under Maintenance',
-
-            default => 'Active',
-
-        };
+        $defaultInventoryStatus = EquipmentConditions::syncInventoryStatus(
+            $validated['equipment_condition_status']
+        );
 
         $borrowable = filter_var(
             $validated['equipment_is_borrowable'] ?? false,

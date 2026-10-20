@@ -167,7 +167,7 @@
                         >
 
                             <option value="">
-                                All Categories
+                                All Classifications
                             </option>
 
                             @foreach ($categories as $category)
@@ -220,33 +220,11 @@
                                 All Conditions
                             </option>
 
-                            <option
-                                value="Good"
-                                @selected(request('condition') === 'Good')
-                            >
-                                Good
-                            </option>
-
-                            <option
-                                value="Fair"
-                                @selected(request('condition') === 'Fair')
-                            >
-                                Fair
-                            </option>
-
-                            <option
-                                value="Damaged"
-                                @selected(request('condition') === 'Damaged')
-                            >
-                                Damaged
-                            </option>
-
-                            <option
-                                value="Critical"
-                                @selected(request('condition') === 'Critical')
-                            >
-                                Critical
-                            </option>
+                            <option value="Good" @selected(request('condition') === 'Good')>Good</option>
+                            <option value="Under Maintenance" @selected(request('condition') === 'Under Maintenance')>Under Maintenance</option>
+                            <option value="Defective" @selected(request('condition') === 'Defective')>Defective</option>
+                            <option value="Damaged" @selected(request('condition') === 'Damaged')>Damaged</option>
+                            <option value="Disposed" @selected(request('condition') === 'Disposed')>Disposed</option>
 
                         </select>
 
@@ -495,32 +473,21 @@
 
                                 $conditionClass = match ($conditionStatus) {
                                     "Good" => "bg-emerald-50 text-emerald-700",
-                                    "Fair" => "bg-sky-50 text-sky-700",
-                                    "Damaged" => "bg-amber-50 text-amber-700",
-                                    "Critical" => "bg-rose-50 text-rose-700",
+                                    "Under Maintenance" => "bg-amber-50 text-amber-700",
+                                    "Defective" => "bg-orange-50 text-orange-700",
+                                    "Damaged" => "bg-rose-50 text-rose-700",
                                     "Disposed" => "bg-slate-800 text-white",
                                     default => "bg-slate-100 text-slate-600",
                                 };
 
 
                                 $conditionDotClass = match ($conditionStatus) {
-                                    "Good" =>
-                                        "bg-emerald-500",
-
-                                    "Fair" =>
-                                        "bg-blue-500",
-
-                                    "Damaged" =>
-                                        "bg-amber-500",
-
-                                    "Critical" =>
-                                        "bg-red-500",
-
-                                    "Disposed" =>
-                                        "bg-slate-800",
-
-                                    default =>
-                                        "bg-slate-400",
+                                    "Good" => "bg-emerald-500",
+                                    "Under Maintenance" => "bg-amber-500",
+                                    "Defective" => "bg-orange-500",
+                                    "Damaged" => "bg-rose-500",
+                                    "Disposed" => "bg-slate-800",
+                                    default => "bg-slate-400",
                                 };
 
                                 $isFinallyDisposed =
@@ -1855,7 +1822,7 @@
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
                             '<i data-lucide="layers" class="h-3.5 w-3.5"></i>' +
                         "</div>" +
-                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Category</p>' +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Classification</p>' +
                         '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.category, "Uncategorized") + "</p>" +
                     "</div>" +
                     '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +

@@ -47,10 +47,12 @@ class DepartmentController extends Controller
                 $personId = isset($person->person_id) ? (int) $person->person_id : 0;
                 $custodianId = $person->custodian_id ? (int) $person->custodian_id : 0;
                 $profileUrl = null;
-                if (! $readOnly) {
-                    $profileUrl = $personId > 0 && \App\Support\Persons::tableReady()
-                        ? route('admin.persons.show', $personId)
-                        : ($custodianId > 0 ? PropertyAssignments::route('person', $custodianId) : route('admin.persons.index'));
+                if ($personId > 0 && \App\Support\Persons::tableReady()) {
+                    $profileUrl = $readOnly
+                        ? route('school-admin.persons.show', $personId)
+                        : route('admin.persons.show', $personId);
+                } elseif (! $readOnly && $custodianId > 0) {
+                    $profileUrl = PropertyAssignments::route('person', $custodianId);
                 }
 
                 return [
@@ -68,24 +70,32 @@ class DepartmentController extends Controller
                     'profile_url' => $profileUrl,
                 ];
             })->values(),
-            'equipment' => $equipment->map(fn ($item) => [
-                'id' => (int) $item->equipment_id,
-                'name' => $item->equipment_name,
-                'asset_tag' => $item->equipment_asset_tag,
-                'brand_model' => trim(($item->equipment_brand_name ?? '').' '.($item->equipment_model ?? '')) ?: null,
-                'serial' => $item->equipment_serial_number,
-                'quantity' => (int) ($item->equipment_quantity ?: 1),
-                'category' => $item->equipment_category_name,
-                'room' => $item->room_name,
-                'condition' => $item->equipment_condition_status,
-                'status' => $item->equipment_inventory_status,
-                'image_url' => $item->equipment_image ? asset('storage/'.$item->equipment_image) : null,
-                'charged' => (int) $item->equipment_department_id === $department,
-                'holder' => $item->holder_name,
-                'holder_in_department' => $item->holder_id !== null && (int) $item->holder_department_id === $department,
-                'issued_at' => $item->assignment_issued_at,
-                'profile_url' => url('/maintenance/equipment/view/'.$item->equipment_id),
-            ])->values(),
+            'equipment' => $equipment->map(function ($item) use ($department, $readOnly) {
+                $equipmentId = (int) $item->equipment_id;
+
+                return [
+                    'id' => $equipmentId,
+                    'name' => $item->equipment_name,
+                    'asset_tag' => $item->equipment_asset_tag,
+                    'brand_model' => trim(($item->equipment_brand_name ?? '').' '.($item->equipment_model ?? '')) ?: null,
+                    'serial' => $item->equipment_serial_number,
+                    'quantity' => (int) ($item->equipment_quantity ?: 1),
+                    'category' => $item->equipment_category_name,
+                    'room' => $item->room_name,
+                    'condition' => $item->equipment_condition_status,
+                    'status' => $item->equipment_inventory_status,
+                    'image_url' => $item->equipment_image ? asset('storage/'.$item->equipment_image) : null,
+                    'charged' => (int) $item->equipment_department_id === $department,
+                    'holder' => $item->holder_name,
+                    'holder_in_department' => $item->holder_id !== null && (int) $item->holder_department_id === $department,
+                    'issued_at' => $item->assignment_issued_at,
+                    // School Admin uses the shared read-only monitor page; Admin/Maintenance keep inventory view.
+                    // Return query is appended by the Departments modal (withReturn).
+                    'profile_url' => $readOnly
+                        ? route('school-admin.operations.equipment.show', $equipmentId)
+                        : \App\Support\EquipmentViewReturn::viewUrl($equipmentId),
+                ];
+            })->values(),
         ]);
     }
 

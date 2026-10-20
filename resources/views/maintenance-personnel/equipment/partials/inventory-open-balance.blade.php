@@ -131,6 +131,15 @@
                                             @else
                                                 <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">In inventory</span>
                                             @endif
+                                            @if (!empty($report['has_replacement']))
+                                                @php $rrPendingReplacement = (int) ($report['pending_replacement'] ?? 0); @endphp
+                                                <span
+                                                    class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800"
+                                                    @if (!empty($report['replaces_label'])) title="Replaces {{ $report['replaces_label'] }}" @endif
+                                                >
+                                                    {{ $rrPendingReplacement > 0 ? $rrPendingReplacement.' replacement' : 'Replacement' }}
+                                                </span>
+                                            @endif
                                         </span>
                                         <span class="mt-0.5 block truncate text-[11px] text-slate-400">
                                             {{ $report['supplier_name'] ?: 'No supplier' }}
@@ -163,7 +172,18 @@
                                     <div class="border-b border-slate-100 last:border-b-0">
                                         <div class="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 py-2.5 pl-12 pr-5">
                                             <div class="min-w-0">
-                                                <p class="truncate font-medium text-slate-900">{{ $line['article'] }}</p>
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <p class="truncate font-medium text-slate-900">{{ $line['article'] }}</p>
+                                                    @if (!empty($line['is_replacement']))
+                                                        <span
+                                                            class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800"
+                                                            @if (!empty($line['replaces_label'])) title="Replaces {{ $line['replaces_label'] }}" @endif
+                                                        >Replacement</span>
+                                                    @endif
+                                                </div>
+                                                @if (!empty($line['is_replacement']) && !empty($line['replaces_label']))
+                                                    <p class="mt-0.5 truncate text-[11px] text-violet-700">Replaces {{ $line['replaces_label'] }}</p>
+                                                @endif
                                                 @php
                                                     $lineCost = implode(' · ', array_filter([
                                                         !empty($line['unit']) ? (int) $line['received'].' '.$line['unit'] : null,

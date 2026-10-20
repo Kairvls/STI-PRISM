@@ -148,7 +148,15 @@
             ]));
         },
         profileHref(item) {
-            return item.profile_url + '?return=' + encodeURIComponent(window.location.href);
+            return this.withReturn(item.profile_url);
+        },
+        personHref(person) {
+            return this.withReturn(person.profile_url);
+        },
+        withReturn(url) {
+            if (! url) return '#';
+            const sep = String(url).includes('?') ? '&' : '?';
+            return String(url) + sep + 'return=' + encodeURIComponent(window.location.href);
         },
         initials(name) {
             return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
@@ -178,9 +186,12 @@
             <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h2 class="text-base font-semibold text-slate-900">Departments / offices</h2>
-                    @if ($readOnly)
-                        <p class="mt-0.5 text-xs text-slate-500">View only — Administrator manages department changes.</p>
-                    @endif
+                    <p class="mt-0.5 text-xs text-slate-500">
+                        Equipment counts include items charged to the office or issued to its people.
+                        @if ($readOnly)
+                            View only — Administrator manages department changes.
+                        @endif
+                    </p>
                 </div>
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <form method="GET" action="{{ route($departmentsIndexRoute) }}" class="flex gap-2">
@@ -224,7 +235,7 @@
                                 <th class="px-5 py-3">Department</th>
                                 <th class="px-5 py-3">People</th>
                                 <th class="px-5 py-3">Rooms</th>
-                                <th class="px-5 py-3">Equipment</th>
+                                <th class="px-5 py-3" title="Charged to this office or issued to its people">Equipment</th>
                                 <th class="px-5 py-3">Status</th>
                                 <th class="px-5 py-3 text-center justify-center">Actions</th>
                             </tr>
@@ -626,11 +637,11 @@
                                         </button>
                                         <a
                                             x-show="person.profile_url"
-                                            :href="person.profile_url"
+                                            :href="personHref(person)"
                                             class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-[#0025cc] hover:bg-slate-50"
                                         >
                                             <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
-                                            Open
+                                            <span x-text="readOnly ? 'Profile' : 'Open'"></span>
                                         </a>
                                     </div>
                                 </div>

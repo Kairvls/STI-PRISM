@@ -31,6 +31,9 @@
                     "mediumReportCount" => (int) ($room->medium_report_count ?? 0),
                     "lowReportCount" => (int) ($room->low_report_count ?? 0),
                     "underMaintenanceScheduled" => (bool) ($room->under_maintenance_scheduled ?? false),
+                    "maintenanceScopes" => $room->maintenance_scopes ?? [],
+                    "maintenanceSchedules" => $room->maintenance_schedules ?? [],
+                    "roomInspectionNextDate" => $room->room_inspection_next_date ?? null,
                     "layout_mode" => $room->room_layout_mode ?: "loose_equipment",
                     "x" => (int) $room->room_x,
                     "y" => (int) $room->room_y,
@@ -104,9 +107,81 @@
                 <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
 
                     <div class="hidden items-center gap-3 text-[11px] font-medium text-slate-500 sm:flex">
-                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-500"></span>Normal</span>
-                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Under Maintenance</span>
-                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500"></span>Critical</span>
+                        <span class="flex items-center gap-1.5">
+                            <span
+                                class="h-2 w-2 rounded-full"
+                                :style="`background:${statusPalette.normal}`"
+                            ></span>
+                            Normal
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span
+                                class="h-2 w-2 rounded-full"
+                                :style="`background:${statusPalette.under_maintenance}`"
+                            ></span>
+                            Under Maintenance
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span
+                                class="h-2 w-2 rounded-full"
+                                :style="`background:${statusPalette.critical}`"
+                            ></span>
+                            Critical
+                        </span>
+                        <div class="relative" @keydown.escape.window="statusPaletteOpen = false">
+                            <button
+                                type="button"
+                                @click="statusPaletteOpen = !statusPaletteOpen"
+                                class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
+                                data-tooltip="Edit status colors"
+                            >
+                                <i data-lucide="palette" class="h-3.5 w-3.5"></i>
+                                Colors
+                            </button>
+                            <div
+                                x-show="statusPaletteOpen"
+                                x-cloak
+                                x-transition
+                                @click.outside="statusPaletteOpen = false"
+                                class="absolute left-0 top-full z-40 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+                            >
+                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Status colors</p>
+                                <p class="mt-1 text-[11px] leading-4 text-slate-500">
+                                    Applies to every room on the map. Not per-room paint.
+                                </p>
+                                <div class="mt-3 space-y-2.5">
+                                    <label class="flex items-center justify-between gap-3 text-[11px] font-medium text-slate-700">
+                                        <span>Normal</span>
+                                        <input type="color" x-model="statusPaletteDraft.normal" class="h-8 w-12 cursor-pointer rounded border border-slate-200 bg-white p-0.5" />
+                                    </label>
+                                    <label class="flex items-center justify-between gap-3 text-[11px] font-medium text-slate-700">
+                                        <span>Under Maintenance</span>
+                                        <input type="color" x-model="statusPaletteDraft.under_maintenance" class="h-8 w-12 cursor-pointer rounded border border-slate-200 bg-white p-0.5" />
+                                    </label>
+                                    <label class="flex items-center justify-between gap-3 text-[11px] font-medium text-slate-700">
+                                        <span>Critical</span>
+                                        <input type="color" x-model="statusPaletteDraft.critical" class="h-8 w-12 cursor-pointer rounded border border-slate-200 bg-white p-0.5" />
+                                    </label>
+                                </div>
+                                <div class="mt-3 flex items-center justify-between gap-2">
+                                    <button
+                                        type="button"
+                                        @click="saveStatusPalette({ reset: true })"
+                                        :disabled="statusPaletteSaving"
+                                        class="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-60"
+                                    >
+                                        Reset
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="saveStatusPalette()"
+                                        :disabled="statusPaletteSaving"
+                                        class="rounded-lg bg-[#005EA6] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#004b86] disabled:opacity-60"
+                                        x-text="statusPaletteSaving ? 'Saving…' : 'Save'"
+                                    ></button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="inline-flex flex-nowrap items-center gap-1.5">
@@ -459,22 +534,6 @@
 
                                 </button>
 
-                                <div
-                                    x-show="editMode"
-                                    x-transition
-                                    class="border-t border-slate-200"
-                                >
-                                    <button
-                                        type="button"
-                                        @click="toggleRoomPaintMode()"
-                                        :data-tooltip="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
-                                        :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
-                                        class="flex w-full items-center justify-center py-3 transition"
-                                    >
-                                        <i data-lucide="palette" class="h-4 w-4"></i>
-                                    </button>
-                                </div>
-
                                 <div class="border-t border-slate-200"></div>
 
                                 <!-- ==================== -->
@@ -521,70 +580,6 @@
 
                                 </button>
 
-                            </div>
-
-                            <div
-                                x-show="editMode && roomPaintMode"
-                                x-cloak
-                                x-ref="roomPaintPanel"
-                                x-transition
-                                @pointerdown.stop
-                                class="fixed z-[90] touch-none rounded-lg border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl"
-                                :style="roomPaintPanelStyle()"
-                            >
-                                <div
-                                    class="flex cursor-grab items-start justify-between gap-1.5 border-b border-slate-100 px-2 py-1.5 active:cursor-grabbing"
-                                    @pointerdown="beginRoomPaintPanelDrag($event)"
-                                >
-                                    <div class="flex min-w-0 items-start gap-1">
-                                        <i data-lucide="grip-vertical" class="mt-0.5 h-3 w-3 shrink-0 text-slate-400"></i>
-                                        <div class="min-w-0">
-                                            <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
-                                            <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
-                                        </div>
-                                    </div>
-                                    <span
-                                        x-show="selectedRoom"
-                                        class="shrink-0 rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
-                                        x-text="roomPaintColor || 'No color selected'"
-                                    ></span>
-                                </div>
-
-                                <div class="space-y-2 p-2">
-                                    <div>
-                                        <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
-                                        <input
-                                            x-model="roomPaintColor"
-                                            type="color"
-                                            class="h-6 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
-                                        <div class="grid grid-cols-8 gap-1">
-                                            <template x-for="color in roomPaintPresets" :key="color">
-                                                <button
-                                                    type="button"
-                                                    @click="roomPaintColor = color"
-                                                    class="h-5 w-full rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
-                                                    :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-1' : ''"
-                                                    :style="`background:${color}`"
-                                                    :data-tooltip="color"
-                                                ></button>
-                                            </template>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        @click="resetSelectedRoomColor()"
-                                        :disabled="!selectedRoom"
-                                        class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                    >
-                                        Reset room color
-                                    </button>
-                                </div>
                             </div>
 
                         </div>
@@ -741,12 +736,26 @@
                                             : 'No departments';
                                         $reportCount = (int) ($room->report_count ?? 0);
                                         $reportLabel = $reportCount === 1 ? '1 report' : "{$reportCount} reports";
-                                        $hoverTitle = "{$room->room_name} · {$statusLabel}\nDepartments: {$deptLabel}\n{$reportLabel}";
+                                        $maintScopes = collect($room->maintenance_scopes ?? [])
+                                            ->filter()
+                                            ->values()
+                                            ->all();
+                                        $statusLine = $statusLabel;
+                                        if (
+                                            strtolower($layoutStatus) === 'under-maintenance'
+                                            || strcasecmp($statusLabel, 'Under Maintenance') === 0
+                                        ) {
+                                            $scopeText = count($maintScopes)
+                                                ? implode(', ', $maintScopes)
+                                                : 'Entire room';
+                                            $statusLine = "Under Maintenance · {$scopeText}";
+                                        }
+                                        $hoverTitle = "{$room->room_name} · {$statusLine}\nDepartments: {$deptLabel}\n{$reportLabel}";
                                     @endphp
                                     <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
-                                        @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } selectRoom({{ $room->room_id }})"
+                                        @click.stop="selectRoom({{ $room->room_id }})"
                                         @dblclick.stop="openRoomInspector({{ $room->room_id }})"
                                         title="{{ e($hoverTitle) }}"
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $layoutStatus === 'critical' ? 'critical-room' : '' }}"
@@ -980,6 +989,163 @@
 
         @include ("admin.infrastructure.campus-wizard")
 
+        {{-- Floor health detailed report modal --}}
+        <div
+            x-show="floorHealthReportOpen"
+            x-transition.opacity
+            x-cloak
+            class="fixed inset-0 z-[1200] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @keydown.escape.window="floorHealthReportOpen && (floorHealthReportOpen = false)"
+            @click.self="floorHealthReportOpen = false"
+        >
+            <div
+                @click.stop
+                class="flex max-h-[min(92dvh,880px)] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl"
+                x-effect="floorHealthReportOpen && $nextTick(() => { if (window.lucide) lucide.createIcons(); })"
+            >
+                <div class="shrink-0 border-b border-slate-100 px-6 pb-4 pt-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-extrabold uppercase tracking-[.22em] text-slate-400">
+                                Infrastructure
+                            </p>
+                            <h2 class="mt-1 text-xl font-bold text-[#1A1A1A]">
+                                Floor health report
+                            </h2>
+                            <p class="mt-1 text-sm text-slate-500">
+                                <span x-text="activeFloorLabel"></span>
+                                <span> · </span>
+                                <span x-text="floorStats.rooms"></span>
+                                <span> rooms</span>
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="floorHealthReportOpen = false"
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                            aria-label="Close report"
+                        >
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                    <div>
+                        <h3 class="text-[13px] font-bold text-[#1A1A1A]">Room health</h3>
+                        <template x-if="floorHealthReportRooms.length === 0">
+                            <p class="mt-3 py-6 text-center text-sm text-slate-400">No rooms on this floor yet.</p>
+                        </template>
+                        <div class="mt-3 space-y-3">
+                            <template x-for="room in floorHealthReportRooms" :key="'report-health-' + room.id">
+                                <button
+                                    type="button"
+                                    @click="focusInsightRoom(room.id); floorHealthReportOpen = false"
+                                    class="flex w-full items-center gap-3 rounded-2xl border border-slate-100 px-3 py-2.5 text-left transition hover:border-slate-200 hover:bg-slate-50"
+                                >
+                                    <span
+                                        class="h-9 w-9 shrink-0 rounded-full ring-2 ring-white"
+                                        :style="`background:${room.color}`"
+                                    ></span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="flex items-center justify-between gap-2">
+                                            <span class="truncate text-[13px] font-semibold text-[#333333]" x-text="room.name"></span>
+                                            <span class="shrink-0 text-[13px] font-bold text-[#1A1A1A]" x-text="room.health + '%'"></span>
+                                        </span>
+                                        <span class="mt-1.5 block h-[5px] overflow-hidden rounded-full bg-[#E5E5E5]">
+                                            <span
+                                                class="block h-full rounded-full bg-[#3B82F6] transition-all duration-500"
+                                                :style="`width:${room.health}%`"
+                                            ></span>
+                                        </span>
+                                        <span class="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
+                                            <span x-text="room.status"></span>
+                                            <span x-text="room.reports + (room.reports === 1 ? ' issue' : ' issues')"></span>
+                                            <span x-text="room.assets + ' equipment'"></span>
+                                        </span>
+                                    </span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="mt-6" x-show="attentionRooms.length > 0">
+                        <h3 class="text-[13px] font-bold text-[#1A1A1A]">Needs attention</h3>
+                        <div class="mt-3 space-y-2">
+                            <template x-for="room in attentionRooms" :key="'report-attn-' + room.id">
+                                <div class="flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-3.5 py-2.5">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-[13px] font-semibold text-slate-800" x-text="room.name"></p>
+                                        <p class="mt-0.5 text-[11px] text-slate-500">
+                                            <span x-text="room.status || 'Normal'"></span>
+                                            <span> · </span>
+                                            <span x-text="room.reports"></span>
+                                            <span x-text="room.reports === 1 ? ' issue' : ' issues'"></span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="focusInsightRoom(room.id); floorHealthReportOpen = false"
+                                        class="shrink-0 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-amber-50"
+                                    >
+                                        View
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="mt-6" x-show="floorHotIssues.length > 0">
+                        <h3 class="text-[13px] font-bold text-[#1A1A1A]">Frequent issues</h3>
+                        <div class="mt-3 space-y-2">
+                            <template x-for="issue in floorHotIssues" :key="'report-issue-' + issue.label">
+                                <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-3.5 py-2.5">
+                                    <p class="min-w-0 truncate text-[13px] font-medium text-slate-700" x-text="issue.label"></p>
+                                    <span
+                                        class="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600"
+                                        x-text="issue.count + '×'"
+                                    ></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="mt-6" x-show="upcomingSchedules.length > 0">
+                        <h3 class="text-[13px] font-bold text-[#1A1A1A]">Upcoming maintenance</h3>
+                        <div class="mt-3 space-y-2">
+                            <template x-for="(item, idx) in upcomingSchedules.slice(0, 6)" :key="'report-sched-' + idx">
+                                <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-3.5 py-2.5">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-[13px] font-semibold text-slate-800" x-text="item.title"></p>
+                                        <p class="mt-0.5 truncate text-[11px] text-slate-500">
+                                            <span x-text="item.roomName"></span>
+                                            <span> · </span>
+                                            <span x-text="item.equipment"></span>
+                                        </p>
+                                    </div>
+                                    <span
+                                        class="shrink-0 text-[11px] font-semibold"
+                                        :class="scheduleIsOverdue(item.date) ? 'text-rose-600' : 'text-slate-500'"
+                                        x-text="formatInsightDate(item.date)"
+                                    ></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shrink-0 border-t border-slate-100 px-6 py-4">
+                    <button
+                        type="button"
+                        @click="floorHealthReportOpen = false"
+                        class="w-full rounded-xl border border-slate-200 bg-white py-3 text-[13px] font-semibold text-[#333333] transition hover:bg-slate-50"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div
             x-show="roomManager.open"
             x-transition.opacity
@@ -1044,6 +1210,7 @@
                         <input
                             type="text"
                             x-model="roomManager.name"
+                            maxlength="{{ \App\Support\InputLimits::ROOM_NAME }}"
                             class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-[#005EA6] focus:ring-4 focus:ring-blue-100"
                             placeholder="Example: Comlab 1"
                         />
@@ -1113,6 +1280,7 @@
             "
             class="fixed inset-0 z-[1250] flex items-center justify-center bg-[#0b1220]/70"
             :class="roomLayout.fullscreen ? 'p-0' : 'p-4'"
+            @click.self="if (!roomLayout.edit) requestCloseRoomLayout()"
         >
             <div
                 class="flex w-full flex-col overflow-hidden bg-white shadow-2xl"
@@ -1516,9 +1684,13 @@
                                                 :class="
                                                     (asset.condition || '') === 'Good'
                                                         ? 'bg-emerald-50 text-emerald-700'
-                                                        : (asset.condition || '') === 'Damaged'
-                                                            ? 'bg-rose-50 text-rose-700'
-                                                            : 'bg-slate-100 text-slate-600'
+                                                        : (asset.condition || '') === 'Under Maintenance'
+                                                            ? 'bg-amber-50 text-amber-700'
+                                                            : (asset.condition || '') === 'Defective'
+                                                                ? 'bg-orange-50 text-orange-700'
+                                                                : (asset.condition || '') === 'Damaged'
+                                                                    ? 'bg-rose-50 text-rose-700'
+                                                                    : 'bg-slate-100 text-slate-600'
                                                 "
                                             >
                                                 <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>
@@ -1637,9 +1809,13 @@
                                                             :class="
                                                                 (group.members[0]?.condition || '') === 'Good'
                                                                     ? 'bg-emerald-50 text-emerald-700'
-                                                                    : (group.members[0]?.condition || '') === 'Damaged'
-                                                                        ? 'bg-rose-50 text-rose-700'
-                                                                        : 'bg-slate-100 text-slate-600'
+                                                                    : (group.members[0]?.condition || '') === 'Under Maintenance'
+                                                                        ? 'bg-amber-50 text-amber-700'
+                                                                        : (group.members[0]?.condition || '') === 'Defective'
+                                                                            ? 'bg-orange-50 text-orange-700'
+                                                                            : (group.members[0]?.condition || '') === 'Damaged'
+                                                                                ? 'bg-rose-50 text-rose-700'
+                                                                                : 'bg-slate-100 text-slate-600'
                                                             "
                                                             x-text="group.members[0]?.condition || 'Unknown'"
                                                         ></span>
@@ -1680,6 +1856,7 @@
             x-transition.opacity
             x-cloak
             class="fixed inset-0 z-[1300] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @click.self="closeLayoutModal.open = false"
         >
 
             <div
@@ -1816,6 +1993,7 @@
             x-transition.opacity
             x-cloak
             class="fixed inset-0 z-[1301] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @click.self="blueprintLayoutModal.open = false"
         >
 
             <div
@@ -2648,17 +2826,6 @@
                     zoomInput: "100",
                     roomRotationInput: 0,
                     roomPaintMode: false,
-                    roomPaintColor: '#FFF200',
-                    roomPaintPresets: [
-                        '#FFF200',
-                        '#84CC16',
-                        '#22C55E',
-                        '#38BDF8',
-                        '#A78BFA',
-                        '#F97316',
-                        '#EF4444',
-                        '#94A3B8',
-                    ],
                     roomPaintPanel: {
                         x: null,
                         y: null,
@@ -2667,6 +2834,12 @@
                         grabY: 0,
                         pointerId: null,
                     },
+                    statusPaletteUrl: @js($statusPaletteUrl ?? ''),
+                    statusPalette: @js($statusPalette ?? ['normal' => '#3B82F6', 'under_maintenance' => '#F59E0B', 'critical' => '#EF4444']),
+                    statusPaletteDefaults: @js($statusPaletteDefaults ?? ['normal' => '#3B82F6', 'under_maintenance' => '#F59E0B', 'critical' => '#EF4444']),
+                    statusPaletteDraft: @js($statusPalette ?? ['normal' => '#3B82F6', 'under_maintenance' => '#F59E0B', 'critical' => '#EF4444']),
+                    statusPaletteOpen: false,
+                    statusPaletteSaving: false,
                     selectedRoomControl: {
                         x: 0,
                         y: 0,
@@ -2818,6 +2991,7 @@
                         message:""
 
                     },
+                    floorHealthReportOpen: false,
                     
                     wizardOpen: {{
                 $errors->getBag("campusWizard")->any()
@@ -3063,6 +3237,37 @@
                             .sort((a, b) => b.health - a.health)
                             .slice(0, 2);
                     },
+                    get floorHealthReportRooms() {
+                        return this.floorRooms
+                            .map((room) => {
+                                const monitoring = room.monitoring || {};
+                                const monitored = Number(
+                                    monitoring.equipment_count || 0,
+                                );
+                                const assets =
+                                    monitored > 0
+                                        ? monitored
+                                        : Array.isArray(room.equipment)
+                                          ? room.equipment.length
+                                          : 0;
+
+                                return {
+                                    id: room.id,
+                                    name: room.name,
+                                    color:
+                                        room.statusColor ||
+                                        room.color ||
+                                        "#3B82F6",
+                                    health: this.roomHealthPercent(room),
+                                    status: room.status || "Normal",
+                                    reports: Number(
+                                        monitoring.active_reports || 0,
+                                    ),
+                                    assets,
+                                };
+                            })
+                            .sort((a, b) => b.health - a.health);
+                    },
                     get floorHealthAverage() {
                         if (!this.floorRooms.length) {
                             return 0;
@@ -3110,10 +3315,13 @@
                             })
                             .join(" ");
                     },
-                    scrollToFloorInsights() {
-                        document
-                            .querySelector("[data-floor-insights]")
-                            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    openFloorHealthReport() {
+                        this.floorHealthReportOpen = true;
+                        this.$nextTick(() => {
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
                     },
                     formatInsightDate(value) {
                         if (!value) {
@@ -5393,7 +5601,8 @@
                         }
                     },
                     showingLayoutPaintColors() {
-                        return !!(this.editMode && this.roomPaintMode);
+                        // Per-room blueprint paint abandoned; map always uses status colors.
+                        return false;
                     },
                     formatDepartmentsLabel(departments) {
                         if (!Array.isArray(departments) || departments.length === 0) {
@@ -5411,7 +5620,19 @@
                             return "";
                         }
 
-                        const status = room.status || "Normal";
+                        let status = room.status || "Normal";
+                        const layout = String(room.layoutStatus || "").toLowerCase();
+                        const scopes = Array.isArray(room.maintenanceScopes)
+                            ? room.maintenanceScopes.filter(Boolean)
+                            : [];
+                        if (
+                            layout === "under-maintenance" ||
+                            String(status).toLowerCase().includes("maintenance")
+                        ) {
+                            status =
+                                "Under Maintenance · " +
+                                (scopes.length ? scopes.join(", ") : "Entire room");
+                        }
                         const reports = Number(room.reportCount || 0);
                         const reportLabel = reports === 1 ? "1 report" : `${reports} reports`;
 
@@ -5419,16 +5640,93 @@
                     },
                     statusColorForLabel(status) {
                         const value = String(status || "").toLowerCase();
+                        const palette = this.statusPalette || {};
 
                         if (value === "critical") {
-                            return "#EF4444";
+                            return palette.critical || "#EF4444";
                         }
 
                         if (value === "under maintenance" || value === "under-maintenance") {
-                            return "#F59E0B";
+                            return palette.under_maintenance || "#F59E0B";
                         }
 
-                        return "#3B82F6";
+                        return palette.normal || "#3B82F6";
+                    },
+                    applyStatusPalette(palette = {}) {
+                        this.statusPalette = {
+                            normal: palette.normal || this.statusPaletteDefaults?.normal || "#3B82F6",
+                            under_maintenance:
+                                palette.under_maintenance ||
+                                this.statusPaletteDefaults?.under_maintenance ||
+                                "#F59E0B",
+                            critical:
+                                palette.critical || this.statusPaletteDefaults?.critical || "#EF4444",
+                        };
+                        this.statusPaletteDraft = { ...this.statusPalette };
+
+                        (this.roomCatalog || []).forEach((room) => {
+                            room.statusColor = this.statusColorForLabel(
+                                room.layoutStatus || room.status,
+                            );
+                            if (room.monitoring?.room_information) {
+                                room.monitoring.room_information.status_color = room.statusColor;
+                            }
+                            this.syncRoomBlockVisual(room.id);
+                        });
+                    },
+                    resetStatusPaletteDraft() {
+                        const defaults = this.statusPaletteDefaults || {
+                            normal: "#3B82F6",
+                            under_maintenance: "#F59E0B",
+                            critical: "#EF4444",
+                        };
+                        this.statusPaletteDraft = { ...defaults };
+                    },
+                    async saveStatusPalette(options = {}) {
+                        if (!this.statusPaletteUrl || this.statusPaletteSaving) {
+                            return;
+                        }
+
+                        this.statusPaletteSaving = true;
+
+                        try {
+                            const body = options.reset
+                                ? { reset: true }
+                                : {
+                                      normal: this.statusPaletteDraft.normal,
+                                      under_maintenance: this.statusPaletteDraft.under_maintenance,
+                                      critical: this.statusPaletteDraft.critical,
+                                  };
+
+                            const response = await fetch(this.statusPaletteUrl, {
+                                method: "PUT",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Accept: "application/json",
+                                    "X-CSRF-TOKEN":
+                                        document.querySelector('meta[name="csrf-token"]')
+                                            ?.content || "",
+                                },
+                                body: JSON.stringify(body),
+                            });
+
+                            if (!response.ok) {
+                                throw new Error("Could not save status colors");
+                            }
+
+                            const payload = await response.json();
+                            if (payload.defaults) {
+                                this.statusPaletteDefaults = payload.defaults;
+                            }
+                            this.applyStatusPalette(payload.palette || this.statusPaletteDraft);
+                            this.statusPaletteOpen = false;
+                            this.toast = "Status colors updated.";
+                        } catch (error) {
+                            console.error(error);
+                            this.toast = "Could not save status colors.";
+                        } finally {
+                            this.statusPaletteSaving = false;
+                        }
                     },
                     applyRoomBlockFill(node, color) {
                         if (!node || !color) {
@@ -5453,17 +5751,11 @@
                             return;
                         }
 
-                        const layoutColor =
-                            room.layoutColor || room.color || this.defaultRoomColor(room.type);
                         const statusColor =
-                            room.statusColor || this.statusColorForLabel(room.status);
-                        const fillColor = this.showingLayoutPaintColors()
-                            ? layoutColor
-                            : statusColor;
+                            room.statusColor ||
+                            this.statusColorForLabel(room.layoutStatus || room.status);
 
-                        room.color = layoutColor;
-                        room.layoutColor = layoutColor;
-                        node.dataset.color = layoutColor;
+                        room.statusColor = statusColor;
                         node.dataset.statusColor = statusColor;
                         node.dataset.statusLabel = room.status || "Normal";
                         node.dataset.layoutStatus = room.layoutStatus || "normal";
@@ -5475,7 +5767,7 @@
                                 String(room.status || "").toLowerCase() === "critical",
                         );
 
-                        this.applyRoomBlockFill(node, fillColor);
+                        this.applyRoomBlockFill(node, statusColor);
 
                         const statusDot = node.querySelector(".room-status");
                         if (statusDot) {
@@ -5541,6 +5833,17 @@
                             }
 
                             const payload = await response.json();
+                            if (payload.palette) {
+                                this.statusPalette = {
+                                    normal: payload.palette.normal || this.statusPalette.normal,
+                                    under_maintenance:
+                                        payload.palette.under_maintenance ||
+                                        this.statusPalette.under_maintenance,
+                                    critical:
+                                        payload.palette.critical || this.statusPalette.critical,
+                                };
+                                this.statusPaletteDraft = { ...this.statusPalette };
+                            }
                             const byId = new Map(
                                 (payload.rooms || []).map((room) => [Number(room.id), room]),
                             );
@@ -5562,6 +5865,9 @@
                                 room.mediumReportCount = Number(next.mediumReportCount || 0);
                                 room.lowReportCount = Number(next.lowReportCount || 0);
                                 room.underMaintenanceScheduled = !!next.underMaintenanceScheduled;
+                                room.maintenanceScopes = next.maintenanceScopes || [];
+                                room.maintenanceSchedules = next.maintenanceSchedules || [];
+                                room.roomInspectionNextDate = next.roomInspectionNextDate || null;
 
                                 if (room.monitoring) {
                                     room.monitoring.active_reports = room.reportCount;
@@ -5576,6 +5882,20 @@
                                             room.layoutStatus;
                                         room.monitoring.room_information.status_color =
                                             room.statusColor;
+                                        room.monitoring.room_information.under_maintenance_scheduled =
+                                            room.underMaintenanceScheduled;
+                                        room.monitoring.room_information.maintenance_scopes =
+                                            room.maintenanceScopes;
+                                        room.monitoring.room_information.maintenance_schedules =
+                                            room.maintenanceSchedules;
+                                        room.monitoring.room_information.room_inspection_next_date =
+                                            room.roomInspectionNextDate;
+                                        room.monitoring.room_information.critical_report_count =
+                                            room.criticalReportCount;
+                                        if (room.roomInspectionNextDate) {
+                                            room.monitoring.room_information.next_maintenance =
+                                                room.roomInspectionNextDate;
+                                        }
                                     }
                                 }
 
@@ -9379,7 +9699,7 @@
                         const assets = slot?.assets || [];
                         if (assets.length === 0) return 'No assets assigned';
 
-                        const failed = assets.filter((asset) => ['Damaged', 'Under Maintenance', 'Disposed'].includes(asset.condition)).length;
+                        const failed = assets.filter((asset) => ['Damaged', 'Defective', 'Under Maintenance', 'Disposed'].includes(asset.condition)).length;
                         if (failed === 0) return 'Healthy';
                         if (failed >= 2) return 'Needs attention';
                         return 'Partially degraded';

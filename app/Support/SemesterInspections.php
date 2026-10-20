@@ -63,20 +63,20 @@ class SemesterInspections
     {
         return match ($condition) {
             'OK' => [
-                'condition' => 'Good',
+                'condition' => EquipmentConditions::GOOD,
                 'inventory' => null,
             ],
             'Malfunctioning' => [
-                'condition' => 'Damaged',
-                'inventory' => 'Under Maintenance',
+                'condition' => EquipmentConditions::DAMAGED,
+                'inventory' => EquipmentInventoryStatuses::UNDER_MAINTENANCE,
             ],
             'Defective' => [
-                'condition' => 'Damaged',
-                'inventory' => 'For Replacement',
+                'condition' => EquipmentConditions::DEFECTIVE,
+                'inventory' => EquipmentInventoryStatuses::FOR_REPLACEMENT,
             ],
             'Destroyed' => [
-                'condition' => 'Damaged',
-                'inventory' => 'For Replacement',
+                'condition' => EquipmentConditions::DAMAGED,
+                'inventory' => EquipmentInventoryStatuses::FOR_REPLACEMENT,
             ],
             default => [
                 'condition' => null,

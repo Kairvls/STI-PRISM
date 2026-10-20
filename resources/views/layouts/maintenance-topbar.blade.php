@@ -13,7 +13,7 @@
                 request()->is('maintenance/reports/log*') => ['Log Walk-in Report', ''],
                 request()->is('maintenance/reports*') => ['Reports', ''],
                 request()->is('maintenance/notifications*') => ['Alerts', ''],
-                request()->is('maintenance/personnel-directory*') => ['Personnel Directory', 'Faculty and staff reporters and their report records.'],
+                request()->is('maintenance/personnel-directory*') => ['Reporters Directory', 'Faculty and staff reporters and their report records.'],
                 request()->is('maintenance/equipment/all') || request()->is('maintenance/equipment/all/*') => ['All Equipment', 'View storage and deployed equipment.'],
                 request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') => ['Inventory', 'Transfer storage stock to a room, person or department.'],
                 request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') => ['Deployed Equipment', 'View, transfer and track equipment in classrooms, labs and offices.'],

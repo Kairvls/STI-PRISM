@@ -39,7 +39,7 @@ class ReceivableStockLines
             $rows->pluck('receiving_report_item_id')->map(fn ($id) => (int) $id)->all()
         );
 
-        return self::hydrate($rows)->map(function ($line) use ($stockedByItem) {
+        $lines = self::hydrate($rows)->map(function ($line) use ($stockedByItem) {
             $itemId = (int) $line->receiving_report_item_id;
             $received = (int) ($line->quantity ?? 0);
             $stocked = (int) ($stockedByItem[$itemId] ?? 0);
@@ -67,6 +67,14 @@ class ReceivableStockLines
 
             return $line;
         })->values();
+
+        return self::flagReplacements($lines);
+    }
+
+    /** Pending RR lines that replace For Replacement / back-order equipment. */
+    public static function pendingReplacementCount(): int
+    {
+        return self::pending()->filter(fn ($line) => ! empty($line->is_replacement))->count();
     }
 
     public static function findPendingItem(int $itemId): ?object
@@ -126,6 +134,7 @@ class ReceivableStockLines
                 'receiving_report_item_supplier_id' => 'ri.receiving_report_item_supplier_id',
                 'receiving_report_item_supplier_name' => 'ri.receiving_report_item_supplier_name',
                 'receiving_report_item_equipment_id' => 'ri.receiving_report_item_equipment_id',
+                'receiving_report_item_back_order_id' => 'ri.receiving_report_item_back_order_id',
             ],
             'receiving_reports_table' => [
                 'receiving_report_form_number' => 'rr.receiving_report_form_number',
@@ -136,6 +145,8 @@ class ReceivableStockLines
                 'receiving_report_supplier_id' => 'rr.receiving_report_supplier_id',
                 'receiving_report_atp_id' => 'rr.receiving_report_atp_id',
                 'receiving_report_request_check_id' => 'rr.receiving_report_request_check_id',
+                'receiving_report_procurement_request_id' => 'rr.receiving_report_procurement_request_id',
+                'receiving_report_ris_id' => 'rr.receiving_report_ris_id',
             ],
         ] as $table => $columns) {
             foreach ($columns as $column => $aliased) {
@@ -317,9 +328,92 @@ class ReceivableStockLines
                 'rr_date' => $rrDate ? (string) $rrDate : null,
                 'invoice_no' => $invoiceNo !== '' ? $invoiceNo : null,
                 'dr_no' => $drNo !== '' ? $drNo : null,
+                'back_order_id' => isset($row->receiving_report_item_back_order_id)
+                    ? ((int) $row->receiving_report_item_back_order_id ?: null)
+                    : null,
+                'procurement_request_id' => isset($row->receiving_report_procurement_request_id)
+                    ? ((int) $row->receiving_report_procurement_request_id ?: null)
+                    : null,
+                'ris_id' => isset($row->receiving_report_ris_id)
+                    ? ((int) $row->receiving_report_ris_id ?: null)
+                    : null,
                 'label' => '',
+                'is_replacement' => false,
+                'is_back_order_replacement' => false,
+                'replaces_label' => null,
             ];
         })->values();
+    }
+
+    /**
+     * Mark lines bought for a replacement request or added as a back-order replacement row.
+     *
+     * @param  Collection<int, object>  $lines
+     * @return Collection<int, object>
+     */
+    private static function flagReplacements(Collection $lines): Collection
+    {
+        if ($lines->isEmpty()) {
+            return $lines;
+        }
+
+        $requestIdByRr = [];
+        $labelByRequest = [];
+
+        foreach ($lines->groupBy(fn ($line) => (int) $line->receiving_report_id) as $rrId => $rrLines) {
+            $sample = $rrLines->first();
+            $rrStub = (object) [
+                'receiving_report_id' => (int) $rrId,
+                'receiving_report_procurement_request_id' => $sample->procurement_request_id ?? null,
+                'receiving_report_ris_id' => $sample->ris_id ?? null,
+                'receiving_report_atp_id' => $sample->authority_purchase_id ?? null,
+            ];
+            $requestId = ReplacementDeliveries::requestIdForRr($rrStub);
+            $requestIdByRr[(int) $rrId] = $requestId;
+            if ($requestId > 0 && ! isset($labelByRequest[$requestId])) {
+                $labelByRequest[$requestId] = ReplacementDeliveries::replacesLabelForRequest($requestId);
+            }
+        }
+
+        $flagged = $lines->map(function ($line) use ($requestIdByRr, $labelByRequest) {
+            $rrId = (int) $line->receiving_report_id;
+            $boId = (int) ($line->back_order_id ?? 0);
+            $requestId = (int) ($requestIdByRr[$rrId] ?? 0);
+            $isBackOrderReplacement = $boId > 0;
+            $isReplacement = $isBackOrderReplacement || $requestId > 0;
+
+            $line->is_replacement = $isReplacement;
+            $line->is_back_order_replacement = $isBackOrderReplacement;
+            $line->replacement_request_id = $requestId > 0 ? $requestId : null;
+            $line->replaces_label = $isReplacement
+                ? ($labelByRequest[$requestId] ?? ($isBackOrderReplacement ? 'Back order replacement' : null))
+                : null;
+            $line->replaces_equipment_id = null;
+
+            return $line;
+        })->values();
+
+        $equipmentIdByRr = [];
+        foreach ($flagged->filter(fn ($line) => ! empty($line->is_replacement))->pluck('receiving_report_id')->unique() as $rrId) {
+            $equipmentIdByRr[(int) $rrId] = ReplacementDeliveries::replacedEquipmentIdForRr((int) $rrId);
+        }
+
+        return $flagged->map(function ($line) use ($equipmentIdByRr) {
+            if (! empty($line->is_replacement)) {
+                $eqId = (int) ($equipmentIdByRr[(int) $line->receiving_report_id] ?? 0);
+                $line->replaces_equipment_id = $eqId > 0 ? $eqId : null;
+            }
+
+            return $line;
+        })->values();
+    }
+
+    /** Pending replacement-linked RR lines ready for Stock & Link. */
+    public static function pendingReplacements(): Collection
+    {
+        return self::pending()
+            ->filter(fn ($line) => ! empty($line->is_replacement))
+            ->values();
     }
 
     /**

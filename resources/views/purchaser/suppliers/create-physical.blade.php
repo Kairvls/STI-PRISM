@@ -11,17 +11,17 @@
 
         <div>
             <label class="text-xs font-medium text-gray-500">Company Name <span class="text-red-500">*</span></label>
-            <input type="text" name="company_name" class="pur-input mt-1" required>
+            <input type="text" name="company_name" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
         </div>
 
         <div class="grid gap-3 lg:grid-cols-2">
             <div>
                 <label class="text-xs font-medium text-gray-500">Contact Person</label>
-                <input type="text" name="contact_person" class="pur-input mt-1">
+                <input type="text" name="contact_person" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1">
             </div>
             <div>
                 <label class="text-xs font-medium text-gray-500">Email</label>
-                <input type="email" name="email_address" class="pur-input mt-1">
+                <input type="email" name="email_address" maxlength="{{ \App\Support\InputLimits::EMAIL }}" class="pur-input mt-1">
             </div>
         </div>
 
@@ -37,7 +37,7 @@
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Company Address</label>
-                <textarea name="company_address" rows="4" class="pur-input mt-1"></textarea>
+                <textarea name="company_address" rows="4" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="pur-input mt-1"></textarea>
             </div>
 
             <div>

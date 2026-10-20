@@ -2333,7 +2333,7 @@
                             <div class="mt-5">
                                 <div class="ris-purpose-lined-wrap">
                                     <label class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></label>
-                                    <textarea name="ris_purpose_description" rows="2" x-model="purposeText" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" x-effect="purposeText; $nextTick(() => autoGrowPurpose($el))" class="ris-purpose-input"></textarea>
+                                    <textarea name="ris_purpose_description" rows="2" maxlength="{{ \App\Support\InputLimits::NOTES }}" x-model="purposeText" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" x-effect="purposeText; $nextTick(() => autoGrowPurpose($el))" class="ris-purpose-input"></textarea>
                                 </div>
                             </div>
 
@@ -2349,7 +2349,7 @@
                                                 alt=""
                                                 class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
                                             >
-                                            <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', $defaultRequestedBy ?? '') }}" autocomplete="off" class="relative z-[1] w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:text-sm">
+                                            <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', $defaultRequestedBy ?? '') }}" maxlength="{{ \App\Support\InputLimits::NAME }}" autocomplete="off" class="relative z-[1] w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 outline-none focus:ring-0 sm:text-sm">
                                         </span>
                                     </div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date: <span class="text-red-500">*</span></label>
@@ -4337,7 +4337,7 @@
                                     <div class="ris-purpose-area">
                                         <div class="ris-purpose-lined-wrap">
                                             <div class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></div>
-                                            <textarea name="ris_purpose_description" rows="2" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
+                                            <textarea name="ris_purpose_description" rows="2" maxlength="{{ \App\Support\InputLimits::NOTES }}" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
                                         </div>
                                     </div>
 
@@ -4352,7 +4352,7 @@
                                                     @if ($editRequestedImage !== '')
                                                         <img src="{{ $editRequestedImage }}" alt="" class="signature-image">
                                                     @endif
-                                                    <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" class="ris-signature-input">
+                                                    <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="ris-signature-input">
                                                 </span>
                                             </div>
                                             <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>

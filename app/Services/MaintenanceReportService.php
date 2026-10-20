@@ -7,6 +7,7 @@ use App\Support\ReportGrouping;
 use App\Support\ReportItems;
 use App\Support\ReporterReportMail;
 use App\Support\ReportSeverity;
+use App\Support\ReportStatuses;
 use App\Support\RoomCategories;
 use Illuminate\Support\Facades\DB;
 
@@ -77,7 +78,7 @@ class MaintenanceReportService
                             WHERE duplicate_reports.report_equipment_id = reports_table.report_equipment_id
                               AND duplicate_reports.report_room_id = reports_table.report_room_id
                               AND duplicate_reports.report_is_archived = 0
-                              AND duplicate_reports.report_current_status IN (?, ?, ?, ?)
+                              AND duplicate_reports.report_current_status IN ('.ReportGrouping::groupedStatusPlaceholders().')
                               AND '.ReportGrouping::groupBucketSql('duplicate_reports').'
                                 = '.ReportGrouping::groupBucketSql('reports_table').'
                         )',
@@ -207,6 +208,12 @@ class MaintenanceReportService
     ): array {
         $newStatus = (string) ($input['status'] ?? '');
         $remarks = trim((string) ($input['remarks'] ?? ''));
+        if (mb_strlen($remarks) > \App\Support\InputLimits::NOTES) {
+            return [
+                'success' => false,
+                'message' => 'Remarks must not exceed '.\App\Support\InputLimits::NOTES.' characters.',
+            ];
+        }
         $selectedItemIds = collect($input['report_item_ids'] ?? [])
             ->map(fn ($itemId) => (int) $itemId)
             ->filter(fn ($itemId) => $itemId > 0)
@@ -253,10 +260,7 @@ class MaintenanceReportService
                 return;
             }
 
-            $allowedTransitions = [
-                'Pending' => ['Processing', 'Rejected'],
-                'Processing' => ['Resolved', 'For Replacement'],
-            ];
+            $allowedTransitions = \App\Support\ReportStatuses::transitions();
 
             if (
                 ! isset($allowedTransitions[$report->report_current_status])
@@ -321,6 +325,22 @@ class MaintenanceReportService
                     $result = [
                         'success' => true,
                         'message' => 'Report rejected successfully.',
+                        'report' => $this->getReportPayload($id),
+                    ];
+
+                    return;
+                }
+
+                if ($newStatus === ReportStatuses::CLOSED_CANCELLED) {
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => ReportStatuses::CLOSED_CANCELLED,
+                        'report_rejection_notes' => $remarks !== '' ? $remarks : null,
+                        'report_updated_at' => now(),
+                    ]);
+
+                    $result = [
+                        'success' => true,
+                        'message' => 'Report closed / cancelled successfully.',
                         'report' => $this->getReportPayload($id),
                     ];
 
@@ -493,6 +513,86 @@ class MaintenanceReportService
                     $result = [
                         'success' => true,
                         'message' => 'Report submitted for replacement successfully.',
+                        'report' => $this->getReportPayload($id),
+                    ];
+
+                    return;
+                }
+
+                if ($newStatus === 'Rejected') {
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => 'Rejected',
+                        'report_rejection_notes' => $remarks !== '' ? $remarks : null,
+                        'report_updated_at' => now(),
+                    ]);
+
+                    $result = [
+                        'success' => true,
+                        'message' => 'Report rejected successfully.',
+                        'report' => $this->getReportPayload($id),
+                    ];
+
+                    return;
+                }
+
+                if ($newStatus === ReportStatuses::CLOSED_CANCELLED) {
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => ReportStatuses::CLOSED_CANCELLED,
+                        'report_rejection_notes' => $remarks !== '' ? $remarks : null,
+                        'report_updated_at' => now(),
+                    ]);
+
+                    $result = [
+                        'success' => true,
+                        'message' => 'Report closed / cancelled successfully.',
+                        'report' => $this->getReportPayload($id),
+                    ];
+
+                    return;
+                }
+            }
+
+            if ($report->report_current_status === ReportStatuses::FOR_REPLACEMENT) {
+                if (
+                    ! $adminOverride
+                    && (int) $report->report_assigned_personnel_id !== (int) $personnelId
+                    && $report->report_assigned_personnel_id !== null
+                ) {
+                    $result = [
+                        'success' => false,
+                        'message' => 'You are not assigned to this report.',
+                    ];
+
+                    return;
+                }
+
+                if ($newStatus === ReportStatuses::RESOLVED) {
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => ReportStatuses::RESOLVED,
+                        'report_resolution_notes' => $remarks !== '' ? $remarks : null,
+                        'report_resolution_image' => $imagePath,
+                        'report_updated_at' => now(),
+                    ]);
+
+                    $result = [
+                        'success' => true,
+                        'message' => 'Report resolved successfully.',
+                        'report' => $this->getReportPayload($id),
+                    ];
+
+                    return;
+                }
+
+                if ($newStatus === ReportStatuses::CLOSED_CANCELLED) {
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => ReportStatuses::CLOSED_CANCELLED,
+                        'report_rejection_notes' => $remarks !== '' ? $remarks : null,
+                        'report_updated_at' => now(),
+                    ]);
+
+                    $result = [
+                        'success' => true,
+                        'message' => 'Report closed / cancelled successfully.',
                         'report' => $this->getReportPayload($id),
                     ];
 

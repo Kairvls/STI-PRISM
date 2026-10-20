@@ -24,19 +24,19 @@
 
     $conditionClass = match ($condition) {
         'Good' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        'Fair' => 'border-sky-200 bg-sky-50 text-sky-700',
-        'Damaged' => 'border-amber-200 bg-amber-50 text-amber-700',
         'Under Maintenance' => 'border-amber-200 bg-amber-50 text-amber-700',
-        'Critical' => 'border-rose-200 bg-rose-50 text-rose-700',
-        'Disposed' => 'border-rose-200 bg-rose-50 text-rose-700',
+        'Defective' => 'border-orange-200 bg-orange-50 text-orange-700',
+        'Damaged' => 'border-rose-200 bg-rose-50 text-rose-700',
+        'Disposed' => 'border-slate-200 bg-slate-100 text-slate-700',
         default => 'border-slate-200 bg-slate-50 text-slate-600',
     };
 
     $conditionDot = match ($condition) {
         'Good' => 'bg-emerald-500',
-        'Fair' => 'bg-sky-500',
-        'Damaged', 'Under Maintenance' => 'bg-amber-500',
-        'Critical', 'Disposed' => 'bg-rose-500',
+        'Under Maintenance' => 'bg-amber-500',
+        'Defective' => 'bg-orange-500',
+        'Damaged' => 'bg-rose-500',
+        'Disposed' => 'bg-slate-500',
         default => 'bg-slate-400',
     };
 
@@ -60,13 +60,13 @@
 @endphp
 
 <div class="admin-page space-y-6">
+    @php
+        $equipmentBack = $equipmentBack ?? [
+            'url' => \App\Support\AdminPortal::route('operations.equipment'),
+            'label' => 'Equipment Monitor',
+        ];
+    @endphp
     <header>
-        <div class="mb-4 flex items-center gap-2 text-sm text-slate-400">
-            <a href="{{ \App\Support\AdminPortal::route('operations.equipment') }}" class="transition hover:text-slate-700">Equipment Monitor</a>
-            <i data-lucide="chevron-right" class="h-4 w-4"></i>
-            <span class="font-medium text-slate-600">Equipment details</span>
-        </div>
-
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
                 <h1 class="truncate text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
@@ -114,11 +114,11 @@
             </div>
 
             <a
-                href="{{ \App\Support\AdminPortal::route('operations.equipment') }}"
+                href="{{ $equipmentBack['url'] }}"
                 class="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
             >
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>
-                Back to Equipment
+                Back to {{ $equipmentBack['label'] }}
             </a>
         </div>
     </header>
@@ -147,7 +147,7 @@
                             <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_name) }}</dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-slate-500">Category</dt>
+                            <dt class="text-sm text-slate-500">Classification</dt>
                             <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_category_name) }}</dd>
                         </div>
                         <div>

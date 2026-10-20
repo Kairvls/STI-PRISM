@@ -44,17 +44,18 @@
     <div class="mt-auto">
         <div class="mt-5 flex items-center gap-4 border-t border-[#E0E0E0] pt-4">
             <p class="min-w-0 flex-1 text-[13px] font-bold text-[#1A1A1A]">
-                <span x-text="floorStats.equipment"></span> assets tracked
+                <span x-text="floorStats.equipment"></span> equipment tracked
             </p>
             <span class="h-4 w-px shrink-0 bg-[#DDDDDD]"></span>
             <p class="shrink-0 text-[13px] font-normal text-[#888888]">
-                <span x-text="floorStats.todayReports"></span> reports today
+                <span x-text="floorStats.todayReports"></span>
+                <span x-text="floorStats.todayReports === 1 ? ' issue today' : ' issues today'"></span>
             </p>
         </div>
 
         <button
             type="button"
-            @click="scrollToFloorInsights()"
+            @click="openFloorHealthReport()"
             class="mt-4 flex w-full items-center justify-center border border-slate-200 rounded-xl bg-white py-3.5 text-[13px] font-semibold text-[#333333] transition hover:bg-slate-100"
         >
             View detailed report

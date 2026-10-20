@@ -40,6 +40,7 @@ class PersonController extends Controller
         $person = Persons::find($id);
         abort_unless($person, 404);
 
+        $viewOnly = request()->is('school-admin') || request()->is('school-admin/*');
         $overlays = Persons::overlays($id);
         $reports = Persons::reportsFor($id, 50);
         $heldEquipment = Persons::heldEquipmentFor($id);
@@ -49,20 +50,30 @@ class PersonController extends Controller
             ? (int) $overlays['custodian_id']
             : \App\Support\Custodians::idForEmployee((string) $person->person_employee_id);
 
+        $personBack = \App\Support\PersonViewReturn::resolve(request());
+        if ($viewOnly && ($personBack['label'] ?? '') === 'All faculty & staff') {
+            $personBack = [
+                'url' => route('school-admin.departments.index'),
+                'label' => 'Departments',
+            ];
+        }
+
         return view('admin.persons.show', [
             'person' => $person,
             'overlays' => $overlays,
             'departments' => Departments::options((int) ($person->person_department_id ?: 0) ?: null),
-            'reporterUrl' => $overlays['reporter_id']
+            'personBack' => $personBack,
+            'viewOnly' => $viewOnly,
+            'reporterUrl' => (! $viewOnly && $overlays['reporter_id'])
                 ? url('/admin/reporters?search='.urlencode((string) $person->person_employee_id))
                 : null,
-            'reporterHistoryUrl' => $overlays['reporter_id']
+            'reporterHistoryUrl' => (! $viewOnly && $overlays['reporter_id'])
                 ? url('/admin/reporters?history='.(int) $overlays['reporter_id'])
                 : null,
-            'custodianUrl' => $resolvedCustodianId
+            'custodianUrl' => (! $viewOnly && $resolvedCustodianId)
                 ? PropertyAssignments::route('person', $resolvedCustodianId)
                 : null,
-            'userUrl' => $overlays['user_id']
+            'userUrl' => (! $viewOnly && $overlays['user_id'])
                 ? url('/admin/users?search='.urlencode((string) $person->person_employee_id))
                 : null,
             'reports' => $reports,
@@ -110,6 +121,9 @@ class PersonController extends Controller
     public function update(Request $request, int $id)
     {
         abort_unless(Persons::find($id), 404);
+        if ($request->is('school-admin') || $request->is('school-admin/*')) {
+            abort(403, 'School Administrators can view faculty and staff only.');
+        }
 
         PersonNames::cleanRequest($request, ['first_name', 'middle_name', 'last_name']);
         $this->normalizeContactInput($request);
@@ -121,7 +135,7 @@ class PersonController extends Controller
             return back()->with('error', $e->getMessage())->withInput();
         }
 
-        return redirect()->route('admin.persons.show', $id)
+        return redirect(\App\Support\PersonViewReturn::showUrl($id, $request->input('return')))
             ->with('success', 'Faculty/staff details saved.');
     }
 
@@ -298,7 +312,7 @@ class PersonController extends Controller
             'last_name' => PersonNames::rules(),
             'employment_basis' => ['nullable', Rule::in(Persons::BASES)],
             'department_id' => ['nullable', 'integer', 'min:1'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['nullable', 'email', 'max:'.\App\Support\InputLimits::EMAIL],
             'contact' => PhoneNumber::rules(),
             'status' => ['nullable', Rule::in([Persons::STATUS_ACTIVE, Persons::STATUS_INACTIVE])],
         ], [

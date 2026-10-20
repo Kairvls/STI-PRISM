@@ -309,13 +309,13 @@
 
                 <div class="space-y-4 px-6 py-6">
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Category <span class="text-red-500">*</span></label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Classification <span class="text-red-500">*</span></label>
                         <select
                             name="issue_template_category_id"
                             required
                             class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         >
-                            <option value="">Select category</option>
+                            <option value="">Select classification</option>
                             @foreach ($categories as $category)
                                 <option value="{{ $category->equipment_category_id }}">
                                     {{ $category->equipment_category_name }}
@@ -413,7 +413,7 @@
 
                 <div class="space-y-4 px-6 py-6">
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-700">Category <span class="text-red-500">*</span></label>
+                        <label class="mb-2 block text-sm font-semibold text-slate-700">Classification <span class="text-red-500">*</span></label>
                         <select
                             name="issue_template_category_id"
                             x-model="editCategory"

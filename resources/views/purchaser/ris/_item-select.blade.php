@@ -61,6 +61,7 @@
                 x-on:keydown.escape.stop="closeRisSelect()"
                 x-on:keydown.enter.prevent="const first = filteredRisOptions('itemOptions')[0]; if (first) pickRisItem({{ $listVar }}, index, first.label)"
                 placeholder="Search items..."
+                maxlength="{{ \App\Support\InputLimits::NAME }}"
                 class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:border-gray-300 focus:bg-white"
             >
         </div>

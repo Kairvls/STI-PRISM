@@ -18,13 +18,14 @@
         $statusMap = [
             'Pending' => 'bg-amber-50 text-amber-700',
             'Processing' => 'bg-sky-50 text-sky-700',
+            'For Replacement' => 'bg-violet-50 text-violet-700',
             'Resolved' => 'bg-emerald-50 text-emerald-700',
             'Rejected' => 'bg-rose-50 text-rose-700',
-            'For Replacement' => 'bg-orange-50 text-orange-700',
+            'Closed / Cancelled' => 'bg-slate-200 text-slate-700',
         ];
         $statusPill = $statusMap[$report->report_current_status] ?? 'bg-slate-100 text-slate-600';
         $severityLevel = \App\Support\ReportSeverity::forReport($report);
-        $urgencyPill = \App\Support\ReportSeverity::meta($severityLevel)['pill'];
+        $priorityPill = \App\Support\ReportSeverity::meta($severityLevel)['pill'];
         $historyCount = collect($report->report_timeline ?? $report->equipment_report_history ?? [])->count();
         $viewItems = collect($report->report_items ?? []);
         $showItemPhotos = $viewItems->count() > 1
@@ -82,7 +83,7 @@
                             <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $statusPill }}">
                                 {{ $report->report_current_status }}
                             </span>
-                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $urgencyPill }}">
+                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $priorityPill }}">
                                 {{ $severityLevel }} priority
                             </span>
                         </div>

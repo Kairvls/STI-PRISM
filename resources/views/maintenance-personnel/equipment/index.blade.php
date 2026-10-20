@@ -13,7 +13,8 @@
         $equipmentActionBase = $inAdminPortal ? '/admin/inventory' : '/maintenance/equipment';
         $disposeAction = $inAdminPortal ? '/admin/inventory/dispose' : '/maintenance/disposal/store';
         $showHistory = $isStockPage && ($movementHistory ?? null) !== null && request('view') === 'history';
-        $selectable = $canTransfer && ! $showHistory;
+        $showReplacementArrived = $isStockPage && request('view') === 'replacement';
+        $selectable = $canTransfer && ! $showHistory && ! $showReplacementArrived;
         $acquisitionReady = \App\Support\EquipmentAcquisition::ready();
         $acquisitionSuppliers = \App\Support\EquipmentAcquisition::supplierOptions();
         $acquisitionPeople = $isStockPage ? \App\Support\Custodians::assignable() : collect();
@@ -57,7 +58,7 @@
                     @endif
                 </a>
                 @endif
-                @if ($canTransfer && ! $showHistory)
+                @if ($canTransfer && ! $showHistory && ! $showReplacementArrived)
                 <button
                     type="button"
                     id="inventoryTransferSelectedBtn"
@@ -96,6 +97,7 @@
                 @php
                     $openBalanceReports = $openBalance['reports'] ?? [];
                     $openBalancePending = (int) (($openBalance['totals']['pending_stock'] ?? 0));
+                    $openBalancePendingReplacement = (int) (($openBalance['totals']['pending_replacement'] ?? 0));
                     $monitoringGhost = (int) (($monitoring['ghost_count'] ?? null) ?? count($monitoring['ghost'] ?? []));
                     $monitoringWarranty = (int) (($monitoring['warranty_count'] ?? null) ?? count($monitoring['warranty'] ?? []));
                     $showOpenBalanceBtn = ! empty($openBalanceReports)
@@ -115,21 +117,11 @@
                     @if ($openBalancePending > 0)
                         <span class="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $openBalancePending }}</span>
                     @endif
-                </button>
-                @endif
-                <button
-                    type="button"
-                    id="stockPendingBtn"
-                    onclick="openStockPendingModal()"
-                    class="inline-flex items-center gap-2 rounded-lg border border-[#0025cc]/30 bg-[#0025cc]/5 px-4 py-2.5 text-[13px] font-semibold text-[#0025cc] transition hover:bg-[#0025cc]/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    @if (!($defaultStorageRoomId ?? null) || ($pendingReceivableCount ?? 0) < 1) disabled @endif
-                >
-                    <i data-lucide="package-plus" class="h-4 w-4"></i>
-                    Add all pending in RR
-                    @if (($pendingReceivableCount ?? 0) > 0)
-                        <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[10px] font-bold text-white">{{ (int) $pendingReceivableCount }}</span>
+                    @if ($openBalancePendingReplacement > 0)
+                        <span class="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-800" title="Pending replacement stock">{{ $openBalancePendingReplacement }} replacement</span>
                     @endif
                 </button>
+                @endif
                 <button
                     type="button"
                     onclick="openBatchAddEquipmentModal()"
@@ -209,7 +201,7 @@
                             name="category"
                             class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black"
                         >
-                            <option value="">All Categories</option>
+                            <option value="">All Classifications</option>
 
                             @foreach ($categories as $category)
                                 <option
@@ -327,14 +319,21 @@
             </form>
         </div>-->
 
-        @if ($isStockPage && $movementHistory !== null)
+        @if ($isStockPage)
             @php
+                $replacementArrivedCount = (int) ($pendingReplacementReceivableCount ?? ($pendingReplacementLines ?? collect())->count());
                 $viewTabs = [
                     'stock' => [
                         'label' => 'In storage',
                         'icon' => 'warehouse',
                         'count' => $equipment->total(),
                         'url' => request()->fullUrlWithQuery(['view' => null, 'history' => null, 'history_search' => null, 'history_page' => null]),
+                    ],
+                    'replacement' => [
+                        'label' => 'Replacement arrived',
+                        'icon' => 'package-check',
+                        'count' => $replacementArrivedCount,
+                        'url' => request()->fullUrlWithQuery(['view' => 'replacement', 'page' => null, 'history' => null, 'history_search' => null, 'history_page' => null]),
                     ],
                     'history' => [
                         'label' => 'Movement history',
@@ -343,7 +342,7 @@
                         'url' => request()->fullUrlWithQuery(['view' => 'history', 'page' => null]),
                     ],
                 ];
-                $activeViewTab = $showHistory ? 'history' : 'stock';
+                $activeViewTab = $showHistory ? 'history' : ($showReplacementArrived ? 'replacement' : 'stock');
             @endphp
             <div id="inventory-tables" class="-mb-3 flex scroll-mt-24 items-center">
                 <div class="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Inventory view">
@@ -363,7 +362,9 @@
             </div>
         @endif
 
-        @if (! $showHistory)
+        @if ($showReplacementArrived)
+            @include('maintenance-personnel.equipment.partials.inventory-replacement-arrived')
+        @elseif (! $showHistory)
         <!-- EQUIPMENT TABLE -->
         <div
             class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
@@ -555,7 +556,7 @@
                             >
 
                                 <option value="">
-                                    All Categories
+                                    All Classifications
                                 </option>
 
                                 @foreach ($categories as $category)
@@ -754,9 +755,10 @@
                             @php
                                 $conditionClass = match ($item->equipment_condition_status ?? "") {
                                     "Good" => "bg-emerald-50 text-emerald-700",
-                                    "Fair" => "bg-sky-50 text-sky-700",
-                                    "Damaged" => "bg-amber-50 text-amber-700",
-                                    "Critical" => "bg-rose-50 text-rose-700",
+                                    "Under Maintenance" => "bg-amber-50 text-amber-700",
+                                    "Defective" => "bg-orange-50 text-orange-700",
+                                    "Damaged" => "bg-rose-50 text-rose-700",
+                                    "Disposed" => "bg-slate-200 text-slate-700",
                                     default => "bg-slate-100 text-slate-600",
                                 };
 
@@ -1457,12 +1459,12 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
                         <div>
                             <label for="edit_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
-                            <input id="edit_equipment_name" type="text" name="equipment_name" required class="{{ $eqField }}" />
+                            <input id="edit_equipment_name" type="text" name="equipment_name" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="{{ $eqField }}" />
                         </div>
                         <div>
-                            <label for="edit_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
+                            <label for="edit_category" class="{{ $eqLabel }}">Classification <span class="text-rose-500">*</span></label>
                             <select id="edit_category" name="equipment_category_id" required class="{{ $eqField }}">
-                                <option value="">Select category</option>
+                                <option value="">Select classification</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
                                 @endforeach
@@ -1485,14 +1487,15 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="edit_quantity" class="{{ $eqLabel }}">Qty</label>
-                                <input id="edit_quantity" type="number" min="1" name="equipment_quantity" class="{{ $eqField }}" />
+                                <input id="edit_quantity" type="number" min="1" max="{{ \App\Support\InputLimits::QTY }}" name="equipment_quantity" class="{{ $eqField }}" />
                             </div>
                             <div>
                                 <label for="edit_condition" class="{{ $eqLabel }}">Condition</label>
                                 <select id="edit_condition" name="equipment_condition_status" class="{{ $eqField }}">
                                     <option value="Good">Good</option>
+                                    <option value="Under Maintenance">Under Maintenance</option>
+                                    <option value="Defective">Defective</option>
                                     <option value="Damaged">Damaged</option>
-                                    <option value="Under Maintenance">Under maintenance</option>
                                     <option value="Disposed">Disposed</option>
                                 </select>
                             </div>
@@ -1519,19 +1522,19 @@
                     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
                             <label for="edit_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
-                            <input id="edit_asset_tag" type="text" name="equipment_asset_tag" class="{{ $eqField }}" />
+                            <input id="edit_asset_tag" type="text" name="equipment_asset_tag" maxlength="{{ \App\Support\InputLimits::ASSET_TAG }}" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label for="edit_brand" class="{{ $eqLabel }}">Brand name</label>
-                            <input id="edit_brand" type="text" name="equipment_brand_name" class="{{ $eqField }}" />
+                            <input id="edit_brand" type="text" name="equipment_brand_name" maxlength="{{ \App\Support\InputLimits::BRAND }}" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label for="edit_model" class="{{ $eqLabel }}">Model</label>
-                            <input id="edit_model" type="text" name="equipment_model" class="{{ $eqField }}" />
+                            <input id="edit_model" type="text" name="equipment_model" maxlength="{{ \App\Support\InputLimits::MODEL }}" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label for="edit_serial" class="{{ $eqLabel }}">Serial number</label>
-                            <input id="edit_serial" type="text" name="equipment_serial_number" class="{{ $eqField }}" />
+                            <input id="edit_serial" type="text" name="equipment_serial_number" maxlength="{{ \App\Support\InputLimits::SERIAL }}" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label for="edit_purchase_date" class="{{ $eqLabel }}">Purchased</label>
@@ -1543,7 +1546,7 @@
                         </div>
                         <div>
                             <label for="edit_purchase_cost" class="{{ $eqLabel }}">Purchase cost (₱)</label>
-                            <input id="edit_purchase_cost" type="number" name="equipment_purchase_cost" min="0" step="0.01" placeholder="0.00" class="{{ $eqField }}" />
+                            <input id="edit_purchase_cost" type="number" name="equipment_purchase_cost" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" placeholder="0.00" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label
@@ -1908,140 +1911,6 @@
             modal.classList.remove("flex");
         }
 
-        let stockPendingLinesCache = [];
-
-        function openStockPendingModal() {
-            const modal = document.getElementById('stockPendingModal');
-            const loading = document.getElementById('stockPendingLoading');
-            const empty = document.getElementById('stockPendingEmpty');
-            const list = document.getElementById('stockPendingList');
-            const meta = document.getElementById('stockPendingMeta');
-            const errorEl = document.getElementById('stockPendingError');
-            const confirmBtn = document.getElementById('stockPendingConfirmBtn');
-
-            if (!modal) return;
-
-            stockPendingLinesCache = [];
-            loading?.classList.remove('hidden');
-            empty?.classList.add('hidden');
-            list?.classList.add('hidden');
-            meta?.classList.add('hidden');
-            errorEl?.classList.add('hidden');
-            if (errorEl) errorEl.textContent = '';
-            if (confirmBtn) confirmBtn.disabled = true;
-            if (list) list.innerHTML = '';
-
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            if (window.lucide) window.lucide.createIcons();
-
-            fetch('/admin/inventory/receivable-lines', {
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                credentials: 'same-origin',
-            })
-                .then((res) => res.json())
-                .then((data) => {
-                    loading?.classList.add('hidden');
-                    const lines = Array.isArray(data.lines) ? data.lines : [];
-                    stockPendingLinesCache = lines;
-                    if (!lines.length) {
-                        empty?.classList.remove('hidden');
-                        return;
-                    }
-                    if (list) {
-                        list.innerHTML = lines.map((line) => {
-                            const qty = line.remaining_qty != null ? line.remaining_qty : line.quantity;
-                            return `
-                                <li class="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
-                                    <p class="text-sm font-semibold text-slate-900">${escapeStockPendingHtml(line.article || 'Item')}</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-500">
-                                        ${escapeStockPendingHtml(line.rr_number || 'RR')}
-                                        · Left <span class="font-semibold text-amber-700">${Number(qty) || 0}</span>
-                                    </p>
-                                </li>
-                            `;
-                        }).join('');
-                        list.classList.remove('hidden');
-                    }
-                    meta?.classList.remove('hidden');
-                    if (confirmBtn) confirmBtn.disabled = false;
-                    if (window.lucide) window.lucide.createIcons();
-                })
-                .catch(() => {
-                    loading?.classList.add('hidden');
-                    if (errorEl) {
-                        errorEl.textContent = 'Could not load pending RR lines.';
-                        errorEl.classList.remove('hidden');
-                    }
-                });
-        }
-
-        function closeStockPendingModal() {
-            const modal = document.getElementById('stockPendingModal');
-            if (!modal) return;
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        function escapeStockPendingHtml(value) {
-            return String(value == null ? '' : value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
-        }
-
-        async function confirmStockPending() {
-            const confirmBtn = document.getElementById('stockPendingConfirmBtn');
-            const errorEl = document.getElementById('stockPendingError');
-            if (confirmBtn) {
-                confirmBtn.disabled = true;
-                confirmBtn.textContent = 'Adding…';
-            }
-            if (errorEl) {
-                errorEl.classList.add('hidden');
-                errorEl.textContent = '';
-            }
-
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                || document.querySelector('input[name="_token"]')?.value
-                || '';
-
-            const body = {
-                equipment_room_id: {{ (int) ($defaultStorageRoomId ?? 0) }},
-                receiving_report_item_ids: stockPendingLinesCache.map((line) => line.id || line.receiving_report_item_id).filter(Boolean),
-            };
-
-            try {
-                const res = await fetch('/admin/inventory/stock-pending', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': token,
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify(body),
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || data.ok === false) {
-                    throw new Error(data.message || 'Could not add the pending lines.');
-                }
-                window.location.href = data.redirect || '/admin/inventory';
-            } catch (err) {
-                if (errorEl) {
-                    errorEl.textContent = err.message || 'Could not add the pending lines.';
-                    errorEl.classList.remove('hidden');
-                }
-                if (confirmBtn) {
-                    confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = '<i data-lucide="check" class="h-4 w-4"></i> Add to inventory';
-                    if (window.lucide) window.lucide.createIcons();
-                }
-            }
-        }
-
         function openInventoryTransferToModal(equipmentId, equipmentName, roomName, assetTag) {
             document.getElementById("inventoryTransferEquipmentId").value = equipmentId;
             document.getElementById("inventoryTransferEquipmentName").textContent = equipmentName || "Equipment";
@@ -2313,67 +2182,6 @@
         </div>
     </div>
     @endif
-
-    <div
-        id="stockPendingModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
-        onclick="if (event.target === this) closeStockPendingModal()"
-    >
-        <div class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
-            <div class="flex shrink-0 items-start justify-between gap-6 px-6 pb-4 pt-6">
-                <div class="min-w-0">
-                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#0025cc]/10 text-[#0025cc]">
-                        <i data-lucide="package-plus" class="h-4 w-4"></i>
-                    </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Add all pending</h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Adds every completed RR line that isn’t in inventory yet to the storage room, as Bulk records linked to the RR.
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onclick="closeStockPendingModal()"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                    aria-label="Close"
-                >
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-
-            <div class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-4">
-                <div id="stockPendingLoading" class="-mx-5">
-                    @include('partials.skeleton', ['skeletonType' => 'list', 'skeletonRows' => 3, 'skeletonLabel' => 'Loading pending lines'])
-                </div>
-                <p id="stockPendingEmpty" class="hidden py-6 text-center text-sm text-slate-400">No pending RR lines to add.</p>
-                <p id="stockPendingError" class="mb-3 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
-                <ul id="stockPendingList" class="hidden max-h-64 space-y-2 overflow-y-auto"></ul>
-                <div id="stockPendingMeta" class="mt-3 hidden text-xs text-slate-500">
-                    Destination: <span class="font-semibold text-slate-700">{{ optional(($storageRooms ?? collect())->first())->room_name ?? 'Storage room' }}</span>
-                    · Tracking: <span class="font-semibold text-slate-700">Bulk</span>
-                </div>
-            </div>
-
-            <div class="flex shrink-0 items-center justify-end gap-2 px-6 py-4">
-                <button
-                    type="button"
-                    onclick="closeStockPendingModal()"
-                    class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-                >
-                    Cancel
-                </button>
-                <button
-                    type="button"
-                    id="stockPendingConfirmBtn"
-                    onclick="confirmStockPending()"
-                    class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled
-                >
-                    <i data-lucide="check" class="h-4 w-4"></i>
-                    Add to inventory
-                </button>
-            </div>
-        </div>
-    </div>
 
     @if ($canManage)
     <div

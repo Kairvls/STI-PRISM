@@ -34,6 +34,7 @@ use App\Support\EquipmentConditionHistory;
 use App\Support\EquipmentMonitoring;
 use App\Support\EquipmentNextMaintenance;
 use App\Support\EquipmentOpenBalance;
+use App\Support\EquipmentTrackingModes;
 use App\Support\EquipmentSchedules;
 use App\Support\PropertyAssignments;
 use App\Support\ReceivableStockLines;
@@ -150,11 +151,7 @@ class MaintenanceController extends Controller
         // Submitted before today and still Pending / Processing
         // =====================================================
 
-        $closedReportStatuses = [
-            'Resolved',
-            'Rejected',
-            'For Replacement',
-        ];
+        $closedReportStatuses = \App\Support\ReportStatuses::closed();
 
         DB::table('reports_table')
             ->whereIn('report_current_status', $closedReportStatuses)
@@ -609,48 +606,11 @@ class MaintenanceController extends Controller
 
         $reportStatusChart = [
 
-            'labels' => [
+            'labels' => \App\Support\ReportStatuses::ALL,
 
-                'Pending',
-
-                'Processing',
-
-                'Resolved',
-
-                'For Replacement',
-
-                'Rejected',
-
-            ],
-
-            'data' => [
-
-                (int) $reportStatusRows->get(
-                    'Pending',
-                    0
-                ),
-
-                (int) $reportStatusRows->get(
-                    'Processing',
-                    0
-                ),
-
-                (int) $reportStatusRows->get(
-                    'Resolved',
-                    0
-                ),
-
-                (int) $reportStatusRows->get(
-                    'For Replacement',
-                    0
-                ),
-
-                (int) $reportStatusRows->get(
-                    'Rejected',
-                    0
-                ),
-
-            ],
+            'data' => collect(\App\Support\ReportStatuses::ALL)
+                ->map(fn (string $label) => (int) $reportStatusRows->get($label, 0))
+                ->all(),
 
         ];
 
@@ -1517,42 +1477,11 @@ class MaintenanceController extends Controller
 
         $equipmentConditionChart = [
 
-            'labels' => [
+            'labels' => \App\Support\EquipmentConditions::ALL,
 
-                'Good',
-
-                'Damaged',
-
-                'Under Maintenance',
-
-                'Disposed',
-
-            ],
-
-
-            'data' => [
-
-                (int) $equipmentConditionRows->get(
-                    'Good',
-                    0
-                ),
-
-                (int) $equipmentConditionRows->get(
-                    'Damaged',
-                    0
-                ),
-
-                (int) $equipmentConditionRows->get(
-                    'Under Maintenance',
-                    0
-                ),
-
-                (int) $equipmentConditionRows->get(
-                    'Disposed',
-                    0
-                ),
-
-            ],
+            'data' => collect(\App\Support\EquipmentConditions::ALL)
+                ->map(fn (string $label) => (int) $equipmentConditionRows->get($label, 0))
+                ->all(),
 
         ];
 
@@ -3984,10 +3913,10 @@ class MaintenanceController extends Controller
         $request->validate([
 
             'status' =>
-                'required|in:Processing,Resolved,For Replacement,Rejected',
+                'required|'.\App\Support\ReportStatuses::updateRuleIn(),
 
             'remarks' =>
-                'nullable|string',
+                'nullable|string|'.\App\Support\InputLimits::notes(),
 
             'proof_image' =>
                 'nullable|image|max:5120',
@@ -4117,19 +4046,7 @@ class MaintenanceController extends Controller
             // ALLOWED MAINTENANCE STATUS TRANSITIONS HERE
             // =================================================
 
-            $allowedTransitions = [
-
-                'Pending' => [
-                    'Processing',
-                    'Rejected',
-                ],
-
-                'Processing' => [
-                    'Resolved',
-                    'For Replacement',
-                ],
-
-            ];
+            $allowedTransitions = \App\Support\ReportStatuses::transitions();
 
 
             // =================================================
@@ -5548,9 +5465,14 @@ class MaintenanceController extends Controller
             ->whereNotIn('equipment_inventory_status', ['Disposed'])
             ->pluck('equipment_asset_tag');
 
-        $pendingReceivableCount = $isStockPage
-            ? ReceivableStockLines::pending()->count()
-            : 0;
+        $pendingReceivableLines = $isStockPage
+            ? ReceivableStockLines::pending()
+            : collect();
+        $pendingReceivableCount = $pendingReceivableLines->count();
+        $pendingReplacementLines = $isStockPage
+            ? $pendingReceivableLines->filter(fn ($line) => ! empty($line->is_replacement))->values()
+            : collect();
+        $pendingReplacementReceivableCount = $pendingReplacementLines->count();
 
         $openBalance = $isStockPage
             ? EquipmentOpenBalance::summary(50)
@@ -5586,6 +5508,8 @@ class MaintenanceController extends Controller
                 'stockTransferIds',
                 'usedAssetTags',
                 'pendingReceivableCount',
+                'pendingReplacementReceivableCount',
+                'pendingReplacementLines',
                 'openBalance',
                 'monitoring',
                 'movementHistory',
@@ -7221,7 +7145,7 @@ class MaintenanceController extends Controller
         $validated = $request->validate([
 
             'equipment_category_name' =>
-                'required|string|max:255|unique:equipment_categories_table,equipment_category_name',
+                'required|string|max:'.\App\Support\InputLimits::CATEGORY_NAME.'|unique:equipment_categories_table,equipment_category_name',
 
         ]);
 
@@ -7249,7 +7173,7 @@ class MaintenanceController extends Controller
 
         return back()->with(
             'success',
-            'Equipment category added successfully.'
+            'Equipment classification added successfully.'
         );
     }
 
@@ -7284,7 +7208,7 @@ class MaintenanceController extends Controller
 
             return back()->with(
                 'error',
-                'Equipment category not found.'
+                'Equipment classification not found.'
             );
 
         }
@@ -7302,7 +7226,7 @@ class MaintenanceController extends Controller
 
                 'string',
 
-                'max:255',
+                'max:'.\App\Support\InputLimits::CATEGORY_NAME,
 
                 'unique:equipment_categories_table,equipment_category_name,' .
                     $id .
@@ -7334,7 +7258,7 @@ class MaintenanceController extends Controller
 
         return back()->with(
             'success',
-            'Equipment category updated successfully.'
+            'Equipment classification updated successfully.'
         );
     }
 
@@ -7366,7 +7290,7 @@ class MaintenanceController extends Controller
 
             return back()->with(
                 'error',
-                'Equipment category not found.'
+                'Equipment classification not found.'
             );
 
         }
@@ -7417,7 +7341,7 @@ class MaintenanceController extends Controller
 
         return back()->with(
             'success',
-            'Equipment category deleted successfully.'
+            'Equipment classification deleted successfully.'
         );
     }
 
@@ -8058,10 +7982,16 @@ class MaintenanceController extends Controller
             'invoice_no' => $line->invoice_no,
             'dr_no' => $line->dr_no,
             'label' => $line->label,
+            'is_replacement' => (bool) ($line->is_replacement ?? false),
+            'is_back_order_replacement' => (bool) ($line->is_back_order_replacement ?? false),
+            'replaces_label' => $line->replaces_label ?? null,
+            'replaces_equipment_id' => $line->replaces_equipment_id ?? null,
+            'replacement_request_id' => $line->replacement_request_id ?? null,
         ];
 
         $guide = ReceivableStockLines::guideLines()->map($mapLine)->values();
         $pending = $guide->filter(fn ($line) => ! empty($line['is_selectable']))->values();
+        $replacementCount = $pending->filter(fn ($line) => ! empty($line['is_replacement']))->count();
 
         return response()->json([
             'ok' => true,
@@ -8069,76 +7999,19 @@ class MaintenanceController extends Controller
             'guide' => $guide,
             'count' => $pending->count(),
             'guide_count' => $guide->count(),
+            'replacement_count' => $replacementCount,
         ]);
     }
 
     public function stockPendingReceivables(Request $request)
     {
-        $validated = $request->validate([
-            'equipment_room_id' => 'nullable|integer|min:1',
-            'equipment_category_id' => 'nullable|integer|min:1',
-            'receiving_report_item_ids' => 'nullable|array',
-            'receiving_report_item_ids.*' => 'integer|min:1',
-        ]);
-
-        $storageRoomId = (int) ($validated['equipment_room_id'] ?? 0);
-        if ($storageRoomId < 1) {
-            $storageRoomId = (int) DB::table('rooms_table')
-                ->where('room_type', RoomCategories::STORAGE_TYPE)
-                ->where(function ($q) {
-                    if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
-                        $q->where('room_is_archived', 0)->orWhereNull('room_is_archived');
-                    }
-                })
-                ->orderBy('room_id')
-                ->value('room_id');
-        }
-
-        $result = ReceivableStockImporter::stockPending(
-            $storageRoomId,
-            isset($validated['equipment_category_id']) ? (int) $validated['equipment_category_id'] : null,
-            $validated['receiving_report_item_ids'] ?? null,
-            Auth::id()
-        );
-
-        if (! empty($result['errors']) && (int) $result['stocked_lines'] === 0) {
-            $message = $result['errors'][0] ?? 'Unable to add the pending RR lines to inventory.';
-            if ($request->expectsJson()) {
-                return response()->json(['ok' => false, 'message' => $message, 'result' => $result], 422);
-            }
-
-            return redirect('/admin/inventory')
-                ->with('error', $message);
-        }
-
-        $message = 'Added '.$result['stocked_lines'].' RR line'
-            .($result['stocked_lines'] === 1 ? '' : 's')
-            .' ('.$result['stocked_qty'].' qty) to inventory.';
-        if (! empty($result['skipped'])) {
-            $message .= ' Skipped '.count($result['skipped']).'.';
-        }
-
-        if (! empty($result['created_ids'])) {
-            $this->logActivity(
-                'Added to inventory from RR',
-                'Equipment',
-                'equipment_table',
-                (int) $result['created_ids'][0],
-                $message
-            );
-        }
-
+        $message = 'Bulk “Add all pending” is disabled. Use Add to inventory for equipment (Individual units), or Replacement arrived → Stock & Link for replacement deliveries.';
         if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'message' => $message,
-                'result' => $result,
-                'redirect' => url('/admin/inventory'),
-            ]);
+            return response()->json(['ok' => false, 'message' => $message], 410);
         }
 
         return redirect('/admin/inventory')
-            ->with('success', $message);
+            ->with('error', $message);
     }
 
     public function equipmentOpenBalance()
@@ -8165,33 +8038,33 @@ class MaintenanceController extends Controller
 
         $validated = $request->validate([
 
-            'equipment_name' => 'required|string|max:255',
+            'equipment_name' => 'required|string|'.\App\Support\InputLimits::name(),
 
             'equipment_category_id' => 'required',
 
             'equipment_room_id' => 'required',
 
-            'equipment_quantity' => 'required|integer|min:1|max:200',
+            'equipment_quantity' => 'required|integer|min:1|max:'.min(200, \App\Support\InputLimits::QTY),
 
             'equipment_tracking_mode' => 'nullable|in:Bulk,Individual',
 
-            'equipment_condition_status' => 'nullable|string',
+            'equipment_condition_status' => 'nullable|'.\App\Support\EquipmentConditions::ruleIn(),
 
-            'equipment_inventory_status' => 'nullable|string',
+            'equipment_inventory_status' => 'nullable|'.\App\Support\EquipmentInventoryStatuses::ruleIn(),
 
-            'equipment_asset_tag' => 'nullable|string|max:255',
+            'equipment_asset_tag' => 'nullable|string|max:'.\App\Support\InputLimits::ASSET_TAG,
 
-            'equipment_brand_name' => 'nullable|string|max:255',
+            'equipment_brand_name' => 'nullable|string|'.\App\Support\InputLimits::name(),
 
-            'equipment_model' => 'nullable|string|max:255',
+            'equipment_model' => 'nullable|string|'.\App\Support\InputLimits::name(),
 
-            'equipment_serial_number' => 'nullable|string|max:255',
+            'equipment_serial_number' => 'nullable|string|max:'.\App\Support\InputLimits::SERIAL,
 
             'equipment_purchase_date' => 'nullable|date',
 
             'equipment_acquired_date' => 'nullable|date',
 
-            'equipment_purchase_cost' => 'nullable|numeric|min:0',
+            'equipment_purchase_cost' => 'nullable|numeric|min:0|max:'.\App\Support\InputLimits::COST,
 
             'equipment_warranty_expiration' => 'nullable|date',
 
@@ -8201,19 +8074,19 @@ class MaintenanceController extends Controller
 
             'intake_basis' => 'nullable|in:receiving,non_procurement',
 
-            'intake_reason' => 'nullable|string|max:500',
+            'intake_reason' => 'nullable|string|'.\App\Support\InputLimits::notes(),
 
             'items' => 'nullable|array|max:200',
 
-            'items.*.equipment_asset_tag' => 'nullable|string|max:255',
+            'items.*.equipment_asset_tag' => 'nullable|string|max:'.\App\Support\InputLimits::ASSET_TAG,
 
-            'items.*.equipment_serial_number' => 'nullable|string|max:255',
+            'items.*.equipment_serial_number' => 'nullable|string|max:'.\App\Support\InputLimits::SERIAL,
 
-            'items.*.equipment_brand_name' => 'nullable|string|max:255',
+            'items.*.equipment_brand_name' => 'nullable|string|'.\App\Support\InputLimits::name(),
 
-            'items.*.equipment_model' => 'nullable|string|max:255',
+            'items.*.equipment_model' => 'nullable|string|'.\App\Support\InputLimits::name(),
 
-            'items.*.equipment_condition_status' => 'nullable|string',
+            'items.*.equipment_condition_status' => 'nullable|'.\App\Support\EquipmentConditions::ruleIn(),
 
             'items.*.equipment_warranty_expiration' => 'nullable|date',
 
@@ -8230,13 +8103,26 @@ class MaintenanceController extends Controller
 
         ] + EquipmentAcquisition::validationRules());
 
-        $trackingMode = $validated['equipment_tracking_mode'] ?? 'Individual';
+        $trackingMode = $validated['equipment_tracking_mode'] ?? EquipmentTrackingModes::INDIVIDUAL;
         $items = array_values($validated['items'] ?? []);
         $quantity = (int) $validated['equipment_quantity'];
         $intakeBasis = $validated['intake_basis'] ?? null;
         $rrItemId = (int) ($validated['receiving_report_item_id'] ?? 0);
         $rrLine = null;
         $supplierId = null;
+
+        $categoryIdForTracking = (int) ($validated['equipment_category_id'] ?? 0);
+        if (
+            $rrItemId > 0
+            && $trackingMode === EquipmentTrackingModes::BULK
+            && EquipmentTrackingModes::requiresIndividualForCategory($categoryIdForTracking)
+        ) {
+            return back()
+                ->withErrors([
+                    'equipment_tracking_mode' => 'RR equipment lines must be stocked as Individual units (one identity per piece). Bulk is only for consumables/supplies.',
+                ])
+                ->withInput();
+        }
 
         // Inventory stocking should come from a completed RR line (what was delivered).
         // Non-procurement intake remains available with a required reason (donation/legacy).

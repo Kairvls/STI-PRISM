@@ -5,6 +5,9 @@
 
 @section('content')
 
+{{-- Keep status/priority badge colours (purchaser grayscale theme remaps emerald/rose → slate) --}}
+<span class="admin-keep-colors hidden" aria-hidden="true"></span>
+
 {{-- REPLACEMENT REQUESTS MODULE --}}
 <div
     x-data="{
@@ -61,10 +64,10 @@
         $archiveView = request('view') === 'archive';
 
         $statusClasses = [
-            'Pending' => 'border-amber-200 bg-amber-50 text-amber-700',
-            'Approved' => 'border-green-200 bg-green-50 text-green-700',
-            'Rejected' => 'border-red-200 bg-red-50 text-red-700',
-            'Completed' => 'border-gray-200 bg-gray-100 text-gray-700',
+            'Pending' => 'bg-amber-100 text-amber-800',
+            'Approved' => 'bg-emerald-100 text-emerald-800',
+            'Rejected' => 'bg-rose-100 text-rose-800',
+            'Completed' => 'bg-slate-100 text-slate-700',
         ];
 
         // =====================================================
@@ -212,7 +215,7 @@
                     <tr class="border-b border-gray-100">
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request</th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Equipment</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Priority</th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
@@ -223,8 +226,9 @@
                 <tbody class="divide-y divide-gray-100">
                     @forelse($replacementRequests as $request)
                         @php
-                            $requestStatusClass = $statusClasses[$request->procurement_request_status]
-                                ?? 'border-gray-200 bg-gray-100 text-gray-700';
+                            $requestStatusKey = trim((string) ($request->procurement_request_status ?? ''));
+                            $requestStatusClass = $statusClasses[$requestStatusKey]
+                                ?? 'bg-slate-100 text-slate-700';
 
                             $equipmentName = $request->equipment_display
                                 ?? $request->equipment_name
@@ -320,20 +324,18 @@
                             </td>
 
                             <td class="px-4 py-3.5 align-middle">
-                                @if(($request->report_urgency_level ?? '') === 'Urgent')
-                                    <span class="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
-                                        Urgent
-                                    </span>
-                                @else
-                                    <span class="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                        Standard
-                                    </span>
-                                @endif
+                                @php
+                                    $reqPriority = \App\Support\ReportSeverity::forReport($request);
+                                    $reqPriorityPill = \App\Support\ReportSeverity::meta($reqPriority)['pill'];
+                                @endphp
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $reqPriorityPill }}">
+                                    {{ $reqPriority }}
+                                </span>
                             </td>
 
                             <td class="px-4 py-3.5 align-middle">
-                                <span class="inline-flex max-w-full truncate rounded-full border px-2.5 py-1 text-xs font-medium {{ $requestStatusClass }}">
-                                    {{ $request->procurement_request_status }}
+                                <span class="inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-xs font-semibold {{ $requestStatusClass }}">
+                                    {{ $requestStatusKey !== '' ? $requestStatusKey : '—' }}
                                 </span>
                             </td>
 
@@ -470,8 +472,8 @@
                                                 <h2 class="text-xl font-semibold tracking-tight text-gray-950" title="Request #{{ $request->procurement_request_id }}">
                                                     {{ $requestCode }}
                                                 </h2>
-                                                <span class="rounded-full border px-2.5 py-1 text-xs font-medium {{ $requestStatusClass }}">
-                                                    {{ $request->procurement_request_status }}
+                                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $requestStatusClass }}">
+                                                    {{ $requestStatusKey !== '' ? $requestStatusKey : '—' }}
                                                 </span>
                                             </div>
                                             <p class="mt-1 text-sm text-gray-500" title="Report #{{ $request->report_id ?? 'N/A' }}">
@@ -602,9 +604,12 @@
                                                         <p class="mt-1 text-sm font-medium text-gray-700">{{ $roomLabel }}</p>
                                                     </div>
                                                     <div>
-                                                        <p class="text-xs text-gray-400">Urgency</p>
-                                                        <p class="mt-1 text-sm font-medium {{ ($request->report_urgency_level ?? '') === 'Urgent' ? 'text-red-600' : 'text-gray-700' }}">
-                                                            {{ $request->report_urgency_level ?? 'N/A' }}
+                                                        <p class="text-xs text-gray-400">Priority</p>
+                                                        @php
+                                                            $detailPriority = \App\Support\ReportSeverity::forReport($request);
+                                                        @endphp
+                                                        <p class="mt-1 text-sm font-medium text-gray-700">
+                                                            {{ $detailPriority }}
                                                         </p>
                                                     </div>
                                                     <div>
@@ -752,8 +757,7 @@
                     <div class="min-w-0">
                         <h3 class="text-base font-semibold text-gray-950">Create RIS</h3>
                         <p class="mt-1 text-xs text-gray-500">
-                            Continue to create a Requisition &amp; Issue Slip from request
-                            <span class="font-semibold text-gray-700" x-text="'#' + createRisModal"></span>.
+                            Continue to create a Requisition &amp; Issue Slip from this approved replacement request.
                         </p>
                     </div>
                     <button
@@ -1125,7 +1129,7 @@
             const rows = [
                 ['Asset tag', equipment.asset_tag],
                 ['Serial number', equipment.serial_number],
-                ['Category', equipment.category],
+                ['Classification', equipment.category],
                 ['Brand / model', brandModel],
                 ['Status', equipment.inventory_status],
                 ['Condition', equipment.condition_status],

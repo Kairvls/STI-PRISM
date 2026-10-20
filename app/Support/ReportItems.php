@@ -424,7 +424,7 @@ class ReportItems
 
     public static function terminalStatuses(): array
     {
-        return ['Resolved', 'For Replacement', 'Rejected'];
+        return ['Resolved', 'For Replacement', 'Rejected', 'Closed / Cancelled'];
     }
 
     public static function refreshParentStatus(int $reportId): ?string

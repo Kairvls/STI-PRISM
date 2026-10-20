@@ -20,8 +20,6 @@ class EquipmentBatchIntake
 
     public const MAX_UNITS = 500;
 
-    private const CONDITIONS = ['Good', 'Damaged', 'Under Maintenance', 'Disposed'];
-
     public static function validate(array $input): array
     {
         $sourceRule = EquipmentAcquisition::ready()
@@ -32,41 +30,41 @@ class EquipmentBatchIntake
             'storage_room_id' => 'required|integer|min:1',
             'source.acquisition_source' => $sourceRule,
             'source.acquisition_supplier' => 'nullable|string|max:40',
-            'source.supplier_name' => 'nullable|string|max:255',
+            'source.supplier_name' => 'nullable|string|'.InputLimits::name(),
             'source.reference_number' => 'nullable|string|max:120',
-            'source.notes' => 'nullable|string|max:500',
+            'source.notes' => 'nullable|string|'.InputLimits::notes(),
             'source.purchase_date' => 'nullable|date',
             'source.received_date' => 'nullable|date',
             'lines' => 'required|array|min:1|max:'.self::MAX_LINES,
-            'lines.*.name' => 'required|string|max:255',
+            'lines.*.name' => 'required|string|'.InputLimits::name(),
             'lines.*.category_id' => 'required|integer|min:1',
             'lines.*.tracking' => 'required|in:Bulk,Individual',
-            'lines.*.quantity' => 'required|integer|min:1|max:200',
-            'lines.*.condition' => 'nullable|in:'.implode(',', self::CONDITIONS),
-            'lines.*.brand' => 'nullable|string|max:255',
-            'lines.*.model' => 'nullable|string|max:255',
-            'lines.*.cost' => 'nullable|numeric|min:0',
+            'lines.*.quantity' => 'required|integer|min:1|max:'.min(200, InputLimits::QTY),
+            'lines.*.condition' => 'nullable|'.EquipmentConditions::ruleIn(),
+            'lines.*.brand' => 'nullable|string|'.InputLimits::name(),
+            'lines.*.model' => 'nullable|string|'.InputLimits::name(),
+            'lines.*.cost' => 'nullable|numeric|min:0|max:'.InputLimits::COST,
             'lines.*.warranty' => 'nullable|date',
             'lines.*.useful_life_years' => 'nullable|integer|min:1|max:50',
             'lines.*.borrowable' => 'nullable|boolean',
             'lines.*.destination_room_id' => 'nullable|integer|min:0',
             'lines.*.custodian_id' => 'nullable|integer|min:0',
-            'lines.*.asset_tag' => 'nullable|string|max:255',
-            'lines.*.serial' => 'nullable|string|max:255',
+            'lines.*.asset_tag' => 'nullable|string|max:'.InputLimits::ASSET_TAG,
+            'lines.*.serial' => 'nullable|string|max:'.InputLimits::SERIAL,
             'lines.*.units' => 'nullable|array|max:200',
-            'lines.*.units.*.asset_tag' => 'nullable|string|max:255',
-            'lines.*.units.*.serial' => 'nullable|string|max:255',
+            'lines.*.units.*.asset_tag' => 'nullable|string|max:'.InputLimits::ASSET_TAG,
+            'lines.*.units.*.serial' => 'nullable|string|max:'.InputLimits::SERIAL,
             'lines.*.units.*.room_id' => 'nullable|integer|min:0',
             'lines.*.units.*.warranty' => 'nullable|date',
             'lines.*.units.*.custodian_id' => 'nullable|integer|min:0',
-            'lines.*.units.*.brand' => 'nullable|string|max:255',
-            'lines.*.units.*.model' => 'nullable|string|max:255',
+            'lines.*.units.*.brand' => 'nullable|string|'.InputLimits::name(),
+            'lines.*.units.*.model' => 'nullable|string|'.InputLimits::name(),
             'lines.*.units.*.image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
         ], [], [
             'storage_room_id' => 'storage room',
             'source.acquisition_source' => 'acquisition source',
             'lines.*.name' => 'equipment name',
-            'lines.*.category_id' => 'category',
+            'lines.*.category_id' => 'classification',
             'lines.*.tracking' => 'tracking mode',
             'lines.*.quantity' => 'quantity',
             'lines.*.cost' => 'cost per unit',
@@ -211,12 +209,8 @@ class EquipmentBatchIntake
 
             foreach ($plan as $entry) {
                 $line = $entry['line'];
-                $condition = $line['condition'] ?? 'Good';
-                $inventoryStatus = match ($condition) {
-                    'Disposed' => 'Disposed',
-                    'Under Maintenance' => 'Under Maintenance',
-                    default => 'Active',
-                };
+                $condition = $line['condition'] ?? EquipmentConditions::GOOD;
+                $inventoryStatus = EquipmentConditions::syncInventoryStatus($condition);
                 $isBulk = $line['tracking'] === 'Bulk';
 
                 foreach ($entry['units'] as $unit) {

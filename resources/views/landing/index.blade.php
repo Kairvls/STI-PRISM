@@ -1075,6 +1075,29 @@
         .paayo-swal-btn:hover {
             background: #001ca3 !important;
         }
+        .swal2-container .swal2-popup.paayo-swal .swal2-cancel,
+        .paayo-swal-cancel {
+            background: #f1f5f9 !important;
+            color: #334155 !important;
+            border: 0 !important;
+            border-radius: 999px !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-weight: 600 !important;
+            font-size: .95rem !important;
+            padding: 12px 28px !important;
+            min-width: 120px !important;
+            box-shadow: none !important;
+        }
+        .swal2-container .swal2-popup.paayo-swal .swal2-cancel:hover,
+        .paayo-swal-cancel:hover {
+            background: #e2e8f0 !important;
+        }
+        .swal2-container .swal2-popup.paayo-swal .swal2-actions {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            gap: 10px !important;
+        }
         .swal2-container .swal2-popup.paayo-swal .swal2-icon {
             border: 0 !important;
             width: 58px !important;
@@ -2797,6 +2820,7 @@
     @endguest
 
     <div id="reportModal"
+         data-no-backdrop-close
          class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 overscroll-none"
          style="background: rgba(11, 18, 32, 0.7);">
         <div class="report-modal-wrap w-full max-w-[1080px] relative modal-animation min-h-0">
@@ -3134,8 +3158,13 @@
         function openLoginModal() { showModal(loginChooserModal); }
         function openLoginChooser() { showModal(loginChooserModal); }
         function closeLoginChooser() { hideModal(loginChooserModal); }
-        function openReportModal() {
+        function openReportModal(options) {
+            options = options || {};
             if (reportModal) reportModal.classList.remove('is-expanded');
+            // Make Report → always phase 1. Refresh resume passes { resume: true }.
+            if (!options.resume && typeof window.reporterGateReset === 'function') {
+                window.reporterGateReset();
+            }
             showModal(reportModal);
             syncReportModalExpandUi();
             if (typeof window.startReportModalIdleWatch === 'function') {
@@ -3143,6 +3172,11 @@
             }
         }
         function closeReportModal() {
+            if (typeof window.clearReportPhase2Mark === 'function') {
+                window.clearReportPhase2Mark();
+            } else if (typeof window.clearReportDraft === 'function') {
+                window.clearReportDraft();
+            }
             if (typeof window.stopReportModalIdleWatch === 'function') {
                 window.stopReportModalIdleWatch();
             }
@@ -3288,9 +3322,18 @@
             };
         })();
 
+        {{-- Phase 1 only: outside click closes. Phase 2 stays open (data-no-backdrop-close). --}}
         if (reportModal) {
-            reportModal.addEventListener('click', (e) => {
-                if (e.target === reportModal) closeReportModal();
+            reportModal.addEventListener('click', function (e) {
+                const gate = document.getElementById('reporterGate');
+                const reportForm = document.getElementById('reportForm');
+                const inPhase1 = !!(gate && !gate.hidden && reportForm && reportForm.hidden);
+                if (!inPhase1) return;
+
+                const card = gate.querySelector('.rf-gate-card');
+                if (card && card.contains(e.target)) return;
+
+                closeReportModal();
             });
         }
 
@@ -3301,11 +3344,20 @@
         }
 
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                closeAllModals();
-                document.body.classList.remove('overflow-hidden', 'modal-open');
-                document.documentElement.classList.remove('overflow-hidden');
+            if (e.key !== 'Escape') return;
+
+            if (reportModal && !reportModal.classList.contains('hidden')) {
+                if (typeof requestCloseReportModal === 'function') {
+                    requestCloseReportModal();
+                } else {
+                    closeReportModal();
+                }
+                return;
             }
+
+            closeAllModals();
+            document.body.classList.remove('overflow-hidden', 'modal-open');
+            document.documentElement.classList.remove('overflow-hidden');
         });
 
         function paayoSwal(options) {
@@ -3325,18 +3377,24 @@
                 text: options.html ? undefined : (options.text || ''),
                 html: options.html || undefined,
                 showConfirmButton: options.showConfirmButton !== false,
+                showCancelButton: !!options.showCancelButton,
                 confirmButtonText: options.confirmText || 'OK',
+                cancelButtonText: options.cancelText || 'Cancel',
+                reverseButtons: !!options.reverseButtons,
+                focusCancel: !!options.focusCancel,
                 buttonsStyling: false,
                 backdrop: 'rgba(11, 18, 32, 0.7)',
                 width: 400,
                 timer: options.timer,
                 timerProgressBar: !!options.timer,
+                allowOutsideClick: options.allowOutsideClick !== false,
                 showClass: { popup: 'swal2-show paayo-swal-in' },
                 customClass: {
                     popup: 'paayo-swal',
                     title: 'paayo-swal-heading',
                     htmlContainer: 'paayo-swal-text',
                     confirmButton: 'paayo-swal-btn',
+                    cancelButton: 'paayo-swal-cancel',
                     icon: 'paayo-icon-' + tone,
                     timerProgressBar: 'modern-success-progress',
                 },
@@ -3416,6 +3474,8 @@
     @include('landing.partials.faq-chatbot', ['showChatFab' => true])
 
     @include('partials.required-field-marker')
+
+    <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
 
 </body>
 </html>

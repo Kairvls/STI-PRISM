@@ -299,6 +299,7 @@
                         type="text"
                         name="authority_purchase_reference_po_no"
                         value="{{ $poNo }}"
+                        maxlength="{{ \App\Support\InputLimits::SHORT }}"
                         class="min-w-0 flex-1 border-0 border-b border-black bg-transparent pb-1 outline-none ring-0 focus:outline-none focus:ring-0"
                     >
                 </div>

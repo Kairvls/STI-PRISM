@@ -203,6 +203,7 @@
                 id="{{ $prefix }}Email"
                 type="email"
                 name="email"
+                maxlength="{{ \App\Support\InputLimits::EMAIL }}"
                 value="{{ old('email', $person->person_email_address ?? '') }}"
                 placeholder="name@ormoc.sti.edu.ph"
                 class="{{ $fieldClass }}"

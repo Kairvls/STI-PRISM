@@ -9,20 +9,13 @@
 @section('content')
 
 @php
-    $urgencyClasses = [
-        'Urgent' => 'border-rose-200 bg-rose-50 text-rose-700',
-        'Critical' => 'border-rose-200 bg-rose-50 text-rose-700',
-        'High' => 'border-amber-200 bg-amber-50 text-amber-700',
-        'Normal' => 'border-slate-200 bg-slate-50 text-slate-600',
-        'Low' => 'border-slate-200 bg-slate-50 text-slate-600',
-    ];
-
     $statusClasses = [
         'Pending' => 'border-amber-200 bg-amber-50 text-amber-700',
         'Processing' => 'border-blue-200 bg-blue-50 text-blue-700',
+        'For Replacement' => 'border-violet-200 bg-violet-50 text-violet-700',
         'Resolved' => 'border-green-200 bg-green-50 text-green-700',
         'Rejected' => 'border-red-200 bg-red-50 text-red-700',
-        'For Replacement' => 'border-amber-200 bg-amber-50 text-amber-800',
+        'Closed / Cancelled' => 'border-slate-200 bg-slate-100 text-slate-700',
     ];
 
     $rowCount = method_exists($rows, 'total') ? $rows->total() : $rows->count();
@@ -83,7 +76,7 @@
                         <th>#</th>
                         <th>Equipment</th>
                         <th>Location</th>
-                        <th>Urgency</th>
+                        <th>Priority</th>
                         <th>Status</th>
                         <th>Technician</th>
                         <th>Submitted</th>
@@ -92,9 +85,9 @@
                 <tbody>
                     @forelse($rows as $row)
                         @php
-                            $urgency = (string) ($row->report_urgency_level ?: '');
+                            $priority = \App\Support\ReportSeverity::forReport($row);
+                            $priorityPill = \App\Support\ReportSeverity::meta($priority)['pill'];
                             $status = (string) ($row->report_current_status ?: '');
-                            $urgencyClass = $urgencyClasses[$urgency] ?? 'border-gray-200 bg-gray-50 text-gray-600';
                             $statusClass = $statusClasses[$status] ?? 'border-gray-200 bg-gray-50 text-gray-600';
                         @endphp
                         <tr class="transition hover:bg-gray-50/70">
@@ -106,11 +99,7 @@
                                 {{ trim(($row->building_name ? $row->building_name.' · ' : '').($row->room_name ?: '')) ?: '—' }}
                             </td>
                             <td>
-                                @if($urgency !== '')
-                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium {{ $urgencyClass }}">{{ $urgency }}</span>
-                                @else
-                                    <span class="text-sm text-gray-400">—</span>
-                                @endif
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $priorityPill }}">{{ $priority }}</span>
                             </td>
                             <td>
                                 @if($status !== '')

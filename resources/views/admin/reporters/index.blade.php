@@ -145,7 +145,7 @@
         {{-- REPORTER DIRECTORY --}}
         {{-- ========================================================= --}}
 
-        <section class="overflow-hidden rounded-2xl bg-white">
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
             @if ($historyReporter)
 
@@ -221,7 +221,7 @@
                                 <div class="relative">
                                     <select name="history_status" class="h-9 min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs font-medium text-slate-600 outline-none transition focus:border-slate-400">
                                         <option value="">All Status</option>
-                                        @foreach (['Pending', 'Processing', 'Resolved', 'For Replacement', 'Rejected'] as $historyStatus)
+                                        @foreach (\App\Support\ReportStatuses::ALL as $historyStatus)
                                             <option value="{{ $historyStatus }}" @selected(request('history_status') === $historyStatus)>{{ $historyStatus }}</option>
                                         @endforeach
                                     </select>
@@ -279,7 +279,7 @@
                                 </th>
 
                                 <th class="w-[10%] px-4 py-3">
-                                    Urgency
+                                    Priority
                                 </th>
 
                                 <th class="w-[12%] px-4 py-3">
@@ -320,70 +320,28 @@
                                     // REPORT STATUS CLASSES
                                     // =================================================
 
-                                    $historyStatusClass = match (
-                                        $report->report_current_status
-                                    ) {
-
-                                        'Pending' =>
-                                            'bg-amber-50 text-amber-700 ring-amber-200',
-
-                                        'Processing' =>
-                                            'bg-blue-50 text-blue-700 ring-blue-200',
-
-                                        'Resolved' =>
-                                            'bg-emerald-50 text-emerald-700 ring-emerald-200',
-
-                                        'For Replacement' =>
-                                            'bg-violet-50 text-violet-700 ring-violet-200',
-
-                                        'Rejected' =>
-                                            'bg-rose-50 text-rose-700 ring-rose-200',
-
-                                        default =>
-                                            'bg-slate-100 text-slate-600 ring-slate-200',
-
+                                    $historyStatusClass = match ($report->report_current_status) {
+                                        'Pending' => 'bg-amber-50 text-amber-700 ring-amber-200',
+                                        'Processing' => 'bg-blue-50 text-blue-700 ring-blue-200',
+                                        'For Replacement' => 'bg-violet-50 text-violet-700 ring-violet-200',
+                                        'Resolved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                                        'Rejected' => 'bg-rose-50 text-rose-700 ring-rose-200',
+                                        'Closed / Cancelled' => 'bg-slate-200 text-slate-700 ring-slate-300',
+                                        default => 'bg-slate-100 text-slate-600 ring-slate-200',
                                     };
 
-
-                                    // =================================================
-                                    // REPORT STATUS DOT CLASSES
-                                    // =================================================
-
-                                    $historyStatusDotClass = match (
-                                        $report->report_current_status
-                                    ) {
-
-                                        'Pending' =>
-                                            'bg-amber-500',
-
-                                        'Processing' =>
-                                            'bg-blue-500',
-
-                                        'Resolved' =>
-                                            'bg-emerald-500',
-
-                                        'For Replacement' =>
-                                            'bg-violet-500',
-
-                                        'Rejected' =>
-                                            'bg-rose-500',
-
-                                        default =>
-                                            'bg-slate-400',
-
+                                    $historyStatusDotClass = match ($report->report_current_status) {
+                                        'Pending' => 'bg-amber-500',
+                                        'Processing' => 'bg-blue-500',
+                                        'For Replacement' => 'bg-violet-500',
+                                        'Resolved' => 'bg-emerald-500',
+                                        'Rejected' => 'bg-rose-500',
+                                        'Closed / Cancelled' => 'bg-slate-500',
+                                        default => 'bg-slate-400',
                                     };
 
-
-                                    // =================================================
-                                    // URGENCY CLASSES
-                                    // =================================================
-
-                                    $historyUrgencyClass =
-                                        $report->report_urgency_level === 'Urgent'
-
-                                            ? 'bg-rose-50 text-rose-700 ring-rose-200'
-
-                                            : 'bg-slate-100 text-slate-600 ring-slate-200';
+                                    $historyPriority = \App\Support\ReportSeverity::forReport($report);
+                                    $historyPriorityClass = \App\Support\ReportSeverity::meta($historyPriority)['soft'];
 
                                 @endphp
 
@@ -504,7 +462,7 @@
 
 
                                     {{-- ===================================== --}}
-                                    {{-- URGENCY --}}
+                                    {{-- PRIORITY --}}
                                     {{-- ===================================== --}}
 
                                     <td class="px-5 py-4">
@@ -513,10 +471,9 @@
                                             class="inline-flex items-center
                                                 rounded-full px-2.5 py-1
                                                 text-[11px] font-medium
-                                                ring-1 ring-inset
-                                                {{ $historyUrgencyClass }}"
+                                                {{ $historyPriorityClass }}"
                                         >
-                                            {{ $report->report_urgency_level }}
+                                            {{ $historyPriority }}
                                         </span>
 
                                     </td>

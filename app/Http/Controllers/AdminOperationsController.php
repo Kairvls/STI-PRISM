@@ -8,9 +8,11 @@ use App\Support\AdminPipeline;
 use App\Support\AdminPortal;
 use App\Support\BuildingLayout3D;
 use App\Support\DocumentLineage;
+use App\Support\RoomStatusPalette;
 use App\Support\EquipmentConditionHistory;
 use App\Support\EquipmentNextMaintenance;
 use App\Support\EquipmentTimeline;
+use App\Support\EquipmentViewReturn;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PropertyAssignments;
 use App\Support\RisWorkflow;
@@ -516,6 +518,7 @@ class AdminOperationsController extends Controller
             'repairCostTotal' => $repairCostTotal,
             'propertyAssignment' => PropertyAssignments::current($id),
             'assignmentHistory' => PropertyAssignments::history($id),
+            'equipmentBack' => EquipmentViewReturn::resolveForMonitor(request()),
         ]);
     }
 
@@ -548,6 +551,7 @@ class AdminOperationsController extends Controller
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
             ],
+            'palette' => RoomStatusPalette::colors(),
         ]);
     }
 

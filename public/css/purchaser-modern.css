@@ -429,21 +429,24 @@
     background-color: #fff;
 }
 
-.pur-modal-is-fullscreen .bg-slate-100,
-.pur-modal-is-fullscreen .bg-gray-100 {
+/* Only the modal body chrome — not nested chips/fields that also use bg-slate-100 */
+.pur-modal-is-fullscreen > form > .bg-slate-100,
+.pur-modal-is-fullscreen > form > .bg-gray-100,
+.pur-modal-is-fullscreen > .bg-slate-100,
+.pur-modal-is-fullscreen > .bg-gray-100 {
     min-height: calc(100dvh - 4.75rem);
     padding: 1rem 1.25rem;
 }
 
 @media (min-width: 768px) {
-    .pur-modal-is-fullscreen .bg-slate-100 {
+    .pur-modal-is-fullscreen > form > .bg-slate-100,
+    .pur-modal-is-fullscreen > .bg-slate-100 {
         padding: 1.25rem 1.75rem;
     }
 }
 
 .pur-modal-is-fullscreen .atp-print-sheet,
 .pur-modal-is-fullscreen .rfc-print-sheet,
-.pur-modal-is-fullscreen .rr-print-sheet,
 .pur-modal-is-fullscreen .liq-print-sheet,
 .pur-modal-is-fullscreen .dv-print-sheet,
 .pur-modal-is-fullscreen .ris-print-sheet,
@@ -452,6 +455,15 @@
     max-width: none !important;
     width: 100%;
     min-height: calc(100dvh - 14rem);
+    box-shadow: none;
+}
+
+/* RR paper: full width in fullscreen, but do not stretch height (breaks Check vs OR grid) */
+.pur-modal-is-fullscreen .rr-print-sheet {
+    max-width: none !important;
+    width: 100%;
+    min-height: 0 !important;
+    height: auto !important;
     box-shadow: none;
 }
 

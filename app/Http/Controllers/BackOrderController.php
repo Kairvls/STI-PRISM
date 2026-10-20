@@ -130,10 +130,14 @@ class BackOrderController extends Controller
             return back()->with('error', 'This back order is already delivered.');
         }
 
+        $isCashAdvance = $bo->back_order_payment_path === ProcurementPaymentPath::CASH_ADVANCE;
+        $hasExpectedDateColumn = Schema::hasColumn(BackOrders::TABLE, 'back_order_expected_delivery_date');
+
         $request->validate([
             'back_order_reason' => ['required', Rule::in(array_keys(BackOrders::REASONS))],
             'back_order_remarks' => ['nullable', 'string', 'max:2000'],
             'back_order_status' => ['nullable', Rule::in([BackOrders::STATUS_OPEN, BackOrders::STATUS_WAITING_RESTOCK])],
+            'back_order_expected_delivery_date' => ['nullable', 'date'],
             'remove_files' => ['nullable', 'array'],
             'remove_files.*' => ['integer', 'min:0'],
         ], [
@@ -162,14 +166,33 @@ class BackOrderController extends Controller
             $status = $request->input('back_order_status');
         }
 
-        DB::table(BackOrders::TABLE)->where('back_order_id', $bo->back_order_id)->update([
+        $expectedDate = null;
+        if ($hasExpectedDateColumn && ! $isCashAdvance) {
+            $expectedDate = filled($request->input('back_order_expected_delivery_date'))
+                ? $request->input('back_order_expected_delivery_date')
+                : null;
+            if ($status === BackOrders::STATUS_WAITING_RESTOCK && $expectedDate === null) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'back_order_expected_delivery_date' => 'Enter the expected delivery date when the supplier is waiting for restock.',
+                    ]);
+            }
+        }
+
+        $payload = [
             'back_order_reason' => $request->input('back_order_reason'),
             'back_order_remarks' => filled($request->input('back_order_remarks')) ? trim((string) $request->input('back_order_remarks')) : null,
             'back_order_status' => $status,
             'back_order_images' => BackOrders::encodeFiles(array_merge($kept, $stored)),
             'back_order_updated_by' => auth()->id(),
             'back_order_updated_at' => now(),
-        ]);
+        ];
+        if ($hasExpectedDateColumn && ! $isCashAdvance) {
+            $payload['back_order_expected_delivery_date'] = $expectedDate;
+        }
+
+        DB::table(BackOrders::TABLE)->where('back_order_id', $bo->back_order_id)->update($payload);
         BackOrders::deleteFiles($removed);
 
         return back()->with('success', 'Back order updated.');

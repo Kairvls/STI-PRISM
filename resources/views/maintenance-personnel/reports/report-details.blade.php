@@ -14,48 +14,24 @@
     $canManageReportProgress = \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::MAINTENANCE)
         && ! \App\Support\RoleAccess::adminShell();
 
-    $statusClasses = match (
-        $report->report_current_status
-    ) {
-        'Pending' =>
-            'border-amber-200 bg-amber-50 text-amber-700',
-
-        'Processing' =>
-            'border-blue-200 bg-blue-50 text-blue-700',
-
-        'Resolved' =>
-            'border-emerald-200 bg-emerald-50 text-emerald-700',
-
-        'Rejected' =>
-            'border-red-200 bg-red-50 text-red-700',
-
-        'For Replacement' =>
-            'border-orange-200 bg-orange-50 text-orange-700',
-
-        default =>
-            'border-gray-200 bg-gray-50 text-gray-700',
+    $statusClasses = match ($report->report_current_status) {
+        'Pending' => 'border-amber-200 bg-amber-50 text-amber-700',
+        'Processing' => 'border-blue-200 bg-blue-50 text-blue-700',
+        'For Replacement' => 'border-violet-200 bg-violet-50 text-violet-700',
+        'Resolved' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        'Rejected' => 'border-red-200 bg-red-50 text-red-700',
+        'Closed / Cancelled' => 'border-slate-200 bg-slate-100 text-slate-700',
+        default => 'border-gray-200 bg-gray-50 text-gray-700',
     };
 
-    $statusDotClasses = match (
-        $report->report_current_status
-    ) {
-        'Pending' =>
-            'bg-amber-500',
-
-        'Processing' =>
-            'bg-blue-500',
-
-        'Resolved' =>
-            'bg-emerald-500',
-
-        'Rejected' =>
-            'bg-red-500',
-
-        'For Replacement' =>
-            'bg-orange-500',
-
-        default =>
-            'bg-gray-400',
+    $statusDotClasses = match ($report->report_current_status) {
+        'Pending' => 'bg-amber-500',
+        'Processing' => 'bg-blue-500',
+        'For Replacement' => 'bg-violet-500',
+        'Resolved' => 'bg-emerald-500',
+        'Rejected' => 'bg-red-500',
+        'Closed / Cancelled' => 'bg-slate-500',
+        default => 'bg-gray-400',
     };
 @endphp
 
@@ -462,7 +438,7 @@
                                     $canChangeSeverity = $canManageReportProgress
                                         && \App\Support\ReportSeverity::hasColumns()
                                         && empty($report->report_is_archived)
-                                        && !in_array($report->report_current_status, ['Resolved', 'Rejected'], true);
+                                        && !in_array($report->report_current_status, ['Resolved', 'Rejected', 'Closed / Cancelled'], true);
                                     $severityFormHasErrors = $errors->has('severity') || $errors->has('severity_reason');
                                 @endphp
 
@@ -1087,14 +1063,9 @@
                             "Pending"
                         )
 
-                            <option value="Processing">
-                                Start Processing
-                            </option>
-
-                            <option value="Rejected">
-                                Reject Report
-                            </option>
-
+                            <option value="Processing">Start Processing</option>
+                            <option value="Rejected">Reject Report</option>
+                            <option value="Closed / Cancelled">Closed / Cancelled</option>
 
                         {{-- ========================================= --}}
                         {{-- PROCESSING --}}
@@ -1105,17 +1076,18 @@
                             "Processing"
                         )
 
-                            <option value="Resolved">
-                                Mark as Resolved
-                            </option>
+                            <option value="For Replacement">Mark for Replacement</option>
+                            <option value="Resolved">Mark as Resolved</option>
+                            <option value="Rejected">Reject Report</option>
+                            <option value="Closed / Cancelled">Closed / Cancelled</option>
 
-                            <option value="For Replacement">
-                                Mark for Replacement
-                            </option>
+                        @elseif (
+                            $report->report_current_status ===
+                            "For Replacement"
+                        )
 
-                            <option value="Rejected">
-                                Reject Report
-                            </option>
+                            <option value="Resolved">Mark as Resolved</option>
+                            <option value="Closed / Cancelled">Closed / Cancelled</option>
 
                         @endif
 

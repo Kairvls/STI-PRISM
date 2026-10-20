@@ -498,7 +498,7 @@
 
             buildProfileFields(profile) {
                 return [
-                    { label: 'Category', value: profile.category },
+                    { label: 'Classification', value: profile.category },
                     { label: 'Room', value: profile.room_name },
                     { label: 'Inventory status', value: profile.inventory_status },
                     { label: 'Condition', value: profile.condition_status },

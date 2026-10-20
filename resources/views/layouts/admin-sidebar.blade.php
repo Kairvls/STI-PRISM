@@ -111,6 +111,12 @@
 
             $campusLinks = [
                 [
+                    'url' => route('admin.operations.building-layout'),
+                    'label' => 'Campus Monitoring',
+                    'icon' => 'building',
+                    'active' => request()->is('admin/operations/building-layout*'),
+                ],
+                [
                     'url' => route('admin.infrastructure.index'),
                     'label' => 'Rooms Layout',
                     'icon' => 'map',
@@ -137,7 +143,7 @@
 
             $equipmentGroups = [
                 [
-                    'label' => 'Register & stock',
+                    'label' => 'Management',
                     'icon' => 'package',
                     'links' => [
                         [
@@ -227,12 +233,6 @@
                     'label' => 'Monitoring',
                     'icon' => 'radar',
                     'links' => [
-                        [
-                            'url' => route('admin.operations.building-layout'),
-                            'label' => 'Campus Monitoring',
-                            'icon' => 'building',
-                            'active' => request()->is('admin/operations/building-layout*'),
-                        ],
                         [
                             'url' => route('admin.operations.movements'),
                             'label' => 'Equipment Movements',

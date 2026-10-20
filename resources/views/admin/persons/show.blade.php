@@ -4,6 +4,7 @@
 
 @section('content')
 @php
+    $viewOnly = (bool) ($viewOnly ?? false);
     $fieldClass = 'h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100';
 @endphp
 
@@ -16,9 +17,12 @@
     @endif
 
     <div>
-        <a href="{{ route('admin.persons.index') }}" class="inline-flex items-center gap-1 text-sm font-semibold text-[#0025cc] hover:underline">
+        @php
+            $personBack = $personBack ?? ['url' => route('admin.persons.index'), 'label' => 'All faculty & staff'];
+        @endphp
+        <a href="{{ $personBack['url'] }}" class="inline-flex items-center gap-1 text-sm font-semibold text-[#0025cc] hover:underline">
             <i data-lucide="chevron-left" class="h-4 w-4"></i>
-            All faculty &amp; staff
+            {{ $personBack['label'] }}
         </a>
         <h1 class="mt-2 text-xl font-semibold text-slate-950">{{ $person->person_full_name }}</h1>
         <p class="mt-1 font-mono text-sm text-slate-500">{{ $person->person_employee_id }}</p>
@@ -28,16 +32,109 @@
         <div class="rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
             <div class="border-b border-slate-100 px-5 py-4">
                 <h2 class="text-base font-semibold text-slate-950">Identity</h2>
+                @if ($viewOnly)
+                    <p class="mt-0.5 text-xs text-slate-500">View only — the Administrator manages faculty and staff records.</p>
+                @endif
             </div>
-            <form method="POST" action="{{ route('admin.persons.update', $person->person_id) }}" class="space-y-6 p-5">
-                @csrf
-                @method('PUT')
-                @include('admin.persons._form-fields', ['person' => $person, 'departments' => $departments, 'fieldClass' => $fieldClass, 'idPrefix' => 'edit'])
-                <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white">Save changes</button>
-            </form>
+            @if ($viewOnly)
+                @php
+                    $na = static fn ($v) => filled($v) ? $v : '—';
+                    $contactDisplay = \App\Support\PhoneNumber::formatForDisplay($person->person_contact_number ?? null);
+                    $statusActive = ($person->person_status ?? '') === 'Active';
+                @endphp
+                <div class="space-y-6 p-5">
+                    <section>
+                        <p class="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            <i data-lucide="briefcase" class="h-3.5 w-3.5"></i> Employment
+                        </p>
+                        <dl class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Type</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($person->person_employment_type) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Employee ID</dt>
+                                <dd class="mt-0.5 font-mono text-sm font-semibold tracking-wide text-slate-900">{{ $na($person->person_employee_id) }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section>
+                        <p class="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            <i data-lucide="id-card" class="h-3.5 w-3.5"></i> Name
+                        </p>
+                        <dl class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">First name</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($person->person_first_name) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Middle name</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($person->person_middle_name) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Last name</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($person->person_last_name) }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section>
+                        <p class="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            <i data-lucide="building-2" class="h-3.5 w-3.5"></i> Office
+                        </p>
+                        <dl class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Employment basis</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($person->person_employment_basis) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Department</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($person->department_name ?? null) }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section>
+                        <p class="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            <i data-lucide="mail" class="h-3.5 w-3.5"></i> Contact
+                        </p>
+                        <dl class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Email</dt>
+                                <dd class="mt-0.5 break-all text-sm font-semibold text-slate-900">{{ $na($person->person_email_address) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Contact number</dt>
+                                <dd class="mt-0.5 text-sm font-semibold text-slate-900">{{ $na($contactDisplay) }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section>
+                        <p class="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            <i data-lucide="toggle-left" class="h-3.5 w-3.5"></i> Status
+                        </p>
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $statusActive ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200' }}">
+                            {{ $na($person->person_status) }}
+                        </span>
+                    </section>
+                </div>
+            @else
+                <form method="POST" action="{{ route('admin.persons.update', $person->person_id) }}" class="space-y-6 p-5">
+                    @csrf
+                    @method('PUT')
+                    @if (request()->filled('return'))
+                        <input type="hidden" name="return" value="{{ request('return') }}">
+                    @endif
+                    @include('admin.persons._form-fields', ['person' => $person, 'departments' => $departments, 'fieldClass' => $fieldClass, 'idPrefix' => 'edit'])
+                    <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white">Save changes</button>
+                </form>
+            @endif
         </div>
 
         <div class="space-y-4 lg:col-span-2">
+            @unless ($viewOnly)
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 class="text-base font-semibold text-slate-950">Linked modules</h2>
                 <ul class="mt-3 space-y-2 text-sm">
@@ -67,6 +164,7 @@
                     </li>
                 </ul>
             </div>
+            @endunless
 
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 @php
@@ -226,7 +324,13 @@
                         @foreach ($heldEquipment as $item)
                             <tr class="hover:bg-slate-50/80">
                                 <td class="px-5 py-3">
-                                    <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id) }}" class="font-semibold text-[#0025cc] hover:underline">
+                                    @php
+                                        $heldEquipmentUrl = $viewOnly
+                                            ? route('school-admin.operations.equipment.show', (int) $item->equipment_id)
+                                                .(request()->filled('return') ? '?return='.rawurlencode((string) request('return')) : '')
+                                            : \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id);
+                                    @endphp
+                                    <a href="{{ $heldEquipmentUrl }}" class="font-semibold text-[#0025cc] hover:underline">
                                         {{ $item->equipment_name }}
                                     </a>
                                     <p class="text-xs text-slate-500">{{ implode(' · ', array_filter([$item->equipment_category_name ?? null, $item->equipment_brand_name ?? null, $item->equipment_model ?? null])) ?: '—' }}</p>

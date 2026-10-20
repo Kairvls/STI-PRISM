@@ -26,5 +26,7 @@
                 {{ $slot }}
             </div>
         </div>
+        <script src="{{ asset('js/input-limits.js') }}" defer></script>
+        <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
     </body>
 </html>

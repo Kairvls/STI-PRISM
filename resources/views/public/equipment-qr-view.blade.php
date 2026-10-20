@@ -54,7 +54,7 @@
             </div>
 
             <div>
-                <strong>Category:</strong>
+                <strong>Classification:</strong>
                 {{ $equipment->equipment_category_name }}
             </div>
 

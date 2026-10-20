@@ -141,6 +141,16 @@ class RrLineIntake
                 throw ValidationException::withMessages(["lines.$i.quantity" => $rrLine->article.' on '.$rrLine->rr_number.' has only '.(int) $rrLine->remaining_qty.' left to add.']);
             }
 
+            $categoryId = (int) $line['category_id'];
+            if (
+                ($line['tracking'] ?? '') === EquipmentTrackingModes::BULK
+                && EquipmentTrackingModes::requiresIndividualForCategory($categoryId)
+            ) {
+                throw ValidationException::withMessages([
+                    "lines.$i.tracking" => $rrLine->article.' must be stocked as Individual units. Bulk is only for consumables/supplies.',
+                ]);
+            }
+
             $count = $line['tracking'] === 'Bulk' ? 1 : $quantity;
             $units = array_slice(array_values($line['units'] ?? []), 0, $count);
             if ($line['tracking'] === 'Bulk' && ! $units) {

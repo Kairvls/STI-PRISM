@@ -103,8 +103,8 @@
                             $canClose = $row->report_current_status === 'Processing';
                             $status = (string) ($row->report_current_status ?: '—');
                             $badgeClass = $statusClasses[$status] ?? 'border-gray-200 bg-gray-50 text-gray-600';
-                            $urgency = (string) ($row->report_urgency_level ?: 'Normal');
-                            $isUrgent = strcasecmp($urgency, 'Urgent') === 0 || strcasecmp($urgency, 'Critical') === 0;
+                            $priority = \App\Support\ReportSeverity::forReport($row);
+                            $priorityPill = \App\Support\ReportSeverity::meta($priority)['pill'];
                         @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td>
@@ -112,7 +112,7 @@
                                 <p class="mt-0.5 text-xs text-gray-500">
                                     {{ $row->room_name ?: 'No room' }}
                                     ·
-                                    <span class="{{ $isUrgent ? 'font-semibold text-rose-600' : 'text-gray-400' }}">{{ $urgency }}</span>
+                                    <span class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold {{ $priorityPill }}">{{ $priority }}</span>
                                     ·
                                     {{ \Illuminate\Support\Str::limit($row->report_suggested_issue, 60) }}
                                 </p>

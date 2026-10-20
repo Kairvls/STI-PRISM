@@ -245,11 +245,12 @@ class ReporterController extends Controller
             : collect();
 
         $statusMeta = [
-            'Resolved' => ['label' => 'Done', 'color' => '#16a34a', 'dot' => '#16a34a'],
-            'Processing' => ['label' => 'Active', 'color' => '#d97706', 'dot' => '#fff200'],
-            'Pending' => ['label' => 'New', 'color' => '#0025cc', 'dot' => '#0025cc'],
-            'For Replacement' => ['label' => 'Replace', 'color' => '#d97706', 'dot' => '#fff200'],
-            'Rejected' => ['label' => 'Closed', 'color' => '#6b7280', 'dot' => '#94a3b8'],
+            'Pending' => ['label' => 'Pending', 'color' => '#0025cc', 'dot' => '#0025cc'],
+            'Processing' => ['label' => 'Processing', 'color' => '#0284c7', 'dot' => '#0284c7'],
+            'For Replacement' => ['label' => 'For Replacement', 'color' => '#7c3aed', 'dot' => '#7c3aed'],
+            'Resolved' => ['label' => 'Resolved', 'color' => '#16a34a', 'dot' => '#16a34a'],
+            'Rejected' => ['label' => 'Rejected', 'color' => '#e11d48', 'dot' => '#e11d48'],
+            'Closed / Cancelled' => ['label' => 'Closed / Cancelled', 'color' => '#6b7280', 'dot' => '#94a3b8'],
         ];
 
         $recentActivities = $recentReports->map(function ($report) use ($statusMeta) {
@@ -635,8 +636,8 @@ class ReporterController extends Controller
         $validated = $request->validate([
             'items' => 'nullable|array|max:'.\App\Support\RisWorkflow::MAX_ITEMS,
             'items.*.equipment_id' => 'nullable|integer',
-            'items.*.name' => 'nullable|string|max:255',
-            'items.*.issue' => 'nullable|string|max:255',
+            'items.*.name' => 'nullable|string|'.\App\Support\InputLimits::name(),
+            'items.*.issue' => 'nullable|string|'.\App\Support\InputLimits::name(),
             'items.*.room_id' => 'nullable|integer',
             'description' => 'nullable|string|max:5000',
         ]);

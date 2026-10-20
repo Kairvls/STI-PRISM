@@ -990,6 +990,8 @@
     </script>
 
     <script src="{{ asset('js/auto-filter.js') }}" defer></script>
+    <script src="{{ asset('js/input-limits.js') }}" defer></script>
+    <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
 
     @stack('scripts')
 
@@ -997,7 +999,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
 
-    @include('layouts.partials.messaging-modal')
+    {{-- Chat/messaging: exclude from outside-click close --}}
+    <div data-no-backdrop-close class="contents">
+        @include('layouts.partials.messaging-modal')
+    </div>
 
     <script>
         if (window.lucide) {

@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Schema;
  * Automatic report priority (Critical / High / Medium / Low), decided by the system
  * from the equipment, the suggested issue, the room, repeat reports, and safety signals.
  *
- * User-facing wording uses these four levels only. report_urgency_level is still stored
- * internally (Critical+High → legacy Urgent, Medium+Low → legacy Non-Urgent) for older
- * filters and purchaser queues, but should not be shown as the report status label.
+ * User-facing Priority levels (highest → lowest): Critical, High, Medium, Low.
+ * report_urgency_level is still stored internally (Critical+High → legacy Urgent,
+ * Medium+Low → legacy Non-Urgent) for older queues, but UI should show Priority.
  */
 class ReportSeverity
 {
@@ -19,6 +19,14 @@ class ReportSeverity
     public const HIGH = 'High';
     public const MEDIUM = 'Medium';
     public const LOW = 'Low';
+
+    /** Highest → lowest for dropdowns and triage. */
+    public const ALL = [
+        self::CRITICAL,
+        self::HIGH,
+        self::MEDIUM,
+        self::LOW,
+    ];
 
     private const RANKS = [
         self::LOW => 1,
@@ -53,7 +61,13 @@ class ReportSeverity
 
     public static function levels(): array
     {
-        return [self::CRITICAL, self::HIGH, self::MEDIUM, self::LOW];
+        return self::ALL;
+    }
+
+    /** Alias for Priority wording in UI/docs. */
+    public static function priorities(): array
+    {
+        return self::ALL;
     }
 
     public static function isLevel(?string $level): bool
@@ -100,7 +114,7 @@ class ReportSeverity
         return match ($level) {
             self::CRITICAL => [
                 'label' => 'Critical',
-                'meaning' => 'Safety hazard or room unusable',
+                'meaning' => 'Major failure, safety hazard, or heavy operational halt',
                 'target' => 'Respond within 1 hour',
                 'pill' => 'bg-red-600 text-white',
                 'soft' => 'bg-red-50 text-red-700 ring-1 ring-red-200',
@@ -108,23 +122,31 @@ class ReportSeverity
             ],
             self::HIGH => [
                 'label' => 'High',
-                'meaning' => 'Class or work disrupted, no workaround',
+                'meaning' => 'Important breakdown affecting classes, labs, or offices',
                 'target' => 'Respond the same day',
                 'pill' => 'bg-orange-100 text-orange-700',
                 'soft' => 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
                 'color' => '#ea580c',
             ],
+            self::MEDIUM => [
+                'label' => 'Medium',
+                'meaning' => 'Moderate issue; work can still proceed',
+                'target' => 'Within 2 school days',
+                'pill' => 'bg-amber-100 text-amber-800',
+                'soft' => 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+                'color' => '#d97706',
+            ],
             self::LOW => [
                 'label' => 'Low',
-                'meaning' => 'Cosmetic or minor',
+                'meaning' => 'Minor cosmetic flaw or non-urgent request',
                 'target' => 'Within 5 school days',
-                'pill' => 'bg-slate-100 text-slate-600',
-                'soft' => 'bg-slate-50 text-slate-600 ring-1 ring-slate-200',
-                'color' => '#64748b',
+                'pill' => 'bg-sky-100 text-sky-700',
+                'soft' => 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
+                'color' => '#0284c7',
             ],
             default => [
                 'label' => 'Medium',
-                'meaning' => 'Still usable or has a workaround',
+                'meaning' => 'Moderate issue; work can still proceed',
                 'target' => 'Within 2 school days',
                 'pill' => 'bg-amber-100 text-amber-800',
                 'soft' => 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',

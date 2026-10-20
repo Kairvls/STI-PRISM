@@ -61,20 +61,12 @@ class Departments
                     DB::raw("SUM(CASE WHEN custodian_status != 'Inactive' THEN 1 ELSE 0 END) as active_people_count")
                 );
 
-        $hasEquipment = Schema::hasColumn('equipment_table', 'equipment_department_id');
-        $equipment = DB::table('equipment_table')
-            ->whereNotNull('equipment_department_id')
-            ->where('equipment_inventory_status', '!=', 'Disposed')
-            ->groupBy('equipment_department_id')
-            ->select(
-                'equipment_department_id',
-                DB::raw('COUNT(*) as equipment_count'),
-                DB::raw('COALESCE(SUM(equipment_quantity), 0) as equipment_units')
-            );
+        $equipment = self::equipmentMembershipByDepartment();
+        $hasEquipmentMembership = $equipment !== null;
 
         $rows = DB::table('departments_table as dept')
             ->leftJoinSub($people, 'p', 'p.custodian_department_id', '=', 'dept.department_id')
-            ->when($hasEquipment, fn ($q) => $q->leftJoinSub($equipment, 'eq', 'eq.equipment_department_id', '=', 'dept.department_id'))
+            ->when($hasEquipmentMembership, fn ($q) => $q->leftJoinSub($equipment, 'eq', 'eq.department_id', '=', 'dept.department_id'))
             ->when($search !== '', fn ($q) => $q->where(function ($q) use ($search) {
                 $q->where('dept.department_name', 'like', "%{$search}%")
                     ->orWhere('dept.department_description', 'like', "%{$search}%");
@@ -87,8 +79,8 @@ class Departments
                 'dept.*',
                 DB::raw('COALESCE(p.people_count, 0) as people_count'),
                 DB::raw('COALESCE(p.active_people_count, 0) as active_people_count'),
-                DB::raw($hasEquipment ? 'COALESCE(eq.equipment_count, 0) as equipment_count' : '0 as equipment_count'),
-                DB::raw($hasEquipment ? 'COALESCE(eq.equipment_units, 0) as equipment_units' : '0 as equipment_units'),
+                DB::raw($hasEquipmentMembership ? 'COALESCE(eq.equipment_count, 0) as equipment_count' : '0 as equipment_count'),
+                DB::raw($hasEquipmentMembership ? 'COALESCE(eq.equipment_units, 0) as equipment_units' : '0 as equipment_units'),
             ]);
 
         $roomsByDepartment = RoomDepartments::forDepartments(
@@ -105,13 +97,25 @@ class Departments
     }
 
     /**
-     * @return array{active: int, archived: int, assigned_people: int, unassigned_people: int, charged_equipment: int}
+     * @return array{active: int, archived: int, assigned_people: int, unassigned_people: int, charged_equipment: int, department_equipment: int}
      */
     public static function stats(): array
     {
         if (! self::tableReady()) {
-            return ['active' => 0, 'archived' => 0, 'assigned_people' => 0, 'unassigned_people' => 0, 'charged_equipment' => 0];
+            return [
+                'active' => 0,
+                'archived' => 0,
+                'assigned_people' => 0,
+                'unassigned_people' => 0,
+                'charged_equipment' => 0,
+                'department_equipment' => 0,
+            ];
         }
+
+        $membership = self::equipmentMembershipByDepartment();
+        $departmentEquipment = $membership
+            ? (int) DB::query()->fromSub($membership, 'eq')->sum('equipment_count')
+            : 0;
 
         return [
             'active' => DB::table('departments_table')->where('department_is_archived', false)->count(),
@@ -122,13 +126,91 @@ class Departments
             'unassigned_people' => Persons::tableReady()
                 ? DB::table('persons_table')->whereNull('person_department_id')->count()
                 : DB::table('custodians_table')->whereNull('custodian_department_id')->count(),
-            'charged_equipment' => Schema::hasColumn('equipment_table', 'equipment_department_id')
-                ? DB::table('equipment_table')
-                    ->whereNotNull('equipment_department_id')
-                    ->where('equipment_inventory_status', '!=', 'Disposed')
-                    ->count()
-                : 0,
+            // Same union total as the table (kept key for callers; alias added below).
+            'charged_equipment' => $departmentEquipment,
+            'department_equipment' => $departmentEquipment,
         ];
+    }
+
+    /**
+     * Per-department distinct equipment counts: charged to the office OR actively
+     * issued to someone who belongs to that office.
+     *
+     * @return \Illuminate\Database\Query\Builder|null
+     */
+    public static function equipmentMembershipByDepartment()
+    {
+        $hasCharge = Schema::hasTable('equipment_table')
+            && Schema::hasColumn('equipment_table', 'equipment_department_id');
+        $hasHeld = PropertyAssignments::tableReady()
+            && Schema::hasTable('equipment_table');
+
+        if (! $hasCharge && ! $hasHeld) {
+            return null;
+        }
+
+        $branches = [];
+
+        if ($hasCharge) {
+            $branches[] = DB::table('equipment_table')
+                ->whereNotNull('equipment_department_id')
+                ->where('equipment_inventory_status', '!=', 'Disposed')
+                ->select(
+                    'equipment_department_id as department_id',
+                    'equipment_id',
+                    'equipment_quantity'
+                );
+        }
+
+        if ($hasHeld) {
+            $held = DB::table('property_assignments_table as pa')
+                ->join('equipment_table as e', 'e.equipment_id', '=', 'pa.assignment_equipment_id')
+                ->join('custodians_table as c', 'c.custodian_id', '=', 'pa.assignment_custodian_id')
+                ->where('pa.assignment_status', 'Active')
+                ->where('e.equipment_inventory_status', '!=', 'Disposed');
+
+            if (Persons::tableReady()) {
+                $held->join('persons_table as p', 'p.person_id', '=', 'c.person_id')
+                    ->whereNotNull('p.person_department_id')
+                    ->select(
+                        'p.person_department_id as department_id',
+                        'e.equipment_id',
+                        'e.equipment_quantity'
+                    );
+            } else {
+                $held->whereNotNull('c.custodian_department_id')
+                    ->select(
+                        'c.custodian_department_id as department_id',
+                        'e.equipment_id',
+                        'e.equipment_quantity'
+                    );
+            }
+
+            $branches[] = $held;
+        }
+
+        $union = array_shift($branches);
+        foreach ($branches as $branch) {
+            $union = $union->unionAll($branch);
+        }
+
+        $unique = DB::query()
+            ->fromSub($union, 'membership_raw')
+            ->groupBy('department_id', 'equipment_id')
+            ->select(
+                'department_id',
+                'equipment_id',
+                DB::raw('MAX(equipment_quantity) as equipment_quantity')
+            );
+
+        return DB::query()
+            ->fromSub($unique, 'membership')
+            ->groupBy('department_id')
+            ->select(
+                'department_id',
+                DB::raw('COUNT(*) as equipment_count'),
+                DB::raw('COALESCE(SUM(equipment_quantity), 0) as equipment_units')
+            );
     }
 
     /**
@@ -205,7 +287,7 @@ class Departments
             : null;
 
         if (Persons::tableReady()) {
-            $people = DB::table('persons_table as p')
+            $peopleRows = DB::table('persons_table as p')
                 ->leftJoin('custodians_table as c', 'c.person_id', '=', 'p.person_id')
                 ->leftJoin('rooms_table as r', 'r.room_id', '=', 'c.custodian_room_id')
                 ->when($held, fn ($q) => $q->leftJoinSub($held, 'h', 'h.assignment_custodian_id', '=', 'c.custodian_id'))
@@ -224,6 +306,23 @@ class Departments
                     'r.room_name',
                     DB::raw($held ? 'COALESCE(h.held_count, 0) as held_count' : '0 as held_count'),
                 ]);
+
+            // One display row per person; prefer the custodian row that holds the most items.
+            $people = $peopleRows
+                ->groupBy(fn ($row) => (int) $row->person_id)
+                ->map(function (Collection $rows) {
+                    return $rows->sort(function ($a, $b) {
+                        $held = (int) ($b->held_count ?? 0) <=> (int) ($a->held_count ?? 0);
+                        if ($held !== 0) {
+                            return $held;
+                        }
+
+                        return (int) ($b->custodian_id ?? 0) <=> (int) ($a->custodian_id ?? 0);
+                    })->first();
+                })
+                ->values();
+
+            $peopleIds = $peopleRows->pluck('custodian_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
         } else {
             $people = DB::table('custodians_table as c')
                 ->leftJoin('rooms_table as r', 'r.room_id', '=', 'c.custodian_room_id')
@@ -243,10 +342,11 @@ class Departments
                     'r.room_name',
                     DB::raw($held ? 'COALESCE(h.held_count, 0) as held_count' : '0 as held_count'),
                 ]);
+
+            $peopleIds = $people->pluck('custodian_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
         }
 
         $hasDepartment = Schema::hasColumn('equipment_table', 'equipment_department_id');
-        $peopleIds = $people->pluck('custodian_id')->filter()->values()->all();
 
         if (! $hasDepartment && ($peopleIds === [] || ! $hasAssignments)) {
             return ['people' => $people, 'equipment' => collect()];
@@ -298,6 +398,9 @@ class Departments
                 DB::raw('NULL as assignment_issued_at'),
             ]));
 
+        // Distinct equipment rows (multiple Active assignments should not inflate the list).
+        $equipment = $equipment->unique('equipment_id')->values();
+
         return ['people' => $people, 'equipment' => $equipment];
     }
 
@@ -308,6 +411,46 @@ class Departments
         }
 
         return (int) DB::table('custodians_table')->where('custodian_department_id', $departmentId)->count();
+    }
+
+    /**
+     * When an item is issued to a person, charge it to their department if unset.
+     */
+    public static function syncEquipmentChargeFromHolder(int $equipmentId, int $custodianId): void
+    {
+        if (
+            $equipmentId < 1
+            || $custodianId < 1
+            || ! Schema::hasTable('equipment_table')
+            || ! Schema::hasColumn('equipment_table', 'equipment_department_id')
+        ) {
+            return;
+        }
+
+        $departmentId = 0;
+        if (Persons::tableReady()) {
+            $departmentId = (int) DB::table('custodians_table as c')
+                ->join('persons_table as p', 'p.person_id', '=', 'c.person_id')
+                ->where('c.custodian_id', $custodianId)
+                ->value('p.person_department_id');
+        }
+        if ($departmentId < 1 && Schema::hasColumn('custodians_table', 'custodian_department_id')) {
+            $departmentId = (int) DB::table('custodians_table')
+                ->where('custodian_id', $custodianId)
+                ->value('custodian_department_id');
+        }
+
+        if ($departmentId < 1) {
+            return;
+        }
+
+        DB::table('equipment_table')
+            ->where('equipment_id', $equipmentId)
+            ->where(function ($q) {
+                $q->whereNull('equipment_department_id')
+                    ->orWhere('equipment_department_id', 0);
+            })
+            ->update(['equipment_department_id' => $departmentId]);
     }
 
     /**

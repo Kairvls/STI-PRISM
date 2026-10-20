@@ -594,41 +594,41 @@ class MobileMaintenanceController extends Controller
             'asset_tag' => [
                 'nullable',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::ASSET_TAG,
             ],
 
             'brand_name' => [
                 'nullable',
                 'string',
-                'max:255'
+                \App\Support\InputLimits::name(),
             ],
 
             'model' => [
                 'nullable',
                 'string',
-                'max:255'
+                \App\Support\InputLimits::name(),
             ],
 
             'serial_number' => [
                 'nullable',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::SERIAL,
             ],
 
             'condition_status' => [
                 'required',
-                'in:Good,Damaged,Under Maintenance,Disposed'
+                \App\Support\EquipmentConditions::ruleIn(),
             ],
 
             'inventory_status' => [
                 'required',
-                'in:Active,Under Maintenance,Borrowed,For Replacement,Disposed'
+                \App\Support\EquipmentInventoryStatuses::ruleIn(),
             ],
 
             'current_location' => [
                 'nullable',
                 'string',
-                'max:255'
+                'max:'.\App\Support\InputLimits::LOCATION,
             ],
 
         ]);
@@ -1198,8 +1198,8 @@ class MobileMaintenanceController extends Controller
         MaintenanceReportService $reports
     ): JsonResponse {
         $validated = $request->validate([
-            'status' => 'required|in:Processing,Resolved,For Replacement,Rejected',
-            'remarks' => 'nullable|string',
+            'status' => 'required|'.\App\Support\ReportStatuses::updateRuleIn(),
+            'remarks' => 'nullable|string|'.\App\Support\InputLimits::notes(),
             'proof_image' => 'nullable|image|max:5120',
             'report_item_ids' => 'nullable|array',
             'report_item_ids.*' => 'integer',

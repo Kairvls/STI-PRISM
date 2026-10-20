@@ -170,6 +170,8 @@ Cash Advance: there's no block. The Purchaser can buy from several suppliers.
 
 
 
+
+
 1. How the new supplier gets paid on Request for Check. The check was issued to the original supplier, and Request for Check has no liquidation. When the refund comes back and you buy from a new supplier, how is that supplier paid?
 A. From the refunded money, with the cash difference remark sent to Accounting.
 B. A new Request for Check for the new supplier.
@@ -262,3 +264,27 @@ add here that can assign person in this department much likely for those person 
 in the maintenace or administrator system side for maintenance schedule module when schedule is completed this day or year or month make it cant be mark as complete again when its not yet 7 days before of another maintenance schedule... am i right?
 
 whats the exact ordering and grouping for the links in the administrator sidebar
+
+
+Room	Why the %
+NewRoom1 · 100%
+All equipment counted as Good
+Room 204 · 50%
+About half of its 6 items are Good (rest damaged/maint/etc.)
+Admission / NewRoom2 · 33%
+Roughly 1 of 3 Good
+Registrar · 8%
+0 equipment → formula still floors at 8% (never shows 0%)
+
+
+Condition vs. Status Separation:Condition = 
+How is the physical item? (Good, Defective, Damaged)   
+Status = What is happening to the item in the system? (Active, Borrowed, Under Maintenance, For Replacement, Disposed)
+
+in this part should we make the equipment in holding area in the room can be mark as deployed equipment in report form instead of unassigned since in the room that has holding area is we just make it for the ui... am i right?
+
+on every procurement form in every input field put a limit/maximum input like from ris to lr
+
+should we put in then inventory module, a (notification/lists) about that the new replacement item has been arrived to replace that item the that has need for replacement
+
+in the school administrator make it has a dedicated that can view also the equipment details and person's details

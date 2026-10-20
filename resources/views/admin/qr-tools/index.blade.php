@@ -174,7 +174,7 @@
                         >
 
                             <option value="">
-                                All Categories
+                                All Classifications
                             </option>
 
                             @foreach ($categories as $category)
@@ -408,7 +408,7 @@
                             </th>
 
                             <th class="px-5 py-3">
-                                Category
+                                Classification
                             </th>
 
                             <th class="px-5 py-3">
@@ -1260,7 +1260,7 @@
                         ></dd>
                     </div>
                     <div class="flex items-baseline justify-between gap-6 py-3">
-                        <dt class="text-sm text-slate-500">Category</dt>
+                        <dt class="text-sm text-slate-500">Classification</dt>
                         <dd
                             class="truncate text-sm font-medium text-slate-900"
                             x-text="category"

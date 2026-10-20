@@ -22,7 +22,7 @@
         >
             <i data-lucide="plus" class="w-4 h-4"></i>
 
-            Add Category
+            Add Classification
         </button>
     </div>
 
@@ -61,7 +61,7 @@
                 <h2
                     class="text-lg font-semibold text-slate-950"
                 >
-                    Categories
+                    Classifications
                 </h2>
 
             </div>
@@ -146,7 +146,7 @@
                         <th
                             class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
                         >
-                            Category
+                            Classification
                         </th>
 
 
@@ -221,7 +221,7 @@
                                         <p
                                             class="mt-0.5 text-xs text-slate-400"
                                         >
-                                            Category ID:
+                                            Classification ID:
                                             {{ $category->equipment_category_id }}
                                         </p>
 
@@ -456,7 +456,7 @@
                                                 class="h-4 w-4"
                                             ></i>
 
-                                            Add Category
+                                            Add Classification
 
                                         </button>
 
@@ -544,7 +544,7 @@
                     <h2
                         class="text-lg font-semibold text-slate-950"
                     >
-                        Add Category
+                        Add Classification
                     </h2>
 
                 </div>
@@ -586,7 +586,7 @@
                         for="equipment_category_name"
                         class="mb-2 block text-sm font-semibold text-slate-700"
                     >
-                        Category Name <span class="text-red-500">*</span>
+                        Classification Name <span class="text-red-500">*</span>
                     </label>
 
 
@@ -601,7 +601,7 @@
 
                         placeholder="Example: Computer Equipment"
 
-                        maxlength="255"
+                        maxlength="{{ \App\Support\InputLimits::CATEGORY_NAME }}"
 
                         required
 
@@ -672,7 +672,7 @@
 
 
                         <span
-                            x-text="createSubmitting ? 'Adding...' : 'Add Category'"
+                            x-text="createSubmitting ? 'Adding...' : 'Add Classification'"
                         ></span>
 
                     </button>
@@ -733,7 +733,7 @@
                     <h2
                         class="text-lg font-semibold text-slate-950"
                     >
-                        Edit Category
+                        Edit Classification
                     </h2>
 
                 </div>
@@ -777,7 +777,7 @@
                         for="edit_equipment_category_name"
                         class="mb-2 block text-sm font-semibold text-slate-700"
                     >
-                        Category Name <span class="text-red-500">*</span>
+                        Classification Name <span class="text-red-500">*</span>
                     </label>
 
 
@@ -790,9 +790,9 @@
 
                         x-ref="editCategoryInput"
 
-                        placeholder="Category name"
+                        placeholder="Classification name"
 
-                        maxlength="255"
+                        maxlength="{{ \App\Support\InputLimits::CATEGORY_NAME }}"
 
                         required
 
@@ -1016,7 +1016,7 @@
 
                         icon: 'warning',
 
-                        title: 'Category In Use',
+                        title: 'Classification In Use',
 
                         text:
                             `"${categoryName}" cannot be deleted because ` +
@@ -1053,7 +1053,7 @@
                         'warning',
 
                     title:
-                        'Delete Category?',
+                        'Delete Classification?',
 
                     html:
                         `You are about to delete <strong>${this.escapeHtml(categoryName)}</strong>. ` +
@@ -1063,7 +1063,7 @@
                         true,
 
                     confirmButtonText:
-                        'Delete Category',
+                        'Delete Classification',
 
                     cancelButtonText:
                         'Cancel',

@@ -8,6 +8,7 @@
         x-show="open"
         x-transition
         class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70"
+        @click.self="open = false"
     >
         <div class="w-[900px] rounded-3xl bg-white p-8">
             <div class="mb-8 flex items-center justify-between">
@@ -485,22 +486,6 @@
                         <div class="border-t border-slate-200"></div>
 
                         <!-- ==================== -->
-                        <!-- Paint Rooms -->
-                        <!-- ==================== -->
-
-                        <button
-                            type="button"
-                            @click="toggleRoomPaintMode()"
-                            :data-tooltip="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
-                            :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
-                            class="flex w-full items-center justify-center py-3 transition"
-                        >
-                            <i data-lucide="paintbrush" class="h-4 w-4"></i>
-                        </button>
-
-                        <div class="border-t border-slate-200"></div>
-
-                        <!-- ==================== -->
                         <!-- Reset -->
                         <!-- ==================== -->
 
@@ -545,70 +530,6 @@
 
                         </button>
 
-                    </div>
-
-                    <div
-                        x-show="editMode && roomPaintMode"
-                        x-cloak
-                        x-ref="roomPaintPanel"
-                        x-transition
-                        @pointerdown.stop
-                        class="fixed z-[90] touch-none rounded-lg border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl"
-                        :style="roomPaintPanelStyle()"
-                    >
-                        <div
-                            class="flex cursor-grab items-start justify-between gap-1.5 border-b border-slate-100 px-2 py-1.5 active:cursor-grabbing"
-                            @pointerdown="beginRoomPaintPanelDrag($event)"
-                        >
-                            <div class="flex min-w-0 items-start gap-1">
-                                <i data-lucide="grip-vertical" class="mt-0.5 h-3 w-3 shrink-0 text-slate-400"></i>
-                                <div class="min-w-0">
-                                    <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
-                                    <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
-                                </div>
-                            </div>
-                            <span
-                                x-show="selectedRoom"
-                                class="shrink-0 rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
-                                x-text="roomPaintColor || 'No color selected'"
-                            ></span>
-                        </div>
-
-                        <div class="space-y-2 p-2">
-                            <div>
-                                <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
-                                <input
-                                    x-model="roomPaintColor"
-                                    type="color"
-                                    class="h-6 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5"
-                                />
-                            </div>
-
-                            <div>
-                                <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
-                                <div class="grid grid-cols-8 gap-1">
-                                    <template x-for="color in roomPaintPresets" :key="color">
-                                        <button
-                                            type="button"
-                                            @click="roomPaintColor = color"
-                                            class="h-5 w-full rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
-                                            :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-1' : ''"
-                                            :style="`background:${color}`"
-                                            :data-tooltip="color"
-                                        ></button>
-                                    </template>
-                                </div>
-                            </div>
-
-                            <button
-                                type="button"
-                                @click="resetSelectedRoomColor()"
-                                :disabled="!selectedRoom"
-                                class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                Reset room color
-                            </button>
-                        </div>
                     </div>
 
                 </div>
@@ -711,7 +632,7 @@
                                     <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
-                                        @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } if(!editMode) selectedRoom={{ $room->room_id }}"
+                                        @click.stop="if(!editMode) selectedRoom={{ $room->room_id }}"
                                         
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
@@ -1024,6 +945,7 @@
             x-transition.opacity
             x-cloak
             class="fixed inset-0 z-[1250] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @click.self="if (!roomLayout.edit) requestCloseRoomLayout()"
         >
             <div
                 class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl"
@@ -1351,6 +1273,7 @@
             x-transition.opacity
             x-cloak
             class="fixed inset-0 z-[1300] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @click.self="closeLayoutModal.open = false"
         >
 
             <div
@@ -1438,6 +1361,7 @@
             x-transition.opacity
             x-cloak
             class="fixed inset-0 z-[1301] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @click.self="blueprintLayoutModal.open = false"
         >
 
             <div

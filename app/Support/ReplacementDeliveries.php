@@ -170,6 +170,28 @@ class ReplacementDeliveries
             ->values();
     }
 
+    /** Public label of equipment a replacement request is meant to replace. */
+    public static function replacesLabelForRequest(int $requestId): string
+    {
+        if ($requestId < 1 || ! Schema::hasTable('procurement_requests_table')) {
+            return '';
+        }
+
+        $request = DB::table('procurement_requests_table')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+            ->where('procurement_requests_table.procurement_request_id', $requestId)
+            ->select(
+                'equipment_table.equipment_name',
+                'reports_table.report_unlisted_equipment_name',
+                'rooms_table.room_name'
+            )
+            ->first();
+
+        return $request ? self::replacedLabel($requestId, $request) : '';
+    }
+
     private static function replacedLabel(int $requestId, object $request): string
     {
         $lines = ReplacementRequestBasket::itemsForRequest($requestId);

@@ -14,17 +14,17 @@
         @if($supplier->supplier_store_type === 'Physical Store')
             <div>
                 <label class="text-xs font-medium text-gray-500">Company Name <span class="text-red-500">*</span></label>
-                <input type="text" name="company_name" value="{{ $physical->company_name ?? '' }}" class="pur-input mt-1" required>
+                <input type="text" name="company_name" value="{{ $physical->company_name ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
             </div>
 
             <div class="grid gap-3 lg:grid-cols-2">
                 <div>
                     <label class="text-xs font-medium text-gray-500">Contact Person</label>
-                    <input type="text" name="contact_person" value="{{ $physical->contact_person ?? '' }}" class="pur-input mt-1">
+                    <input type="text" name="contact_person" value="{{ $physical->contact_person ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1">
                 </div>
                 <div>
                     <label class="text-xs font-medium text-gray-500">Email</label>
-                    <input type="email" name="email_address" value="{{ $physical->email_address ?? '' }}" class="pur-input mt-1">
+                    <input type="email" name="email_address" value="{{ $physical->email_address ?? '' }}" maxlength="{{ \App\Support\InputLimits::EMAIL }}" class="pur-input mt-1">
                 </div>
             </div>
 
@@ -52,28 +52,28 @@
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Company Address</label>
-                <textarea name="company_address" rows="4" class="pur-input mt-1">{{ $physical->company_address ?? '' }}</textarea>
+                <textarea name="company_address" rows="4" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="pur-input mt-1">{{ $physical->company_address ?? '' }}</textarea>
             </div>
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Operating Hours</label>
-                <input type="text" name="operating_hours" value="{{ old('operating_hours', $supplier->operating_hours ?? '') }}" placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM" maxlength="255" class="pur-input mt-1">
+                <input type="text" name="operating_hours" value="{{ old('operating_hours', $supplier->operating_hours ?? '') }}" placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1">
             </div>
         @else
             <div>
                 <label class="text-xs font-medium text-gray-500">App Used <span class="text-red-500">*</span></label>
-                <input type="text" name="app_used" value="{{ $online->app_used ?? '' }}" class="pur-input mt-1" required>
+                <input type="text" name="app_used" value="{{ $online->app_used ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
             </div>
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Shop Name <span class="text-red-500">*</span></label>
-                <input type="text" name="shop_name" value="{{ $online->shop_name ?? '' }}" class="pur-input mt-1" required>
+                <input type="text" name="shop_name" value="{{ $online->shop_name ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
             </div>
 
             <div class="grid gap-3 lg:grid-cols-2">
                 <div>
                     <label class="text-xs font-medium text-gray-500">Contact Person</label>
-                    <input type="text" name="contact_person" value="{{ $online->contact_person ?? '' }}" class="pur-input mt-1">
+                    <input type="text" name="contact_person" value="{{ $online->contact_person ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1">
                 </div>
                 <div>
                     <label class="text-xs font-medium text-gray-500">Contact Number</label>
@@ -88,22 +88,22 @@
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Email</label>
-                <input type="email" name="email_address" value="{{ $online->email_address ?? '' }}" class="pur-input mt-1">
+                <input type="email" name="email_address" value="{{ $online->email_address ?? '' }}" maxlength="{{ \App\Support\InputLimits::EMAIL }}" class="pur-input mt-1">
             </div>
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Store URL</label>
-                <input type="text" name="store_url" value="{{ $online->store_url ?? '' }}" placeholder="https://shopee.ph/shop/..." class="pur-input mt-1">
+                <input type="text" name="store_url" value="{{ $online->store_url ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="https://shopee.ph/shop/..." class="pur-input mt-1">
             </div>
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Seller / Store ID</label>
-                <input type="text" name="seller_id" value="{{ $online->seller_id ?? '' }}" placeholder="Platform seller or store ID" class="pur-input mt-1">
+                <input type="text" name="seller_id" value="{{ $online->seller_id ?? '' }}" maxlength="{{ \App\Support\InputLimits::SHORT }}" placeholder="Platform seller or store ID" class="pur-input mt-1">
             </div>
 
             <div>
                 <label class="text-xs font-medium text-gray-500">Operating Hours</label>
-                <input type="text" name="operating_hours" value="{{ old('operating_hours', $supplier->operating_hours ?? '') }}" placeholder="e.g. Mon–Sun 8:00 AM – 10:00 PM" maxlength="255" class="pur-input mt-1">
+                <input type="text" name="operating_hours" value="{{ old('operating_hours', $supplier->operating_hours ?? '') }}" placeholder="e.g. Mon–Sun 8:00 AM – 10:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1">
             </div>
         @endif
 

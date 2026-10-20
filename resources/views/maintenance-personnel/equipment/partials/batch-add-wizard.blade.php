@@ -78,7 +78,7 @@
         <div class="eq-modal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5" x-show="step === 'source'">
             <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                 <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Where it all came from</p>
-                <p class="text-xs text-slate-500">Applies to every item in this batch. For delivered Receiving Report lines, use <span class="font-semibold">Add all pending</span> or <span class="font-semibold">Add to inventory</span> instead.</p>
+                <p class="text-xs text-slate-500">Applies to every item in this batch. For delivered Receiving Report lines, use <span class="font-semibold">Add to inventory</span> (Individual units) or <span class="font-semibold">Replacement arrived → Stock &amp; Link</span>.</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     @if ($batchAcquisitionReady)
                         <div>
@@ -162,9 +162,9 @@
                                 <p x-show="err('lines.' + i + '.name')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="err('lines.' + i + '.name')"></p>
                             </div>
                             <div class="lg:col-span-2">
-                                <label class="{{ $bLabel }}">Category <span class="text-rose-500">*</span></label>
+                                <label class="{{ $bLabel }}">Classification <span class="text-rose-500">*</span></label>
                                 <select x-model="line.category_id" @change="line.categoryManual = true; clearErr('lines.' + i + '.category_id')" data-searchable="1" data-search-placeholder="Search categories…" class="{{ $bField }}" :class="err('lines.' + i + '.category_id') ? '{{ $bError }}' : ''">
-                                    <option value="">Select category</option>
+                                    <option value="">Select classification</option>
                                     @foreach ($categories as $category)
                                         <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
                                     @endforeach
@@ -187,8 +187,9 @@
                                 <label class="{{ $bLabel }}">Condition</label>
                                 <select x-model="line.condition" class="{{ $bField }}">
                                     <option value="Good">Good</option>
+                                    <option value="Under Maintenance">Under Maintenance</option>
+                                    <option value="Defective">Defective</option>
                                     <option value="Damaged">Damaged</option>
-                                    <option value="Under Maintenance">Under maintenance</option>
                                     <option value="Disposed">Disposed</option>
                                 </select>
                             </div>

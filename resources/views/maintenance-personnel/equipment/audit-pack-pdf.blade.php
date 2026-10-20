@@ -25,7 +25,7 @@
         <tr><td><strong>Asset ID</strong></td><td>#{{ $equipment['id'] }}</td></tr>
         <tr><td><strong>Asset tag</strong></td><td>{{ $equipment['asset_tag'] ?: '—' }}</td></tr>
         <tr><td><strong>QR</strong></td><td>{{ $equipment['qr_code'] ?: '—' }}</td></tr>
-        <tr><td><strong>Category</strong></td><td>{{ $equipment['category'] ?: '—' }}</td></tr>
+        <tr><td><strong>Classification</strong></td><td>{{ $equipment['category'] ?: '—' }}</td></tr>
         <tr><td><strong>Tracking</strong></td><td>{{ $equipment['tracking_mode'] ?: '—' }} · Qty {{ $equipment['quantity'] ?? 1 }}</td></tr>
         <tr><td><strong>Status</strong></td><td>{{ $equipment['inventory_status'] ?: '—' }} / {{ $equipment['condition_status'] ?: '—' }}</td></tr>
         <tr><td><strong>Current room</strong></td><td>{{ $equipment['room_name'] ?: '—' }}</td></tr>

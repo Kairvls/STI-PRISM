@@ -55,7 +55,7 @@ class ReceivableStockImporter
             : self::defaultCategoryId();
 
         if (! $defaultCategoryId) {
-            $result['errors'][] = 'Create at least one equipment category before adding equipment to inventory.';
+            $result['errors'][] = 'Create at least one equipment classification before adding equipment to inventory.';
 
             return $result;
         }

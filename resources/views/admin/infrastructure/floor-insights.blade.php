@@ -9,13 +9,9 @@
         <h2 class="text-[15px] font-bold tracking-tight text-[#1A1A1A]">
             Floor Health Overview
         </h2>
-        <button
-            type="button"
-            class="flex items-center gap-1 text-[13px] font-normal text-[#888888] transition hover:text-[#444444]"
-        >
+        <p class="text-[13px] font-normal text-[#888888]">
             <span x-text="activeFloorLabel + ' · ' + floorStats.rooms + ' rooms'"></span>
-            <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
-        </button>
+        </p>
     </div>
 
     <div class="mx-6 border-t border-[#DDDDDD]"></div>

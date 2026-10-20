@@ -6,7 +6,7 @@
     data-monitor-drawer
     class="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white xl:h-[calc(100vh-14rem-20px)] xl:min-h-[550px] xl:max-h-[620px]"
 >
-    <!-- Empty state: no room selected — Insight Builder style -->
+    <!-- Empty state: no room selected â€” Insight Builder style -->
     <div x-show="selectedRoom === null" class="flex h-full min-h-0 flex-col overflow-hidden">
 
         {{-- Panel header --}}
@@ -16,13 +16,13 @@
                 <h2 class="mt-0.5 text-base font-black text-slate-950">Insight Builder</h2>
             </div>
                         <div class="flex shrink-0 items-center gap-1.5">
-                            <button
+                            <!--<button
                                 class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
                                 disabled
                             >
                                 <i data-lucide="bookmark" class="h-3.5 w-3.5"></i>
                                 Save View
-                            </button>
+                            </button>-->
                             <button
                                 type="button"
                                 @click="toggleDrawer()"
@@ -71,7 +71,92 @@
         </div>
     </div>
 
+    @php
+        $transferDestinationRooms = $rooms
+            ->filter(fn ($destination) => ! ($destination->room_is_archived ?? false))
+            ->map(function ($destination) {
+                $departments = collect($destination->departments ?? [])
+                    ->map(function ($dept) {
+                        if (is_array($dept)) {
+                            return [
+                                'id' => (int) ($dept['id'] ?? 0),
+                                'name' => (string) ($dept['name'] ?? ''),
+                                'equipment_count' => (int) ($dept['equipment_count'] ?? 0),
+                            ];
+                        }
+
+                        return [
+                            'id' => 0,
+                            'name' => (string) $dept,
+                            'equipment_count' => 0,
+                        ];
+                    })
+                    ->filter(fn ($dept) => $dept['id'] > 0 && $dept['name'] !== '')
+                    ->values()
+                    ->all();
+
+                array_unshift($departments, [
+                    'id' => 0,
+                    'name' => 'Entire room',
+                    'equipment_count' => 0,
+                ]);
+
+                return [
+                    'id' => (int) $destination->room_id,
+                    'name' => (string) $destination->room_name,
+                    'type' => (string) ($destination->room_type ?: 'Room'),
+                    'departments' => $departments,
+                ];
+            })
+            ->values();
+    @endphp
+
     @foreach ($rooms as $room)
+        @php
+            $transferDestRoomsForRoom = $transferDestinationRooms
+                ->filter(fn ($destination) => (int) $destination['id'] !== (int) $room->room_id)
+                ->values()
+                ->all();
+
+            $transferSourceFallback = $room->equipment->map(function ($equipment) {
+                $name = $equipment->equipment_name ?: ($equipment->equipment_asset_tag ?: 'Equipment');
+                $tag = $equipment->equipment_asset_tag ?: null;
+                $serial = $equipment->equipment_serial_number ?: null;
+                $brand = $equipment->equipment_brand_name ?: null;
+                $model = $equipment->equipment_model ?: null;
+                $condition = $equipment->equipment_condition_status ?: null;
+                $category = optional($equipment->category)->equipment_category_name
+                    ?? ($equipment->equipment_category_name ?? null);
+                $zone = $equipment->equipment_placement_zone ?: ($equipment->equipment_current_location ?: null);
+
+                $unique = $tag ?: $serial;
+                if (! $unique) {
+                    $nameLower = mb_strtolower((string) $name);
+                    $unique = collect([$brand, $model, $condition, $category, $zone])
+                        ->filter(fn ($part) => filled($part) && mb_strtolower((string) $part) !== $nameLower)
+                        ->implode(' · ') ?: null;
+                }
+
+                $label = ($unique && strcasecmp((string) $unique, (string) $name) !== 0)
+                    ? $name.' · '.$unique
+                    : $name;
+
+                return [
+                    'id' => (int) $equipment->equipment_id,
+                    'name' => $name,
+                    'asset_tag' => $tag,
+                    'serial_number' => $serial,
+                    'brand' => $brand,
+                    'model' => $model,
+                    'condition' => $condition,
+                    'category_name' => $category,
+                    'placement_zone' => $equipment->equipment_placement_zone ?: null,
+                    'location' => $equipment->equipment_current_location ?: null,
+                    'unique' => $unique,
+                    'label' => $label,
+                ];
+            })->values()->all();
+        @endphp
         <div
             x-show="selectedRoom === {{ $room->room_id }}"
             x-cloak
@@ -79,7 +164,19 @@
 
                 tab:'overview',
 
-                addEquipmentModal:false,
+                placeFromStorageModal:false,
+
+                placeableStock:[],
+
+                placeableStockLoading:false,
+
+                placeableStockError:'',
+
+                placeSelectedIds:[],
+
+                placeQuery:'',
+
+                placingFromStorage:false,
 
                 editRoomModal:false,
 
@@ -111,9 +208,13 @@
 
                 destinationRoom:'',
 
+                destinationDepartment:0,
+
                 transferMode:'single',
 
                 transferAllRoom:'',
+
+                transferAllDepartment:0,
 
                 transferTargets:{},
 
@@ -121,15 +222,23 @@
 
                 transferApplyRoom:'',
 
+                transferApplyDepartment:0,
+
+                transferDestRooms:@js($transferDestRoomsForRoom),
+
+                transferSourceFallback:@js($transferSourceFallback),
+
+                transferRoomQuery:'',
+
+                transferOpenRoomIds:[],
+
                 transferError:'',
 
                 roomSaving:false,
 
                 roomForm:{
                     name:@js($room->room_name),
-                    type:@js($room->room_type),
-                    color:@js($room->room_color ?: '#60A5FA'),
-                    status:@js($room->room_status)
+                    type:@js($room->room_type)
                 },
 
                 saving:false,
@@ -163,7 +272,7 @@
 
                 placementZoneLabel(zone){
                     return window.infrastructure?.placementZoneLabel?.(zone)
-                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || '—'));
+                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || 'â€”'));
                 },
 
                 closePlacementDropdown(){
@@ -342,6 +451,122 @@
                     return @js(! \App\Support\RoomCategories::isStorageType($room->room_type ?? null))
                         && this.addForm.tracking === 'Individual'
                         && this.addForm.condition !== 'Disposed';
+                },
+
+                async openPlaceFromStorage(){
+                    this.placeableStockError = '';
+                    this.placeSelectedIds = [];
+                    this.placeQuery = '';
+                    this.placeableStockLoading = true;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    try {
+                        const response = await fetch(
+                            `/admin/infrastructure/rooms/{{ $room->room_id }}/placeable-stock`,
+                            { headers: { Accept: 'application/json' } }
+                        );
+                        if (!response.ok) {
+                            throw new Error('Could not load storage stock.');
+                        }
+                        const payload = await response.json();
+                        this.placeableStock = Array.isArray(payload.items) ? payload.items : [];
+                        if (payload.message && this.placeableStock.length === 0) {
+                            this.placeableStockError = payload.message;
+                        }
+                    } catch (e) {
+                        this.placeableStock = [];
+                        this.placeableStockError = e?.message || 'Could not load storage stock.';
+                    } finally {
+                        this.placeableStockLoading = false;
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    }
+                },
+
+                closePlaceFromStorage(){
+                    this.placeFromStorageModal = false;
+                    this.placeSelectedIds = [];
+                    this.placeQuery = '';
+                    this.placeableStockError = '';
+                    this.placingFromStorage = false;
+                    document.body.style.overflow = '';
+                },
+
+                filteredPlaceableStock(){
+                    const q = String(this.placeQuery || '').trim().toLowerCase();
+                    const items = Array.isArray(this.placeableStock) ? this.placeableStock : [];
+                    if (!q) {
+                        return items;
+                    }
+                    return items.filter((item) => {
+                        const hay = [
+                            item.name,
+                            item.asset_tag,
+                            item.serial_number,
+                            item.category_name,
+                            item.storage_room_name,
+                            item.receiving_report_number,
+                            item.brand,
+                            item.model,
+                        ]
+                            .filter(Boolean)
+                            .join(' ')
+                            .toLowerCase();
+                        return hay.includes(q);
+                    });
+                },
+
+                togglePlaceStockId(id){
+                    const equipmentId = Number(id);
+                    if (this.placeSelectedIds.includes(equipmentId)) {
+                        this.placeSelectedIds = this.placeSelectedIds.filter((value) => value !== equipmentId);
+                    } else {
+                        this.placeSelectedIds = [...this.placeSelectedIds, equipmentId];
+                    }
+                },
+
+                selectAllPlaceableStock(){
+                    this.placeSelectedIds = this.filteredPlaceableStock().map((item) => Number(item.id));
+                },
+
+                async confirmPlaceFromStorage(){
+                    if (this.placingFromStorage || this.placeSelectedIds.length === 0) {
+                        return;
+                    }
+                    this.placingFromStorage = true;
+                    this.placeableStockError = '';
+                    try {
+                        const response = await fetch(
+                            `/admin/infrastructure/rooms/{{ $room->room_id }}/place-from-storage`,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Accept: 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
+                                },
+                                body: JSON.stringify({
+                                    equipment_ids: this.placeSelectedIds,
+                                }),
+                            }
+                        );
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            const firstError = payload?.errors
+                                ? Object.values(payload.errors).flat()[0]
+                                : null;
+                            throw new Error(firstError || payload?.message || 'Could not place equipment.');
+                        }
+                        this.closePlaceFromStorage();
+                        if (window.infrastructure?.refreshRoomEquipment) {
+                            await window.infrastructure.refreshRoomEquipment({{ $room->room_id }});
+                        }
+                        if (window.infrastructure) {
+                            window.infrastructure.toast = payload.message || 'Assets placed from storage.';
+                        }
+                    } catch (e) {
+                        this.placeableStockError = e?.message || 'Could not place equipment.';
+                    } finally {
+                        this.placingFromStorage = false;
+                    }
                 },
 
                 resetAddEquipment(){
@@ -757,7 +982,7 @@
                         const roomId = this.addForm.room_id;
                         window.equipmentAssetTags?.register?.(createdTags);
                         this.resetAddEquipment();
-                        this.addEquipmentModal = false;
+                        this.placeFromStorageModal = false;
                         document.body.style.overflow = '';
 
                         await window.infrastructure.refreshRoomEquipment(roomId);
@@ -805,11 +1030,7 @@
 
                                     room_name:this.roomForm.name,
 
-                                    room_type:this.roomForm.type,
-
-                                    room_color:this.roomForm.color,
-
-                                    room_status:this.roomForm.status
+                                    room_type:this.roomForm.type
 
                                 })
 
@@ -828,9 +1049,7 @@
                             {{ $room->room_id }},
                             {
                                 name: payload?.room?.name ?? this.roomForm.name,
-                                type: this.roomForm.type,
-                                color: payload?.room?.color ?? this.roomForm.color,
-                                status: this.roomForm.status,
+                                type: payload?.room?.type ?? this.roomForm.type,
                             }
                         );
 
@@ -876,12 +1095,325 @@
                     this.transferMode = 'single';
                     this.selectedEquipment = '';
                     this.destinationRoom = '';
+                    this.destinationDepartment = 0;
                     this.transferAllRoom = '';
+                    this.transferAllDepartment = 0;
                     this.transferTargets = {};
                     this.transferSelectedIds = [];
                     this.transferApplyRoom = '';
+                    this.transferApplyDepartment = 0;
+                    this.transferRoomQuery = '';
+                    this.transferOpenRoomIds = [];
                     this.transferError = '';
                     this.initTransferTargets();
+                },
+
+                transferPickerIsMulti(field){
+                    return field === 'apply';
+                },
+
+                shownTransferDestRooms(){
+                    const q = String(this.transferRoomQuery || '').trim().toLowerCase();
+                    const rooms = Array.isArray(this.transferDestRooms) ? this.transferDestRooms : [];
+                    if (!q) return rooms;
+                    return rooms.filter((room) => {
+                        const hay = [room.name, room.type, ...(room.departments || []).map((d) => d.name)]
+                            .join(' ')
+                            .toLowerCase();
+                        return hay.includes(q);
+                    });
+                },
+
+                isTransferRoomOpen(room){
+                    return this.transferOpenRoomIds.includes(Number(room.id));
+                },
+
+                toggleTransferRoomOpen(room){
+                    const id = Number(room.id);
+                    if (this.transferOpenRoomIds.includes(id)) {
+                        this.transferOpenRoomIds = this.transferOpenRoomIds.filter((item) => item !== id);
+                    } else {
+                        this.transferOpenRoomIds = [...this.transferOpenRoomIds, id];
+                    }
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+
+                transferPickFor(field){
+                    if (field === 'all') {
+                        return {
+                            roomId: Number(this.transferAllRoom || 0),
+                            departmentId: Number(this.transferAllDepartment || 0),
+                        };
+                    }
+                    if (field === 'apply') {
+                        return {
+                            roomId: Number(this.transferApplyRoom || 0),
+                            departmentId: Number(this.transferApplyDepartment || 0),
+                        };
+                    }
+                    return {
+                        roomId: Number(this.destinationRoom || 0),
+                        departmentId: Number(this.destinationDepartment || 0),
+                    };
+                },
+
+                // Destinations currently used by at least one equipment row (source of truth).
+                transferDestinationsInUse(){
+                    const keys = [];
+                    Object.values(this.transferTargets || {}).forEach((value) => {
+                        const parsed = this.parseTransferTarget(value);
+                        if (!parsed.roomId) return;
+                        const encoded = this.encodeTransferTarget(parsed.roomId, parsed.departmentId);
+                        if (!keys.includes(encoded)) {
+                            keys.push(encoded);
+                        }
+                    });
+                    return keys;
+                },
+
+                selectTransferDestination(field, room, dept){
+                    const roomId = Number(room.id);
+                    const departmentId = Number(dept?.id || 0);
+                    const encoded = this.encodeTransferTarget(roomId, departmentId);
+
+                    if (field === 'all') {
+                        this.transferAllRoom = roomId;
+                        this.transferAllDepartment = departmentId;
+                    } else if (field === 'apply') {
+                        this.transferApplyRoom = roomId;
+                        this.transferApplyDepartment = departmentId;
+                        if (this.transferDestinationsInUse().includes(encoded)) {
+                            // Uncheck: clear only rows using this destination.
+                            this.clearTransferDestinationFromEquipment(encoded);
+                        } else {
+                            // Check: fill Keep here / skip rows only (never overwrite).
+                            this.fillUnassignedTransferDestinations(encoded, false);
+                        }
+                    } else {
+                        this.destinationRoom = roomId;
+                        this.destinationDepartment = departmentId;
+                    }
+
+                    if (!this.isTransferRoomOpen(room)) {
+                        this.transferOpenRoomIds = [...this.transferOpenRoomIds, roomId];
+                    }
+                    this.transferError = '';
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                },
+
+                equipmentHasTransferDestination(equipmentId){
+                    const parsed = this.parseTransferTarget(this.transferTargets?.[equipmentId]);
+                    return Boolean(parsed.roomId);
+                },
+
+                clearTransferDestinationFromEquipment(encoded){
+                    const next = { ...this.transferTargets };
+                    Object.keys(next).forEach((equipmentId) => {
+                        if (next[equipmentId] === encoded) {
+                            next[equipmentId] = '';
+                        }
+                    });
+                    this.transferTargets = next;
+                },
+
+                // Fill empty rows with one destination. onlySelected=true limits to checked rows.
+                fillUnassignedTransferDestinations(encoded, onlySelected){
+                    if (!encoded) return 0;
+
+                    const allIds = this.transferSourceEquipment().map((item) => item.id);
+                    let candidateIds = allIds;
+                    if (onlySelected) {
+                        if (!this.transferSelectedIds.length) {
+                            return 0;
+                        }
+                        candidateIds = allIds.filter((id) =>
+                            this.transferSelectedIds.includes(Number(id))
+                        );
+                    }
+
+                    const unassignedIds = candidateIds.filter(
+                        (id) => !this.equipmentHasTransferDestination(id)
+                    );
+                    if (!unassignedIds.length) {
+                        return 0;
+                    }
+
+                    const next = { ...this.transferTargets };
+                    unassignedIds.forEach((id) => {
+                        next[id] = encoded;
+                    });
+                    this.transferTargets = next;
+
+                    const mergedSelected = new Set([
+                        ...(this.transferSelectedIds || []),
+                        ...unassignedIds.map((id) => Number(id)),
+                    ]);
+                    this.transferSelectedIds = [...mergedSelected];
+                    return unassignedIds.length;
+                },
+
+                isTransferDestinationSelected(field, roomId, deptId){
+                    if (this.transferPickerIsMulti(field)) {
+                        const encoded = this.encodeTransferTarget(roomId, deptId);
+                        return this.transferDestinationsInUse().includes(encoded);
+                    }
+                    const pick = this.transferPickFor(field);
+                    return pick.roomId === Number(roomId) && pick.departmentId === Number(deptId);
+                },
+
+                isTransferRoomEntireSelected(field, room){
+                    return this.isTransferDestinationSelected(field, room.id, 0);
+                },
+
+                transferRoomSelectedCount(field, room){
+                    const roomId = Number(room.id);
+                    if (this.transferPickerIsMulti(field)) {
+                        return this.transferDestinationsInUse().filter((key) => {
+                            return this.parseTransferTarget(key).roomId === roomId;
+                        }).length;
+                    }
+                    const pick = this.transferPickFor(field);
+                    return pick.roomId === roomId ? 1 : 0;
+                },
+
+                transferRoomSelectedLabel(field, room){
+                    const count = this.transferRoomSelectedCount(field, room);
+                    if (!count) {
+                        return 'None selected';
+                    }
+                    if (this.transferPickerIsMulti(field)) {
+                        return count + ' selected';
+                    }
+                    const pick = this.transferPickFor(field);
+                    const dept = (room.departments || []).find((item) => Number(item.id) === pick.departmentId);
+                    return dept?.name || (pick.departmentId === 0 ? 'Entire room' : 'Selected');
+                },
+
+                encodeTransferTarget(roomId, departmentId){
+                    return String(Number(roomId || 0)) + ':' + String(Number(departmentId || 0));
+                },
+
+                parseTransferTarget(value){
+                    if (!value) {
+                        return { roomId: 0, departmentId: 0 };
+                    }
+                    if (typeof value === 'object') {
+                        return {
+                            roomId: Number(value.roomId || value.room_id || 0),
+                            departmentId: Number(value.departmentId || value.department_id || 0),
+                        };
+                    }
+                    const raw = String(value);
+                    if (raw.includes(':')) {
+                        const [roomId, departmentId] = raw.split(':');
+                        return { roomId: Number(roomId || 0), departmentId: Number(departmentId || 0) };
+                    }
+                    return { roomId: Number(raw || 0), departmentId: 0 };
+                },
+
+                transferTargetLabel(value){
+                    const parsed = this.parseTransferTarget(value);
+                    if (!parsed.roomId) return '';
+                    const room = (this.transferDestRooms || []).find((item) => Number(item.id) === parsed.roomId);
+                    if (!room) return 'Room #' + parsed.roomId;
+                    if (!parsed.departmentId) return room.name + ' · Entire room';
+                    const dept = (room.departments || []).find((item) => Number(item.id) === parsed.departmentId);
+                    return room.name + ' · ' + (dept?.name || ('Dept #' + parsed.departmentId));
+                },
+
+                transferEquipmentUnique(item){
+                    const clean = (value) => String(value || '').trim();
+                    const tag = clean(item?.asset_tag);
+                    const serial = clean(item?.serial_number);
+                    if (tag) return tag;
+                    if (serial) return serial;
+
+                    const details = [
+                        clean(item?.brand),
+                        clean(item?.model),
+                        clean(item?.condition),
+                        clean(item?.category_name),
+                        clean(item?.placement_zone || item?.location),
+                    ].filter(Boolean);
+
+                    // Drop values that only repeat the equipment name.
+                    const name = clean(item?.name).toLowerCase();
+                    const uniqueDetails = details.filter((part) => part.toLowerCase() !== name);
+
+                    return uniqueDetails.join(' · ');
+                },
+
+                transferEquipmentLabel(item){
+                    const base = String(item?.name || item?.asset_tag || 'Equipment').trim();
+                    const unique = this.transferEquipmentUnique(item);
+                    if (unique && unique.toLowerCase() !== base.toLowerCase()) {
+                        return base + ' · ' + unique;
+                    }
+                    return base;
+                },
+
+                orderedTransferDepartments(field, room){
+                    const departments = Array.isArray(room?.departments) ? [...room.departments] : [];
+                    const roomId = Number(room?.id);
+                    const selectedIds = new Set();
+
+                    if (this.transferPickerIsMulti(field)) {
+                        this.transferDestinationsInUse().forEach((key) => {
+                            const parsed = this.parseTransferTarget(key);
+                            if (parsed.roomId === roomId) {
+                                selectedIds.add(Number(parsed.departmentId));
+                            }
+                        });
+                    } else {
+                        const pick = this.transferPickFor(field);
+                        if (pick.roomId === roomId) {
+                            selectedIds.add(Number(pick.departmentId));
+                        }
+                    }
+
+                    if (!selectedIds.size) {
+                        return departments;
+                    }
+
+                    const selected = [];
+                    const entire = [];
+                    const rest = [];
+                    departments.forEach((dept) => {
+                        const id = Number(dept.id);
+                        if (selectedIds.has(id)) {
+                            selected.push(dept);
+                        } else if (id === 0) {
+                            entire.push(dept);
+                        } else {
+                            rest.push(dept);
+                        }
+                    });
+
+                    // In-use destinations first, then Entire room, then the rest.
+                    return [...selected, ...entire, ...rest];
+                },
+
+                onCustomTransferTargetChange(equipmentId, value){
+                    this.transferTargets = { ...this.transferTargets, [equipmentId]: value };
+                    const parsed = this.parseTransferTarget(value);
+                    if (parsed.roomId) {
+                        this.transferApplyRoom = parsed.roomId;
+                        this.transferApplyDepartment = parsed.departmentId;
+                        if (!this.transferOpenRoomIds.includes(parsed.roomId)) {
+                            this.transferOpenRoomIds = [...this.transferOpenRoomIds, parsed.roomId];
+                        }
+                        if (!this.transferSelectedIds.includes(Number(equipmentId))) {
+                            this.transferSelectedIds = [...this.transferSelectedIds, Number(equipmentId)];
+                        }
+                    }
+                    this.transferError = '';
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
                 },
 
                 transferSourceEquipment(){
@@ -889,15 +1421,25 @@
                         (item) => item.id === {{ $room->room_id }}
                     );
                     if (room && Array.isArray(room.equipment) && room.equipment.length) {
-                        return room.equipment.map((item) => ({
-                            id: Number(item.id),
-                            name: item.name || item.asset_tag || ('Asset #' + item.id),
-                        }));
+                        return room.equipment.map((item) => {
+                            const mapped = {
+                                id: Number(item.id),
+                                name: item.name || item.asset_tag || 'Equipment',
+                                asset_tag: item.asset_tag || null,
+                                serial_number: item.serial_number || null,
+                                brand: item.brand || null,
+                                model: item.model || null,
+                                condition: item.condition || null,
+                                category_name: item.category_name || null,
+                                placement_zone: item.placement_zone || null,
+                                location: item.location || null,
+                            };
+                            mapped.unique = this.transferEquipmentUnique(mapped);
+                            mapped.label = this.transferEquipmentLabel(mapped);
+                            return mapped;
+                        });
                     }
-                    return @js($room->equipment->map(fn ($e) => [
-                        'id' => (int) $e->equipment_id,
-                        'name' => $e->equipment_name,
-                    ])->values());
+                    return this.transferSourceFallback || [];
                 },
 
                 initTransferTargets(){
@@ -938,26 +1480,31 @@
 
                 applyDestinationToSelected(){
                     if (!this.transferApplyRoom) {
-                        this.transferError = 'Choose a destination room to apply.';
+                        this.transferError = 'Click a destination room / department first, then Apply to selected.';
                         return;
                     }
                     if (!this.transferSelectedIds.length) {
-                        this.transferError = 'Select at least one equipment item first.';
+                        this.transferError = 'Check at least one equipment row first.';
                         return;
                     }
-                    const next = { ...this.transferTargets };
-                    this.transferSelectedIds.forEach((id) => {
-                        next[id] = this.transferApplyRoom;
-                    });
-                    this.transferTargets = next;
+                    const encoded = this.encodeTransferTarget(
+                        this.transferApplyRoom,
+                        this.transferApplyDepartment
+                    );
+                    const filled = this.fillUnassignedTransferDestinations(encoded, true);
+                    if (!filled) {
+                        this.transferError = 'Checked rows already have destinations. Clear a row to Keep here / skip first.';
+                        return;
+                    }
                     this.transferError = '';
                 },
 
-                setAllCustomDestinations(roomId){
+                setAllCustomDestinations(roomId, departmentId = 0){
                     if (!roomId) return;
+                    const encoded = this.encodeTransferTarget(roomId, departmentId);
                     const next = {};
                     this.transferSourceEquipment().forEach((item) => {
-                        next[item.id] = roomId;
+                        next[item.id] = encoded;
                     });
                     this.transferTargets = next;
                     this.transferError = '';
@@ -966,18 +1513,19 @@
                 buildTransferPayload(){
                     if (this.transferMode === 'single') {
                         if (!this.selectedEquipment || !this.destinationRoom) {
-                            this.transferError = 'Select equipment and a destination room.';
+                            this.transferError = 'Select equipment and a destination room / department.';
                             return null;
                         }
                         return [{
                             equipment_id: Number(this.selectedEquipment),
                             room_id: Number(this.destinationRoom),
+                            department_id: Number(this.destinationDepartment || 0) || null,
                         }];
                     }
 
                     if (this.transferMode === 'all') {
                         if (!this.transferAllRoom) {
-                            this.transferError = 'Select a destination room for all equipment.';
+                            this.transferError = 'Select a destination room / department for all equipment.';
                             return null;
                         }
                         const items = this.transferSourceEquipment();
@@ -985,17 +1533,23 @@
                             this.transferError = 'This room has no equipment to transfer.';
                             return null;
                         }
+                        const departmentId = Number(this.transferAllDepartment || 0) || null;
                         return items.map((item) => ({
                             equipment_id: item.id,
                             room_id: Number(this.transferAllRoom),
+                            department_id: departmentId,
                         }));
                     }
 
                     const transfers = this.transferSourceEquipment()
-                        .map((item) => ({
-                            equipment_id: item.id,
-                            room_id: Number(this.transferTargets[item.id] || 0),
-                        }))
+                        .map((item) => {
+                            const parsed = this.parseTransferTarget(this.transferTargets[item.id]);
+                            return {
+                                equipment_id: item.id,
+                                room_id: parsed.roomId,
+                                department_id: parsed.departmentId || null,
+                            };
+                        })
                         .filter((entry) => entry.room_id);
 
                     if (!transfers.length) {
@@ -1030,7 +1584,10 @@
                                         'Accept': 'application/json',
                                         'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
                                     },
-                                    body: JSON.stringify({ room_id: transfers[0].room_id }),
+                                    body: JSON.stringify({
+                                        room_id: transfers[0].room_id,
+                                        department_id: transfers[0].department_id,
+                                    }),
                                 },
                             );
                         } else {
@@ -1073,7 +1630,7 @@
             }"
             class="flex h-full min-h-0 flex-col overflow-hidden"
         >
-            {{-- ── Insight Builder: Room header (white, clean) ── --}}
+            {{-- â”€â”€ Insight Builder: Room header (white, clean) â”€â”€ --}}
             <div class="shrink-0 border-b border-slate-100">
 
                 {{-- Title row --}}
@@ -1113,7 +1670,7 @@
                 </div>
             </div>
 
-            {{-- ── Insight Builder: Icon tab bar ── --}}
+            {{-- â”€â”€ Insight Builder: Icon tab bar â”€â”€ --}}
             <div class="flex shrink-0 items-stretch border-b border-slate-100">
                 @foreach ([
                     ['key'=>'overview',   'icon'=>'layout-dashboard', 'label'=>'Overview'],
@@ -1159,7 +1716,7 @@
                         ];
                     @endphp
 
-                    {{-- ── Status hero ── --}}
+                    {{-- â”€â”€ Status hero â”€â”€ --}}
                     <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
                         <div class="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white to-[#F8FAFC]"></div>
                         <div class="relative flex items-start justify-between gap-3">
@@ -1179,6 +1736,31 @@
                                         x-text="currentRoom?.monitoring?.room_information?.status || 'Normal'"
                                     ></p>
                                 </div>
+                                <template x-if="currentRoom?.monitoring?.room_information?.status === 'Under Maintenance'">
+                                    <div class="mt-2 flex flex-wrap gap-1.5">
+                                        <template
+                                            x-for="scope in (currentRoom?.maintenanceScopes
+                                                || currentRoom?.monitoring?.room_information?.maintenance_scopes
+                                                || ['Entire room'])"
+                                            :key="'ov-'+scope"
+                                        >
+                                            <span
+                                                class="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-100"
+                                                x-text="scope"
+                                            ></span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="currentRoom?.monitoring?.room_information?.status === 'Critical'">
+                                    <p class="mt-1.5 text-[11px] font-medium text-red-600">
+                                        <span
+                                            x-text="Number(currentRoom?.criticalReportCount
+                                                || currentRoom?.monitoring?.room_information?.critical_report_count
+                                                || 0)"
+                                        ></span>
+                                        critical report(s) this period
+                                    </p>
+                                </template>
                                 <p class="mt-1 text-[11px] font-medium text-slate-400">
                                     Updated
                                     <span
@@ -1195,7 +1777,7 @@
                         </div>
                     </div>
 
-                    {{-- ── Key metrics ── --}}
+                    {{-- â”€â”€ Key metrics â”€â”€ --}}
                     <div class="grid grid-cols-2 divide-x divide-slate-200 border-y border-slate-200 bg-white">
                         <div class="px-4 py-3">
                             <p class="text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase">Assets</p>
@@ -1231,16 +1813,30 @@
                                     <p class="text-[11px] text-slate-400">Next maintenance</p>
                                     <p
                                         class="mt-0.5 text-sm font-medium leading-5 text-slate-900"
-                                        x-text="currentRoom?.monitoring?.room_information?.next_maintenance
-                                            ? formatDate(currentRoom.monitoring.room_information.next_maintenance)
+                                        x-text="(currentRoom?.roomInspectionNextDate
+                                            || currentRoom?.monitoring?.room_information?.room_inspection_next_date
+                                            || currentRoom?.monitoring?.room_information?.next_maintenance)
+                                            ? formatDate(currentRoom?.roomInspectionNextDate
+                                                || currentRoom?.monitoring?.room_information?.room_inspection_next_date
+                                                || currentRoom.monitoring.room_information.next_maintenance)
                                             : 'No schedule'"
                                     ></p>
+                                    <template x-if="(currentRoom?.maintenanceScopes
+                                        || currentRoom?.monitoring?.room_information?.maintenance_scopes
+                                        || []).length">
+                                        <p
+                                            class="mt-1 text-[11px] text-slate-500"
+                                            x-text="'Scope: ' + (currentRoom?.maintenanceScopes
+                                                || currentRoom?.monitoring?.room_information?.maintenance_scopes
+                                                || []).join(', ')"
+                                        ></p>
+                                    </template>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-                    {{-- ── Equipment health bar ── --}}
+                    {{-- Equipment health bar --}}
                     @php
                         $eqTotal = max(1, (int) $room->monitoring['equipment_quantity']);
                         $eqGood = (int) $room->monitoring['equipment_good'];
@@ -1261,7 +1857,6 @@
                             <span class="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#005EA6]">{{ $eqTotal }} total</span>
                         </div>
 
-                        {{-- Segmented bar — blue & gray tones --}}
                         <div class="mt-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
                             @if ($eqGood > 0)
                                 <div class="bg-[#005EA6] transition-all" style="width: {{ $pctGood }}%"></div>
@@ -1278,7 +1873,6 @@
                         </div>
                     </div>
 
-                    {{-- Modern legend list (outside card) --}}
                     <div class="space-y-3 px-1">
                         <div>
                             <div class="mb-1.5 flex items-center justify-between gap-3">
@@ -1318,25 +1912,25 @@
                         </div>
                     </div>
 
-                    {{-- Quick actions --}}
+                    {{-- Quick actions (History lives in the History tab above â€” avoids leaving this page) --}}
                     <section>
                         <p class="mb-3 text-[11px] font-medium tracking-[0.18em] text-slate-400 uppercase">Quick actions</p>
-                        <div class="grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200">
+                        <div class="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200">
                             <button
                                 type="button"
-                                @click="categoryManual = false; resetAddEquipment(); addEquipmentModal = true"
+                                @click="placeFromStorageModal = true"
                                 class="flex flex-col items-center gap-1.5 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
-                                <i data-lucide="plus" class="h-4 w-4 text-[#005EA6]"></i>
-                                <span class="text-[11px] font-medium text-slate-800">Equipment</span>
+                                <i data-lucide="package-plus" class="h-4 w-4 text-[#005EA6]"></i>
+                                <span class="text-[11px] font-medium leading-4 text-slate-800">Add Equipment</span>
                             </button>
                             <button
                                 type="button"
-                                @click="editRoomModal = true"
+                                @click="editRoomModal = true; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
                                 class="flex flex-col items-center gap-1.5 border-l border-slate-200 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
                                 <i data-lucide="pencil" class="h-4 w-4 text-slate-700"></i>
-                                <span class="text-[11px] font-medium text-slate-800">Room</span>
+                                <span class="text-[11px] font-medium text-slate-800">Edit Room</span>
                             </button>
                             <button
                                 type="button"
@@ -1344,557 +1938,18 @@
                                 class="flex flex-col items-center gap-1.5 border-l border-slate-200 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
                                 <i data-lucide="arrow-right-left" class="h-4 w-4 text-slate-700"></i>
-                                <span class="text-[11px] font-medium text-slate-800">Transfer</span>
+                                <span
+                                    class="text-[11px] font-medium leading-4 text-slate-800"
+                                    title="Transfer Equipment"
+                                >Transfer Eqp...</span>
                             </button>
-                            <a
-                                href="{{ url('/admin/rooms') }}?history={{ $room->room_id }}"
-                                class="flex flex-col items-center gap-1.5 border-l border-slate-200 px-1 py-3.5 text-center transition hover:bg-slate-50"
-                            >
-                                <i data-lucide="history" class="h-4 w-4 text-slate-400"></i>
-                                <span class="text-[11px] font-medium text-slate-800">History</span>
-                            </a>
                         </div>
                     </section>
                 </div>
 
-                <!-- ========================================= -->
-                <!-- Add Equipment Modal (Inventory-matched UI) -->
-                <!-- ========================================= -->
 
-                <template x-if="addEquipmentModal">
-                    <div
-                        x-transition.opacity
-                        x-init="document.body.style.overflow = 'hidden'"
-                        @click.self="
-                            if (!(addFullscreen && addStep === 2)) {
-                                addEquipmentModal = false;
-                                resetAddEquipment();
-                                document.body.style.overflow = '';
-                            }
-                        "
-                        @keydown.escape.window="
-                            if (addFullscreen && addStep === 2) {
-                                addFullscreen = false;
-                            } else {
-                                addEquipmentModal = false;
-                                resetAddEquipment();
-                                document.body.style.overflow = '';
-                            }
-                        "
-                        class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70"
-                        :class="addFullscreen && addStep === 2 ? 'p-0' : 'p-4'"
-                    >
-                        <div
-                            class="relative flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
-                            :class="addFullscreen && addStep === 2
-                                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
-                                : (addStep === 2
-                                    ? 'max-h-[90vh] max-w-[80rem] rounded-2xl'
-                                    : 'max-h-[90vh] max-w-4xl rounded-2xl')"
-                        >
-                            <div class="flex items-start justify-between px-6 pt-6">
-                                <div>
-                                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="addStep === 2 ? 'Assign equipment' : 'Add equipment'"></h2>
-                                    <p class="mt-1 text-sm text-slate-500" x-text="addStep === 2
-                                        ? (addItems.length + ' individual assets will be created. Set placement (Holding Area, Floor, or a row), asset tag, and serial per unit.')
-                                        : 'Identity on the left, status on the right.'"></p>
-                                </div>
-                                <div class="flex shrink-0 items-center gap-1">
-                                    <button
-                                        type="button"
-                                        x-show="addStep === 2"
-                                        x-cloak
-                                        @click="addFullscreen = !addFullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
-                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                                        :title="addFullscreen ? 'Exit full screen' : 'Full screen'"
-                                        :aria-label="addFullscreen ? 'Exit full screen' : 'Full screen'"
-                                    >
-                                        <i :data-lucide="addFullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        @click="addEquipmentModal = false; resetAddEquipment(); document.body.style.overflow = '';"
-                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                                        aria-label="Close"
-                                    >
-                                        <i data-lucide="x" class="h-4 w-4"></i>
-                                    </button>
-                                </div>
-                            </div>
+                @include('admin.infrastructure.partials.place-from-storage-modal')
 
-                            <div
-                                x-show="addFormError"
-                                x-cloak
-                                class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
-                            >
-                                <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
-                                <p class="min-w-0 flex-1 leading-relaxed" x-text="addFormError"></p>
-                                <button type="button" @click="addFormError = ''" class="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700" aria-label="Dismiss">
-                                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
-                                </button>
-                            </div>
-
-                            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="addStep === 1">
-                                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Equipment name <span class="text-red-500">*</span></label>
-                                            <input
-                                                type="text"
-                                                x-model="addForm.name"
-                                                @input="
-                                                    clearAddError('name');
-                                                    if (!String(addForm.name || '').trim()) {
-                                                        categoryManual = false;
-                                                        addForm.category = '';
-                                                    } else if (!categoryManual && typeof detectEquipmentCategoryId === 'function') {
-                                                        addForm.category = detectEquipmentCategoryId(addForm.name) || '';
-                                                    }
-                                                    syncAddAssetTag();
-                                                "
-                                                placeholder="e.g. Mouse"
-                                                class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                                                :class="addErrors.name ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                            />
-                                            <p x-show="addErrors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.name"></p>
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Category</label>
-                                            <select
-                                                x-model="addForm.category"
-                                                @change="
-                                                    clearAddError('category');
-                                                    if (
-                                                        typeof detectEquipmentCategoryId === 'function'
-                                                        && String(addForm.category) === String(detectEquipmentCategoryId(addForm.name) || '')
-                                                    ) {
-                                                        return;
-                                                    }
-                                                    categoryManual = true;
-                                                "
-                                                class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                                            >
-                                                <option value="">Select category</option>
-                                                @foreach ($categories as $category)
-                                                    <option value="{{ $category->equipment_category_id }}">
-                                                        {{ $category->equipment_category_name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Room</label>
-                                            <div class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10 flex items-center text-slate-700">
-                                                {{ $room->room_name }}
-                                            </div>
-                                        </div>
-                                        <div x-show="!needsItemDetails()">
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Placement</label>
-                                            <div class="relative">
-                                                <button
-                                                    type="button"
-                                                    data-placement-trigger
-                                                    @mousedown.prevent="togglePlacementDropdown('form', $event)"
-                                                    class="flex h-11 w-full items-center justify-between gap-2 rounded-xl border-0 bg-slate-50 px-3.5 text-left text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition hover:bg-white focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                                                >
-                                                    <span class="min-w-0 truncate" x-text="placementZoneLabel(addForm.location)"></span>
-                                                    <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
-                                                </button>
-                                            </div>
-                                            <p class="mt-1.5 text-xs text-slate-400">Holding Area = unplaced. Floor = floor icon. Row = assign to a row table.</p>
-                                        </div>
-                                        <div x-show="needsItemDetails()" x-cloak>
-                                            <p class="rounded-xl bg-white px-3.5 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
-                                                Placement is set per unit on the next step (Holding Area, Floor, or a row).
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Qty <span class="text-red-500">*</span></label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max="200"
-                                                    x-model.number="addForm.quantity"
-                                                    @input="clearAddError('quantity'); syncAddAssetTag()"
-                                                    class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                                                    :class="addErrors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                                />
-                                                <p x-show="addErrors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.quantity"></p>
-                                            </div>
-                                            <div>
-                                                <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Condition <span class="text-red-500">*</span></label>
-                                                <select x-model="addForm.condition" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10">
-                                                    <option value="Good">Good</option>
-                                                    <option value="Damaged">Damaged</option>
-                                                    <option value="Under Maintenance">Under maintenance</option>
-                                                    <option value="Disposed">Disposed</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Tracking mode <span class="text-red-500">*</span></label>
-                                            <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                                <button type="button" @click="addForm.tracking = 'Bulk'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
-                                                <button type="button" @click="addForm.tracking = 'Individual'; addAssetTagManual = false; syncAddAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="addForm.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
-                                            </div>
-                                            <p class="mt-1.5 text-xs text-slate-400" x-text="addForm.tracking === 'Bulk'
-                                                ? 'One record with the combined quantity.'
-                                                : (Number(addForm.quantity) > 1
-                                                    ? (Number(addForm.quantity) + ' individual assets will be created (asset tag, serial, QR per unit).')
-                                                    : 'Creates a separate trackable asset (asset tag, serial, QR).')"></p>
-                                        </div>
-                                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
-                                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
-                                            <input type="checkbox" x-model="addBorrowable" class="peer sr-only">
-                                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
-                                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Shared defaults / single-item details</summary>
-                                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                                        <div x-show="addForm.tracking === 'Bulk' || Number(addForm.quantity) === 1">
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Asset tag</label>
-                                            <input type="text" x-model="addForm.assetTag" @input="addAssetTagManual = true" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Brand name</label>
-                                            <input type="text" x-model="addForm.brand" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Model</label>
-                                            <input type="text" x-model="addForm.model" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
-                                        </div>
-                                        <div x-show="addForm.tracking === 'Bulk' || Number(addForm.quantity) === 1">
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Serial number</label>
-                                            <input type="text" x-model="addForm.serial" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Warranty expiration</label>
-                                            <input type="date" x-model="addForm.warranty" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
-                                        </div>
-                                    </div>
-                                </details>
-
-                                @php
-                                    $drawerField = 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
-                                    $drawerLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
-                                    $drawerRoomIsStorage = \App\Support\RoomCategories::isStorageType($room->room_type ?? null);
-                                    $drawerLists = once(fn () => [
-                                        'ready' => \App\Support\EquipmentAcquisition::ready(),
-                                        'suppliers' => \App\Support\EquipmentAcquisition::supplierOptions(),
-                                        'people' => \App\Support\Custodians::assignable(),
-                                        'replacements' => \App\Support\EquipmentAcquisition::replacementCandidates(),
-                                    ]);
-                                    $drawerAcquisitionReady = $drawerLists['ready'];
-                                    $drawerSuppliers = $drawerLists['suppliers'];
-                                    $drawerPeople = $drawerRoomIsStorage ? collect() : $drawerLists['people'];
-                                    $drawerReplacements = $drawerLists['replacements'];
-                                    $drawerOtherSupplier = \App\Support\EquipmentAcquisition::OTHER_SUPPLIER;
-                                @endphp
-                                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
-                                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Acquisition &amp; accountability (optional)</summary>
-                                    @if ($drawerAcquisitionReady)
-                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                            <div>
-                                                <label class="{{ $drawerLabel }}">How was it acquired?</label>
-                                                <select x-model="addForm.acqSource" class="{{ $drawerField }}">
-                                                    <option value="">Not recorded</option>
-                                                    @foreach (\App\Support\EquipmentAcquisition::SOURCES as $sourceKey => $sourceLabel)
-                                                        <option value="{{ $sourceKey }}">{{ $sourceLabel }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Donor' : 'Supplier / source'"></label>
-                                                <select x-model="addForm.acqSupplier" data-searchable="1" data-search-placeholder="Search suppliers…" class="{{ $drawerField }}">
-                                                    <option value="">Not recorded</option>
-                                                    <option value="{{ $drawerOtherSupplier }}">Other — type the name</option>
-                                                    @foreach ($drawerSuppliers as $supplierOption)
-                                                        <option value="{{ $supplierOption->supplier_id }}">{{ $supplierOption->supplier_name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                            <div x-show="addForm.acqSupplier === '{{ $drawerOtherSupplier }}'" x-cloak>
-                                                <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Donor name' : 'Supplier / source name'"></label>
-                                                <input type="text" x-model="addForm.acqSupplierName" maxlength="255" placeholder="e.g. Alumni Association, PC Express" class="{{ $drawerField }}" />
-                                            </div>
-                                            <div>
-                                                <label class="{{ $drawerLabel }}">Reference no.</label>
-                                                <input type="text" x-model="addForm.acqReference" maxlength="120" placeholder="OR / invoice / DR / deed no." class="{{ $drawerField }}" />
-                                            </div>
-                                        </div>
-                                    @endif
-                                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                        <div>
-                                            <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Donation date' : 'Purchase date'"></label>
-                                            <input type="date" x-model="addForm.purchaseDate" class="{{ $drawerField }}" />
-                                        </div>
-                                        <div>
-                                            <label class="{{ $drawerLabel }}" x-text="addForm.acqSource === 'donation' ? 'Est. value / unit (₱)' : 'Cost / unit (₱)'"></label>
-                                            <input type="number" min="0" step="0.01" placeholder="0.00" x-model="addForm.purchaseCost" class="{{ $drawerField }}" />
-                                        </div>
-                                        <div>
-                                            <label class="{{ $drawerLabel }}">Received on</label>
-                                            <input type="date" x-model="addForm.receivedDate" class="{{ $drawerField }}" />
-                                        </div>
-                                        <div>
-                                            <label class="{{ $drawerLabel }}">Useful lifespan (yrs)</label>
-                                            <input type="number" min="1" max="50" step="1" placeholder="Default 5" x-model="addForm.usefulLifeYears" class="{{ $drawerField }}" />
-                                        </div>
-                                    </div>
-                                    @if ($drawerAcquisitionReady)
-                                        <div class="mt-3">
-                                            <label class="{{ $drawerLabel }}">Notes</label>
-                                            <input type="text" x-model="addForm.acqNotes" maxlength="500" placeholder="e.g. Donated by Batch 2019 alumni" class="{{ $drawerField }}" />
-                                        </div>
-                                    @endif
-                                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <div>
-                                            <label class="{{ $drawerLabel }}">Accountable person</label>
-                                            @if ($drawerRoomIsStorage)
-                                                <p class="flex h-11 items-center rounded-xl bg-white px-3.5 text-xs text-slate-400 ring-1 ring-slate-200/80">Storage rooms can’t be assigned. Transfer it to a room first.</p>
-                                            @else
-                                                <select
-                                                    x-model="addForm.custodianId"
-                                                    @change="clearAddError('custodian')"
-                                                    :disabled="!canAssignAddPerson()"
-                                                    data-searchable="1"
-                                                    data-search-placeholder="Search people…"
-                                                    class="{{ $drawerField }}"
-                                                    :class="addErrors.custodian ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                                >
-                                                    <option value="">No one yet</option>
-                                                    @foreach ($drawerPeople as $person)
-                                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}{{ $person->custodian_department ? ' · '.$person->custodian_department : '' }}</option>
-                                                    @endforeach
-                                                </select>
-                                                <p x-show="addErrors.custodian" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="addErrors.custodian"></p>
-                                                <p x-show="!addErrors.custodian" class="mt-1.5 text-xs text-slate-400" x-text="canAssignAddPerson()
-                                                    ? 'Issues every unit to this person with a property assignment document.'
-                                                    : 'Only Individual tracking can be assigned to a person.'"></p>
-                                            @endif
-                                        </div>
-                                        <div>
-                                            <label class="{{ $drawerLabel }}">Replaces equipment</label>
-                                            <select x-model="addForm.replacesId" data-searchable="1" data-search-placeholder="Search equipment…" class="{{ $drawerField }}">
-                                                <option value="">Not a replacement</option>
-                                                @foreach ($drawerReplacements as $candidate)
-                                                    <option value="{{ $candidate->equipment_id }}">{{ $candidate->equipment_name }}{{ $candidate->equipment_asset_tag ? ' · '.$candidate->equipment_asset_tag : '' }}{{ $candidate->room_name ? ' · '.$candidate->room_name : '' }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
-
-                            <div
-                                class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable]"
-                                x-show="addStep === 2"
-                                x-cloak
-                            >
-                                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
-                                    <div class="text-sm text-slate-600">
-                                        <span class="font-medium text-slate-900" x-text="addForm.name"></span>
-                                        <span class="text-slate-400"> · </span>
-                                        <span x-text="addItems.length + ' individually tracked units'"></span>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2">
-                                        <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
-                                        <button type="button" @click="applySharedDefaultsToItems()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
-                                    </div>
-                                </div>
-
-                                <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-                                    <div class="min-w-[12rem] flex-1">
-                                        <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Apply placement to all</label>
-                                        <div class="relative">
-                                            <button
-                                                type="button"
-                                                data-placement-trigger
-                                                @mousedown.prevent="togglePlacementDropdown('apply', $event)"
-                                                class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-900"
-                                            >
-                                                <span class="min-w-0 truncate" x-text="applyPlacementZone ? placementZoneLabel(applyPlacementZone) : 'Select placement'"></span>
-                                                <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        @click="applyPlacementToAll()"
-                                        class="h-10 rounded-lg bg-[#0025cc] px-4 text-xs font-medium text-white hover:bg-[#001fad]"
-                                        x-text="'Apply to all ' + addItems.length"
-                                    ></button>
-                                    <div class="flex flex-wrap items-end gap-2 border-l border-slate-200 pl-3" x-show="addItems.length >= 2">
-                                        <div>
-                                            <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Split range</label>
-                                            <div class="flex items-center gap-1.5 text-xs text-slate-500">
-                                                <span>#</span>
-                                                <input type="number" min="1" :max="addItems.length" x-ref="splitFrom" :value="1" class="h-10 w-14 rounded-lg border border-slate-200 px-2 text-sm" />
-                                                <span>–</span>
-                                                <input type="number" min="1" :max="addItems.length" x-ref="splitTo" :value="Math.ceil(addItems.length / 2)" class="h-10 w-14 rounded-lg border border-slate-200 px-2 text-sm" />
-                                            </div>
-                                        </div>
-                                        <div class="relative w-44">
-                                            <button
-                                                type="button"
-                                                data-placement-trigger
-                                                @mousedown.prevent="togglePlacementDropdown('split', $event)"
-                                                class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-900"
-                                            >
-                                                <span class="min-w-0 truncate" x-text="placementZoneLabel(splitPlacementZone)"></span>
-                                                <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
-                                            </button>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            @click="applyPlacementRange($refs.splitFrom.value, $refs.splitTo.value, splitPlacementZone)"
-                                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                        >
-                                            Apply to range
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="eq-modal-scroll overflow-x-auto rounded-xl ring-1 ring-slate-200 [scrollbar-gutter:stable]">
-                                    <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-                                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                            <tr>
-                                                <th class="px-3 py-2.5">Asset</th>
-                                                <th class="px-3 py-2.5">Placement</th>
-                                                <th class="px-3 py-2.5">Asset tag</th>
-                                                <th class="px-3 py-2.5">Serial number</th>
-                                                <th class="px-3 py-2.5">Brand</th>
-                                                <th class="px-3 py-2.5">Model</th>
-                                                <th class="px-3 py-2.5">Condition</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100 bg-white">
-                                            <template x-for="(item, index) in addItems" :key="index">
-                                                <tr>
-                                                    <td class="px-3 py-2">
-                                                        <div class="font-medium text-slate-800" x-text="assetLabel(index)"></div>
-                                                        <div class="text-[11px] text-slate-400" x-text="'#' + (index + 1)"></div>
-                                                    </td>
-                                                    <td class="px-3 py-2">
-                                                        <div class="relative w-44">
-                                                            <button
-                                                                type="button"
-                                                                data-placement-trigger
-                                                                @mousedown.prevent="togglePlacementDropdown('row-' + index, $event)"
-                                                                class="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2 text-left text-sm text-slate-900"
-                                                            >
-                                                                <span class="min-w-0 truncate" x-text="placementZoneLabel(item.equipment_placement_zone)"></span>
-                                                                <i data-lucide="chevron-down" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-3 py-2">
-                                                        <input type="text" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-56 min-w-[14rem] rounded-md border border-slate-200 px-2 text-sm" />
-                                                    </td>
-                                                    <td class="px-3 py-2">
-                                                        <input type="text" x-model="item.equipment_serial_number" class="h-9 w-36 rounded-md border border-slate-200 px-2 text-sm" />
-                                                    </td>
-                                                    <td class="px-3 py-2">
-                                                        <input type="text" x-model="item.equipment_brand_name" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm" />
-                                                    </td>
-                                                    <td class="px-3 py-2">
-                                                        <input type="text" x-model="item.equipment_model" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm" />
-                                                    </td>
-                                                    <td class="px-3 py-2">
-                                                        <select x-model="item.equipment_condition_status" class="h-9 rounded-md border border-slate-200 px-2 text-sm">
-                                                            <option value="Good">Good</option>
-                                                            <option value="Damaged">Damaged</option>
-                                                            <option value="Under Maintenance">Under Maintenance</option>
-                                                            <option value="Disposed">Disposed</option>
-                                                        </select>
-                                                    </td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center justify-end gap-2 px-6 py-4">
-                                <button
-                                    type="button"
-                                    @click="addStep === 2 ? (addStep = 1, addFullscreen = false) : (addEquipmentModal = false, resetAddEquipment(), document.body.style.overflow = '')"
-                                    class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-                                    x-text="addStep === 2 ? 'Back' : 'Cancel'"
-                                ></button>
-                                <button
-                                    type="button"
-                                    x-show="addStep === 1 && needsItemDetails()"
-                                    @click="continueAddEquipment()"
-                                    :disabled="saving"
-                                    class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-[#001fad] disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    Continue
-                                </button>
-                                <button
-                                    type="button"
-                                    x-show="addStep === 2 || !needsItemDetails()"
-                                    @click="addStep === 2 ? storeEquipment() : continueAddEquipment()"
-                                    :disabled="saving"
-                                    class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-[#001fad] disabled:cursor-not-allowed disabled:opacity-50"
-                                    x-text="saving
-                                        ? 'Saving…'
-                                        : (addStep === 2
-                                            ? ('Create ' + addItems.length + ' assets')
-                                            : 'Add equipment')"
-                                ></button>
-                            </div>
-                        </div>
-
-                        {{-- Placement menu portaled above modal overflow (stacking context) --}}
-                        <div
-                            x-show="openPlacementDropdown"
-                            x-cloak
-                            @click.outside="
-                                if (!$event.target.closest('[data-placement-trigger]')) {
-                                    freezeModalScroll(() => closePlacementDropdown());
-                                }
-                            "
-                            :style="placementMenuStyle"
-                            class="overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-slate-200/80"
-                        >
-                            <template x-if="openPlacementDropdown === 'apply'">
-                                <button
-                                    type="button"
-                                    tabindex="-1"
-                                    @mousedown.prevent="pickPlacementZone('apply', '')"
-                                    class="flex w-full items-center px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-50"
-                                >Select placement</button>
-                            </template>
-                            <template x-for="zone in placementZones()" :key="'portal-' + zone">
-                                <button
-                                    type="button"
-                                    tabindex="-1"
-                                    @mousedown.prevent="pickPlacementZone(
-                                        openPlacementDropdown === 'apply' ? 'apply'
-                                            : (openPlacementDropdown === 'split' ? 'split'
-                                                : (openPlacementDropdown === 'form' ? 'form'
-                                                    : Number(String(openPlacementDropdown || '').replace('row-', '')))),
-                                        zone
-                                    )"
-                                    class="flex w-full items-center px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                                    :class="activePlacementValue() === zone ? 'bg-slate-50 font-medium text-slate-900' : ''"
-                                    x-text="placementZoneLabel(zone)"
-                                ></button>
-                            </template>
-                        </div>
-                    </div>
-                </template>
 
                 <template x-if="editRoomModal">
                     <div
@@ -1969,6 +2024,7 @@
                                 <button
                                     type="button"
                                     @click="editRoomModal = false"
+                                    aria-label="Close"
                                     class="
                                         flex
                                         h-8
@@ -1983,10 +2039,20 @@
                                         hover:text-slate-700
                                     "
                                 >
-                                    <i
-                                        data-lucide="x"
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
                                         class="h-4 w-4"
-                                    ></i>
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M18 6 6 18" />
+                                        <path d="m6 6 12 12" />
+                                    </svg>
                                 </button>
 
                             </div>
@@ -2075,7 +2141,7 @@
 
 
                                     <!-- ================================================= -->
-                                    <!-- OPERATIONAL STATUS -->
+                                    <!-- OPERATIONAL STATUS (layout-derived, read-only) -->
                                     <!-- ================================================= -->
 
                                     <div>
@@ -2092,43 +2158,54 @@
                                             Operational Status
                                         </label>
 
-
-                                        <select
-                                            x-model="roomForm.status"
+                                        <div
                                             class="
+                                                flex
                                                 h-11
                                                 w-full
+                                                items-center
                                                 rounded-lg
                                                 border
                                                 border-slate-200
-                                                bg-white
+                                                bg-slate-50
                                                 px-3.5
                                                 text-sm
-                                                text-slate-700
-                                                outline-none
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus:border-[#005EA6]
-                                                focus:ring-2
-                                                focus:ring-blue-100
+                                                font-medium
+                                                text-slate-800
                                             "
-                                        >
+                                            x-text="currentRoom?.status || currentRoom?.monitoring?.room_information?.status || 'Normal'"
+                                        ></div>
 
-                                            <option>
-                                                Normal
-                                            </option>
+                                        <template x-if="(currentRoom?.status || currentRoom?.monitoring?.room_information?.status) === 'Under Maintenance'">
+                                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                                <template
+                                                    x-for="scope in (currentRoom?.maintenanceScopes
+                                                        || currentRoom?.monitoring?.room_information?.maintenance_scopes
+                                                        || ['Entire room'])"
+                                                    :key="scope"
+                                                >
+                                                    <span
+                                                        class="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-100"
+                                                        x-text="scope"
+                                                    ></span>
+                                                </template>
+                                            </div>
+                                        </template>
 
-                                            <option>
-                                                Under Maintenance
-                                            </option>
+                                        <template x-if="(currentRoom?.status || currentRoom?.monitoring?.room_information?.status) === 'Critical'">
+                                            <p class="mt-2 text-[11px] leading-4 text-slate-500">
+                                                <span
+                                                    x-text="Number(currentRoom?.criticalReportCount
+                                                        || currentRoom?.monitoring?.room_information?.critical_report_count
+                                                        || 0)"
+                                                ></span>
+                                                critical report(s) in the status period.
+                                            </p>
+                                        </template>
 
-                                            <option>
-                                                Critical
-                                            </option>
-
-                                        </select>
+                                        <p class="mt-1.5 text-[11px] leading-4 text-slate-400">
+                                            Driven by open critical reports and active room inspections. Not editable here.
+                                        </p>
 
                                     </div>
 
@@ -2217,123 +2294,6 @@
                                     </div>
 
 
-
-                                    <!-- ================================================= -->
-                                    <!-- BLUEPRINT IDENTITY -->
-                                    <!-- ================================================= -->
-
-                                    <div>
-
-                                        <label
-                                            class="
-                                                mb-2
-                                                block
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Blueprint Identity
-                                        </label>
-
-
-                                        <!-- COLOR CONTROL -->
-
-                                        <div
-                                            class="
-                                                flex
-                                                h-11
-                                                items-center
-                                                gap-3
-                                                rounded-lg
-                                                border
-                                                border-slate-200
-                                                bg-white
-                                                px-2.5
-                                                transition
-
-                                                hover:border-slate-300
-
-                                                focus-within:border-[#005EA6]
-                                                focus-within:ring-2
-                                                focus-within:ring-blue-100
-                                            "
-                                        >
-
-
-                                            <!-- COLOR PICKER -->
-
-                                            <input
-                                                x-model="roomForm.color"
-                                                type="color"
-                                                class="
-                                                    h-8
-                                                    w-10
-                                                    cursor-pointer
-                                                    rounded-md
-                                                    border-0
-                                                    bg-transparent
-                                                    p-0
-                                                "
-                                            />
-
-
-                                            <!-- HEX VALUE -->
-
-                                            <input
-                                                x-model="roomForm.color"
-                                                type="text"
-                                                placeholder="#005EA6"
-                                                class="
-                                                    min-w-0
-                                                    flex-1
-                                                    border-0
-                                                    bg-transparent
-                                                    p-0
-                                                    text-sm
-                                                    font-medium
-                                                    uppercase
-                                                    tracking-wide
-                                                    text-slate-700
-                                                    outline-none
-                                                "
-                                            />
-
-                                        </div>
-
-
-                                        <!-- COLOR DESCRIPTION -->
-
-                                        <div
-                                            class="
-                                                mt-2
-                                                flex
-                                                items-start
-                                                gap-1.5
-                                                text-xs
-                                                leading-4
-                                                text-slate-500
-                                            "
-                                        >
-
-                                            <i
-                                                data-lucide="info"
-                                                class="
-                                                    mt-0.5
-                                                    h-3.5
-                                                    w-3.5
-                                                    shrink-0
-                                                "
-                                            ></i>
-
-
-                                            <p>
-                                                Custom color mapping for the management dashboard.
-                                            </p>
-
-                                        </div>
-
-                                    </div>
 
                                 </div>
 
@@ -2447,7 +2407,7 @@
                     >
                         <div
                             class="flex max-h-[calc(90dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-                            :class="transferMode === 'custom' ? 'max-w-3xl' : 'max-w-2xl'"
+                            :class="transferMode === 'custom' ? 'max-w-3xl' : 'max-w-xl sm:max-w-2xl'"
                         >
                             <div class="flex shrink-0 items-start justify-between border-b border-slate-100 px-6 py-4">
                                 <div>
@@ -2495,7 +2455,7 @@
                                     <p x-text="transferError"></p>
                                 </div>
 
-                                <div x-show="transferMode === 'single'" class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                <div x-show="transferMode === 'single'" class="space-y-5">
                                     <div>
                                         <label class="mb-2 block text-xs font-medium text-slate-600">Equipment <span class="text-red-500">*</span></label>
                                         <select
@@ -2504,23 +2464,14 @@
                                         >
                                             <option value="">Select Equipment</option>
                                             <template x-for="item in transferSourceEquipment()" :key="'single-eq-' + item.id">
-                                                <option :value="item.id" x-text="item.name"></option>
+                                                <option :value="item.id" x-text="item.label"></option>
                                             </template>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room <span class="text-red-500">*</span></label>
-                                        <select
-                                            x-model="destinationRoom"
-                                            class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
-                                        >
-                                            <option value="">Select Room</option>
-                                            @foreach ($rooms as $destination)
-                                                @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
-                                                    <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
-                                                @endif
-                                            @endforeach
-                                        </select>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination room &amp; department <span class="text-red-500">*</span></label>
+                                        <p class="mb-2 text-[11px] text-slate-500">Expand a room, then pick Entire room or a specific department.</p>
+                                        @include('admin.infrastructure.partials.transfer-destination-picker', ['field' => 'destination'])
                                     </div>
                                 </div>
 
@@ -2529,59 +2480,41 @@
                                         Transfer
                                         <span class="font-semibold text-slate-900" x-text="transferSourceEquipment().length"></span>
                                         <span x-text="transferSourceEquipment().length === 1 ? ' item' : ' items'"></span>
-                                        from <span class="font-semibold text-slate-900">{{ $room->room_name }}</span> to one destination room.
+                                        from <span class="font-semibold text-slate-900">{{ $room->room_name }}</span> to one destination room / department.
                                     </div>
                                     <div>
-                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination Room <span class="text-red-500">*</span></label>
-                                        <select
-                                            x-model="transferAllRoom"
-                                            class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition hover:border-slate-300 focus:border-[#005EA6] focus:ring-2 focus:ring-blue-100"
-                                        >
-                                            <option value="">Select Room</option>
-                                            @foreach ($rooms as $destination)
-                                                @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
-                                                    <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
-                                                @endif
-                                            @endforeach
-                                        </select>
+                                        <label class="mb-2 block text-xs font-medium text-slate-600">Destination room &amp; department <span class="text-red-500">*</span></label>
+                                        @include('admin.infrastructure.partials.transfer-destination-picker', ['field' => 'all'])
                                     </div>
                                 </div>
 
                                 <div x-show="transferMode === 'custom'" x-cloak class="space-y-4">
                                     <p class="text-sm text-slate-600">
-                                        Assign each item to a room. Example: send TV and chairs to one room, tables and curtains to another.
+                                        Click one department at a time to fill empty rows. Already assigned rows stay put. Top checkboxes mirror destinations in use. Uncheck a department to clear only those rows.
                                     </p>
 
-                                    <div class="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                        <div class="min-w-[12rem] flex-1">
-                                            <label class="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">Apply destination to selected</label>
-                                            <select
-                                                x-model="transferApplyRoom"
-                                                class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                                            >
-                                                <option value="">Select Room</option>
-                                                @foreach ($rooms as $destination)
-                                                    @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
-                                                        <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
-                                                    @endif
-                                                @endforeach
-                                            </select>
+                                    <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <label class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Destination room &amp; department</label>
+                                            <div class="flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    @click="applyDestinationToSelected()"
+                                                    class="h-9 rounded-lg bg-[#0025cc] px-3 text-xs font-medium text-white hover:bg-[#001fad]"
+                                                >Apply to selected</button>
+                                                <button
+                                                    type="button"
+                                                    @click="selectAllTransferEquipment()"
+                                                    class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                                >Select all</button>
+                                                <button
+                                                    type="button"
+                                                    @click="clearTransferSelection()"
+                                                    class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                                >Clear</button>
+                                            </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            @click="applyDestinationToSelected()"
-                                            class="h-10 rounded-lg bg-[#0025cc] px-3 text-xs font-medium text-white hover:bg-[#001fad]"
-                                        >Apply to selected</button>
-                                        <button
-                                            type="button"
-                                            @click="selectAllTransferEquipment()"
-                                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                        >Select all</button>
-                                        <button
-                                            type="button"
-                                            @click="clearTransferSelection()"
-                                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                        >Clear</button>
+                                        @include('admin.infrastructure.partials.transfer-destination-picker', ['field' => 'apply'])
                                     </div>
 
                                     <div class="overflow-hidden rounded-xl ring-1 ring-slate-200">
@@ -2590,7 +2523,7 @@
                                                 <tr>
                                                     <th class="w-10 px-3 py-2.5"></th>
                                                     <th class="px-3 py-2.5">Equipment</th>
-                                                    <th class="px-3 py-2.5">Destination room</th>
+                                                    <th class="px-3 py-2.5">Destination</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-slate-100 bg-white">
@@ -2609,19 +2542,29 @@
                                                                 @change="toggleTransferSelected(item.id)"
                                                             />
                                                         </td>
-                                                        <td class="px-3 py-2.5 font-medium text-slate-800" x-text="item.name"></td>
+                                                        <td class="px-3 py-2.5">
+                                                            <div class="font-medium text-slate-800" x-text="item.name"></div>
+                                                            <div
+                                                                class="mt-0.5 text-[11px] text-slate-500"
+                                                                x-show="item.unique"
+                                                                x-text="item.unique"
+                                                            ></div>
+                                                        </td>
                                                         <td class="px-3 py-2.5">
                                                             <select
-                                                                class="h-9 w-full min-w-[10rem] rounded-md border border-slate-200 px-2 text-sm"
+                                                                class="h-9 w-full min-w-[12rem] rounded-md border border-slate-200 px-2 text-sm"
                                                                 :value="transferTargets[item.id] || ''"
-                                                                @change="transferTargets = { ...transferTargets, [item.id]: $event.target.value }"
+                                                                @change="onCustomTransferTargetChange(item.id, $event.target.value)"
                                                             >
                                                                 <option value="">Keep here / skip</option>
-                                                                @foreach ($rooms as $destination)
-                                                                    @if ($destination->room_id != $room->room_id && !($destination->room_is_archived ?? false))
-                                                                        <option value="{{ $destination->room_id }}">{{ $destination->room_name }}</option>
-                                                                    @endif
-                                                                @endforeach
+                                                                <template x-for="dest in transferDestRooms" :key="'opt-room-' + item.id + '-' + dest.id">
+                                                                    <template x-for="dept in (dest.departments || [])" :key="'opt-dept-' + item.id + '-' + dest.id + '-' + dept.id">
+                                                                        <option
+                                                                            :value="encodeTransferTarget(dest.id, dept.id)"
+                                                                            x-text="dest.name + ' · ' + dept.name"
+                                                                        ></option>
+                                                                    </template>
+                                                                </template>
                                                             </select>
                                                         </td>
                                                     </tr>
@@ -2639,10 +2582,10 @@
                                         <h4 class="text-sm font-medium text-slate-800">Asset Transfer</h4>
                                         <p class="mt-1 text-xs leading-5 text-slate-500" x-text="
                                             transferMode === 'all'
-                                                ? 'All equipment in this room will move to the selected destination.'
+                                                ? 'All equipment in this room will move to the selected room and department.'
                                                 : (transferMode === 'custom'
-                                                    ? 'Only items with a destination room will be moved. Unassigned items stay here.'
-                                                    : 'The selected equipment will be moved from the current room to the destination room.')
+                                                    ? 'Only items with a destination will be moved. Unassigned items stay here.'
+                                                    : 'The selected equipment will move to the chosen room and department.')
                                         "></p>
                                     </div>
                                 </div>
@@ -2661,7 +2604,7 @@
                                         :disabled="roomSaving || !transferSourceEquipment().length"
                                         class="min-w-[145px] rounded-lg bg-[#005EA6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#004a85] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        <span x-text="roomSaving ? 'Transferring…' : (transferMode === 'single' ? 'Transfer Asset' : 'Transfer selected')"></span>
+                                        <span x-text="roomSaving ? 'Transferringâ€¦' : (transferMode === 'single' ? 'Transfer Asset' : 'Transfer selected')"></span>
                                     </button>
                                 </div>
                             </div>
@@ -2775,13 +2718,10 @@
                                 class="rounded-xl border border-slate-200 px-3 text-sm"
                             >
                                 <option value="all">All Conditions</option>
-
                                 <option value="good">Good</option>
-
-                                <option value="maintenance">Maintenance</option>
-
+                                <option value="maintenance">Under Maintenance</option>
+                                <option value="defective">Defective</option>
                                 <option value="damaged">Damaged</option>
-
                                 <option value="disposed">Disposed</option>
                             </select>
 
@@ -2808,6 +2748,8 @@
                                         (item.condition || '') === 'Good') ||
                                     (filter === 'maintenance' &&
                                         (item.condition || '') === 'Under Maintenance') ||
+                                    (filter === 'defective' &&
+                                        (item.condition || '') === 'Defective') ||
                                     (filter === 'damaged' &&
                                         (item.condition || '') === 'Damaged') ||
                                     (filter === 'disposed' &&
@@ -2980,6 +2922,7 @@
                         @php
                             $healthy = $item->equipment_condition_status === "Good";
                             $maintenance = $item->equipment_condition_status === "Under Maintenance";
+                            $defective = $item->equipment_condition_status === "Defective";
                             $damaged = $item->equipment_condition_status === "Damaged";
                             $disposed = $item->equipment_condition_status === "Disposed";
                         @endphp
@@ -3029,6 +2972,20 @@
                                             '{{ $item->equipment_condition_status }}'
 
                                             === 'Under Maintenance'
+
+                                        )
+
+                                        ||
+
+                                        (
+
+                                            filter === 'defective'
+
+                                            &&
+
+                                            '{{ $item->equipment_condition_status }}'
+
+                                            === 'Defective'
 
                                         )
 
@@ -3091,11 +3048,13 @@
                                                     ? 'bg-emerald-500'
                                                     : ($maintenance
                                                         ? 'bg-amber-400'
-                                                        : ($damaged
-                                                            ? 'bg-red-600'
-                                                            : ($disposed
-                                                                ? 'bg-zinc-500'
-                                                                : 'bg-gray-300')))
+                                                        : ($defective
+                                                            ? 'bg-orange-500'
+                                                            : ($damaged
+                                                                ? 'bg-red-600'
+                                                                : ($disposed
+                                                                    ? 'bg-zinc-500'
+                                                                    : 'bg-gray-300'))))
                                             }}"
                                         ></span>
 
@@ -3132,11 +3091,13 @@
                                                     ? 'bg-emerald-100 text-emerald-700'
                                                     : ($maintenance
                                                         ? 'bg-amber-100 text-amber-700'
-                                                        : ($damaged
-                                                            ? 'bg-red-100 text-red-700'
-                                                            : ($disposed
-                                                                ? 'bg-slate-200 text-slate-700'
-                                                                : 'bg-gray-100 text-gray-700')))
+                                                        : ($defective
+                                                            ? 'bg-orange-100 text-orange-700'
+                                                            : ($damaged
+                                                                ? 'bg-red-100 text-red-700'
+                                                                : ($disposed
+                                                                    ? 'bg-slate-200 text-slate-700'
+                                                                    : 'bg-gray-100 text-gray-700'))))
                                             }}"
                                         >
                                             {{ $item->equipment_condition_status }}
@@ -3442,7 +3403,7 @@
 
                                     <div class="space-y-5 p-5">
                                         @php
-                                            $detailNa = static function ($value, string $fallback = '—') {
+                                            $detailNa = static function ($value, string $fallback = 'â€”') {
                                                 if ($value === null || $value === '') {
                                                     return $fallback;
                                                 }
@@ -3481,7 +3442,7 @@
                                                     <p class="mt-1 break-words text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_name) }}</p>
                                                 </div>
                                                 <div class="min-w-0">
-                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Category</p>
+                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Classification</p>
                                                     <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($detailCategory) }}</p>
                                                 </div>
                                                 <div class="min-w-0">
@@ -3540,7 +3501,7 @@
                                                 </div>
                                                 <div class="min-w-0">
                                                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Current location</p>
-                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_current_location, '—') }}</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_current_location, 'â€”') }}</p>
                                                 </div>
                                                 <div class="min-w-0">
                                                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Layout position</p>
@@ -3548,7 +3509,7 @@
                                                         @if ($item->equipment_position_x !== null || $item->equipment_position_y !== null)
                                                             X {{ (int) ($item->equipment_position_x ?? 0) }}% · Y {{ (int) ($item->equipment_position_y ?? 0) }}%
                                                         @else
-                                                            —
+                                                            â€”
                                                         @endif
                                                     </p>
                                                 </div>
@@ -3575,9 +3536,9 @@
                                                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Purchase cost</p>
                                                     <p class="mt-1 text-sm font-medium text-slate-800">
                                                         @if ($item->equipment_purchase_cost !== null && $item->equipment_purchase_cost !== '')
-                                                            ₱{{ number_format((float) $item->equipment_purchase_cost, 2) }}
+                                                            â‚±{{ number_format((float) $item->equipment_purchase_cost, 2) }}
                                                         @else
-                                                            —
+                                                            â€”
                                                         @endif
                                                     </p>
                                                 </div>
@@ -3591,7 +3552,7 @@
                                                         @if (!empty($item->equipment_useful_life_years))
                                                             {{ (int) $item->equipment_useful_life_years }} years
                                                         @else
-                                                            — <span class="text-[10px] font-normal text-slate-400">(default 5)</span>
+                                                            â€” <span class="text-[10px] font-normal text-slate-400">(default 5)</span>
                                                         @endif
                                                     </p>
                                                 </div>
@@ -3746,6 +3707,7 @@
                                             <input
                                                 x-model="form.name"
                                                 type="text"
+                                                maxlength="{{ \App\Support\InputLimits::NAME }}"
                                                 class="
                                                     h-10
                                                     w-full
@@ -3786,7 +3748,7 @@
                                                     text-slate-600
                                                 "
                                             >
-                                                Category
+                                                Classification
                                             </label>
 
 
@@ -3814,7 +3776,7 @@
                                             >
 
                                                 <option value="">
-                                                    Select Category
+                                                    Select Classification
                                                 </option>
 
 
@@ -4010,21 +3972,11 @@
                                                 "
                                             >
 
-                                                <option>
-                                                    Good
-                                                </option>
-
-                                                <option>
-                                                    Under Maintenance
-                                                </option>
-
-                                                <option>
-                                                    Damaged
-                                                </option>
-
-                                                <option>
-                                                    Disposed
-                                                </option>
+                                                <option>Good</option>
+                                                <option>Under Maintenance</option>
+                                                <option>Defective</option>
+                                                <option>Damaged</option>
+                                                <option>Disposed</option>
 
                                             </select>
 
@@ -4323,14 +4275,25 @@
 
                                                         @foreach ($rooms as $destination)
                                                             @if ($destination->room_id != $room->room_id)
+                                                                @php
+                                                                    $destinationDeptNames = collect($destination->departments ?? [])
+                                                                        ->map(fn ($d) => is_array($d) ? ($d['name'] ?? null) : $d)
+                                                                        ->filter()
+                                                                        ->values()
+                                                                        ->all();
+                                                                    $destinationLabel = $destination->room_name
+                                                                        .($destinationDeptNames !== []
+                                                                            ? ' · '.implode(', ', $destinationDeptNames)
+                                                                            : ' · No department');
+                                                                @endphp
                                                                 <button
                                                                     type="button"
-                                                                    x-show="matchesTransferRoomSearch(@js($destination->room_name))"
-                                                                    @click="selectTransferRoom(@js((string) $destination->room_id), @js($destination->room_name))"
+                                                                    x-show="matchesTransferRoomSearch(@js($destinationLabel))"
+                                                                    @click="selectTransferRoom(@js((string) $destination->room_id), @js($destinationLabel))"
                                                                     class="flex w-full px-3 py-2 text-left text-sm transition hover:bg-blue-50 hover:text-[#005EA6]"
                                                                     :class="String(transferRoom) === @js((string) $destination->room_id) ? 'bg-blue-50 font-medium text-[#005EA6]' : 'text-slate-700'"
                                                                 >
-                                                                    <span class="truncate">{{ $destination->room_name }}</span>
+                                                                    <span class="truncate">{{ $destinationLabel }}</span>
                                                                 </button>
                                                             @endif
                                                         @endforeach
@@ -4942,7 +4905,7 @@
                                             text-slate-600
                                         "
                                     >
-                                        {{ $problem->occurrences }}×
+                                        {{ $problem->occurrences }}Ã—
                                     </div>
 
                                 </div>
@@ -5030,7 +4993,107 @@
                 >
 
                     <!-- ===================================================== -->
-                    <!-- UPCOMING MAINTENANCE -->
+                    <!-- ROOM INSPECTIONS -->
+                    <!-- ===================================================== -->
+
+                    <div class="mb-8">
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">
+                                    Room inspections
+                                </h3>
+                                <p class="mt-0.5 text-[11px] text-slate-400">
+                                    Entire room or by department
+                                </p>
+                            </div>
+                            <div
+                                class="
+                                    flex
+                                    h-8
+                                    w-8
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    bg-amber-50
+                                    text-amber-600
+                                "
+                            >
+                                <i data-lucide="clipboard-list" class="h-4 w-4"></i>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 space-y-0 border-y border-slate-200">
+                            @php
+                                $roomInspections = $room->maintenance_schedules
+                                    ?? data_get($room->monitoring, 'room_information.maintenance_schedules', []);
+                            @endphp
+                            @forelse ($roomInspections as $inspection)
+                                @php
+                                    $insp = is_array($inspection) ? $inspection : (array) $inspection;
+                                    $inspDate = $insp['next_date'] ?? null;
+                                    $inspScope = $insp['scope'] ?? 'Entire room';
+                                    $inspStatus = $insp['status'] ?? '';
+                                    $inspTitle = $insp['title'] ?? 'Room inspection';
+                                @endphp
+                                <article class="flex items-start gap-3 border-b border-slate-100 py-4 first:pt-0 last:border-b-0 last:pb-0">
+                                    <div
+                                        class="
+                                            flex
+                                            h-12
+                                            w-12
+                                            shrink-0
+                                            flex-col
+                                            items-center
+                                            justify-center
+                                            rounded-lg
+                                            border
+                                            border-amber-200
+                                            bg-amber-50
+                                        "
+                                    >
+                                        @if ($inspDate)
+                                            <span class="text-base font-semibold leading-none text-slate-900">
+                                                {{ \Carbon\Carbon::parse($inspDate)->format('d') }}
+                                            </span>
+                                            <span class="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                                {{ \Carbon\Carbon::parse($inspDate)->format('M') }}
+                                            </span>
+                                        @else
+                                            <span class="text-[10px] font-medium text-slate-500">â€”</span>
+                                        @endif
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-semibold text-slate-900">{{ $inspTitle }}</p>
+                                        <p class="mt-0.5 text-xs text-slate-500">
+                                            Scope:
+                                            <span class="font-medium text-slate-700">{{ $inspScope }}</span>
+                                        </p>
+                                        @if ($inspStatus !== '')
+                                            <span
+                                                class="mt-1.5 inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold
+                                                    {{ strtolower($inspStatus) === 'overdue' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600' }}"
+                                            >
+                                                {{ $inspStatus }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </article>
+                            @empty
+                                <div class="py-6 text-center">
+                                    <p class="text-sm font-medium text-slate-700">No active room inspections</p>
+                                    <p class="mt-1 text-xs text-slate-400">
+                                        No Active or Overdue room inspection schedules for this period.
+                                    </p>
+                                </div>
+                            @endforelse
+                        </div>
+
+                    </div>
+
+                    <!-- ===================================================== -->
+                    <!-- EQUIPMENT MAINTENANCE -->
                     <!-- ===================================================== -->
 
                     <div>
@@ -5042,8 +5105,11 @@
                             <div>
 
                                 <h3 class="text-sm font-semibold text-slate-900">
-                                    Upcoming Maintenance
+                                    Equipment maintenance
                                 </h3>
+                                <p class="mt-0.5 text-[11px] text-slate-400">
+                                    Asset-level schedules
+                                </p>
 
                             </div>
 
@@ -5770,7 +5836,7 @@
 
                 placementZoneLabel(zone) {
                     return window.infrastructure?.placementZoneLabel?.(zone)
-                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || '—'));
+                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || 'â€”'));
                 },
 
                 // =====================================

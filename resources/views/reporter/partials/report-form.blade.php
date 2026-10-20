@@ -3190,6 +3190,32 @@
         background: #001ca3 !important;
     }
 
+    .swal2-container .swal2-popup.paayo-swal .swal2-cancel,
+    .paayo-swal-cancel {
+        background: #f1f5f9 !important;
+        color: #334155 !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: .95rem !important;
+        padding: 12px 28px !important;
+        min-width: 120px !important;
+        box-shadow: none !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-cancel:hover,
+    .paayo-swal-cancel:hover {
+        background: #e2e8f0 !important;
+    }
+
+    .swal2-container .swal2-popup.paayo-swal .swal2-icon.swal2-warning,
+    .swal2-container .swal2-popup.paayo-swal .paayo-icon-warning {
+        background: #fffbeb !important;
+        color: #d97706 !important;
+        box-shadow: 0 12px 24px rgba(217, 119, 6, .12);
+    }
+
     .swal2-container .swal2-popup.paayo-swal .swal2-icon {
         border: 0 !important;
         width: 58px !important;
@@ -3573,12 +3599,6 @@
         color: #6b7280;
     }
 
-    .rf-reporter-card-switch {
-        flex-shrink: 0;
-        padding: 4px 6px;
-        font-size: 12.5px;
-    }
-
     @media (max-width: 767px) {
         .rf-gate {
             max-width: 100%;
@@ -3598,7 +3618,8 @@
         : null;
 @endphp
 
-<div id="reporterGate" class="rf-gate" @if ($pinReporter) hidden @endif>
+{{-- Always open on phase 1; session resume to phase 2 is intentionally disabled --}}
+<div id="reporterGate" class="rf-gate">
     <div class="rf-gate-card">
         <button type="button" class="rf-gate-close" onclick="closeReportModal()" aria-label="Close">
             <i data-lucide="x" class="h-4 w-4"></i>
@@ -3708,8 +3729,8 @@
     action="/store-report"
     enctype="multipart/form-data"
     id="reportForm"
-    @unless ($pinReporter) hidden @endunless
-    data-verified-employee-id="{{ $pinReporter->reporter_employee_id ?? '' }}"
+    hidden
+    data-verified-employee-id=""
 >
     @csrf
 
@@ -3805,8 +3826,9 @@
                         {{-- CLOSE (mobile) --}}
                         <button
                             type="button"
-                            onclick="closeReportModal()"
+                            onclick="requestCloseReportModal()"
                             class="rf-close-mobile flex h-9 w-9 items-center justify-center rounded-xl lg:hidden"
+                            aria-label="Close"
                         >
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
@@ -3833,7 +3855,6 @@
                                 <p id="rfReporterCardName" class="rf-reporter-card-name">{{ $cardName !== '' ? $cardName : $cardEmployeeId }}</p>
                                 <p id="rfReporterCardSub" class="rf-reporter-card-sub">{{ $cardName !== '' ? $cardEmployeeId.' · ' : '' }}Verified with PIN</p>
                             </div>
-                            <button type="button" class="rf-gate-link rf-reporter-card-switch" id="reporterSwitchBtn">Switch</button>
                         </div>
 
                         {{-- EMPLOYEE ERROR --}}
@@ -4300,8 +4321,9 @@
                         </button>
                         <button
                             type="button"
-                            onclick="closeReportModal()"
+                            onclick="requestCloseReportModal()"
                             class="rf-close-desktop flex h-8 w-8 items-center justify-center rounded-lg transition"
+                            aria-label="Close"
                         >
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
@@ -4332,7 +4354,7 @@
 
                         <button
                             type="button"
-                            onclick="closeReportModal()"
+                            onclick="requestCloseReportModal()"
                             class="rf-cancel-btn w-full rounded-2xl py-4 font-semibold transition"
                         >
                             Cancel
@@ -4768,6 +4790,17 @@ descriptionTextarea.addEventListener(
         if (item.photoUrl) URL.revokeObjectURL(item.photoUrl);
         item.photo = file;
         item.photoUrl = URL.createObjectURL(file);
+        delete item.photoDataUrl;
+
+        const reader = new FileReader();
+        reader.onload = function () {
+            if (selectedEquipmentItems[index] === item && typeof reader.result === "string") {
+                item.photoDataUrl = reader.result;
+                persistReportDraft();
+            }
+        };
+        reader.readAsDataURL(file);
+
         renderSelectedEquipment();
         return file;
     }
@@ -4778,6 +4811,7 @@ descriptionTextarea.addEventListener(
         if (item.photoUrl) URL.revokeObjectURL(item.photoUrl);
         delete item.photo;
         delete item.photoUrl;
+        delete item.photoDataUrl;
         renderSelectedEquipment();
     }
 
@@ -5393,11 +5427,136 @@ toggleRoomBtn.addEventListener('click', function () {
         });
     });
 
-    /** @type {Array<{type: 'id'|'manual', id?: string, name: string, issue: string, details?: string, roomId?: string, roomLabel?: string, openReportTicket?: string}>} */
+    /** @type {Array<{type: 'id'|'manual', id?: string, name: string, issue: string, details?: string, roomId?: string, roomLabel?: string, openReportTicket?: string, checks?: Array, photo?: File, photoUrl?: string, photoDataUrl?: string}>} */
     let selectedEquipmentItems = [];
 
     /** @type {Record<string, unknown>[]} */
     let roomEquipmentCache = [];
+
+    const REPORT_DRAFT_KEY = "paayo_report_draft_v1";
+
+    function dataUrlToFile(dataUrl, filename) {
+        try {
+            const parts = String(dataUrl || "").split(",");
+            if (parts.length < 2) return null;
+            const mimeMatch = parts[0].match(/:(.*?);/);
+            const mime = (mimeMatch && mimeMatch[1]) || "image/jpeg";
+            const binary = atob(parts[1]);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+            return new File([bytes], filename || "photo.jpg", { type: mime });
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function serializeReportDraftItem(item) {
+        return {
+            type: item.type === "manual" ? "manual" : "id",
+            id: item.id ? String(item.id) : undefined,
+            name: String(item.name || ""),
+            issue: String(item.issue || ""),
+            details: String(item.details || ""),
+            checks: Array.isArray(item.checks) ? item.checks : [],
+            openReportTicket: item.openReportTicket ? String(item.openReportTicket) : "",
+            roomId: item.roomId ? String(item.roomId) : "",
+            roomLabel: item.roomLabel ? String(item.roomLabel) : "",
+            photoDataUrl: item.photoDataUrl ? String(item.photoDataUrl) : null,
+        };
+    }
+
+    function persistReportDraft() {
+        try {
+            const roomSelect = document.getElementById("roomSelect");
+            const payload = {
+                items: selectedEquipmentItems.map(serializeReportDraftItem),
+                roomId: roomSelect ? String(roomSelect.value || "") : "",
+                savedAt: Date.now(),
+            };
+            sessionStorage.setItem(REPORT_DRAFT_KEY, JSON.stringify(payload));
+        } catch (_) {
+            /* quota / private mode */
+        }
+    }
+
+    function clearReportDraft() {
+        try {
+            sessionStorage.removeItem(REPORT_DRAFT_KEY);
+        } catch (_) {}
+    }
+
+    window.clearReportDraft = clearReportDraft;
+
+    function restoreReportDraft() {
+        let raw = null;
+        try {
+            raw = sessionStorage.getItem(REPORT_DRAFT_KEY);
+        } catch (_) {
+            return false;
+        }
+        if (!raw) return false;
+
+        let payload = null;
+        try {
+            payload = JSON.parse(raw);
+        } catch (_) {
+            clearReportDraft();
+            return false;
+        }
+
+        const items = Array.isArray(payload && payload.items) ? payload.items : [];
+        revokeItemPhotos(selectedEquipmentItems);
+        selectedEquipmentItems = items
+            .filter(function (row) {
+                return row && row.name;
+            })
+            .map(function (row, index) {
+                const next = {
+                    type: row.type === "manual" ? "manual" : "id",
+                    name: String(row.name || ""),
+                    issue: String(row.issue || ""),
+                    details: String(row.details || ""),
+                    checks: Array.isArray(row.checks) ? row.checks : [],
+                    openReportTicket: row.openReportTicket ? String(row.openReportTicket) : "",
+                    roomId: row.roomId ? String(row.roomId) : "",
+                    roomLabel: row.roomLabel ? String(row.roomLabel) : "",
+                };
+                if (next.type === "id" && row.id) {
+                    next.id = String(row.id);
+                }
+                if (row.photoDataUrl) {
+                    next.photoDataUrl = String(row.photoDataUrl);
+                    const file = dataUrlToFile(next.photoDataUrl, "draft-photo-" + index + ".jpg");
+                    if (file) {
+                        next.photo = file;
+                        next.photoUrl = URL.createObjectURL(file);
+                    }
+                }
+                return next;
+            });
+
+        const roomSelect = document.getElementById("roomSelect");
+        const restoreRoomId = String((payload && payload.roomId) || "");
+        if (roomSelect && restoreRoomId) {
+            roomSelect.value = restoreRoomId;
+            if (roomSelect.value !== restoreRoomId && selectedEquipmentItems.length) {
+                const fromItem = selectedEquipmentItems
+                    .map(function (item) {
+                        return String(item.roomId || "");
+                    })
+                    .find(Boolean);
+                if (fromItem) roomSelect.value = fromItem;
+            }
+            roomSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+
+        renderSelectedEquipment();
+        syncAddButtonState();
+        return selectedEquipmentItems.length > 0;
+    }
+
+    window.restoreReportDraft = restoreReportDraft;
 
     function getCurrentRoomMeta() {
         const roomSelect = document.getElementById("roomSelect");
@@ -5584,6 +5743,9 @@ toggleRoomBtn.addEventListener('click', function () {
             .filter(Boolean)
             .join(" ");
         const zone = String(equipment.equipment_placement_zone || "").trim();
+        // Holding = in-room UI staging; Unassigned = legacy. Skip both so items read as deployed.
+        const zoneLower = zone.toLowerCase();
+        const showZone = zone && zoneLower !== "holding" && zoneLower !== "unassigned";
 
         if (setTag) {
             parts.push(setTag);
@@ -5599,7 +5761,7 @@ toggleRoomBtn.addEventListener('click', function () {
             parts.push(brandModel);
         }
 
-        if (zone) {
+        if (showZone) {
             parts.push(zone);
         }
 
@@ -5843,6 +6005,8 @@ toggleRoomBtn.addEventListener('click', function () {
                 selectedEquipmentInputs.appendChild(detailsInput);
             }
         });
+
+        persistReportDraft();
 
         selectedEquipmentList
             .querySelectorAll("[data-remove-equipment]")
@@ -8359,7 +8523,7 @@ toggleRoomBtn.addEventListener('click', function () {
                 {
                     targets: ["#rfReporterCard"],
                     title: "You're verified",
-                    text: "Your employee ID was confirmed with your PIN. Not you? Tap Switch.",
+                    text: "Your employee ID was confirmed with your PIN. You're ready to file this report.",
                     tip: true,
                 },
                 {
@@ -8503,12 +8667,17 @@ toggleRoomBtn.addEventListener('click', function () {
 <script>
     function paayoSwal(options) {
         const tone = options.tone || "success";
-        const swalIcon = tone === "error" ? "error" : "success";
+        const swalIcon =
+            tone === "error" ? "error" : (tone === "warning" ? "warning" : (tone === "info" ? "info" : "success"));
         const icons = {
             success:
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
             error:
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>',
+            warning:
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
+            info:
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
         };
 
         return Swal.fire({
@@ -8518,7 +8687,11 @@ toggleRoomBtn.addEventListener('click', function () {
             text: options.html ? undefined : (options.text || ""),
             html: options.html || undefined,
             showConfirmButton: options.showConfirmButton !== false,
+            showCancelButton: !!options.showCancelButton,
             confirmButtonText: options.confirmText || "OK",
+            cancelButtonText: options.cancelText || "Cancel",
+            reverseButtons: !!options.reverseButtons,
+            focusCancel: !!options.focusCancel,
             buttonsStyling: false,
             backdrop: "rgba(11, 18, 32, 0.7)",
             width: 400,
@@ -8531,11 +8704,43 @@ toggleRoomBtn.addEventListener('click', function () {
                 title: "paayo-swal-heading",
                 htmlContainer: "paayo-swal-text",
                 confirmButton: "paayo-swal-btn",
+                cancelButton: "paayo-swal-cancel",
                 icon: "paayo-icon-" + tone,
                 timerProgressBar: "modern-success-progress",
             },
         });
     }
+
+    /**
+     * Phase 2 X / Cancel: confirm, then return to phase 1 (PIN verify) — do not close the modal.
+     * Phase 1 X: closes the whole report modal.
+     */
+    window.requestCloseReportModal = async function () {
+        const gate = document.getElementById("reporterGate");
+        const reportForm = document.getElementById("reportForm");
+        const inPhase2 = !!(reportForm && !reportForm.hidden && gate && gate.hidden);
+
+        if (!inPhase2) {
+            if (typeof closeReportModal === "function") closeReportModal();
+            return;
+        }
+
+        const result = await paayoSwal({
+            tone: "warning",
+            title: "Leave this report?",
+            text: "You'll need to verify your employee ID again. Any equipment you've added won't be submitted & saved.",
+            confirmText: "Leave",
+            showCancelButton: true,
+            cancelText: "Cancel",
+            reverseButtons: true,
+            focusCancel: true,
+            allowOutsideClick: false,
+        });
+
+        if (result.isConfirmed && typeof window.reporterGateReset === "function") {
+            window.reporterGateReset();
+        }
+    };
 
     document
         .getElementById("reportForm")
@@ -8809,7 +9014,6 @@ toggleRoomBtn.addEventListener('click', function () {
         const forgotSubmitBtn = document.getElementById("forgotSubmitBtn");
         const forgotSubmitText = document.getElementById("forgotSubmitText");
         const employeeInput = document.getElementById("employeeIdInput");
-        const switchBtn = document.getElementById("reporterSwitchBtn");
         const reportModalEl = document.getElementById("reportModal");
 
         const csrfToken = () => reportForm.querySelector('input[name="_token"]')?.value || "";
@@ -8882,12 +9086,32 @@ toggleRoomBtn.addEventListener('click', function () {
             gatePin.setSelectionRange(end, end);
         });
 
+        const PHASE2_RESUME_KEY = "paayo_report_phase2";
+
+        function markPhase2Resume(employeeId) {
+            try {
+                sessionStorage.setItem(PHASE2_RESUME_KEY, String(employeeId || "1"));
+            } catch (_) {}
+        }
+
+        function clearPhase2Resume() {
+            try {
+                sessionStorage.removeItem(PHASE2_RESUME_KEY);
+            } catch (_) {}
+            if (typeof window.clearReportDraft === "function") {
+                window.clearReportDraft();
+            }
+        }
+
+        window.clearReportPhase2Mark = clearPhase2Resume;
+
         function showVerifyStep() {
             forgotForm.hidden = true;
             verifyForm.hidden = false;
         }
 
         function showPhase1(clearId) {
+            clearPhase2Resume();
             reportForm.hidden = true;
             gate.hidden = false;
             showVerifyStep();
@@ -8914,6 +9138,7 @@ toggleRoomBtn.addEventListener('click', function () {
                 employeeInput.value = employeeId;
                 employeeInput.dispatchEvent(new Event("input", { bubbles: true }));
             }
+            markPhase2Resume(employeeId);
             refreshIcons();
         }
 
@@ -9020,26 +9245,9 @@ toggleRoomBtn.addEventListener('click', function () {
             }
         });
 
-        if (switchBtn) {
-            switchBtn.addEventListener("click", function () {
-                window.reporterGateReset();
-            });
-        }
-
-        // The verified session can expire while the page sits open, so re-check it on every open.
-        async function onModalOpen() {
-            if (!reportForm.hidden) {
-                try {
-                    const response = await fetch("/reporter/session", {
-                        headers: { Accept: "application/json" },
-                        credentials: "same-origin",
-                    });
-                    const data = await response.json();
-                    if (!data || !data.success) showPhase1(false);
-                } catch (_) {}
-                return;
-            }
-            if (window.matchMedia("(min-width: 768px)").matches) {
+        // Focus phase-1 fields when the modal opens on the gate (Make Report handles reset).
+        function onModalOpen() {
+            if (!gate.hidden && window.matchMedia("(min-width: 768px)").matches) {
                 setTimeout(() => (gateId.value ? gatePin : gateId).focus(), 80);
             }
         }
@@ -9053,8 +9261,36 @@ toggleRoomBtn.addEventListener('click', function () {
             }).observe(reportModalEl, { attributes: true, attributeFilter: ["class"] });
         }
 
-        if (!reportForm.hidden && reportForm.dataset.verifiedEmployeeId) {
-            enterPhase2(reportForm.dataset.verifiedEmployeeId);
-        }
+        // Browser refresh while in phase 2: reopen modal on the report form.
+        (async function tryResumePhase2AfterRefresh() {
+            let marked = null;
+            try {
+                marked = sessionStorage.getItem(PHASE2_RESUME_KEY);
+            } catch (_) {
+                return;
+            }
+            if (!marked) return;
+
+            try {
+                const response = await fetch("/reporter/session", {
+                    headers: { Accept: "application/json" },
+                    credentials: "same-origin",
+                });
+                const data = await response.json();
+                if (!data || !data.success || !data.reporter_employee_id) {
+                    clearPhase2Resume();
+                    return;
+                }
+                enterPhase2(data.reporter_employee_id);
+                if (typeof openReportModal === "function") {
+                    openReportModal({ resume: true });
+                }
+                if (typeof window.restoreReportDraft === "function") {
+                    window.restoreReportDraft();
+                }
+            } catch (_) {
+                clearPhase2Resume();
+            }
+        })();
     });
 </script>

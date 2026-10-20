@@ -67,6 +67,7 @@ class EquipmentOpenBalance
                 'receiving_report_item_amount' => 'ri.receiving_report_item_amount',
                 'receiving_report_item_supplier_id' => 'ri.receiving_report_item_supplier_id',
                 'receiving_report_item_supplier_name' => 'ri.receiving_report_item_supplier_name',
+                'receiving_report_item_back_order_id' => 'ri.receiving_report_item_back_order_id',
             ],
             'receiving_reports_table' => [
                 'receiving_report_date' => 'rr.receiving_report_date',
@@ -76,6 +77,8 @@ class EquipmentOpenBalance
                 'receiving_report_supplier_id' => 'rr.receiving_report_supplier_id',
                 'receiving_report_request_check_id' => 'rr.receiving_report_request_check_id',
                 'receiving_report_atp_id' => 'rr.receiving_report_atp_id',
+                'receiving_report_procurement_request_id' => 'rr.receiving_report_procurement_request_id',
+                'receiving_report_ris_id' => 'rr.receiving_report_ris_id',
             ],
         ] as $table => $columns) {
             foreach ($columns as $column => $aliased) {
@@ -102,9 +105,12 @@ class EquipmentOpenBalance
         $atpNumbers = self::atpNumbers($rows);
         $supplierNames = self::supplierNames($rows);
 
+        $replacementMetaByRr = self::replacementMetaByReport($rows);
+
         $lines = [];
         $reports = [];
         $totals = self::emptyTotals();
+        $totals['pending_replacement'] = 0;
 
         foreach ($rows as $row) {
             $itemId = (int) $row->receiving_report_item_id;
@@ -145,6 +151,16 @@ class EquipmentOpenBalance
                 $unitCost = round($amount / $received, 2);
             }
 
+            $pendingStock = max(0, $received - $stocked);
+            $boId = (int) ($row->receiving_report_item_back_order_id ?? 0);
+            $meta = $replacementMetaByRr[$reportId] ?? ['request_id' => 0, 'replaces_label' => ''];
+            $requestId = (int) ($meta['request_id'] ?? 0);
+            $isBackOrderReplacement = $boId > 0;
+            $isReplacement = $isBackOrderReplacement || $requestId > 0;
+            $replacesLabel = $isReplacement
+                ? (trim((string) ($meta['replaces_label'] ?? '')) ?: ($isBackOrderReplacement ? 'Back order replacement' : null))
+                : null;
+
             $line = [
                 'receiving_report_item_id' => $itemId,
                 'receiving_report_id' => $reportId,
@@ -160,13 +176,19 @@ class EquipmentOpenBalance
                 'in_storage' => $inStorage,
                 'deployed' => $deployed,
                 'disposed' => $disposed,
-                'pending_stock' => max(0, $received - $stocked),
+                'pending_stock' => $pendingStock,
+                'is_replacement' => $isReplacement,
+                'is_back_order_replacement' => $isBackOrderReplacement,
+                'replaces_label' => $replacesLabel,
                 'units' => $bucket['units'],
             ];
 
             $lines[] = $line;
             foreach (self::COUNT_KEYS as $key) {
                 $totals[$key] += $line[$key];
+            }
+            if ($isReplacement && $pendingStock > 0) {
+                $totals['pending_replacement']++;
             }
 
             if (! isset($reports[$reportId])) {
@@ -181,6 +203,9 @@ class EquipmentOpenBalance
                     'invoice_no' => trim((string) ($row->receiving_report_invoice_no ?? '')) ?: null,
                     'dr_no' => trim((string) ($row->receiving_report_dr_no ?? '')) ?: null,
                     'amount' => 0.0,
+                    'has_replacement' => false,
+                    'pending_replacement' => 0,
+                    'replaces_label' => trim((string) ($meta['replaces_label'] ?? '')) ?: null,
                     'totals' => self::emptyTotals(),
                     'lines' => [],
                 ];
@@ -190,6 +215,15 @@ class EquipmentOpenBalance
             }
             if ($reports[$reportId]['po_number'] === null && $poNumber !== null) {
                 $reports[$reportId]['po_number'] = $poNumber;
+            }
+            if ($isReplacement) {
+                $reports[$reportId]['has_replacement'] = true;
+                if ($pendingStock > 0) {
+                    $reports[$reportId]['pending_replacement']++;
+                }
+                if (empty($reports[$reportId]['replaces_label']) && $replacesLabel) {
+                    $reports[$reportId]['replaces_label'] = $replacesLabel;
+                }
             }
             foreach (self::COUNT_KEYS as $key) {
                 $reports[$reportId]['totals'][$key] += $line[$key];
@@ -207,6 +241,27 @@ class EquipmentOpenBalance
             }, $lines),
             'totals' => $totals,
         ];
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return array<int, array{request_id:int, replaces_label:string}>
+     */
+    private static function replacementMetaByReport(Collection $rows): array
+    {
+        $meta = [];
+        foreach ($rows->groupBy(fn ($row) => (int) $row->receiving_report_id) as $reportId => $rrRows) {
+            $sample = $rrRows->first();
+            $requestId = ReplacementDeliveries::requestIdForRr($sample);
+            $meta[(int) $reportId] = [
+                'request_id' => $requestId,
+                'replaces_label' => $requestId > 0
+                    ? ReplacementDeliveries::replacesLabelForRequest($requestId)
+                    : '',
+            ];
+        }
+
+        return $meta;
     }
 
     /**

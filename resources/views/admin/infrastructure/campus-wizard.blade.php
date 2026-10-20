@@ -150,6 +150,7 @@
                     >Campus Name <span class="text-red-500">*</span><input
                         name="building_name"
                         x-model="form.building_name"
+                        maxlength="{{ \App\Support\InputLimits::BUILDING_NAME }}"
                         required
                         :readonly="isWizardSetupLocked"
                         class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0025cc] focus:ring-[#0025cc]"
@@ -454,12 +455,14 @@
                                                 Room Name <span class="text-red-500">*</span>
                                                 <input
                                                     x-model="room.name"
+                                                    maxlength="{{ \App\Support\InputLimits::ROOM_NAME }}"
                                                     @input="handleStep3RoomNameInput(wizardFloorIndex)"
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][name]`"
                                                     placeholder="Room name / number"
                                                     class="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                     :class="getStep3Error('room-name', wizardFloorIndex, ri) ? 'border-red-300 ring-1 ring-red-100' : ''"
                                                 />
+
                                                 <span
                                                     x-show="getStep3Error('room-name', wizardFloorIndex, ri)"
                                                     x-cloak
@@ -585,12 +588,14 @@
                                                 Room Name <span class="text-red-500">*</span>
                                                 <input
                                                     x-model="room.name"
+                                                    maxlength="{{ \App\Support\InputLimits::ROOM_NAME }}"
                                                     @input="handleStep3RoomNameInput(wizardFloorIndex)"
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][name]`"
                                                     placeholder="Room name / number"
                                                     class="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                     :class="getStep3Error('room-name', wizardFloorIndex, ri) ? 'border-red-300 ring-1 ring-red-100' : ''"
                                                 />
+
                                                 <span
                                                     x-show="getStep3Error('room-name', wizardFloorIndex, ri)"
                                                     x-cloak
@@ -682,6 +687,7 @@
                                                             Equipment Name <span class="text-red-500">*</span>
                                                             <input
                                                                 x-model="eq.name"
+                                                                maxlength="{{ \App\Support\InputLimits::NAME }}"
                                                                 :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][name]`"
                                                                 placeholder="e.g. Dell Monitor"
                                                                 class="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
@@ -696,13 +702,13 @@
                                                         </label>
 
                                                         <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                            Category
+                                                            Classification
                                                             <select
                                                                 x-model="eq.category_id"
                                                                 :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][category_id]`"
                                                                 class="mt-1 w-full cursor-pointer rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
                                                             >
-                                                                <option value="">Select category</option>
+                                                                <option value="">Select classification</option>
                                                                 @foreach ($categories as $category)
                                                                     <option value="{{ $category->equipment_category_id }}">
                                                                         {{ $category->equipment_category_name }}
@@ -730,8 +736,10 @@
                                                                 class="mt-1 w-full cursor-pointer rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
                                                             >
                                                                 <option>Good</option>
-                                                                <option>Damaged</option>
                                                                 <option>Under Maintenance</option>
+                                                                <option>Defective</option>
+                                                                <option>Damaged</option>
+                                                                <option>Disposed</option>
                                                             </select>
                                                         </label>
 

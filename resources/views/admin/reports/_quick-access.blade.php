@@ -21,7 +21,7 @@
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">#</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Equipment</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Location</th>
-                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Urgency</th>
+                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Priority</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Status</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Technician</th>
                     </tr></thead>

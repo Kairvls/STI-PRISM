@@ -558,7 +558,7 @@
                 document.getElementById("viewEquipmentRows").innerHTML = [
                     detailRow("Name", escapeHtml(p.name || "—")),
                     detailRow("Asset tag", escapeHtml(p.asset_tag || "—")),
-                    detailRow("Category", escapeHtml(p.category || "—")),
+                    detailRow("Classification", escapeHtml(p.category || "—")),
                     detailRow("Brand / model", escapeHtml(brandModel || "—")),
                     detailRow("Serial no.", escapeHtml(p.serial_number || "—")),
                     detailRow("Tracking", escapeHtml([p.tracking_mode, p.quantity ? "Qty " + p.quantity : null].filter(Boolean).join(" · ") || "—")),

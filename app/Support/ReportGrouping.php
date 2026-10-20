@@ -11,7 +11,10 @@ class ReportGrouping
 {
     public static function openStatuses(): array
     {
-        return ['Pending', 'Processing'];
+        return [
+            ReportStatuses::PENDING,
+            ReportStatuses::PROCESSING,
+        ];
     }
 
     public static function todayCount(): int
@@ -29,9 +32,24 @@ class ReportGrouping
             ->count();
     }
 
+    /**
+     * Statuses that stack under one equipment+room list row.
+     * Rejected / Closed stay as their own rows (not stacked).
+     */
     public static function groupedStatuses(): array
     {
-        return ['Pending', 'Processing', 'Resolved', 'For Replacement'];
+        return [
+            ReportStatuses::PENDING,
+            ReportStatuses::PROCESSING,
+            ReportStatuses::RESOLVED,
+            ReportStatuses::FOR_REPLACEMENT,
+        ];
+    }
+
+    /** `?, ?, …` placeholders matching {@see groupedStatuses()}. */
+    public static function groupedStatusPlaceholders(): string
+    {
+        return implode(', ', array_fill(0, count(self::groupedStatuses()), '?'));
     }
 
     public static function groupBucketSql(string $table = 'reports_table'): string
@@ -40,6 +58,7 @@ class ReportGrouping
             WHEN {$table}.report_current_status IN ('Pending', 'Processing') THEN 'open'
             WHEN {$table}.report_current_status = 'Resolved' THEN 'resolved'
             WHEN {$table}.report_current_status = 'For Replacement' THEN 'replacement'
+            WHEN {$table}.report_current_status IN ('Rejected', 'Closed / Cancelled') THEN 'closed'
             ELSE {$table}.report_current_status
         END";
     }

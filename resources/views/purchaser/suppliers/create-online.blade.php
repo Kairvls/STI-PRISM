@@ -11,22 +11,22 @@
 
         <div>
             <label class="text-xs font-medium text-gray-500">App Used <span class="text-red-500">*</span></label>
-            <input type="text" name="app_used" class="pur-input mt-1" required>
+            <input type="text" name="app_used" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
         </div>
 
         <div>
             <label class="text-xs font-medium text-gray-500">Shop Name <span class="text-red-500">*</span></label>
-            <input type="text" name="shop_name" class="pur-input mt-1" required>
+            <input type="text" name="shop_name" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
         </div>
 
         <div class="grid gap-3 lg:grid-cols-2">
             <div>
                 <label class="text-xs font-medium text-gray-500">Contact Person</label>
-                <input type="text" name="contact_person" value="{{ old('contact_person') }}" class="pur-input mt-1">
+                <input type="text" name="contact_person" value="{{ old('contact_person') }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1">
             </div>
             <div>
                 <label class="text-xs font-medium text-gray-500">Email</label>
-                <input type="email" name="email_address" value="{{ old('email_address') }}" class="pur-input mt-1">
+                <input type="email" name="email_address" value="{{ old('email_address') }}" maxlength="{{ \App\Support\InputLimits::EMAIL }}" class="pur-input mt-1">
             </div>
         </div>
 
@@ -42,12 +42,12 @@
 
         <div>
             <label class="text-xs font-medium text-gray-500">Store URL</label>
-            <input type="text" name="store_url" class="pur-input mt-1" placeholder="https://shopee.ph/shop/...">
+            <input type="text" name="store_url" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" placeholder="https://shopee.ph/shop/...">
         </div>
 
         <div>
             <label class="text-xs font-medium text-gray-500">Seller / Store ID</label>
-            <input type="text" name="seller_id" class="pur-input mt-1" placeholder="Platform seller or store ID">
+            <input type="text" name="seller_id" maxlength="{{ \App\Support\InputLimits::SHORT }}" class="pur-input mt-1" placeholder="Platform seller or store ID">
         </div>
 
         <div>

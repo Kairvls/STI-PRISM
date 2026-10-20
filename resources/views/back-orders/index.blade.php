@@ -40,6 +40,16 @@
             'reason' => $bo->back_order_reason,
             'reason_label' => BackOrders::reasonLabel($bo->back_order_reason),
             'remarks' => $bo->back_order_remarks,
+            'expected_delivery_date' => !empty($bo->back_order_expected_delivery_date)
+                ? \Carbon\Carbon::parse($bo->back_order_expected_delivery_date)->format('Y-m-d')
+                : null,
+            'expected_delivery_label' => !empty($bo->back_order_expected_delivery_date)
+                ? \Carbon\Carbon::parse($bo->back_order_expected_delivery_date)->format('d/m/Y')
+                : null,
+            'expected_delivery_overdue' => !empty($bo->back_order_expected_delivery_date)
+                && $bo->is_unresolved
+                && ! $bo->is_cash_advance
+                && \Carbon\Carbon::parse($bo->back_order_expected_delivery_date)->startOfDay()->lt(now()->startOfDay()),
             'status' => $bo->back_order_status,
             'status_label' => BackOrders::statusLabel($bo->back_order_status),
             'is_cash_advance' => $bo->is_cash_advance,
@@ -84,13 +94,20 @@
         selected: null,
         detailOpen: false,
         editOpen: false,
+        editStatus: 'open',
         refundOpen: false,
         replaceOpen: false,
         rep: { quantity: 0, damaged: 0, price: 0, supplierId: '', supplierName: '' },
         get current() { return this.selected ? this.items[this.selected] : null; },
         money(v) { return '₱' + Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
         openDetail(id) { this.selected = id; this.detailOpen = true; this.refreshIcons(); },
-        openEdit(id) { this.selected = id; this.editOpen = true; this.refreshIcons(); },
+        openEdit(id) {
+            this.selected = id;
+            const bo = this.items[id];
+            this.editStatus = bo && bo.status === 'waiting_restock' ? 'waiting_restock' : 'open';
+            this.editOpen = true;
+            this.refreshIcons();
+        },
         openRefund(id) { this.selected = id; this.refundOpen = true; this.refreshIcons(); },
         openReplace(id) {
             const bo = this.items[id];
@@ -185,13 +202,14 @@
         @endif
 
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[1080px] text-sm">
+            <table class="w-full min-w-[1180px] text-sm">
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                         <th class="px-5 py-3">Item</th>
                         <th class="px-5 py-3">Receiving Report</th>
                         <th class="px-5 py-3">Supplier</th>
                         <th class="px-5 py-3">Reason</th>
+                        <th class="px-5 py-3">Expected delivery</th>
                         <th class="px-5 py-3">Status</th>
                         <th class="px-5 py-3 text-right">Action</th>
                     </tr>
@@ -251,6 +269,26 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4">
+                                @if($bo->is_cash_advance)
+                                    <span class="text-xs text-gray-400">—</span>
+                                @elseif(!empty($bo->back_order_expected_delivery_date))
+                                    @php
+                                        $expectedDate = \Carbon\Carbon::parse($bo->back_order_expected_delivery_date);
+                                        $isOverdue = $bo->is_unresolved && $expectedDate->startOfDay()->lt(now()->startOfDay());
+                                    @endphp
+                                    <p class="font-medium {{ $isOverdue ? 'text-rose-700' : 'text-gray-800' }}">{{ $expectedDate->format('d/m/Y') }}</p>
+                                    @if($isOverdue)
+                                        <p class="mt-0.5 text-[11px] font-medium text-rose-600">Overdue</p>
+                                    @elseif($bo->back_order_status === BackOrders::STATUS_WAITING_RESTOCK)
+                                        <p class="mt-0.5 text-[11px] text-orange-600">Awaiting restock</p>
+                                    @endif
+                                @else
+                                    <span class="text-xs {{ $bo->back_order_status === BackOrders::STATUS_WAITING_RESTOCK ? 'font-medium text-amber-700' : 'text-gray-400' }}">
+                                        {{ $bo->back_order_status === BackOrders::STATUS_WAITING_RESTOCK ? 'Not set' : '—' }}
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-4">
                                 <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium {{ $statusStyles[$bo->back_order_status] ?? 'border-gray-200 bg-gray-50 text-gray-700' }}">
                                     {{ BackOrders::statusLabel($bo->back_order_status) }}
                                 </span>
@@ -301,7 +339,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-5 py-14 text-center">
+                            <td colspan="7" class="px-5 py-14 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                                     <i data-lucide="package-check" class="h-6 w-6"></i>
                                 </div>
@@ -341,6 +379,11 @@
                                 <div><p class="text-xs text-gray-500">Payment</p><p class="font-medium text-gray-900" x-text="current.is_cash_advance ? 'Cash Advance' : 'Request for Check'"></p></div>
                                 <div><p class="text-xs text-gray-500">Status</p><p class="font-medium text-gray-900" x-text="current.status_label"></p></div>
                                 <div><p class="text-xs text-gray-500">Reason</p><p class="font-medium text-gray-900" x-text="current.reason_label"></p></div>
+                                <div x-show="!current.is_cash_advance">
+                                    <p class="text-xs text-gray-500">Expected delivery</p>
+                                    <p class="font-medium" :class="current.expected_delivery_overdue ? 'text-rose-700' : 'text-gray-900'" x-text="current.expected_delivery_label || '—'"></p>
+                                    <p class="mt-0.5 text-[11px] font-medium text-rose-600" x-show="current.expected_delivery_overdue">Overdue</p>
+                                </div>
                                 <template x-if="current.replacement">
                                     <div class="col-span-2 rounded-lg border px-4 py-3" :class="current.replacement.is_new ? 'border-violet-100 bg-violet-50/60' : 'border-sky-100 bg-sky-50/60'">
                                         <p class="text-xs font-semibold" :class="current.replacement.is_new ? 'text-violet-700' : 'text-sky-700'" x-text="'Replacement row · ' + (current.replacement.is_new ? 'New supplier' : 'Same supplier')"></p>
@@ -405,18 +448,35 @@
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700">Supplier status</label>
                                         <div class="grid grid-cols-2 gap-2">
                                             <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm">
-                                                <input type="radio" name="back_order_status" value="open" :checked="current.status !== 'waiting_restock'" class="mt-0.5">
+                                                <input type="radio" name="back_order_status" value="open" x-model="editStatus" class="mt-0.5">
                                                 <span><span class="block font-medium text-gray-800">Ready to deliver</span><span class="text-xs text-gray-500">Replacement can be delivered now</span></span>
                                             </label>
                                             <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm">
-                                                <input type="radio" name="back_order_status" value="waiting_restock" :checked="current.status === 'waiting_restock'" class="mt-0.5">
+                                                <input type="radio" name="back_order_status" value="waiting_restock" x-model="editStatus" class="mt-0.5">
                                                 <span><span class="block font-medium text-gray-800">Waiting for restock</span><span class="text-xs text-gray-500">Supplier is out of stock for now</span></span>
                                             </label>
                                         </div>
                                     </div>
+                                    <div x-show="!current.is_cash_advance && ['open', 'waiting_restock'].includes(current.status)">
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700">
+                                            Expected delivery date
+                                            <span class="text-red-500" x-show="editStatus === 'waiting_restock'">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            name="back_order_expected_delivery_date"
+                                            :value="current.expected_delivery_date || ''"
+                                            :required="editStatus === 'waiting_restock'"
+                                            class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                                        >
+                                        <p class="mt-1 text-xs text-gray-500">When the supplier will deliver again to fill missing or damaged items.</p>
+                                        @error('back_order_expected_delivery_date')
+                                            <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700">Remarks</label>
-                                        <textarea name="back_order_remarks" rows="3" maxlength="2000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="What did the supplier say? Expected restock date, etc." x-text="current.remarks || ''"></textarea>
+                                        <textarea name="back_order_remarks" rows="3" maxlength="2000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="What did the supplier say?" x-text="current.remarks || ''"></textarea>
                                     </div>
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700">Attachments <span class="font-normal text-gray-400">(images, PDF, Word, Excel · up to {{ BackOrders::FILE_MAX }})</span></label>

@@ -25,19 +25,19 @@
 
     $conditionClass = match ($condition) {
         "Good" => "border-emerald-200 bg-emerald-50 text-emerald-700",
-        "Fair" => "border-sky-200 bg-sky-50 text-sky-700",
-        "Damaged" => "border-amber-200 bg-amber-50 text-amber-700",
         "Under Maintenance" => "border-amber-200 bg-amber-50 text-amber-700",
-        "Critical" => "border-rose-200 bg-rose-50 text-rose-700",
-        "Disposed" => "border-rose-200 bg-rose-50 text-rose-700",
+        "Defective" => "border-orange-200 bg-orange-50 text-orange-700",
+        "Damaged" => "border-rose-200 bg-rose-50 text-rose-700",
+        "Disposed" => "border-slate-200 bg-slate-100 text-slate-700",
         default => "border-slate-200 bg-slate-50 text-slate-600",
     };
 
     $conditionDot = match ($condition) {
         "Good" => "bg-emerald-500",
-        "Fair" => "bg-sky-500",
-        "Damaged", "Under Maintenance" => "bg-amber-500",
-        "Critical", "Disposed" => "bg-rose-500",
+        "Under Maintenance" => "bg-amber-500",
+        "Defective" => "bg-orange-500",
+        "Damaged" => "bg-rose-500",
+        "Disposed" => "bg-slate-500",
         default => "bg-slate-400",
     };
 
@@ -167,7 +167,7 @@
                                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_name) }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm text-slate-500">Category</dt>
+                                <dt class="text-sm text-slate-500">Classification</dt>
                                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_category_name) }}</dd>
                             </div>
                             <div>

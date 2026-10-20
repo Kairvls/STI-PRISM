@@ -4,14 +4,15 @@ $isPurchaserUrgent = $context === 'purchaser-urgent';
 $isUrgent = $report->report_urgency_level == "Urgent";
 $severityLevel = \App\Support\ReportSeverity::forReport($report);
 
-$urgencyPill = \App\Support\ReportSeverity::meta($severityLevel)["pill"];
+$priorityPill = \App\Support\ReportSeverity::meta($severityLevel)["pill"];
 
 $statusMap = [
     "Pending" => "bg-orange-50 text-orange-700",
     "Processing" => "bg-sky-50 text-sky-700",
+    "For Replacement" => "bg-violet-50 text-violet-700",
     "Resolved" => "bg-emerald-50 text-emerald-700",
     "Rejected" => "bg-rose-50 text-rose-700",
-    "For Replacement" => "bg-orange-50 text-orange-700",
+    "Closed / Cancelled" => "bg-slate-200 text-slate-700",
 ];
 
 $currentStatus = $report->report_current_status;
@@ -24,7 +25,7 @@ $canClaimPurchaserUrgent = $isPurchaserUrgent
 $canArchivePurchaserUrgent = $isPurchaserUrgent
     && ! $report->report_is_archived
     && empty($report->report_assigned_personnel_id)
-    && in_array($currentStatus, ['Resolved', 'Rejected', 'For Replacement'], true)
+    && in_array($currentStatus, ['Resolved', 'Rejected', 'For Replacement', 'Closed / Cancelled'], true)
     && (
         (int) $report->report_assigned_purchaser_id === (int) auth()->id()
         || ($currentStatus === 'Rejected' && empty($report->report_assigned_purchaser_id))
@@ -39,29 +40,21 @@ $relatedCount = (int) ($report->report_related_count ?? 1);
 
 if ($currentStatus === "Pending") {
     $nextOptions = [
-        [
-            "label" => "Start processing",
-            "value" => "Processing",
-            "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100",
-        ],
-        [
-            "label" => "Reject",
-            "value" => "Rejected",
-            "class" => "text-rose-600 hover:bg-rose-50",
-        ],
+        ["label" => "Start processing", "value" => "Processing", "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100"],
+        ["label" => "Reject", "value" => "Rejected", "class" => "text-rose-600 hover:bg-rose-50"],
+        ["label" => "Close / Cancel", "value" => "Closed / Cancelled", "class" => "text-slate-600 hover:bg-slate-50"],
     ];
 } elseif ($currentStatus === "Processing") {
     $nextOptions = [
-        [
-            "label" => "Resolve",
-            "value" => "Resolved",
-            "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100",
-        ],
-        [
-            "label" => "For replacement",
-            "value" => "For Replacement",
-            "class" => "text-slate-600 hover:bg-slate-50",
-        ],
+        ["label" => "For replacement", "value" => "For Replacement", "class" => "text-slate-600 hover:bg-slate-50"],
+        ["label" => "Resolve", "value" => "Resolved", "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100"],
+        ["label" => "Reject", "value" => "Rejected", "class" => "text-rose-600 hover:bg-rose-50"],
+        ["label" => "Close / Cancel", "value" => "Closed / Cancelled", "class" => "text-slate-600 hover:bg-slate-50"],
+    ];
+} elseif ($currentStatus === "For Replacement") {
+    $nextOptions = [
+        ["label" => "Resolve", "value" => "Resolved", "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100"],
+        ["label" => "Close / Cancel", "value" => "Closed / Cancelled", "class" => "text-slate-600 hover:bg-slate-50"],
     ];
 }
 
@@ -114,7 +107,7 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
             </div>
 
             <div class="flex shrink-0 flex-col items-end gap-1.5">
-                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $urgencyPill }}" title="{{ $report->report_severity_reason ?? '' }}">
+                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $priorityPill }}" title="{{ $report->report_severity_reason ?? '' }}">
                     {{ $severityLevel }}
                 </span>
                 @if ((int) ($report->repeat_flagged_count ?? 0) > 0)
