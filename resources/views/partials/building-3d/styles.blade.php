@@ -69,6 +69,89 @@
 
 
         /* =====================================================
+        HEADER ACTIONS + ROOM LAYOUT SWITCH
+        ===================================================== */
+
+        .dashboard-building-header-actions {
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .dashboard-building-layout-switch {
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 12px 0 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .dashboard-building-layout-switch:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .dashboard-building-layout-switch[hidden] {
+            display: none;
+        }
+
+        .dashboard-building-layout-switch-label {
+            white-space: nowrap;
+        }
+
+        .dashboard-building-layout-switch-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .dashboard-building-layout-switch-track {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+            border-radius: 999px;
+            background: #cbd5e1;
+            transition: background 0.2s ease;
+        }
+
+        .dashboard-building-layout-switch-thumb {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            background: white;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .dashboard-building-layout-switch-input:checked + .dashboard-building-layout-switch-track {
+            background: #0025cc;
+        }
+
+        .dashboard-building-layout-switch-input:checked + .dashboard-building-layout-switch-track
+            .dashboard-building-layout-switch-thumb {
+            transform: translateX(16px);
+        }
+
+        .dashboard-building-layout-switch-input:focus-visible + .dashboard-building-layout-switch-track {
+            outline: 2px solid rgba(0, 37, 204, 0.35);
+            outline-offset: 2px;
+        }
+
+        /* =====================================================
         FULL SCREEN BUTTON
         ===================================================== */
 
@@ -609,8 +692,15 @@
                 flex-direction: column;
             }
 
-            .dashboard-building-action {
+            .dashboard-building-header-actions {
                 width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .dashboard-building-layout-switch,
+            .dashboard-building-action {
+                flex: 1 1 auto;
+                justify-content: center;
             }
 
             .dashboard-building-view {

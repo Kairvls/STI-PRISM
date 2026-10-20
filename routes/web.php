@@ -1057,6 +1057,11 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
     );
 
     Route::get(
+        '/maintenance/building-layout',
+        [MaintenanceController::class, 'buildingLayout']
+    )->name('maintenance.building-layout');
+
+    Route::get(
         '/maintenance/building-layout/status',
         [\App\Http\Controllers\AdminOperationsController::class, 'buildingLayoutStatus']
     )->name('maintenance.building-layout.status');

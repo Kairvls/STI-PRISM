@@ -11,16 +11,35 @@
             <p class="dashboard-building-subtitle">Interactive overview of rooms, equipment, and maintenance status.</p>
         </div>
 
-        <button
-            type="button"
-            id="buildingFullscreenBtn"
-            class="dashboard-building-action"
-            aria-label="Enter full screen"
-            aria-pressed="false"
-        >
-            <i data-lucide="maximize-2"></i>
-            <span>Full Screen</span>
-        </button>
+        <div class="dashboard-building-header-actions">
+            <label
+                class="dashboard-building-layout-switch"
+                id="buildingShellLayoutSwitch"
+                title="Show or hide room blocks inside the outer shell"
+            >
+                <span class="dashboard-building-layout-switch-label">Room layout</span>
+                <input
+                    type="checkbox"
+                    id="buildingShellRoomLayoutToggle"
+                    class="dashboard-building-layout-switch-input"
+                    checked
+                >
+                <span class="dashboard-building-layout-switch-track" aria-hidden="true">
+                    <span class="dashboard-building-layout-switch-thumb"></span>
+                </span>
+            </label>
+
+            <button
+                type="button"
+                id="buildingFullscreenBtn"
+                class="dashboard-building-action"
+                aria-label="Enter full screen"
+                aria-pressed="false"
+            >
+                <i data-lucide="maximize-2"></i>
+                <span>Full Screen</span>
+            </button>
+        </div>
     </div>
 
     {{-- 3D BUILDING VIEW --}}

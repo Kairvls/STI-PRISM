@@ -65,6 +65,7 @@ class ReportDetailsReturn
             str_contains($path, '/admin/infrastructure') => 'Rooms Layout',
             str_contains($path, '/personnel-directory') => 'Reporters Directory',
             str_contains($path, '/maintenance/reports') => 'Reports',
+            str_contains($path, '/maintenance/building-layout') => 'Campus Monitoring',
             str_contains($path, '/maintenance/dashboard') => 'Dashboard',
             str_contains($path, '/admin/dashboard') => 'Dashboard',
             default => 'Previous page',

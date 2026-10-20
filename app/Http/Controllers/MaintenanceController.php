@@ -48,6 +48,7 @@ use App\Support\DisposalRequests;
 use App\Support\TransferLocks;
 use App\Support\TransferRequests;
 use App\Support\WorkflowNotifier;
+use App\Support\BuildingLayout3D;
 use App\Models\RoomActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,6 +56,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class MaintenanceController extends Controller
@@ -279,28 +281,6 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // BUILDINGS
-        // =====================================================
-
-        $buildings = DB::table('buildings_table')
-
-            ->orderBy(
-                'building_name',
-                'asc'
-            )
-
-            ->get();
-
-
-        // =====================================================
-        // FLOORS AND ROOMS (WITH DASHBOARD STATUS)
-        // =====================================================
-
-        $floors = \App\Support\BuildingLayout3D::floors();
-
-        $rooms = \App\Support\BuildingLayout3D::rooms();
-
-        // =====================================================
         // DASHBOARD QUICK ACTION MODAL DATA
         // =====================================================
 
@@ -378,14 +358,6 @@ class MaintenanceController extends Controller
             'qr' => (string) ($item->equipment_qr_code ?? ''),
             'assetTag' => (string) ($item->equipment_asset_tag ?? ''),
         ])->values();
-
-
-        // =====================================================
-        // GROUP ROOMS BY FLOOR
-        // PRESERVED FOR EXISTING BLADE COMPATIBILITY
-        // =====================================================
-
-        $roomsByFloor = $rooms->groupBy('floor_id');
 
 
         // =====================================================
@@ -725,6 +697,8 @@ class MaintenanceController extends Controller
         //
         // LOCATION HEALTH SUMMARY
         // =====================================================
+
+        $rooms = BuildingLayout3D::rooms();
 
         $locationHealth = [
 
@@ -2036,12 +2010,6 @@ class MaintenanceController extends Controller
 
                 'urgentReportList',
 
-                'buildings',
-
-                'floors',
-
-                'roomsByFloor',
-
                 'recentActivities',
 
                 'activityPreview',
@@ -2121,6 +2089,14 @@ class MaintenanceController extends Controller
             )
 
         );
+    }
+
+    public function buildingLayout(): View
+    {
+        $floors = BuildingLayout3D::floors();
+        $roomsByFloor = BuildingLayout3D::rooms()->groupBy('floor_id');
+
+        return view('maintenance-personnel.building-layout', compact('floors', 'roomsByFloor'));
     }
 
     /**

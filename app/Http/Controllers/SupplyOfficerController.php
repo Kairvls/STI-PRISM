@@ -17,21 +17,50 @@ class SupplyOfficerController extends Controller
 {
     public function dashboard(): View
     {
-        $incomingRis = 0;
-        $atpDraft = 0;
-        $atpPending = 0;
-        $atpToRelease = 0;
+        $incomingRisCount = 0;
+        $atpDraftCount = 0;
+        $atpPendingCount = 0;
+        $atpToReleaseCount = 0;
+        $atpReturnedCount = 0;
+
+        $latestIncomingRis = collect();
+        $latestAtpDrafts = collect();
+        $latestAtpPending = collect();
+        $latestAtpToRelease = collect();
+        $latestAtpReturned = collect();
 
         try {
             if (SupplyHandoff::risHandoffColumnsReady()) {
-                $q = DB::table('requisition_issue_slip_table');
-                SupplyHandoff::scopeIncomingRisForSupply($q);
+                $incomingQuery = DB::table('requisition_issue_slip_table')
+                    ->leftJoin(
+                        'users_table as senders',
+                        'requisition_issue_slip_table.ris_sent_to_supply_by',
+                        '=',
+                        'senders.user_id'
+                    )
+                    ->select(
+                        'requisition_issue_slip_table.ris_id',
+                        'requisition_issue_slip_table.ris_form_number',
+                        'requisition_issue_slip_table.ris_request_no',
+                        'requisition_issue_slip_table.ris_purpose_description',
+                        'requisition_issue_slip_table.ris_sent_to_supply_at',
+                        'senders.user_full_name as sent_by_name'
+                    );
+
+                SupplyHandoff::scopeIncomingRisForSupply($incomingQuery);
+
                 if (Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
-                    $q->where(function ($inner) {
-                        $inner->whereNull('ris_is_archived')->orWhere('ris_is_archived', 0);
+                    $incomingQuery->where(function ($inner) {
+                        $inner->whereNull('requisition_issue_slip_table.ris_is_archived')
+                            ->orWhere('requisition_issue_slip_table.ris_is_archived', 0);
                     });
                 }
-                $incomingRis = (int) $q->count();
+
+                $incomingRisCount = (int) (clone $incomingQuery)->count();
+                $latestIncomingRis = (clone $incomingQuery)
+                    ->orderByDesc('requisition_issue_slip_table.ris_sent_to_supply_at')
+                    ->limit(5)
+                    ->get();
             }
         } catch (\Throwable $e) {
         }
@@ -39,40 +68,92 @@ class SupplyOfficerController extends Controller
         try {
             if (Schema::hasTable('authority_to_purchase_table')) {
                 $base = DB::table('authority_to_purchase_table')
+                    ->leftJoin(
+                        'requisition_issue_slip_table',
+                        'authority_to_purchase_table.authority_purchase_ris_id',
+                        '=',
+                        'requisition_issue_slip_table.ris_id'
+                    )
+                    ->select(
+                        'authority_to_purchase_table.authority_purchase_id',
+                        'authority_to_purchase_table.authority_purchase_form_number',
+                        'authority_to_purchase_table.authority_purchase_status',
+                        'authority_to_purchase_table.authority_purchase_submitted_at',
+                        'authority_to_purchase_table.authority_purchase_updated_at',
+                        'authority_to_purchase_table.authority_purchase_created_at',
+                        'requisition_issue_slip_table.ris_form_number',
+                        'requisition_issue_slip_table.ris_request_no'
+                    )
                     ->where(function ($q) {
-                        $q->whereNull('authority_purchase_is_archived')
-                            ->orWhere('authority_purchase_is_archived', 0);
+                        $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
+                            ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
                     });
 
                 if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_created_by')) {
-                    $base->where('authority_purchase_created_by', Auth::id());
+                    $base->where('authority_to_purchase_table.authority_purchase_created_by', Auth::id());
                 }
 
-                $atpDraft = (int) (clone $base)
-                    ->where('authority_purchase_status', 'Pending')
-                    ->whereNull('authority_purchase_submitted_at')
-                    ->count();
-
-                $atpPending = (int) (clone $base)
-                    ->where('authority_purchase_status', 'Pending')
-                    ->whereNotNull('authority_purchase_submitted_at')
-                    ->count();
-
-                $releaseQ = (clone $base)->where('authority_purchase_status', 'Approved');
                 if (SupplyHandoff::atpReleaseColumnsReady()) {
-                    $releaseQ->whereNull('authority_purchase_released_to_purchaser_at');
+                    $base->addSelect('authority_to_purchase_table.authority_purchase_released_to_purchaser_at');
                 }
-                $atpToRelease = (int) $releaseQ->count();
+
+                $draftQuery = (clone $base)
+                    ->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
+                    ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at');
+                $atpDraftCount = (int) (clone $draftQuery)->count();
+                $latestAtpDrafts = (clone $draftQuery)
+                    ->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
+                    ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
+                    ->limit(5)
+                    ->get();
+
+                $pendingQuery = (clone $base)
+                    ->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
+                    ->whereNotNull('authority_to_purchase_table.authority_purchase_submitted_at');
+                $atpPendingCount = (int) (clone $pendingQuery)->count();
+                $latestAtpPending = (clone $pendingQuery)
+                    ->orderByDesc('authority_to_purchase_table.authority_purchase_submitted_at')
+                    ->limit(5)
+                    ->get();
+
+                $releaseQuery = (clone $base)
+                    ->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
+                if (SupplyHandoff::atpReleaseColumnsReady()) {
+                    $releaseQuery->whereNull('authority_to_purchase_table.authority_purchase_released_to_purchaser_at');
+                }
+                $atpToReleaseCount = (int) (clone $releaseQuery)->count();
+                $latestAtpToRelease = (clone $releaseQuery)
+                    ->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
+                    ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
+                    ->limit(5)
+                    ->get();
+
+                if (SupplyHandoff::atpReleaseColumnsReady()) {
+                    $returnedQuery = (clone $base)
+                        ->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
+                        ->whereNotNull('authority_to_purchase_table.authority_purchase_released_to_purchaser_at');
+                    $atpReturnedCount = (int) (clone $returnedQuery)->count();
+                    $latestAtpReturned = (clone $returnedQuery)
+                        ->orderByDesc('authority_to_purchase_table.authority_purchase_released_to_purchaser_at')
+                        ->limit(5)
+                        ->get();
+                }
             }
         } catch (\Throwable $e) {
         }
 
         return view('supply-officer.dashboard', [
             'user' => Auth::user(),
-            'incomingRis' => $incomingRis,
-            'atpDraft' => $atpDraft,
-            'atpPending' => $atpPending,
-            'atpToRelease' => $atpToRelease,
+            'incomingRisCount' => $incomingRisCount,
+            'atpDraftCount' => $atpDraftCount,
+            'atpPendingCount' => $atpPendingCount,
+            'atpToReleaseCount' => $atpToReleaseCount,
+            'atpReturnedCount' => $atpReturnedCount,
+            'latestIncomingRis' => $latestIncomingRis,
+            'latestAtpDrafts' => $latestAtpDrafts,
+            'latestAtpPending' => $latestAtpPending,
+            'latestAtpToRelease' => $latestAtpToRelease,
+            'latestAtpReturned' => $latestAtpReturned,
         ]);
     }
 

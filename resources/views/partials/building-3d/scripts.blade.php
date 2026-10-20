@@ -642,12 +642,15 @@
             // INITIAL BUILDING VISIBILITY
             //
             // Dashboard starts in Exterior Mode (shell overview).
-            // Hide interior rooms; show the exterior wireframe shell.
+            // Room blocks inside the shell are controlled by the
+            // "Room layout" toggle (default: on).
             // =====================================================
 
             building.visible = false;
 
             exteriorBuilding.visible = true;
+
+            let showShellRoomLayout = true;
 
             // =====================================================
             // EXTERIOR BLUEPRINT SHELL
@@ -2024,6 +2027,8 @@
 
                 label.scale.set(4, 1, 1);
 
+                label.userData.isFloorLabel = true;
+
                 return label;
             }
 
@@ -2344,6 +2349,8 @@
 
                 floorSlab.receiveShadow = true;
 
+                floorSlab.userData.shellLayoutDecor = true;
+
                 floorGroup.add(floorSlab);
 
                 const slabGridMap = blueprintTexture.clone();
@@ -2368,6 +2375,7 @@
 
                 slabGrid.rotation.x = -Math.PI / 2;
                 slabGrid.position.set(0, floorY + 0.062, 0);
+                slabGrid.userData.shellLayoutDecor = true;
                 floorGroup.add(slabGrid);
 
                 // =================================================
@@ -2393,6 +2401,8 @@
                 // =================================================
 
                 slabOutline.position.set(0, floorY, 0);
+
+                slabOutline.userData.shellLayoutDecor = true;
 
                 floorGroup.add(slabOutline);
 
@@ -4609,6 +4619,66 @@
 
             centerExteriorBuildingOnGrid();
 
+            // Keep interior rooms aligned with the centered shell so
+            // both can be shown together in exterior overview.
+            building.position.copy(exteriorBuilding.position);
+
+            // =====================================================
+            // SHELL ROOM LAYOUT TOGGLE
+            // ON  = outer shell + room blocks inside
+            // OFF = outer shell only
+            // =====================================================
+
+            const shellRoomLayoutToggle = document.getElementById(
+                "buildingShellRoomLayoutToggle",
+            );
+            const shellLayoutSwitch = document.getElementById(
+                "buildingShellLayoutSwitch",
+            );
+
+            function setInteriorShellPreviewMode(enabled) {
+                building.traverse((object) => {
+                    if (object.userData?.shellLayoutDecor) {
+                        object.visible = !enabled;
+                    }
+                });
+            }
+
+            function applyShellRoomLayoutVisibility() {
+                if (currentBuildingView !== "exterior") {
+                    return;
+                }
+
+                building.position.copy(exteriorBuilding.position);
+                building.visible = showShellRoomLayout;
+                setInteriorShellPreviewMode(showShellRoomLayout);
+
+                if (shellRoomLayoutToggle) {
+                    shellRoomLayoutToggle.checked = showShellRoomLayout;
+                }
+
+                if (shellLayoutSwitch) {
+                    shellLayoutSwitch.hidden = false;
+                }
+            }
+
+            function setShellLayoutSwitchVisible(visible) {
+                if (shellLayoutSwitch) {
+                    shellLayoutSwitch.hidden = !visible;
+                }
+            }
+
+            if (shellRoomLayoutToggle) {
+                showShellRoomLayout = !!shellRoomLayoutToggle.checked;
+
+                shellRoomLayoutToggle.addEventListener("change", () => {
+                    showShellRoomLayout = !!shellRoomLayoutToggle.checked;
+                    applyShellRoomLayoutVisibility();
+                });
+            }
+
+            applyShellRoomLayoutVisibility();
+
             // =====================================================
             // SET DEFAULT CAMERA TO EXTERIOR SHELL OVERVIEW
             // Matches the first-load / refresh angle (screenshot)
@@ -5252,6 +5322,8 @@
                 // =================================================
 
                 building.visible = true;
+                setInteriorShellPreviewMode(false);
+                setShellLayoutSwitchVisible(false);
 
                 applyBuildingSceneTheme("interior");
 
@@ -5734,13 +5806,6 @@
 
 
                     // =============================================
-                    // HIDE INTERIOR
-                    // =============================================
-
-                    building.visible = false;
-
-
-                    // =============================================
                     // KEEP EXTERIOR VISIBLE
                     // =============================================
 
@@ -5755,6 +5820,9 @@
                         "exterior";
 
                     applyBuildingSceneTheme("exterior");
+
+                    // Restore shell overview room-layout toggle state
+                    applyShellRoomLayoutVisibility();
 
 
                     // =============================================

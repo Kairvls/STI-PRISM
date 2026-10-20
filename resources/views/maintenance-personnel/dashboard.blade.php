@@ -4820,8 +4820,6 @@
 
     </style>
 
-    @include('partials.building-3d.styles')
-
     <style>
 
         /* ===================================================== */
@@ -5680,11 +5678,6 @@
                     </section>
                 </div>
 
-                
-
-                
-
-                @include('partials.building-3d.section')
             </main>
 
             {{-- ===================================================== --}}
@@ -9373,14 +9366,6 @@ document.addEventListener(
     }
 );
     </script>
-
-
-
-    @include('partials.building-3d.scripts', [
-        'building3DRoomViewUrl' => url('/maintenance/property-assignments/rooms/__ROOM__'),
-    ])
-
-
 
 
 
