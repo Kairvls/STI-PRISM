@@ -13,6 +13,22 @@
         'authority_purchase_date',
         $atp?->authority_purchase_date ?? ($editable && !$atp ? now()->format('Y-m-d') : '')
     );
+    $risLineCount = 0;
+    $lockSupplier = false;
+    if ($editable && $atp && !empty($atp->authority_purchase_ris_id)) {
+        $risGroup = \App\Support\AtpRisSuppliers::groups([(int) $atp->authority_purchase_ris_id])[(int) $atp->authority_purchase_ris_id] ?? null;
+        if ($risGroup) {
+            $supplierKey = (int) ($atp->authority_purchase_supplier_id ?? 0);
+            if (!empty($risGroup['split'])) {
+                $risLines = $risGroup['groups'][$supplierKey] ?? collect();
+            } else {
+                $risLines = collect($risGroup['groups'])->first() ?? collect();
+                $supplierKey = (int) (array_key_first($risGroup['groups']) ?? 0);
+            }
+            $risLineCount = $risLines instanceof \Illuminate\Support\Collection ? $risLines->count() : count($risLines);
+            $lockSupplier = $supplierKey > 0;
+        }
+    }
     $supplierId = old('authority_purchase_supplier_id', $atp?->authority_purchase_supplier_id ?? '');
     $receivedBy = old(
         'authority_purchase_received_by_name',
@@ -98,8 +114,9 @@
                         type="date"
                         name="authority_purchase_date"
                         value="{{ $dateValue }}"
+                        min="{{ now()->format('Y-m-d') }}"
                         class="border-0 border-b border-black bg-transparent outline-none"
-                        title="Required before submitting to the School Administrator"
+                        title="Today or a later date"
                     >
                 @elseif($isBlank)
                     <span class="inline-block min-w-[7rem] border-b border-black text-center">&nbsp;</span>
@@ -121,9 +138,11 @@
                 $selectedIsBlacklisted = $selectedSupplier && (int) ($selectedSupplier->supplier_is_blacklisted ?? 0) === 1;
             @endphp
             <select
-                name="authority_purchase_supplier_id"
-                class="ml-2 w-[420px] border-0 border-b border-black bg-transparent outline-none ring-0 focus:outline-none focus:ring-0"
-                title="Required before submitting to the School Administrator"
+                data-atp-supplier
+                @unless($lockSupplier) name="authority_purchase_supplier_id" @endunless
+                @if($lockSupplier) disabled @endif
+                class="ml-2 w-[420px] border-0 border-b border-black bg-transparent outline-none ring-0 focus:outline-none focus:ring-0 {{ $lockSupplier ? 'cursor-not-allowed bg-gray-50 text-gray-600' : '' }}"
+                title="{{ $lockSupplier ? 'Taken from the RIS' : 'Required before submitting to the School Administrator' }}"
                 onchange="
                     const opt = this.options[this.selectedIndex];
                     const warn = this.parentElement.querySelector('[data-supplier-blacklist-warn]');
@@ -151,6 +170,9 @@
                     </option>
                 @endforeach
             </select>
+            @if($lockSupplier)
+                <input type="hidden" name="authority_purchase_supplier_id" data-locked-supplier value="{{ $supplierId }}">
+            @endif
             <div
                 data-supplier-blacklist-warn
                 class="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 {{ $selectedIsBlacklisted ? '' : 'hidden' }}"
@@ -204,7 +226,7 @@
                             ? ($row['amount_display'] ?? '')
                             : ($item ? number_format((float) $item->atp_amount, 2) : '');
                     @endphp
-                    @include('partials.authority-to-purchase-item-row', ['i' => $i, 'qty' => $qty, 'unit' => $unit, 'desc' => $desc, 'price' => $price, 'amount' => $amount])
+                    @include('partials.authority-to-purchase-item-row', ['i' => $i, 'qty' => $qty, 'unit' => $unit, 'desc' => $desc, 'price' => $price, 'amount' => $amount, 'lockRow' => $i < $risLineCount])
                 @endfor
             @elseif($isBlank)
                 @for($i = 0; $i < 8; $i++)

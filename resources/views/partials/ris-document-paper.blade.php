@@ -103,13 +103,18 @@
             <p>Issued by:</p>
             <div class="signature-line">
                 <span class="signature-name-stack">
-                @if (!empty($ris->ris_issued_by_signature) && strpos($ris->ris_issued_by_signature, 'data:image') === 0)
-                    <img src="{{ $ris->ris_issued_by_signature }}" alt="Issued by signature" class="signature-image" />
-                    <span class="signature-name">{{ $ris->ris_issued_by_name ?? '' }}</span>
-                @elseif (!empty(trim((string) ($ris->ris_issued_by_name ?? ''))))
-                    <span class="signature-name">{{ $ris->ris_issued_by_name }}</span>
-                @elseif (!empty(trim((string) ($ris->ris_issued_by_signature ?? ''))))
-                    <span class="signature-name">{{ $ris->ris_issued_by_signature }}</span>
+                @php
+                    $issuedRaw = trim((string) ($ris->ris_issued_by_signature ?? ''));
+                    $issuedImage = \App\Support\RisWorkflow::isDrawnSignature($issuedRaw) ? $issuedRaw : '';
+                    $issuedName = \App\Support\RisWorkflow::issuedByPrintedName($ris);
+                @endphp
+                @if ($issuedImage !== '')
+                    <img src="{{ $issuedImage }}" alt="Issued by signature" class="signature-image" />
+                @endif
+                @if ($issuedName !== '')
+                    <span class="signature-name">{{ $issuedName }}</span>
+                @elseif ($issuedImage === '' && $issuedRaw !== '')
+                    <span class="signature-name">{{ $issuedRaw }}</span>
                 @endif
                 </span>
             </div>

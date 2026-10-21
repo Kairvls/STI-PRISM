@@ -659,7 +659,7 @@
                         @foreach ($risSupportingDocs as $file)
                             <li>
                                 <a
-                                    href="{{ \App\Support\AdminPortal::route('ris.attachments.download', $file->ris_attachment_id) }}"
+                                    href="{{ \App\Support\AdminPortal::route('ris.attachments.preview', $file->ris_attachment_id) }}"
                                     target="_blank"
                                     rel="noopener"
                                     class="flex items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50"

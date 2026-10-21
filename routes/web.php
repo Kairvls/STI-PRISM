@@ -205,6 +205,11 @@ $schoolAdminModuleRoutes = function () {
     )->name('ris.attachments.download');
 
     Route::get(
+        '/ris/attachments/{attachmentId}/preview',
+        [RisController::class, 'previewAttachment']
+    )->name('ris.attachments.preview');
+
+    Route::get(
         '/ris/revisions/{revisionId}/images/{index}',
         [RisController::class, 'revisionImage']
     )->whereNumber(['revisionId', 'index'])->name('ris.revision-image');
@@ -955,6 +960,12 @@ Route::middleware(['auth', 'supply_officer'])
     ->name('supply-officer.')
     ->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\SupplyOfficerController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard/preview/ris/{ris}', [\App\Http\Controllers\SupplyOfficerController::class, 'previewIncomingRis'])
+            ->whereNumber('ris')
+            ->name('dashboard.preview-ris');
+        Route::get('/dashboard/preview/atp/{atp}', [\App\Http\Controllers\SupplyOfficerController::class, 'previewAtp'])
+            ->whereNumber('atp')
+            ->name('dashboard.preview-atp');
         Route::get('/notifications', [\App\Http\Controllers\SupplyOfficerController::class, 'notifications'])->name('notifications');
         Route::get('/incoming-ris', [\App\Http\Controllers\SupplyOfficerController::class, 'incomingRis'])->name('incoming-ris');
         Route::get('/incoming-ris/{risId}', [\App\Http\Controllers\SupplyOfficerController::class, 'showIncomingRis'])
@@ -986,6 +997,12 @@ Route::middleware(['auth', 'supply_officer'])
         Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
         Route::get('/authority-to-purchase/{id}/export-xlsx', [AuthorityToPurchaseController::class, 'exportExcel'])->name('atp.export-xlsx');
         Route::get('/authority-to-purchase/{id}/export-docx', [AuthorityToPurchaseController::class, 'exportWord'])->name('atp.export-docx');
+
+        Route::post(
+            '/reviewer-reassign/{type}/{id}',
+            \App\Http\Controllers\ReviewerReassignController::class
+        )->whereIn('type', ['atp', 'ris', 'rfc', 'rr', 'liq', 'po'])
+            ->name('reviewer.reassign');
 
         Route::post('/ris/saved-signatures', [RisController::class, 'storeSavedSignature'])->name('ris.saved-signatures.store');
         Route::delete('/ris/saved-signatures/{signature}', [RisController::class, 'destroySavedSignature'])
@@ -2324,6 +2341,11 @@ Route::middleware([
             '/ris/attachments/{attachmentId}/download',
             [RisController::class, 'downloadAttachment']
         )->name('ris.attachments.download');
+
+        Route::get(
+            '/ris/attachments/{attachmentId}/preview',
+            [RisController::class, 'previewAttachment']
+        )->name('ris.attachments.preview');
 
         Route::get(
             '/ris/{ris}/print',

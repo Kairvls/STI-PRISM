@@ -1081,14 +1081,6 @@
                             <option value="Rejected">Reject Report</option>
                             <option value="Closed / Cancelled">Closed / Cancelled</option>
 
-                        @elseif (
-                            $report->report_current_status ===
-                            "For Replacement"
-                        )
-
-                            <option value="Resolved">Mark as Resolved</option>
-                            <option value="Closed / Cancelled">Closed / Cancelled</option>
-
                         @endif
 
                     </select>

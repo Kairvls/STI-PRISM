@@ -10,11 +10,31 @@
         $room->building_name,
         $room->floor_level ? 'Floor '.$room->floor_level : null,
     ]));
+    $returnUrl = request()->query('return');
+    $campusBackUrl = null;
+    if (is_string($returnUrl)) {
+        $appRoot = rtrim(url('/'), '/');
+        $returnPath = (string) (parse_url($returnUrl, PHP_URL_PATH) ?? '');
+        if (
+            str_starts_with($returnUrl, $appRoot.'/')
+            && str_contains($returnPath, '/building-layout')
+            && ! str_contains($returnPath, '..')
+        ) {
+            $campusBackUrl = $returnUrl;
+        }
+    }
 @endphp
 
 <div class="space-y-6">
     <div class="flex items-center gap-2 text-sm text-slate-400">
-        <a href="{{ \App\Support\PropertyAssignments::url('?view=offices') }}" class="transition hover:text-slate-700">Property Assignment</a>
+        @if ($campusBackUrl)
+            <a href="{{ $campusBackUrl }}" class="inline-flex items-center gap-1.5 font-medium text-slate-600 transition hover:text-slate-900">
+                <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                Campus Monitoring
+            </a>
+        @else
+            <a href="{{ \App\Support\PropertyAssignments::url('?view=offices') }}" class="transition hover:text-slate-700">Property Assignment</a>
+        @endif
         <i data-lucide="chevron-right" class="h-4 w-4"></i>
         <span class="font-medium text-slate-600">{{ $room->room_name }}</span>
     </div>

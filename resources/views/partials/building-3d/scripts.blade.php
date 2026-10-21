@@ -1434,21 +1434,89 @@
                     .join("");
             }
 
+            const roomDetailCache = new Map();
+            const layoutStatusCache = new Map();
+            let roomDetailRequest = 0;
+            let roomDetailAbort = null;
+
+            function roomDetailCacheKey(roomId, period) {
+                const current = period || {};
+                return [
+                    roomId,
+                    current.preset || "today",
+                    current.from || "",
+                    current.to || "",
+                ].join("|");
+            }
+
+            function showRoomDetailsSkeleton() {
+                ["buildingRoomDetailsCritical", "buildingRoomDetailsHigh", "buildingRoomDetailsMedium", "buildingRoomDetailsLow"]
+                    .forEach((id) => {
+                        document.getElementById(id)?.classList.add("is-skeleton");
+                    });
+
+                if (roomDetailsReports) {
+                    roomDetailsReports.innerHTML =
+                        '<div class="building-room-skel" aria-hidden="true" aria-label="Loading reports">' +
+                        '<div class="building-room-skel-row"></div>' +
+                        '<div class="building-room-skel-row"></div>' +
+                        '<div class="building-room-skel-row"></div>' +
+                        "</div>";
+                }
+            }
+
+            function clearRoomDetailsSkeleton() {
+                document
+                    .querySelectorAll(".building-room-details-stat strong.is-skeleton")
+                    .forEach((el) => el.classList.remove("is-skeleton"));
+            }
+
+            function applyRoomDetail(detail) {
+                clearRoomDetailsSkeleton();
+                if (roomDetailsCritical) roomDetailsCritical.textContent = detail.counts?.critical || 0;
+                if (roomDetailsHigh) roomDetailsHigh.textContent = detail.counts?.high || 0;
+                if (roomDetailsMedium) roomDetailsMedium.textContent = detail.counts?.medium || 0;
+                if (roomDetailsLow) roomDetailsLow.textContent = detail.counts?.low || 0;
+                if (detail.layout_label && roomDetailsStatus) {
+                    roomDetailsStatus.textContent = detail.layout_label;
+                }
+                renderRoomReportsList(roomDetailsReports, detail.reports || []);
+            }
+
             async function fetchRoomDetail(roomId, period) {
+                const key = roomDetailCacheKey(roomId, period);
+                if (roomDetailCache.has(key)) {
+                    return roomDetailCache.get(key);
+                }
+
+                roomDetailAbort?.abort();
+                roomDetailAbort = new AbortController();
+
                 const url = String(building3DRoomDetailUrl).replace("__ROOM__", encodeURIComponent(roomId));
                 const response = await fetch(`${url}?${periodQuery(period)}`, {
                     headers: { Accept: "application/json" },
+                    signal: roomDetailAbort.signal,
                 });
                 if (!response.ok) throw new Error("Could not load room reports");
-                return response.json();
+                const detail = await response.json();
+                roomDetailCache.set(key, detail);
+                return detail;
             }
 
             async function refreshLayoutStatus(period) {
-                const response = await fetch(`${building3DStatusUrl}?${periodQuery(period)}`, {
-                    headers: { Accept: "application/json" },
-                });
-                if (!response.ok) throw new Error("Could not refresh room status");
-                const payload = await response.json();
+                const key = periodQuery(period);
+                let payload = layoutStatusCache.get(key);
+
+                if (!payload) {
+                    buildingStatusPeriodSelect?.classList.add("is-loading");
+                    const response = await fetch(`${building3DStatusUrl}?${key}`, {
+                        headers: { Accept: "application/json" },
+                    });
+                    buildingStatusPeriodSelect?.classList.remove("is-loading");
+                    if (!response.ok) throw new Error("Could not refresh room status");
+                    payload = await response.json();
+                    layoutStatusCache.set(key, payload);
+                }
                 if (payload.palette) {
                     building3DStatusPalette = payload.palette;
                 }
@@ -1619,33 +1687,29 @@
                 roomDetailsPanel.classList.add("visible");
                 updateRoomDetailsPanelPosition();
 
-                const useLiveCounts = !roomDetailPeriod.preset || roomDetailPeriod.preset === "today";
-                if (useLiveCounts) {
-                    if (roomDetailsCritical) roomDetailsCritical.textContent = room.criticalReportCount || 0;
-                    if (roomDetailsHigh) roomDetailsHigh.textContent = room.highReportCount || 0;
-                    if (roomDetailsMedium) roomDetailsMedium.textContent = room.mediumReportCount || 0;
-                    if (roomDetailsLow) roomDetailsLow.textContent = room.lowReportCount || 0;
+                const requestId = ++roomDetailRequest;
+                const cacheKey = roomDetailCacheKey(room.roomId, roomDetailPeriod);
+                const cached = roomDetailCache.get(cacheKey);
+
+                if (cached) {
+                    applyRoomDetail(cached);
+                    return;
                 }
 
-                if (roomDetailsReports) {
-                    roomDetailsReports.innerHTML =
-                        '<p class="building-room-details-muted" style="padding:10px">Loading reports…</p>';
-                }
+                showRoomDetailsSkeleton();
 
                 try {
                     const detail = await fetchRoomDetail(room.roomId, roomDetailPeriod);
-                    if (!useLiveCounts || (detail.counts && Number(detail.counts.total || 0) > 0)) {
-                        if (roomDetailsCritical) roomDetailsCritical.textContent = detail.counts?.critical || 0;
-                        if (roomDetailsHigh) roomDetailsHigh.textContent = detail.counts?.high || 0;
-                        if (roomDetailsMedium) roomDetailsMedium.textContent = detail.counts?.medium || 0;
-                        if (roomDetailsLow) roomDetailsLow.textContent = detail.counts?.low || 0;
+                    if (requestId !== roomDetailRequest) {
+                        return;
                     }
-                    if (detail.layout_label) {
-                        roomDetailsStatus.textContent = detail.layout_label;
-                    }
-                    renderRoomReportsList(roomDetailsReports, detail.reports || []);
+                    applyRoomDetail(detail);
                 } catch (error) {
+                    if (error?.name === "AbortError" || requestId !== roomDetailRequest) {
+                        return;
+                    }
                     console.error(error);
+                    clearRoomDetailsSkeleton();
                     if (roomDetailsReports) {
                         roomDetailsReports.innerHTML =
                             '<p class="building-room-details-muted" style="padding:10px;color:#b91c1c">Could not load reports.</p>';
@@ -6216,7 +6280,14 @@
                 goToRoomLayout.busy = true;
 
                 if (building3DRoomViewUrl) {
-                    window.location.href = building3DRoomViewUrl.replace("__ROOM__", encodeURIComponent(roomId));
+                    let target = building3DRoomViewUrl.replace("__ROOM__", encodeURIComponent(roomId));
+
+                    if (window.location.pathname.includes("/building-layout")) {
+                        const joiner = target.includes("?") ? "&" : "?";
+                        target += joiner + "return=" + encodeURIComponent(window.location.href.split("#")[0]);
+                    }
+
+                    window.location.href = target;
                     return;
                 }
 

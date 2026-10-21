@@ -2281,6 +2281,32 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function submittedDateRange(mixed $from, mixed $to): array
+    {
+        $start = $this->submittedFilterDate($from);
+        $end = $this->submittedFilterDate($to);
+
+        if ($start && $end && $start > $end) {
+            return [$end, $start];
+        }
+
+        return [$start, $end];
+    }
+
+    private function submittedFilterDate(mixed $value): ?string
+    {
+        if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        $date = \DateTime::createFromFormat('Y-m-d', $value);
+
+        return $date && $date->format('Y-m-d') === $value ? $value : null;
+    }
+
     private function reportsQuery()
     {
         $request = request();
@@ -2435,6 +2461,21 @@ class MaintenanceController extends Controller
             )
 
             ->when(
+                $request->filled('from') || $request->filled('to'),
+                function ($query) use ($request) {
+                    [$from, $to] = $this->submittedDateRange($request->input('from'), $request->input('to'));
+
+                    if ($from) {
+                        $query->whereDate('reports_table.report_submitted_at', '>=', $from);
+                    }
+
+                    if ($to) {
+                        $query->whereDate('reports_table.report_submitted_at', '<=', $to);
+                    }
+                }
+            )
+
+            ->when(
                 $request->filled('reporter'),
                 function ($query) use ($request, $showArchive) {
                     $reporterId = (string) $request->reporter;
@@ -2487,35 +2528,27 @@ class MaintenanceController extends Controller
             /*
             |--------------------------------------------------------------------------
             | ORDERING
-            | 1) Urgent open stacks, 2) Urgent closed stacks,
-            | 3) Non-urgent open stacks, 4) Non-urgent closed stacks.
-            | Newest within each tier — a re-report onto an existing stack counts as new.
+            | Group the whole list by the priority shown on the row. Inside each
+            | priority, open work stays above later statuses, Reported before stays
+            | above first-time reports, and the newest report is on top.
             |--------------------------------------------------------------------------
             */
 
+            ->when(
+                ReportSeverity::hasColumns(),
+                fn ($query) => $query->orderByRaw($this->displayedPriorityOrderSql())
+            )
+
             ->orderByRaw(
                 "CASE
-                    WHEN reports_table.report_current_status IN ('Pending', 'Processing')
-                         AND (
-                             reports_table.report_urgency_level = 'Urgent'
-                             OR COALESCE(open_report_group.has_urgent, 0) = 1
-                         )
-                    THEN 0
-                    WHEN reports_table.report_current_status IN ('Resolved', 'For Replacement', 'Rejected')
-                         AND (
-                             reports_table.report_urgency_level = 'Urgent'
-                             OR COALESCE(open_report_group.has_urgent, 0) = 1
-                         )
-                    THEN 1
-                    WHEN reports_table.report_current_status IN ('Pending', 'Processing')
-                    THEN 2
-                    ELSE 3
+                    WHEN reports_table.report_current_status IN ('Pending', 'Processing') THEN 0
+                    ELSE 1
                 END"
             )
 
             ->when(
-                ReportSeverity::hasColumns(),
-                fn ($query) => $query->orderByRaw(ReportSeverity::orderSql())
+                ReportItems::tableExists(),
+                fn ($query) => $query->orderByRaw($this->reportedBeforeOrderSql())
             )
 
             ->orderByRaw(
@@ -3112,50 +3145,83 @@ class MaintenanceController extends Controller
 
     private function sortReportsUrgentFirst($reports)
     {
-        $openStatuses = ReportGrouping::openStatuses();
-        $closedStatuses = ['Resolved', 'For Replacement', 'Rejected'];
-
         return $reports
-            ->sort(function ($a, $b) use ($openStatuses, $closedStatuses) {
-                $aPriority = $this->reportListSortPriority($a, $openStatuses, $closedStatuses);
-                $bPriority = $this->reportListSortPriority($b, $openStatuses, $closedStatuses);
+            ->sort(function ($a, $b) {
+                $aRank = $this->reportListSortRank($a);
+                $bRank = $this->reportListSortRank($b);
 
-                if ($aPriority !== $bPriority) {
-                    return $aPriority <=> $bPriority;
+                foreach ($aRank as $index => $value) {
+                    if ($value !== $bRank[$index]) {
+                        return $value <=> $bRank[$index];
+                    }
                 }
 
-                $aTime = strtotime((string) ($a->grouped_last_reported_at ?? ReportGrouping::lastReportedAt($a) ?? '')) ?: 0;
-                $bTime = strtotime((string) ($b->grouped_last_reported_at ?? ReportGrouping::lastReportedAt($b) ?? '')) ?: 0;
-
-                if ($aTime !== $bTime) {
-                    return $bTime <=> $aTime;
-                }
-
-                return (int) ($b->report_id ?? 0) <=> (int) ($a->report_id ?? 0);
+                return 0;
             })
             ->values();
     }
 
-    private function reportListSortPriority($report, array $openStatuses, array $closedStatuses): int
+    /**
+     * Same priority the table shows, including the Urgent bump up to High.
+     */
+    private function displayedPriorityOrderSql(): string
+    {
+        $severity = "CASE reports_table.report_severity
+            WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 2 END";
+        $urgency = "CASE WHEN COALESCE(open_report_group.has_urgent, 0) = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END";
+
+        return "CASE WHEN ({$urgency}) = 'Urgent' THEN LEAST({$severity}, 1) ELSE {$severity} END";
+    }
+
+    /**
+     * 0 when this ticket's equipment was already on an earlier open report.
+     */
+    private function reportedBeforeOrderSql(): string
+    {
+        return "CASE WHEN EXISTS (
+            SELECT 1
+            FROM report_items_table AS current_item
+            INNER JOIN report_items_table AS earlier_item
+                ON earlier_item.report_item_equipment_id = current_item.report_item_equipment_id
+               AND earlier_item.report_id <> current_item.report_id
+            INNER JOIN reports_table AS earlier_report
+                ON earlier_report.report_id = earlier_item.report_id
+            WHERE current_item.report_id = reports_table.report_id
+              AND current_item.report_item_equipment_id IS NOT NULL
+              AND current_item.report_item_status IN ('Pending', 'Processing')
+              AND earlier_item.report_item_status IN ('Pending', 'Processing')
+              AND earlier_report.report_is_archived = 0
+              AND (
+                    earlier_report.report_submitted_at < reports_table.report_submitted_at
+                    OR (
+                        earlier_report.report_submitted_at = reports_table.report_submitted_at
+                        AND earlier_report.report_id < reports_table.report_id
+                    )
+              )
+        ) THEN 0 ELSE 1 END";
+    }
+
+    /**
+     * The priority shown on the row groups the whole list. Inside each priority,
+     * open work stays above later statuses, Reported before is stacked first,
+     * and the newest report is on top.
+     *
+     * @return list<int>
+     */
+    private function reportListSortRank($report): array
     {
         $status = $report->report_current_status ?? '';
-        $urgent = ($report->report_urgency_level ?? '') === 'Urgent';
-        $isOpen = in_array($status, $openStatuses, true);
-        $isClosed = in_array($status, $closedStatuses, true);
+        $open = in_array($status, ['Pending', 'Processing'], true) ? 0 : 1;
+        $severity = match (ReportSeverity::forReport($report)) {
+            'Critical' => 0,
+            'High' => 1,
+            'Low' => 3,
+            default => 2,
+        };
+        $reportedBefore = (int) ($report->repeat_flagged_count ?? 0) > 0 ? 0 : 1;
+        $stamp = strtotime((string) ($report->grouped_last_reported_at ?? ReportGrouping::lastReportedAt($report) ?? '')) ?: 0;
 
-        if ($isOpen && $urgent) {
-            return 0;
-        }
-
-        if ($isClosed && $urgent) {
-            return 1;
-        }
-
-        if ($isOpen) {
-            return 2;
-        }
-
-        return 3;
+        return [$severity, $open, $reportedBefore, $stamp > 0 ? -$stamp : 0, -1 * (int) ($report->report_id ?? 0)];
     }
 
     private function reportsView($reports, bool $showReportStats = false, ?array $attentionFocus = null)
@@ -3172,13 +3238,13 @@ class MaintenanceController extends Controller
             return $report;
         });
 
-        $reports->setCollection(
-            $this->sortReportsUrgentFirst($reports->getCollection())
-        );
-
         $this->attachEquipmentReportHistory($reports->getCollection());
         ReportItems::attachToReports($reports->getCollection());
         ReportItems::attachTimelines($reports->getCollection());
+
+        $reports->setCollection(
+            $this->sortReportsUrgentFirst($reports->getCollection())
+        );
 
         return view(
             'maintenance-personnel.reports.all-reports',

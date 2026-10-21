@@ -3652,6 +3652,7 @@
                         autocapitalize="characters"
                         spellcheck="false"
                         maxlength="20"
+                        pattern="[A-Za-z0-9\-]*"
                         required
                     />
                 </div>
@@ -3705,6 +3706,7 @@
                     autocapitalize="characters"
                     spellcheck="false"
                     maxlength="20"
+                    pattern="[A-Za-z0-9\-]*"
                     required
                 />
             </div>
@@ -7187,12 +7189,52 @@ toggleRoomBtn.addEventListener('click', function () {
             fillEquipmentOptionMarkup(item, option);
         }
 
+        function applyPickerOption(select, option) {
+            select.value = option.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            syncTrigger(select);
+        }
+
+        function confirmOpenReport(option) {
+            const ticket = String(option.dataset.openReport || "").trim();
+            const name = option.textContent.trim() || "This equipment";
+            const message = name + " already has an open report (" + ticket + "). Would you like to report this equipment again?";
+
+            if (typeof paayoSwal === "function") {
+                return paayoSwal({
+                    tone: "warning",
+                    title: "Report this again?",
+                    text: message,
+                    showCancelButton: true,
+                    confirmText: "Report again",
+                    cancelText: "Not now",
+                    reverseButtons: true,
+                    focusCancel: true,
+                }).then(function (result) {
+                    return !!(result && result.isConfirmed);
+                });
+            }
+
+            return Promise.resolve(window.confirm(message));
+        }
+
         function bindOptionClick(item, select, option, closeAfter) {
             item.addEventListener("click", function () {
-                select.value = option.value;
-                select.dispatchEvent(new Event("change", { bubbles: true }));
-                syncTrigger(select);
+                const openReport = selectIsEquipment(select)
+                    ? String(option.dataset.openReport || "").trim()
+                    : "";
+                const alreadySelected = option.value !== "" && option.value === select.value;
+
+                if (!openReport || alreadySelected) {
+                    applyPickerOption(select, option);
+                    if (closeAfter) closePicker();
+                    return;
+                }
+
                 if (closeAfter) closePicker();
+                confirmOpenReport(option).then(function (agreed) {
+                    if (agreed) applyPickerOption(select, option);
+                });
             });
         }
 
@@ -8572,28 +8614,41 @@ toggleRoomBtn.addEventListener('click', function () {
 
             return defs.reduce((steps, def) => {
                 const element = firstShown(def.targets);
-                if (!element && def.optional) return steps;
+                if (!element) return steps;
 
                 const description = def.tip
                     ? def.text + '<span class="rf-tour-tip">Tap anywhere outside this bubble to continue.</span>'
                     : def.text;
 
                 steps.push({
-                    ...(element ? { element } : {}),
+                    element,
                     popover: { title: def.title, description },
                 });
                 return steps;
             }, []);
         }
 
-        function startReportTour() {
-            if (!window.driver?.js?.driver || modal.classList.contains("hidden")) return;
+        function reportFormReady() {
+            const form = document.getElementById("reportForm");
+            const gate = document.getElementById("reporterGate");
+            return !modal.classList.contains("hidden")
+                && !!form
+                && !form.hidden
+                && (!gate || gate.hidden);
+        }
+
+        function startReportTour(force) {
+            if (!window.driver?.js?.driver || !reportFormReady()) return;
+            if (!force && hasSeenTour()) return;
             if (tour) tour.destroy();
+
+            const steps = buildSteps();
+            if (!steps.length) return;
 
             markTourSeen();
 
             tour = window.driver.js.driver({
-                steps: buildSteps(),
+                steps,
                 showProgress: true,
                 showButtons: ["next", "previous"],
                 nextBtnText: "Next",
@@ -8627,7 +8682,7 @@ toggleRoomBtn.addEventListener('click', function () {
             const trigger = e.target.closest?.("[data-report-tour-start]");
             if (!trigger || !modal.contains(trigger)) return;
             e.preventDefault();
-            startReportTour();
+            startReportTour(true);
         });
 
         // The highlighted field is non-interactive during the tour, so a click on it lands on the page body.
@@ -8655,7 +8710,7 @@ toggleRoomBtn.addEventListener('click', function () {
             }
             if (!hasSeenTour()) {
                 window.setTimeout(() => {
-                    if (!modal.classList.contains("hidden") && !tour && !hasSeenTour()) startReportTour();
+                    if (reportFormReady() && !tour && !hasSeenTour()) startReportTour();
                 }, 450);
             }
         }).observe(modal, { attributes: true, attributeFilter: ["class"] });
@@ -9140,6 +9195,9 @@ toggleRoomBtn.addEventListener('click', function () {
             }
             markPhase2Resume(employeeId);
             refreshIcons();
+            window.setTimeout(() => {
+                if (typeof window.startReportTour === "function") window.startReportTour();
+            }, 450);
         }
 
         window.reporterGateReset = function () {
@@ -9147,8 +9205,18 @@ toggleRoomBtn.addEventListener('click', function () {
             showPhase1(true);
         };
 
+        function keepEmployeeIdChars(input) {
+            const start = input.selectionStart ?? input.value.length;
+            const raw = input.value;
+            const head = raw.slice(0, start).toUpperCase().replace(/[^A-Z0-9-]/g, "");
+            const cleaned = raw.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+            if (cleaned === raw) return;
+            input.value = cleaned;
+            input.setSelectionRange(head.length, head.length);
+        }
+
         gateId.addEventListener("input", function () {
-            this.value = this.value.toUpperCase().replace(/\s+/g, "");
+            keepEmployeeIdChars(this);
             gatePin.classList.remove("is-error");
             setMessage(gateMessage, "");
         });
@@ -9160,7 +9228,7 @@ toggleRoomBtn.addEventListener('click', function () {
         });
 
         forgotId.addEventListener("input", function () {
-            this.value = this.value.toUpperCase().replace(/\s+/g, "");
+            keepEmployeeIdChars(this);
         });
 
         verifyForm.addEventListener("submit", async function (e) {
@@ -9219,8 +9287,60 @@ toggleRoomBtn.addEventListener('click', function () {
             (gateId.value ? gatePin : gateId).focus();
         });
 
+        let forgotCountdown = null;
+
+        function formatWait(seconds) {
+            const left = Math.max(0, seconds);
+            const hours = Math.floor(left / 3600);
+            const minutes = Math.floor((left % 3600) / 60);
+            const remain = left % 60;
+            if (hours > 0) {
+                return hours + ":" + String(minutes).padStart(2, "0") + ":" + String(remain).padStart(2, "0");
+            }
+            return String(minutes).padStart(2, "0") + ":" + String(remain).padStart(2, "0");
+        }
+
+        function stopForgotCountdown() {
+            if (forgotCountdown) {
+                clearInterval(forgotCountdown);
+                forgotCountdown = null;
+            }
+            forgotSubmitBtn.disabled = false;
+            forgotSubmitText.textContent = "Send reset link";
+        }
+
+        function startForgotCountdown(seconds) {
+            stopForgotCountdown();
+            let left = Math.max(0, Number(seconds) || 0);
+            const tick = function () {
+                if (left <= 0) {
+                    stopForgotCountdown();
+                    setMessage(forgotMessage, "You can request a reset link again.", "info");
+                    return;
+                }
+                forgotSubmitBtn.disabled = true;
+                forgotSubmitText.textContent = "Please wait";
+                setMessage(
+                    forgotMessage,
+                    "You can only request 5 reset emails per hour. Try again in " + formatWait(left) + ".",
+                    "warn"
+                );
+                left -= 1;
+            };
+            tick();
+            forgotCountdown = setInterval(tick, 1000);
+        }
+
+        forgotId.addEventListener("input", function () {
+            if (forgotCountdown) {
+                stopForgotCountdown();
+                setMessage(forgotMessage, "");
+            }
+        });
+
         forgotForm.addEventListener("submit", async function (e) {
             e.preventDefault();
+            if (forgotCountdown) return;
             const employeeId = forgotId.value.trim();
             if (!employeeId) {
                 setMessage(forgotMessage, "Enter your employee ID.");
@@ -9232,6 +9352,10 @@ toggleRoomBtn.addEventListener('click', function () {
             forgotSubmitText.textContent = "Sending…";
             try {
                 const result = await postJson("/reporter/pin/forgot", { employee_id: employeeId });
+                if (!result.ok && result.data && result.data.code === "limited") {
+                    startForgotCountdown(result.data.retry_after);
+                    return;
+                }
                 setMessage(
                     forgotMessage,
                     result.ok ? result.data.message : errorText(result, "Could not send the link. Please try again."),
@@ -9240,8 +9364,10 @@ toggleRoomBtn.addEventListener('click', function () {
             } catch (_) {
                 setMessage(forgotMessage, "Network error. Check your connection and try again.");
             } finally {
-                forgotSubmitBtn.disabled = false;
-                forgotSubmitText.textContent = "Send reset link";
+                if (!forgotCountdown) {
+                    forgotSubmitBtn.disabled = false;
+                    forgotSubmitText.textContent = "Send reset link";
+                }
             }
         });
 

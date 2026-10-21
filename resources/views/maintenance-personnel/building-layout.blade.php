@@ -11,6 +11,16 @@
         height: max(480px, calc(100vh - 250px));
         height: max(480px, calc(100dvh - 250px));
     }
+
+    .maintenance-building-layout .dashboard-building-header > div:first-child {
+        display: none;
+    }
+
+    .maintenance-building-layout .dashboard-building-header {
+        justify-content: flex-end;
+        padding-top: 14px;
+        padding-bottom: 14px;
+    }
 </style>
 
 <div class="maintenance-building-layout">

@@ -31,6 +31,7 @@
         selectedAtp: {{ !empty($editAtpId) ? (int) $editAtpId : (!empty($viewAtpId) ? (int) $viewAtpId : 'null') }},
         risPrefill: JSON.parse(document.getElementById('atp-ris-prefill').textContent || '{}'),
         risSplit: false,
+        risChoiceTick: 0,
 
         openView(id) {
             this.selectedAtp = id;
@@ -83,7 +84,7 @@
             const form = this.$refs.createForm;
             const option = this.$refs.risSelect ? this.$refs.risSelect.selectedOptions[0] : null;
             this.risSplit = !!(option && option.dataset.split === '1');
-            const supplierSelect = form ? form.querySelector('[name=authority_purchase_supplier_id]') : null;
+            const supplierSelect = form ? form.querySelector('[data-atp-supplier]') : null;
             if (supplierSelect) {
                 if (supplierSelect.dataset.baseTitle === undefined) {
                     supplierSelect.dataset.baseTitle = supplierSelect.title || '';
@@ -94,17 +95,104 @@
             }
         },
 
+        risChoices() {
+            const tick = this.risChoiceTick;
+            const select = this.$refs.risSelect;
+            if (!select || tick === undefined) return [];
+            const current = select.selectedOptions[0];
+            const risId = current ? (current.dataset.risId || '') : '';
+            if (!risId) return [];
+            return Array.from(select.options).filter(function (opt) {
+                return opt.dataset.risId === risId && opt.value;
+            }).map(function (opt) {
+                return {
+                    key: opt.dataset.key,
+                    label: opt.dataset.chip || opt.textContent.trim(),
+                    active: opt.selected
+                };
+            });
+        },
+
+        chooseRisOption(key) {
+            const select = this.$refs.risSelect;
+            if (!select) return;
+            select.value = key;
+            this.applyRisPrefill(key);
+        },
+
+        lockSupplierField(form, locked, supplierId) {
+            const select = form.querySelector('[data-atp-supplier]');
+            if (!select) return;
+            select.disabled = !!locked;
+            select.classList.toggle('cursor-not-allowed', !!locked);
+            select.classList.toggle('!bg-gray-50', !!locked);
+            select.title = locked ? 'Taken from the RIS' : (select.dataset.baseTitle || '');
+            let hidden = form.querySelector('input[data-locked-supplier]');
+            if (locked) {
+                select.removeAttribute('name');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'authority_purchase_supplier_id';
+                    hidden.setAttribute('data-locked-supplier', '');
+                    select.insertAdjacentElement('afterend', hidden);
+                }
+                hidden.value = supplierId || select.value || '';
+            } else {
+                if (!select.getAttribute('name')) {
+                    select.setAttribute('name', 'authority_purchase_supplier_id');
+                }
+                if (hidden) hidden.remove();
+            }
+        },
+
+        lockFetchedRis(data) {
+            const form = this.$refs.createForm;
+            if (!form) return;
+            const items = data && Array.isArray(data.items) ? data.items : [];
+            this.lockSupplierField(form, !!(data && data.supplier_id), data ? data.supplier_id : '');
+            const rows = form.querySelectorAll('tr[data-doc-row]');
+            rows.forEach(function (row, index) {
+                const locked = index < items.length;
+                if (locked) row.setAttribute('data-doc-row-locked', '');
+                else row.removeAttribute('data-doc-row-locked');
+                row.querySelectorAll('input').forEach(function (input) {
+                    const name = input.getAttribute('name') || '';
+                    const isLine = name.indexOf('[quantity]') !== -1 || name.indexOf('[description]') !== -1 || name.indexOf('[unit_price]') !== -1;
+                    if (!isLine) return;
+                    input.readOnly = locked;
+                    input.classList.toggle('cursor-not-allowed', locked);
+                    input.classList.toggle('!bg-gray-50', locked);
+                    input.title = locked ? 'Taken from the RIS' : '';
+                });
+                const unitButton = row.querySelector('button');
+                if (unitButton) {
+                    unitButton.disabled = locked;
+                    unitButton.classList.toggle('cursor-not-allowed', locked);
+                    unitButton.title = locked ? 'Taken from the RIS' : '';
+                }
+            });
+        },
+
         applyRisPrefill(key) {
+            const option = this.$refs.risSelect ? this.$refs.risSelect.selectedOptions[0] : null;
+            const risIdInput = this.$refs.risIdInput;
+            if (risIdInput) {
+                risIdInput.value = option && option.dataset.risId ? option.dataset.risId : '';
+            }
+            this.risChoiceTick = (this.risChoiceTick || 0) + 1;
             this.syncRisSplit();
             const data = this.risPrefill[String(key)];
             const form = this.$refs.createForm;
             if (!form || !data) {
+                if (form) this.lockFetchedRis(null);
                 return;
             }
 
             if (data.supplier_id) {
-                const supplierSelect = form.querySelector('[name=authority_purchase_supplier_id]');
+                const supplierSelect = form.querySelector('[data-atp-supplier]');
                 if (supplierSelect) {
+                    supplierSelect.disabled = false;
                     supplierSelect.value = data.supplier_id;
                     supplierSelect.dispatchEvent(new Event('change'));
                 }
@@ -136,6 +224,7 @@
                     amount.value = quantity && unitPrice ? (quantity * unitPrice).toFixed(2) : '';
                 }
             }
+            this.lockFetchedRis(data);
         },
 
         printAtp(id) {
@@ -161,6 +250,9 @@
                 const risOption = $refs.risSelect ? $refs.risSelect.selectedOptions[0] : null;
                 if ({{ old('authority_purchase_ris_id') !== null ? 'true' : 'false' }}) {
                     syncRisSplit();
+                    if (risOption && risOption.dataset.key && risPrefill[risOption.dataset.key]) {
+                        lockFetchedRis(risPrefill[risOption.dataset.key]);
+                    }
                 } else if ('{{ $selectedRisId ?? '' }}' && risOption && risOption.dataset.key) {
                     applyRisPrefill(risOption.dataset.key);
                 }
@@ -170,7 +262,7 @@
             $nextTick(() => bindDocSig('atp-' + selectedAtp, 'Received by signature'));
         }
     "
-    @keydown.escape.window="closeAll()"
+    @keydown.escape.window="if (window.atpSubmitOpen) return; closeAll()"
     class="space-y-6"
 >
 
@@ -489,23 +581,18 @@
                                                         Submit via Purchase Order
                                                     </a>
                                                 @else
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                                        data-pur-confirm="Submit this Authority to Purchase for review?"
-                                                        data-pur-confirm-title="Submit ATP"
-                                                        data-pur-confirm-ok="Submit"
-                                                        data-pur-confirm-reviewer-role="School Administrator"
+                                                    <button
+                                                        type="button"
+                                                        data-atp-submit
+                                                        data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                                        data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                                        data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
+                                                        x-on:click="openActions = false"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
-                                                        @csrf
-                                                        <button
-                                                            type="submit"
-                                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                        >
-                                                            <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                            Submit to School Administrator
-                                                        </button>
-                                                    </form>
+                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        Submit to School Administrator
+                                                    </button>
                                                 @endif
                                                 @if(empty($atp->purchase_order_id))
                                                     @if($atpHandover = $handoverOutgoing->get((int) $atp->authority_purchase_id))
@@ -825,12 +912,21 @@
                                 }
                             @endphp
                             <div class="mb-4">
+                                @php
+                                    $selectedRisNumeric = '';
+                                    foreach ($risOptions as $opt) {
+                                        if ($selectedRisKey === $opt['key']) {
+                                            $selectedRisNumeric = $opt['ris_id'];
+                                            break;
+                                        }
+                                    }
+                                @endphp
                                 <label class="text-xs font-medium text-gray-500">
                                     Approved RIS <span class="text-red-500">*</span>
                                     <span class="font-normal text-gray-400">(required to create)</span>
                                 </label>
+                                <input type="hidden" name="authority_purchase_ris_id" x-ref="risIdInput" value="{{ old('authority_purchase_ris_id', $selectedRisNumeric) }}">
                                 <select
-                                    name="authority_purchase_ris_id"
                                     x-ref="risSelect"
                                     required
                                     x-on:change="applyRisPrefill($event.target.selectedOptions[0]?.dataset.key || '')"
@@ -839,15 +935,28 @@
                                     <option value="">Select approved RIS</option>
                                     @foreach($risOptions as $opt)
                                         <option
-                                            value="{{ $opt['ris_id'] }}"
+                                            value="{{ $opt['key'] }}"
                                             data-key="{{ $opt['key'] }}"
+                                            data-ris-id="{{ $opt['ris_id'] }}"
+                                            data-chip="{{ $opt['chip'] }}"
                                             data-split="{{ $opt['split'] ? '1' : '0' }}"
                                             {{ $selectedRisKey === $opt['key'] ? 'selected' : '' }}
                                         >{{ $opt['label'] }}</option>
                                     @endforeach
                                 </select>
+                                <div x-show="risSplit && risChoices().length > 1" x-cloak class="mt-2 flex flex-wrap gap-2">
+                                    <template x-for="choice in risChoices()" :key="choice.key">
+                                        <button
+                                            type="button"
+                                            x-on:click="chooseRisOption(choice.key)"
+                                            x-text="choice.label"
+                                            x-bind:class="choice.active ? 'border-[#0025cc] bg-blue-50 text-[#0025cc]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'"
+                                            class="rounded-lg border px-3 py-1.5 text-left text-xs font-semibold"
+                                        ></button>
+                                    </template>
+                                </div>
                                 <p x-show="risSplit" x-cloak class="mt-1.5 text-xs text-slate-500">
-                                    This RIS buys from more than one supplier, so each supplier gets its own ATP. This ATP covers only the selected supplier's lines. Create another ATP for each remaining supplier.
+                                    This RIS buys from more than one supplier, so each supplier gets its own ATP. Choose the other item above to create its ATP.
                                 </p>
                             </div>
 
@@ -1045,19 +1154,16 @@
                             && $atp->authority_purchase_status === 'Pending'
                             && empty($atp->submits_via_po)
                         )
-                            <form
-                                method="POST"
-                                action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                            data-pur-confirm="Submit this Authority to Purchase for review?"
-                                            data-pur-confirm-title="Submit ATP"
-                                            data-pur-confirm-ok="Submit"
-                                            data-pur-confirm-reviewer-role="School Administrator"
+                            <button
+                                type="button"
+                                data-atp-submit
+                                data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
+                                class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
-                                @csrf
-                                <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">
-                                    Submit to Review
-                                </button>
-                            </form>
+                                Submit to Review
+                            </button>
                         @endif
 
                         @if(!$archiveView && !empty($atp->can_release_to_purchaser))
@@ -1369,6 +1475,8 @@
     </div>
 
 </div>
+
+@include('purchaser.authority-to-purchase._submit-modal', ['savedSignatures' => $savedSignatures ?? collect()])
 
 
 <style>

@@ -1768,9 +1768,18 @@ class AdminController extends Controller
         // Get search value (default empty).
         $search = trim($request->query('search', ''));
         $filter = strtolower($request->query('filter', 'all'));
+        $document = strtolower($request->query('doc', 'ris'));
+
+        if (! in_array($document, ['ris', 'atp', 'rfc', 'dv'], true)) {
+            $document = 'ris';
+        }
 
         if (!in_array($filter, ['all', 'direct_approved', 'president_approved', 'president_rejected', 'amend'], true)) {
             $filter = 'all';
+        }
+
+        if ($document !== 'ris') {
+            return $this->signatureDocumentHistory($request, $document, $search);
         }
 
 
@@ -1960,6 +1969,7 @@ class AdminController extends Controller
                     'signatureHistory',
                     'search',
                     'filter',
+                    'document',
                     'allCount',
                     'directApprovedCount',
                     'presidentApprovedCount',
@@ -1976,6 +1986,7 @@ class AdminController extends Controller
                 'signatureHistory',
                 'search',
                 'filter',
+                'document',
                 'allCount',
                 'directApprovedCount',
                 'presidentApprovedCount',
@@ -1983,6 +1994,189 @@ class AdminController extends Controller
                 'amendedCount'
             )
         );
+    }
+
+    /**
+     * Signed or decided ATP, RFC, and DV records for Signature History.
+     */
+    private function signatureDocumentHistory(Request $request, string $document, string $search): View
+    {
+        $records = match ($document) {
+            'atp' => $this->signatureAtpHistory($search),
+            'rfc' => $this->signatureRfcHistory($search),
+            default => $this->signatureDvHistory($search),
+        };
+
+        $page = max(1, (int) $request->query('page', 1));
+        $slice = $records->slice(($page - 1) * 10, 10)->values();
+        $signatureHistory = new \Illuminate\Pagination\LengthAwarePaginator(
+            $slice,
+            $records->count(),
+            10,
+            $page,
+            ['path' => $request->url(), 'query' => ['doc' => $document, 'search' => $search]]
+        );
+
+        $view = ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest')
+            ? 'admin.digital-signatures._signature-history-content'
+            : 'admin.digital-signatures.signature-history';
+
+        return view($view, [
+            'signatureHistory' => $signatureHistory,
+            'search' => $search,
+            'filter' => 'all',
+            'document' => $document,
+            'documentRows' => true,
+        ]);
+    }
+
+    private function signatureAtpHistory(string $search): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('authority_to_purchase_table')) {
+            return collect();
+        }
+
+        $query = DB::table('authority_to_purchase_table')
+            ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->when(Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_is_archived'), function ($query) {
+                $query->where(function ($q) {
+                    $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
+                        ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
+                });
+            })
+            ->where(function ($q) {
+                $q->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
+                    ->orWhere(function ($sentBack) {
+                        $sentBack->whereNotNull('authority_to_purchase_table.authority_purchase_rejection_reason')
+                            ->where('authority_to_purchase_table.authority_purchase_rejection_reason', '!=', '');
+                    });
+            });
+
+        if (Schema::hasTable('authority_to_purchase_items_table')) {
+            $totals = DB::table('authority_to_purchase_items_table')
+                ->select('authority_purchase_id', DB::raw('SUM(atp_amount) as atp_total'))
+                ->groupBy('authority_purchase_id');
+            $query->leftJoinSub($totals, 'atp_totals', function ($join) {
+                $join->on('atp_totals.authority_purchase_id', '=', 'authority_to_purchase_table.authority_purchase_id');
+            });
+        }
+
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('authority_to_purchase_table.authority_purchase_form_number', 'like', $like)
+                    ->orWhere('physical_suppliers_table.company_name', 'like', $like)
+                    ->orWhere('online_suppliers_table.shop_name', 'like', $like);
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
+                    $q->orWhere('authority_to_purchase_table.authority_purchase_request_no', 'like', $like);
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
+            ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
+            ->get()
+            ->map(function ($row) {
+                $supplier = trim((string) ($row->company_name ?: $row->shop_name ?: ''));
+                $sentBack = trim((string) ($row->authority_purchase_rejection_reason ?? '')) !== ''
+                    && ($row->authority_purchase_status ?? '') !== 'Approved';
+
+                return (object) [
+                    'number' => $row->authority_purchase_form_number ?: 'ATP #'.$row->authority_purchase_id,
+                    'request_no' => $row->authority_purchase_request_no ?? null,
+                    'detail' => $supplier !== '' ? $supplier : 'Authority to Purchase',
+                    'status' => $sentBack ? 'Sent back' : 'Approved',
+                    'amount' => (float) ($row->atp_total ?? 0),
+                    'decided_at' => $row->authority_purchase_updated_at,
+                    'url' => \App\Support\AdminPortal::has('atp.show')
+                        ? \App\Support\AdminPortal::route('atp.show', $row->authority_purchase_id)
+                        : null,
+                ];
+            });
+    }
+
+    private function signatureRfcHistory(string $search): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('request_check_table')) {
+            return collect();
+        }
+
+        $query = DB::table('request_check_table')
+            ->where(function ($q) {
+                $q->whereNotNull('request_check_approved_at')
+                    ->orWhereIn('request_check_status', ['Approved', 'Rejected', 'Minor Revision']);
+            });
+
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('request_check_form_number', 'like', $like)
+                    ->orWhere('request_check_payee', 'like', $like);
+                if (Schema::hasColumn('request_check_table', 'request_check_request_no')) {
+                    $q->orWhere('request_check_request_no', 'like', $like);
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('request_check_updated_at')
+            ->orderByDesc('request_check_id')
+            ->get()
+            ->map(function ($row) {
+                return (object) [
+                    'number' => $row->request_check_form_number ?: 'RFC #'.$row->request_check_id,
+                    'request_no' => $row->request_check_request_no ?? null,
+                    'detail' => trim((string) ($row->request_check_payee ?? '')) ?: 'Request for Check',
+                    'status' => (string) ($row->request_check_status ?? ''),
+                    'amount' => (float) ($row->request_check_amount_figures ?? 0),
+                    'decided_at' => $row->request_check_approved_at ?: $row->request_check_updated_at,
+                    'url' => \App\Support\AdminPortal::has('rfc.show')
+                        ? \App\Support\AdminPortal::route('rfc.show', $row->request_check_id)
+                        : null,
+                ];
+            });
+    }
+
+    private function signatureDvHistory(string $search): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('disbursement_vouchers_table')) {
+            return collect();
+        }
+
+        $query = DB::table('disbursement_vouchers_table')
+            ->whereIn('dv_status', ['Approved', 'With President', 'President Approved', 'Check Released', 'Revision']);
+
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('dv_form_number', 'like', $like)
+                    ->orWhere('dv_payee', 'like', $like);
+                if (Schema::hasColumn('disbursement_vouchers_table', 'dv_request_no')) {
+                    $q->orWhere('dv_request_no', 'like', $like);
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('updated_at')
+            ->orderByDesc('dv_id')
+            ->get()
+            ->map(function ($row) {
+                return (object) [
+                    'number' => $row->dv_form_number ?: 'DV #'.$row->dv_id,
+                    'request_no' => $row->dv_request_no ?? null,
+                    'detail' => trim((string) ($row->dv_payee ?? '')) ?: 'Disbursement Voucher',
+                    'status' => (string) ($row->dv_status ?? ''),
+                    'amount' => (float) ($row->dv_amount ?? 0),
+                    'decided_at' => $row->dv_approved_at ?: $row->updated_at,
+                    'url' => \App\Support\AdminPortal::has('dv.show')
+                        ? \App\Support\AdminPortal::route('dv.show', $row->dv_id)
+                        : null,
+                ];
+            });
     }
 
     // =====================================================
@@ -3434,7 +3628,7 @@ class AdminController extends Controller
                     'id' => $file->ris_attachment_id,
                     'name' => $file->ris_attachment_original_name,
                     'size' => $file->ris_attachment_size ?? null,
-                    'url' => AdminPortal::route('ris.attachments.download', $file->ris_attachment_id),
+                    'url' => AdminPortal::route('ris.attachments.preview', $file->ris_attachment_id),
                 ]);
         }
 
@@ -4044,7 +4238,7 @@ class AdminController extends Controller
         $downloadName = trim((string) ($record->ris_direct_approval_proof_name ?? ''))
             ?: basename($path);
 
-        return Storage::disk('public')->download($path, $downloadName);
+        return Storage::disk('public')->response($path, $downloadName);
     }
 
     public function downloadForwardAttachment($risId)
@@ -4066,7 +4260,7 @@ class AdminController extends Controller
         $downloadName = trim((string) ($record->ris_forward_attachment_name ?? ''))
             ?: basename($path);
 
-        return Storage::disk('public')->download($path, $downloadName);
+        return Storage::disk('public')->response($path, $downloadName);
     }
 
     // =====================================================

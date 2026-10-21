@@ -1,6 +1,6 @@
 @php
     $files = $ris->risAttachments ?? collect();
-    $downloadRoute = $downloadRoute ?? \App\Support\AdminPortal::prefix().'.ris.attachments.download';
+    $downloadRoute = $downloadRoute ?? \App\Support\AdminPortal::prefix().'.ris.attachments.preview';
 @endphp
 @if($files->isNotEmpty())
     <div class="mt-1 space-y-0.5">

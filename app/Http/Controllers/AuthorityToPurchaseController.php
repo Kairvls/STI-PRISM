@@ -313,6 +313,7 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_date' => [
                 $isDraft ? 'nullable' : 'required',
                 'date',
+                'after_or_equal:today',
             ],
             'authority_purchase_received_by_name' => [
                 $isDraft ? 'nullable' : 'required',
@@ -335,6 +336,7 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMMDD-0001.',
             'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
             'authority_purchase_ris_id.required' => 'Select an approved RIS before creating an ATP.',
+            'authority_purchase_date.after_or_equal' => 'The date cannot be before today.',
         ]);
 
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
@@ -364,6 +366,11 @@ class AuthorityToPurchaseController extends Controller
         $supplierSplit = $check['split'];
 
         $items = $this->filterItemRows($validated['items'] ?? []);
+        $this->assertRisLinesUnchanged(
+            $risId,
+            isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null,
+            $items
+        );
 
         if (!$isDraft) {
             $this->assertSubmitReadyItems($items);
@@ -533,6 +540,7 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_date' => [
                 $isDraft ? 'nullable' : 'required',
                 'date',
+                'after_or_equal:today',
             ],
             'authority_purchase_received_by_name' => [
                 $isDraft ? 'nullable' : 'required',
@@ -554,6 +562,7 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
             'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMMDD-0001.',
             'authority_purchase_form_number.unique' => 'This ATP number is already in use.',
+            'authority_purchase_date.after_or_equal' => 'The date cannot be before today.',
         ]);
 
         $receivedSig = RisWorkflow::normalizeDrawnSignature($validated['authority_purchase_received_by_signature'] ?? null);
@@ -578,6 +587,13 @@ class AuthorityToPurchaseController extends Controller
         }
 
         $items = $this->filterItemRows($validated['items'] ?? []);
+        if (!empty($atp->authority_purchase_ris_id)) {
+            $this->assertRisLinesUnchanged(
+                (int) $atp->authority_purchase_ris_id,
+                isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null,
+                $items
+            );
+        }
 
         if (!$isDraft) {
             $this->assertSubmitReadyItems($items);
@@ -696,6 +712,20 @@ class AuthorityToPurchaseController extends Controller
 
             if (blank($atp->authority_purchase_received_by_name)) {
                 return back()->with('error', 'Received By is required before submitting.');
+            }
+
+            $postedSignature = RisWorkflow::normalizeDrawnSignature(request()->input('signature_data'));
+            if (
+                $postedSignature
+                && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature')
+            ) {
+                DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $id)
+                    ->update([
+                        'authority_purchase_received_by_signature' => $postedSignature,
+                        'authority_purchase_updated_at' => now(),
+                    ]);
+                $atp->authority_purchase_received_by_signature = $postedSignature;
             }
 
             if (
@@ -1089,11 +1119,26 @@ class AuthorityToPurchaseController extends Controller
 
             foreach ($open as $supplierId => $items) {
                 $key = $risId.':'.$supplierId;
+                $count = $items->count();
+                $itemNames = $items
+                    ->map(fn ($item) => trim((string) ($item->ris_item_name_description ?? '')))
+                    ->filter()
+                    ->values();
+                $itemLabel = $itemNames->take(3)->implode(', ');
+                if ($itemNames->count() > 3) {
+                    $itemLabel .= ' +'.($itemNames->count() - 3);
+                }
+                $supplierLabel = $supplierNames[$supplierId] ?? ('Supplier #'.$supplierId);
                 $optionLabel = $label;
+                $chip = $label;
                 if ($info['split']) {
-                    $count = $items->count();
-                    $optionLabel .= ' — '.($supplierNames[$supplierId] ?? 'Supplier #'.$supplierId)
+                    $optionLabel = RisWorkflow::formNumber($ris);
+                    if ($itemLabel !== '') {
+                        $optionLabel .= ' · '.$itemLabel;
+                    }
+                    $optionLabel .= ' — '.$supplierLabel
                         .' ('.$count.' '.\Illuminate\Support\Str::plural('item', $count).')';
+                    $chip = trim(($itemLabel !== '' ? $itemLabel.' — ' : '').$supplierLabel);
                 }
 
                 $options[] = [
@@ -1102,6 +1147,7 @@ class AuthorityToPurchaseController extends Controller
                     'supplier_id' => $supplierId ?: null,
                     'split' => $info['split'],
                     'label' => $optionLabel,
+                    'chip' => $chip,
                 ];
 
                 $prefill[$key] = [
@@ -1177,6 +1223,57 @@ class AuthorityToPurchaseController extends Controller
             )
             ->where('authority_to_purchase_table.authority_purchase_id', $id)
             ->first();
+    }
+
+    private function assertRisLinesUnchanged(int $risId, ?int $supplierId, $items): void
+    {
+        $info = AtpRisSuppliers::groups([$risId])[$risId] ?? null;
+        if (!$info) {
+            return;
+        }
+
+        if (!empty($info['split'])) {
+            $expectedSupplier = (int) $supplierId;
+            $lines = collect($info['groups'][$expectedSupplier] ?? []);
+        } else {
+            $expectedSupplier = (int) (array_key_first($info['groups']) ?? 0);
+            $lines = collect($info['groups'][$expectedSupplier] ?? []);
+        }
+
+        if ($expectedSupplier > 0 && (int) $supplierId !== $expectedSupplier) {
+            throw ValidationException::withMessages([
+                'authority_purchase_supplier_id' => 'The supplier is taken from the RIS and cannot be changed.',
+            ]);
+        }
+
+        $posted = collect($items)->values();
+        $lines = $lines->values();
+        if ($posted->count() < $lines->count()) {
+            throw ValidationException::withMessages([
+                'items' => 'Keep every RIS item on this ATP. Extra rows can still be added.',
+            ]);
+        }
+
+        foreach ($lines as $index => $line) {
+            $row = $posted[$index] ?? [];
+            $issued = (int) ($line->ris_quantity_issued ?? 0);
+            $requested = (int) ($line->ris_quantity_requested ?? 0);
+            $quantity = $issued > 0 ? $issued : $requested;
+            $expectedPrice = $line->ris_unit_cost !== null ? round((float) $line->ris_unit_cost, 2) : null;
+            $postedPrice = isset($row['unit_price']) && $row['unit_price'] !== null
+                ? round((float) $row['unit_price'], 2)
+                : null;
+            $same = trim((string) ($row['description'] ?? '')) === trim((string) ($line->ris_item_name_description ?? ''))
+                && (int) ($row['quantity'] ?? 0) === (int) $quantity
+                && trim((string) ($row['unit'] ?? '')) === trim((string) ($line->uom_name ?? ''))
+                && $postedPrice === $expectedPrice;
+
+            if (!$same) {
+                throw ValidationException::withMessages([
+                    'items' => 'Quantity, unit, description, and unit price for RIS items cannot be changed.',
+                ]);
+            }
+        }
     }
 
     private function filterItemRows(array $items)

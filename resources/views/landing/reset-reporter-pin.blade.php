@@ -59,7 +59,8 @@
             <h1 class="text-2xl font-extrabold mb-2">Set a new PIN</h1>
             <p class="text-sm leading-relaxed mb-6" style="color:var(--muted);">
                 {{ $reporterName }} &middot; <span class="font-semibold" style="color:var(--ink);">{{ $employeeId }}</span><br>
-                Choose 6 digits you can remember. Avoid patterns like 123456 or 111111.
+                Choose 6 digits you can remember. It has to be a new PIN, not the one you use now. Avoid patterns like 123456 or 111111.
+                This link expires at {{ \Illuminate\Support\Carbon::parse($expiresAt)->timezone(config('app.timezone'))->format('g:i A') }} on {{ \Illuminate\Support\Carbon::parse($expiresAt)->timezone(config('app.timezone'))->format('M j, Y') }}.
             </p>
 
             @if ($errors->any())

@@ -85,9 +85,11 @@
                 @if ($hasProof)
                     <a
                         href="{{ $proofUrl }}"
+                        target="_blank"
+                        rel="noopener"
                         class="icon-btn"
-                        data-tip="Download proof"
-                        aria-label="Download proof"
+                        data-tip="View proof"
+                        aria-label="View proof"
                     >
                         <i data-lucide="paperclip" class="h-4 w-4"></i>
                     </a>

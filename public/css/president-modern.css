@@ -1004,7 +1004,7 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
 .pm-queue-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 0;
+    min-width: 980px;
     table-layout: fixed;
 }
 .pm-queue-table th {
@@ -1014,17 +1014,20 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     letter-spacing: .04em;
     text-transform: uppercase;
     color: #0f172a;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0.7rem;
     background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .pm-queue-table td {
-    padding: 1rem;
+    padding: 0.85rem 0.7rem;
     border-bottom: 1px solid #f3f4f6;
     font-size: 0.875rem;
     color: #334155;
     vertical-align: middle;
+    overflow: hidden;
 }
 .pm-queue-table tr.queue-row:hover td {
     background: #fafafa;
@@ -1047,14 +1050,22 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.pm-queue-table .col-ref { width: 16%; }
-.pm-queue-table .col-req { width: 16%; }
+.pm-queue-table .col-ref { width: 17%; }
+.pm-queue-table .col-reqno {
+    width: 14%;
+    white-space: nowrap;
+}
+.pm-queue-table .col-reqno a,
+.pm-queue-table .col-reqno span {
+    white-space: nowrap;
+}
+.pm-queue-table .col-req { width: 12%; }
 .pm-queue-table .col-purpose { width: 18%; }
-.pm-queue-table .col-amount { width: 12%; white-space: nowrap; }
-.pm-queue-table .col-date { width: 11%; white-space: nowrap; }
-.pm-queue-table .col-status { width: 12%; }
+.pm-queue-table .col-amount { width: 11%; white-space: nowrap; }
+.pm-queue-table .col-date { width: 10%; white-space: nowrap; }
+.pm-queue-table .col-status { width: 8%; white-space: nowrap; }
 .pm-queue-table .col-actions {
-    width: 15%;
+    width: 10%;
     white-space: nowrap;
     overflow: visible;
     position: relative;

@@ -15,7 +15,6 @@ use App\Support\SuggestedIssues;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
@@ -460,17 +459,20 @@ class MobileReportController extends Controller
             'employee_id' => ['required', 'string', 'max:20'],
         ]);
 
-        $key = 'reporter-pin-forgot:'.sha1(ReporterPins::normalizeEmployeeId($request->employee_id));
+        $result = ReporterPins::requestResetLink($request->employee_id);
 
-        if (! RateLimiter::tooManyAttempts($key, 3)) {
-            RateLimiter::hit($key, 15 * 60);
-            ReporterPins::sendResetLink($request->employee_id);
+        if ($result['limited']) {
+            return response()->json([
+                'success' => false,
+                'code' => 'limited',
+                'retry_after' => $result['retry_after'],
+                'message' => $result['message'],
+            ], 429);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
-                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the system administrator to reset your PIN.',
+            'message' => $result['message'],
         ]);
     }
 

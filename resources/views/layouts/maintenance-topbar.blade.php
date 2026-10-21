@@ -7,7 +7,7 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('maintenance/dashboard') => ['Dashboard', ''],
-                request()->is('maintenance/building-layout*') => ['Campus Monitoring', 'Interactive overview of rooms, equipment, and maintenance status.'],
+                request()->is('maintenance/building-layout*') => ['Campus Monitoring', ''],
                 request()->is('maintenance/reports/urgent') => ['Critical & High Reports', ''],
                 request()->is('maintenance/reports/pending') => ['Pending Reports', ''],
                 request()->is('maintenance/reports/today') => ["Today's Reports", ''],

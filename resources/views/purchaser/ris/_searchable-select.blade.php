@@ -6,6 +6,19 @@
 @php
     $field = $field ?? 'brand_id';
     $optionsKey = $optionsKey ?? 'brandOptions';
+    $limitKind = $limitKind ?? '';
+    $showAllFlag = match ($limitKind) {
+        'brand' => '_showAllBrands',
+        'uom' => '_showAllUnits',
+        'supplier' => '_showAllSuppliers',
+        default => '',
+    };
+    $showAllLabel = match ($limitKind) {
+        'brand' => 'Show all brands',
+        'uom' => 'Show all units',
+        'supplier' => 'Show all suppliers',
+        default => '',
+    };
     $placeholder = $placeholder ?? 'Select';
     $namePrefix = $namePrefix ?? 'ris_items';
     $textAlign = $textAlign ?? 'center';
@@ -63,7 +76,7 @@
                     {{ $placeholder }}
                 </button>
             </li>
-            <template x-for="opt in filteredRisOptions('{{ $optionsKey }}')" :key="'{{ $optionsKey }}-' + opt.id">
+            <template x-for="opt in risFieldOptions('{{ $optionsKey }}', item, @js($limitKind))" :key="'{{ $optionsKey }}-' + opt.id">
                 <li>
                     <button
                         type="button"
@@ -75,11 +88,22 @@
                 </li>
             </template>
             <li
-                x-show="filteredRisOptions('{{ $optionsKey }}').length === 0"
+                x-show="risFieldOptions('{{ $optionsKey }}', item, @js($limitKind)).length === 0"
                 class="px-2.5 py-2 text-[11px] text-gray-400"
             >
                 No matches
             </li>
+            @if ($limitKind !== '')
+                <li x-show="risKnownLimited(item, @js($limitKind))" class="border-t border-gray-100">
+                    <button
+                        type="button"
+                        x-on:click.stop="item.{{ $showAllFlag }} = true"
+                        class="flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-[#0025cc] hover:bg-gray-50"
+                    >
+                        {{ $showAllLabel }}
+                    </button>
+                </li>
+            @endif
         </ul>
     </div>
 </div>

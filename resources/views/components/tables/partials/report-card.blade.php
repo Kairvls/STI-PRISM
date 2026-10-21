@@ -51,11 +51,6 @@ if ($currentStatus === "Pending") {
         ["label" => "Reject", "value" => "Rejected", "class" => "text-rose-600 hover:bg-rose-50"],
         ["label" => "Close / Cancel", "value" => "Closed / Cancelled", "class" => "text-slate-600 hover:bg-slate-50"],
     ];
-} elseif ($currentStatus === "For Replacement") {
-    $nextOptions = [
-        ["label" => "Resolve", "value" => "Resolved", "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100"],
-        ["label" => "Close / Cancel", "value" => "Closed / Cancelled", "class" => "text-slate-600 hover:bg-slate-50"],
-    ];
 }
 
 $equipmentParts = \App\Support\ReportItems::splitMoreLabel(

@@ -27,6 +27,62 @@
 
         animation: scanner 2s linear infinite;
     }
+
+    .report-action-label {
+        display: none;
+    }
+
+    [data-report-action-list].is-inline {
+        display: contents;
+    }
+
+    [data-report-action-list].is-floating {
+        position: fixed;
+        z-index: 80;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 196px;
+        padding: 6px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+    }
+
+    [data-report-action-list].is-floating form {
+        margin: 0;
+    }
+
+    [data-report-action-list].is-floating .report-action-btn {
+        display: flex;
+        width: 100%;
+        height: auto;
+        min-height: 36px;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 0 !important;
+        border-radius: 8px;
+        background: transparent !important;
+        color: #334155 !important;
+        box-shadow: none !important;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    [data-report-action-list].is-floating .report-action-btn:hover {
+        background: #f8fafc !important;
+    }
+
+    [data-report-action-list].is-floating .report-action-label {
+        display: inline;
+    }
+
+    [data-report-action-list].is-floating .report-action-btn.is-archive {
+        color: #007a3f !important;
+    }
 </style>
 @php
     $context = $context ?? 'maintenance';
@@ -48,9 +104,10 @@
             ->get(['reporter_employee_id', 'reporter_full_name']);
 @endphp
 
-<!-- ACTIVE / ARCHIVE -->
+<!-- ACTIVE / ARCHIVE AND DATE FILTER -->
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 <nav
-    class="mb-4 flex w-fit flex-wrap gap-1.5 rounded-[0.9rem] border border-slate-200 bg-white p-1.5 shadow-sm"
+    class="flex w-fit flex-wrap gap-1.5 rounded-[0.9rem] border border-slate-200 bg-white p-1.5 shadow-sm"
     aria-label="Reports list view"
 >
     @foreach ([['label' => 'Active', 'icon' => 'folder-open', 'archive' => 0], ['label' => 'Archive', 'icon' => 'archive', 'archive' => 1]] as $listTab)
@@ -68,6 +125,40 @@
         </a>
     @endforeach
 </nav>
+
+<form
+    method="GET"
+    action="{{ $isPurchaserUrgent ? route('purchaser.reports.urgent') : '' }}"
+    class="ml-auto flex items-center gap-2"
+>
+    @foreach (['focus', 'search', 'status', 'urgency', 'reporter'] as $keptFilter)
+        @if (request()->filled($keptFilter))
+            <input type="hidden" name="{{ $keptFilter }}" value="{{ request($keptFilter) }}" />
+        @endif
+    @endforeach
+    <input type="hidden" name="archive" value="{{ $isArchiveView ? 1 : 0 }}" />
+    <i data-lucide="calendar" class="h-4 w-4 shrink-0 text-slate-400"></i>
+    <input
+        type="date"
+        name="from"
+        value="{{ request('from') }}"
+        aria-label="Submitted from"
+        title="Submitted from"
+        onchange="this.form.requestSubmit()"
+        class="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5"
+    />
+    <span class="text-xs text-slate-400">to</span>
+    <input
+        type="date"
+        name="to"
+        value="{{ request('to') }}"
+        aria-label="Submitted to"
+        title="Submitted to"
+        onchange="this.form.requestSubmit()"
+        class="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5"
+    />
+</form>
+</div>
 
 <div
     class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm"
@@ -89,6 +180,12 @@
                     name="archive"
                     value="{{ $isArchiveView ? 1 : 0 }}"
                 />
+                @if (request()->filled('from'))
+                    <input type="hidden" name="from" value="{{ request('from') }}" />
+                @endif
+                @if (request()->filled('to'))
+                    <input type="hidden" name="to" value="{{ request('to') }}" />
+                @endif
 
                 <!-- SEARCH -->
                 <div class="relative min-w-0 flex-1">
@@ -109,6 +206,7 @@
                 <div class="relative shrink-0">
                 <select
                     name="status"
+                    onchange="this.form.requestSubmit()"
                     class="h-9 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[160px]"
                 >
                     @if (request("archive") || $isArchiveView)
@@ -175,6 +273,7 @@
                     <div class="relative shrink-0">
                     <select
                         name="urgency"
+                        onchange="this.form.requestSubmit()"
                         class="h-9 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[160px]"
                     >
                         <option value="">All Priorities</option>
@@ -199,6 +298,7 @@
                             aria-label="Filter by reporter name"
                             data-searchable="1"
                             data-search-placeholder="Search reporter name…"
+                            onchange="this.form.requestSubmit()"
                             class="h-9 w-full cursor-pointer appearance-none truncate rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[170px]"
                         >
                             <option value="">All Reporters</option>
@@ -312,7 +412,7 @@
                             data-lucide="{{
                                 request()->filled('search')
                                 || request()->filled('status')
-                                || request()->filled('urgency') || request()->filled('reporter')
+                                || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
                                     ? 'search-x'
                                     : 'clipboard-list'
                             }}"
@@ -326,7 +426,7 @@
                         {{
                             request()->filled('search')
                             || request()->filled('status')
-                            || request()->filled('urgency') || request()->filled('reporter')
+                            || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
 
                                 ? 'No matching reports'
 
@@ -345,7 +445,7 @@
                         {{
                             request()->filled('search')
                             || request()->filled('status')
-                            || request()->filled('urgency') || request()->filled('reporter')
+                            || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
 
                                 ? ($isPurchaserUrgent
                                     ? 'No urgent reports match your current search or filters.'
@@ -368,7 +468,7 @@
                     @if (
                         request()->filled('search')
                         || request()->filled('status')
-                        || request()->filled('urgency') || request()->filled('reporter')
+                        || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
                     )
 
                         <a
@@ -477,7 +577,30 @@
                                 || ($currentStatus === 'Rejected' && empty($report->report_assigned_purchaser_id))
                             );
                         $statusPill = $statusMap[$currentStatus] ?? "bg-slate-100 text-slate-600";
-                        $canUpdate = in_array($currentStatus, ["Pending", "Processing", "For Replacement"]);
+                        $canUpdate = in_array($currentStatus, ["Pending", "Processing"], true);
+                        $showHistoryAction = (bool) $report->report_equipment_id;
+                        $showMaintenanceArchive = ! $isPurchaserUrgent
+                            && in_array($currentStatus, ["Resolved", "Rejected", "For Replacement"], true)
+                            && ! $report->report_is_archived;
+                        $showMaintenanceRestore = ! $isPurchaserUrgent && (bool) $report->report_is_archived;
+                        $showPurchaserResolve = $isPurchaserUrgent
+                            && $currentStatus === 'Processing'
+                            && (int) $report->report_assigned_purchaser_id === (int) auth()->id();
+                        $showPurchaserRestore = $isPurchaserUrgent
+                            && $report->report_is_archived
+                            && (int) $report->report_assigned_purchaser_id === (int) auth()->id();
+                        $actionCount = 1 + ($showHistoryAction ? 1 : 0);
+                        if ($isPurchaserUrgent) {
+                            $actionCount += $canClaimPurchaserUrgent ? 2 : 0;
+                            $actionCount += $showPurchaserResolve ? 2 : 0;
+                            $actionCount += $canArchivePurchaserUrgent ? 1 : 0;
+                            $actionCount += $showPurchaserRestore ? 1 : 0;
+                        } else {
+                            $actionCount += $canUpdate ? 1 : 0;
+                            $actionCount += $showMaintenanceArchive ? 1 : 0;
+                            $actionCount += $showMaintenanceRestore ? 1 : 0;
+                        }
+                        $collapseActions = $actionCount >= 4;
                         $rowBg = $loop->even ? "bg-gray-50/40" : "";
                     @endphp
                     <tr
@@ -589,52 +712,68 @@
                             @endif
                         </td>
                         <td class="px-5 py-4">
-                            <div
-                                class="flex items-center justify-center gap-1.5"
-                            >
+                            <div class="flex items-center justify-center gap-1.5" data-report-actions>
+                                @if ($collapseActions)
+                                    <button
+                                        type="button"
+                                        data-report-actions-toggle
+                                        aria-label="Actions"
+                                        aria-haspopup="menu"
+                                        onclick="toggleReportRowMenu(event, this)"
+                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                                    >
+                                        <i data-lucide="ellipsis-vertical" class="h-4 w-4"></i>
+                                    </button>
+                                @endif
+                                <div data-report-action-list class="{{ $collapseActions ? '' : 'is-inline' }}" @if ($collapseActions) hidden @endif>
                                 <button
                                     type="button"
                                     data-tooltip="View Report"
                                     onclick="openReportModal('view-modal-{{ $report->report_id }}'); switchReportViewTab({{ $report->report_id }}, 'details')"
-                                    class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
+                                    class="report-action-btn flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
                                 >
                                     <i
                                         data-lucide="eye"
                                         class="h-3.5 w-3.5"
                                     ></i>
-                                    
+                                    <span class="report-action-label">View</span>
                                 </button>
                                 @if ($report->report_equipment_id)
                                     <button
                                         type="button"
                                         data-tooltip="Previous reports for this equipment"
                                         onclick="openReportHistory({{ $report->report_id }})"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                                        class="report-action-btn flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                                     >
                                         <i data-lucide="history" class="h-3.5 w-3.5"></i>
+                                        <span class="report-action-label">History</span>
                                     </button>
                                 @endif
                                 @if ($isPurchaserUrgent)
                                     @if ($canClaimPurchaserUrgent)
                                         <form method="POST" action="{{ route('purchaser.reports.urgent.accept', $report->report_id) }}">
                                             @csrf
-                                            <button type="submit" data-tooltip="Start Processing" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700">
+                                            <button type="submit" data-tooltip="Start Processing" class="report-action-btn inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700">
                                                 <i data-lucide="siren" class="h-3.5 w-3.5"></i>
+                                                <span class="report-action-label">Start processing</span>
                                             </button>
                                         </form>
-                                        <button type="button" data-tooltip="Reject Report" onclick="openReportModal('purchaser-reject-modal-{{ $report->report_id }}')" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
+                                        <button type="button" data-tooltip="Reject Report" onclick="openReportModal('purchaser-reject-modal-{{ $report->report_id }}')" class="report-action-btn inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
                                             <i data-lucide="x-circle" class="h-3.5 w-3.5"></i>
+                                            <span class="report-action-label">Reject</span>
                                         </button>
                                     @endif
                                     @if (
                                         $currentStatus === 'Processing'
                                         && (int) $report->report_assigned_purchaser_id === (int) auth()->id()
                                     )
-                                        <button type="button" data-tooltip="Resolve Report" onclick="openReportModal('purchaser-resolve-modal-{{ $report->report_id }}')" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700">
+                                        <button type="button" data-tooltip="Resolve Report" onclick="openReportModal('purchaser-resolve-modal-{{ $report->report_id }}')" class="report-action-btn inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700">
                                             <i data-lucide="circle-check" class="h-3.5 w-3.5"></i>
+                                            <span class="report-action-label">Resolve</span>
                                         </button>
-                                        <button type="button" data-tooltip="Send for Replacement" onclick="openReportModal('purchaser-replacement-modal-{{ $report->report_id }}')" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                                        <button type="button" data-tooltip="Send for Replacement" onclick="openReportModal('purchaser-replacement-modal-{{ $report->report_id }}')" class="report-action-btn inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
                                             <i data-lucide="package-search" class="h-3.5 w-3.5"></i>
+                                            <span class="report-action-label">For replacement</span>
                                         </button>
                                     @endif
                                     @if ($canArchivePurchaserUrgent)
@@ -647,16 +786,18 @@
                                             data-pur-confirm-kind="archive"
                                         >
                                             @csrf
-                                            <button data-tooltip="Archive Report" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50">
+                                            <button data-tooltip="Archive Report" class="report-action-btn is-archive inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50">
                                                 <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                                <span class="report-action-label">Archive</span>
                                             </button>
                                         </form>
                                     @endif
                                     @if ($report->report_is_archived && (int) $report->report_assigned_purchaser_id === (int) auth()->id())
                                         <form method="POST" action="{{ route('purchaser.reports.urgent.restore', $report->report_id) }}">
                                             @csrf
-                                            <button data-tooltip="Restore Report" class="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#0025cc] transition hover:bg-slate-50">
+                                            <button data-tooltip="Restore Report" class="report-action-btn flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#0025cc] transition hover:bg-slate-50">
                                                 <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
+                                                <span class="report-action-label">Restore</span>
                                             </button>
                                         </form>
                                     @endif
@@ -666,13 +807,13 @@
                                         type="button"
                                         data-tooltip="Update Report Status"
                                         onclick="openReportModal('update-modal-{{ $report->report_id }}')"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        class="report-action-btn flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                     >
                                         <i
                                             data-lucide="refresh-cw"
                                             class="h-3.5 w-3.5"
                                         ></i>
-                                        
+                                        <span class="report-action-label">Update status</span>
                                     </button>
                                 @endif
                                 @if (
@@ -691,13 +832,13 @@
 
                                         <button
                                             data-tooltip="Archive Report"
-                                            class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50 active:scale-95"
+                                            class="report-action-btn is-archive inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50 active:scale-95"
                                         >
                                             <i
                                                 data-lucide="archive"
                                                 class="h-3.5 w-3.5"
                                             ></i>
-                                            
+                                            <span class="report-action-label">Archive</span>
                                         </button>
                                     </form>
                                 @endif
@@ -708,14 +849,15 @@
                                     >
                                         @csrf
 
-                                        <button data-tooltip="Restore Report" class="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#0025cc] transition hover:bg-slate-50">
+                                        <button data-tooltip="Restore Report" class="report-action-btn flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#0025cc] transition hover:bg-slate-50">
                                         <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
-                                        
+                                        <span class="report-action-label">Restore</span>
                                         </button>
                                     </form>
 
                                 @endif
                                 @endif
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -748,7 +890,7 @@
                                         data-lucide="{{
                                             request()->filled('search')
                                             || request()->filled('status')
-                                            || request()->filled('urgency') || request()->filled('reporter')
+                                            || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
                                                 ? 'search-x'
                                                 : 'clipboard-list'
                                         }}"
@@ -766,7 +908,7 @@
                                     {{
                                         request()->filled('search')
                                         || request()->filled('status')
-                                        || request()->filled('urgency') || request()->filled('reporter')
+                                        || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
 
                                             ? 'No matching reports'
 
@@ -792,7 +934,7 @@
                                     {{
                                         request()->filled('search')
                                         || request()->filled('status')
-                                        || request()->filled('urgency') || request()->filled('reporter')
+                                        || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
 
                                             ? ($isPurchaserUrgent
                                                 ? 'No urgent reports match your current search or filters.'
@@ -820,7 +962,7 @@
                                 @if (
                                     request()->filled('search')
                                     || request()->filled('status')
-                                    || request()->filled('urgency') || request()->filled('reporter')
+                                    || request()->filled('urgency') || request()->filled('reporter') || request()->filled('from') || request()->filled('to')
                                 )
 
                                     <a
@@ -1019,15 +1161,11 @@
                                     <option value="Processing">Processing</option>
                                     <option value="Rejected">Rejected</option>
                                     <option value="Closed / Cancelled">Closed / Cancelled</option>
-                                @elseif ($report->report_current_status == "Processing" || $openUpdateItems->isNotEmpty())
+                                @elseif ($report->report_current_status == "Processing")
                                     <option value="" selected disabled>Select status</option>
                                     <option value="For Replacement">For Replacement</option>
                                     <option value="Resolved">Resolved</option>
                                     <option value="Rejected">Rejected</option>
-                                    <option value="Closed / Cancelled">Closed / Cancelled</option>
-                                @elseif ($report->report_current_status == "For Replacement")
-                                    <option value="" selected disabled>Select status</option>
-                                    <option value="Resolved">Resolved</option>
                                     <option value="Closed / Cancelled">Closed / Cancelled</option>
                                 @else
                                     <option value="{{ $report->report_current_status }}" selected disabled>
@@ -1612,6 +1750,62 @@
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") {
             closeLightbox();
+            closeReportRowMenu();
         }
     });
+
+    let openReportRowMenu = null;
+
+    function toggleReportRowMenu(event, button) {
+        event.stopPropagation();
+        const wrap = button.closest("[data-report-actions]");
+        const list = wrap ? wrap.querySelector("[data-report-action-list]") : null;
+        if (!wrap || !list) return;
+        if (openReportRowMenu && openReportRowMenu.wrap === wrap) {
+            closeReportRowMenu();
+            return;
+        }
+        closeReportRowMenu();
+        list.hidden = false;
+        list.classList.add("is-floating");
+        document.body.appendChild(list);
+        const rect = button.getBoundingClientRect();
+        const width = 196;
+        let left = Math.min(rect.right - width, window.innerWidth - width - 8);
+        if (left < 8) left = 8;
+        let top = rect.bottom + 6;
+        list.style.top = top + "px";
+        list.style.left = left + "px";
+        if (top + list.offsetHeight > window.innerHeight - 8) {
+            list.style.top = Math.max(8, rect.top - list.offsetHeight - 6) + "px";
+        }
+        button.setAttribute("aria-expanded", "true");
+        openReportRowMenu = { wrap, list, button };
+        if (typeof lucide !== "undefined") lucide.createIcons();
+    }
+
+    function closeReportRowMenu() {
+        if (!openReportRowMenu) return;
+        const menu = openReportRowMenu;
+        menu.list.classList.remove("is-floating");
+        menu.list.hidden = true;
+        menu.list.style.top = "";
+        menu.list.style.left = "";
+        menu.wrap.appendChild(menu.list);
+        menu.button.setAttribute("aria-expanded", "false");
+        openReportRowMenu = null;
+    }
+
+    document.addEventListener("click", function (event) {
+        if (!openReportRowMenu) return;
+        if (event.target.closest("[data-report-actions-toggle]")) return;
+        if (openReportRowMenu.list.contains(event.target)) {
+            setTimeout(closeReportRowMenu, 0);
+            return;
+        }
+        closeReportRowMenu();
+    });
+
+    window.addEventListener("scroll", closeReportRowMenu, true);
+    window.addEventListener("resize", closeReportRowMenu);
 </script>

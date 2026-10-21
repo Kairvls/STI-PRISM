@@ -1,5 +1,7 @@
 @extends ("layouts.maintenance-layout")
 
+@section ("main-pad", "px-8 pb-8 pt-0")
+
 @section(
     "title",
     request()->is("maintenance/reports/urgent")

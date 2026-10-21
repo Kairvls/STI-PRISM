@@ -101,6 +101,14 @@ class RisController extends Controller
             $risQuery->addSelect('requisition_issue_slip_table.ris_direct_approval_by');
         }
 
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_sent_to_supply_at')) {
+            $risQuery->addSelect(
+                'requisition_issue_slip_table.ris_sent_to_supply_at',
+                'requisition_issue_slip_table.ris_sent_to_supply_by',
+                'requisition_issue_slip_table.ris_supply_officer_user_id',
+            );
+        }
+
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_is_archived')) {
             $risQuery->addSelect('requisition_issue_slip_table.ris_is_archived');
             DocumentWorkflowService::applyArchiveFilter(
@@ -193,11 +201,7 @@ class RisController extends Controller
         // Supporting documents for list downloads
         $risIds = $risRecords->getCollection()->pluck('ris_id');
 
-        $attachmentsByRis = DB::table('ris_attachments_table')
-            ->whereIn('ris_id', $risIds)
-            ->orderBy('ris_attachment_original_name')
-            ->get()
-            ->groupBy('ris_id');
+        $attachmentsByRis = $this->canvasAttachmentsByRis($risIds);
 
         $itemsByRis = $this->risItemsWithLookups($risIds)
             ->groupBy('ris_id');
@@ -314,6 +318,7 @@ class RisController extends Controller
                 ->where('item_status', 'Active')
                 ->orderBy('item_id')
                 ->get(['item_id', 'item_name']);
+        $itemHints = $isAjax ? [] : $this->itemBrandUnitHints();
 
         $supplierIdsOnPage = $risRecords->getCollection()->pluck('ris_supplier_id')->filter()->unique()->values();
         $supplierNames = $this->supplierOptionsForRis(false, $supplierIdsOnPage)->keyBy('supplier_id');
@@ -345,6 +350,7 @@ class RisController extends Controller
             'uoms',
             'brands',
             'itemCatalog',
+            'itemHints',
             'risCopyPrefill',
             'defaultRequestedBy',
             'defaultRequestedByDate',
@@ -603,7 +609,7 @@ class RisController extends Controller
 
             // =============================================
             // SUPPORTING DOCUMENTS
-            // Word and Excel only
+            // Word, Excel, or PDF
             // Maximum 10 MB each
             // =============================================
             'ris_attachments' => [
@@ -614,7 +620,7 @@ class RisController extends Controller
 
             'ris_attachments.*' => [
                 'file',
-                'mimes:doc,docx,xls,xlsx',
+                'mimes:doc,docx,xls,xlsx,pdf',
                 'max:10240',
             ],
         ], [
@@ -682,7 +688,7 @@ class RisController extends Controller
                 'You may upload only 1 supporting document at a time.',
 
             'ris_attachments.*.mimes' =>
-                'Supporting documents must be Word or Excel files only.',
+                'Supporting documents must be a Word, Excel, or PDF file.',
 
             'ris_attachments.*.max' =>
                 'Each supporting document must not exceed 10 MB.',
@@ -734,7 +740,7 @@ class RisController extends Controller
             if (! $this->risHasSupportingDocument(0, $request->file('ris_attachments', []))) {
                 return back()
                     ->withInput()
-                    ->with('error', 'Please attach a supporting document (Word or Excel) before submitting to Administrator.');
+                    ->with('error', 'Please attach a supporting document (Word, Excel, or PDF) before submitting to Administrator.');
             }
         }
 
@@ -923,41 +929,10 @@ class RisController extends Controller
             // =====================================================
             // 9. SAVE SUPPORTING DOCUMENTS
             // =====================================================
-            foreach (
+            $this->storeSingleCanvasAttachment(
+                (int) $risId,
                 $request->file('ris_attachments', [])
-                as $document
-            ) {
-
-                $storedPath =
-                    $document->store(
-                        'ris-supporting-documents/' . $risId,
-                        'public'
-                    );
-
-                DB::table('ris_attachments_table')
-                    ->insert([
-
-                        'ris_id' => $risId,
-
-                        'ris_attachment_original_name' =>
-                            $document->getClientOriginalName(),
-
-                        'ris_attachment_path' =>
-                            $storedPath,
-
-                        'ris_attachment_mime_type' =>
-                            $document->getClientMimeType(),
-
-                        'ris_attachment_size' =>
-                            $document->getSize(),
-
-                        'ris_attachment_uploaded_by' =>
-                            Auth::id(),
-
-                        'ris_attachment_created_at' =>
-                            now(),
-                    ]);
-            }
+            );
 
 
             if ($isDraft) {
@@ -1251,7 +1226,7 @@ public function update(Request $request, $risId)
 
         'ris_attachments.*' => [
             'file',
-            'mimes:doc,docx,xls,xlsx',
+            'mimes:doc,docx,xls,xlsx,pdf',
             'max:10240',
         ],
 
@@ -1303,7 +1278,7 @@ public function update(Request $request, $risId)
             'Unit Cost can be up to 7 digits only.',
 
         'ris_attachments.*.mimes' =>
-            'Supporting documents must be Word or Excel files only.',
+            'Supporting documents must be a Word, Excel, or PDF file.',
 
         'ris_attachments.*.max' =>
             'Each supporting document must not exceed 10 MB.',
@@ -1360,7 +1335,7 @@ public function update(Request $request, $risId)
         }
 
         if (! $blockedSubmitMessage && ! $this->risHasSupportingDocument((int) $risId, $request->file('ris_attachments', []))) {
-            $blockedSubmitMessage = 'Please attach a supporting document (Word or Excel) before submitting to Administrator.';
+            $blockedSubmitMessage = 'Please attach a supporting document (Word, Excel, or PDF) before submitting to Administrator.';
         }
 
         // Keep the purchaser's edits (brand, unit, etc.) even when submit is blocked.
@@ -1508,7 +1483,14 @@ public function update(Request $request, $risId)
             $updateData['ris_submitted_at'] =
                 now();
 
-            $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_SCHOOL_ADMIN);
+            try {
+                $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_SCHOOL_ADMIN);
+            } catch (ValidationException $e) {
+                return $this->backWithEditRisError(
+                    $risId,
+                    'Please select a School Administrator before submitting.'
+                );
+            }
             if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
                 $updateData['ris_assigned_reviewer_id'] = $reviewerId;
             }
@@ -1541,47 +1523,11 @@ public function update(Request $request, $risId)
         }
 
 
-        // =================================================
-        // ADD NEW ATTACHMENTS
-        // Existing attachments remain.
-        // =================================================
-        foreach (
+        // One Canvas file per RIS. A new upload replaces the file already on record.
+        $this->storeSingleCanvasAttachment(
+            (int) $risId,
             $request->file('ris_attachments', [])
-            as $document
-        ) {
-
-            $storedPath =
-                $document->store(
-                    'ris-supporting-documents/' . $risId,
-                    'public'
-                );
-
-
-            DB::table('ris_attachments_table')
-                ->insert([
-
-                    'ris_id' =>
-                        $risId,
-
-                    'ris_attachment_original_name' =>
-                        $document->getClientOriginalName(),
-
-                    'ris_attachment_path' =>
-                        $storedPath,
-
-                    'ris_attachment_mime_type' =>
-                        $document->getClientMimeType(),
-
-                    'ris_attachment_size' =>
-                        $document->getSize(),
-
-                    'ris_attachment_uploaded_by' =>
-                        Auth::id(),
-
-                    'ris_attachment_created_at' =>
-                        now(),
-                ]);
-        }
+        );
 
 
         $message = match ($saveAction) {
@@ -1759,7 +1705,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         if (! $this->risHasSupportingDocument((int) $risId)) {
             return $this->backWithEditRisError(
                 $risId,
-                'Please attach a supporting document (Word or Excel) before ' . ($isResubmit ? 'resubmitting to Administrator.' : 'submitting to Administrator.')
+                'Please attach a supporting document (Word, Excel, or PDF) before ' . ($isResubmit ? 'resubmitting to Administrator.' : 'submitting to Administrator.')
             );
         }
 
@@ -1911,10 +1857,6 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     public function sendToSupply(Request $request, $risId)
     {
-        $validated = $request->validate([
-            'assigned_reviewer_id' => ['nullable', 'integer'],
-        ]);
-
         $ris = DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->first();
@@ -1926,20 +1868,17 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         PurchaserDocumentAccess::assertOwns($ris, 'ris');
 
         try {
-            $officerId = isset($validated['assigned_reviewer_id']) && (int) $validated['assigned_reviewer_id'] > 0
-                ? (int) $validated['assigned_reviewer_id']
-                : null;
-
-            if ($officerId) {
-                $allowed = collect(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SUPPLY_OFFICER))
-                    ->pluck('id')
-                    ->all();
-                if (! in_array($officerId, $allowed, true)) {
-                    return back()->with('error', 'Select a valid School Supply / Material Officer.');
-                }
-            }
+            $officerId = \App\Support\ReviewerAssignment::resolve(
+                $request,
+                \App\Support\WorkflowNotifier::ROLE_SUPPLY_OFFICER
+            );
 
             \App\Support\SupplyHandoff::sendRisToSupply($ris, $officerId, (int) Auth::id());
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first()
+                ?: 'Please select a School Supply / Material Officer.';
+
+            return back()->with('error', $message);
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -2028,34 +1967,64 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     // RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
     public function downloadAttachment($attachmentId)
     {
-        $attachment = DB::table('ris_attachments_table')
-            ->where('ris_attachment_id', $attachmentId)
-            ->first();
-
-        abort_if(!$attachment, 404);
-
-        $ris = DB::table('requisition_issue_slip_table')
-            ->where('ris_id', $attachment->ris_id)
-            ->first();
-        abort_if(!$ris, 404);
-        // Admin / President / Supply Officer routes sit behind their own middleware;
-        // multi-role users would otherwise hit the purchaser owner check.
-        if (request()->routeIs('supply-officer.*')) {
-            abort_unless(\App\Support\SupplyHandoff::risIsSentToSupply($ris), 403);
-            $assigned = (int) ($ris->ris_supply_officer_user_id ?? 0);
-            if ($assigned > 0 && $assigned !== (int) Auth::id()) {
-                abort(403, 'This RIS was sent to another School Supply / Material Officer.');
-            }
-        } elseif (! request()->routeIs('admin.*', 'president.*')) {
-            PurchaserDocumentAccess::assertOwns($ris, 'ris');
-        }
-
-        abort_if(!Storage::disk('public')->exists($attachment->ris_attachment_path), 404);
+        [$attachment] = $this->canvasAttachmentForRequest($attachmentId);
 
         return Storage::disk('public')->download(
             $attachment->ris_attachment_path,
             $attachment->ris_attachment_original_name
         );
+    }
+
+    public function previewAttachment($attachmentId)
+    {
+        [$attachment] = $this->canvasAttachmentForRequest($attachmentId);
+
+        $name = (string) $attachment->ris_attachment_original_name;
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $absolute = Storage::disk('public')->path($attachment->ris_attachment_path);
+
+        if ($ext === 'pdf') {
+            return Storage::disk('public')->response(
+                $attachment->ris_attachment_path,
+                $name,
+                ['Content-Type' => 'application/pdf']
+            );
+        }
+
+        try {
+            $html = match ($ext) {
+                'xls', 'xlsx' => $this->spreadsheetPreviewHtml($absolute, $name),
+                'doc', 'docx' => $this->wordPreviewHtml($absolute, $name),
+                default => throw new \RuntimeException('This file type cannot be previewed.'),
+            };
+        } catch (\Throwable $e) {
+            $html = $this->canvasPreviewFallbackHtml(
+                $name,
+                ProcurementPortal::route('ris.attachments.download', $attachment->ris_attachment_id)
+            );
+        }
+
+        return response($this->sanitizePreviewHtml($html), 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;",
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'SAMEORIGIN',
+        ]);
+    }
+
+    public function destroyAttachment($attachmentId)
+    {
+        [$attachment, $ris] = $this->canvasAttachmentForRequest($attachmentId);
+
+        if (! in_array($ris->ris_status, ['Draft', 'Minor Revision'], true)) {
+            return back()->with('error', 'This Canvas file can no longer be removed.');
+        }
+
+        $this->deleteCanvasAttachmentRow($attachment);
+
+        return back()
+            ->with('edit_ris', (int) $ris->ris_id)
+            ->with('success', 'Canvas file removed.');
     }
 
     public function revisionImage($revisionId, $index)
@@ -2449,6 +2418,161 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         return $summary;
     }
 
+    /**
+     * Brands, units, and suppliers already on file for an item name.
+     * Equipment records outweigh older RIS lines. The first id is the default.
+     *
+     * @return array<string, array{brand_ids: list<string>, uom_ids: list<string>, supplier_ids: list<string>, brand_id: string, uom_id: string, supplier_id: string}>
+     */
+    private function itemBrandUnitHints(): array
+    {
+        $scores = [];
+        $add = function (string $name, string $kind, string $id, int $weight) use (&$scores): void {
+            $key = mb_strtolower(trim(preg_replace('/\s+/', ' ', $name) ?? ''));
+            if ($key === '' || $id === '' || $weight < 1) {
+                return;
+            }
+            $scores[$key][$kind][$id] = ($scores[$key][$kind][$id] ?? 0) + $weight;
+        };
+
+        if (
+            Schema::hasTable('equipment_table')
+            && Schema::hasColumn('equipment_table', 'equipment_brand_name')
+            && $this->brandsTableExists()
+        ) {
+            $brandIds = [];
+            foreach (DB::table('brands_table')->where('brand_status', 'Active')->get(['brand_id', 'brand_name']) as $brand) {
+                $brandIds[mb_strtolower(trim((string) $brand->brand_name))] = (string) $brand->brand_id;
+            }
+
+            $equipmentBrands = DB::table('equipment_table')
+                ->select('equipment_name', 'equipment_brand_name', DB::raw('COUNT(*) as uses'))
+                ->whereNotNull('equipment_name')
+                ->whereNotNull('equipment_brand_name')
+                ->where('equipment_brand_name', '!=', '')
+                ->groupBy('equipment_name', 'equipment_brand_name')
+                ->get();
+
+            foreach ($equipmentBrands as $row) {
+                $brandId = $brandIds[mb_strtolower(trim((string) $row->equipment_brand_name))] ?? null;
+                if ($brandId) {
+                    $add((string) $row->equipment_name, 'brands', $brandId, ((int) $row->uses) * 10);
+                }
+            }
+        }
+
+        $activeSupplierIds = Schema::hasTable('suppliers_table')
+            ? DB::table('suppliers_table')
+                ->where('supplier_is_active', 1)
+                ->pluck('supplier_id')
+                ->mapWithKeys(fn ($id) => [(string) $id => true])
+                ->all()
+            : [];
+
+        if (Schema::hasTable('equipment_table') && $activeSupplierIds !== []) {
+
+            if (Schema::hasColumn('equipment_table', 'equipment_supplier_id')) {
+                $equipmentSuppliers = DB::table('equipment_table')
+                    ->select('equipment_name', 'equipment_supplier_id', DB::raw('COUNT(*) as uses'))
+                    ->whereNotNull('equipment_name')
+                    ->whereNotNull('equipment_supplier_id')
+                    ->groupBy('equipment_name', 'equipment_supplier_id')
+                    ->get();
+                foreach ($equipmentSuppliers as $row) {
+                    $supplierId = (string) $row->equipment_supplier_id;
+                    if (isset($activeSupplierIds[$supplierId])) {
+                        $add((string) $row->equipment_name, 'suppliers', $supplierId, ((int) $row->uses) * 10);
+                    }
+                }
+            }
+
+            if (Schema::hasColumn('equipment_table', 'equipment_supplier_name')) {
+                $supplierNames = [];
+                foreach ($this->supplierOptionsForRis(true) as $supplier) {
+                    $label = mb_strtolower(trim((string) ($supplier->display_name ?? '')));
+                    $label = trim(str_replace('(blacklisted)', '', $label));
+                    if ($label !== '') {
+                        $supplierNames[$label] = (string) $supplier->supplier_id;
+                    }
+                }
+                $namedSuppliers = DB::table('equipment_table')
+                    ->select('equipment_name', 'equipment_supplier_name', DB::raw('COUNT(*) as uses'))
+                    ->whereNotNull('equipment_name')
+                    ->whereNotNull('equipment_supplier_name')
+                    ->where('equipment_supplier_name', '!=', '')
+                    ->groupBy('equipment_name', 'equipment_supplier_name')
+                    ->get();
+                foreach ($namedSuppliers as $row) {
+                    $supplierId = $supplierNames[mb_strtolower(trim((string) $row->equipment_supplier_name))] ?? null;
+                    if ($supplierId) {
+                        $add((string) $row->equipment_name, 'suppliers', $supplierId, ((int) $row->uses) * 10);
+                    }
+                }
+            }
+        }
+
+        if (Schema::hasTable('requisition_issue_slip_items_table')) {
+            if ($this->risItemsHaveBrandColumn()) {
+                $pastBrands = DB::table('requisition_issue_slip_items_table')
+                    ->select('ris_item_name_description', 'ris_item_brand_id', DB::raw('COUNT(*) as uses'))
+                    ->whereNotNull('ris_item_name_description')
+                    ->whereNotNull('ris_item_brand_id')
+                    ->groupBy('ris_item_name_description', 'ris_item_brand_id')
+                    ->get();
+                foreach ($pastBrands as $row) {
+                    $add((string) $row->ris_item_name_description, 'brands', (string) $row->ris_item_brand_id, (int) $row->uses);
+                }
+            }
+
+            if ($this->risItemsHaveUomColumn()) {
+                $pastUnits = DB::table('requisition_issue_slip_items_table')
+                    ->select('ris_item_name_description', 'ris_item_uom_id', DB::raw('COUNT(*) as uses'))
+                    ->whereNotNull('ris_item_name_description')
+                    ->whereNotNull('ris_item_uom_id')
+                    ->groupBy('ris_item_name_description', 'ris_item_uom_id')
+                    ->get();
+                foreach ($pastUnits as $row) {
+                    $add((string) $row->ris_item_name_description, 'uoms', (string) $row->ris_item_uom_id, (int) $row->uses);
+                }
+            }
+
+            if ($this->risItemsHaveSupplierColumn()) {
+                $pastSuppliers = DB::table('requisition_issue_slip_items_table')
+                    ->select('ris_item_name_description', 'ris_item_supplier_id', DB::raw('COUNT(*) as uses'))
+                    ->whereNotNull('ris_item_name_description')
+                    ->whereNotNull('ris_item_supplier_id')
+                    ->groupBy('ris_item_name_description', 'ris_item_supplier_id')
+                    ->get();
+                foreach ($pastSuppliers as $row) {
+                    $supplierId = (string) $row->ris_item_supplier_id;
+                    if (isset($activeSupplierIds[$supplierId])) {
+                        $add((string) $row->ris_item_name_description, 'suppliers', $supplierId, (int) $row->uses);
+                    }
+                }
+            }
+        }
+
+        $hints = [];
+        foreach ($scores as $key => $data) {
+            $brands = $data['brands'] ?? [];
+            $uoms = $data['uoms'] ?? [];
+            $suppliers = $data['suppliers'] ?? [];
+            arsort($brands);
+            arsort($uoms);
+            arsort($suppliers);
+            $hints[$key] = [
+                'brand_ids' => array_map('strval', array_keys($brands)),
+                'uom_ids' => array_map('strval', array_keys($uoms)),
+                'supplier_ids' => array_map('strval', array_keys($suppliers)),
+                'brand_id' => (string) (array_key_first($brands) ?? ''),
+                'uom_id' => (string) (array_key_first($uoms) ?? ''),
+                'supplier_id' => (string) (array_key_first($suppliers) ?? ''),
+            ];
+        }
+
+        return $hints;
+    }
+
     private function uomTableExists(): bool
     {
         return Schema::hasTable('uom_table');
@@ -2580,6 +2704,499 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         return null;
+    }
+
+    /**
+     * Each RIS keeps one Canvas file. Extra copies are removed, and a new upload replaces the current file.
+     */
+    private function canvasAttachmentsByRis($risIds)
+    {
+        if (! Schema::hasTable('ris_attachments_table') || collect($risIds)->isEmpty()) {
+            return collect();
+        }
+
+        $rows = DB::table('ris_attachments_table')
+            ->whereIn('ris_id', $risIds)
+            ->orderByDesc('ris_attachment_id')
+            ->get();
+
+        $kept = [];
+        foreach ($rows as $row) {
+            $risId = (int) $row->ris_id;
+            if (! isset($kept[$risId])) {
+                $kept[$risId] = $row;
+                continue;
+            }
+
+            $this->deleteCanvasAttachmentRow($row);
+        }
+
+        return collect($kept)->groupBy('ris_id');
+    }
+
+    private function storeSingleCanvasAttachment(int $risId, $incomingFiles): void
+    {
+        if (! Schema::hasTable('ris_attachments_table') || $risId < 1) {
+            return;
+        }
+
+        $files = $incomingFiles;
+        if ($files === null) {
+            $files = [];
+        } elseif (! is_array($files)) {
+            $files = [$files];
+        }
+
+        $document = null;
+        foreach ($files as $file) {
+            if ($file && method_exists($file, 'isValid') && $file->isValid()) {
+                $document = $file;
+                break;
+            }
+        }
+
+        if (! $document) {
+            $this->canvasAttachmentsByRis([$risId]);
+
+            return;
+        }
+
+        $existing = DB::table('ris_attachments_table')->where('ris_id', $risId)->get();
+        foreach ($existing as $row) {
+            $this->deleteCanvasAttachmentRow($row);
+        }
+
+        $storedPath = $document->store('ris-supporting-documents/'.$risId, 'public');
+
+        DB::table('ris_attachments_table')->insert([
+            'ris_id' => $risId,
+            'ris_attachment_original_name' => $document->getClientOriginalName(),
+            'ris_attachment_path' => $storedPath,
+            'ris_attachment_mime_type' => $document->getClientMimeType(),
+            'ris_attachment_size' => $document->getSize(),
+            'ris_attachment_uploaded_by' => Auth::id(),
+            'ris_attachment_created_at' => now(),
+        ]);
+    }
+
+    private function canvasAttachmentForRequest($attachmentId): array
+    {
+        $attachment = DB::table('ris_attachments_table')
+            ->where('ris_attachment_id', $attachmentId)
+            ->first();
+
+        abort_if(! $attachment, 404);
+
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $attachment->ris_id)
+            ->first();
+        abort_if(! $ris, 404);
+
+        // Admin / President / Supply Officer routes sit behind their own middleware;
+        // multi-role users would otherwise hit the purchaser owner check.
+        if (request()->routeIs('supply-officer.*')) {
+            abort_unless(\App\Support\SupplyHandoff::risIsSentToSupply($ris), 403);
+            $assigned = (int) ($ris->ris_supply_officer_user_id ?? 0);
+            if ($assigned > 0 && $assigned !== (int) Auth::id()) {
+                abort(403, 'This RIS was sent to another School Supply / Material Officer.');
+            }
+        } elseif (! request()->routeIs('admin.*', 'president.*')) {
+            PurchaserDocumentAccess::assertOwns($ris, 'ris');
+        }
+
+        abort_if(! Storage::disk('public')->exists($attachment->ris_attachment_path), 404);
+
+        return [$attachment, $ris];
+    }
+
+    private function spreadsheetPreviewHtml(string $absolutePath, string $name): string
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($absolutePath);
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Html($spreadsheet);
+        $writer->writeAllSheets();
+        $writer->setEmbedImages(true);
+        $html = $writer->generateHtmlAll();
+        $spreadsheet->disconnectWorksheets();
+
+        $style = '<style>'
+            .'body{margin:0;background:#e7edf4;color:#1c2430;font-family:Calibri,"Segoe UI",sans-serif}'
+            .'table{border-collapse:collapse;background:#fff;margin:28px auto;box-shadow:0 10px 30px rgba(15,23,42,.08)}'
+            .'td,th{border:1px solid #d5deea;padding:7px 10px;font-size:13px;vertical-align:top}'
+            .'h1,h2{font-family:Calibri,"Segoe UI",sans-serif}'
+            .'</style>';
+        $html = preg_replace('/<title>.*?<\/title>/i', '<title>'.e($name).'</title>', $html, 1) ?? $html;
+
+        return preg_replace('/<head>/i', '<head>'.$style, $html, 1) ?? $html;
+    }
+
+    private function wordPreviewHtml(string $absolutePath, string $name): string
+    {
+        if (str_ends_with(strtolower($absolutePath), '.docx')) {
+            return $this->docxPaperHtml($absolutePath, $name);
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $phpWord = \PhpOffice\PhpWord\IOFactory::load($absolutePath);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+
+        $target = tempnam(sys_get_temp_dir(), 'ris-canvas-');
+        if ($target === false) {
+            throw new \RuntimeException('Could not create a preview file.');
+        }
+
+        $htmlPath = $target.'.html';
+        @unlink($target);
+
+        try {
+            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'HTML');
+            $writer->save($htmlPath);
+            $html = (string) file_get_contents($htmlPath);
+        } finally {
+            @unlink($htmlPath);
+        }
+
+        if (trim(strip_tags($html)) === '') {
+            throw new \RuntimeException('The Word file has no preview.');
+        }
+
+        return $html;
+    }
+
+    private function docxPaperHtml(string $absolutePath, string $name): string
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($absolutePath) !== true) {
+            throw new \RuntimeException('Could not open the Word file.');
+        }
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+        if (! is_string($xml) || $xml === '') {
+            throw new \RuntimeException('The Word file has no preview.');
+        }
+
+        $dom = new \DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadXML($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (! $loaded) {
+            throw new \RuntimeException('The Word file has no preview.');
+        }
+
+        $xp = new \DOMXPath($dom);
+        $xp->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+        $xp->registerNamespace('m', 'http://schemas.openxmlformats.org/officeDocument/2006/math');
+        $body = $xp->query('/w:document/w:body')->item(0);
+        if (! $body) {
+            throw new \RuntimeException('The Word file has no preview.');
+        }
+
+        $parts = [];
+        $list = [];
+        $isFirst = true;
+        $flushList = function () use (&$parts, &$list) {
+            if ($list === []) {
+                return;
+            }
+            $parts[] = $this->docxListHtml($list);
+            $list = [];
+        };
+
+        foreach ($body->childNodes as $node) {
+            if (! $node instanceof \DOMElement) {
+                continue;
+            }
+
+            if ($node->localName === 'tbl') {
+                $flushList();
+                $parts[] = $this->docxTableHtml($xp, $node);
+                continue;
+            }
+
+            if ($node->localName !== 'p') {
+                continue;
+            }
+
+            $inner = $this->docxParagraphInnerHtml($xp, $node);
+            $plain = trim(preg_replace('/\s+/', ' ', strip_tags($inner)) ?? '');
+            if ($plain === '') {
+                continue;
+            }
+
+            $level = $xp->query('./w:pPr/w:numPr/w:ilvl/@w:val', $node)->item(0);
+            if ($level) {
+                $list[] = ['level' => (int) $level->nodeValue, 'html' => $inner];
+                $isFirst = false;
+                continue;
+            }
+
+            $flushList();
+
+            if ($isFirst) {
+                $parts[] = $this->docxTitleHtml($inner, $plain);
+                $isFirst = false;
+                continue;
+            }
+
+            if ($this->docxIsFlowLine($plain)) {
+                $parts[] = '<p class="flow">'.$inner.'</p>';
+                continue;
+            }
+
+            if ($this->docxIsHeading($xp, $node, $plain)) {
+                $parts[] = '<h2>'.preg_replace('#</?strong>#', '', $inner).'</h2>';
+                continue;
+            }
+
+            $parts[] = '<p>'.$inner.'</p>';
+        }
+        $flushList();
+
+        $bodyHtml = implode("\n", $parts);
+        if (trim(strip_tags($bodyHtml)) === '') {
+            throw new \RuntimeException('The Word file has no preview.');
+        }
+
+        $title = e($name);
+
+        return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.$title.'</title><style>'
+            .'body{margin:0;background:#e7edf4;color:#1c2430;font-family:Calibri,"Segoe UI",sans-serif}'
+            .'.page{width:min(860px,calc(100% - 40px));margin:28px auto 40px;background:#fff;padding:56px 64px 64px;border:1px solid #d5deea;box-shadow:0 12px 32px rgba(15,23,42,.08)}'
+            .'h1{margin:0;font-size:22px;letter-spacing:.04em;text-transform:uppercase;font-weight:700}'
+            .'.lede{margin:6px 0 0;font-size:16px;font-weight:700}'
+            .'.flow{margin:18px 0 8px;padding:12px 14px;background:#f4f7fb;border-left:3px solid #0025cc;line-height:1.55;font-size:14px}'
+            .'h2{margin:26px 0 8px;font-size:16px;line-height:1.35}'
+            .'p{margin:0 0 8px;font-size:14.5px;line-height:1.55}'
+            .'ul{margin:4px 0 12px;padding-left:1.25rem}li{margin:5px 0;font-size:14.5px;line-height:1.55}'
+            .'li ul{margin:4px 0 2px}'
+            .'table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:14px}'
+            .'th,td{border:1px solid #c5d0de;padding:8px 10px;text-align:left;vertical-align:top}'
+            .'th{background:#f4f7fb;font-weight:700}'
+            .'@media(max-width:720px){.page{padding:28px 20px}}'
+            .'</style></head><body><article class="page">'.$bodyHtml.'</article></body></html>';
+    }
+
+    private function docxTitleHtml(string $inner, string $plain): string
+    {
+        if (! str_contains($inner, '</strong>') || ! preg_match('/^(.*?)<strong>(.*)<\/strong>\s*$/s', $inner, $match)) {
+            return '<h1>'.$inner.'</h1>';
+        }
+
+        $lead = trim(preg_replace('/\s+/', ' ', preg_replace('#\s*<br\s*/?>\s*#i', ' ', $match[1]) ?? '') ?? '');
+        $rest = trim(strip_tags($match[2]));
+        if ($lead === '' || $rest === '' || mb_strlen($plain) > 140) {
+            return '<h1>'.$inner.'</h1>';
+        }
+
+        return '<h1>'.$lead.'</h1><p class="lede">'.$match[2].'</p>';
+    }
+
+    private function docxIsFlowLine(string $plain): bool
+    {
+        return str_contains($plain, 'Phase 1') && str_contains($plain, 'Phase 2');
+    }
+
+    private function docxIsHeading(\DOMXPath $xp, \DOMElement $paragraph, string $plain): bool
+    {
+        if (mb_strlen($plain) > 90) {
+            return false;
+        }
+
+        $runs = $xp->query('./w:r', $paragraph);
+        $sawText = false;
+        foreach ($runs ?: [] as $run) {
+            $text = '';
+            foreach ($xp->query('.//w:t', $run) as $node) {
+                $text .= $node->textContent;
+            }
+            if (trim($text) === '') {
+                continue;
+            }
+            $sawText = true;
+            if (! $this->docxRunIsBold($xp, $run)) {
+                return false;
+            }
+        }
+
+        return $sawText;
+    }
+
+    private function docxListHtml(array $items): string
+    {
+        $html = '<ul>';
+        $count = count($items);
+        for ($i = 0; $i < $count; $i++) {
+            if ((int) $items[$i]['level'] > 0) {
+                $html .= '<li>'.$items[$i]['html'].'</li>';
+                continue;
+            }
+
+            $html .= '<li>'.$items[$i]['html'];
+            $nested = '';
+            while ($i + 1 < $count && (int) $items[$i + 1]['level'] > 0) {
+                $i++;
+                $nested .= '<li>'.$items[$i]['html'].'</li>';
+            }
+            if ($nested !== '') {
+                $html .= '<ul>'.$nested.'</ul>';
+            }
+            $html .= '</li>';
+        }
+
+        return $html.'</ul>';
+    }
+
+    private function docxTableHtml(\DOMXPath $xp, \DOMElement $table): string
+    {
+        $rows = [];
+        foreach ($xp->query('./w:tr', $table) as $row) {
+            $cells = [];
+            foreach ($xp->query('./w:tc', $row) as $cell) {
+                $bits = [];
+                foreach ($xp->query('./w:p', $cell) as $paragraph) {
+                    $inner = $this->docxParagraphInnerHtml($xp, $paragraph);
+                    if (trim(strip_tags($inner)) !== '') {
+                        $bits[] = $inner;
+                    }
+                }
+                $cells[] = implode('<br>', $bits);
+            }
+            if ($cells !== []) {
+                $rows[] = $cells;
+            }
+        }
+
+        if ($rows === []) {
+            return '';
+        }
+
+        $html = '<table>';
+        foreach ($rows as $index => $cells) {
+            $tag = $index === 0 ? 'th' : 'td';
+            $html .= '<tr>';
+            foreach ($cells as $cell) {
+                $html .= '<'.$tag.'>'.$cell.'</'.$tag.'>';
+            }
+            $html .= '</tr>';
+        }
+
+        return $html.'</table>';
+    }
+
+    private function docxParagraphInnerHtml(\DOMXPath $xp, \DOMElement $paragraph): string
+    {
+        $html = '';
+        foreach ($paragraph->childNodes as $child) {
+            if (! $child instanceof \DOMElement) {
+                continue;
+            }
+            if ($child->localName === 'hyperlink') {
+                foreach ($xp->query('./w:r', $child) as $run) {
+                    $html .= $this->docxRunHtml($xp, $run);
+                }
+                continue;
+            }
+            if ($child->localName === 'oMath' || $child->localName === 'oMathPara') {
+                $text = '';
+                foreach ($xp->query('.//m:t', $child) as $node) {
+                    $text .= $node->textContent;
+                }
+                $html .= e($text);
+                continue;
+            }
+            if ($child->localName === 'r') {
+                $html .= $this->docxRunHtml($xp, $child);
+            }
+        }
+
+        return $html;
+    }
+
+    private function docxRunHtml(\DOMXPath $xp, \DOMElement $run): string
+    {
+        $text = '';
+        foreach ($run->childNodes as $child) {
+            if (! $child instanceof \DOMElement) {
+                continue;
+            }
+            if ($child->localName === 't') {
+                $text .= $child->textContent;
+            } elseif ($child->localName === 'tab') {
+                $text .= "\t";
+            } elseif ($child->localName === 'br' || $child->localName === 'cr') {
+                $text .= "\n";
+            }
+        }
+
+        if ($text === '') {
+            return '';
+        }
+
+        $html = nl2br(e($text), false);
+        if ($this->docxRunIsItalic($xp, $run)) {
+            $html = '<em>'.$html.'</em>';
+        }
+        if ($this->docxRunIsBold($xp, $run)) {
+            $html = '<strong>'.$html.'</strong>';
+        }
+
+        return $html;
+    }
+
+    private function docxRunIsBold(\DOMXPath $xp, \DOMElement $run): bool
+    {
+        return $this->docxToggle($xp, $run, 'b');
+    }
+
+    private function docxRunIsItalic(\DOMXPath $xp, \DOMElement $run): bool
+    {
+        return $this->docxToggle($xp, $run, 'i');
+    }
+
+    private function docxToggle(\DOMXPath $xp, \DOMElement $run, string $tag): bool
+    {
+        if ($xp->query('./w:rPr/w:'.$tag, $run)->length === 0) {
+            return false;
+        }
+
+        $value = $xp->query('./w:rPr/w:'.$tag.'/@w:val', $run)->item(0);
+
+        return ! $value || ! in_array(strtolower($value->nodeValue), ['0', 'false', 'off'], true);
+    }
+
+    private function canvasPreviewFallbackHtml(string $name, string $downloadUrl): string
+    {
+        $safeName = e($name);
+        $safeUrl = e($downloadUrl);
+
+        return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.$safeName.'</title>'
+            .'<style>body{margin:0;font-family:Segoe UI,sans-serif;background:#f8fafc;color:#0f172a}'
+            .'.card{max-width:28rem;margin:4rem auto;padding:1.5rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px}'
+            .'a{color:#0025cc}</style></head><body><div class="card"><p>This file cannot be shown in the browser.</p>'
+            .'<p><strong>'.$safeName.'</strong></p><p><a href="'.$safeUrl.'">Download the file</a></p></div></body></html>';
+    }
+
+    private function sanitizePreviewHtml(string $html): string
+    {
+        $html = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $html) ?? $html;
+
+        return preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html) ?? $html;
+    }
+
+    private function deleteCanvasAttachmentRow(object $row): void
+    {
+        $path = (string) ($row->ris_attachment_path ?? '');
+        if ($path !== '' && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+
+        DB::table('ris_attachments_table')
+            ->where('ris_attachment_id', $row->ris_attachment_id)
+            ->delete();
     }
 
     private function risHasSupportingDocument(int $risId = 0, $incomingFiles = null): bool

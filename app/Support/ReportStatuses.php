@@ -72,10 +72,6 @@ class ReportStatuses
                 self::REJECTED,
                 self::CLOSED_CANCELLED,
             ],
-            self::FOR_REPLACEMENT => [
-                self::RESOLVED,
-                self::CLOSED_CANCELLED,
-            ],
         ];
     }
 

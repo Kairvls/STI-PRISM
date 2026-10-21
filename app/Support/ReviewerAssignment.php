@@ -180,6 +180,7 @@ class ReviewerAssignment
                 WorkflowNotifier::ROLE_SCHOOL_ADMIN => 'School Administrator',
                 WorkflowNotifier::ROLE_ACCOUNTING => 'Accounting',
                 WorkflowNotifier::ROLE_RECEIVING => 'Receiving Officer',
+                WorkflowNotifier::ROLE_SUPPLY_OFFICER => 'School Supply / Material Officer',
                 default => 'reviewer',
             };
 

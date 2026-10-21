@@ -17,9 +17,10 @@
     $title = $title ?? ('Change '.$roleLabel);
     $currentReviewerId = (int) ($currentReviewerId ?? 0);
     $pp = $pp ?? 'purchaser';
+    $reassignRoute = $pp.'.reviewer.reassign';
 @endphp
 
-@if($cfg && $id > 0 && count($reviewers) > 0)
+@if($cfg && $id > 0 && count($reviewers) > 0 && \Illuminate\Support\Facades\Route::has($reassignRoute))
     <form
         method="POST"
         action="{{ route($pp.'.reviewer.reassign', ['type' => $type, 'id' => $id]) }}"

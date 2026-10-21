@@ -6,7 +6,7 @@
     $price = $price ?? '';
     $amount = $amount ?? '';
 @endphp
-<tr data-doc-row>
+<tr data-doc-row @if(!empty($lockRow)) data-doc-row-locked @endif>
     <td class="border border-black p-1">
         <input
             type="number"
@@ -18,7 +18,9 @@
             inputmode="numeric"
             onkeydown="if (['e', 'E', '+', '-', '.'].includes(event.key)) event.preventDefault();"
             oninput="if (this.value.length > 7) this.value = this.value.replace(/\D/g, '').slice(0, 7);"
-            class="{{ $atpCellClass }} text-center"
+            @if(!empty($lockRow)) readonly @endif
+            title="{{ !empty($lockRow) ? 'Taken from the RIS' : '' }}"
+            class="{{ $atpCellClass }} text-center {{ !empty($lockRow) ? 'cursor-not-allowed !bg-gray-50 text-gray-600' : '' }}"
         >
     </td>
     <td class="border border-black p-1">
@@ -58,7 +60,9 @@
             <button
                 type="button"
                 x-on:click.stop="toggle()"
-                class="flex w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 py-1.5 text-center text-sm text-gray-800 outline-none focus:ring-0"
+                @if(!empty($lockRow)) disabled @endif
+                title="{{ !empty($lockRow) ? 'Taken from the RIS' : '' }}"
+                class="flex w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 py-1.5 text-center text-sm outline-none focus:ring-0 {{ !empty($lockRow) ? 'cursor-not-allowed text-gray-600' : 'text-gray-800' }}"
                 x-bind:aria-expanded="open.toString()"
             >
                 <span class="min-w-0 flex-1 truncate" x-bind:class="value ? '' : 'text-gray-400'" x-text="value || 'Unit'"></span>
@@ -115,7 +119,7 @@
         </div>
     </td>
     <td class="border border-black p-1">
-        <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="{{ $atpCellClass }}">
+        <input type="text" name="items[{{ $i }}][description]" value="{{ $desc }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" @if(!empty($lockRow)) readonly @endif title="{{ !empty($lockRow) ? 'Taken from the RIS' : '' }}" class="{{ $atpCellClass }} {{ !empty($lockRow) ? 'cursor-not-allowed !bg-gray-50 text-gray-600' : '' }}">
     </td>
     <td class="border border-black p-1">
         <input
@@ -128,7 +132,9 @@
             inputmode="decimal"
             onkeydown="if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();"
             oninput="const [whole, decimals] = this.value.split('.'); if (whole.length > 7 || (decimals ?? '').length > 2) this.value = whole.slice(0, 7) + (decimals !== undefined ? '.' + decimals.slice(0, 2) : '');"
-            class="{{ $atpCellClass }} text-right"
+            @if(!empty($lockRow)) readonly @endif
+            title="{{ !empty($lockRow) ? 'Taken from the RIS' : '' }}"
+            class="{{ $atpCellClass }} text-right {{ !empty($lockRow) ? 'cursor-not-allowed !bg-gray-50 text-gray-600' : '' }}"
         >
     </td>
     <td class="border border-black p-1">

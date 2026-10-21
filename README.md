@@ -288,3 +288,10 @@ on every procurement form in every input field put a limit/maximum input like fr
 should we put in then inventory module, a (notification/lists) about that the new replacement item has been arrived to replace that item the that has need for replacement
 
 in the school administrator make it has a dedicated that can view also the equipment details and person's details
+
+in the school administrator update the signature history to include also about the atp, rfc,dv since currently its just about ris
+
+
+dont put too much contents just important details and some that can direclty be action
+
+the item split type aircon... isnt in when creating atp

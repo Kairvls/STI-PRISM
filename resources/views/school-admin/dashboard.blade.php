@@ -6,30 +6,6 @@
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
 @php
-    $actionMetrics = [
-        [
-            'label' => 'Accepted, Needs Your Next Step',
-            'hint' => '₱'.number_format((float) $stats['ready_to_forward_amount'], 2).' total',
-            'value' => number_format($stats['ready_to_forward']),
-            'href' => route('school-admin.digital-signatures.sign-ris', ['filter' => 'for_decision']),
-            'title' => 'You accepted these RIS. Send them to the President or approve them yourself.',
-        ],
-        [
-            'label' => 'Waiting for the President',
-            'hint' => '₱'.number_format((float) $stats['with_president_amount'], 2).' total',
-            'value' => number_format($stats['with_president']),
-            'href' => route('school-admin.operations.procurement', ['filter' => \App\Support\RisWorkflow::FORWARDED]),
-            'title' => 'You sent these RIS to the President. Nothing to do until the President approves or rejects them.',
-        ],
-        [
-            'label' => 'Sent Back or Rejected',
-            'hint' => '₱'.number_format((float) $stats['amend_ris_amount'], 2).' total',
-            'value' => number_format($stats['amend_ris']),
-            'href' => route('school-admin.procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AMENDMENTS]),
-            'title' => 'RIS you returned to the Purchaser for corrections, or rejected.',
-        ],
-    ];
-
     $pipelineStageNames = [
         'ris' => 'Requisition and Issue Slip',
         'atp' => 'Authority to Purchase',
@@ -70,12 +46,7 @@
 </style>
 
 <div class="admin-page space-y-6">
-    <div>
-        <h2 class="text-base font-semibold text-gray-950 -mb-4">Your approvals</h2>
-        <!--<p class="mt-1 text-xs text-gray-400">RIS submitted by the Purchaser that need the School Administrator.</p>-->
-    </div>
-
-    @include('layouts.partials.maintenance-stat-cards', ['cards' => $actionMetrics])
+    <h2 class="text-base font-semibold text-gray-950">Your approvals</h2>
 
     <div class="grid gap-4 md:grid-cols-2">
         @foreach($risPanels as $panel)
@@ -117,10 +88,7 @@
                                             @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no, 'inline' => true, 'showLabel' => false])
                                         </p>
                                     @endif
-                                    <p class="mt-0.5 truncate text-xs text-gray-400">
-                                        {{ \Illuminate\Support\Str::limit($row->ris_purpose_description ?: 'No purpose noted', 60) }}
-                                        · ₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}
-                                    </p>
+                                    <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                                 </div>
                                 <div class="shrink-0 text-right">
                                     <p class="text-[11px] font-semibold text-gray-700">{{ $panel['statusText'] ?? \App\Support\RisWorkflow::statusLabel($row) }}</p>
@@ -138,6 +106,48 @@
                         </li>
                     @empty
                         <li class="px-5 py-8 text-sm text-gray-400">{{ $panel['empty'] }}</li>
+                    @endforelse
+                </ul>
+            </div>
+        @endforeach
+
+        @foreach($approvalQueues as $queue)
+            <div class="pur-card">
+                <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                    <h3 class="text-sm font-semibold text-gray-950">{{ $queue['title'] }}</h3>
+                    <a href="{{ $queue['url'] }}" class="shrink-0 text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">
+                        View all ({{ $queue['total'] }})
+                    </a>
+                </div>
+                <ul class="divide-y divide-gray-100">
+                    @forelse($queue['rows'] as $row)
+                        @php
+                            $since = ! empty($row->date) ? \Carbon\Carbon::parse($row->date)->startOfDay() : null;
+                            $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
+                        @endphp
+                        <li>
+                            <a href="{{ $row->url }}" class="flex w-full items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-900">{{ $row->label }}</p>
+                                    @if(!blank($row->request_no))
+                                        <p class="mt-0.5">
+                                            @include('partials.procurement-request-no', ['requestNo' => $row->request_no, 'inline' => true, 'showLabel' => false])
+                                        </p>
+                                    @endif
+                                    <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) $row->amount, 2) }}</p>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <p class="text-[11px] font-semibold text-gray-700">{{ $row->status }}</p>
+                                    @if($age !== null)
+                                        <p class="mt-0.5 text-[11px] {{ $age >= 3 ? 'sa-alert font-semibold' : 'text-gray-400' }}">
+                                            {{ $age === 0 ? 'Today' : $age.'d waiting' }}
+                                        </p>
+                                    @endif
+                                </div>
+                            </a>
+                        </li>
+                    @empty
+                        <li class="px-5 py-8 text-sm text-gray-400">{{ $queue['empty'] }}</li>
                     @endforelse
                 </ul>
             </div>
@@ -185,10 +195,7 @@
                             @if($requestNo !== '' && $formNumber !== '')
                                 <p class="mt-0.5 text-[11px] text-gray-400">{{ $formNumber }}</p>
                             @endif
-                            <p class="mt-0.5 truncate text-xs text-gray-400">
-                                {{ \Illuminate\Support\Str::limit($row->ris_purpose_description ?: 'No purpose noted', 70) }}
-                                · ₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}
-                            </p>
+                            <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                         </div>
                         <div class="min-w-0">
                             <div class="flex items-center">

@@ -204,25 +204,12 @@
             <span>DV Requests</span>
         </a>
 
-        {{-- ====================================== --}}
-        {{-- DIGITAL SIGNATURES --}}
-        {{-- ====================================== --}}
-
-        <div class="menu-title" id="signature-section">
-
-            DIGITAL SIGNATURES
-
-        </div>
-
         <a
             href="{{ route('school-admin.digital-signatures.history') }}"
             class="menu-item {{ request()->is('school-admin/digital-signatures/history*') ? 'active' : '' }}"
         >
-
             <i data-lucide="history"></i>
-
             <span>Signature History</span>
-
         </a>
 
         {{-- ====================================== --}}
@@ -243,14 +230,6 @@
             <span>Procurement Monitoring</span>
         </a>
 
-        <a
-            href="{{ route('school-admin.departments.index') }}"
-            class="menu-item {{ request()->is('school-admin/departments*') ? 'active' : '' }}"
-        >
-            <i data-lucide="building-2"></i>
-            <span>Departments</span>
-        </a>
-
         @php
             $equipmentLinks = [
                 ['url' => route('school-admin.operations.equipment'), 'active' => request()->is('school-admin/operations/equipment*'), 'icon' => 'monitor', 'label' => 'All Equipment'],
@@ -260,6 +239,7 @@
                 ['url' => route('school-admin.semester-inspections.index'), 'active' => request()->is('school-admin/semester-inspections*'), 'icon' => 'clipboard-list', 'label' => 'Semester Inspections'],
                 ['url' => route('school-admin.equipment-history.index'), 'active' => request()->is('school-admin/equipment/history*'), 'icon' => 'history', 'label' => 'Equipment History'],
                 ['url' => route('school-admin.disposal.index'), 'active' => request()->is('school-admin/disposal*'), 'icon' => 'trash-2', 'label' => 'Disposed Equipment'],
+                ['url' => route('school-admin.departments.index'), 'active' => request()->is('school-admin/departments*'), 'icon' => 'building-2', 'label' => 'Departments'],
             ];
             $equipmentGroupActive = collect($equipmentLinks)->contains('active', true);
         @endphp

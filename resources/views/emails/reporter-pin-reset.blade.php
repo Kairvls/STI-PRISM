@@ -18,7 +18,7 @@
                                 <strong style="color:#1a1a2e;">{{ $employeeId }}</strong>.
                             </p>
                             <p style="margin:0 0 22px;font-size:14px;line-height:1.6;color:#6b7280;">
-                                Open the link below to choose a new 6-digit PIN. It works once and expires in {{ $minutes }} minutes.
+                                Open the link below to choose a new 6-digit PIN. It works once and expires in {{ $minutes }} minutes, at {{ $expiresAt }} on {{ $expiresOn }}.
                             </p>
                             <a href="{{ $resetUrl }}"
                                style="display:inline-block;background:#0025cc;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px;">

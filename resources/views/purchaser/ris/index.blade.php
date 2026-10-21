@@ -112,10 +112,18 @@
                 'label' => (string) $brand->brand_name,
             ];
         })->values()->all(),
-        'itemOptions' => collect($itemCatalog ?? [])->map(function ($catalogItem) {
+        'itemOptions' => collect($itemCatalog ?? [])->map(function ($catalogItem) use ($itemHints) {
+            $hint = ($itemHints ?? [])[mb_strtolower(trim((string) $catalogItem->item_name))] ?? [];
+
             return [
                 'id' => (string) $catalogItem->item_id,
                 'label' => (string) $catalogItem->item_name,
+                'brand_ids' => array_values($hint['brand_ids'] ?? []),
+                'uom_ids' => array_values($hint['uom_ids'] ?? []),
+                'supplier_ids' => array_values($hint['supplier_ids'] ?? []),
+                'brand_id' => (string) ($hint['brand_id'] ?? ''),
+                'uom_id' => (string) ($hint['uom_id'] ?? ''),
+                'supplier_id' => (string) ($hint['supplier_id'] ?? ''),
             ];
         })->values()->all(),
         'itemQuickStoreUrl' => route(($pp ?? 'purchaser').'.items.quick-store'),
@@ -149,6 +157,7 @@
         ...JSON.parse(document.getElementById('ris-page-boot').textContent),
         submitRisConfirm: null,
         submitRisSending: false,
+        submitRisEditForm: null,
         closeEditRis(risId, returnToView = true) {
             this.editRisModal = null;
             this.editRisFullscreen = false;
@@ -156,7 +165,13 @@
                 this.openModal = 'ris-' + risId;
             }
         },
+        openSubmitFromEdit(button, id, number, hasAttachments = false, kind = 'submit', existingSignature = '') {
+            const form = button && button.closest ? button.closest('form') : null;
+            this.openSubmitRis(id, number, form ? form.getAttribute('action') : '#', hasAttachments, kind, existingSignature);
+            this.submitRisEditForm = form;
+        },
         openSubmitRis(id, number, action, hasAttachments = false, kind = 'submit', existingSignature = '') {
+            this.submitRisEditForm = null;
             this.submitRisSending = false;
             const onFile = (existingSignature && String(existingSignature).indexOf('data:image/') === 0)
                 ? String(existingSignature)
@@ -186,6 +201,7 @@
         closeSubmitRis() {
             if (this.submitRisSending) return;
             this.submitRisConfirm = null;
+            this.submitRisEditForm = null;
         },
         resetSubmitRisPad() {
             if (window.initSignaturePad) window.initSignaturePad('purchaserRisSubmitSignatureCanvas');
@@ -281,6 +297,49 @@
                 if (c) c.signatureError = 'Please sign the RIS before ' + (c.kind === 'resubmit' ? 'resubmitting' : 'submitting') + ' to School Administrator.';
                 return;
             }
+            if (this.submitRisEditForm) {
+                event.preventDefault();
+                const editForm = this.submitRisEditForm;
+                const modalForm = event.target;
+                const reviewer = modalForm.querySelector('[name=assigned_reviewer_id]');
+                if (!reviewer || reviewer.value === '') {
+                    if (reviewer && reviewer.reportValidity) reviewer.reportValidity();
+                    return;
+                }
+                const putHidden = (name, value) => {
+                    const fields = editForm.querySelectorAll('input[data-submit-field]');
+                    let input = null;
+                    for (let i = 0; i < fields.length; i++) {
+                        if (fields[i].getAttribute('data-submit-field') === name) {
+                            input = fields[i];
+                            break;
+                        }
+                    }
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = name;
+                        input.setAttribute('data-submit-field', name);
+                        editForm.appendChild(input);
+                    }
+                    input.value = value;
+                };
+                putHidden('assigned_reviewer_id', reviewer.value);
+                const signature = modalForm.querySelector('[name=signature_data]');
+                if (signature && signature.value) {
+                    putHidden('signature_data', signature.value);
+                }
+                const saveAction = c.kind === 'resubmit' ? 'resubmit' : 'submit';
+                const submitter = document.createElement('button');
+                submitter.type = 'submit';
+                submitter.name = 'save_action';
+                submitter.value = saveAction;
+                submitter.hidden = true;
+                editForm.appendChild(submitter);
+                this.submitRisSending = true;
+                editForm.requestSubmit(submitter);
+                return;
+            }
             this.submitRisSending = true;
         },
         createRowDeleteMode: false,
@@ -360,9 +419,77 @@
             el.style.height = 'auto';
             el.style.height = el.scrollHeight + 'px';
         },
+        itemHint(label) {
+            const key = String(label || '').trim().toLowerCase();
+            const opt = (this.itemOptions || []).find((row) => String(row.label || '').trim().toLowerCase() === key);
+            return {
+                brand_ids: opt?.brand_ids || [],
+                uom_ids: opt?.uom_ids || [],
+                supplier_ids: opt?.supplier_ids || [],
+                brand_id: opt?.brand_id || '',
+                uom_id: opt?.uom_id || '',
+                supplier_id: opt?.supplier_id || '',
+            };
+        },
+        risHintMeta(kind) {
+            return {
+                brand: { flag: '_showAllBrands', ids: '_brandIds', value: 'brand_id', options: 'brandOptions' },
+                uom: { flag: '_showAllUnits', ids: '_uomIds', value: 'uom_id', options: 'uomOptions' },
+                supplier: { flag: '_showAllSuppliers', ids: '_supplierIds', value: 'supplier_id', options: 'supplierOptions' },
+            }[kind] || null;
+        },
+        applyItemHints(row, overwrite) {
+            if (!row) return;
+            const hint = this.itemHint(row.name_description);
+            row._brandIds = hint.brand_ids;
+            row._uomIds = hint.uom_ids;
+            row._supplierIds = hint.supplier_ids;
+            if (overwrite || !row.brand_id) {
+                row.brand_id = hint.brand_id || (overwrite ? '' : (row.brand_id || ''));
+            }
+            if (overwrite || !row.uom_id) {
+                row.uom_id = hint.uom_id || (overwrite ? '' : (row.uom_id || ''));
+            }
+            if (overwrite || !row.supplier_id) {
+                row.supplier_id = hint.supplier_id || (overwrite ? '' : (row.supplier_id || ''));
+            }
+            if (overwrite) {
+                row._showAllBrands = false;
+                row._showAllUnits = false;
+                row._showAllSuppliers = false;
+            }
+        },
+        risFieldOptions(optionsKey, item, kind) {
+            const q = String(this.risSelectQuery || '').trim().toLowerCase();
+            const options = this[optionsKey] || [];
+            if (q) {
+                return options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
+            }
+            const meta = this.risHintMeta(kind);
+            if (!meta || item?.[meta.flag]) {
+                return options;
+            }
+            const ids = item?.[meta.ids] || [];
+            if (!ids.length) {
+                return options;
+            }
+            const allowed = new Set(ids.map((id) => String(id)));
+            const current = String(item?.[meta.value] || '');
+            if (current) allowed.add(current);
+            const matched = options.filter((opt) => allowed.has(String(opt.id)));
+            return matched.length ? matched : options;
+        },
+        risKnownLimited(item, kind) {
+            const meta = this.risHintMeta(kind);
+            if (!item || !meta || String(this.risSelectQuery || '').trim() || item[meta.flag]) return false;
+            const ids = item[meta.ids] || [];
+            const all = this[meta.options] || [];
+            return ids.length > 0 && ids.length < all.length;
+        },
         pickRisItem(items, index, label) {
             if (!items || !items[index] || items[index]._sourceLocked) return;
             items[index].name_description = String(label || '');
+            this.applyItemHints(items[index], true);
             this.copySplitUom(items, index);
             this.closeRisSelect();
         },
@@ -721,6 +848,7 @@
                 const row = this.createItems[index];
                 if (!row) return;
                 row.name_description = line.name || '';
+                this.applyItemHints(row, overwrite);
                 if (overwrite || !row.quantity_requested) {
                     row.quantity_requested = line.quantity || 1;
                 }
@@ -790,6 +918,9 @@
             if (!items[index].brand_id && first.brand_id) {
                 items[index].brand_id = first.brand_id;
             }
+            if (!items[index].supplier_id && first.supplier_id) {
+                items[index].supplier_id = first.supplier_id;
+            }
         },
         formatDateInput(event) {
             const el = event.target;
@@ -803,7 +934,9 @@
             el.value = formatted;
         },
         init() {
+            this.createItems.forEach((row) => this.applyItemHints(row, false));
             this.applyReplacementPrefill(false);
+            this.createItems.forEach((row) => this.applyItemHints(row, false));
             this.$watch('selectedReplacement', () => {
                 this.applyReplacementPrefill(true);
             });
@@ -2259,6 +2392,7 @@
                                                     @include('purchaser.ris._searchable-select', [
                                                         'field' => 'brand_id',
                                                         'optionsKey' => 'brandOptions',
+                                                        'limitKind' => 'brand',
                                                         'placeholder' => 'Brand',
                                                         'textAlign' => 'center',
                                                     ])
@@ -2268,6 +2402,7 @@
                                                     @include('purchaser.ris._searchable-select', [
                                                         'field' => 'uom_id',
                                                         'optionsKey' => 'uomOptions',
+                                                        'limitKind' => 'uom',
                                                         'placeholder' => 'Select unit',
                                                         'textAlign' => 'center',
                                                         'panelMinWidth' => 'min-w-[7rem]',
@@ -2278,6 +2413,7 @@
                                                     @include('purchaser.ris._searchable-select', [
                                                         'field' => 'supplier_id',
                                                         'optionsKey' => 'supplierOptions',
+                                                        'limitKind' => 'supplier',
                                                         'placeholder' => 'Select supplier',
                                                         'textAlign' => 'left',
                                                         'panelMinWidth' => 'min-w-[12rem]',
@@ -2512,7 +2648,7 @@
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
-                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word/Excel</p>
+                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word, Excel, or PDF</p>
                                 </div>
                             </div>
 
@@ -2536,7 +2672,7 @@
                                     <input
                                         type="file"
                                         name="ris_attachments[]"
-                                        accept=".doc,.docx,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                         class="sr-only"
                                         x-ref="createAttachmentsInput"
                                         x-on:change="onCreateAttachmentsChange($event)"
@@ -2546,7 +2682,7 @@
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-medium text-slate-800">Upload file</p>
-                                        <p class="truncate text-[10px] text-slate-500">One file only · Word or Excel</p>
+                                        <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
                                     </div>
                                 </label>
                             </div>
@@ -2923,9 +3059,11 @@
                                 @if($ris->risAttachments->count() === 1)
                                     @php $attachment = $ris->risAttachments->first(); @endphp
                                     <a
-                                        href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                        href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
+                                        target="_blank"
+                                        rel="noopener"
                                         class="inline-flex max-w-[7.5rem] items-center gap-1.5 text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
-                                        title="Download {{ $attachment->ris_attachment_original_name }}"
+                                        title="View {{ $attachment->ris_attachment_original_name }}"
                                     >
                                         <svg class="h-3.5 w-3.5 shrink-0 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
@@ -2957,7 +3095,9 @@
                                         >
                                             @foreach($ris->risAttachments as $attachment)
                                                 <a
-                                                    href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                                    href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
+                                        target="_blank"
+                                        rel="noopener"
                                                     class="block truncate px-3 py-2 text-sm font-medium text-sky-600 hover:bg-sky-50 hover:underline"
                                                     title="{{ $attachment->ris_attachment_original_name }}"
                                                 >
@@ -3049,14 +3189,18 @@
                                     @endif
 
                                     @if($canSendToSupply)
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}" class="inline">
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}"
+                                            class="inline"
+                                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
+                                            data-pur-confirm-title="Send to Supply Officer"
+                                            data-pur-confirm-ok="Send"
+                                            data-pur-confirm-reviewer-role="School Supply / Material Officer"
+                                        >
                                             @csrf
                                             <button
                                                 type="submit"
-                                                data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
-                                                data-pur-confirm-title="Send to Supply Officer"
-                                                data-pur-confirm-ok="Send"
-                                                data-pur-confirm-reviewer-role="School Supply / Material Officer"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                                 title="Send to School Supply / Material Officer"
                                                 aria-label="Send to School Supply / Material Officer"
@@ -3260,7 +3404,7 @@
         <div
             x-cloak
             x-show="openModal === 'ris-{{ $ris->ris_id }}'"
-            x-on:keydown.escape.window="openModal = null"
+            x-on:keydown.escape.window="if (document.getElementById('purConfirmOverlay')) return; openModal = null"
             class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
             x-effect="window.purDialog && window.purDialog.sync(openModal === 'ris-{{ $ris->ris_id }}', $el)"
             @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
@@ -3527,7 +3671,7 @@
                                     @if($ris->risAttachments->isNotEmpty())
                                         {{ $ris->risAttachments->count() }} {{ $ris->risAttachments->count() === 1 ? 'file' : 'files' }} attached
                                     @else
-                                        Word or Excel attachments for this RIS
+                                        Word, Excel, or PDF attachments for this RIS
                                     @endif
                                 </p>
                             </div>
@@ -3546,19 +3690,27 @@
                                             $ext = strtolower(pathinfo($attachment->ris_attachment_original_name, PATHINFO_EXTENSION));
                                             $isExcel = in_array($ext, ['xls', 'xlsx'], true);
                                             $isWord = in_array($ext, ['doc', 'docx'], true);
+                                            $isPdf = $ext === 'pdf';
                                             $fileIconClass = $isExcel
                                                 ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                                                : ($isWord
-                                                    ? 'bg-blue-50 text-blue-700 ring-blue-200'
-                                                    : 'bg-white text-slate-500 ring-slate-200');
-                                            $fileIcon = $isExcel ? 'file-spreadsheet' : ($isWord ? 'file-text' : 'paperclip');
+                                                : ($isPdf
+                                                    ? 'bg-rose-50 text-rose-700 ring-rose-200'
+                                                    : ($isWord
+                                                        ? 'bg-blue-50 text-blue-700 ring-blue-200'
+                                                        : 'bg-white text-slate-500 ring-slate-200'));
+                                            $fileIcon = $isExcel ? 'file-spreadsheet' : (($isWord || $isPdf) ? 'file-text' : 'paperclip');
                                         @endphp
                                         <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
                                             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 {{ $fileIconClass }}">
                                                 <i data-lucide="{{ $fileIcon }}" class="h-4 w-4"></i>
                                             </div>
                                             <div class="min-w-0 flex-1">
-                                                <p class="truncate text-sm font-medium text-slate-900">{{ $attachment->ris_attachment_original_name }}</p>
+                                                <a
+                                                    href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    class="block truncate text-sm font-medium text-[#0025cc] hover:underline"
+                                                >{{ $attachment->ris_attachment_original_name }}</a>
                                                 <p class="mt-0.5 text-xs text-slate-500">
                                                     @if($attachment->ris_attachment_size)
                                                         {{ number_format($attachment->ris_attachment_size / 1024, 1) }} KB
@@ -3568,12 +3720,14 @@
                                                 </p>
                                             </div>
                                             <a
-                                                href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
-                                                data-tooltip="Download"
-                                                aria-label="Download {{ $attachment->ris_attachment_original_name }}"
+                                                href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
+                                                target="_blank"
+                                                rel="noopener"
+                                                data-tooltip="View"
+                                                aria-label="View {{ $attachment->ris_attachment_original_name }}"
                                                 class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
                                             >
-                                                <i data-lucide="download" class="h-3.5 w-3.5"></i>
+                                                <i data-lucide="eye" class="h-3.5 w-3.5"></i>
                                             </a>
                                         </div>
                                     @endforeach
@@ -3636,14 +3790,17 @@
 
                     {{-- SEND TO SUPPLY OFFICER --}}
                     @if(!empty($ris->can_send_to_supply))
-                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}">
+                        <form
+                            method="POST"
+                            action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}"
+                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
+                            data-pur-confirm-title="Send to Supply Officer"
+                            data-pur-confirm-ok="Send"
+                            data-pur-confirm-reviewer-role="School Supply / Material Officer"
+                        >
                             @csrf
                             <button
                                 type="submit"
-                                data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
-                                data-pur-confirm-title="Send to Supply Officer"
-                                data-pur-confirm-ok="Send"
-                                data-pur-confirm-reviewer-role="School Supply / Material Officer"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
                                 Send to Supply Officer
@@ -3837,7 +3994,7 @@
                 x-cloak
                 x-show="editRisModal === 'edit-ris-{{ $ris->ris_id }}'"
                 x-transition.opacity
-                x-on:keydown.escape.window="if (editRisFullscreen) { editRisFullscreen = false; } else { closeEditRis({{ $ris->ris_id }}) }"
+                x-on:keydown.escape.window="if (submitRisConfirm) { return; } if (editRisFullscreen) { editRisFullscreen = false; } else { closeEditRis({{ $ris->ris_id }}) }"
                 class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50"
                 x-bind:class="editRisFullscreen ? 'p-0' : 'p-4 md:p-8'"
                 x-effect="window.purDialog && window.purDialog.sync(editRisModal === 'edit-ris-{{ $ris->ris_id }}', $el)"
@@ -3945,6 +4102,7 @@
                     undoTimer: null,
                     undoRestoring: false,
                     init() {
+                        this.editItems.forEach((row) => this.applyItemHints(row, false));
                         this.undoSnapshot = JSON.stringify(this.editItems);
                         this.$watch('editItems', () => {
                             if (this.undoRestoring) return;
@@ -4065,11 +4223,6 @@
                         @csrf
                         @method('PUT')
 
-                        <input
-                            type="hidden"
-                            name="save_action"
-                            value="save"
-                        >
                         <div
                             class="transition-[padding] duration-200"
                             x-bind:class="editRisFullscreen ? 'p-6 md:p-8 lg:px-10' : 'p-6'"
@@ -4084,7 +4237,7 @@
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
                                             <p class="text-sm font-semibold text-orange-900">Changes Requested by School Administrator</p>
-                                            <p class="mt-1 text-xs text-orange-700">Correct the issues below, save your changes, then use <strong>⋮ → Resubmit to School Administrator</strong> in the list.</p>
+                                            <p class="mt-1 text-xs text-orange-700">Correct the issues below, then resubmit to the School Administrator from this form.</p>
                                         </div>
                                         <span class="shrink-0 rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-700">
                                             Minor Revision
@@ -4226,6 +4379,7 @@
                                                         @include('purchaser.ris._searchable-select', [
                                                             'field' => 'brand_id',
                                                             'optionsKey' => 'brandOptions',
+                                                            'limitKind' => 'brand',
                                                             'placeholder' => 'Brand',
                                                             'textAlign' => 'center',
                                                             'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-center text-xs',
@@ -4243,6 +4397,7 @@
                                                         @include('purchaser.ris._searchable-select', [
                                                             'field' => 'uom_id',
                                                             'optionsKey' => 'uomOptions',
+                                                            'limitKind' => 'uom',
                                                             'placeholder' => 'Select unit',
                                                             'textAlign' => 'center',
                                                             'panelMinWidth' => 'min-w-[7rem]',
@@ -4261,6 +4416,7 @@
                                                         @include('purchaser.ris._searchable-select', [
                                                             'field' => 'supplier_id',
                                                             'optionsKey' => 'supplierOptions',
+                                                            'limitKind' => 'supplier',
                                                             'placeholder' => 'Select supplier',
                                                             'textAlign' => 'left',
                                                             'panelMinWidth' => 'min-w-[12rem]',
@@ -4457,7 +4613,7 @@
                                             @if($ris->risAttachments->isNotEmpty())
                                                 Current file on file · replace by uploading a new one
                                             @else
-                                                Required to submit · 1 file · Word/Excel
+                                                Required to submit · 1 file · Word, Excel, or PDF
                                             @endif
                                         </p>
                                     </div>
@@ -4469,10 +4625,13 @@
                                             $ext = strtolower(pathinfo($attachment->ris_attachment_original_name, PATHINFO_EXTENSION));
                                             $isExcel = in_array($ext, ['xls', 'xlsx'], true);
                                             $isWord = in_array($ext, ['doc', 'docx'], true);
+                                            $isPdf = $ext === 'pdf';
                                             $fileIconClass = $isExcel
                                                 ? 'bg-emerald-50 text-emerald-700'
-                                                : ($isWord ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-500');
-                                            $fileIcon = $isExcel ? 'file-spreadsheet' : ($isWord ? 'file-text' : 'paperclip');
+                                                : ($isPdf
+                                                    ? 'bg-rose-50 text-rose-700'
+                                                    : ($isWord ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-500'));
+                                            $fileIcon = $isExcel ? 'file-spreadsheet' : (($isWord || $isPdf) ? 'file-text' : 'paperclip');
                                         @endphp
                                         <div
                                             class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5"
@@ -4483,10 +4642,18 @@
                                             </div>
                                             <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800">{{ $attachment->ris_attachment_original_name }}</p>
                                             <a
-                                                href="{{ route(($pp ?? 'purchaser').'.ris.attachments.download', $attachment->ris_attachment_id) }}"
-                                                aria-label="Download {{ $attachment->ris_attachment_original_name }}"
+                                                href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
+                                                target="_blank"
+                                                rel="noopener"
+                                                aria-label="View {{ $attachment->ris_attachment_original_name }}"
                                                 class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
-                                            >Open</a>
+                                            >View</a>
+                                            <button
+                                                type="submit"
+                                                form="remove-canvas-{{ $attachment->ris_attachment_id }}"
+                                                onclick="return confirm('Remove this Canvas file?')"
+                                                class="shrink-0 text-[11px] font-medium text-red-600 transition hover:underline"
+                                            >Remove</button>
                                         </div>
                                     @empty
                                     @endforelse
@@ -4511,7 +4678,7 @@
                                         <input
                                             type="file"
                                             name="ris_attachments[]"
-                                            accept=".doc,.docx,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                             class="sr-only"
                                             x-ref="editAttachmentsInput"
                                             x-on:change="onEditAttachmentsChange($event)"
@@ -4521,7 +4688,7 @@
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-xs font-medium text-slate-800">{{ $ris->risAttachments->isNotEmpty() ? 'Replace file' : 'Upload file' }}</p>
-                                            <p class="truncate text-[10px] text-slate-500">One file only · Word or Excel</p>
+                                            <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
                                         </div>
                                     </label>
                                 </div>
@@ -4537,13 +4704,6 @@
                             >
                                 Issued quantity for a split item is higher than requested.
                             </p>
-                            <p class="mr-auto max-w-md text-xs text-gray-500 sm:mr-0 sm:flex-1 sm:text-right">
-                                @if($ris->ris_status === 'Draft')
-                                    Save your changes here, then use <strong>⋮ → Submit to School Administrator</strong>
-                                @elseif($ris->ris_status === 'Minor Revision')
-                                    Save your corrections here, then use <strong>⋮ → Resubmit to School Administrator</strong> 
-                                @endif
-                            </p>
                             <button
                                 type="button"
                                 x-on:click="closeEditRis({{ $ris->ris_id }})"
@@ -4553,12 +4713,45 @@
                             </button>
                             <button
                                 type="submit"
+                                name="save_action"
+                                value="save"
                                 class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                             >
                                 Save Changes
                             </button>
+                            @php
+                                $editSubmitSignature = \App\Support\RisWorkflow::requestedByDrawnSignature($ris);
+                            @endphp
+                            @if($ris->ris_status === 'Draft')
+                                <button
+                                    type="button"
+                                    x-on:click="openSubmitFromEdit($event.currentTarget, {{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($editSubmitSignature))"
+                                    class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                >
+                                    Submit to School Administrator
+                                </button>
+                            @elseif($ris->ris_status === 'Minor Revision')
+                                <button
+                                    type="button"
+                                    x-on:click="openSubmitFromEdit($event.currentTarget, {{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'RIS'), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'resubmit', @js($editSubmitSignature))"
+                                    class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                >
+                                    Resubmit to School Administrator
+                                </button>
+                            @endif
                         </div>
                     </form>
+                    @foreach($ris->risAttachments->take(1) as $removeAttachment)
+                        <form
+                            id="remove-canvas-{{ $removeAttachment->ris_attachment_id }}"
+                            method="POST"
+                            action="{{ route(($pp ?? 'purchaser').'.ris.attachments.destroy', $removeAttachment->ris_attachment_id) }}"
+                            class="hidden"
+                        >
+                            @csrf
+                            @method('DELETE')
+                        </form>
+                    @endforeach
                 </div>
                 </div>
             </div>
@@ -4573,7 +4766,7 @@
         x-cloak
         x-show="submitRisConfirm"
         x-transition.opacity
-        class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+        class="fixed inset-0 z-[260] flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
         x-effect="window.purDialog && window.purDialog.sync(!!submitRisConfirm, $el)"
         @keydown.tab="window.purDialog && window.purDialog.trap($event, $el)"
         @keydown.escape.window="closeSubmitRis()"

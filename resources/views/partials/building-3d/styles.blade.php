@@ -1264,6 +1264,43 @@
             color: white;
         }
 
+        .building-room-details-stat strong.is-skeleton {
+            width: 1.5rem;
+            height: 0.95rem;
+            margin: 6px auto 0;
+            border-radius: 6px;
+            color: transparent;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0.18) 25%, rgba(226, 232, 240, 0.45) 50%, rgba(148, 163, 184, 0.18) 75%);
+            background-size: 200% 100%;
+            animation: building-room-skel 1s ease-in-out infinite;
+        }
+
+        .building-room-skel {
+            padding: 4px 0;
+        }
+
+        .building-room-skel-row {
+            height: 52px;
+            margin: 8px 10px;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
+            background-size: 200% 100%;
+            animation: building-room-skel 1s ease-in-out infinite;
+        }
+
+        .building-room-skel-row:nth-child(2) {
+            width: 92%;
+        }
+
+        .building-room-skel-row:nth-child(3) {
+            width: 78%;
+        }
+
+        @keyframes building-room-skel {
+            0% { background-position: 100% 0; }
+            100% { background-position: -100% 0; }
+        }
+
 
         /* VIEW ROOM BUTTON */
 

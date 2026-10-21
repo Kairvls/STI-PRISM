@@ -39,12 +39,14 @@
     let signatureHistoryFilterFetchTimer = null;
     let currentSearch = '{{ $search ?? '' }}';
     let currentFilter = '{{ $filter ?? 'all' }}';
+    let currentDoc = '{{ $document ?? 'ris' }}';
 
 
     function fetchSignatureHistoryData(search, page, filter) {
 
         const params = new URLSearchParams();
 
+        params.set('doc', currentDoc || 'ris');
         params.set('filter', filter || currentFilter || 'all');
 
         if (search) {
@@ -250,6 +252,16 @@
             );
 
         }
+
+        document.querySelectorAll('[data-history-doc]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const next = this.getAttribute('data-history-doc');
+                if (!next || next === currentDoc) return;
+                currentDoc = next;
+                currentFilter = 'all';
+                fetchSignatureHistoryData(currentSearch, null, currentFilter);
+            });
+        });
 
         document.querySelectorAll('.signature-history-filter-btn, .signature-history-filter-card').forEach(function (el) {
             el.addEventListener('click', function () {

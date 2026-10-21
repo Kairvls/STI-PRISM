@@ -112,13 +112,7 @@
             <i class="h-5 w-5" data-lucide="layout-dashboard"></i>
             <span>Dashboard</span>
         </a>
-        <a
-            href="{{ route('maintenance.building-layout') }}"
-            class="menu-item {{ request()->is('maintenance/building-layout*') ? 'active' : '' }}"
-        >
-            <i class="h-5 w-5" data-lucide="building"></i>
-            <span>Campus Monitoring</span>
-        </a>
+        
         <a
             href="/maintenance/reports"
             class="menu-item {{ request()->is('maintenance/reports') ? 'active' : '' }}"
@@ -135,6 +129,14 @@
         >
             <i class="h-5 w-5" data-lucide="clipboard-pen"></i>
             <span>Log walk-in report</span>
+        </a>
+
+        <a
+            href="{{ route('maintenance.building-layout') }}"
+            class="menu-item {{ request()->is('maintenance/building-layout*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="building"></i>
+            <span>Campus Monitoring</span>
         </a>
         <a
             href="/maintenance/equipment/all"

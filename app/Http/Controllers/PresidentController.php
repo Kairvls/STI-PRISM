@@ -453,7 +453,7 @@ class PresidentController extends Controller
                     ->map(fn ($file) => [
                         'id' => $file->ris_attachment_id,
                         'name' => $file->ris_attachment_original_name,
-                        'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
+                        'url' => route('president.ris.attachments.preview', $file->ris_attachment_id),
                     ])
                     ->values()
                     ->all();
@@ -771,7 +771,7 @@ class PresidentController extends Controller
         $downloadName = trim((string) ($record->ris_direct_approval_proof_name ?? ''))
             ?: basename($path);
 
-        return Storage::disk('public')->download($path, $downloadName);
+        return Storage::disk('public')->response($path, $downloadName);
     }
 
     private function attachDirectApprovalSupportingDocuments($records): void
@@ -797,7 +797,7 @@ class PresidentController extends Controller
                 ->map(fn ($file) => [
                     'id' => $file->ris_attachment_id,
                     'name' => $file->ris_attachment_original_name,
-                    'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
+                    'url' => route('president.ris.attachments.preview', $file->ris_attachment_id),
                 ])
                 ->values()
                 ->all();
@@ -1735,7 +1735,7 @@ class PresidentController extends Controller
                 'id' => $file->ris_attachment_id,
                 'name' => $file->ris_attachment_original_name,
                 'size' => $file->ris_attachment_size ?? null,
-                'url' => route('president.ris.attachments.download', $file->ris_attachment_id),
+                'url' => route('president.ris.attachments.preview', $file->ris_attachment_id),
             ]),
             'forward_details' => $forwardDetails !== '' ? $forwardDetails : null,
             'forward_attachment' => $forwardAttachmentPath !== '' ? [
@@ -1769,7 +1769,7 @@ class PresidentController extends Controller
         $downloadName = trim((string) ($record->ris_forward_attachment_name ?? ''))
             ?: basename($path);
 
-        return Storage::disk('public')->download($path, $downloadName);
+        return Storage::disk('public')->response($path, $downloadName);
     }
 
     public function sendToAdmin($ris)

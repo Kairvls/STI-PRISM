@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
 use App\Support\SupplyHandoff;
 use App\Support\WorkflowNotifier;
@@ -154,6 +155,57 @@ class SupplyOfficerController extends Controller
             'latestAtpPending' => $latestAtpPending,
             'latestAtpToRelease' => $latestAtpToRelease,
             'latestAtpReturned' => $latestAtpReturned,
+        ]);
+    }
+
+    public function previewIncomingRis(int $ris): View
+    {
+        $record = $this->assertSupplyVisibleRis($ris);
+        $attachments = Schema::hasTable('ris_attachments_table')
+            ? DB::table('ris_attachments_table')
+                ->where('ris_id', $ris)
+                ->orderByDesc('ris_attachment_id')
+                ->limit(1)
+                ->get()
+            : collect();
+
+        return view('supply-officer.dashboard-preview', [
+            'kind' => 'ris',
+            'ris' => $record,
+            'risItems' => $this->risItemsWithLookups([$ris]),
+            'attachments' => $attachments,
+        ]);
+    }
+
+    public function previewAtp(int $atp): View
+    {
+        $record = DB::table('authority_to_purchase_table')
+            ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->where('authority_to_purchase_table.authority_purchase_id', $atp)
+            ->select(
+                'authority_to_purchase_table.*',
+                'suppliers_table.supplier_store_type',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            )
+            ->first();
+
+        abort_if(! $record, 404);
+        PurchaserDocumentAccess::assertOwns($record, 'atp');
+
+        $items = Schema::hasTable('authority_to_purchase_items_table')
+            ? DB::table('authority_to_purchase_items_table')
+                ->where('authority_purchase_id', $atp)
+                ->orderBy('atp_item_id')
+                ->get()
+            : collect();
+
+        return view('supply-officer.dashboard-preview', [
+            'kind' => 'atp',
+            'atp' => $record,
+            'items' => $items,
         ]);
     }
 

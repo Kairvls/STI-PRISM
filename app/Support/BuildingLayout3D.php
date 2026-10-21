@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -146,26 +147,40 @@ class BuildingLayout3D
     public static function roomDetail(int $roomId, ?array $period = null): array
     {
         [$from, $to, $preset] = self::resolvePeriod($period);
+        $cacheKey = 'building3d.room.'.$roomId.'.'.$preset.'.'.$from->toDateString().'.'.$to->toDateString();
+
+        return Cache::remember($cacheKey, now()->addSeconds(20), function () use ($roomId, $from, $to, $preset) {
+            return self::buildRoomDetail($roomId, $from, $to, $preset);
+        });
+    }
+
+    /**
+     * @return array{period:array{preset:string,from:string,to:string},counts:array<string,int>,reports:list<array<string,mixed>>}
+     */
+    private static function buildRoomDetail(int $roomId, Carbon $from, Carbon $to, string $preset): array
+    {
         $isLive = $preset === 'today' || ($from->isSameDay(today()) && $to->isSameDay(today()));
         $hasSeverity = ReportSeverity::hasColumns();
+        $reportIds = self::reportIdsLocatedInRoom($roomId, $from, $to, $isLive);
 
-        $query = self::reportsLocatedInRoomQuery($roomId, $from, $to, $isLive);
-
-        $rows = $query
-            ->orderByRaw($hasSeverity
-                ? ReportSeverity::orderSql('reports_table')
-                : "CASE WHEN reports_table.report_urgency_level = 'Urgent' THEN 0 ELSE 1 END")
-            ->orderByDesc('reports_table.report_submitted_at')
-            ->limit(200)
-            ->get(array_values(array_filter([
-                'reports_table.report_id',
-                'reports_table.report_current_status',
-                'reports_table.report_urgency_level',
-                'reports_table.report_submitted_at',
-                'reports_table.report_problem_description',
-                'reports_table.report_suggested_issue',
-                $hasSeverity ? 'reports_table.report_severity' : null,
-            ])));
+        $rows = $reportIds === []
+            ? collect()
+            : DB::table('reports_table')
+                ->whereIn('reports_table.report_id', $reportIds)
+                ->orderByRaw($hasSeverity
+                    ? ReportSeverity::orderSql('reports_table')
+                    : "CASE WHEN reports_table.report_urgency_level = 'Urgent' THEN 0 ELSE 1 END")
+                ->orderByDesc('reports_table.report_submitted_at')
+                ->limit(200)
+                ->get(array_values(array_filter([
+                    'reports_table.report_id',
+                    'reports_table.report_current_status',
+                    'reports_table.report_urgency_level',
+                    'reports_table.report_submitted_at',
+                    'reports_table.report_problem_description',
+                    'reports_table.report_suggested_issue',
+                    $hasSeverity ? 'reports_table.report_severity' : null,
+                ])));
 
         $counts = ['total' => 0, 'critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0];
         $reports = [];
@@ -244,6 +259,20 @@ class BuildingLayout3D
      */
     public static function statusSnapshot(?array $period = null): array
     {
+        [$from, $to, $preset] = self::resolvePeriod($period);
+        $cacheKey = 'building3d.status.'.$preset.'.'.$from->toDateString().'.'.$to->toDateString();
+
+        return Cache::remember($cacheKey, now()->addSeconds(20), function () use ($period) {
+            return self::buildStatusSnapshot($period);
+        });
+    }
+
+    /**
+     * @param  array{preset?:string,from?:string,to?:string}|null  $period
+     * @return list<array<string,mixed>>
+     */
+    private static function buildStatusSnapshot(?array $period): array
+    {
         return self::rooms($period)->map(function ($room) {
             return [
                 'id' => (int) $room->room_id,
@@ -313,8 +342,10 @@ class BuildingLayout3D
 
         $query = DB::table('reports_table')
             ->where('reports_table.report_is_archived', false)
-            ->whereDate('reports_table.report_submitted_at', '>=', $from->toDateString())
-            ->whereDate('reports_table.report_submitted_at', '<=', $to->toDateString());
+            ->whereBetween('reports_table.report_submitted_at', [
+                $from->copy()->startOfDay()->toDateTimeString(),
+                $to->copy()->endOfDay()->toDateTimeString(),
+            ]);
 
         if ($isLive) {
             $query->whereNotIn('reports_table.report_current_status', self::CLOSED_REPORT_STATUSES);
@@ -377,36 +408,69 @@ class BuildingLayout3D
     }
 
     /**
-     * Reports whose resolved location is this room.
+     * Report ids whose location resolves to this room.
+     * Separate indexed lookups stay faster than one joined COALESCE scan.
+     *
+     * @return list<int>
      */
-    private static function reportsLocatedInRoomQuery(int $roomId, Carbon $from, Carbon $to, bool $isLive)
+    private static function reportIdsLocatedInRoom(int $roomId, Carbon $from, Carbon $to, bool $isLive): array
     {
-        $hasItems = Schema::hasTable('report_items_table');
-        $hasItemRoom = $hasItems && Schema::hasColumn('report_items_table', 'report_item_room_id');
+        $period = function () use ($from, $to, $isLive) {
+            $query = DB::table('reports_table')
+                ->where('reports_table.report_is_archived', false)
+                ->whereBetween('reports_table.report_submitted_at', [
+                    $from->copy()->startOfDay()->toDateTimeString(),
+                    $to->copy()->endOfDay()->toDateTimeString(),
+                ]);
 
-        $query = DB::table('reports_table')
-            ->where('reports_table.report_is_archived', false)
-            ->whereDate('reports_table.report_submitted_at', '>=', $from->toDateString())
-            ->whereDate('reports_table.report_submitted_at', '<=', $to->toDateString());
+            if ($isLive) {
+                $query->whereNotIn('reports_table.report_current_status', self::CLOSED_REPORT_STATUSES);
+            }
 
-        if ($isLive) {
-            $query->whereNotIn('reports_table.report_current_status', self::CLOSED_REPORT_STATUSES);
+            return $query;
+        };
+
+        $ids = $period()
+            ->where('reports_table.report_room_id', $roomId)
+            ->pluck('reports_table.report_id');
+
+        $ids = $ids->merge(
+            $period()
+                ->join('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
+                ->where('equipment_table.equipment_room_id', $roomId)
+                ->pluck('reports_table.report_id')
+        );
+
+        if (Schema::hasTable('report_items_table')) {
+            $itemQuery = $period()
+                ->join('report_items_table', 'report_items_table.report_id', '=', 'reports_table.report_id');
+
+            if (Schema::hasColumn('report_items_table', 'report_item_room_id')) {
+                $itemQuery->where(function ($query) use ($roomId) {
+                    $query->where('report_items_table.report_item_room_id', $roomId)
+                        ->orWhereIn('report_items_table.report_item_equipment_id', function ($sub) use ($roomId) {
+                            $sub->select('equipment_id')
+                                ->from('equipment_table')
+                                ->where('equipment_room_id', $roomId);
+                        });
+                });
+            } else {
+                $itemQuery->whereIn('report_items_table.report_item_equipment_id', function ($sub) use ($roomId) {
+                    $sub->select('equipment_id')
+                        ->from('equipment_table')
+                        ->where('equipment_room_id', $roomId);
+                });
+            }
+
+            $ids = $ids->merge($itemQuery->pluck('reports_table.report_id'));
         }
 
-        if ($hasItems) {
-            $query->leftJoin('report_items_table', 'report_items_table.report_id', '=', 'reports_table.report_id')
-                ->leftJoin('equipment_table as item_equipment', 'item_equipment.equipment_id', '=', 'report_items_table.report_item_equipment_id');
-        }
-
-        $query->leftJoin('equipment_table as report_equipment', 'report_equipment.equipment_id', '=', 'reports_table.report_equipment_id');
-
-        $locationExpr = $hasItemRoom
-            ? 'COALESCE(report_items_table.report_item_room_id, item_equipment.equipment_room_id, report_equipment.equipment_room_id, reports_table.report_room_id)'
-            : ($hasItems
-                ? 'COALESCE(item_equipment.equipment_room_id, report_equipment.equipment_room_id, reports_table.report_room_id)'
-                : 'COALESCE(report_equipment.equipment_room_id, reports_table.report_room_id)');
-
-        return $query->whereRaw("{$locationExpr} = ?", [$roomId]);
+        return $ids
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

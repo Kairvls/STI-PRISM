@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AccountingAttentionSummary;
 use App\Support\AdminAttentionSummary;
 use App\Support\AdminPipeline;
 use App\Support\ReviewerAssignment;
@@ -261,14 +262,212 @@ class SchoolAdminController extends Controller
             $overdueSchedules = collect();
         }
 
-        return view('school-admin.dashboard', compact(
-            'stats',
-            'pendingRisList',
-            'awaitingSignList',
-            'latestProcurements',
-            'overdueBorrows',
-            'overdueSchedules'
-        ));
+        return view('school-admin.dashboard', [
+            'stats' => $stats,
+            'pendingRisList' => $pendingRisList,
+            'awaitingSignList' => $awaitingSignList,
+            'latestProcurements' => $latestProcurements,
+            'overdueBorrows' => $overdueBorrows,
+            'overdueSchedules' => $overdueSchedules,
+            'approvalQueues' => $this->approvalQueues(),
+        ]);
+    }
+
+    /**
+     * ATP, RFC, and DV records waiting for the School Administrator.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function approvalQueues(): array
+    {
+        return [
+            $this->atpApprovalQueue(),
+            $this->rfcApprovalQueue(),
+            $this->dvApprovalQueue(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function atpApprovalQueue(): array
+    {
+        $empty = [
+            'title' => 'ATP — Pending approval',
+            'url' => route('school-admin.atp.index', ['status' => 'incoming']),
+            'total' => 0,
+            'empty' => 'No Authority to Purchase waiting for approval.',
+            'rows' => collect(),
+        ];
+
+        if (! Schema::hasTable('authority_to_purchase_table')) {
+            return $empty;
+        }
+
+        try {
+            $query = AccountingAttentionSummary::queue('authority_to_purchase_table')
+                ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+                ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+                ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id');
+            AccountingAttentionSummary::scopeAtpIncoming($query);
+
+            if (Schema::hasTable('authority_to_purchase_items_table')) {
+                $totals = DB::table('authority_to_purchase_items_table')
+                    ->select('authority_purchase_id', DB::raw('SUM(atp_amount) as atp_total'))
+                    ->groupBy('authority_purchase_id');
+                $query->leftJoinSub($totals, 'atp_totals', function ($join) {
+                    $join->on('atp_totals.authority_purchase_id', '=', 'authority_to_purchase_table.authority_purchase_id');
+                });
+            }
+
+            $empty['total'] = (clone $query)->count();
+            $select = [
+                'authority_to_purchase_table.authority_purchase_id',
+                'authority_to_purchase_table.authority_purchase_form_number',
+                'authority_to_purchase_table.authority_purchase_submitted_at',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name',
+            ];
+            if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
+                $select[] = 'authority_to_purchase_table.authority_purchase_request_no';
+            }
+            $select[] = Schema::hasTable('authority_to_purchase_items_table')
+                ? DB::raw('COALESCE(atp_totals.atp_total, 0) as amount')
+                : DB::raw('0 as amount');
+
+            $empty['rows'] = (clone $query)
+                ->select($select)
+                ->orderBy('authority_to_purchase_table.authority_purchase_submitted_at')
+                ->limit(5)
+                ->get()
+                ->map(function ($row) {
+                    $supplier = trim((string) ($row->company_name ?: $row->shop_name ?: ''));
+
+                    return (object) [
+                        'label' => $row->authority_purchase_form_number ?: 'ATP #'.$row->authority_purchase_id,
+                        'request_no' => $row->authority_purchase_request_no ?? null,
+                        'detail' => $supplier !== '' ? $supplier : 'Authority to Purchase',
+                        'amount' => (float) ($row->amount ?? 0),
+                        'date' => $row->authority_purchase_submitted_at,
+                        'status' => 'Pending approval',
+                        'url' => route('school-admin.atp.show', $row->authority_purchase_id),
+                    ];
+                });
+        } catch (\Throwable $e) {
+            return $empty;
+        }
+
+        return $empty;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rfcApprovalQueue(): array
+    {
+        $empty = [
+            'title' => 'RFC — Pending approval',
+            'url' => route('school-admin.rfc.index', ['status' => 'incoming']),
+            'total' => 0,
+            'empty' => 'No Request for Check waiting for approval.',
+            'rows' => collect(),
+        ];
+
+        if (! Schema::hasTable('request_check_table')) {
+            return $empty;
+        }
+
+        try {
+            $query = AccountingAttentionSummary::queue('request_check_table');
+            AccountingAttentionSummary::scopeRfcIncoming($query);
+            $empty['total'] = (clone $query)->count();
+
+            $select = [
+                'request_check_id',
+                'request_check_form_number',
+                'request_check_payee',
+                'request_check_status',
+                'request_check_amount_figures',
+            ];
+            if (Schema::hasColumn('request_check_table', 'request_check_request_no')) {
+                $select[] = 'request_check_request_no';
+            }
+            if (Schema::hasColumn('request_check_table', 'request_check_submitted_at')) {
+                $select[] = 'request_check_submitted_at';
+            }
+
+            $empty['rows'] = (clone $query)
+                ->select($select)
+                ->orderByDesc('request_check_id')
+                ->limit(5)
+                ->get()
+                ->map(function ($row) {
+                    return (object) [
+                        'label' => $row->request_check_form_number ?: 'RFC #'.$row->request_check_id,
+                        'request_no' => $row->request_check_request_no ?? null,
+                        'detail' => trim((string) ($row->request_check_payee ?? '')) ?: 'Request for Check',
+                        'amount' => (float) ($row->request_check_amount_figures ?? 0),
+                        'date' => $row->request_check_submitted_at ?? null,
+                        'status' => (string) ($row->request_check_status ?: 'Pending approval'),
+                        'url' => route('school-admin.rfc.show', $row->request_check_id),
+                    ];
+                });
+        } catch (\Throwable $e) {
+            return $empty;
+        }
+
+        return $empty;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dvApprovalQueue(): array
+    {
+        $empty = [
+            'title' => 'DV — Pending approval',
+            'url' => route('school-admin.dv.index', ['status' => 'incoming']),
+            'total' => 0,
+            'empty' => 'No Disbursement Voucher waiting for approval.',
+            'rows' => collect(),
+        ];
+
+        if (! Schema::hasTable('disbursement_vouchers_table')) {
+            return $empty;
+        }
+
+        try {
+            $query = DB::table('disbursement_vouchers_table')
+                ->where('dv_status', 'Pending')
+                ->where(function ($q) {
+                    $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+                });
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_reviewer_id')) {
+                ReviewerAssignment::applyQueueFilter($query, 'dv_assigned_reviewer_id');
+            }
+
+            $empty['total'] = (clone $query)->count();
+            $empty['rows'] = (clone $query)
+                ->orderBy('dv_submitted_at')
+                ->orderBy('dv_id')
+                ->limit(5)
+                ->get()
+                ->map(function ($row) {
+                    return (object) [
+                        'label' => $row->dv_form_number ?: 'DV #'.$row->dv_id,
+                        'request_no' => $row->dv_request_no ?? null,
+                        'detail' => trim((string) ($row->dv_payee ?? '')) ?: 'Disbursement Voucher',
+                        'amount' => (float) ($row->dv_amount ?? 0),
+                        'date' => $row->dv_submitted_at ?? null,
+                        'status' => 'Pending approval',
+                        'url' => route('school-admin.dv.show', $row->dv_id),
+                    ];
+                });
+        } catch (\Throwable $e) {
+            return $empty;
+        }
+
+        return $empty;
     }
 
     public function notifications(): View

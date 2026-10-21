@@ -106,14 +106,17 @@
                         </td>
                         <td class="px-5 py-4">
                             <div class="flex flex-wrap items-center justify-end gap-1.5">
-                                <a
-                                    href="{{ route('supply-officer.incoming-ris.show', $ris->ris_id) }}"
-                                    target="_blank"
+                                <button
+                                    type="button"
+                                    data-ris-preview
+                                    data-preview-url="{{ route('supply-officer.dashboard.preview-ris', $ris->ris_id) }}"
+                                    data-atp-url="{{ route('supply-officer.atp.index', ['selected_ris' => $ris->ris_id]) }}"
+                                    data-preview-title="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
                                     class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
                                 >
                                     <i data-lucide="eye" class="h-3.5 w-3.5"></i>
                                     View Canvas + RIS
-                                </a>
+                                </button>
                                 <a
                                     href="{{ route('supply-officer.atp.index', ['selected_ris' => $ris->ris_id]) }}"
                                     class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001db3]"
@@ -145,4 +148,83 @@
         </div>
     @endif
 </div>
+
+<div id="incomingRisPreview" class="fixed inset-0 z-[200] hidden items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="incomingRisPreviewTitle">
+    <div class="my-auto w-full max-w-6xl overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div class="min-w-0">
+                <h2 id="incomingRisPreviewTitle" class="truncate text-lg font-semibold text-slate-950"></h2>
+                <p class="mt-0.5 text-sm text-slate-500">Approved Canvas + RIS</p>
+            </div>
+            <button type="button" id="incomingRisPreviewClose" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div id="incomingRisPreviewBody" class="max-h-[72vh] overflow-auto bg-slate-50"></div>
+        <div class="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
+            <button type="button" id="incomingRisPreviewDismiss" class="text-sm font-medium text-slate-500 hover:text-slate-900">Close</button>
+            <a id="incomingRisPreviewAtp" href="#" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001db3]">
+                <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+                Create ATP
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById('incomingRisPreview');
+        const title = document.getElementById('incomingRisPreviewTitle');
+        const body = document.getElementById('incomingRisPreviewBody');
+        const atpLink = document.getElementById('incomingRisPreviewAtp');
+        if (!modal || !body || !atpLink) return;
+
+        const skeleton = '<div class="space-y-3 p-5" aria-hidden="true">'
+            + '<div class="h-8 w-1/3 animate-pulse rounded-md bg-slate-200"></div>'
+            + '<div class="h-40 animate-pulse rounded-lg bg-slate-200"></div>'
+            + '<div class="h-24 animate-pulse rounded-lg bg-slate-200"></div>'
+            + '</div>';
+
+        function closePreview() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            body.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+
+        async function openPreview(button) {
+            title.textContent = button.dataset.previewTitle || 'Canvas + RIS';
+            atpLink.href = button.dataset.atpUrl || '#';
+            body.innerHTML = skeleton;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) lucide.createIcons();
+
+            try {
+                const response = await fetch(button.dataset.previewUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+                });
+                if (!response.ok) throw new Error('Preview failed');
+                body.innerHTML = await response.text();
+                if (window.lucide) lucide.createIcons();
+            } catch (error) {
+                body.innerHTML = '<p class="px-5 py-10 text-center text-sm text-red-600">Could not load this Canvas + RIS.</p>';
+            }
+        }
+
+        document.querySelectorAll('[data-ris-preview]').forEach((button) => {
+            button.addEventListener('click', () => openPreview(button));
+        });
+
+        document.getElementById('incomingRisPreviewClose')?.addEventListener('click', closePreview);
+        document.getElementById('incomingRisPreviewDismiss')?.addEventListener('click', closePreview);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) closePreview();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) closePreview();
+        });
+    })();
+</script>
 @endsection

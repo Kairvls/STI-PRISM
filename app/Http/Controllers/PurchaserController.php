@@ -153,6 +153,32 @@ class PurchaserController extends Controller
         ];
     }
 
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function submittedDateRange(mixed $from, mixed $to): array
+    {
+        $start = $this->submittedFilterDate($from);
+        $end = $this->submittedFilterDate($to);
+
+        if ($start && $end && $start > $end) {
+            return [$end, $start];
+        }
+
+        return [$start, $end];
+    }
+
+    private function submittedFilterDate(mixed $value): ?string
+    {
+        if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        $date = \DateTime::createFromFormat('Y-m-d', $value);
+
+        return $date && $date->format('Y-m-d') === $value ? $value : null;
+    }
+
     private function urgentReportsQuery()
     {
         $request = request();
@@ -196,6 +222,20 @@ class PurchaserController extends Controller
                     }
 
                     $query->where('reports_table.report_current_status', $request->status);
+                }
+            )
+            ->when(
+                $request->filled('from') || $request->filled('to'),
+                function ($query) use ($request) {
+                    [$from, $to] = $this->submittedDateRange($request->input('from'), $request->input('to'));
+
+                    if ($from) {
+                        $query->whereDate('reports_table.report_submitted_at', '>=', $from);
+                    }
+
+                    if ($to) {
+                        $query->whereDate('reports_table.report_submitted_at', '<=', $to);
+                    }
                 }
             )
             ->when(

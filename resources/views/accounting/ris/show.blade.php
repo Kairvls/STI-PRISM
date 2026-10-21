@@ -117,7 +117,7 @@
                         <ul>
                             @foreach ($attachments as $file)
                                 <li>
-                                    <a href="{{ route('school-admin.ris.attachment', [$ris->ris_id, $file->ris_attachment_id]) }}">
+                                    <a href="{{ route('school-admin.ris.attachment', [$ris->ris_id, $file->ris_attachment_id]) }}" target="_blank" rel="noopener">
                                         {{ $file->ris_attachment_original_name }}
                                     </a>
                                 </li>

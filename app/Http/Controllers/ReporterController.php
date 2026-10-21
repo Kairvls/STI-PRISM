@@ -13,7 +13,6 @@ use App\Support\ReportSeverity;
 use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 
 class ReporterController extends Controller
@@ -852,17 +851,20 @@ class ReporterController extends Controller
             'employee_id' => ['required', 'string', 'max:20'],
         ]);
 
-        $key = 'reporter-pin-forgot:'.sha1(ReporterPins::normalizeEmployeeId($request->employee_id));
+        $result = ReporterPins::requestResetLink($request->employee_id);
 
-        if (! RateLimiter::tooManyAttempts($key, 3)) {
-            RateLimiter::hit($key, 15 * 60);
-            ReporterPins::sendResetLink($request->employee_id);
+        if ($result['limited']) {
+            return response()->json([
+                'success' => false,
+                'code' => 'limited',
+                'retry_after' => $result['retry_after'],
+                'message' => $result['message'],
+            ], 429);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
-                .ReporterPins::RESET_MINUTES.' minutes. No email on file? Ask the system administrator to reset your PIN.',
+            'message' => $result['message'],
         ]);
     }
 
@@ -880,6 +882,7 @@ class ReporterController extends Controller
             'token' => $token,
             'reporterName' => $reset->reporter_full_name,
             'employeeId' => $reset->reporter_employee_id,
+            'expiresAt' => $reset->expires_at,
         ]);
     }
 
@@ -899,6 +902,10 @@ class ReporterController extends Controller
             'pin.digits' => 'PIN must be exactly '.ReporterPins::LENGTH.' digits.',
             'pin.confirmed' => 'The two PINs do not match.',
         ]);
+
+        if (ReporterPins::matchesCurrentPin((int) $reset->reporter_id, $request->pin)) {
+            return back()->withErrors(['pin' => 'This PIN cannot be used again. Choose a new PIN.']);
+        }
 
         if ($reason = ReporterPins::weaknessReason($request->pin)) {
             return back()->withErrors(['pin' => $reason]);

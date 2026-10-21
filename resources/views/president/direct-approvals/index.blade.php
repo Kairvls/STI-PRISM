@@ -404,7 +404,7 @@
                 docsBox.innerHTML = docs.map(function (file) {
                     var name = (file && file.name) ? String(file.name) : 'Attachment';
                     var url = (file && file.url) ? String(file.url) : '#';
-                    return '<a href="' + url + '" target="_blank" rel="noopener" download class="ris-doc-link" title="Download ' + name.replace(/"/g, '&quot;') + '">'
+                    return '<a href="' + url + '" target="_blank" rel="noopener" class="ris-doc-link" title="View ' + name.replace(/"/g, '&quot;') + '">'
                         + name.replace(/</g, '&lt;')
                         + '</a>';
                 }).join('');
@@ -571,9 +571,8 @@
                     link.href = file.url;
                     link.target = '_blank';
                     link.rel = 'noopener';
-                    link.download = '';
                     link.className = 'ris-doc-link';
-                    link.title = 'Download ' + (file.name || 'attachment');
+                    link.title = 'View ' + (file.name || 'attachment');
                     link.textContent = file.name || 'Attachment';
                     list.appendChild(link);
                 });

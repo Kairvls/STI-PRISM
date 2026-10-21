@@ -31,6 +31,10 @@ class ReporterPins
 
     public const RESET_MINUTES = 30;
 
+    public const RESET_SENDS = 5;
+
+    public const RESET_WINDOW_SECONDS = 3600;
+
     public const INCORRECT_MESSAGE = 'Employee ID or PIN is incorrect.';
 
     private const COMMON_PINS = [
@@ -459,16 +463,20 @@ class ReporterPins
         }
 
         $plainToken = Str::random(64);
+        $expiresAt = now()->addMinutes(self::RESET_MINUTES);
 
         DB::table(self::RESET_TABLE)
             ->where('reporter_id', $reporter->reporter_id)
-            ->whereNull('used_at')
+            ->where(function ($query) {
+                $query->whereNotNull('used_at')
+                    ->orWhere('expires_at', '<=', now());
+            })
             ->delete();
 
         DB::table(self::RESET_TABLE)->insert([
             'reporter_id' => $reporter->reporter_id,
             'token_hash' => hash('sha256', $plainToken),
-            'expires_at' => now()->addMinutes(self::RESET_MINUTES),
+            'expires_at' => $expiresAt,
             'created_at' => now(),
         ]);
 
@@ -480,6 +488,8 @@ class ReporterPins
                 'employeeId' => $reporter->reporter_employee_id,
                 'resetUrl' => $resetUrl,
                 'minutes' => self::RESET_MINUTES,
+                'expiresAt' => $expiresAt->timezone(config('app.timezone'))->format('g:i A'),
+                'expiresOn' => $expiresAt->timezone(config('app.timezone'))->format('M j, Y'),
             ], function ($message) use ($reporter) {
                 $message->to($reporter->reporter_email_address)->subject('Reset your PaAyo reporting PIN');
             });
@@ -490,6 +500,66 @@ class ReporterPins
 
             return false;
         }
+    }
+
+    /**
+     * Sends at most 5 reset emails per employee ID each hour.
+     *
+     * @return array{limited: bool, retry_after: int|null, message: string}
+     */
+    public static function requestResetLink(?string $employeeId): array
+    {
+        $key = 'reporter-pin-forgot:'.sha1(self::normalizeEmployeeId($employeeId));
+
+        if (RateLimiter::tooManyAttempts($key, self::RESET_SENDS)) {
+            $retryAfter = RateLimiter::availableIn($key);
+
+            return [
+                'limited' => true,
+                'retry_after' => $retryAfter,
+                'message' => self::resetWaitMessage($retryAfter),
+            ];
+        }
+
+        RateLimiter::hit($key, self::RESET_WINDOW_SECONDS);
+        self::sendResetLink($employeeId);
+
+        return [
+            'limited' => false,
+            'retry_after' => null,
+            'message' => 'If this employee ID has an email on file, we sent a link to set a new PIN. It expires in '
+                .self::RESET_MINUTES.' minutes. No email on file? Ask the system administrator to reset your PIN.',
+        ];
+    }
+
+    public static function resetWaitMessage(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $remain = $seconds % 60;
+        $parts = [];
+
+        if ($hours > 0) {
+            $parts[] = $hours.' '.Str::plural('hour', $hours);
+        }
+        if ($minutes > 0) {
+            $parts[] = $minutes.' '.Str::plural('minute', $minutes);
+        }
+        if ($hours === 0) {
+            $parts[] = $remain.' '.Str::plural('second', $remain);
+        }
+
+        return 'You can only request '.self::RESET_SENDS.' reset emails per hour. Try again in '.implode(' ', $parts).'.';
+    }
+
+    public static function matchesCurrentPin(int $reporterId, string $pin): bool
+    {
+        $hash = DB::table('reporters_table')
+            ->where('reporter_id', $reporterId)
+            ->value('reporter_pin_hash');
+
+        return filled($hash) && Hash::check($pin, (string) $hash);
     }
 
     public static function findReset(string $token): ?object
@@ -506,6 +576,7 @@ class ReporterPins
             ->where('reporters_table.reporter_status', 'Active')
             ->select(
                 self::RESET_TABLE.'.id as reset_id',
+                self::RESET_TABLE.'.expires_at',
                 'reporters_table.reporter_id',
                 'reporters_table.reporter_full_name',
                 'reporters_table.reporter_employee_id'

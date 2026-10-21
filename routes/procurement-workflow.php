@@ -72,6 +72,10 @@ Route::delete('/ris/saved-signatures/{signature}', [RisController::class, 'destr
     ->name('ris.saved-signatures.destroy');
 Route::get('/ris/attachments/{attachmentId}/download', [RisController::class, 'downloadAttachment'])
     ->name('ris.attachments.download');
+Route::get('/ris/attachments/{attachmentId}/preview', [RisController::class, 'previewAttachment'])
+    ->name('ris.attachments.preview');
+Route::delete('/ris/attachments/{attachmentId}', [RisController::class, 'destroyAttachment'])
+    ->name('ris.attachments.destroy');
 Route::get('/ris/revisions/{revisionId}/images/{index}', [RisController::class, 'revisionImage'])
     ->whereNumber(['revisionId', 'index'])
     ->name('ris.revision-image');
