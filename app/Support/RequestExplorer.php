@@ -467,6 +467,45 @@ class RequestExplorer
         return null;
     }
 
+    /**
+     * Request page inside the portal the person is using now.
+     * School Administrator stays on /school-admin/requests/…, Purchaser on /purchaser/requests/…, and so on.
+     */
+    public static function showUrl(string $requestNo, ?string $portal = null): ?string
+    {
+        $normalized = self::normalize($requestNo);
+        if ($normalized === '') {
+            return null;
+        }
+
+        $sessionPortal = request()->hasSession()
+            ? request()->session()->get(RoleAccess::PORTAL_SESSION_KEY)
+            : null;
+        $primary = RoleAccess::portalMeta()[RoleAccess::primaryRoleId()]['key'] ?? null;
+
+        $candidates = array_values(array_unique(array_filter([
+            $portal,
+            $portal === null ? self::viewerPortal() : null,
+            is_string($sessionPortal) ? $sessionPortal : null,
+            $primary,
+        ])));
+
+        foreach ($candidates as $key) {
+            $name = $key.'.requests.show';
+            if (! Route::has($name)) {
+                continue;
+            }
+
+            try {
+                return route($name, ['requestNo' => $normalized]);
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
     public static function layoutForPortal(?string $portal = null): string
     {
         $portal = $portal ?: self::viewerPortal();

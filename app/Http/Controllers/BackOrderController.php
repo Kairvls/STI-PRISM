@@ -38,7 +38,7 @@ class BackOrderController extends Controller
         $portal = $this->portal();
         $filter = array_key_exists($request->query('status'), self::FILTERS) ? $request->query('status') : 'unresolved';
         $type = array_key_exists($request->query('type'), BackOrders::TYPES) ? $request->query('type') : null;
-        $payment = in_array($request->query('payment'), ['rfc', 'ca'], true) ? $request->query('payment') : null;
+        $payment = in_array($request->query('payment'), ['rfc', 'ca', 'dp', 'ci'], true) ? $request->query('payment') : null;
         $supplier = in_array($request->query('supplier'), ['original', 'new'], true) ? $request->query('supplier') : null;
         $rootRrId = (int) $request->query('rr', 0);
 
@@ -448,6 +448,10 @@ class BackOrderController extends Controller
         $bo->refund_files = BackOrders::decodeFiles($bo->back_order_refund_images);
         $bo->replacement_files = BackOrders::decodeFiles($bo->back_order_replacement_files ?? null);
         $bo->is_cash_advance = $bo->back_order_payment_path === ProcurementPaymentPath::CASH_ADVANCE;
+        $bo->payment_label = ProcurementPaymentPath::label($bo->back_order_payment_path ?? null);
+        if ($bo->payment_label === 'Not chosen') {
+            $bo->payment_label = '';
+        }
         $bo->is_unresolved = BackOrders::isUnresolved($bo->back_order_status);
         $bo->is_new_supplier = filled($bo->back_order_replacement_supplier_name);
         $bo->is_replacement_line = !empty($bo->source_item_back_order_id);
@@ -474,9 +478,20 @@ class BackOrderController extends Controller
 
     private function applyPaymentFilter($query, ?string $payment): void
     {
-        if ($payment === 'ca') {
-            $query->where('bo.back_order_payment_path', ProcurementPaymentPath::CASH_ADVANCE);
-        } elseif ($payment === 'rfc') {
+        $path = match ($payment) {
+            'ca' => ProcurementPaymentPath::CASH_ADVANCE,
+            'dp' => ProcurementPaymentPath::DIRECT_PAYMENT,
+            'ci' => ProcurementPaymentPath::CASH_INSTALLMENT,
+            default => null,
+        };
+
+        if ($path) {
+            $query->whereIn('bo.back_order_payment_path', ProcurementPaymentPath::storedValuesForFilter($path));
+
+            return;
+        }
+
+        if ($payment === 'rfc') {
             $query->where(fn ($q) => $q->where('bo.back_order_payment_path', '!=', ProcurementPaymentPath::CASH_ADVANCE)
                 ->orWhereNull('bo.back_order_payment_path'));
         }

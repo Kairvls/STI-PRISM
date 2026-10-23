@@ -1,5 +1,5 @@
 <div id="sidebar">
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header px-5 pt-5 pb-2">
         <div class="logo-icon">
             <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="" />
         </div>
@@ -10,43 +10,6 @@
     </div>
 
     <div class="sidebar-content">
-        <div class="sidebar-search">
-            <div class="sidebar-dropdown">
-                <div id="dropdownTrigger" class="dropdown-trigger">
-                    <div class="flex items-center gap-2">
-                        <i class="h-5 w-5" data-lucide="search"></i>
-                        <span id="selectedSection">Search...</span>
-                    </div>
-                </div>
-                <div id="dropdownMenu" class="dropdown-menu">
-                    <div class="dropdown-item" data-target="dashboard-section">Dashboard</div>
-                    <div class="dropdown-item" data-target="approvals-section">RIS Approvals</div>
-                    <div class="dropdown-item" data-target="direct-approvals-section">Administrator Direct Approvals</div>
-                    <div class="dropdown-item" data-target="reports-section">Reports</div>
-                    <div class="dropdown-item" data-target="records-section">Compiled Records</div>
-                    <div class="dropdown-item" data-target="account-section">Account</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="quick-actions">
-            <a
-                href="/president/approvals"
-                class="quick-card {{ request()->is('president/approvals') || request()->is('president/approvals?*') ? 'active' : '' }}"
-            >
-                <i data-lucide="clipboard-check"></i>
-                <span>RIS Approvals</span>
-            </a>
-
-            <a
-                href="/president/reports/monthly-summary"
-                class="quick-card {{ request()->is('president/reports/monthly-summary*') ? 'active' : '' }}"
-            >
-                <i data-lucide="bar-chart-3"></i>
-                <span>Monthly Decisions</span>
-            </a>
-        </div>
-
         <div class="menu-title" id="dashboard-section">DASHBOARD</div>
         <a
             href="/president/dashboard"
@@ -75,13 +38,6 @@
         </a>
 
         <a
-            href="/president/approvals/history"
-            class="menu-item {{ request()->is('president/approvals/history*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="history"></i>
-            <span>Approval History</span>
-        </a>
-        <a
             href="{{ route('president.dv.index') }}"
             class="menu-item {{ request()->is('president/disbursement-vouchers*') ? 'active' : '' }} mt-1"
             id="dv-approvals-section"
@@ -90,38 +46,66 @@
             <span>Disbursement Vouchers</span>
         </a>
 
-        <div class="menu-title" id="reports-section">DECISION REPORTS</div>
-        <a
-            href="/president/reports/approved"
-            class="menu-item {{ request()->is('president/reports/approved*') ? 'active' : '' }}"
-        >
-            <i class="h-5 w-5" data-lucide="badge-check"></i>
-            <span>History</span>
-        </a>
-        <a
-            href="/president/reports/monthly-summary"
-            class="menu-item {{ request()->is('president/reports/monthly-summary*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="bar-chart-3"></i>
-            <span>Reports & Summary</span>
-        </a>
+        <div class="menu-title" id="records-section">RECORDS & ARCHIVES</div>
         <a
             href="/president/procurement-records"
-            class="menu-item {{ request()->is('president/procurement-records*') ? 'active' : '' }} mt-1"
-            id="records-section"
+            class="menu-item {{ request()->is('president/procurement-records*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="folder-archive"></i>
             <span>Compiled Records</span>
         </a>
 
-        <div class="menu-title" id="account-section">ACCOUNT</div>
+        @php
+            $reportsMenuActive = request()->is('president/reports/approved*')
+                || request()->is('president/reports/monthly-summary*')
+                || request()->is('president/approvals/history*');
+        @endphp
+        <div class="menu-title" id="reports-section">ANALYTICS & INSIGHTS</div>
+        <div class="menu-group {{ $reportsMenuActive ? 'is-open' : '' }}" data-menu-group @if($reportsMenuActive) data-force-open="1" @endif>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $reportsMenuActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $reportsMenuActive ? 'true' : 'false' }}"
+                aria-controls="reports-section-panel"
+            >
+                <i data-lucide="bar-chart-3"></i>
+                <span>Decision Reports</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" id="reports-section-panel" @if(! $reportsMenuActive) hidden @endif>
+                <a
+                    href="/president/reports/approved"
+                    class="menu-sub-item {{ request()->is('president/reports/approved*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="badge-check"></i>
+                    <span>History</span>
+                </a>
+                <a
+                    href="/president/reports/monthly-summary"
+                    class="menu-sub-item {{ request()->is('president/reports/monthly-summary*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="pie-chart"></i>
+                    <span>Reports & Summary</span>
+                </a>
+                <a
+                    href="/president/approvals/history"
+                    class="menu-sub-item {{ request()->is('president/approvals/history*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="history"></i>
+                    <span>Approval History</span>
+                </a>
+            </div>
+        </div>
+
+        <!--<div class="menu-title" id="account-section">ACCOUNT</div>
         <a
             href="{{ route('president.profile') }}"
             class="menu-item {{ request()->is('president/profile*') || request()->is('president/security*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="user-cog"></i>
             <span>Account settings</span>
-        </a>
+        </a>-->
     </div>
 </div>
 
@@ -145,7 +129,7 @@
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 20px 20px 32px 20px;
+        padding: 0 20px 32px 20px;
         overscroll-behavior: contain;
     }
 
@@ -188,70 +172,8 @@
         color: #94a3b8;
     }
 
-    .sidebar-search {
-        position: relative;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0;
-        height: 38px;
-        margin-bottom: 18px;
-        font-size: 14px;
-    }
-    .sidebar-search i {
-        width: 14px;
-        height: 14px;
-        color: #64748b;
-    }
-
-    .quick-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-bottom: 20px;
-    }
-    .quick-card {
-        height: 70px;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        text-decoration: none;
-        color: #cbd5e1;
-        transition: all 0.2s ease;
-    }
-    .quick-card:hover {
-        background: #182235;
-        border-color: #2563eb;
-        transform: translateY(-2px);
-    }
-    .quick-card i {
-        width: 16px;
-        height: 16px;
-        color: #60a5fa;
-        transition: all 0.2s ease;
-    }
-    .quick-card span {
-        font-size: 11px;
-        font-weight: 500;
-        text-align: center;
-        padding: 0 4px;
-    }
-    .quick-card.active {
-        border: 1.5px solid #2563eb !important;
-        color: #cbd5e1;
-        font-weight: 600;
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
-    }
-    .quick-card.active i {
-        color: #3b82f6;
+    .sidebar-content > .menu-title:first-child {
+        margin-top: 0;
     }
 
     .menu-title {
@@ -263,6 +185,88 @@
         margin-bottom: 10px;
         padding-left: 0;
         transition: all 0.3s ease;
+    }
+
+    .menu-group {
+        margin-top: 0;
+    }
+
+    .menu-group-toggle {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+    }
+
+    .menu-group-toggle .menu-group-chevron {
+        margin-left: auto;
+        width: 16px;
+        height: 16px;
+        color: #64748b;
+        transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .menu-group.is-open > .menu-group-toggle .menu-group-chevron {
+        transform: rotate(180deg);
+        color: #94a3b8;
+    }
+
+    .menu-group-toggle.active-parent,
+    .menu-group-toggle.active-parent span {
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    .menu-group-toggle.active-parent svg:not(.menu-group-chevron) {
+        color: #60a5fa;
+        stroke: #60a5fa;
+    }
+
+    .menu-sub {
+        display: grid;
+        gap: 2px;
+        margin: 0 0 6px 8px;
+        padding: 2px 0 4px 12px;
+        border-left: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .menu-sub[hidden] {
+        display: none;
+    }
+
+    .menu-sub-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 36px;
+        padding: 0 4px;
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 13px;
+    }
+
+    .menu-sub-item svg {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        color: inherit;
+    }
+
+    .menu-sub-item:hover {
+        color: #ffffff;
+    }
+
+    .menu-sub-item.active {
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    .menu-sub-item.active svg {
+        color: #60a5fa;
+        stroke: #60a5fa;
     }
 
     .menu-item {
@@ -331,96 +335,42 @@
         color: #ffffff;
     }
 
-    .section-highlight {
-        color: #60a5fa !important;
-        text-shadow: 0 0 10px rgba(96, 165, 250, 0.35);
-    }
-
-    .sidebar-dropdown {
-        width: 100%;
-        position: relative;
-    }
-    .dropdown-trigger {
-        width: 100%;
-        height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        cursor: pointer;
-        padding: 0 12px;
-    }
-    .dropdown-menu {
-        display: none;
-        position: absolute;
-        top: 45px;
-        left: 0;
-        width: 100%;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        overflow: hidden;
-        z-index: 999;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    }
-    .dropdown-item {
-        padding: 12px 14px;
-        cursor: pointer;
-        transition: 0.2s;
-        font-size: 14px;
-    }
-    .dropdown-item:hover {
-        background: #1f2937;
-        color: #93c5fd;
-    }
 </style>
 
 <script>
-    const trigger = document.getElementById('dropdownTrigger');
-    const menu = document.getElementById('dropdownMenu');
-    const selected = document.getElementById('selectedSection');
-    const sidebarContent = document.querySelector('.sidebar-content');
+    const sidebarContent = document.querySelector('#sidebar .sidebar-content');
     const sidebarScrollKey = 'presidentSidebarScrollPosition';
-
-    if (trigger && menu) {
-        trigger.addEventListener('click', () => {
-            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        });
-    }
-
-    document.querySelectorAll('.dropdown-item').forEach((item) => {
-        item.addEventListener('click', () => {
-            if (selected) {
-                selected.textContent = item.textContent.trim();
-            }
-
-            const target = document.getElementById(item.dataset.target);
-            if (target && sidebarContent) {
-                const searchArea = document.querySelector('.sidebar-search');
-                const searchHeight = searchArea?.offsetHeight ?? 0;
-                sidebarContent.scrollTo({
-                    top: target.offsetTop - searchHeight - 20,
-                    behavior: 'smooth',
-                });
-                target.classList.add('section-highlight');
-                setTimeout(() => target.classList.remove('section-highlight'), 2000);
-            }
-
-            if (menu) menu.style.display = 'none';
-        });
-    });
-
-    document.addEventListener('click', (event) => {
-        if (!trigger || !menu) return;
-        if (!trigger.contains(event.target) && !menu.contains(event.target)) {
-            menu.style.display = 'none';
-        }
-    });
 
     if (sidebarContent) {
         sidebarContent.addEventListener('scroll', () => {
             sessionStorage.setItem(sidebarScrollKey, sidebarContent.scrollTop);
         });
     }
+
+    document.querySelectorAll('[data-menu-group]').forEach((group) => {
+        const toggle = group.querySelector('[data-menu-group-toggle]');
+        const panel = group.querySelector('.menu-sub');
+        if (!toggle || !panel) return;
+
+        const savedOpen = sessionStorage.getItem('presidentSidebarReportsOpen');
+        if (group.dataset.forceOpen === '1' || savedOpen === '1') {
+            group.classList.add('is-open');
+            panel.hidden = false;
+            toggle.setAttribute('aria-expanded', 'true');
+        } else if (savedOpen === '0') {
+            group.classList.remove('is-open');
+            panel.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+
+        toggle.addEventListener('click', () => {
+            const willOpen = !group.classList.contains('is-open');
+            group.classList.toggle('is-open', willOpen);
+            panel.hidden = !willOpen;
+            toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            sessionStorage.setItem('presidentSidebarReportsOpen', willOpen ? '1' : '0');
+        });
+    });
 
     window.addEventListener('DOMContentLoaded', () => {
         if (!sidebarContent) return;
@@ -430,7 +380,7 @@
             sidebarContent.scrollTop = Number(savedScrollPosition);
         }
 
-        const activeMenuItem = document.querySelector('.menu-item.active');
+        const activeMenuItem = document.querySelector('.menu-item.active, .menu-sub-item.active');
         if (!activeMenuItem) return;
 
         requestAnimationFrame(() => {

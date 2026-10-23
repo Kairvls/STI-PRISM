@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\ReceivingMenuSeen;
 use App\Support\RoleAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -19,6 +20,8 @@ class ReceivingMiddleware
         if (! RoleAccess::hasRole(RoleAccess::RECEIVING, Auth::user())) {
             abort(403);
         }
+
+        ReceivingMenuSeen::capture($request);
 
         return $next($request);
     }

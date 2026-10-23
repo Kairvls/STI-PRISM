@@ -16,21 +16,6 @@ class ReceivingViewServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer(
-            'layouts.receiving-sidebar',
-            function ($view) {
-                $receivingSidebarPendingCount = 0;
-
-                try {
-                    $receivingSidebarPendingCount = (int) (ReceivingAttentionSummary::counts()['pendingCount'] ?? 0);
-                } catch (\Throwable $e) {
-                    // Keep zero if schema/query fails.
-                }
-
-                $view->with(compact('receivingSidebarPendingCount'));
-            }
-        );
-
-        View::composer(
             'layouts.receiving-topbar',
             function ($view) {
                 $attentionTotal = 0;

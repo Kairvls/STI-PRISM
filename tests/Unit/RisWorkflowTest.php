@@ -66,7 +66,7 @@ class RisWorkflowTest extends TestCase
         $forwarded = $this->ris(['ris_status' => 'Forwarded to President']);
         $this->assertTrue(RisWorkflow::isAwaitingPresident($forwarded));
         $this->assertFalse(RisWorkflow::isEligibleForAtp($forwarded));
-        $this->assertSame('Forwarded to the President by the Administrator', RisWorkflow::statusLabel($forwarded));
+        $this->assertSame('Forwarded to the President by the School Administrator', RisWorkflow::statusLabel($forwarded));
     }
 
     public function test_president_reject_label_is_normalized(): void
@@ -82,7 +82,7 @@ class RisWorkflowTest extends TestCase
 
     public function test_president_approved_without_issued_by_shows_pending_admin_review(): void
     {
-        $this->assertSame('Pending Admin Review', RisWorkflow::statusLabel($this->ris([
+        $this->assertSame('Approved by the President — waiting on the School Administrator release', RisWorkflow::statusLabel($this->ris([
             'ris_status' => 'Approved by the President',
             'ris_approved_by_signature' => 'data:image/png;base64,abc',
         ])));

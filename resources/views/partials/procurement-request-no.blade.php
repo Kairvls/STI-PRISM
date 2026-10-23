@@ -7,9 +7,9 @@
     $showLabel = (bool) ($showLabel ?? true);
     $link = (bool) ($link ?? true);
     $href = null;
-    if ($link && $requestNo !== '' && \Illuminate\Support\Facades\Route::has('requests.show')) {
+    if ($link && $requestNo !== '') {
         try {
-            $href = route('requests.show', ['requestNo' => $requestNo]);
+            $href = \App\Support\RequestExplorer::showUrl($requestNo);
         } catch (\Throwable) {
             $href = null;
         }

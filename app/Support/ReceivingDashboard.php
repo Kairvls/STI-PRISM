@@ -31,6 +31,7 @@ class ReceivingDashboard
         $backOrders = self::safe(fn () => self::backOrderRows(), collect());
         $unresolved = $backOrders->filter(fn ($bo) => BackOrders::isUnresolved($bo->back_order_status))->values();
         $counts = ReceivingAttentionSummary::counts();
+        $incomplete = self::safe(fn () => self::incompleteReports($backOrders), ['rows' => collect(), 'total' => 0]);
 
         return [
             'counts' => $counts,
@@ -39,9 +40,12 @@ class ReceivingDashboard
             'countedLastMonth' => self::safe(fn () => self::countedInMonth(now()->subMonthNoOverflow()), 0),
             'queue' => self::safe(fn () => self::queueRows($unresolved), ['rows' => collect(), 'total' => 0]),
             'recentlyCounted' => self::safe(fn () => self::recentlyCounted(), collect()),
+            'returned' => self::safe(fn () => self::followUpRows('returned'), ['rows' => collect(), 'total' => 0]),
+            'delivered' => self::safe(fn () => self::deliveredRows(), ['rows' => collect(), 'total' => 0]),
             'board' => self::board($unresolved),
             'snapshot' => self::snapshot($backOrders, $unresolved),
-            'incomplete' => self::safe(fn () => self::incompleteReports($backOrders), collect()),
+            'incomplete' => $incomplete['rows'] ?? collect(),
+            'incompleteCount' => (int) ($incomplete['total'] ?? 0),
             'suppliers' => self::supplierIssues($backOrders),
             'week' => self::safe(fn () => self::weekStrip(), []),
             'activity' => self::safe(fn () => self::recentActivity(), collect()),
@@ -83,6 +87,53 @@ class ReceivingDashboard
         return count($columns) === 1
             ? self::RR.'.'.$columns[0]
             : 'COALESCE('.implode(', ', array_map(fn ($c) => self::RR.'.'.$c, $columns)).')';
+    }
+
+    private static function kindLabel(?string $path): string
+    {
+        $normalized = ProcurementPaymentPath::normalize($path);
+
+        return $normalized ? (ProcurementPaymentPath::labels()[$normalized] ?? '') : '';
+    }
+
+    private static function paymentPathExpr($query): string
+    {
+        $parts = [];
+        $hasAtpPath = Schema::hasTable('authority_to_purchase_table')
+            && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path');
+
+        if ($hasAtpPath && self::rrColumn('receiving_report_atp_id')) {
+            $query->leftJoin(
+                'authority_to_purchase_table as rd_pay_atp',
+                'rd_pay_atp.authority_purchase_id',
+                '=',
+                self::RR.'.receiving_report_atp_id'
+            );
+            $parts[] = "NULLIF(rd_pay_atp.authority_purchase_payment_path, '')";
+        }
+
+        if (self::rrColumn('receiving_report_request_check_id') && Schema::hasTable('request_check_table')) {
+            $query->leftJoin(
+                'request_check_table as rd_pay_rfc',
+                'rd_pay_rfc.request_check_id',
+                '=',
+                self::RR.'.receiving_report_request_check_id'
+            );
+            if (Schema::hasColumn('request_check_table', 'request_check_funding_type')) {
+                $parts[] = "NULLIF(rd_pay_rfc.request_check_funding_type, '')";
+            }
+            if ($hasAtpPath && Schema::hasColumn('request_check_table', 'request_check_authority_purchase_id')) {
+                $query->leftJoin(
+                    'authority_to_purchase_table as rd_pay_rfc_atp',
+                    'rd_pay_rfc_atp.authority_purchase_id',
+                    '=',
+                    'rd_pay_rfc.request_check_authority_purchase_id'
+                );
+                $parts[] = "NULLIF(rd_pay_rfc_atp.authority_purchase_payment_path, '')";
+            }
+        }
+
+        return $parts === [] ? 'NULL' : 'COALESCE('.implode(', ', $parts).')';
     }
 
     private static function ageDays($raw): ?int
@@ -187,6 +238,7 @@ class ReceivingDashboard
         self::joinItemTotals($query);
         $supplierExpr = self::withSupplier($query);
         $submittedExpr = self::submittedExpr();
+        $pathExpr = self::paymentPathExpr($query);
         $hasItems = Schema::hasTable(self::ITEMS);
 
         $query->select(array_filter([
@@ -195,6 +247,7 @@ class ReceivingDashboard
             self::rrColumn('receiving_report_form_number') ? self::RR.'.receiving_report_form_number' : null,
             DB::raw($supplierExpr.' as supplier_name'),
             DB::raw($submittedExpr.' as submitted_at'),
+            DB::raw($pathExpr.' as payment_path'),
             $hasItems ? 'rd_items.line_count' : null,
             $hasItems ? 'rd_items.total_qty' : null,
             $hasItems ? 'rd_items.total_amount' : null,
@@ -225,6 +278,7 @@ class ReceivingDashboard
                     'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
                     'status' => $row->receiving_report_status,
                     'supplier' => $row->supplier_name ?: 'Supplier not set',
+                    'kind' => self::kindLabel($row->payment_path ?? null),
                     'lines' => (int) ($row->line_count ?? 0),
                     'qty' => (int) ($row->total_qty ?? 0),
                     'amount' => (float) ($row->total_amount ?? 0),
@@ -236,6 +290,93 @@ class ReceivingDashboard
                     'has_replacement' => in_array((int) $row->receiving_report_id, $replacementRoots, true),
                 ];
             });
+
+        return ['rows' => $rows, 'total' => $total];
+    }
+
+    /**
+     * @return array{rows: Collection, total: int}
+     */
+    private static function followUpRows(string $focus): array
+    {
+        if (!self::hasRr()) {
+            return ['rows' => collect(), 'total' => 0];
+        }
+
+        $countQuery = ReceivingAttentionSummary::queue();
+        ReceivingAttentionSummary::applyFocus($countQuery, $focus);
+        $total = (int) $countQuery->count();
+
+        $query = ReceivingAttentionSummary::queue();
+        ReceivingAttentionSummary::applyFocus($query, $focus);
+        self::joinItemTotals($query);
+        $supplierExpr = self::withSupplier($query);
+        $submittedExpr = self::submittedExpr();
+        $pathExpr = self::paymentPathExpr($query);
+
+        $rows = $query
+            ->select(array_filter([
+                self::RR.'.receiving_report_id',
+                self::rrColumn('receiving_report_form_number') ? self::RR.'.receiving_report_form_number' : null,
+                DB::raw($supplierExpr.' as supplier_name'),
+                DB::raw($submittedExpr.' as submitted_at'),
+                DB::raw($pathExpr.' as payment_path'),
+            ]))
+            ->orderByDesc(self::RR.'.receiving_report_id')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => (object) [
+                'id' => (int) $row->receiving_report_id,
+                'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
+                'supplier' => $row->supplier_name ?: 'Supplier not set',
+                'kind' => self::kindLabel($row->payment_path ?? null),
+                'at' => !empty($row->submitted_at) ? Carbon::parse($row->submitted_at) : null,
+            ]);
+
+        return ['rows' => $rows, 'total' => $total];
+    }
+
+    /**
+     * @return array{rows: Collection, total: int}
+     */
+    private static function deliveredRows(): array
+    {
+        if (!self::hasRr()) {
+            return ['rows' => collect(), 'total' => 0];
+        }
+
+        $statuses = ['Completed', 'Accepted'];
+        $countQuery = DB::table(self::RR)->whereIn(self::RR.'.receiving_report_status', $statuses);
+        ReceivingAttentionSummary::scopeActive($countQuery);
+        $total = (int) $countQuery->count();
+
+        $query = DB::table(self::RR)->whereIn(self::RR.'.receiving_report_status', $statuses);
+        ReceivingAttentionSummary::scopeActive($query);
+        self::joinItemTotals($query);
+        $supplierExpr = self::withSupplier($query);
+        $pathExpr = self::paymentPathExpr($query);
+        $when = self::rrColumn('receiving_report_second_count_at')
+            ? self::RR.'.receiving_report_second_count_at'
+            : self::submittedExpr();
+
+        $rows = $query
+            ->select(array_filter([
+                self::RR.'.receiving_report_id',
+                self::rrColumn('receiving_report_form_number') ? self::RR.'.receiving_report_form_number' : null,
+                DB::raw($supplierExpr.' as supplier_name'),
+                DB::raw($when.' as counted_at'),
+                DB::raw($pathExpr.' as payment_path'),
+            ]))
+            ->orderByRaw($when.' DESC')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => (object) [
+                'id' => (int) $row->receiving_report_id,
+                'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
+                'supplier' => $row->supplier_name ?: 'Supplier not set',
+                'kind' => self::kindLabel($row->payment_path ?? null),
+                'at' => !empty($row->counted_at) ? Carbon::parse($row->counted_at) : null,
+            ]);
 
         return ['rows' => $rows, 'total' => $total];
     }
@@ -306,7 +447,7 @@ class ReceivingDashboard
             $board[$status] = $meta + [
                 'count' => $rows->count(),
                 'units' => (int) $rows->sum('back_order_quantity'),
-                'tickets' => $rows->take(3)->map(fn ($bo) => (object) [
+                'tickets' => $rows->take(5)->map(fn ($bo) => (object) [
                     'id' => (int) $bo->back_order_id,
                     'number' => BackOrderNumber::label($bo),
                     'article' => $bo->back_order_article ?: 'Item',
@@ -314,6 +455,8 @@ class ReceivingDashboard
                     'unit' => $bo->back_order_unit ?: 'pcs',
                     'type' => $bo->back_order_type,
                     'type_label' => BackOrders::TYPES[$bo->back_order_type] ?? ucfirst((string) $bo->back_order_type),
+                    'kind' => self::kindLabel($bo->back_order_payment_path ?? null),
+                    'rfc_id' => (int) ($bo->back_order_request_check_id ?? 0),
                     'reason' => $bo->back_order_reason ? BackOrders::reasonLabel($bo->back_order_reason) : null,
                     'supplier' => $status === BackOrders::STATUS_RECEIVING && !empty($bo->back_order_replacement_supplier_name)
                         ? $bo->back_order_replacement_supplier_name
@@ -378,16 +521,21 @@ class ReceivingDashboard
         ];
     }
 
-    private static function incompleteReports(Collection $backOrders): Collection
+    private static function incompleteReports(Collection $backOrders): array
     {
         if (!self::hasRr()) {
-            return collect();
+            return ['rows' => collect(), 'total' => 0];
         }
+
+        $countQuery = DB::table(self::RR)->where(self::RR.'.receiving_report_status', 'Incomplete');
+        ReceivingAttentionSummary::scopeActive($countQuery);
+        $reportTotal = (int) $countQuery->count();
 
         $query = DB::table(self::RR)->where(self::RR.'.receiving_report_status', 'Incomplete');
         ReceivingAttentionSummary::scopeActive($query);
         self::joinItemTotals($query);
         $supplierExpr = self::withSupplier($query);
+        $pathExpr = self::paymentPathExpr($query);
         $countedCol = self::rrColumn('receiving_report_second_count_at')
             ? self::RR.'.receiving_report_second_count_at'
             : self::submittedExpr();
@@ -398,6 +546,7 @@ class ReceivingDashboard
                 self::rrColumn('receiving_report_form_number') ? self::RR.'.receiving_report_form_number' : null,
                 DB::raw($supplierExpr.' as supplier_name'),
                 DB::raw($countedCol.' as counted_at'),
+                DB::raw($pathExpr.' as payment_path'),
             ]))
             ->orderByRaw($countedCol.' ASC')
             ->limit(5)
@@ -405,7 +554,7 @@ class ReceivingDashboard
 
         $byRoot = $backOrders->groupBy(fn ($bo) => (int) $bo->back_order_root_receiving_report_id);
 
-        return $rows->map(function ($row) use ($byRoot) {
+        $mapped = $rows->map(function ($row) use ($byRoot) {
             $lines = $byRoot->get((int) $row->receiving_report_id, collect());
             $open = $lines->filter(fn ($bo) => BackOrders::isUnresolved($bo->back_order_status));
             $total = $lines->count();
@@ -414,6 +563,7 @@ class ReceivingDashboard
                 'id' => (int) $row->receiving_report_id,
                 'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
                 'supplier' => $row->supplier_name ?: 'Supplier not set',
+                'kind' => self::kindLabel($row->payment_path ?? null),
                 'counted_at' => !empty($row->counted_at) ? Carbon::parse($row->counted_at) : null,
                 'total' => $total,
                 'settled' => $total - $open->count(),
@@ -424,6 +574,8 @@ class ReceivingDashboard
                 'percent' => $total > 0 ? (int) round((($total - $open->count()) / $total) * 100) : 0,
             ];
         });
+
+        return ['rows' => $mapped, 'total' => $reportTotal];
     }
 
     private static function supplierIssues(Collection $backOrders): array

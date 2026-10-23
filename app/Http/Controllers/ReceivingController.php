@@ -36,6 +36,46 @@ class ReceivingController extends Controller
         ]);
     }
 
+    public function dashboardPreviewRr(int $id)
+    {
+        abort_unless(Schema::hasTable('receiving_reports_table'), 404);
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
+        abort_if(! $rr, 404);
+
+        $rows = Schema::hasTable('receiving_report_items_table')
+            ? DB::table('receiving_report_items_table')->where('receiving_report_id', $id)->orderBy('receiving_report_item_id')->get()
+            : collect();
+
+        return view('receiving-officer.receiving-reports.print', [
+            'rr' => $rr,
+            'rows' => $rows,
+            'officerName' => $rr->receiving_report_second_count_by ?? 'Receiving Officer',
+        ]);
+    }
+
+    public function dashboardPreviewRfc(int $id)
+    {
+        abort_unless(Schema::hasTable('request_check_table'), 404);
+
+        $linked = false;
+        if (Schema::hasTable('receiving_reports_table') && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')) {
+            $linked = DB::table('receiving_reports_table')->where('receiving_report_request_check_id', $id)->exists();
+        }
+        if (! $linked && Schema::hasTable('back_orders_table') && Schema::hasColumn('back_orders_table', 'back_order_request_check_id')) {
+            $linked = DB::table('back_orders_table')->where('back_order_request_check_id', $id)->exists();
+        }
+        abort_unless($linked, 404);
+
+        $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
+        abort_if(! $rfc, 404);
+
+        return view('receiving-officer.dashboard-preview', [
+            'kind' => 'rfc',
+            'title' => $rfc->request_check_form_number ?: 'Request for check',
+            'rfc' => $rfc,
+        ]);
+    }
+
     public function notifications(): View
     {
         $items = collect();
@@ -212,7 +252,7 @@ class ReceivingController extends Controller
             );
 
             $select = ['receiving_reports_table.*'];
-            foreach (['request_check_form_number', 'request_check_payee'] as $column) {
+            foreach (['request_check_form_number', 'request_check_payee', 'request_check_request_no'] as $column) {
                 if (Schema::hasColumn('request_check_table', $column)) {
                     $select[] = 'request_check_table.'.$column;
                 }
@@ -257,6 +297,9 @@ class ReceivingController extends Controller
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
                 $q->orWhere('receiving_reports_table.receiving_report_form_number', 'like', $like);
             }
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_request_no')) {
+                $q->orWhere('receiving_reports_table.receiving_report_request_no', 'like', $like);
+            }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_from')) {
                 $q->orWhere('receiving_reports_table.receiving_report_received_from', 'like', $like);
             }
@@ -266,6 +309,13 @@ class ReceivingController extends Controller
                 && Schema::hasColumn('request_check_table', 'request_check_form_number')
             ) {
                 $q->orWhere('request_check_table.request_check_form_number', 'like', $like);
+            }
+            if (
+                Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+                && Schema::hasTable('request_check_table')
+                && Schema::hasColumn('request_check_table', 'request_check_request_no')
+            ) {
+                $q->orWhere('request_check_table.request_check_request_no', 'like', $like);
             }
         });
     }
@@ -657,11 +707,20 @@ class ReceivingController extends Controller
             $row = null;
         }
 
-        if (!$row) {
+        $full = DB::table('receiving_reports_table')
+            ->where('receiving_report_id', $reportId)
+            ->first();
+
+        if (! $row) {
             // Fallback when reportBaseQuery excludes archived / join edge cases.
-            $row = DB::table('receiving_reports_table')
-                ->where('receiving_report_id', $reportId)
-                ->first();
+            $row = $full;
+        } elseif ($full) {
+            // List query selects only a few columns. The paper reads the rest.
+            foreach (get_object_vars($full) as $key => $value) {
+                if (! property_exists($row, $key) || $row->{$key} === null) {
+                    $row->{$key} = $value;
+                }
+            }
         }
 
         abort_if(!$row, 404, 'Receiving report not found.');

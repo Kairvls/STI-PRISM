@@ -6,8 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDashboard;
+use App\Support\PurchaserDocumentAccess;
+use App\Support\PurchaserHistory;
 use App\Support\ReplacementRequestBasket;
 use App\Support\ReportGrouping;
 use App\Support\ReportItems;
@@ -22,6 +25,40 @@ class PurchaserController extends Controller
             'user' => Auth::user(),
             'dashboard' => PurchaserDashboard::build((int) Auth::id()),
         ]);
+    }
+
+    public function dashboardPreview(string $type, int $id): View
+    {
+        $type = strtolower($type);
+        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'rr', 'liq'], true), 404);
+
+        $owned = PurchaserHistory::allDocuments((int) Auth::id(), [$type])
+            ->first(fn ($doc) => (int) $doc->id === $id);
+        abort_if(! $owned, 404);
+
+        if ($type === 'ris') {
+            return app(RisController::class)->print($id);
+        }
+
+        $payload = app(AdminOperationsController::class)->loadDocumentViewPayload($type, $id);
+        $payload['type'] = $type;
+        PurchaserDocumentAccess::assertOwns($this->previewOwnerRow($type, $id), $type);
+
+        return view('procurement-records.document-view', $payload);
+    }
+
+    private function previewOwnerRow(string $type, int $id): object
+    {
+        $row = match ($type) {
+            'atp' => DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->first(),
+            'rfc' => DB::table('request_check_table')->where('request_check_id', $id)->first(),
+            'rr' => DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first(),
+            'liq' => DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first(),
+            default => null,
+        };
+        abort_if(! $row, 404);
+
+        return $row;
     }
 
     public function notifications()

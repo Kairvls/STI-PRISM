@@ -17,8 +17,35 @@
 
     $atpLabel = function ($atp) {
         $number = trim((string) ($atp->authority_purchase_form_number ?? ''));
+        if ($number !== '') {
+            return $number;
+        }
 
-        return $number !== '' ? $number : 'ATP #'.$atp->authority_purchase_id;
+        $ris = trim((string) ($atp->ris_form_number ?? ''));
+        if ($ris === '') {
+            $ris = trim((string) ($atp->ris_request_no ?? ''));
+        }
+
+        return $ris !== '' ? $ris : 'Draft';
+    };
+
+    $supplierNote = function ($ris) {
+        $total = (int) ($ris->supplier_total ?? 0);
+        $open = (int) ($ris->supplier_open ?? 0);
+        if ($total < 2 || $open < 1) {
+            return null;
+        }
+
+        return $open.' of '.$total.' suppliers still '.($open === 1 ? 'needs' : 'need').' an ATP';
+    };
+
+    $revisionNote = function ($atp) {
+        $reason = trim((string) ($atp->authority_purchase_rejection_reason ?? ''));
+        if ($reason === '') {
+            return null;
+        }
+
+        return 'Sent back: '.$reason;
     };
 
     $sections = [
@@ -27,9 +54,10 @@
             'count' => $incomingRisCount,
             'url' => route('supply-officer.incoming-ris'),
             'empty' => 'No incoming RIS',
-            'rows' => $latestIncomingRis->map(function ($ris) use ($formatDate) {
+            'rows' => $latestIncomingRis->map(function ($ris) use ($formatDate, $supplierNote) {
                 return [
                     'title' => RisWorkflow::formNumber($ris),
+                    'note' => $supplierNote($ris),
                     'meta' => trim(($ris->sent_by_name ?: 'Purchaser').' · '.$formatDate($ris->ris_sent_to_supply_at)),
                     'preview' => route('supply-officer.dashboard.preview-ris', $ris->ris_id),
                     'url' => route('supply-officer.atp.index', ['selected_ris' => $ris->ris_id]),
@@ -42,10 +70,11 @@
             'count' => $atpDraftCount,
             'url' => route('supply-officer.atp.index', ['status' => 'Draft']),
             'empty' => 'No drafts',
-            'rows' => $latestAtpDrafts->map(function ($atp) use ($formatDate, $atpLabel) {
+            'rows' => $latestAtpDrafts->map(function ($atp) use ($formatDate, $atpLabel, $revisionNote) {
                 return [
                     'title' => $atpLabel($atp),
-                    'meta' => $formatDate($atp->authority_purchase_updated_at ?: $atp->authority_purchase_created_at),
+                    'note' => $revisionNote($atp),
+                    'meta' => trim((blank($atp->authority_purchase_form_number ?? null) ? 'Draft · ' : '').$formatDate($atp->authority_purchase_updated_at ?: $atp->authority_purchase_created_at)),
                     'preview' => route('supply-officer.dashboard.preview-atp', $atp->authority_purchase_id),
                     'url' => route('supply-officer.atp.index', ['edit_atp' => $atp->authority_purchase_id]),
                     'action' => 'Open',
@@ -89,16 +118,21 @@
     <div class="grid gap-4 xl:grid-cols-2">
         @foreach ($sections as $section)
             <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-                    <div class="flex min-w-0 items-center gap-2">
-                        <h2 class="truncate text-sm font-semibold text-slate-900">{{ $section['title'] }}</h2>
-                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">
-                            {{ number_format($section['count']) }}
-                        </span>
+                <div class="border-b border-slate-100 px-5 py-3.5">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <h2 class="truncate text-sm font-semibold text-slate-900">{{ $section['title'] }}</h2>
+                            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">
+                                {{ number_format($section['count']) }}
+                            </span>
+                        </div>
+                        <a href="{{ $section['url'] }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">
+                            View all
+                        </a>
                     </div>
-                    <a href="{{ $section['url'] }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">
-                        View all
-                    </a>
+                    @if ($section['count'] > $section['rows']->count())
+                        <p class="mt-1 text-xs text-slate-500">{{ $section['rows']->count() }} latest</p>
+                    @endif
                 </div>
 
                 <ul class="divide-y divide-slate-100">
@@ -115,6 +149,9 @@
                             >
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-900">{{ $row['title'] }}</p>
+                                    @if (!empty($row['note']))
+                                        <p class="mt-0.5 truncate text-xs font-medium text-amber-800" title="{{ $row['note'] }}">{{ $row['note'] }}</p>
+                                    @endif
                                     <p class="mt-0.5 truncate text-xs text-slate-500">{{ $row['meta'] }}</p>
                                 </div>
                                 <span class="shrink-0 text-xs font-semibold text-slate-500">{{ $row['action'] }}</span>

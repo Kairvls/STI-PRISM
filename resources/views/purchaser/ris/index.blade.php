@@ -146,6 +146,133 @@
 @endphp
 
 <script type="application/json" id="ris-page-boot">@json($risPageBoot)</script>
+<script>
+    window.risSubmitChecks = {
+        validDate(value) {
+            const match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (!match) return false;
+            const day = Number(match[1]);
+            const month = Number(match[2]);
+            const year = Number(match[3]);
+            const date = new Date(year, month - 1, day);
+            return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+        },
+        itemRows(form) {
+            const rows = {};
+            form.querySelectorAll('[name^="ris_items["]').forEach((input) => {
+                const match = input.name.match(/^ris_items\[(\d+)\]\[(.+)\]$/);
+                if (!match) return;
+                if (!rows[match[1]]) rows[match[1]] = {};
+                rows[match[1]][match[2]] = String(input.value || '').trim();
+            });
+            return Object.keys(rows)
+                .sort((a, b) => Number(a) - Number(b))
+                .map((key) => rows[key])
+                .filter((row) => ['name_description', 'brand_id', 'supplier_id', 'uom_id', 'quantity_requested', 'quantity_issued', 'unit_cost']
+                    .some((field) => String(row[field] || '').trim() !== ''));
+        },
+        clear(form) {
+            const box = form && form.querySelector('[data-ris-form-errors]');
+            if (!box) return;
+            box.hidden = true;
+            box.innerHTML = '';
+        },
+        show(form, errors) {
+            if (!form) return;
+            let box = form.querySelector('[data-ris-form-errors]');
+            if (!box) {
+                box = document.createElement('div');
+                box.setAttribute('data-ris-form-errors', '');
+                const footer = form.querySelector('[data-ris-form-footer]');
+                if (footer) form.insertBefore(box, footer);
+                else form.appendChild(box);
+            }
+            box.className = 'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6';
+            box.innerHTML = '<ul class="list-disc space-y-1 pl-4">' + errors.map((message) => {
+                return '<li>' + String(message).replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                }[char])) + '</li>';
+            }).join('') + '</ul>';
+            box.hidden = false;
+            box.scrollIntoView({ block: 'nearest' });
+        },
+        errors(form, options) {
+            options = options || {};
+            const errors = [];
+            if (!form) return ['The RIS form is no longer open.'];
+            const urgency = form.querySelector('input[name="ris_urgency"]:checked');
+            if (!urgency || !String(urgency.value || '').trim()) {
+                errors.push('Choose whether this procurement is Urgent or Non-Urgent.');
+            }
+            const purpose = form.querySelector('[name="ris_purpose_description"]');
+            if (!purpose || !String(purpose.value || '').trim()) {
+                errors.push('Purpose is required before submitting.');
+            }
+            const requestedBy = form.querySelector('[name="ris_requested_by"]');
+            if (!requestedBy || !String(requestedBy.value || '').trim()) {
+                errors.push('Requested By is required before submitting.');
+            }
+            const requestedDate = form.querySelector('[name="ris_requested_by_date"]');
+            const dateValue = requestedDate ? String(requestedDate.value || '').trim() : '';
+            if (!dateValue) {
+                errors.push('Requested By date is required before submitting.');
+            } else if (!this.validDate(dateValue)) {
+                errors.push('Requested By date must use dd/mm/yyyy.');
+            }
+            const signature = String(options.signature || '').trim();
+            if (options.requireSignature && signature.indexOf('data:image/') !== 0) {
+                errors.push('Draw or upload your signature before submitting.');
+            }
+            const fileInput = form.querySelector('input[type="file"][name="ris_attachments[]"]');
+            const hasNewFile = !!(fileInput && fileInput.files && fileInput.files.length);
+            if (!options.hasCanvas && !hasNewFile) {
+                errors.push('Attach a Canvas file (Word, Excel, or PDF) before submitting.');
+            }
+            const items = this.itemRows(form);
+            if (!items.length) {
+                errors.push('Add at least one RIS item before submitting.');
+            }
+            const seen = {};
+            items.forEach((row, index) => {
+                const rowNumber = index + 1;
+                const name = String(row.name_description || '').trim();
+                if (!name) {
+                    errors.push('Item ' + rowNumber + ' needs an item description.');
+                    return;
+                }
+                const key = name.toLowerCase();
+                const first = !seen[key];
+                seen[key] = true;
+                const requested = String(row.quantity_requested || '').trim();
+                if (first && (!requested || Number(requested) < 1)) {
+                    errors.push('Item ' + rowNumber + ' needs a Quantity Requested of at least 1.');
+                }
+                if (!String(row.brand_id || '').trim()) {
+                    errors.push('Item ' + rowNumber + ' needs a brand.');
+                }
+                if (!String(row.uom_id || '').trim()) {
+                    errors.push('Item ' + rowNumber + ' needs a unit of measure.');
+                }
+                if (!String(row.supplier_id || '').trim()) {
+                    errors.push('Item ' + rowNumber + ' needs a supplier.');
+                }
+                const issued = String(row.quantity_issued || '').trim();
+                if (!issued || Number(issued) < 1) {
+                    errors.push('Item ' + rowNumber + ' needs a Quantity Issued of at least 1.');
+                }
+                const cost = String(row.unit_cost || '').trim();
+                if (first && (!cost || Number(cost) <= 0)) {
+                    errors.push('Item ' + rowNumber + ' needs a unit cost greater than 0.');
+                }
+            });
+            return errors;
+        },
+    };
+</script>
 
 <div
     x-data="{
@@ -165,9 +292,53 @@
                 this.openModal = 'ris-' + risId;
             }
         },
+        clearRisSubmitErrors(form) {
+            window.risSubmitChecks.clear(form);
+        },
+        showRisSubmitErrors(form, errors) {
+            window.risSubmitChecks.show(form, errors);
+        },
         openSubmitFromEdit(button, id, number, hasAttachments = false, kind = 'submit', existingSignature = '') {
             const form = button && button.closest ? button.closest('form') : null;
+            const scopeEl = button && button.closest ? button.closest('[x-data]') : null;
+            const scope = scopeEl && window.Alpine && Alpine.$data ? Alpine.$data(scopeEl) : null;
+            if (form && scope && scope.editItems && this.risHasOverflow(scope.editItems)) {
+                this.showRisSubmitErrors(form, ['Issued quantity for a split item is higher than requested.']);
+                return;
+            }
+            const errors = window.risSubmitChecks.errors(form, {
+                signature: existingSignature,
+                requireSignature: false,
+                hasCanvas: !!hasAttachments,
+            });
+            if (errors.length) {
+                this.showRisSubmitErrors(form, errors);
+                return;
+            }
+            this.clearRisSubmitErrors(form);
             this.openSubmitRis(id, number, form ? form.getAttribute('action') : '#', hasAttachments, kind, existingSignature);
+            this.submitRisEditForm = form;
+        },
+        submitCreateToAdmin() {
+            const form = this.$refs.createRisForm;
+            if (!form || this.createSignSubmitting) return;
+            if (this.risHasOverflow(this.createItems)) {
+                this.showRisSubmitErrors(form, ['Issued quantity for a split item is higher than requested.']);
+                return;
+            }
+            const errors = window.risSubmitChecks.errors(form, {
+                signature: this.createSignaturePreview,
+                requireSignature: true,
+                hasCanvas: !!this.createAttachmentName,
+            });
+            if (errors.length) {
+                this.showRisSubmitErrors(form, errors);
+                return;
+            }
+            this.clearRisSubmitErrors(form);
+            const hidden = document.getElementById('purchaserRisSignatureData');
+            if (hidden) hidden.value = this.createSignaturePreview || '';
+            this.openSubmitRis(null, 'this new RIS', form.getAttribute('action') || '#', true, 'submit', this.createSignaturePreview);
             this.submitRisEditForm = form;
         },
         openSubmitRis(id, number, action, hasAttachments = false, kind = 'submit', existingSignature = '') {
@@ -326,18 +497,27 @@
                 };
                 putHidden('assigned_reviewer_id', reviewer.value);
                 const signature = modalForm.querySelector('[name=signature_data]');
-                if (signature && signature.value) {
-                    putHidden('signature_data', signature.value);
+                const postedSignature = signature && String(signature.value || '').indexOf('data:image/') === 0
+                    ? signature.value
+                    : '';
+                if (postedSignature) {
+                    const existingSignature = editForm.querySelector('#purchaserRisSignatureData');
+                    if (existingSignature) {
+                        this.createSignaturePreview = postedSignature;
+                        existingSignature.value = postedSignature;
+                    } else {
+                        putHidden('signature_data', postedSignature);
+                    }
                 }
                 const saveAction = c.kind === 'resubmit' ? 'resubmit' : 'submit';
-                const submitter = document.createElement('button');
-                submitter.type = 'submit';
-                submitter.name = 'save_action';
-                submitter.value = saveAction;
-                submitter.hidden = true;
-                editForm.appendChild(submitter);
+                const saveInput = editForm.querySelector('input[type=hidden][name=save_action]');
+                if (saveInput) {
+                    saveInput.value = saveAction;
+                } else {
+                    putHidden('save_action', saveAction);
+                }
                 this.submitRisSending = true;
-                editForm.requestSubmit(submitter);
+                HTMLFormElement.prototype.submit.call(editForm);
                 return;
             }
             this.submitRisSending = true;
@@ -2689,7 +2869,8 @@
                         </div>
                     </div>
 
-                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                    <div data-ris-form-errors hidden></div>
+                    <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
                         <button type="button" x-on:click="createRisModal = false; createRisFullscreen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
@@ -2697,10 +2878,17 @@
                             type="button"
                             x-on:click="saveCreateRis()"
                             x-bind:disabled="risHasOverflow(createItems) || createSignSubmitting"
-                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            <i data-lucide="check" class="h-4 w-4"></i>
                             Save Draft
+                        </button>
+                        <button
+                            type="button"
+                            x-on:click="submitCreateToAdmin()"
+                            x-bind:disabled="risHasOverflow(createItems) || createSignSubmitting"
+                            class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Submit to School Administrator
                         </button>
                     </div>
                 </form>
@@ -4696,7 +4884,8 @@
                         </div>
 
                         {{-- EDIT ACTION BUTTONS (submit/resubmit via row ⋮ menu) --}}
-                        <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                        <div data-ris-form-errors hidden></div>
+                        <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                             <p
                                 x-show="risHasOverflow(editItems)"
                                 x-cloak

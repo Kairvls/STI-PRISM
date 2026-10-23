@@ -22,19 +22,13 @@
     .ris-preview-modal-title { font-size: 15px; font-weight: 700; }
     .ris-preview-modal-header-actions { display: inline-flex; align-items: center; gap: 8px; }
     .ris-preview-modal-close {
-        width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e2e8f0;
-        background: #f8fafc; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; border-radius: 8px; border: 0;
+        background: transparent; color: #94a3b8; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
     }
-    .ris-preview-modal-body iframe { width: 100%; height: calc(90vh - 110px); min-height: 400px; border: none; }
-    .ris-preview-modal-footer {
-        padding: 12px 20px;
-        border-top: 1px solid #e2e8f0;
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        min-height: 60px;
-        gap: 8px;
-    }
+    .ris-preview-modal-close:hover { background: #f1f5f9; color: #334155; }
+    .ris-preview-modal-close i, .ris-preview-modal-close svg { width: 16px; height: 16px; }
+    .ris-preview-modal-body iframe { width: 100%; height: calc(90vh - 64px); min-height: 400px; border: none; }
     .ris-preview-modal-btn-print {
         width: 32px; height: 32px; padding: 0; border-radius: 8px; background: #0025cc; color: #fff;
         text-decoration: none; border: none; cursor: pointer;
@@ -74,6 +68,10 @@
         <div class="ris-preview-modal-header">
             <h3 class="ris-preview-modal-title">Report Preview</h3>
             <div class="ris-preview-modal-header-actions">
+                <a href="#" id="risPreviewPrintLink" class="ris-preview-modal-btn-open">
+                    <i data-lucide="maximize-2"></i>
+                    Open full page
+                </a>
                 <button type="button" class="ris-preview-modal-btn-print" onclick="printReceivingRisPreview()" title="Print" aria-label="Print">
                     <i data-lucide="printer"></i>
                 </button>
@@ -83,12 +81,6 @@
             </div>
         </div>
         <div class="ris-preview-modal-body" id="risPreviewModalBody"></div>
-        <div class="ris-preview-modal-footer">
-            <a href="#" id="risPreviewPrintLink" class="ris-preview-modal-btn-open">
-                <i data-lucide="maximize-2"></i>
-                Open full page
-            </a>
-        </div>
     </div>
 </div>
 <script>
@@ -137,5 +129,10 @@ window.closeReceivingRisPreview = function () {
 document.addEventListener('click', function (e) {
     var modal = document.getElementById('risPreviewModal');
     if (modal && e.target === modal) closeReceivingRisPreview();
+});
+document.getElementById('risPreviewPrintLink')?.addEventListener('click', function (e) {
+    if (!this.href || this.getAttribute('href') === '#') return;
+    e.preventDefault();
+    window.open(this.href, '_blank');
 });
 </script>

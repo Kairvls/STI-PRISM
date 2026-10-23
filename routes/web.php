@@ -98,8 +98,14 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('id')
         ->name('notifications.open');
 
-    // Shared Request No. explorer (pipeline + linked forms for PR-YYYYMM-####)
-    Route::get('/requests/{requestNo}', [\App\Http\Controllers\RequestExplorerController::class, 'show'])
+    // Old shared URL. Send the person to the request page for the portal they are in.
+    Route::get('/requests/{requestNo}', function (string $requestNo) {
+        $url = \App\Support\RequestExplorer::showUrl($requestNo);
+
+        abort_if($url === null, 404);
+
+        return redirect($url);
+    })
         ->where('requestNo', 'PR-\\d{4,6}-\\d{1,6}')
         ->name('requests.show');
 
@@ -317,10 +323,18 @@ Route::get('/admin/login', [AuthenticatedSessionController::class, 'createAdmin'
     ->middleware('throttle:20,1')
     ->name('admin.login');
 
+$requestExplorerRoute = function (string $name) {
+    Route::get('/requests/{requestNo}', [\App\Http\Controllers\RequestExplorerController::class, 'show'])
+        ->where('requestNo', 'PR-\\d{4,6}-\\d{1,6}')
+        ->name($name);
+};
+
 Route::middleware(['auth', 'admin'])
     ->prefix('admin')
     ->name('admin.')
-    ->group(function () use ($schoolAdminModuleRoutes) {
+    ->group(function () use ($schoolAdminModuleRoutes, $requestExplorerRoute) {
+
+        $requestExplorerRoute('requests.show');
 
         $schoolAdminModuleRoutes();
 
@@ -332,6 +346,11 @@ Route::middleware(['auth', 'admin'])
             '/dashboard',
             [AdminController::class, 'dashboard']
         )->name('dashboard');
+
+        Route::get(
+            '/dashboard/preview/{type}/{id}',
+            [AdminController::class, 'dashboardPreview']
+        )->where('type', 'report|borrow|schedule|equipment|inspection')->whereNumber('id')->name('dashboard.preview');
 
         Route::get(
             '/profile',
@@ -828,7 +847,9 @@ Route::middleware(['auth', 'admin'])
 Route::middleware(['auth', 'school_admin'])
     ->prefix('school-admin')
     ->name('school-admin.')
-    ->group(function () use ($schoolAdminModuleRoutes, $schoolAdminRisActionRoutes) {
+    ->group(function () use ($schoolAdminModuleRoutes, $schoolAdminRisActionRoutes, $requestExplorerRoute) {
+
+        $requestExplorerRoute('requests.show');
 
         Route::get(
             '/dashboard',
@@ -958,7 +979,9 @@ Route::middleware(['auth', 'school_admin'])
 Route::middleware(['auth', 'supply_officer'])
     ->prefix('supply-officer')
     ->name('supply-officer.')
-    ->group(function () {
+    ->group(function () use ($requestExplorerRoute) {
+        $requestExplorerRoute('requests.show');
+
         Route::get('/dashboard', [\App\Http\Controllers\SupplyOfficerController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/preview/ris/{ris}', [\App\Http\Controllers\SupplyOfficerController::class, 'previewIncomingRis'])
             ->whereNumber('ris')
@@ -1886,7 +1909,9 @@ Route::middleware([
 ])
     ->prefix('maintenance')
     ->name('maintenance.')
-    ->group(function () {
+    ->group(function () use ($requestExplorerRoute) {
+
+    $requestExplorerRoute('requests.show');
 
     // =====================================================
     // DASHBOARD
@@ -2078,7 +2103,9 @@ Route::middleware([
 ])
     ->prefix('purchaser')
     ->name('purchaser.')
-    ->group(function () {
+    ->group(function () use ($requestExplorerRoute) {
+
+        $requestExplorerRoute('requests.show');
 
         // =====================================================
         // PURCHASER DASHBOARD
@@ -2088,6 +2115,11 @@ Route::middleware([
             '/dashboard',
             [PurchaserController::class, 'dashboard']
         )->name('dashboard');
+
+        Route::get(
+            '/dashboard/preview/{type}/{id}',
+            [PurchaserController::class, 'dashboardPreview']
+        )->where('type', 'ris|atp|rfc|rr|liq')->whereNumber('id')->name('dashboard.preview');
 
         Route::get(
             '/notifications',
@@ -2176,8 +2208,9 @@ Route::middleware([
 ])
     ->prefix('president')
     ->name('president.')
-    ->group(function () {
+    ->group(function () use ($requestExplorerRoute) {
 
+        $requestExplorerRoute('requests.show');
 
         // =====================================================
         // DASHBOARD
@@ -2187,6 +2220,11 @@ Route::middleware([
             '/dashboard',
             [PresidentController::class, 'dashboard']
         )->name('dashboard');
+
+        Route::get('/dashboard/preview/{type}/{id}', [PresidentController::class, 'dashboardPreview'])
+            ->where('type', 'atp|dv')
+            ->whereNumber('id')
+            ->name('dashboard.preview');
 
         // =====================================================
         // APPROVALS
@@ -2383,9 +2421,15 @@ Route::middleware([
 
 Route::middleware(['auth', 'accounting'])
     ->prefix('accounting')
-    ->group(function () {
+    ->group(function () use ($requestExplorerRoute) {
+
+        $requestExplorerRoute('accounting.requests.show');
 
         Route::get('/dashboard', [AccountingController::class, 'dashboard']);
+        Route::get('/dashboard/preview/{type}/{id}', [AccountingController::class, 'dashboardPreview'])
+            ->where('type', 'dv|rfc|liq|atp')
+            ->whereNumber('id')
+            ->name('accounting.dashboard.preview');
 
         Route::post(
             '/saved-signatures',
@@ -2471,9 +2515,19 @@ Route::middleware(['auth', 'accounting'])
 
 Route::middleware(['auth', 'receiving'])
     ->prefix('receiving')
-    ->group(function () {
+    ->group(function () use ($requestExplorerRoute) {
+
+        $requestExplorerRoute('receiving.requests.show');
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
+
+        Route::get('/dashboard/preview/rr/{id}', [ReceivingController::class, 'dashboardPreviewRr'])
+            ->whereNumber('id')
+            ->name('receiving.dashboard.preview-rr');
+
+        Route::get('/dashboard/preview/rfc/{id}', [ReceivingController::class, 'dashboardPreviewRfc'])
+            ->whereNumber('id')
+            ->name('receiving.dashboard.preview-rfc');
 
         Route::get('/profile', [AccountSettingsController::class, 'profile'])->name('receiving.profile');
         Route::post('/profile', [AccountSettingsController::class, 'updateProfile'])->name('receiving.profile.update');

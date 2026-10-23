@@ -56,6 +56,19 @@ class AccountingController extends Controller
         ]);
     }
 
+    public function dashboardPreview(string $type, int $id)
+    {
+        $payload = match ($type) {
+            'dv' => $this->dashboardPreviewDv($id),
+            'rfc' => $this->dashboardPreviewRfc($id),
+            'liq' => $this->dashboardPreviewLiq($id),
+            'atp' => $this->dashboardPreviewAtp($id),
+            default => abort(404),
+        };
+
+        return view('accounting.dashboard-preview', $payload);
+    }
+
     public function authorityToPurchase(Request $request)
     {
         $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming', [
@@ -1492,6 +1505,59 @@ class AccountingController extends Controller
                 'preview_url' => (string) ($item->preview_url ?? ''),
             ])->values(),
         ]);
+    }
+
+    private function dashboardPreviewDv(int $id): array
+    {
+        abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+        $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
+        abort_if(! $dv, 404);
+
+        return ['kind' => 'dv', 'dv' => $dv];
+    }
+
+    private function dashboardPreviewRfc(int $id): array
+    {
+        abort_unless(Schema::hasTable('request_check_table'), 404);
+        $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
+        abort_if(! $rfc, 404);
+
+        return ['kind' => 'rfc', 'rfc' => $rfc];
+    }
+
+    private function dashboardPreviewLiq(int $id): array
+    {
+        abort_unless(Schema::hasTable('liquidation_reports_table'), 404);
+        $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+        abort_if(! $liq, 404);
+        $rows = Schema::hasTable('liquidation_report_items_table')
+            ? DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->orderBy('liquidation_item_id')->get()
+            : collect();
+
+        return ['kind' => 'liq', 'liq' => $liq, 'rows' => $rows];
+    }
+
+    private function dashboardPreviewAtp(int $id): array
+    {
+        abort_unless(Schema::hasTable('authority_to_purchase_table'), 404);
+        $atp = DB::table('authority_to_purchase_table')
+            ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->where('authority_to_purchase_table.authority_purchase_id', $id)
+            ->select(
+                'authority_to_purchase_table.*',
+                'suppliers_table.supplier_store_type',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            )
+            ->first();
+        abort_if(! $atp, 404);
+        $items = Schema::hasTable('authority_to_purchase_items_table')
+            ? DB::table('authority_to_purchase_items_table')->where('authority_purchase_id', $id)->orderBy('atp_item_id')->get()
+            : collect();
+
+        return ['kind' => 'atp', 'atp' => $atp, 'items' => $items];
     }
 
     private function metrics(): array

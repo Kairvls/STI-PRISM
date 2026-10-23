@@ -429,8 +429,33 @@ class AuthorityToPurchaseController extends Controller
                 ? 'Authority to Purchase draft created successfully.'
                 : 'Authority to Purchase submitted successfully.';
 
-            return ProcurementPortal::redirect('atp.index')->with('success', $message);
+            return $this->redirectAfterSplitAtp($risId, $supplierSplit, $message);
         });
+    }
+
+    /**
+     * A split RIS needs one ATP per supplier. After one is saved, reopen Create
+     * on the next supplier that still has no ATP.
+     */
+    private function redirectAfterSplitAtp(int $risId, bool $supplierSplit, string $message)
+    {
+        if ($supplierSplit && $risId > 0) {
+            $groups = AtpRisSuppliers::groups([$risId]);
+            $info = $groups[$risId] ?? null;
+            if (is_array($info) && ! empty($info['split'])) {
+                $coverage = AtpRisSuppliers::coverage([$risId]);
+                $open = AtpRisSuppliers::openGroups($info, $coverage[$risId] ?? null);
+                $nextSupplierId = (int) array_key_first($open);
+                if ($nextSupplierId > 0) {
+                    return ProcurementPortal::redirect('atp.index', [
+                        'selected_ris' => $risId,
+                        'selected_supplier' => $nextSupplierId,
+                    ])->with('success', $message.' The next supplier on this RIS still needs its own ATP.');
+                }
+            }
+        }
+
+        return ProcurementPortal::redirect('atp.index')->with('success', $message);
     }
 
     public function show($id)
@@ -652,9 +677,17 @@ class AuthorityToPurchaseController extends Controller
                 ? 'Authority to Purchase draft updated successfully.'
                 : 'Authority to Purchase submitted successfully.';
 
-            return redirect()
-                ->route(ProcurementPortal::routeName('atp.index'))
-                ->with('success', $message);
+            if ($isDraft) {
+                return redirect()
+                    ->route(ProcurementPortal::routeName('atp.index'))
+                    ->with('success', $message);
+            }
+
+            return $this->redirectAfterSplitAtp(
+                (int) ($atp->authority_purchase_ris_id ?? 0),
+                (int) ($atp->authority_purchase_ris_supplier_split ?? 0) === 1,
+                $message
+            );
         });
     }
 
@@ -788,9 +821,11 @@ class AuthorityToPurchaseController extends Controller
 
             $this->notifyAccountingAtp($id, $formNumber, $reviewerId);
 
-            return redirect()
-                ->route(ProcurementPortal::routeName('atp.index'))
-                ->with('success', 'Authority to Purchase submitted successfully.');
+            return $this->redirectAfterSplitAtp(
+                (int) ($atp->authority_purchase_ris_id ?? 0),
+                (int) ($atp->authority_purchase_ris_supplier_split ?? 0) === 1,
+                'Authority to Purchase submitted successfully.'
+            );
         });
     }
 

@@ -129,21 +129,27 @@ class AdminDashboardInsights
             ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
             ->orderBy('e.equipment_warranty_expiration')
             ->limit($limit)
-            ->get([
+            ->get(array_merge([
                 'e.equipment_id',
                 'e.equipment_name',
                 'e.equipment_brand_name',
-                'e.equipment_asset_tag',
                 'e.equipment_warranty_expiration',
                 'r.room_name',
-            ])
+            ], EquipmentIdentity::columns('e')))
             ->map(function ($row) use ($today) {
                 $ends = Carbon::parse($row->equipment_warranty_expiration)->startOfDay();
 
                 return (object) [
                     'id' => (int) $row->equipment_id,
                     'name' => $row->equipment_name ?: 'Equipment #'.$row->equipment_id,
-                    'meta' => collect([$row->equipment_brand_name, $row->equipment_asset_tag, $row->room_name])->filter()->implode(' · '),
+                    'meta' => collect([$row->equipment_brand_name, $row->room_name])->filter()->implode(' · '),
+                    'equipment_id' => (int) $row->equipment_id,
+                    'equipment_name' => $row->equipment_name,
+                    'equipment_asset_tag' => $row->equipment_asset_tag ?? null,
+                    'equipment_serial_number' => $row->equipment_serial_number ?? null,
+                    'equipment_qr_code' => $row->equipment_qr_code ?? null,
+                    'equipment_tracking_mode' => $row->equipment_tracking_mode ?? null,
+                    'equipment_quantity' => $row->equipment_quantity ?? null,
                     'endsAt' => $ends,
                     'daysLeft' => (int) $today->diffInDays($ends),
                 ];
@@ -181,17 +187,24 @@ class AdminDashboardInsights
             ->when($hasHistory, fn ($q) => $q->orderByRaw('fl.flagged_at IS NULL')->orderBy('fl.flagged_at'))
             ->orderBy('e.equipment_id')
             ->limit($limit)
-            ->get(array_filter([
+            ->get(array_values(array_filter(array_merge([
                 'e.equipment_id',
                 'e.equipment_name',
                 'e.equipment_condition_status',
                 'r.room_name',
                 $hasHistory ? 'fl.flagged_at' : null,
-            ]))
+            ], EquipmentIdentity::columns('e')))))
             ->map(fn ($row) => (object) [
                 'id' => (int) $row->equipment_id,
                 'name' => $row->equipment_name ?: 'Equipment #'.$row->equipment_id,
                 'meta' => collect([$row->room_name ?: 'No room', $row->equipment_condition_status])->filter()->implode(' · '),
+                'equipment_id' => (int) $row->equipment_id,
+                'equipment_name' => $row->equipment_name,
+                'equipment_asset_tag' => $row->equipment_asset_tag ?? null,
+                'equipment_serial_number' => $row->equipment_serial_number ?? null,
+                'equipment_qr_code' => $row->equipment_qr_code ?? null,
+                'equipment_tracking_mode' => $row->equipment_tracking_mode ?? null,
+                'equipment_quantity' => $row->equipment_quantity ?? null,
                 'flaggedAt' => ! empty($row->flagged_at) ? Carbon::parse($row->flagged_at) : null,
             ]);
 

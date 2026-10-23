@@ -25,7 +25,7 @@
     {{-- HEADER --}}
     {{-- ====================================== --}}
 
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header px-5 pt-5 pb-2">
 
         <div class="logo-icon">
 
@@ -44,103 +44,6 @@
     </div>
 
     <div class="sidebar-content">
-
-        {{-- ====================================== --}}
-        {{-- SEARCH --}}
-        {{-- ====================================== --}}
-
-        <div class="sidebar-search">
-
-            <div class="sidebar-dropdown">
-
-                <div id="dropdownTrigger" class="dropdown-trigger">
-
-                    <div class="flex items-center gap-2">
-
-                        <i data-lucide="search"></i>
-
-                        <span id="selectedSection">Search...</span>
-
-                    </div>
-
-                </div>
-
-                <div id="dropdownMenu" class="dropdown-menu">
-
-                    <div class="dropdown-item" data-target="dashboard-section">
-                        Dashboard
-                    </div>
-
-                    <div class="dropdown-item" data-target="receiving-section">
-                        Receiving
-                    </div>
-
-                    <div class="dropdown-item" data-target="account-section">
-                        Account
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        {{-- ====================================== --}}
-        {{-- QUICK ACTIONS --}}
-        {{-- ====================================== --}}
-
-        <div class="quick-actions">
-
-            <a
-                href="/receiving/dashboard"
-                class="quick-card {{ request()->is('receiving/dashboard') ? 'active' : '' }}"
-            >
-
-                <i data-lucide="layout-dashboard"></i>
-
-                <span>Dashboard</span>
-
-            </a>
-
-            <a
-                href="/receiving/reports"
-                class="quick-card {{ request()->is('receiving/reports*') ? 'active' : '' }}"
-            >
-
-                <span class="menu-icon-wrap">
-                    <i data-lucide="clipboard-list"></i>
-                    @if(($receivingSidebarPendingCount ?? 0) > 0)
-                        <span class="menu-notif-dot" title="{{ $receivingSidebarPendingCount }} awaiting second count"></span>
-                    @endif
-                </span>
-
-                <span>Pending</span>
-
-            </a>
-
-            <a
-                href="/receiving/delivered-items"
-                class="quick-card {{ request()->is('receiving/delivered-items') ? 'active' : '' }}"
-            >
-
-                <i data-lucide="truck"></i>
-
-                <span>Delivered</span>
-
-            </a>
-
-            <a
-                href="/receiving/logs"
-                class="quick-card {{ request()->is('receiving/logs') ? 'active' : '' }}"
-            >
-
-                <i data-lucide="scroll-text"></i>
-
-                <span>Logs</span>
-
-            </a>
-
-        </div>
 
         {{-- ====================================== --}}
         {{-- DASHBOARD --}}
@@ -173,19 +76,23 @@
 
         </div>
 
+        @php
+            $recvCounts = \App\Support\ReceivingSidebarCounts::counts();
+            $navCount = 'menu-count ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
+        @endphp
+
         <a
             href="/receiving/reports"
             class="menu-item {{ request()->is('receiving/reports*') ? 'active' : '' }}"
         >
 
-            <span class="menu-icon-wrap">
-                <i data-lucide="clipboard-list"></i>
-                @if(($receivingSidebarPendingCount ?? 0) > 0)
-                    <span class="menu-notif-dot" title="{{ $receivingSidebarPendingCount }} awaiting second count"></span>
-                @endif
-            </span>
+            <i data-lucide="clipboard-list"></i>
 
             <span>Pending Receiving Reports</span>
+
+            @if($recvCounts['pending'] > 0)
+                <span class="{{ $navCount }}" title="{{ $recvCounts['pending'] }} not viewed yet">{{ $recvCounts['pending'] }}</span>
+            @endif
 
         </a>
 
@@ -194,7 +101,8 @@
             $activeBoPayment = $boGroupActive ? request('payment') : null;
             $boLinks = [
                 ['payment' => null, 'label' => 'All Back Orders', 'icon' => 'layers'],
-                ['payment' => 'rfc', 'label' => 'Request for Check', 'icon' => 'clipboard-check'],
+                ['payment' => 'dp', 'label' => 'Direct Payment', 'icon' => 'clipboard-check'],
+                ['payment' => 'ci', 'label' => 'Cash Installment', 'icon' => 'calendar-range'],
                 ['payment' => 'ca', 'label' => 'Cash Advance', 'icon' => 'banknote'],
             ];
         @endphp
@@ -210,6 +118,9 @@
                     <i data-lucide="package-x"></i>
                 </span>
                 <span>Back Orders</span>
+                @if($recvCounts['back_orders'] > 0)
+                    <span class="{{ $navCount }}" title="{{ $recvCounts['back_orders'] }} not viewed yet">{{ $recvCounts['back_orders'] }}</span>
+                @endif
                 <i data-lucide="chevron-down" class="menu-group-chevron"></i>
             </button>
             <div class="menu-sub" @if(! $boGroupActive) hidden @endif>
@@ -220,6 +131,17 @@
                     >
                         <i data-lucide="{{ $boLink['icon'] }}"></i>
                         <span>{{ $boLink['label'] }}</span>
+                        @php
+                            $boCount = match ($boLink['payment']) {
+                                'dp' => $recvCounts['dp'],
+                                'ci' => $recvCounts['ci'],
+                                'ca' => $recvCounts['ca'],
+                                default => $recvCounts['back_orders'],
+                            };
+                        @endphp
+                        @if($boCount > 0)
+                            <span class="{{ $navCount }}" title="{{ $boCount }} not viewed yet">{{ $boCount }}</span>
+                        @endif
                     </a>
                 @endforeach
             </div>
@@ -247,6 +169,16 @@
 
         </a>
 
+        {{-- ====================================== --}}
+        {{-- HISTORY --}}
+        {{-- ====================================== --}}
+
+        <div class="menu-title" id="history-section">
+
+            HISTORY
+
+        </div>
+
         <a
             href="/receiving/history"
             class="menu-item {{ request()->is('receiving/history') ? 'active' : '' }}"
@@ -273,7 +205,7 @@
         {{-- ACCOUNT --}}
         {{-- ====================================== --}}
 
-        <div class="menu-title" id="account-section">
+        <!--<div class="menu-title" id="account-section">
 
             ACCOUNT
 
@@ -288,7 +220,7 @@
 
             <span>Account settings</span>
 
-        </a>
+        </a>-->
 
     </div>
 
@@ -318,7 +250,7 @@
     overflow-x: hidden;
 
     /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 20px 20px 20px 20px;
+    padding: 0 20px 32px 20px;
 }
     
 
@@ -368,76 +300,6 @@
         color: #94a3b8;
     }
 
-    /* SEARCH INPUT */
-    .sidebar-search {
-        position: relative;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0;
-        height: 38px;
-        margin-bottom: 18px;
-        font-size: 14px;
-    }
-    .sidebar-search i {
-        width: 14px;
-        height: 14px;
-        color: #64748b;
-    }
-
-    /* ======================================
-   QUICK ACTIONS
-====================================== */
-    .quick-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-bottom: 20px;
-    }
-    .quick-card {
-        height: 70px;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        text-decoration: none;
-        color: #cbd5e1;
-        transition: all 0.2s ease;
-    }
-    .quick-card:hover {
-        background: #182235;
-        border-color: #93c5fd;
-        transform: translateY(-2px);
-    }
-    .quick-card i {
-        width: 16px;
-        height: 16px;
-        color: #93c5fd;
-        transition: all 0.2s ease;
-    }
-    .quick-card span {
-        font-size: 11px;
-        font-weight: 500;
-    }
-
-    /* NEW BLUE ACTIVE STATE STATE FOR QUICK ACTIONS */
-    .quick-card.active {
-        border: 1.5px solid #60a5fa !important;
-        color: #cbd5e1;
-        font-weight: 600;
-        box-shadow: 0 0 12px rgba(96, 165, 250, 0.22);
-    }
-    .quick-card.active i {
-        color: #93c5fd;
-    }
-
     /* ======================================
    SECTION TITLE
 ====================================== */
@@ -467,6 +329,10 @@
     transition: all 0.3s ease;
 }
 
+.sidebar-content > .menu-title:first-child {
+    margin-top: 0;
+}
+
     
 
     /* ======================================
@@ -490,10 +356,7 @@
 
     DO NOT add another 14px horizontal padding.
 
-    This makes the menu icon align with:
-    PaAyo logo
-    Search box
-    Quick Actions
+    This makes the menu icon align with the PaAyo logo.
     */
 
     padding: 0;
@@ -566,12 +429,6 @@
     border: 1.5px solid #0d1120;
     pointer-events: none;
 }
-
-.quick-card .menu-icon-wrap {
-    width: 16px;
-    height: 16px;
-}
-
 
 /* ======================================
    MENU HOVER
@@ -686,6 +543,10 @@
     transition: transform 0.2s ease, color 0.2s ease;
 }
 
+.menu-group-toggle .menu-count + .menu-group-chevron {
+    margin-left: 8px;
+}
+
 .menu-group.is-open > .menu-group-toggle .menu-group-chevron {
     transform: rotate(180deg);
     color: #94a3b8;
@@ -785,47 +646,6 @@
         margin-top: 2px;
     }
 
-    .section-highlight {
-        color: #fde68a !important;
-        text-shadow: 0 0 10px rgba(255, 242, 0, 0.5);
-    }
-
-    .sidebar-dropdown {
-        width: 100%;
-        position: relative;
-    }
-    .dropdown-trigger {
-        width: 100%;
-        height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        cursor: pointer;
-        padding: 0 12px;
-    }
-    .dropdown-menu {
-        display: none;
-        position: absolute;
-        top: 45px;
-        left: 0;
-        width: 100%;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        overflow: hidden;
-        z-index: 999;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    }
-    .dropdown-item {
-        padding: 12px 14px;
-        cursor: pointer;
-        transition: 0.2s;
-        font-size: 14px;
-    }
-    .dropdown-item:hover {
-        background: #1f2937;
-        color: #fde68a;
-    }
 </style>
 
 <script>
@@ -833,17 +653,8 @@
     // SIDEBAR ELEMENTS
     // =====================================================
 
-    const trigger =
-        document.getElementById("dropdownTrigger");
-
-    const menu =
-        document.getElementById("dropdownMenu");
-
-    const selected =
-        document.getElementById("selectedSection");
-
     const sidebarContent =
-        document.querySelector(".sidebar-content");
+        document.querySelector("#sidebar .sidebar-content");
 
 
     // =====================================================
@@ -873,145 +684,6 @@
 
     const sidebarScrollKey =
         "maintenanceSidebarScrollPosition";
-
-
-    // =====================================================
-    // SEARCH DROPDOWN OPEN / CLOSE
-    // =====================================================
-
-    if (trigger && menu) {
-
-        trigger.addEventListener("click", () => {
-
-            menu.style.display =
-                menu.style.display === "block"
-                    ? "none"
-                    : "block";
-
-        });
-
-    }
-
-
-    // =====================================================
-    // SEARCH DROPDOWN SECTION NAVIGATION
-    // =====================================================
-
-    document
-        .querySelectorAll(".dropdown-item")
-        .forEach((item) => {
-
-            item.addEventListener("click", () => {
-
-                // =====================================================
-                // UPDATE SEARCH LABEL
-                // =====================================================
-
-                if (selected) {
-
-                    selected.textContent =
-                        item.textContent.trim();
-
-                }
-
-
-                // =====================================================
-                // GET TARGET SECTION
-                // =====================================================
-
-                const target =
-                    document.getElementById(
-                        item.dataset.target
-                    );
-
-
-                if (target && sidebarContent) {
-
-                    // =====================================================
-                    // GET SEARCH AREA HEIGHT
-                    // =====================================================
-
-                    const searchArea =
-                        document.querySelector(
-                            ".sidebar-search"
-                        );
-
-                    const searchHeight =
-                        searchArea?.offsetHeight ?? 0;
-
-
-                    // =====================================================
-                    // SCROLL TO SELECTED SECTION
-                    // =====================================================
-
-                    sidebarContent.scrollTo({
-
-                        top:
-                            target.offsetTop
-                            - searchHeight
-                            - 20,
-
-                        behavior: "smooth",
-
-                    });
-
-
-                    // =====================================================
-                    // HIGHLIGHT SELECTED SECTION
-                    // =====================================================
-
-                    target.classList.add(
-                        "section-highlight"
-                    );
-
-
-                    setTimeout(() => {
-
-                        target.classList.remove(
-                            "section-highlight"
-                        );
-
-                    }, 2000);
-
-                }
-
-
-                // =====================================================
-                // CLOSE SEARCH DROPDOWN
-                // =====================================================
-
-                if (menu) {
-
-                    menu.style.display = "none";
-
-                }
-
-            });
-
-        });
-
-
-    // =====================================================
-    // CLOSE SEARCH DROPDOWN WHEN CLICKING OUTSIDE
-    // =====================================================
-
-    document.addEventListener("click", (event) => {
-
-        if (!trigger || !menu) {
-            return;
-        }
-
-
-        if (
-            !trigger.contains(event.target) &&
-            !menu.contains(event.target)
-        ) {
-
-            menu.style.display = "none";
-
-        }
-
-    });
 
 
     // =====================================================

@@ -284,20 +284,109 @@ class RisWorkflow
             || (string) ($ris->ris_status ?? '') === 'Rejected';
     }
 
+    /**
+     * Role title while one person holds the job. Their name when two or more do.
+     */
+    public static function roleHolder(object $ris, string $role, string $roleLabel): string
+    {
+        $name = $role === WorkflowNotifier::ROLE_PRESIDENT
+            ? self::presidentName($ris)
+            : self::schoolAdminName($ris);
+
+        return RoleHolderLabel::who($role, $name, $roleLabel);
+    }
+
+    /** @var array<int, string|null> */
+    private static array $schoolAdminNames = [];
+
+    /** @var array<int, string|null> */
+    private static array $presidentNames = [];
+
+    private static function schoolAdminName(object $ris): ?string
+    {
+        $preset = trim((string) ($ris->assigned_reviewer_name ?? ''));
+        if ($preset !== '') {
+            return $preset;
+        }
+
+        if (! RoleHolderLabel::multiple(WorkflowNotifier::ROLE_SCHOOL_ADMIN)) {
+            return null;
+        }
+
+        $id = (int) ($ris->ris_id ?? 0);
+        if ($id < 1 || ! Schema::hasTable('requisition_issue_slip_table') || ! Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+            return null;
+        }
+
+        if (! array_key_exists($id, self::$schoolAdminNames)) {
+            try {
+                self::$schoolAdminNames[$id] = DB::table('requisition_issue_slip_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'requisition_issue_slip_table.ris_assigned_reviewer_id')
+                    ->where('requisition_issue_slip_table.ris_id', $id)
+                    ->value('users_table.user_full_name');
+            } catch (\Throwable) {
+                self::$schoolAdminNames[$id] = null;
+            }
+        }
+
+        $name = trim((string) (self::$schoolAdminNames[$id] ?? ''));
+
+        return $name !== '' ? $name : null;
+    }
+
+    private static function presidentName(object $ris): ?string
+    {
+        $preset = trim((string) ($ris->president_name ?? ''));
+        if ($preset !== '') {
+            return $preset;
+        }
+
+        if (! RoleHolderLabel::multiple(WorkflowNotifier::ROLE_PRESIDENT)) {
+            return null;
+        }
+
+        $id = (int) ($ris->ris_id ?? 0);
+        if ($id < 1 || ! Schema::hasTable('approval_logs_table')) {
+            return null;
+        }
+
+        if (! array_key_exists($id, self::$presidentNames)) {
+            try {
+                self::$presidentNames[$id] = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'approval_logs_table.approval_log_approved_by')
+                    ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                    ->where('approval_logs_table.approval_log_reference_id', $id)
+                    ->where('approval_logs_table.approval_log_level', 'President')
+                    ->where('approval_logs_table.approval_log_approval_status', 'Approved')
+                    ->orderByDesc('approval_logs_table.approval_log_id')
+                    ->value('users_table.user_full_name');
+            } catch (\Throwable) {
+                self::$presidentNames[$id] = null;
+            }
+        }
+
+        $name = trim((string) (self::$presidentNames[$id] ?? ''));
+
+        return $name !== '' ? $name : null;
+    }
+
     public static function statusLabel(object $ris): string
     {
         $status = (string) ($ris->ris_status ?? '');
 
+        $schoolAdmin = self::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator');
+        $president = self::roleHolder($ris, WorkflowNotifier::ROLE_PRESIDENT, 'the President');
+
         if (in_array($status, self::incomingStatuses(), true)) {
-            return 'Under review by the Administrator';
+            return 'Under review by '.$schoolAdmin;
         }
 
         if ($status === self::ACCEPTED) {
-            return 'Accepted — waiting on Administrator signing decision';
+            return 'Accepted — waiting on '.$schoolAdmin.' signing decision';
         }
 
         if ($status === self::DIRECTLY_APPROVED) {
-            return 'Directly approved by the Administrator';
+            return 'Directly approved by '.$schoolAdmin;
         }
 
         if (self::isPresidentRejected($ris)) {
@@ -307,11 +396,11 @@ class RisWorkflow
         if (self::isPresidentApproved($ris)) {
             return self::hasIssuedBy($ris)
                 ? self::PRESIDENT_APPROVED
-                : 'Approved by the President — waiting on Administrator release';
+                : 'Approved by '.$president.' — waiting on '.$schoolAdmin.' release';
         }
 
         if ($status === self::FORWARDED || ($status === self::APPROVED_LEGACY && !self::presidentDigitalSignature($ris))) {
-            return 'Forwarded to the President by the Administrator';
+            return 'Forwarded to the President by '.$schoolAdmin;
         }
 
         if ($status === 'Minor Revision') {

@@ -18,6 +18,11 @@ class PresidentDashboardInsights
     private const ITEMS = 'requisition_issue_slip_items_table';
     private const STALLED_AFTER_DAYS = 7;
 
+    public static function directApprovals(): Collection
+    {
+        return self::safe(fn () => self::recentDirectApprovals(), collect());
+    }
+
     public static function build(): array
     {
         return [

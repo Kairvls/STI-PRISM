@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AtpRisSuppliers;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\RisWorkflow;
 use App\Support\SupplyHandoff;
@@ -62,6 +63,13 @@ class SupplyOfficerController extends Controller
                     ->orderByDesc('requisition_issue_slip_table.ris_sent_to_supply_at')
                     ->limit(5)
                     ->get();
+
+                $progress = AtpRisSuppliers::progress($latestIncomingRis->pluck('ris_id'));
+                foreach ($latestIncomingRis as $ris) {
+                    $row = $progress[(int) $ris->ris_id] ?? ['total' => 0, 'open' => 0];
+                    $ris->supplier_total = (int) $row['total'];
+                    $ris->supplier_open = (int) $row['open'];
+                }
             }
         } catch (\Throwable $e) {
         }
@@ -96,6 +104,10 @@ class SupplyOfficerController extends Controller
 
                 if (SupplyHandoff::atpReleaseColumnsReady()) {
                     $base->addSelect('authority_to_purchase_table.authority_purchase_released_to_purchaser_at');
+                }
+
+                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_rejection_reason')) {
+                    $base->addSelect('authority_to_purchase_table.authority_purchase_rejection_reason');
                 }
 
                 $draftQuery = (clone $base)

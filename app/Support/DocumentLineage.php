@@ -226,16 +226,17 @@ class DocumentLineage
             return 'Approved — ready for ATP';
         }
         if (RisWorkflow::isPresidentApproved($ris) && !RisWorkflow::hasIssuedBy($ris)) {
-            return 'Approved by President — waiting on Administrator release';
+            return 'Approved by '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_PRESIDENT, 'the President')
+                .' — waiting on '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator').' release';
         }
         if ($status === RisWorkflow::ACCEPTED) {
-            return 'Accepted — waiting on Administrator signing decision';
+            return 'Accepted — waiting on '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator').' signing decision';
         }
         if (RisWorkflow::isAwaitingPresident($ris) || $status === RisWorkflow::FORWARDED) {
-            return 'Submitted — waiting on President';
+            return 'Submitted — waiting on the President';
         }
         if (in_array($status, RisWorkflow::incomingStatuses(), true)) {
-            return 'Submitted — waiting on Administrator accept';
+            return 'Submitted — waiting on '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator').' accept';
         }
 
         return self::reviewHint($status, null, 'ris');

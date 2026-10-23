@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\Schema;
 class AccountingDashboard
 {
     public const QUEUE_TYPES = [
-        'dv' => 'Disbursement packages',
-        'liq' => 'Liquidation',
+        'dv' => 'Disbursement Vouchers',
+        'liq' => 'Liquidation Reports',
     ];
+
+    /** Rows shown in each To review tab before the rest stay on the full list. */
+    public const QUEUE_LIMIT = 8;
 
     /** Queue items waiting longer than this many days are flagged as slow. */
     public const SLOW_AFTER_DAYS = 3;
@@ -31,13 +34,19 @@ class AccountingDashboard
         $cashAdvances = self::outstandingCashAdvances();
 
         return [
-            'queue' => $queue->take(8)->values(),
+            'queue' => $queue->take(self::QUEUE_LIMIT)->values(),
             'queueCount' => $queue->count(),
-            'queueByType' => collect(self::QUEUE_TYPES)->map(fn ($label, $type) => [
-                'label' => $label,
-                'count' => $queue->where('type', $type)->count(),
-                'amount' => (float) $queue->where('type', $type)->sum('amount'),
-            ])->all(),
+            'queueLimit' => self::QUEUE_LIMIT,
+            'queueByType' => collect(self::QUEUE_TYPES)->map(function ($label, $type) use ($queue) {
+                $rows = $queue->where('type', $type)->values();
+
+                return [
+                    'label' => $label,
+                    'count' => $rows->count(),
+                    'amount' => (float) $rows->sum('amount'),
+                    'rows' => $rows->take(self::QUEUE_LIMIT)->values(),
+                ];
+            })->all(),
             'review' => [
                 'count' => $review->count(),
                 'amount' => (float) $review->sum('amount'),
@@ -126,17 +135,35 @@ class AccountingDashboard
         return $query
             ->orderBy('request_check_sent_to_accounting_at')
             ->get()
-            ->map(fn ($row) => self::item(
-                'dv',
-                $row->request_check_form_number ?: 'RFC-'.$row->request_check_id,
-                $row->request_check_payee ?: ($row->request_check_requested_by ?: 'Package'),
-                'Ready for Disbursement Voucher',
-                $row->request_check_amount_figures ?? null,
-                $row->request_check_sent_to_accounting_at,
-                false,
-                'Open',
-                url('/accounting/disbursement-vouchers?status=incoming&rfc='.(int) $row->request_check_id)
-            ));
+            ->map(function ($row) {
+                $rfcId = (int) $row->request_check_id;
+                $dv = AccountingHandoff::dvForRfc($rfcId);
+                $editable = $dv && in_array((string) ($dv->dv_status ?? ''), ['Draft', 'Revision'], true);
+                $continue = $dv
+                    ? route('accounting.dv.index', [
+                        $editable ? 'edit_dv' : 'view_dv' => (int) $dv->dv_id,
+                        'status' => $editable ? 'incoming' : 'all',
+                        'rfc' => $rfcId,
+                    ])
+                    : url('/accounting/disbursement-vouchers?status=incoming&rfc='.$rfcId);
+
+                $item = self::item(
+                    'dv',
+                    $row->request_check_form_number ?: 'RFC-'.$rfcId,
+                    $row->request_check_payee ?: ($row->request_check_requested_by ?: 'Package'),
+                    'Needs a disbursement voucher',
+                    $row->request_check_amount_figures ?? null,
+                    $row->request_check_sent_to_accounting_at,
+                    false,
+                    'Open',
+                    $continue
+                );
+                $item->preview_url = $dv
+                    ? route('accounting.dashboard.preview', ['type' => 'dv', 'id' => (int) $dv->dv_id])
+                    : route('accounting.dashboard.preview', ['type' => 'rfc', 'id' => $rfcId]);
+
+                return $item;
+            });
     }
 
     private static function atpQueue(): Collection
@@ -226,17 +253,22 @@ class AccountingDashboard
             ->select('liquidation_reports_table.*', 'receiving_reports_table.receiving_report_form_number');
         DocumentUrgency::select($query, 'LIQ');
 
-        return $query->get()->map(fn ($row) => self::item(
-            'liq',
-            $row->liquidation_report_form_number ?: 'LIQ-'.$row->liquidation_report_id,
-            $row->liquidation_report_employee_name ?: '—',
-            $row->receiving_report_form_number ?: null,
-            $row->liquidation_report_summary_actual_expense ?? $row->liquidation_report_amount_advance,
-            $row->liquidation_report_submitted_at ?? $row->liquidation_report_date_submitted ?? $row->liquidation_report_created_at,
-            DocumentUrgency::isUrgent('LIQ', $row),
-            'Review',
-            url('/accounting/liquidation-reports/'.$row->liquidation_report_id)
-        ));
+        return $query->get()->map(function ($row) {
+            $item = self::item(
+                'liq',
+                $row->liquidation_report_form_number ?: 'LIQ-'.$row->liquidation_report_id,
+                $row->liquidation_report_employee_name ?: '—',
+                $row->receiving_report_form_number ?: null,
+                $row->liquidation_report_summary_actual_expense ?? $row->liquidation_report_amount_advance,
+                $row->liquidation_report_submitted_at ?? $row->liquidation_report_date_submitted ?? $row->liquidation_report_created_at,
+                DocumentUrgency::isUrgent('LIQ', $row),
+                'Review',
+                url('/accounting/liquidation-reports/'.$row->liquidation_report_id)
+            );
+            $item->preview_url = route('accounting.dashboard.preview', ['type' => 'liq', 'id' => (int) $row->liquidation_report_id]);
+
+            return $item;
+        });
     }
 
     private static function item(string $type, string $ref, string $who, ?string $related, $amount, $since, bool $urgent, string $action, string $url): object
@@ -315,12 +347,14 @@ class AccountingDashboard
 
             return (object) [
                 'ref' => $row->request_check_form_number ?: 'RFC-'.$row->request_check_id,
+                'kind' => ProcurementPaymentPath::label($row->request_check_funding_type ?? null),
                 'payee' => $row->request_check_payee ?: '—',
                 'amount' => (float) $row->request_check_amount_figures,
                 'released_at' => $releasedAt,
                 'days' => (int) $releasedAt->diffInDays(now()),
                 'liquidation_status' => $row->liquidation_status ?? null,
                 'url' => url(ProcurementReviewPortal::requestCheck((int) $row->request_check_id)),
+                'preview_url' => route('accounting.dashboard.preview', ['type' => 'rfc', 'id' => (int) $row->request_check_id]),
             ];
         });
     }
@@ -358,6 +392,7 @@ class AccountingDashboard
                     },
                     'tone' => $days < 0 ? 'red' : ($days <= 1 ? 'amber' : 'blue'),
                     'url' => url('/accounting/liquidation-reports/'.$row->liquidation_report_id),
+                    'preview_url' => route('accounting.dashboard.preview', ['type' => 'liq', 'id' => (int) $row->liquidation_report_id]),
                 ];
             });
     }
@@ -398,17 +433,30 @@ class AccountingDashboard
             $numbers[$type] = DB::table($table)->whereIn($key, $group->pluck('approval_log_reference_id'))->pluck($number, $key);
         }
 
-        return $logs->map(function ($log) use ($documents, $aliases, $numbers) {
+        $rfcKinds = collect();
+        if (isset($numbers['RFC']) && Schema::hasColumn('request_check_table', 'request_check_funding_type')) {
+            $rfcKinds = DB::table('request_check_table')
+                ->whereIn('request_check_id', $numbers['RFC']->keys())
+                ->pluck('request_check_funding_type', 'request_check_id');
+        }
+
+        return $logs->map(function ($log) use ($documents, $aliases, $numbers, $rfcKinds) {
             $type = $aliases[strtoupper((string) $log->approval_log_reference_type)] ?? strtoupper((string) $log->approval_log_reference_type);
             $doc = $documents[$type] ?? null;
             $status = (string) $log->approval_log_approval_status;
             $remarks = trim((string) $log->approval_log_approval_remarks);
             $isRelease = str_starts_with(strtolower($remarks), 'funds released');
 
+            $previewTypes = ['ATP' => 'atp', 'RFC' => 'rfc', 'LIQ' => 'liq'];
+            $previewType = $previewTypes[$type] ?? null;
+
             return (object) [
-                'action' => $isRelease ? 'Funds released' : $status,
+                'action' => $isRelease ? 'Money released' : $status,
                 'type_label' => $doc[4] ?? $log->approval_log_reference_type,
                 'ref' => $numbers[$type][$log->approval_log_reference_id] ?? null,
+                'kind' => $type === 'RFC'
+                    ? ProcurementPaymentPath::label($rfcKinds[$log->approval_log_reference_id] ?? null)
+                    : null,
                 'by' => $log->user_full_name ?: 'Accounting',
                 'remarks' => $remarks,
                 'at' => $log->approval_log_approved_at ? Carbon::parse($log->approval_log_approved_at) : null,
@@ -419,6 +467,9 @@ class AccountingDashboard
                     default => 'green',
                 },
                 'url' => $doc ? url($doc[3].$log->approval_log_reference_id) : null,
+                'preview_url' => $previewType
+                    ? route('accounting.dashboard.preview', ['type' => $previewType, 'id' => (int) $log->approval_log_reference_id])
+                    : null,
             ];
         });
     }

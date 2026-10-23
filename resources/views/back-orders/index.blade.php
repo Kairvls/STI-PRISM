@@ -53,6 +53,7 @@
             'status' => $bo->back_order_status,
             'status_label' => BackOrders::statusLabel($bo->back_order_status),
             'is_cash_advance' => $bo->is_cash_advance,
+            'payment_label' => $bo->payment_label ?? '',
             'rr' => $bo->root_rr_number ?: ('RR #'.$bo->back_order_root_receiving_report_id),
             'rr_status' => $bo->root_rr_status,
             'refund_amount' => $bo->back_order_refund_amount !== null ? (float) $bo->back_order_refund_amount : null,
@@ -237,7 +238,7 @@
                                     <p class="font-medium text-gray-800">{{ $bo->root_rr_number ?: 'RR #'.$bo->back_order_root_receiving_report_id }}</p>
                                 @endif
                                 <p class="mt-0.5 text-xs text-gray-500">
-                                    {{ $bo->is_cash_advance ? 'Cash Advance' : 'Request for Check' }}
+                                    {{ $bo->payment_label ?: '—' }}
                                     @if($bo->authority_purchase_form_number)
                                         · {{ $bo->authority_purchase_form_number }}
                                     @endif
@@ -361,7 +362,7 @@
     <template x-teleport="body">
         <div x-show="detailOpen && current" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
             <div class="fixed inset-0 bg-black/40" @click="detailOpen = false"></div>
-            <div class="relative flex min-h-full items-center justify-center p-4">
+            <div class="relative flex min-h-full items-center justify-center p-4" @click="detailOpen = false">
                 <div class="relative w-full max-w-2xl rounded-2xl bg-white shadow-xl" @click.stop>
                     <template x-if="current">
                         <div>
@@ -376,7 +377,7 @@
                                 <div><p class="text-xs text-gray-500">Quantity</p><p class="font-medium text-gray-900" x-text="current.quantity + ' ' + (current.unit || 'pcs') + ' ' + current.type_label.toLowerCase()"></p></div>
                                 <div><p class="text-xs text-gray-500">Unit price</p><p class="font-medium text-gray-900" x-text="money(current.unit_price)"></p></div>
                                 <div><p class="text-xs text-gray-500">Original supplier</p><p class="font-medium text-gray-900" x-text="current.supplier || '—'"></p></div>
-                                <div><p class="text-xs text-gray-500">Payment</p><p class="font-medium text-gray-900" x-text="current.is_cash_advance ? 'Cash Advance' : 'Request for Check'"></p></div>
+                                <div><p class="text-xs text-gray-500">Payment</p><p class="font-medium text-gray-900" x-text="current.payment_label || '—'"></p></div>
                                 <div><p class="text-xs text-gray-500">Status</p><p class="font-medium text-gray-900" x-text="current.status_label"></p></div>
                                 <div><p class="text-xs text-gray-500">Reason</p><p class="font-medium text-gray-900" x-text="current.reason_label"></p></div>
                                 <div x-show="!current.is_cash_advance">
@@ -422,7 +423,7 @@
         <template x-teleport="body">
             <div x-show="editOpen && current" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div class="relative flex min-h-full items-center justify-center p-4" @click="editOpen = false">
                     <form method="POST" :action="current ? current.update_url : '#'" enctype="multipart/form-data" class="relative w-full max-w-xl rounded-2xl bg-white shadow-xl" @click.stop>
                         @csrf
                         <template x-if="current">
@@ -507,7 +508,7 @@
         <template x-teleport="body">
             <div x-show="replaceOpen && current" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="fixed inset-0 bg-black/40" @click="replaceOpen = false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div class="relative flex min-h-full items-center justify-center p-4" @click="replaceOpen = false">
                     <form method="POST" :action="current ? current.replace_url : '#'" enctype="multipart/form-data" class="relative w-full max-w-xl rounded-2xl bg-white shadow-xl" @click.stop>
                         @csrf
                         <template x-if="current">
@@ -539,7 +540,7 @@
                                         <template x-if="!current.is_cash_advance">
                                             <div>
                                                 <p class="flex h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700" x-text="current.supplier || 'Original supplier'"></p>
-                                                <p class="mt-1 text-xs text-gray-500">Request for Check stays with the original supplier and price; the check was issued to them.</p>
+                                                <p class="mt-1 text-xs text-gray-500">Direct Payment and Cash Installment stay with the original supplier and price.</p>
                                             </div>
                                         </template>
                                     </div>
@@ -597,7 +598,7 @@
         <template x-teleport="body">
             <div x-show="refundOpen && current" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="fixed inset-0 bg-black/40" @click="refundOpen = false"></div>
-                <div class="relative flex min-h-full items-center justify-center p-4">
+                <div class="relative flex min-h-full items-center justify-center p-4" @click="refundOpen = false">
                     <form method="POST" :action="current ? current.refund_url : '#'" enctype="multipart/form-data" class="relative w-full max-w-xl rounded-2xl bg-white shadow-xl" @click.stop>
                         @csrf
                         <template x-if="current">

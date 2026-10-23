@@ -23,11 +23,6 @@ class PresidentController extends Controller
 
     public function dashboard(): View
     {
-        // ================================
-        // RIS decision counts
-        // ================================
-        $totalRisCount = DB::table('requisition_issue_slip_table')->count();
-
         $attention = PresidentAttentionSummary::counts();
         $pendingApprovalsCount = $attention['pendingApprovalsCount'];
         $awaitingNotifyCount = $attention['awaitingNotifyCount'];
@@ -38,65 +33,6 @@ class PresidentController extends Controller
                     $this->scopePresidentApproved($q);
                 })
                 ->count();
-
-        $rejectedDecisionsCount =
-            DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->count();
-
-        // ================================
-        // Monthly stats (last 6 months)
-        // ================================
-        $monthlyStats = [];
-        $monthNames = [
-            1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
-            5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug',
-            9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec',
-        ];
-
-        for ($i = 5; $i >= 0; $i--) {
-            $y = (int) date('Y', strtotime("-$i months"));
-            $m = (int) date('m', strtotime("-$i months"));
-
-            $approved = DB::table('requisition_issue_slip_table')
-                ->where(function ($q) {
-                    $this->scopePresidentApproved($q);
-                })
-                ->where(function ($q) use ($y, $m) {
-                    $q->where(function ($byApprovedDate) use ($y, $m) {
-                        $byApprovedDate->whereNotNull('ris_approved_by_date')
-                            ->whereYear('ris_approved_by_date', $y)
-                            ->whereMonth('ris_approved_by_date', $m);
-                    })->orWhere(function ($byCreated) use ($y, $m) {
-                        $byCreated->whereNull('ris_approved_by_date')
-                            ->whereYear('ris_created_at', $y)
-                            ->whereMonth('ris_created_at', $m);
-                    });
-                })
-                ->count();
-
-            $rejected = DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->whereYear('ris_created_at', $y)
-                ->whereMonth('ris_created_at', $m)
-                ->count();
-
-            $pending = DB::table('requisition_issue_slip_table')
-                ->where(function ($q) {
-                    $this->scopeAwaitingPresident($q);
-                })
-                ->whereYear('ris_created_at', $y)
-                ->whereMonth('ris_created_at', $m)
-                ->count();
-
-            $monthlyStats[] = [
-                'year_month' => sprintf('%04d-%02d', $y, $m),
-                'month_label' => $monthNames[$m],
-                'approved' => $approved,
-                'rejected' => $rejected,
-                'pending' => $pending,
-            ];
-        }
 
         // ================================
         // Top 3 most recent RIS awaiting decision
@@ -131,7 +67,7 @@ class PresidentController extends Controller
             )
             ->orderByDesc('ris.ris_created_at')
             ->orderByDesc('ris.ris_id')
-            ->limit(3)
+            ->limit(5)
             ->get();
 
         // ================================
@@ -162,38 +98,144 @@ class PresidentController extends Controller
                 return $ris;
             });
 
-        // ================================
-        // Notifications count (for current user)
-        // ================================
-        $notificationsCount = 0;
-        try {
-            $user = Auth::user();
-            if ($user) {
-                $notificationsCount = DB::table('notifications_table')
-                    ->where('notification_user_id', $user->user_id)
-                    ->count();
-            }
-        } catch (\Throwable $e) {
-            $notificationsCount = 0;
+        $toNotify = PresidentAttentionSummary::scopeAwaitingNotify(
+            DB::table('requisition_issue_slip_table')->select('ris_id', 'ris_form_number', 'ris_approved_by_date')
+        )
+            ->orderByDesc('ris_approved_by_date')
+            ->orderByDesc('ris_id')
+            ->limit(5)
+            ->get();
+
+        $pendingDvCount = 0;
+        $pendingDvs = collect();
+        if (Schema::hasTable('disbursement_vouchers_table')) {
+            $dvBase = DB::table('disbursement_vouchers_table')
+                ->where('dv_status', 'With President')
+                ->where(function ($q) {
+                    $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+                });
+            $pendingDvCount = (clone $dvBase)->count();
+            $pendingDvs = (clone $dvBase)
+                ->leftJoin('request_check_table', 'disbursement_vouchers_table.dv_request_check_id', '=', 'request_check_table.request_check_id')
+                ->orderBy('disbursement_vouchers_table.dv_president_submitted_at')
+                ->orderBy('disbursement_vouchers_table.dv_id')
+                ->limit(5)
+                ->get([
+                    'disbursement_vouchers_table.dv_id',
+                    'disbursement_vouchers_table.dv_form_number',
+                    'disbursement_vouchers_table.dv_payee',
+                    'disbursement_vouchers_table.dv_amount',
+                    'request_check_table.request_check_payee',
+                ]);
+        }
+
+        $compiledRecordCount = 0;
+        $compiledRecords = collect();
+        if (Schema::hasTable('procurement_record_packages_table')) {
+            $compiledBase = DB::table('procurement_record_packages_table')
+                ->where('package_status', 'forwarded_to_president')
+                ->where('package_is_archived', 0);
+            $compiledRecordCount = (clone $compiledBase)->count();
+            $compiledRecords = (clone $compiledBase)
+                ->leftJoin(
+                    'authority_to_purchase_table',
+                    'procurement_record_packages_table.package_authority_purchase_id',
+                    '=',
+                    'authority_to_purchase_table.authority_purchase_id'
+                )
+                ->leftJoin(
+                    'requisition_issue_slip_table',
+                    'authority_to_purchase_table.authority_purchase_ris_id',
+                    '=',
+                    'requisition_issue_slip_table.ris_id'
+                )
+                ->orderByDesc('procurement_record_packages_table.package_forwarded_to_president_at')
+                ->limit(4)
+                ->get([
+                    'procurement_record_packages_table.package_id',
+                    'procurement_record_packages_table.package_authority_purchase_id',
+                    'procurement_record_packages_table.package_payment_path',
+                    'procurement_record_packages_table.package_forwarded_to_president_at',
+                    'authority_to_purchase_table.authority_purchase_form_number',
+                    'requisition_issue_slip_table.ris_form_number',
+                ]);
         }
 
         return view('president.dashboard', [
-            'totalRisCount' => $totalRisCount,
             'pendingApprovalsCount' => $pendingApprovalsCount,
             'approvedDecisionsCount' => $approvedDecisionsCount,
-            'rejectedDecisionsCount' => $rejectedDecisionsCount,
             'awaitingNotifyCount' => $awaitingNotifyCount,
-            'notificationsCount' => $notificationsCount,
-            'monthlyStats' => $monthlyStats,
+            'compiledRecords' => $compiledRecords,
+            'compiledRecordCount' => $compiledRecordCount,
             'recentRis' => $recentRis,
             'recentlyApprovedRis' => $recentlyApprovedRis,
-            'insights' => PresidentDashboardInsights::build(),
+            'toNotify' => $toNotify,
+            'pendingDvs' => $pendingDvs,
+            'pendingDvCount' => $pendingDvCount,
+            'directApprovals' => PresidentDashboardInsights::directApprovals(),
+            'directApprovalCount' => (int) DB::table('requisition_issue_slip_table')
+                ->where('ris_status', RisWorkflow::DIRECTLY_APPROVED)
+                ->count(),
         ]);
     }
 
     // =====================================================
     // APPROVALS
     // =====================================================
+
+    public function dashboardPreview(string $type, int $id)
+    {
+        if ($type === 'atp') {
+            abort_unless(Schema::hasTable('procurement_record_packages_table'), 404);
+            $allowed = DB::table('procurement_record_packages_table')
+                ->where('package_authority_purchase_id', $id)
+                ->where('package_status', 'forwarded_to_president')
+                ->where('package_is_archived', 0)
+                ->exists();
+            abort_unless($allowed, 404);
+
+            $atp = DB::table('authority_to_purchase_table')
+                ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+                ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+                ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+                ->where('authority_to_purchase_table.authority_purchase_id', $id)
+                ->select(
+                    'authority_to_purchase_table.*',
+                    'suppliers_table.supplier_store_type',
+                    'physical_suppliers_table.company_name',
+                    'online_suppliers_table.shop_name'
+                )
+                ->first();
+            abort_if(! $atp, 404);
+            $items = Schema::hasTable('authority_to_purchase_items_table')
+                ? DB::table('authority_to_purchase_items_table')->where('authority_purchase_id', $id)->orderBy('atp_item_id')->get()
+                : collect();
+
+            return view('president.dashboard-preview', [
+                'kind' => 'atp',
+                'title' => $atp->authority_purchase_form_number ?: 'Authority to Purchase',
+                'atp' => $atp,
+                'items' => $items,
+            ]);
+        }
+
+        if ($type === 'dv') {
+            abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+            $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
+            abort_if(! $dv, 404);
+            abort_unless(in_array((string) ($dv->dv_status ?? ''), [
+                'With President', 'President Approved', 'Check Released', 'Approved',
+            ], true), 404);
+
+            return view('president.dashboard-preview', [
+                'kind' => 'dv',
+                'title' => $dv->dv_form_number ?: 'Disbursement voucher',
+                'dv' => $dv,
+            ]);
+        }
+
+        abort(404);
+    }
 
     public function approvals(Request $request)
     {

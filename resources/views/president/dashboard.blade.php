@@ -4,84 +4,57 @@
 
 @section('content')
 
-{{-- ===================================== --}}
-{{-- TOP HEADER (page title lives in topbar) --}}
-{{-- ===================================== --}}
-
-
-{{-- ===================================== --}}
-{{-- KPI SUMMARY CARDS --}}
-{{-- ===================================== --}}
-@include('layouts.partials.maintenance-stat-cards', [
-    'cards' => [
-        [
-            'label' => 'Total RIS',
-            'hint' => 'All time records',
-            'value' => number_format((int) ($totalRisCount ?? 0)),
-        ],
-        [
-            'label' => 'Pending',
-            'hint' => 'Awaiting decision',
-            'value' => number_format((int) ($pendingApprovalsCount ?? 0)),
-            'href' => '/president/approvals',
-        ],
-        [
-            'label' => 'Approved',
-            'hint' => 'Successfully approved',
-            'value' => number_format((int) ($approvedDecisionsCount ?? 0)),
-            'href' => '/president/reports/approved',
-        ],
-        [
-            'label' => 'Rejected',
-            'hint' => 'Declined requests',
-            'value' => number_format((int) ($rejectedDecisionsCount ?? 0)),
-            'href' => '/president/reports/approved?filter=rejected',
-        ],
-    ],
-])
-
-{{-- ===================================== --}}
-{{-- CHARTS + TOP 3 RECENT RIS --}}
-{{-- ===================================== --}}
 @php
-    $chartApprovedTotal = collect($monthlyStats ?? [])->sum('approved');
-    $chartRejectedTotal = collect($monthlyStats ?? [])->sum('rejected');
-    $chartDecisionTotal = $chartApprovedTotal + $chartRejectedTotal;
+    $peso = fn ($amount) => '₱'.number_format((float) $amount, 2);
 @endphp
-<div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <section class="pm-analytics-card lg:col-span-2 slide-up" style="animation-delay: 0.22s">
-        <div class="pm-analytics-header">
-            <div>
-                <h2 class="pm-analytics-title">Decision Trend</h2>
-                <p class="pm-analytics-subtitle">Last 6 months · approvals &amp; rejections</p>
-            </div>
-            <div class="pm-chart-total is-blue">
-                {{ number_format($chartDecisionTotal) }}
-                <span>decisions</span>
-            </div>
-        </div>
 
-        <div class="pm-decision-chart-legend">
-            <div class="pm-decision-chart-legend-item">
-                <span class="pm-decision-chart-swatch is-approved"></span>
-                Approved
+<div class="-mt-4 grid grid-cols-1 gap-4 sm:-mt-5 lg:grid-cols-3">
+    <section class="pm-card p-5 lg:col-span-2">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2">
+                <h2 class="text-sm font-bold text-gray-900">Compiled records</h2>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($compiledRecordCount ?? 0)) }}</span>
             </div>
-            <div class="pm-decision-chart-legend-item">
-                <span class="pm-decision-chart-swatch is-rejected"></span>
-                Rejected
-            </div>
+            <a href="{{ route('president.procurement-records.index') }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
         </div>
-
-        <div class="pm-decision-chart">
-            <canvas id="dashboardChart"></canvas>
+        <div class="mt-4 divide-y divide-slate-100">
+            @forelse ($compiledRecords ?? [] as $record)
+                @php
+                    $recordDate = $record->package_forwarded_to_president_at
+                        ? \Carbon\Carbon::parse($record->package_forwarded_to_president_at)->format('M d, Y')
+                        : '—';
+                    $recordTitle = $record->authority_purchase_form_number ?: 'Compiled record';
+                    $recordAtpId = (int) ($record->package_authority_purchase_id ?? 0);
+                @endphp
+                <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40"
+                    data-dashboard-preview
+                    data-preview-url="{{ $recordAtpId ? route('president.dashboard.preview', ['type' => 'atp', 'id' => $recordAtpId]) : '' }}"
+                    data-continue-url="{{ route('president.procurement-records.show', $record->package_id) }}"
+                    data-continue-label="Open"
+                    data-preview-title="{{ $recordTitle }}"
+                >
+                    <span class="min-w-0">
+                        <span class="block truncate text-xs font-semibold text-gray-900">{{ $recordTitle }}</span>
+                        <span class="block truncate text-[11px] text-gray-500">{{ $record->ris_form_number ?: '—' }} · {{ \App\Support\ProcurementPaymentPath::label($record->package_payment_path ?? null) }} · {{ $recordDate }}</span>
+                    </span>
+                    <span class="shrink-0 text-[11px] font-semibold text-blue-600">Open</span>
+                </button>
+            @empty
+                <p class="py-8 text-center text-xs font-medium text-gray-500">None yet</p>
+            @endforelse
         </div>
+        @if (collect($compiledRecords ?? [])->isNotEmpty())
+            <p class="mt-3 text-xs text-slate-500">{{ (int) ($compiledRecordCount ?? 0) > collect($compiledRecords ?? [])->count() ? collect($compiledRecords ?? [])->count().' latest' : 'Showing '.collect($compiledRecords ?? [])->count().' of '.(int) ($compiledRecordCount ?? 0) }}</p>
+        @endif
     </section>
 
     <aside class="pm-card p-5 slide-up" style="animation-delay: 0.25s">
         <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-sm font-bold text-gray-900">Recent RIS</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Top 3 awaiting your decision</p>
+            <div class="flex min-w-0 items-center gap-2">
+                <h2 class="text-sm font-bold text-gray-900">To approve</h2>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($pendingApprovalsCount ?? 0)) }}</span>
             </div>
             <a href="/president/approvals" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open approval queue">
                 View all
@@ -95,7 +68,14 @@
                     $requester = \App\Support\RisWorkflow::requesterName($ris);
                     $amount = number_format((float) ($ris->total_amount ?? 0), 2);
                 @endphp
-                <div class="rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40">
+                <div
+                    class="cursor-pointer rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40"
+                    data-dashboard-preview
+                    data-preview-url="{{ route('president.ris.view', $ris->ris_id) }}?preview=1"
+                    data-continue-url="/president/approvals?approve={{ $ris->ris_id }}"
+                    data-continue-label="Approve"
+                    data-preview-title="{{ $label }}"
+                >
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
@@ -118,371 +98,173 @@
                 </div>
             @empty
                 <div class="rounded-xl border border-dashed border-gray-200 px-3 py-8 text-center">
-                    <p class="text-xs font-medium text-gray-500">No pending RIS right now</p>
-                    <p class="mt-1 text-[11px] text-gray-400">New forwarded requests will appear here</p>
+                    <p class="text-xs font-medium text-gray-500">Nothing to approve</p>
                 </div>
             @endforelse
         </div>
+        @if ($recentRis->isNotEmpty())
+            <p class="mt-3 text-xs text-slate-500">{{ (int) ($pendingApprovalsCount ?? 0) > $recentRis->count() ? $recentRis->count().' latest' : 'Showing '.$recentRis->count().' of '.(int) ($pendingApprovalsCount ?? 0) }}</p>
+        @endif
     </aside>
 </div>
 
-{{-- ===================================== --}}
-{{-- ATTENTION + RECENTLY APPROVED --}}
-{{-- ===================================== --}}
 <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.28s">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-sm font-bold text-gray-900">Needs Your Attention</h2>
+    <section class="pm-card p-5 lg:col-span-2">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2">
+                <h2 class="text-sm font-bold text-gray-900">Disbursement vouchers</h2>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($pendingDvCount ?? 0)) }}</span>
             </div>
+            <a href="{{ route('president.dv.index') }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
         </div>
-        <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-            <a href="/president/approvals" class="group rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50">
-                <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
-                        <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-                    </div>
-                    <span class="text-xl font-bold text-blue-700">{{ $pendingApprovalsCount ?? 0 }}</span>
-                </div>
-                <p class="mt-3 text-sm font-semibold text-gray-900">Pending review</p>
-                <p class="mt-0.5 text-[11px] text-gray-500">RIS waiting for your decision</p>
-            </a>
-            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
-                <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-                        <i data-lucide="bell" class="h-4 w-4"></i>
-                    </div>
-                    <span class="text-xl font-bold text-blue-700">{{ $awaitingNotifyCount ?? 0 }}</span>
-                </div>
-                <p class="mt-3 text-sm font-semibold text-gray-900">Ready to notify</p>
-                <p class="mt-0.5 text-[11px] text-gray-500">Approved, Administrator not yet notified</p>
-            </a>
-            <a href="/president/approvals/history" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
-                <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-                        <i data-lucide="history" class="h-4 w-4"></i>
-                    </div>
-                    <i data-lucide="chevron-right" class="h-4 w-4 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-blue-500"></i>
-                </div>
-                <p class="mt-3 text-sm font-semibold text-gray-900">Approval history</p>
-                <p class="mt-0.5 text-[11px] text-gray-500">Review past decisions</p>
-            </a>
+        <div class="mt-4 divide-y divide-slate-100">
+            @forelse ($pendingDvs ?? [] as $dv)
+                @php
+                    $dvLabel = $dv->dv_form_number ?: 'Disbursement voucher';
+                    $dvWho = $dv->dv_payee ?: ($dv->request_check_payee ?: '—');
+                @endphp
+                <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40"
+                    data-dashboard-preview
+                    data-preview-url="{{ route('president.dashboard.preview', ['type' => 'dv', 'id' => $dv->dv_id]) }}"
+                    data-continue-url="{{ route('president.dv.show', $dv->dv_id) }}"
+                    data-continue-label="Open"
+                    data-preview-title="{{ $dvLabel }}"
+                >
+                    <span class="min-w-0">
+                        <span class="block truncate text-xs font-semibold text-gray-900">{{ $dvLabel }}</span>
+                        <span class="block truncate text-[11px] text-gray-500">{{ $dvWho }}</span>
+                    </span>
+                    <span class="shrink-0 text-right">
+                        <span class="block text-xs font-semibold text-gray-900">{{ $peso($dv->dv_amount ?? 0) }}</span>
+                        <span class="text-[11px] font-semibold text-blue-600">Open</span>
+                    </span>
+                </button>
+            @empty
+                <p class="py-8 text-center text-xs font-medium text-gray-500">Nothing to approve</p>
+            @endforelse
         </div>
+        @if (collect($pendingDvs ?? [])->isNotEmpty())
+            <p class="mt-3 text-xs text-slate-500">{{ (int) ($pendingDvCount ?? 0) > collect($pendingDvs ?? [])->count() ? collect($pendingDvs ?? [])->count().' latest' : 'Showing '.collect($pendingDvs ?? [])->count().' of '.(int) ($pendingDvCount ?? 0) }}</p>
+        @endif
     </section>
 
-    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.3s">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-sm font-bold text-gray-900">Recently Approved RIS</h2>
+    <aside class="pm-card p-5">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2">
+                <h2 class="text-sm font-bold text-gray-900">To notify</h2>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($awaitingNotifyCount ?? 0)) }}</span>
             </div>
-            <a href="/president/reports/approved" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="View all approved RIS">
-                View all
-            </a>
+            <a href="/president/approvals?focus=awaiting-notify" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
+        </div>
+        <div class="mt-4 space-y-2">
+            @forelse ($toNotify ?? [] as $ris)
+                @php $notifyLabel = \App\Support\RisWorkflow::formNumber($ris); @endphp
+                <button
+                    type="button"
+                    class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60"
+                    data-dashboard-preview
+                    data-preview-url="{{ route('president.ris.view', $ris->ris_id) }}?preview=1"
+                    data-continue-url="/president/approvals?preview={{ $ris->ris_id }}"
+                    data-continue-label="Open"
+                    data-preview-title="{{ $notifyLabel }}"
+                >
+                    <p class="truncate text-xs font-semibold text-gray-900">{{ $notifyLabel }}</p>
+                    <p class="text-[11px] text-gray-500">{{ $ris->ris_approved_by_date ? date('M d, Y', strtotime($ris->ris_approved_by_date)) : '—' }}</p>
+                </button>
+            @empty
+                <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
+            @endforelse
+        </div>
+        @if (collect($toNotify ?? [])->isNotEmpty())
+            <p class="mt-3 text-xs text-slate-500">{{ (int) ($awaitingNotifyCount ?? 0) > collect($toNotify ?? [])->count() ? collect($toNotify ?? [])->count().' latest' : 'Showing '.collect($toNotify ?? [])->count().' of '.(int) ($awaitingNotifyCount ?? 0) }}</p>
+        @endif
+    </aside>
+</div>
+
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <section class="pm-card p-5 lg:col-span-2">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2">
+                <h2 class="text-sm font-bold text-gray-900">Recently approved</h2>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($approvedDecisionsCount ?? 0)) }}</span>
+            </div>
+            <a href="/president/reports/approved" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
         </div>
         <div class="mt-4 space-y-1">
             @forelse ($recentlyApprovedRis ?? [] as $ris)
                 @php
                     $label = \App\Support\RisWorkflow::formNumber($ris);
-                    $date = $ris->ris_approved_by_date
-                        ? date('M d, Y', strtotime($ris->ris_approved_by_date))
-                        : '—';
-                    $awaiting = !empty($ris->awaiting_notify);
+                    $date = $ris->ris_approved_by_date ? date('M d, Y', strtotime($ris->ris_approved_by_date)) : '—';
                 @endphp
                 <div class="flex items-center gap-1">
-                    <a
-                        href="/president/approvals?preview={{ $ris->ris_id }}"
-                        class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-blue-50/60 min-w-0 flex-1"
-                        data-tip="Open approved RIS"
+                    <button
+                        type="button"
+                        class="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60"
+                        data-dashboard-preview
+                        data-preview-url="{{ route('president.ris.view', $ris->ris_id) }}?preview=1"
+                        data-continue-url="/president/approvals?preview={{ $ris->ris_id }}"
+                        data-continue-label="Open"
+                        data-preview-title="{{ $label }}"
                     >
-                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                            <i data-lucide="badge-check" class="h-4 w-4"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
-                            <p class="text-[11px] text-gray-500">{{ $date }}</p>
-                        </div>
-                        @if ($awaiting)
-                            <span class="inline-flex items-center rounded-xl bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">
-                                Notify Administrator
-                            </span>
-                        @else
-                            <span class="inline-flex items-center rounded-xl bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-                                Approved
-                            </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-xs font-semibold text-gray-900">{{ $label }}</span>
+                            <span class="text-[11px] text-gray-500">{{ $date }}</span>
+                        </span>
+                        @if (!empty($ris->awaiting_notify))
+                            <span class="inline-flex shrink-0 items-center rounded-xl bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">To notify</span>
                         @endif
-                    </a>
+                    </button>
                     <button type="button" class="icon-btn shrink-0" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $ris->ris_id }})">
                         <i data-lucide="printer" class="h-4 w-4"></i>
                     </button>
                 </div>
             @empty
-                <p class="px-3 py-4 text-center text-xs text-gray-400">No approved RIS yet</p>
+                <p class="px-3 py-8 text-center text-xs font-medium text-gray-500">None yet</p>
             @endforelse
         </div>
-    </aside>
-</div>
-
-{{-- ===================================== --}}
-{{-- SPENDING + WAITING ON YOU --}}
-{{-- ===================================== --}}
-@php
-    $insights = $insights ?? [];
-    $spend = $insights['spend'] ?? [];
-    $aging = $insights['aging'] ?? ['buckets' => [], 'oldest' => null, 'total' => 0];
-    $pipeline = $insights['pipeline'] ?? ['steps' => [], 'stalled' => 0, 'total' => 0];
-    $peso = fn ($v) => '₱'.number_format((float) $v, 2);
-
-    $thisMonth = (float) ($spend['thisMonth'] ?? 0);
-    $lastMonth = (float) ($spend['lastMonth'] ?? 0);
-    $spendChange = match (true) {
-        $lastMonth <= 0 && $thisMonth <= 0 => 'No approvals yet',
-        $lastMonth <= 0 => 'None approved last month',
-        default => (function () use ($thisMonth, $lastMonth, $peso) {
-            $pct = round((($thisMonth - $lastMonth) / $lastMonth) * 100);
-            return abs($pct) > 500
-                ? $peso($lastMonth).' last month'
-                : ($pct >= 0 ? '▲ ' : '▼ ').abs($pct).'% vs last month';
-        })(),
-    };
-
-    $hours = $insights['decisionHours'] ?? null;
-    $decisionText = match (true) {
-        $hours === null => '—',
-        $hours < 1 => max(1, (int) round($hours * 60)).' min',
-        $hours < 48 => rtrim(rtrim(number_format($hours, 1), '0'), '.').' hrs',
-        default => round($hours / 24, 1).' days',
-    };
-    $agingMax = max(1, collect($aging['buckets'])->max('count'));
-@endphp
-<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.32s">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-sm font-bold text-gray-900">Spending Overview</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Value of requests you are deciding on and have approved</p>
-            </div>
-            <a href="/president/reports/monthly-summary" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open monthly summary">
-                Monthly summary
-            </a>
-        </div>
-
-        <div class="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            <a href="/president/approvals" class="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50">
-                <p class="text-[11px] font-medium text-gray-500">Awaiting your decision</p>
-                <p class="mt-1.5 truncate text-lg font-bold text-blue-700" title="{{ $peso($spend['pendingAmount'] ?? 0) }}">{{ $peso($spend['pendingAmount'] ?? 0) }}</p>
-                <p class="mt-0.5 text-[11px] text-gray-400">{{ $pendingApprovalsCount ?? 0 }} pending RIS</p>
-            </a>
-            <a href="/president/reports/approved" class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/40">
-                <p class="text-[11px] font-medium text-gray-500">Approved this month</p>
-                <p class="mt-1.5 truncate text-lg font-bold text-gray-900" title="{{ $peso($thisMonth) }}">{{ $peso($thisMonth) }}</p>
-                <p class="mt-0.5 text-[11px] text-gray-400">{{ (int) ($spend['thisMonthCount'] ?? 0) }} RIS · {{ $spendChange }}</p>
-            </a>
-            <a href="/president/direct-approvals" class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-blue-200 hover:bg-blue-50/40">
-                <p class="text-[11px] font-medium text-gray-500">Direct approvals this month</p>
-                <p class="mt-1.5 truncate text-lg font-bold text-gray-900">{{ (int) ($spend['directCount'] ?? 0) }}</p>
-                <p class="mt-0.5 truncate text-[11px] text-gray-400">{{ $peso($spend['directAmount'] ?? 0) }} approved by Administrator</p>
-            </a>
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-                <p class="text-[11px] font-medium text-gray-500">Your avg. decision time</p>
-                <p class="mt-1.5 text-lg font-bold text-gray-900">{{ $decisionText }}</p>
-                <p class="mt-0.5 text-[11px] text-gray-400">From forwarded to decided · 90 days</p>
-            </div>
-        </div>
-
-        <div class="mt-5">
-            <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold text-gray-700">Top requested items</p>
-                <p class="text-[11px] text-gray-400">Approved RIS · last 90 days</p>
-            </div>
-            <div class="mt-3 space-y-2.5">
-                @forelse ($insights['topItems'] ?? [] as $item)
-                    <div>
-                        <div class="flex items-center justify-between gap-3 text-xs">
-                            <span class="min-w-0 truncate font-medium text-gray-800" title="{{ $item->name }}">{{ $item->name }}</span>
-                            <span class="shrink-0 font-semibold text-gray-900">{{ $peso($item->amount) }}</span>
-                        </div>
-                        <div class="mt-1 flex items-center gap-3">
-                            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-blue-50">
-                                <div class="h-full rounded-full bg-blue-600" style="width: {{ max(2, $item->share) }}%"></div>
-                            </div>
-                            <span class="w-28 shrink-0 text-right text-[11px] text-gray-400">{{ number_format($item->qty) }} qty · {{ $item->requests }} RIS</span>
-                        </div>
-                    </div>
-                @empty
-                    <p class="rounded-xl border border-dashed border-gray-200 px-3 py-6 text-center text-xs text-gray-400">No approved requests in the last 90 days</p>
-                @endforelse
-            </div>
-        </div>
-    </section>
-
-    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.34s">
-        <div>
-            <h2 class="text-sm font-bold text-gray-900">Waiting On You</h2>
-            <p class="mt-0.5 text-xs text-gray-400">How long pending RIS have been in your queue</p>
-        </div>
-
-        <div class="mt-4 space-y-2.5">
-            @foreach ($aging['buckets'] as $bucket)
-                @php $isLate = $bucket['label'] === 'Over 7 days' && $bucket['count'] > 0; @endphp
-                <div class="flex items-center gap-3 text-xs">
-                    <span class="w-20 shrink-0 text-gray-500">{{ $bucket['label'] }}</span>
-                    <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                        <div class="h-full rounded-full {{ $isLate ? 'bg-amber-500' : 'bg-blue-600' }}" style="width: {{ $bucket['count'] ? max(6, ($bucket['count'] / $agingMax) * 100) : 0 }}%"></div>
-                    </div>
-                    <span class="w-5 shrink-0 text-right font-semibold {{ $isLate ? 'text-amber-600' : ($bucket['count'] ? 'text-gray-900' : 'text-gray-300') }}">{{ $bucket['count'] }}</span>
-                </div>
-            @endforeach
-        </div>
-
-        @if ($aging['oldest'])
-            @php $oldest = $aging['oldest']; @endphp
-            <div class="mt-5 rounded-xl border {{ $oldest->days > 7 ? 'border-amber-200 bg-amber-50/60' : 'border-blue-100 bg-blue-50/50' }} px-3.5 py-3">
-                <p class="text-[11px] font-medium {{ $oldest->days > 7 ? 'text-amber-700' : 'text-blue-700' }}">Oldest in your queue</p>
-                <div class="mt-1 flex items-center justify-between gap-2">
-                    <div class="min-w-0">
-                        <p class="truncate text-xs font-semibold text-gray-900">{{ $oldest->number }}</p>
-                        <p class="text-[11px] text-gray-500">
-                            {{ $oldest->days === 0 ? 'Forwarded today' : 'Waiting '.$oldest->days.' '.($oldest->days === 1 ? 'day' : 'days') }} · {{ $peso($oldest->amount) }}
-                        </p>
-                    </div>
-                    <a href="/president/approvals?approve={{ $oldest->id }}" class="inline-flex h-8 shrink-0 items-center rounded-xl bg-blue-600 px-3 text-[11px] font-medium text-white transition hover:bg-blue-700">
-                        Review
-                    </a>
-                </div>
-            </div>
-        @else
-            <div class="mt-5 rounded-xl border border-dashed border-gray-200 px-3 py-6 text-center">
-                <p class="text-xs font-medium text-gray-500">Your queue is clear</p>
-            </div>
-        @endif
-
-        @php $decisions = $insights['decisions'] ?? ['approved' => 0, 'rejected' => 0, 'returned' => 0, 'total' => 0, 'days' => 30]; @endphp
-        <div class="mt-5 border-t border-gray-100 pt-4">
-            <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold text-gray-700">Your decisions</p>
-                <a href="/president/approvals/history" class="text-[11px] font-medium text-gray-400 transition hover:text-blue-700">Last {{ $decisions['days'] }} days</a>
-            </div>
-            <div class="mt-3 grid grid-cols-3 gap-2 text-center">
-                <div class="rounded-xl bg-blue-50/70 px-2 py-2.5">
-                    <p class="text-base font-bold text-blue-700">{{ $decisions['approved'] }}</p>
-                    <p class="text-[11px] text-gray-500">Approved</p>
-                </div>
-                <div class="rounded-xl bg-slate-50 px-2 py-2.5">
-                    <p class="text-base font-bold text-gray-900">{{ $decisions['returned'] }}</p>
-                    <p class="text-[11px] text-gray-500">Returned</p>
-                </div>
-                <div class="rounded-xl bg-slate-50 px-2 py-2.5">
-                    <p class="text-base font-bold text-gray-900">{{ $decisions['rejected'] }}</p>
-                    <p class="text-[11px] text-gray-500">Rejected</p>
-                </div>
-            </div>
-            @if ($decisions['total'] > 0)
-                <div class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div class="bg-blue-600" style="width: {{ ($decisions['approved'] / $decisions['total']) * 100 }}%"></div>
-                    <div class="bg-slate-400" style="width: {{ ($decisions['returned'] / $decisions['total']) * 100 }}%"></div>
-                    <div class="bg-slate-300" style="width: {{ ($decisions['rejected'] / $decisions['total']) * 100 }}%"></div>
-                </div>
-            @endif
-        </div>
-    </aside>
-</div>
-
-{{-- ===================================== --}}
-{{-- AFTER APPROVAL + DIRECT APPROVALS --}}
-{{-- ===================================== --}}
-<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.36s">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-sm font-bold text-gray-900">After Your Approval</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Where approved RIS are now in purchasing, funding and delivery</p>
-            </div>
-            <a href="/president/procurement-records" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open procurement records">
-                Procurement records
-            </a>
-        </div>
-
-        <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-5">
-            @foreach ($pipeline['steps'] as $i => $step)
-                <div class="rounded-xl border {{ $i === 0 ? 'border-blue-100 bg-blue-50/70' : 'border-slate-200 bg-white' }} px-3.5 py-3.5">
-                    <div class="flex items-baseline justify-between gap-2">
-                        <span class="text-xl font-bold {{ $i === 0 ? 'text-blue-700' : 'text-gray-900' }}">{{ $step['count'] }}</span>
-                        @if ($i > 0)
-                            <span class="text-[11px] font-semibold text-blue-600">{{ $step['percent'] }}%</span>
-                        @endif
-                    </div>
-                    <p class="mt-1.5 text-xs font-semibold text-gray-900">{{ $step['label'] }}</p>
-                    <p class="mt-0.5 text-[11px] leading-snug text-gray-500">{{ $step['hint'] }}</p>
-                    <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-blue-50">
-                        <div class="h-full rounded-full bg-blue-600" style="width: {{ $step['percent'] }}%"></div>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-
-        @if (($pipeline['stalled'] ?? 0) > 0)
-            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
-                <div class="flex items-center gap-3">
-                    <i data-lucide="clock-alert" class="h-4 w-4 shrink-0 text-amber-600"></i>
-                    <p class="text-xs text-gray-700">
-                        <span class="font-semibold text-amber-700">{{ $pipeline['stalled'] }} approved {{ $pipeline['stalled'] === 1 ? 'RIS has' : 'RIS have' }}</span>
-                        no Authority to Purchase yet after {{ $pipeline['stalledAfter'] }}+ days. The Purchaser may need a follow-up.
-                    </p>
-                </div>
-                <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    @foreach ($pipeline['stalledList'] ?? [] as $stalled)
-                        <a href="/president/procurement-records" class="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-amber-100 transition hover:ring-amber-200">
-                            <div class="min-w-0">
-                                <p class="truncate text-xs font-semibold text-gray-900">{{ $stalled->number }}</p>
-                                <p class="text-[11px] text-gray-500">Approved {{ $stalled->days }} days ago</p>
-                            </div>
-                            <span class="shrink-0 text-xs font-semibold text-gray-700">{{ $peso($stalled->amount) }}</span>
-                        </a>
-                    @endforeach
-                </div>
-            </div>
-        @else
-            <div class="mt-4 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3">
-                <i data-lucide="circle-check" class="h-4 w-4 shrink-0 text-blue-600"></i>
-                <p class="text-xs text-gray-700">Every approved RIS older than {{ $pipeline['stalledAfter'] ?? 7 }} days already has an Authority to Purchase.</p>
-            </div>
+        @if (collect($recentlyApprovedRis ?? [])->isNotEmpty())
+            <p class="mt-3 text-xs text-slate-500">{{ (int) ($approvedDecisionsCount ?? 0) > collect($recentlyApprovedRis ?? [])->count() ? collect($recentlyApprovedRis ?? [])->count().' latest' : 'Showing '.collect($recentlyApprovedRis ?? [])->count().' of '.(int) ($approvedDecisionsCount ?? 0) }}</p>
         @endif
     </section>
 
-    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.38s">
+    <aside class="pm-card p-5">
         <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-                <h2 class="text-sm font-bold text-gray-900">Direct Approvals</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Approved by Administrator without you</p>
+            <div class="flex min-w-0 items-center gap-2">
+                <h2 class="text-sm font-bold text-gray-900">Approved without you</h2>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($directApprovalCount ?? 0)) }}</span>
             </div>
-            <a href="/president/direct-approvals" class="shrink-0 whitespace-nowrap text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="View all direct approvals">
-                View all
-            </a>
+            <a href="/president/direct-approvals" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
         </div>
-        <div class="mt-4 space-y-2.5">
-            @forelse ($insights['directApprovals'] ?? [] as $direct)
-                <a href="/president/direct-approvals" class="block rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <p class="truncate text-xs font-semibold text-gray-900">{{ $direct->number }}</p>
-                            <p class="mt-0.5 truncate text-[11px] text-gray-500">{{ $direct->approver }} · {{ $direct->at?->format('M d, Y') ?? '—' }}</p>
-                        </div>
+        <div class="mt-4 space-y-2">
+            @forelse ($directApprovals ?? [] as $direct)
+                <button
+                    type="button"
+                    class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60"
+                    data-dashboard-preview
+                    data-preview-url="{{ route('president.ris.view', $direct->id) }}?preview=1"
+                    data-continue-url="/president/direct-approvals"
+                    data-continue-label="Open"
+                    data-preview-title="{{ $direct->number }}"
+                >
+                    <span class="flex items-start justify-between gap-2">
+                        <span class="min-w-0">
+                            <span class="block truncate text-xs font-semibold text-gray-900">{{ $direct->number }}</span>
+                            <span class="block truncate text-[11px] text-gray-500">{{ $direct->approver }} · {{ $direct->at?->format('M d, Y') ?? '—' }}</span>
+                        </span>
                         <span class="shrink-0 text-xs font-semibold text-blue-700">{{ $peso($direct->amount) }}</span>
-                    </div>
-                    @if ($direct->reason !== '')
-                        <p class="mt-1.5 line-clamp-2 border-l-2 border-blue-100 pl-2 text-[11px] italic text-gray-500">“{{ $direct->reason }}”</p>
-                    @endif
-                </a>
+                    </span>
+                </button>
             @empty
-                <div class="rounded-xl border border-dashed border-gray-200 px-3 py-8 text-center">
-                    <p class="text-xs font-medium text-gray-500">No direct approvals yet</p>
-                </div>
+                <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
             @endforelse
         </div>
+        @if (collect($directApprovals ?? [])->isNotEmpty())
+            <p class="mt-3 text-xs text-slate-500">{{ (int) ($directApprovalCount ?? 0) > collect($directApprovals ?? [])->count() ? collect($directApprovals ?? [])->count().' latest' : 'Showing '.collect($directApprovals ?? [])->count().' of '.(int) ($directApprovalCount ?? 0) }}</p>
+        @endif
     </aside>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
     @keyframes fadeIn {
@@ -579,6 +361,27 @@
     }
 </style>
 
+<div id="presidentDashboardPreview" class="fixed inset-0 z-[12000] hidden items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="presidentDashboardPreviewTitle">
+    <div class="my-4 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+            <h2 id="presidentDashboardPreviewTitle" class="truncate text-sm font-semibold text-slate-950">Form</h2>
+            <button type="button" data-preview-close class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div class="relative h-[70vh] bg-slate-100">
+            <iframe id="presidentDashboardPreviewFrame" title="Form preview" class="h-full w-full border-0 bg-slate-100" src="about:blank"></iframe>
+            <div id="presidentDashboardPreviewSkeleton" class="absolute inset-0 z-10 hidden overflow-auto bg-slate-100 py-6">
+                @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading form'])
+            </div>
+        </div>
+        <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-4 py-3">
+            <button type="button" data-preview-close class="text-sm font-medium text-slate-500 hover:text-slate-900">Close</button>
+            <a id="presidentDashboardPreviewContinue" href="#" class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001db3]">Open</a>
+        </div>
+    </div>
+</div>
+
 <script>
     window.printRisDocument = function (risId) {
         if (!risId) return;
@@ -631,215 +434,75 @@
             }, 30);
         });
 
-        const chartLabels = @json(array_column($monthlyStats ?? [], 'month_label'));
-        const chartApproved = @json(array_column($monthlyStats ?? [], 'approved'));
-        const chartRejected = @json(array_column($monthlyStats ?? [], 'rejected'));
-        const canvas = document.getElementById('dashboardChart');
+    });
 
-        if (!canvas || !chartLabels.length) {
-            return;
+    (function () {
+        const modal = document.getElementById('presidentDashboardPreview');
+        const frame = document.getElementById('presidentDashboardPreviewFrame');
+        const skeleton = document.getElementById('presidentDashboardPreviewSkeleton');
+        const title = document.getElementById('presidentDashboardPreviewTitle');
+        const continueLink = document.getElementById('presidentDashboardPreviewContinue');
+        if (!modal || !frame || !skeleton || !title || !continueLink) return;
+        document.body.appendChild(modal);
+
+        function showSkeleton() {
+            skeleton.classList.remove('hidden');
         }
 
-        const blueShadowPlugin = {
-            id: 'presidentBlueShadowPlugin',
-            beforeDatasetsDraw(chart) {
-                const meta = chart.getDatasetMeta(0);
-                if (!meta || meta.hidden || !meta.data.length || !meta.dataset) {
-                    return;
-                }
+        function hideSkeleton() {
+            skeleton.classList.add('hidden');
+        }
 
-                const ctx = chart.ctx;
-                const chartArea = chart.chartArea;
-                const points = meta.data;
-                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                gradient.addColorStop(0, 'rgba(37, 99, 235, 0.35)');
-                gradient.addColorStop(0.35, 'rgba(37, 99, 235, 0.16)');
-                gradient.addColorStop(0.7, 'rgba(37, 99, 235, 0.06)');
-                gradient.addColorStop(1, 'rgba(37, 99, 235, 0)');
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
-                ctx.clip();
-                ctx.beginPath();
-                meta.dataset.path(ctx);
-
-                const lastPoint = points[points.length - 1];
-                const firstPoint = points[0];
-                const shadowDepth = 75;
-                ctx.lineTo(lastPoint.x, Math.min(lastPoint.y + shadowDepth, chartArea.bottom));
-                ctx.lineTo(firstPoint.x, Math.min(firstPoint.y + shadowDepth, chartArea.bottom));
-                ctx.closePath();
-                ctx.fillStyle = gradient;
-                ctx.fill();
-                ctx.restore();
-            }
-        };
-
-        const hoverLinePlugin = {
-            id: 'presidentDecisionHoverLine',
-            afterDatasetsDraw(chart) {
-                const activeElements = chart.tooltip?.getActiveElements();
-                if (!activeElements?.length) {
-                    return;
-                }
-
-                const activeElement = activeElements[0].element;
-                const activeIndex = activeElements[0].index;
-                const x = activeElement.x;
-                const ctx = chart.ctx;
-                const chartArea = chart.chartArea;
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.setLineDash([3, 3]);
-                ctx.moveTo(x, chartArea.top);
-                ctx.lineTo(x, chartArea.bottom);
-                ctx.lineWidth = 1;
-                ctx.strokeStyle = '#d7dce5';
-                ctx.stroke();
-                ctx.restore();
-
-                const xScale = chart.scales.x;
-                const labelX = xScale.getPixelForTick(activeIndex);
-                const labelY = xScale.bottom + 17;
-                const activeLabel = String(chartLabels[activeIndex] || '');
-
-                ctx.save();
-                ctx.font = '600 10px Inter, sans-serif';
-                const textWidth = ctx.measureText(activeLabel).width;
-                const boxWidth = textWidth + 14;
-                const boxHeight = 22;
-                ctx.fillStyle = '#f1f1f3';
-                ctx.beginPath();
-                if (typeof ctx.roundRect === 'function') {
-                    ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 6);
-                } else {
-                    ctx.rect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight);
-                }
-                ctx.fill();
-                ctx.fillStyle = '#475569';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(activeLabel, labelX, labelY);
-                ctx.restore();
-            }
-        };
-
-        new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: chartLabels,
-                datasets: [
-                    {
-                        label: 'Approved',
-                        data: chartApproved,
-                        borderColor: '#2563EB',
-                        backgroundColor: 'transparent',
-                        borderWidth: 1.5,
-                        fill: false,
-                        tension: 0.42,
-                        cubicInterpolationMode: 'monotone',
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        pointHitRadius: 25,
-                        pointHoverBackgroundColor: '#2563EB',
-                        pointHoverBorderColor: 'white',
-                        pointHoverBorderWidth: 2,
-                    },
-                    {
-                        label: 'Rejected',
-                        data: chartRejected,
-                        borderColor: '#94a3b8',
-                        backgroundColor: 'transparent',
-                        borderWidth: 1.5,
-                        fill: false,
-                        tension: 0.42,
-                        cubicInterpolationMode: 'monotone',
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        pointHitRadius: 25,
-                        pointHoverBackgroundColor: '#94a3b8',
-                        pointHoverBorderColor: 'white',
-                        pointHoverBorderWidth: 2,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                normalized: true,
-                interaction: { mode: 'index', intersect: false },
-                layout: { padding: { top: 10, right: 8, bottom: 18, left: 0 } },
-                animation: { duration: 350 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        enabled: true,
-                        mode: 'index',
-                        intersect: false,
-                        position: 'nearest',
-                        backgroundColor: '#0f172a',
-                        titleColor: 'white',
-                        bodyColor: '#94a3b8',
-                        borderWidth: 0,
-                        padding: { top: 10, right: 12, bottom: 10, left: 12 },
-                        cornerRadius: 7,
-                        caretSize: 0,
-                        displayColors: true,
-                        usePointStyle: false,
-                        boxWidth: 2,
-                        boxHeight: 14,
-                        boxPadding: 7,
-                        titleSpacing: 4,
-                        bodySpacing: 7,
-                        titleMarginBottom: 7,
-                        titleFont: { family: 'Inter', size: 11, weight: '600' },
-                        bodyFont: { family: 'Inter', size: 10, weight: '400' },
-                        callbacks: {
-                            title(context) {
-                                return context[0].label;
-                            },
-                            label(context) {
-                                const value = Math.round(Number(context.raw));
-                                return context.dataset.label + '     ' + value;
-                            },
-                        },
-                    },
-                },
-                scales: {
-                    x: {
-                        offset: false,
-                        border: { display: false },
-                        grid: { display: false },
-                        ticks: {
-                            autoSkip: false,
-                            color: '#8c929c',
-                            padding: 14,
-                            maxRotation: 0,
-                            minRotation: 0,
-                            font: { family: 'Inter', size: 10, weight: '400' },
-                        },
-                    },
-                    y: {
-                        beginAtZero: true,
-                        border: { display: false },
-                        grid: {
-                            color: '#eef1f5',
-                            drawTicks: false,
-                        },
-                        ticks: {
-                            precision: 0,
-                            padding: 8,
-                            color: '#94a3b8',
-                            font: { family: 'Inter', size: 10 },
-                        },
-                    },
-                },
-            },
-            plugins: [blueShadowPlugin, hoverLinePlugin],
+        frame.addEventListener('load', function () {
+            const src = frame.getAttribute('src') || '';
+            if (!src || src === 'about:blank') return;
+            hideSkeleton();
         });
-    });
+
+        function closePreview() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            hideSkeleton();
+            frame.src = 'about:blank';
+            document.body.style.overflow = '';
+        }
+
+        function openPreview(trigger) {
+            const previewUrl = trigger.getAttribute('data-preview-url') || '';
+            const continueUrl = trigger.getAttribute('data-continue-url') || '';
+            if (!previewUrl) {
+                if (continueUrl) window.location = continueUrl;
+                return;
+            }
+            title.textContent = trigger.getAttribute('data-preview-title') || 'Form';
+            continueLink.href = continueUrl || '#';
+            continueLink.textContent = trigger.getAttribute('data-continue-label') || 'Open';
+            continueLink.classList.toggle('hidden', !continueUrl);
+            showSkeleton();
+            const joiner = previewUrl.indexOf('?') === -1 ? '?' : '&';
+            frame.src = previewUrl + joiner + 'ts=' + Date.now();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) lucide.createIcons();
+        }
+
+        document.addEventListener('click', function (event) {
+            const trigger = event.target.closest('[data-dashboard-preview]');
+            if (!trigger) return;
+            const inner = event.target.closest('a, button');
+            if (inner && inner !== trigger) return;
+            openPreview(trigger);
+        });
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal || event.target.closest('[data-preview-close]')) closePreview();
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) closePreview();
+        });
+    })();
 </script>
 
 @endsection

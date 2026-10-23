@@ -276,9 +276,9 @@
                             <td class="whitespace-nowrap text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</td>
                             <td class="text-center">
                                 <div class="inline-flex items-center justify-center gap-2 whitespace-nowrap">
-                                    @if($requestNo !== '' && \Illuminate\Support\Facades\Route::has('requests.show'))
+                                    @if($requestNo !== '' && ($requestPage = \App\Support\RequestExplorer::showUrl($requestNo)))
                                         <a
-                                            href="{{ route('requests.show', ['requestNo' => $requestNo]) }}"
+                                            href="{{ $requestPage }}"
                                             class="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                                         >Open</a>
                                     @endif

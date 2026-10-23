@@ -36,7 +36,7 @@
             'kind' => 'sign',
             'dateField' => 'ris_approved_by_date',
             'agePrefix' => 'Waiting',
-            'statusText' => 'Approved by President',
+            'statusText' => null,
         ],
     ];
 @endphp
@@ -51,17 +51,13 @@
     <div class="grid gap-4 md:grid-cols-2">
         @foreach($risPanels as $panel)
             <div class="pur-card">
-                <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
-                    <div class="min-w-0">
-                        <h3 class="text-sm font-semibold text-gray-950">{{ $panel['title'] }}</h3>
-                        @if(!empty($panel['hint']))
-                            <p class="mt-0.5 text-xs text-gray-400">{{ $panel['hint'] }}</p>
-                        @endif
-                    </div>
-                    <a href="{{ $panel['url'] }}" class="shrink-0 text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">
-                        {{ $panel['agePrefix'] ? 'View all ('.$panel['total'].')' : 'View all ('.$panel['total'].')' }}
-                    </a>
-                </div>
+                @include('school-admin.partials.dashboard-list-header', [
+                    'title' => $panel['title'],
+                    'total' => $panel['total'],
+                    'rows' => $panel['rows'],
+                    'url' => $panel['url'],
+                    'hint' => $panel['hint'] ?? null,
+                ])
                 <ul class="divide-y divide-gray-100">
                     @forelse($panel['rows'] as $row)
                         @php
@@ -70,16 +66,33 @@
                                 ? \Carbon\Carbon::parse($dateValue)->startOfDay()
                                 : null;
                             $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
+                            if ($panel['kind'] === 'sign') {
+                                $who = \App\Support\RoleHolderLabel::who(
+                                    \App\Support\WorkflowNotifier::ROLE_PRESIDENT,
+                                    $row->president_name ?? $row->ris_approved_by ?? null,
+                                    ''
+                                );
+                                $statusText = $who !== '' ? 'Approved by '.$who : 'Approved by the President';
+                            } else {
+                                $who = \App\Support\RoleHolderLabel::who(
+                                    \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                                    $row->assigned_reviewer_name ?? null,
+                                    ''
+                                );
+                                $statusText = $who !== '' ? 'Under review by '.$who : 'Under review by the School Administrator';
+                            }
                         @endphp
                         <li>
-                            <button
-                                type="button"
-                                onclick="window.openDashboardRisPreview(this)"
+                            <div
+                                role="button"
+                                tabindex="0"
+                                onclick="if (event.target.closest('a')) return; window.openDashboardRisPreview(this)"
+                                onkeydown="if (event.key === 'Enter' && !event.target.closest('a')) { event.preventDefault(); window.openDashboardRisPreview(this) }"
                                 data-ris-id="{{ (int) $row->ris_id }}"
                                 data-ris-number="{{ $row->ris_form_number ?: \App\Support\RisWorkflow::formNumber($row) }}"
                                 data-kind="{{ $panel['kind'] }}"
                                 title="Preview this RIS"
-                                class="flex w-full items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70"
+                                class="flex w-full cursor-pointer items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70"
                             >
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-gray-900">{{ \App\Support\RisWorkflow::formNumber($row) }}</p>
@@ -90,8 +103,8 @@
                                     @endif
                                     <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                                 </div>
-                                <div class="shrink-0 text-right">
-                                    <p class="text-[11px] font-semibold text-gray-700">{{ $panel['statusText'] ?? \App\Support\RisWorkflow::statusLabel($row) }}</p>
+                                <div class="max-w-[10.5rem] shrink-0 text-right">
+                                    <p class="text-[11px] font-semibold leading-4 text-gray-700">{{ $statusText }}</p>
                                     @if($age !== null)
                                         <p class="mt-0.5 text-[11px] {{ $age >= 3 ? 'sa-alert font-semibold' : 'text-gray-400' }}">
                                             @if($panel['agePrefix'])
@@ -102,7 +115,7 @@
                                         </p>
                                     @endif
                                 </div>
-                            </button>
+                            </div>
                         </li>
                     @empty
                         <li class="px-5 py-8 text-sm text-gray-400">{{ $panel['empty'] }}</li>
@@ -113,12 +126,12 @@
 
         @foreach($approvalQueues as $queue)
             <div class="pur-card">
-                <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
-                    <h3 class="text-sm font-semibold text-gray-950">{{ $queue['title'] }}</h3>
-                    <a href="{{ $queue['url'] }}" class="shrink-0 text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">
-                        View all ({{ $queue['total'] }})
-                    </a>
-                </div>
+                @include('school-admin.partials.dashboard-list-header', [
+                    'title' => $queue['title'],
+                    'total' => $queue['total'],
+                    'rows' => $queue['rows'],
+                    'url' => $queue['url'],
+                ])
                 <ul class="divide-y divide-gray-100">
                     @forelse($queue['rows'] as $row)
                         @php
@@ -126,9 +139,9 @@
                             $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
                         @endphp
                         <li>
-                            <a href="{{ $row->url }}" class="flex w-full items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70">
+                            <div class="flex w-full items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
                                 <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-gray-900">{{ $row->label }}</p>
+                                    <a href="{{ $row->url }}" class="text-sm font-semibold text-gray-900 hover:text-[#0025cc]">{{ $row->label }}</a>
                                     @if(!blank($row->request_no))
                                         <p class="mt-0.5">
                                             @include('partials.procurement-request-no', ['requestNo' => $row->request_no, 'inline' => true, 'showLabel' => false])
@@ -144,7 +157,7 @@
                                         </p>
                                     @endif
                                 </div>
-                            </a>
+                            </div>
                         </li>
                     @empty
                         <li class="px-5 py-8 text-sm text-gray-400">{{ $queue['empty'] }}</li>
@@ -160,14 +173,12 @@
     </div>
 
     <div class="pur-card">
-        <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
-            <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-gray-950">3 Latest requests</h3>
-            </div>
-            <a href="{{ route('school-admin.operations.procurement', ['filter' => 'open']) }}" class="shrink-0 text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">
-                View all ({{ $stats['open_ris'] }} open)
-            </a>
-        </div>
+        @include('school-admin.partials.dashboard-list-header', [
+            'title' => 'Latest requests',
+            'total' => $stats['open_ris'],
+            'rows' => $latestProcurements,
+            'url' => route('school-admin.operations.procurement', ['filter' => 'open']),
+        ])
         <ul class="divide-y divide-gray-100">
             @forelse($latestProcurements as $row)
                 @php
@@ -230,10 +241,12 @@
             $overdueBorrowsUrl = route('school-admin.operations.borrowing', ['filter' => 'Overdue']);
         @endphp
         <div class="pur-card">
-            <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
-                <h3 class="text-sm font-semibold text-gray-950">4 Latest overdue equipment borrows</h3>
-                <a href="{{ $overdueBorrowsUrl }}" class="text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">View all ({{ $stats['overdue_borrows'] }})</a>
-            </div>
+            @include('school-admin.partials.dashboard-list-header', [
+                'title' => 'Overdue equipment borrows',
+                'total' => $stats['overdue_borrows'],
+                'rows' => $overdueBorrows,
+                'url' => $overdueBorrowsUrl,
+            ])
             <ul class="divide-y divide-gray-100">
                 @forelse($overdueBorrows as $row)
                     @php
@@ -259,10 +272,12 @@
         </div>
 
         <div class="pur-card">
-            <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-4">
-                <h3 class="text-sm font-semibold text-gray-950">4 Latest overdue maintenance schedules</h3>
-                <a href="{{ route('school-admin.operations.schedules', ['filter' => 'overdue']) }}" class="text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">View all ({{ $stats['overdue_schedules'] }})</a>
-            </div>
+            @include('school-admin.partials.dashboard-list-header', [
+                'title' => 'Overdue maintenance schedules',
+                'total' => $stats['overdue_schedules'],
+                'rows' => $overdueSchedules,
+                'url' => route('school-admin.operations.schedules', ['filter' => 'overdue']),
+            ])
             <ul class="divide-y divide-gray-100">
                 @forelse($overdueSchedules as $row)
                     @php

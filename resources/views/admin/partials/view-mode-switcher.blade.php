@@ -1,4 +1,4 @@
-{{-- Pill Cards | Table switcher with icons (matches design mock) --}}
+{{-- Pill Cards | Table switcher --}}
 @php
     $switcherId = $switcherId ?? 'adminViewSwitcher';
     $btnClass = $btnClass ?? 'admin-view-mode-btn';
@@ -19,12 +19,6 @@
         class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
         title="Cards view"
     >
-        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <rect x="1" y="1" width="6" height="6" rx="1"></rect>
-            <rect x="9" y="1" width="6" height="6" rx="1"></rect>
-            <rect x="1" y="9" width="6" height="6" rx="1"></rect>
-            <rect x="9" y="9" width="6" height="6" rx="1"></rect>
-        </svg>
         Cards
     </button>
     <button
@@ -33,11 +27,6 @@
         class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
         title="Table view"
     >
-        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <rect x="1" y="2" width="14" height="2" rx="0.5"></rect>
-            <rect x="1" y="7" width="14" height="2" rx="0.5"></rect>
-            <rect x="1" y="12" width="14" height="2" rx="0.5"></rect>
-        </svg>
         Table
     </button>
 </div>

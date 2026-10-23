@@ -7,34 +7,31 @@
 
     <div data-ro-table data-ro-default-filter="all" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
-            <div class="flex flex-col gap-4">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 class="text-sm font-semibold text-slate-950">Delivered items</h2>
-                    </div>
-                    <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
-                        @include('admin.partials.view-mode-switcher', [
-                            'switcherId' => 'roDeliveredViewSwitcher',
-                            'btnClass' => 'ro-delivered-view-btn',
-                        ])
-                        <a
-                            href="/receiving/export-pdf?section=delivered"
-                            title="Export this table to PDF"
-                            class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                            <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
-                            Export PDF
-                        </a>
-                        <div class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
-                            {{ $rows->count() }} total
-                        </div>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex shrink-0 items-center gap-2.5">
+                    <h2 class="text-sm font-semibold text-slate-950">Delivered items record</h2>
+                    <div class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                        {{ $rows->count() }} total
                     </div>
                 </div>
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                <div class="flex flex-wrap items-center justify-end gap-2">
                     @include('layouts.partials.receiving-filters', [
                         'searchId' => 'receivingDeliveredSearch',
                         'placeholder' => 'Search RIS, ATP, items, supplier...',
+                        'inline' => true,
                     ])
+                    @include('admin.partials.view-mode-switcher', [
+                        'switcherId' => 'roDeliveredViewSwitcher',
+                        'btnClass' => 'ro-delivered-view-btn',
+                    ])
+                    <a
+                        href="/receiving/export-pdf?section=delivered"
+                        title="Export this table to PDF"
+                        class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
+                        Export PDF
+                    </a>
                 </div>
             </div>
         </div>

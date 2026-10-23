@@ -23,6 +23,7 @@ use App\Support\ReviewerAssignment;
 use App\Support\UserSignatureLibrary;
 use App\Support\RisRevisionImages;
 use App\Support\WorkflowNotifier;
+use App\Support\EquipmentIdentity;
 use App\Support\EquipmentLifecycle;
 use App\Support\SemesterInspections;
 
@@ -930,14 +931,14 @@ class AdminController extends Controller
                                 ->orWhereNull('reports_table.report_is_archived');
                         }
                     })
-                    ->select(
+                    ->select(array_merge([
                         'reports_table.report_id',
                         'reports_table.report_current_status',
                         'reports_table.report_suggested_issue',
                         'reports_table.report_submitted_at',
                         'equipment_table.equipment_name',
-                        'rooms_table.room_name'
-                    )
+                        'rooms_table.room_name',
+                    ], EquipmentIdentity::columns()))
                     ->orderByDesc('reports_table.report_submitted_at')
                     ->limit(5)
                     ->get();
@@ -972,11 +973,11 @@ class AdminController extends Controller
                         $q->whereDate('maintenance_schedule_next_date', '<=', $horizon)
                             ->orWhere('maintenance_schedule_status', 'Overdue');
                     })
-                    ->select(
+                    ->select(array_merge([
                         'maintenance_schedules_table.*',
                         'equipment_table.equipment_name',
-                        'rooms_table.room_name'
-                    )
+                        'rooms_table.room_name',
+                    ], EquipmentIdentity::columns()))
                     ->orderByRaw("CASE WHEN maintenance_schedule_status = 'Overdue' OR maintenance_schedule_next_date < CURDATE() THEN 0 ELSE 1 END")
                     ->orderBy('maintenance_schedule_next_date')
                     ->limit(3)
@@ -1027,13 +1028,13 @@ class AdminController extends Controller
                         'borrowing_records_table.borrowing_equipment_id'
                     )
                     ->where('borrowing_records_table.borrowing_status', 'Overdue')
-                    ->select(
+                    ->select(array_merge([
                         'borrowing_records_table.borrowing_record_id',
                         'borrowing_records_table.borrowing_borrower_name',
                         'borrowing_records_table.borrowing_expected_return_date',
                         'borrowing_records_table.borrowing_status',
-                        'equipment_table.equipment_name'
-                    )
+                        'equipment_table.equipment_name',
+                    ], EquipmentIdentity::columns()))
                     ->orderBy('borrowing_records_table.borrowing_expected_return_date')
                     ->limit(3)
                     ->get();
@@ -1129,6 +1130,215 @@ class AdminController extends Controller
             'warrantyWatch',
             'disposalWatch',
         ));
+    }
+
+    public function dashboardPreview(string $type, int $id): View
+    {
+        [$title, $fields] = match ($type) {
+            'report' => $this->previewReport($id),
+            'borrow' => $this->previewBorrow($id),
+            'schedule' => $this->previewSchedule($id),
+            'equipment' => $this->previewEquipment($id),
+            'inspection' => $this->previewInspection($id),
+            default => abort(404),
+        };
+
+        return view('admin.dashboard-preview', [
+            'title' => $title,
+            'fields' => $fields,
+        ]);
+    }
+
+    /**
+     * @return array{0: string, 1: list<array{label: string, value: string}>}
+     */
+    private function previewReport(int $id): array
+    {
+        abort_unless(Schema::hasTable('reports_table'), 404);
+
+        $row = DB::table('reports_table')
+            ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
+            ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'reports_table.report_room_id')
+            ->leftJoin('users_table as assignees', 'assignees.user_id', '=', 'reports_table.report_assigned_personnel_id')
+            ->leftJoin('reporters_table', 'reporters_table.reporter_employee_id', '=', 'reports_table.report_reporter_employee_id')
+            ->where('reports_table.report_id', $id)
+            ->select(array_merge([
+                'reports_table.*',
+                'equipment_table.equipment_name',
+                'rooms_table.room_name',
+                'assignees.user_full_name as assignee_name',
+                'reporters_table.reporter_full_name as reporter_name',
+            ], EquipmentIdentity::columns()))
+            ->first();
+        abort_if(! $row, 404);
+
+        $name = $row->equipment_name ?: ($row->report_unlisted_equipment_name ?? null) ?: 'Urgent report';
+
+        return [$name, array_values(array_filter([
+            ['label' => 'Equipment', 'value' => $name],
+            $this->uniquenessField($row),
+            ['label' => 'Room', 'value' => $row->room_name ?: '—'],
+            ['label' => 'Status', 'value' => $row->report_current_status ?: '—'],
+            ['label' => 'Urgency', 'value' => $row->report_urgency_level ?: '—'],
+            ['label' => 'Issue', 'value' => $row->report_suggested_issue ?: '—'],
+            ['label' => 'Reporter', 'value' => $row->reporter_name ?: '—'],
+            ['label' => 'Assigned to', 'value' => $row->assignee_name ?: '—'],
+            ['label' => 'Submitted', 'value' => $this->previewDate($row->report_submitted_at ?? null, 'M j, Y g:i A')],
+            filled($row->report_remarks ?? null) ? ['label' => 'Remarks', 'value' => (string) $row->report_remarks] : null,
+        ]))];
+    }
+
+    /**
+     * @return array{0: string, 1: list<array{label: string, value: string}>}
+     */
+    private function previewBorrow(int $id): array
+    {
+        abort_unless(Schema::hasTable('borrowing_records_table'), 404);
+
+        $row = DB::table('borrowing_records_table')
+            ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
+            ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
+            ->where('borrowing_records_table.borrowing_record_id', $id)
+            ->select(array_merge([
+                'borrowing_records_table.*',
+                'equipment_table.equipment_name',
+                'rooms_table.room_name',
+            ], EquipmentIdentity::columns()))
+            ->first();
+        abort_if(! $row, 404);
+
+        $name = $row->equipment_name ?: 'Borrow';
+
+        return [$name, [
+            ['label' => 'Equipment', 'value' => $name],
+            $this->uniquenessField($row) ?? ['label' => 'Uniqueness', 'value' => '—'],
+            ['label' => 'Room', 'value' => $row->room_name ?: '—'],
+            ['label' => 'Borrower', 'value' => $row->borrowing_borrower_name ?: '—'],
+            ['label' => 'Department', 'value' => $row->borrowing_borrower_department ?: '—'],
+            ['label' => 'Quantity', 'value' => (string) ($row->borrowing_quantity ?: '—')],
+            ['label' => 'Status', 'value' => $row->borrowing_status ?: '—'],
+            ['label' => 'Borrowed', 'value' => $this->previewDate($row->borrowing_date ?? null)],
+            ['label' => 'Expected return', 'value' => $this->previewDate($row->borrowing_expected_return_date ?? null)],
+            ['label' => 'Purpose', 'value' => $row->borrowing_purpose ?: '—'],
+            ['label' => 'Destination', 'value' => $row->borrowing_destination_location ?: '—'],
+            ['label' => 'Condition out', 'value' => $row->borrowing_equipment_condition ?: '—'],
+        ]];
+    }
+
+    /**
+     * @return array{0: string, 1: list<array{label: string, value: string}>}
+     */
+    private function previewSchedule(int $id): array
+    {
+        abort_unless(Schema::hasTable('maintenance_schedules_table'), 404);
+
+        $row = DB::table('maintenance_schedules_table')
+            ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'maintenance_schedules_table.maintenance_schedule_equipment_id')
+            ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
+            ->where('maintenance_schedules_table.maintenance_schedule_id', $id)
+            ->select(array_merge([
+                'maintenance_schedules_table.*',
+                'equipment_table.equipment_name',
+                'rooms_table.room_name',
+            ], EquipmentIdentity::columns()))
+            ->first();
+        abort_if(! $row, 404);
+
+        $name = $row->equipment_name ?: ($row->maintenance_schedule_title ?: 'Schedule');
+        $status = $row->maintenance_schedule_status ?: 'Scheduled';
+        if ($row->maintenance_schedule_next_date && \Carbon\Carbon::parse($row->maintenance_schedule_next_date)->startOfDay()->lt(now()->startOfDay())) {
+            $status = 'Overdue';
+        }
+
+        return [$name, array_values(array_filter([
+            ['label' => 'Schedule', 'value' => $row->maintenance_schedule_title ?: '—'],
+            ['label' => 'Equipment', 'value' => $row->equipment_name ?: '—'],
+            $this->uniquenessField($row),
+            ['label' => 'Room', 'value' => $row->room_name ?: '—'],
+            ['label' => 'Next date', 'value' => $this->previewDate($row->maintenance_schedule_next_date ?? null)],
+            ['label' => 'Frequency', 'value' => $row->maintenance_schedule_frequency ?: '—'],
+            ['label' => 'Status', 'value' => $status],
+            filled($row->maintenance_schedule_description ?? null) ? ['label' => 'Details', 'value' => (string) $row->maintenance_schedule_description] : null,
+        ]))];
+    }
+
+    /**
+     * @return array{0: string, 1: list<array{label: string, value: string}>}
+     */
+    private function previewEquipment(int $id): array
+    {
+        abort_unless(Schema::hasTable('equipment_table'), 404);
+
+        $row = DB::table('equipment_table as e')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
+            ->leftJoin('equipment_categories_table as c', 'c.equipment_category_id', '=', 'e.equipment_category_id')
+            ->where('e.equipment_id', $id)
+            ->first(array_merge([
+                'e.equipment_name',
+                'e.equipment_brand_name',
+                'e.equipment_condition_status',
+                'e.equipment_inventory_status',
+                'e.equipment_warranty_expiration',
+                'r.room_name',
+                'c.equipment_category_name',
+            ], EquipmentIdentity::columns('e')));
+        abort_if(! $row, 404);
+
+        $name = $row->equipment_name ?: 'Equipment';
+
+        return [$name, [
+            ['label' => 'Equipment', 'value' => $name],
+            $this->uniquenessField($row) ?? ['label' => 'Uniqueness', 'value' => '—'],
+            ['label' => 'Category', 'value' => $row->equipment_category_name ?: '—'],
+            ['label' => 'Brand', 'value' => $row->equipment_brand_name ?: '—'],
+            ['label' => 'Room', 'value' => $row->room_name ?: '—'],
+            ['label' => 'Condition', 'value' => $row->equipment_condition_status ?: '—'],
+            ['label' => 'Inventory', 'value' => $row->equipment_inventory_status ?: '—'],
+            ['label' => 'Warranty ends', 'value' => $this->previewDate($row->equipment_warranty_expiration ?? null)],
+        ]];
+    }
+
+    /**
+     * @return array{0: string, 1: list<array{label: string, value: string}>}
+     */
+    private function previewInspection(int $id): array
+    {
+        abort_unless(Schema::hasTable('semester_inspection_campaigns_table'), 404);
+
+        $row = DB::table('semester_inspection_campaigns_table')->where('campaign_id', $id)->first();
+        abort_if(! $row, 404);
+
+        $progress = SemesterInspections::campaignProgress($id);
+        $name = $row->campaign_title ?: 'Semester inspection';
+
+        return [$name, [
+            ['label' => 'Inspection', 'value' => $name],
+            ['label' => 'Semester', 'value' => trim(($row->campaign_semester ?? '').' '.($row->campaign_academic_year ?? '')) ?: '—'],
+            ['label' => 'Scope', 'value' => SemesterInspections::scopeLabel($row)],
+            ['label' => 'Due', 'value' => $this->previewDate($row->campaign_due_date ?? null)],
+            ['label' => 'Status', 'value' => $row->campaign_status ?: '—'],
+            ['label' => 'Progress', 'value' => $progress['inspected'].' of '.$progress['total'].' inspected'],
+        ]];
+    }
+
+    private function uniquenessField(object $row): ?array
+    {
+        $value = EquipmentIdentity::label($row);
+
+        return $value !== '' ? ['label' => 'Uniqueness', 'value' => $value] : null;
+    }
+
+    private function previewDate(mixed $value, string $format = 'M j, Y'): string
+    {
+        if (blank($value)) {
+            return '—';
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format($format);
+        } catch (\Throwable) {
+            return '—';
+        }
     }
 
     /*

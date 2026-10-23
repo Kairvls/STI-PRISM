@@ -7,6 +7,7 @@ use App\Support\AdminAttentionSummary;
 use App\Support\AdminPipeline;
 use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
+use App\Support\RoleHolderLabel;
 use App\Support\SemesterInspections;
 use App\Support\WorkflowNotifier;
 use Illuminate\Support\Facades\Auth;
@@ -145,6 +146,14 @@ class SchoolAdminController extends Controller
                         'ris_items_sum.ris_calculated_total'
                     );
                 $this->applyReviewerQueue($query);
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+                    $query->leftJoin(
+                        'users_table as ris_reviewers',
+                        'requisition_issue_slip_table.ris_assigned_reviewer_id',
+                        '=',
+                        'ris_reviewers.user_id'
+                    )->addSelect('ris_reviewers.user_full_name as assigned_reviewer_name');
+                }
                 $pendingRisList = AdminAttentionSummary::scopePendingRis($query, 'requisition_issue_slip_table.')
                     ->orderBy('requisition_issue_slip_table.ris_requested_by_date')
                     ->limit(5)
@@ -172,10 +181,15 @@ class SchoolAdminController extends Controller
                         'requisition_issue_slip_table.ris_purpose_description',
                         'requisition_issue_slip_table.ris_approved_by_date',
                         'ris_items_sum.ris_calculated_total'
-                    )
+                    );
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_approved_by')) {
+                    $issuedByQuery->addSelect('requisition_issue_slip_table.ris_approved_by');
+                }
+                $awaitingSignList = $issuedByQuery
                     ->orderBy('requisition_issue_slip_table.ris_approved_by_date')
                     ->limit(5)
                     ->get();
+                $this->attachPresidentNames($awaitingSignList);
             }
         } catch (\Throwable $e) {
             $awaitingSignList = collect();
@@ -334,6 +348,15 @@ class SchoolAdminController extends Controller
             $select[] = Schema::hasTable('authority_to_purchase_items_table')
                 ? DB::raw('COALESCE(atp_totals.atp_total, 0) as amount')
                 : DB::raw('0 as amount');
+            if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
+                $query->leftJoin(
+                    'users_table as atp_reviewers',
+                    'atp_reviewers.user_id',
+                    '=',
+                    'authority_to_purchase_table.authority_purchase_assigned_reviewer_id'
+                );
+                $select[] = 'atp_reviewers.user_full_name as assigned_reviewer_name';
+            }
 
             $empty['rows'] = (clone $query)
                 ->select($select)
@@ -349,7 +372,7 @@ class SchoolAdminController extends Controller
                         'detail' => $supplier !== '' ? $supplier : 'Authority to Purchase',
                         'amount' => (float) ($row->amount ?? 0),
                         'date' => $row->authority_purchase_submitted_at,
-                        'status' => 'Pending approval',
+                        'status' => $this->pendingApprovalLabel($row->assigned_reviewer_name ?? null),
                         'url' => route('school-admin.atp.show', $row->authority_purchase_id),
                     ];
                 });
@@ -395,6 +418,15 @@ class SchoolAdminController extends Controller
             if (Schema::hasColumn('request_check_table', 'request_check_submitted_at')) {
                 $select[] = 'request_check_submitted_at';
             }
+            if (Schema::hasColumn('request_check_table', 'request_check_assigned_reviewer_id')) {
+                $query->leftJoin(
+                    'users_table as rfc_reviewers',
+                    'rfc_reviewers.user_id',
+                    '=',
+                    'request_check_table.request_check_assigned_reviewer_id'
+                );
+                $select[] = 'rfc_reviewers.user_full_name as assigned_reviewer_name';
+            }
 
             $empty['rows'] = (clone $query)
                 ->select($select)
@@ -408,7 +440,10 @@ class SchoolAdminController extends Controller
                         'detail' => trim((string) ($row->request_check_payee ?? '')) ?: 'Request for Check',
                         'amount' => (float) ($row->request_check_amount_figures ?? 0),
                         'date' => $row->request_check_submitted_at ?? null,
-                        'status' => (string) ($row->request_check_status ?: 'Pending approval'),
+                        'status' => $this->pendingApprovalLabel(
+                            $row->assigned_reviewer_name ?? null,
+                            trim((string) ($row->request_check_status ?: 'Pending approval'))
+                        ),
                         'url' => route('school-admin.rfc.show', $row->request_check_id),
                     ];
                 });
@@ -447,6 +482,17 @@ class SchoolAdminController extends Controller
             }
 
             $empty['total'] = (clone $query)->count();
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_reviewer_id')) {
+                $query->leftJoin(
+                    'users_table as dv_reviewers',
+                    'dv_reviewers.user_id',
+                    '=',
+                    'disbursement_vouchers_table.dv_assigned_reviewer_id'
+                )->select(
+                    'disbursement_vouchers_table.*',
+                    'dv_reviewers.user_full_name as assigned_reviewer_name'
+                );
+            }
             $empty['rows'] = (clone $query)
                 ->orderBy('dv_submitted_at')
                 ->orderBy('dv_id')
@@ -459,7 +505,7 @@ class SchoolAdminController extends Controller
                         'detail' => trim((string) ($row->dv_payee ?? '')) ?: 'Disbursement Voucher',
                         'amount' => (float) ($row->dv_amount ?? 0),
                         'date' => $row->dv_submitted_at ?? null,
-                        'status' => 'Pending approval',
+                        'status' => $this->pendingApprovalLabel($row->assigned_reviewer_name ?? null),
                         'url' => route('school-admin.dv.show', $row->dv_id),
                     ];
                 });
@@ -484,10 +530,61 @@ class SchoolAdminController extends Controller
         return view('admin.notifications.index', compact('items'));
     }
 
+    private function pendingApprovalLabel(?string $reviewerName, string $fallback = 'Pending approval'): string
+    {
+        $generic = ['', 'pending', 'pending approval', 'under review'];
+        if (! in_array(strtolower($fallback), $generic, true)) {
+            return $fallback;
+        }
+
+        return RoleHolderLabel::line(
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+            $reviewerName,
+            $fallback !== '' ? $fallback : 'Pending approval',
+            'Pending approval by %s'
+        );
+    }
+
     private function applyReviewerQueue($query): void
     {
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
             ReviewerAssignment::applyQueueFilter($query, 'requisition_issue_slip_table.ris_assigned_reviewer_id');
+        }
+    }
+
+    /**
+     * The President who approved each RIS. The signed name is not stored on the RIS;
+     * the approval log keeps the user who approved.
+     */
+    private function attachPresidentNames($rows): void
+    {
+        if ($rows->isEmpty() || ! Schema::hasTable('approval_logs_table')) {
+            return;
+        }
+
+        $names = DB::table('approval_logs_table')
+            ->leftJoin('users_table', 'users_table.user_id', '=', 'approval_logs_table.approval_log_approved_by')
+            ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+            ->where('approval_logs_table.approval_log_level', 'President')
+            ->where('approval_logs_table.approval_log_approval_status', 'Approved')
+            ->whereIn('approval_logs_table.approval_log_reference_id', $rows->pluck('ris_id'))
+            ->orderByDesc('approval_logs_table.approval_log_id')
+            ->get([
+                'approval_logs_table.approval_log_reference_id',
+                'users_table.user_full_name',
+            ]);
+
+        $byRis = [];
+        foreach ($names as $log) {
+            $risId = (int) $log->approval_log_reference_id;
+            $name = trim((string) ($log->user_full_name ?? ''));
+            if (! isset($byRis[$risId]) && $name !== '') {
+                $byRis[$risId] = $name;
+            }
+        }
+
+        foreach ($rows as $row) {
+            $row->president_name = $byRis[(int) $row->ris_id] ?? null;
         }
     }
 

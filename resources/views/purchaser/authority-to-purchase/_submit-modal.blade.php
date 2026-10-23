@@ -14,6 +14,7 @@
             sending: false,
             action: '',
             number: '',
+            editFormId: '',
             existingSignature: '',
             replaceSignature: false,
             signature: '',
@@ -24,11 +25,17 @@
             savedSignatures: @json($atpSavedSignatures),
             init() {
                 window.addEventListener('open-atp-submit', (event) => this.openFrom(event.detail || {}));
+                this.$nextTick(() => {
+                    if (this.$el && this.$el.parentElement !== document.body) {
+                        document.body.appendChild(this.$el);
+                    }
+                });
             },
             openFrom(detail) {
                 this.sending = false;
                 this.action = detail.action || '#';
                 this.number = detail.number || 'this ATP';
+                this.editFormId = detail.editFormId || '';
                 const onFile = detail.signature && String(detail.signature).indexOf('data:image/') === 0
                     ? String(detail.signature)
                     : '';
@@ -50,6 +57,7 @@
             close() {
                 if (this.sending) return;
                 this.open = false;
+                this.editFormId = '';
                 window.atpSubmitOpen = false;
             },
             ready() {
@@ -154,23 +162,194 @@
                     this.signatureError = 'Please select a School Administrator.';
                     return;
                 }
+                if (this.editFormId) {
+                    event.preventDefault();
+                    const form = document.getElementById(this.editFormId);
+                    if (!form) {
+                        this.signatureError = 'The ATP form is no longer open. Close this and try again.';
+                        return;
+                    }
+                    if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                        window.purchaserDocumentSignature.flush();
+                    }
+                    const modalSignature = this.replaceSignature ? String(this.signature || '') : '';
+                    const sigInput = form.querySelector('[name="authority_purchase_received_by_signature"]');
+                    if (sigInput && modalSignature.indexOf('data:image/') === 0) {
+                        sigInput.value = modalSignature;
+                    } else if (sigInput && this.existingSignature && String(sigInput.value || '').indexOf('data:image/') !== 0) {
+                        sigInput.value = this.existingSignature;
+                    }
+                    let reviewerInput = form.querySelector('[name="assigned_reviewer_id"]');
+                    if (!reviewerInput) {
+                        reviewerInput = document.createElement('input');
+                        reviewerInput.type = 'hidden';
+                        reviewerInput.name = 'assigned_reviewer_id';
+                        form.appendChild(reviewerInput);
+                    }
+                    reviewerInput.value = reviewer.value;
+                    const saveAction = form.querySelector('[name="save_action"]');
+                    if (saveAction) saveAction.value = 'submit';
+                    this.sending = true;
+                    this.open = false;
+                    window.atpSubmitOpen = false;
+                    form.submit();
+                    return;
+                }
                 this.sending = true;
                 window.atpSubmitOpen = false;
             },
         };
     }
 
+    function atpEscapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (char) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+        });
+    }
+
+    function atpClearSubmitMarks(form) {
+        form.querySelectorAll('[data-atp-invalid]').forEach(function (el) {
+            el.removeAttribute('data-atp-invalid');
+            el.classList.remove('ring-1', 'ring-red-400', 'rounded');
+        });
+        const box = form.querySelector('[data-atp-form-errors]');
+        if (box) {
+            box.hidden = true;
+            box.innerHTML = '';
+        }
+    }
+
+    function atpMarkInvalid(el) {
+        if (!el) return;
+        el.setAttribute('data-atp-invalid', '1');
+        el.classList.add('ring-1', 'ring-red-400', 'rounded');
+    }
+
+    function atpShowSubmitErrors(form, errors) {
+        let box = form.querySelector('[data-atp-form-errors]');
+        if (!box) {
+            box = document.createElement('div');
+            box.setAttribute('data-atp-form-errors', '');
+            const footer = form.querySelector('[data-atp-form-footer]') || form.lastElementChild;
+            form.insertBefore(box, footer);
+        }
+        box.className = 'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6';
+        box.innerHTML = '<ul class="list-disc space-y-1 pl-4">' + errors.map(function (message) {
+            return '<li>' + atpEscapeHtml(message) + '</li>';
+        }).join('') + '</ul>';
+        box.hidden = false;
+        box.scrollIntoView({ block: 'nearest' });
+    }
+
+    function atpSubmitFieldErrors(form) {
+        const errors = [];
+        const ris = form.querySelector('[name="authority_purchase_ris_id"]');
+        if (ris && !String(ris.value || '').trim()) {
+            errors.push('Select an approved RIS.');
+            atpMarkInvalid(form.querySelector('[x-ref="risSelect"]') || ris);
+        }
+
+        const supplier = form.querySelector('[name="authority_purchase_supplier_id"]');
+        if (!supplier || !String(supplier.value || '').trim()) {
+            errors.push('Select a supplier.');
+            atpMarkInvalid(form.querySelector('[data-atp-supplier]') || supplier);
+        }
+
+        const date = form.querySelector('[name="authority_purchase_date"]');
+        const dateValue = date ? String(date.value || '').trim() : '';
+        const today = new Date();
+        const todayIso = today.getFullYear() + '-'
+            + String(today.getMonth() + 1).padStart(2, '0') + '-'
+            + String(today.getDate()).padStart(2, '0');
+        if (!dateValue) {
+            errors.push('Enter a date.');
+            atpMarkInvalid(date);
+        } else if (dateValue < todayIso) {
+            errors.push('The date cannot be before today.');
+            atpMarkInvalid(date);
+        }
+
+        const receivedBy = form.querySelector('[name="authority_purchase_received_by_name"]');
+        if (!receivedBy || !String(receivedBy.value || '').trim()) {
+            errors.push('Enter who received the ATP.');
+            atpMarkInvalid(receivedBy);
+        }
+
+        const signature = form.querySelector('[name="authority_purchase_received_by_signature"]');
+        if (!signature || String(signature.value || '').indexOf('data:image/') !== 0) {
+            errors.push('Draw or upload your signature before submitting.');
+        }
+
+        const rows = {};
+        form.querySelectorAll('[name^="items["]').forEach(function (input) {
+            const match = input.name.match(/^items\[(.+?)\]\[(.+)\]$/);
+            if (!match || match[1] === '__INDEX__') return;
+            if (!rows[match[1]]) rows[match[1]] = {};
+            rows[match[1]][match[2]] = input;
+        });
+        const filled = Object.keys(rows).filter(function (key) {
+            const description = rows[key].description;
+            return description && String(description.value || '').trim() !== '';
+        });
+        if (!filled.length) {
+            errors.push('Add at least one item before submitting.');
+        }
+        filled.forEach(function (key, index) {
+            const row = rows[key];
+            const rowNumber = index + 1;
+            const quantity = parseInt(row.quantity ? row.quantity.value : '', 10);
+            if (!quantity || quantity < 1) {
+                errors.push('Item ' + rowNumber + ' requires a quantity of at least 1.');
+                atpMarkInvalid(row.quantity);
+            }
+            if (!row.unit || !String(row.unit.value || '').trim()) {
+                errors.push('Item ' + rowNumber + ' requires a unit.');
+                atpMarkInvalid(row.unit);
+            }
+            const price = row.unit_price ? String(row.unit_price.value || '').trim() : '';
+            if (price === '' || Number.isNaN(Number(price)) || Number(price) < 0) {
+                errors.push('Item ' + rowNumber + ' requires a unit price.');
+                atpMarkInvalid(row.unit_price);
+            }
+        });
+
+        return errors;
+    }
+
     document.addEventListener('click', function (event) {
         const button = event.target.closest && event.target.closest('[data-atp-submit]');
         if (!button) return;
+        // Edit/view dialogs use @click.stop, which blocks this from bubbling to document.
+        const editFormId = button.getAttribute('data-atp-edit-form') || '';
+        let signature = button.getAttribute('data-atp-signature') || '';
+        if (editFormId) {
+            const form = document.getElementById(editFormId);
+            if (!form) return;
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            atpClearSubmitMarks(form);
+            const fieldErrors = atpSubmitFieldErrors(form);
+            if (fieldErrors.length) {
+                event.preventDefault();
+                event.stopPropagation();
+                atpShowSubmitErrors(form, fieldErrors);
+                return;
+            }
+            const sigInput = form.querySelector('[name="authority_purchase_received_by_signature"]');
+            if (sigInput && String(sigInput.value || '').indexOf('data:image/') === 0) {
+                signature = sigInput.value;
+            }
+        }
         window.dispatchEvent(new CustomEvent('open-atp-submit', {
             detail: {
                 action: button.getAttribute('data-atp-action') || '#',
                 number: button.getAttribute('data-atp-number') || 'this ATP',
-                signature: button.getAttribute('data-atp-signature') || '',
+                signature: signature,
+                editFormId: editFormId,
             },
         }));
-    });
+    }, true);
 </script>
 
 <div

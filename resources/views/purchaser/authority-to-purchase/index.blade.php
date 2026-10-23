@@ -546,6 +546,15 @@
                                         >
                                             <i data-lucide="pencil" class="h-4 w-4"></i>
                                         </button>
+                                        @php
+                                            $atpHandover = empty($atp->purchase_order_id)
+                                                ? $handoverOutgoing->get((int) $atp->authority_purchase_id)
+                                                : null;
+                                            $atpHasHandoverAction = empty($atp->purchase_order_id);
+                                            $atpSubmitsViaPo = !empty($atp->submits_via_po)
+                                                && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index');
+                                        @endphp
+                                        @if($atpHasHandoverAction || $atpSubmitsViaPo)
                                         <div
                                             class="relative"
                                             x-data="{ openActions: false, actionsTrigger: null }"
@@ -572,7 +581,7 @@
                                                 @click.outside="if (!actionsTrigger || !actionsTrigger.contains($event.target)) openActions = false"
                                                 class="fixed z-[900] w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                                             >
-                                                @if(!empty($atp->submits_via_po) && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index'))
+                                                @if($atpSubmitsViaPo)
                                                     <a
                                                         href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
@@ -594,29 +603,41 @@
                                                         Submit to School Administrator
                                                     </button>
                                                 @endif
-                                                @if(empty($atp->purchase_order_id))
-                                                    @if($atpHandover = $handoverOutgoing->get((int) $atp->authority_purchase_id))
-                                                        <form method="POST" action="{{ route('purchaser.handovers.cancel', $atpHandover->handover_id) }}">
-                                                            @csrf
-                                                            <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50">
-                                                                <i data-lucide="undo-2" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                                Take back from {{ \Illuminate\Support\Str::before($atpHandover->to_name ?: 'co-worker', ' ') }}
-                                                            </button>
-                                                        </form>
-                                                    @else
-                                                        <button
-                                                            type="button"
-                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'atp', id: {{ (int) $atp->authority_purchase_id }}, label: @js(($atp->authority_purchase_form_number ?: 'Draft ATP').' · Record #'.$atp->authority_purchase_id) } }))"
-                                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                        >
-                                                            <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                            Pass to 
+                                                @if($atpHandover)
+                                                    <form method="POST" action="{{ route('purchaser.handovers.cancel', $atpHandover->handover_id) }}">
+                                                        @csrf
+                                                        <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50">
+                                                            <i data-lucide="undo-2" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                            Take back from {{ \Illuminate\Support\Str::before($atpHandover->to_name ?: 'co-worker', ' ') }}
                                                         </button>
-                                                    @endif
+                                                    </form>
+                                                @elseif($atpHasHandoverAction)
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'atp', id: {{ (int) $atp->authority_purchase_id }}, label: @js(($atp->authority_purchase_form_number ?: 'Draft ATP').' · Record #'.$atp->authority_purchase_id) } }))"
+                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                                                    >
+                                                        <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
+                                                        Pass to
+                                                    </button>
                                                 @endif
                                             </div>
                                             </template>
                                         </div>
+                                        @else
+                                            <button
+                                                type="button"
+                                                data-atp-submit
+                                                data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
+                                                data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                                data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                title="Submit to School Administrator"
+                                                aria-label="Submit to School Administrator"
+                                            >
+                                                <i data-lucide="send" class="h-4 w-4"></i>
+                                            </button>
+                                        @endif
                                     @endif
 
                                     @if(
@@ -886,7 +907,13 @@
                         </button>
                     </div>
                 @else
-                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.store') }}" x-ref="createForm">
+                <form
+                    id="atp-create-form"
+                    method="POST"
+                    action="{{ route(($pp ?? 'purchaser').'.atp.store') }}"
+                    x-ref="createForm"
+                    x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
+                >
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
 
@@ -972,14 +999,30 @@
                         <div id="purSigSlot-atp-create" class="mt-4 w-full"></div>
                     </div>
 
-                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                    <div data-atp-form-errors hidden></div>
+                    <div data-atp-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
                         <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
-                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
-                            <i data-lucide="check" class="h-4 w-4"></i>
+                        <button
+                            type="submit"
+                            onclick="this.form.querySelector('input[name=save_action]').value='draft'"
+                            class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                        >
                             Save Draft
                         </button>
+                        @if($atpIsSupplyPortal)
+                            <button
+                                type="button"
+                                data-atp-submit
+                                data-atp-edit-form="atp-create-form"
+                                data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.store') }}"
+                                data-atp-number="this new ATP"
+                                class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                            >
+                                Submit to School Administrator
+                            </button>
+                        @endif
                     </div>
                 </form>
                 @endif
@@ -1149,7 +1192,8 @@
                         </button>
 
                         @if(
-                            !$archiveView
+                            !$atpIsSupplyPortal
+                            && !$archiveView
                             && !$atp->authority_purchase_submitted_at
                             && $atp->authority_purchase_status === 'Pending'
                             && empty($atp->submits_via_po)
@@ -1419,6 +1463,7 @@
                         </div>
 
                         <form
+                            id="atp-edit-form-{{ $atp->authority_purchase_id }}"
                             method="POST"
                             action="{{ route(($pp ?? 'purchaser').'.atp.update', $atp->authority_purchase_id) }}"
                             x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
@@ -1439,10 +1484,15 @@
                                 <div id="purSigSlot-atp-{{ $atp->authority_purchase_id }}" class="mt-4 w-full"></div>
                             </div>
 
-                            <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
-                                <p class="mr-auto max-w-md text-xs text-gray-500">
-                                    Save your changes here (including signature), then use <strong>⋮ → Submit to School Administrator</strong> in the list.
-                                </p>
+                            <div data-atp-form-errors hidden></div>
+                            <div data-atp-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                                <!--<p class="mr-auto max-w-md text-xs text-gray-500">
+                                    @if($atpIsSupplyPortal)
+                                        Save the draft, or choose a School Administrator and submit this ATP.
+                                    @else
+                                        Save your changes here (including signature), then use <strong>⋮ → Submit to School Administrator</strong> in the list.
+                                    @endif
+                                </p>-->
                                 <button
                                     type="button"
                                     @click="editOpen = false"
@@ -1457,6 +1507,19 @@
                                 >
                                     Save Changes
                                 </button>
+                                @if($atpIsSupplyPortal)
+                                    <button
+                                        type="button"
+                                        data-atp-submit
+                                        data-atp-edit-form="atp-edit-form-{{ $atp->authority_purchase_id }}"
+                                        data-atp-action="{{ route('supply-officer.atp.submit', $atp->authority_purchase_id) }}"
+                                        data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                        data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
+                                        class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                    >
+                                        Submit to School Administrator
+                                    </button>
+                                @endif
                             </div>
 
                         </form>

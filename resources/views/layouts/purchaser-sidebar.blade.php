@@ -4,7 +4,7 @@
 
 <div id="sidebar">
 
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header px-5 pt-5 pb-2">
         <div class="logo-icon">
             <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="PaAyo Logo">
         </div>
@@ -249,6 +249,11 @@
             PROCUREMENT REQUESTS
         </div>
 
+        @php
+            $handoverInbox = \App\Support\DraftHandover::incomingCounts();
+            $menuCounts = \App\Support\PurchaserSidebarCounts::counts();
+            $navCount = 'menu-count ml-auto mr-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
+        @endphp
 
         {{-- ===================================================== --}}
         {{-- REPLACEMENT REQUESTS --}}
@@ -279,6 +284,10 @@
                 Replacement Requests
             </span>
 
+            @if($menuCounts['replacement'] > 0)
+                <span class="{{ $navCount }}" title="{{ $menuCounts['replacement'] }} not viewed yet">{{ $menuCounts['replacement'] }}</span>
+            @endif
+
         </a>
 
 
@@ -294,11 +303,6 @@
         <div class="menu-title" id="purchasing-workflow-section">
             PROCUREMENT WORKFLOW
         </div>
-
-        @php
-            $handoverInbox = \App\Support\DraftHandover::incomingCounts();
-            $handoverBadge = 'ml-auto mr-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
-        @endphp
 
         {{-- ===================================================== --}}
         {{-- RIS --}}
@@ -327,7 +331,7 @@
             </span>
 
             @if($handoverInbox['ris'] > 0)
-                <span class="{{ $handoverBadge }}" title="{{ $handoverInbox['ris'] }} RIS draft(s) passed to you">{{ $handoverInbox['ris'] }}</span>
+                <span class="{{ $navCount }}" title="{{ $handoverInbox['ris'] }} RIS draft(s) passed to you">{{ $handoverInbox['ris'] }}</span>
             @endif
 
         </a>
@@ -339,6 +343,9 @@
         >
             <i data-lucide="file-check-2" class="h-5 w-5"></i>
             <span>Approved ATPs</span>
+            @if($menuCounts['atp'] > 0)
+                <span class="{{ $navCount }}" title="{{ $menuCounts['atp'] }} not viewed yet">{{ $menuCounts['atp'] }}</span>
+            @endif
         </a>
 
         {{-- ===================================================== --}}
@@ -361,6 +368,9 @@
             >
                 <i data-lucide="wallet" class="h-5 w-5"></i>
                 <span>Request Checks</span>
+                @if($menuCounts['rfc'] > 0)
+                    <span class="{{ $navCount }}" title="{{ $menuCounts['rfc'] }} not viewed yet">{{ $menuCounts['rfc'] }}</span>
+                @endif
                 <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
             </button>
             <div class="menu-sub" @if(! $fundGroupActive) hidden @endif>
@@ -370,6 +380,9 @@
                 >
                     <i data-lucide="badge-check" class="h-4 w-4"></i>
                     <span>Direct Payment</span>
+                    @if($menuCounts['rfc_dp'] > 0)
+                        <span class="{{ $navCount }}" title="{{ $menuCounts['rfc_dp'] }} not viewed yet">{{ $menuCounts['rfc_dp'] }}</span>
+                    @endif
                 </a>
                 <a
                     href="{{ route('purchaser.rfc.index', ['fund' => \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT]) }}"
@@ -377,6 +390,9 @@
                 >
                     <i data-lucide="calendar-clock" class="h-4 w-4"></i>
                     <span>Cash Installment</span>
+                    @if($menuCounts['rfc_ci'] > 0)
+                        <span class="{{ $navCount }}" title="{{ $menuCounts['rfc_ci'] }} not viewed yet">{{ $menuCounts['rfc_ci'] }}</span>
+                    @endif
                 </a>
                 <a
                     href="{{ route('purchaser.rfc.index', ['fund' => \App\Support\ProcurementPaymentPath::CASH_ADVANCE]) }}"
@@ -384,6 +400,9 @@
                 >
                     <i data-lucide="banknote" class="h-4 w-4"></i>
                     <span>Cash Advance</span>
+                    @if($menuCounts['rfc_ca'] > 0)
+                        <span class="{{ $navCount }}" title="{{ $menuCounts['rfc_ca'] }} not viewed yet">{{ $menuCounts['rfc_ca'] }}</span>
+                    @endif
                 </a>
             </div>
         </div>
@@ -408,6 +427,10 @@
                 Receiving Reports
             </span>
 
+            @if($menuCounts['rr'] > 0)
+                <span class="{{ $navCount }}" title="{{ $menuCounts['rr'] }} not viewed yet">{{ $menuCounts['rr'] }}</span>
+            @endif
+
         </a>
 
         @php
@@ -424,6 +447,9 @@
             >
                 <i data-lucide="package-x" class="h-5 w-5"></i>
                 <span>Back Orders</span>
+                @if($menuCounts['back_orders'] > 0)
+                    <span class="{{ $navCount }}" title="{{ $menuCounts['back_orders'] }} not viewed yet">{{ $menuCounts['back_orders'] }}</span>
+                @endif
                 <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
             </button>
             <div class="menu-sub" @if(! $boGroupActive) hidden @endif>
@@ -433,6 +459,9 @@
                 >
                     <i data-lucide="layers" class="h-4 w-4"></i>
                     <span>All Back Orders</span>
+                    @if($menuCounts['back_orders'] > 0)
+                        <span class="{{ $navCount }}" title="{{ $menuCounts['back_orders'] }} not viewed yet">{{ $menuCounts['back_orders'] }}</span>
+                    @endif
                 </a>
                 <a
                     href="{{ route('purchaser.bo.index', ['payment' => 'rfc']) }}"
@@ -440,6 +469,9 @@
                 >
                     <i data-lucide="clipboard-check" class="h-4 w-4"></i>
                     <span>Direct / Installment</span>
+                    @if($menuCounts['back_orders_rfc'] > 0)
+                        <span class="{{ $navCount }}" title="{{ $menuCounts['back_orders_rfc'] }} not viewed yet">{{ $menuCounts['back_orders_rfc'] }}</span>
+                    @endif
                 </a>
                 <a
                     href="{{ route('purchaser.bo.index', ['payment' => 'ca']) }}"
@@ -447,6 +479,9 @@
                 >
                     <i data-lucide="banknote" class="h-4 w-4"></i>
                     <span>Cash Advance</span>
+                    @if($menuCounts['back_orders_ca'] > 0)
+                        <span class="{{ $navCount }}" title="{{ $menuCounts['back_orders_ca'] }} not viewed yet">{{ $menuCounts['back_orders_ca'] }}</span>
+                    @endif
                 </a>
             </div>
         </div>
@@ -468,6 +503,10 @@
             <span>
                 Liquidation Reports
             </span>
+
+            @if($menuCounts['liq'] > 0)
+                <span class="{{ $navCount }}" title="{{ $menuCounts['liq'] }} not viewed yet">{{ $menuCounts['liq'] }}</span>
+            @endif
 
         </a>
 
@@ -551,7 +590,7 @@
     overflow-x: hidden;
 
     /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 20px 20px 20px 20px;
+    padding: 0 20px 32px 20px;
 }
     
 
@@ -698,6 +737,10 @@
     padding-left: 0;
 
     transition: all 0.3s ease;
+}
+
+.sidebar-content > .menu-title:first-child {
+    margin-top: 0;
 }
 
     
@@ -890,6 +933,10 @@
     height: 16px;
     color: #64748b;
     transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.menu-group-toggle .menu-count + .menu-group-chevron {
+    margin-left: 8px;
 }
 
 .menu-group.is-open > .menu-group-toggle .menu-group-chevron {

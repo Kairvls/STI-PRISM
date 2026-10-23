@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PurchaserMenuSeen;
 use App\Support\RoleAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -28,6 +29,10 @@ class PurchaserMiddleware
 
         if ($isPurchaser && $request->is('purchaser/dashboard')) {
             RoleAccess::enterPortal('purchaser');
+        }
+
+        if ($isPurchaser) {
+            PurchaserMenuSeen::capture($request);
         }
 
         return $next($request);

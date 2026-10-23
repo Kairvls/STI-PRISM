@@ -1024,38 +1024,36 @@
 
         .swal2-container .swal2-popup.paayo-swal {
             font-family: 'Plus Jakarta Sans', sans-serif !important;
-            width: 400px !important;
+            width: 320px !important;
             max-width: calc(100vw - 32px) !important;
-            border-radius: 28px !important;
-            border: 1px solid #e8ecf4 !important;
-            background:
-                radial-gradient(ellipse 80% 50% at 50% 0%, rgba(199, 216, 255, .45), transparent 62%),
-                #ffffff !important;
-            box-shadow: 0 32px 80px rgba(15, 23, 42, .18) !important;
-            padding: 2.1rem 1.75rem 1.5rem !important;
+            border-radius: 12px !important;
+            border: 1px solid #e5e7eb !important;
+            background: #fff !important;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .08) !important;
+            padding: 1.25rem 1.25rem 1rem !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-title,
         .paayo-swal-heading {
             font-family: 'Plus Jakarta Sans', sans-serif !important;
-            font-size: 1.4rem !important;
-            font-weight: 800 !important;
-            letter-spacing: -.035em !important;
-            color: #1a1a2e !important;
-            line-height: 1.2 !important;
-            margin: 0 0 8px !important;
+            font-size: .95rem !important;
+            font-weight: 600 !important;
+            letter-spacing: -.01em !important;
+            color: #111827 !important;
+            line-height: 1.3 !important;
+            margin: 0 0 6px !important;
             padding: 0 !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-html-container,
         .paayo-swal-text {
             font-family: 'Plus Jakarta Sans', sans-serif !important;
             color: #6b7280 !important;
-            font-size: .95rem !important;
-            line-height: 1.55 !important;
-            margin: 0 auto !important;
-            max-width: 300px;
+            font-size: .8125rem !important;
+            line-height: 1.45 !important;
+            margin: 0 !important;
+            max-width: none;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-actions {
-            margin: 22px 0 0 !important;
+            margin: 16px 0 0 !important;
             width: 100% !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-confirm,
@@ -1063,13 +1061,13 @@
             background: #0025cc !important;
             color: #fff !important;
             border: 0 !important;
-            border-radius: 999px !important;
+            border-radius: 8px !important;
             font-family: 'Plus Jakarta Sans', sans-serif !important;
             font-weight: 600 !important;
-            font-size: .95rem !important;
-            padding: 12px 32px !important;
-            min-width: 140px !important;
-            box-shadow: 0 12px 28px rgba(0, 37, 204, .24) !important;
+            font-size: .8125rem !important;
+            padding: 8px 16px !important;
+            min-width: 0 !important;
+            box-shadow: none !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-confirm:hover,
         .paayo-swal-btn:hover {
@@ -1080,12 +1078,12 @@
             background: #f1f5f9 !important;
             color: #334155 !important;
             border: 0 !important;
-            border-radius: 999px !important;
+            border-radius: 8px !important;
             font-family: 'Plus Jakarta Sans', sans-serif !important;
             font-weight: 600 !important;
-            font-size: .95rem !important;
-            padding: 12px 28px !important;
-            min-width: 120px !important;
+            font-size: .8125rem !important;
+            padding: 8px 14px !important;
+            min-width: 0 !important;
             box-shadow: none !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-cancel:hover,
@@ -1095,16 +1093,11 @@
         .swal2-container .swal2-popup.paayo-swal .swal2-actions {
             display: flex !important;
             flex-wrap: wrap !important;
-            justify-content: center !important;
-            gap: 10px !important;
+            justify-content: flex-end !important;
+            gap: 8px !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-icon {
-            border: 0 !important;
-            width: 58px !important;
-            height: 58px !important;
-            margin: 0 auto 1.05rem !important;
-            border-radius: 18px !important;
-            box-shadow: 0 12px 24px rgba(0, 37, 204, .18);
+            display: none !important;
         }
         .swal2-container .swal2-popup.paayo-swal .swal2-icon.swal2-success,
         .swal2-container .swal2-popup.paayo-swal .paayo-icon-success {
@@ -3383,8 +3376,8 @@
                 reverseButtons: !!options.reverseButtons,
                 focusCancel: !!options.focusCancel,
                 buttonsStyling: false,
-                backdrop: 'rgba(11, 18, 32, 0.7)',
-                width: 400,
+                backdrop: 'rgba(15, 23, 42, 0.4)',
+                width: 320,
                 timer: options.timer,
                 timerProgressBar: !!options.timer,
                 allowOutsideClick: options.allowOutsideClick !== false,

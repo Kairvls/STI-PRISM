@@ -5,6 +5,8 @@
     x-data="{
         viewOpen: false,
         selectedRr: null,
+        actionMenu: null,
+        actionMenuPos: { top: 0, left: 0 },
         reviseOpen: false,
         returnOpen: false,
         remarksRr: null,
@@ -96,42 +98,20 @@
                 <input type="hidden" name="date" value="{{ $dateFilter }}">
             @endif
             <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-950">Receiving reports</h3>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        @include('admin.partials.view-mode-switcher', [
-                            'switcherId' => 'roRrViewSwitcher',
-                            'btnClass' => 'ro-rr-view-btn',
-                        ])
-                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex shrink-0 items-center gap-2.5">
+                        <h3 class="text-sm font-semibold text-slate-950">Receiving reports records</h3>
+                        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
                             {{ $reports->total() }} total
                         </div>
                     </div>
-                </div>
-                <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <nav
-                        class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                        role="tablist"
-                        aria-label="Receiving report status filters"
-                    >
-                        @foreach ($statusFilters as $key => $label)
-                            <a
-                                href="{{ route('receiving.rr.index', array_filter(['status' => $key, 'date' => $dateFilter ?? null, 'search' => request('search') ?: null])) }}"
-                                role="tab"
-                                aria-selected="{{ $activeStatus === $key ? 'true' : 'false' }}"
-                                class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $activeStatus === $key ? 'bg-slate-100 font-medium text-slate-950' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
-                            >{{ $label }}</a>
-                        @endforeach
-                    </nav>
-                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    <div class="flex flex-wrap items-center justify-end gap-2">
                         <input
                             type="text"
                             name="search"
                             value="{{ request('search') }}"
                             placeholder="Search RR, RFC, or received from"
-                            class="h-10 w-full max-w-md rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                            class="h-10 w-64 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
                         >
                         <button type="submit" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
                             <i data-lucide="search" class="h-3.5 w-3.5"></i>
@@ -143,8 +123,26 @@
                                 Reset
                             </a>
                         @endif
+                        @include('admin.partials.view-mode-switcher', [
+                            'switcherId' => 'roRrViewSwitcher',
+                            'btnClass' => 'ro-rr-view-btn',
+                        ])
                     </div>
                 </div>
+                <nav
+                    class="mt-4 flex items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    role="tablist"
+                    aria-label="Receiving report status filters"
+                >
+                    @foreach ($statusFilters as $key => $label)
+                        <a
+                            href="{{ route('receiving.rr.index', array_filter(['status' => $key, 'date' => $dateFilter ?? null, 'search' => request('search') ?: null])) }}"
+                            role="tab"
+                            aria-selected="{{ $activeStatus === $key ? 'true' : 'false' }}"
+                            class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $activeStatus === $key ? 'bg-slate-100 font-medium text-slate-950' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                        >{{ $label }}</a>
+                    @endforeach
+                </nav>
             </div>
 
             <div id="roRrTable" class="overflow-x-auto">
@@ -152,6 +150,7 @@
                     <thead class="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
                             <th class="px-5 py-3.5">RR No.</th>
+                            <th class="px-5 py-3.5">Request No.</th>
                             <th class="px-5 py-3.5">RFC</th>
                             <th class="px-5 py-3.5">Received from</th>
                             <th class="px-5 py-3.5">Status</th>
@@ -163,6 +162,7 @@
                             @php
                                 $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
                                 $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
+                                $requestNo = trim((string) ($rr->receiving_report_request_no ?? $rr->request_check_request_no ?? ''));
                             @endphp
                             <tr class="transition hover:bg-slate-50/70">
                                 <td class="px-5 py-4">
@@ -173,6 +173,13 @@
                                         @endif
                                     </div>
                                     <p class="mt-0.5 text-xs text-slate-400">Record #{{ $rr->receiving_report_id }}</p>
+                                </td>
+                                <td class="px-5 py-4">
+                                    @if($requestNo !== '')
+                                        @include('partials.procurement-request-no', ['requestNo' => $requestNo, 'inline' => true, 'showLabel' => false])
+                                    @else
+                                        <span class="text-slate-400">—</span>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? '—' }}</td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->receiving_report_received_from ?? '—' }}</td>
@@ -198,24 +205,12 @@
                                         @if($reviewable)
                                             <button
                                                 type="button"
-                                                @click="openSign({{ $rr->receiving_report_id }})"
-                                                class="inline-flex h-9 items-center rounded-lg bg-[#0025cc]/10 px-3 text-xs font-semibold text-[#0025cc] transition hover:bg-[#0025cc]/15"
+                                                @click.stop="if (actionMenu === {{ $rr->receiving_report_id }}) { actionMenu = null } else { const r = $event.currentTarget.getBoundingClientRect(); actionMenuPos = { top: r.bottom + 6, left: r.right }; actionMenu = {{ $rr->receiving_report_id }} }"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                                                title="Actions"
+                                                aria-label="Actions"
                                             >
-                                                Second Count
-                                            </button>
-                                            <button
-                                                type="button"
-                                                @click="openRevise({{ $rr->receiving_report_id }})"
-                                                class="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
-                                            >
-                                                Revise
-                                            </button>
-                                            <button
-                                                type="button"
-                                                @click="openReturn({{ $rr->receiving_report_id }})"
-                                                class="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                                            >
-                                                Return
+                                                <i data-lucide="more-horizontal" class="h-4 w-4"></i>
                                             </button>
                                         @endif
                                     </div>
@@ -223,7 +218,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-5 py-16 text-center">
+                                <td colspan="6" class="px-5 py-16 text-center">
                                     <p class="text-sm font-medium text-slate-700">No receiving reports in this queue</p>
                                     <p class="mt-1 text-xs text-slate-400">Try another filter or clear your search.</p>
                                 </td>
@@ -238,18 +233,17 @@
                     @php
                         $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
                         $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
+                        $requestNo = trim((string) ($rr->receiving_report_request_no ?? $rr->request_check_request_no ?? ''));
                         $actionsHtml = '<button type="button" @click="openView('.$rr->receiving_report_id.'); fetch(\''.route('receiving.rr.start-review', $rr->receiving_report_id).'\', {method:\'POST\', headers:{\'X-CSRF-TOKEN\':\''.csrf_token().'\',\'Accept\':\'application/json\'}})" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">View</button>'
                             .'<button type="button" @click="printRr('.$rr->receiving_report_id.')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
                         if ($reviewable) {
-                            $actionsHtml .= '<button type="button" @click="openSign('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg bg-[#0025cc]/10 px-3 text-xs font-semibold text-[#0025cc]">Second Count</button>'
-                                .'<button type="button" @click="openRevise('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800">Revise</button>'
-                                .'<button type="button" @click="openReturn('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700">Return</button>';
+                            $actionsHtml .= '<button type="button" @click.stop="if (actionMenu === '.$rr->receiving_report_id.') { actionMenu = null } else { const r = $event.currentTarget.getBoundingClientRect(); actionMenuPos = { top: r.bottom + 6, left: r.right }; actionMenu = '.$rr->receiving_report_id.' }" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600" title="Actions" aria-label="Actions"><i data-lucide="more-horizontal" class="h-4 w-4"></i></button>';
                         }
                     @endphp
                     @include('receiving-officer.partials.list-info-card', [
                         'title' => $rr->receiving_report_form_number,
                         'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
-                        'subtitle' => 'RFC: '.($rr->request_check_form_number ?? '—'),
+                        'subtitle' => 'Request No.: '.($requestNo !== '' ? $requestNo : '—').' · RFC: '.($rr->request_check_form_number ?? '—'),
                         'status' => $displayStatus,
                         'statusClass' => 'border-slate-200 bg-slate-50 text-slate-700',
                         'fields' => [
@@ -267,6 +261,20 @@
             </div>
         </form>
 
+        <template x-teleport="body">
+            <div
+                x-show="actionMenu !== null"
+                x-cloak
+                @click.outside="actionMenu = null"
+                class="fixed z-[13000] min-w-[168px] -translate-x-full rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                :style="`top:${actionMenuPos.top}px;left:${actionMenuPos.left}px`"
+            >
+                <button type="button" @click="openSign(actionMenu); actionMenu = null" class="block w-full px-3 py-2 text-left text-xs font-semibold text-[#0025cc] hover:bg-slate-50">Second Count</button>
+                <button type="button" @click="openRevise(actionMenu); actionMenu = null" class="block w-full px-3 py-2 text-left text-xs font-semibold text-amber-800 hover:bg-amber-50">Revise</button>
+                <button type="button" @click="openReturn(actionMenu); actionMenu = null" class="block w-full px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50">Return</button>
+            </div>
+        </template>
+
         @if ($reports->hasPages())
             <div class="pt-1">{{ $reports->links() }}</div>
         @endif
@@ -276,7 +284,7 @@
         @php $rrItems = $items->get($rr->receiving_report_id, collect())->values(); @endphp
         <div x-show="viewOpen && selectedRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
             <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
-            <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6">
+            <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6" @click="viewOpen = false">
                 <div @click.stop class="relative my-auto w-full max-w-5xl rounded-2xl bg-white shadow-xl">
                     <div class="flex items-center justify-between gap-3 border-b px-6 py-5">
                         <div>
@@ -311,7 +319,7 @@
         @if($reviewable)
             <div x-show="signOpen && signRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="fixed inset-0 bg-black/40" @click="signOpen = false"></div>
-                <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6">
+                <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6" @click="signOpen = false">
                     <form
                         method="POST"
                         action="{{ route('receiving.rr.second-count', $rr->receiving_report_id) }}"

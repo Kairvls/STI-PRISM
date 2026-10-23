@@ -86,6 +86,12 @@
         }
 
         function receivingPrintGoBack() {
+            if (window.opener && !window.opener.closed) {
+                try { window.opener.focus(); } catch (err) {}
+                window.close();
+                return;
+            }
+
             if (window.history.length > 1) {
                 window.history.back();
                 return;
@@ -94,11 +100,6 @@
             var ref = document.referrer || '';
             if (ref.indexOf(window.location.origin) === 0) {
                 window.location.href = ref;
-                return;
-            }
-
-            if (window.opener && !window.opener.closed) {
-                window.close();
                 return;
             }
 
