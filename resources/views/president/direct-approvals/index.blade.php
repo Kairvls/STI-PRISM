@@ -1,6 +1,6 @@
 @extends('layouts.president-layout')
 
-@section('title', 'Administrator Direct Approvals')
+@section('title', 'School Administrator Direct Approvals')
 
 @section('content')
 
@@ -8,7 +8,7 @@
     <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="min-w-0">
-                <h2 class="text-sm font-semibold text-gray-900">Direct Approvals by Administrator</h2>
+                <h2 class="text-sm font-semibold text-gray-900">Direct Approvals by School Administrator</h2>
                 <p class="mt-1 text-xs text-gray-500">
                     Approved without presidential signing. For oversight and audit only.
                 </p>
@@ -22,7 +22,7 @@
                         id="directApprovalSearch"
                         name="search"
                         value="{{ request('search') }}"
-                        placeholder="Search by ID, RIS Number, reason, or Administrator..."
+                        placeholder="Search by RIS number, request no., reason, or School Administrator..."
                         class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
                         autocomplete="off"
                     />
@@ -44,13 +44,13 @@
             <table id="directApprovalTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
-                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS ID</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS Number</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Request No.</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved by</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reason</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
                         <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Amount</th>
+                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
                         <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
                     </tr>
                 </thead>
@@ -104,7 +104,7 @@
 
             <div class="space-y-4 px-5 py-4">
                 <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Approved by Administrator</p>
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Approved by School Administrator</p>
                     <p id="directApprovalDetailAdmin" class="mt-1 text-sm font-medium text-slate-900">—</p>
                     <p id="directApprovalDetailDate" class="mt-0.5 text-xs text-slate-500">—</p>
                 </div>
@@ -117,10 +117,12 @@
                     <a
                         id="directApprovalDetailProof"
                         href="#"
+                        target="_blank"
+                        rel="noopener"
                         class="mt-1.5 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
                     >
                         <i data-lucide="paperclip" class="h-4 w-4 text-slate-500"></i>
-                        <span id="directApprovalDetailProofName">Download proof</span>
+                        <span id="directApprovalDetailProofName">View proof</span>
                     </a>
                 </div>
                 <div>
@@ -377,7 +379,7 @@
         document.getElementById('directApprovalDetailRef').textContent =
             payload.reference || window.risFormNumberLabel(payload.risId);
         document.getElementById('directApprovalDetailAdmin').textContent =
-            payload.adminName || 'Administrator';
+            payload.adminName || 'School Administrator';
         document.getElementById('directApprovalDetailDate').textContent =
             payload.dateLabel || '—';
         document.getElementById('directApprovalDetailReason').textContent =
@@ -389,7 +391,7 @@
         if (payload.proofUrl) {
             proofWrap.classList.remove('hidden');
             proofLink.href = payload.proofUrl;
-            proofName.textContent = payload.proofName || 'Download proof';
+            proofName.textContent = payload.proofName || 'View proof';
         } else {
             proofWrap.classList.add('hidden');
             proofLink.href = '#';

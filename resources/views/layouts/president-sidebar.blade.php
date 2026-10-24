@@ -34,7 +34,7 @@
             id="direct-approvals-section"
         >
             <i class="h-5 w-5" data-lucide="shield-check"></i>
-            <span>Admin Direct Approvals</span>
+            <span>School Administrator Direct Approvals</span>
         </a>
 
         <a

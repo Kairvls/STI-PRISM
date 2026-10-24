@@ -291,6 +291,10 @@
                                                     <dd class="text-sm font-medium text-slate-900">{{ $supplierName }}</dd>
                                                 </div>
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
+                                                    <dt class="text-sm text-slate-500">Check name</dt>
+                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->supplier_check_name ?: '—' }}</dd>
+                                                </div>
+                                                <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Status</dt>
                                                     <dd class="text-sm font-medium text-slate-900">{{ $supplierStatus }}</dd>
                                                 </div>
@@ -396,6 +400,7 @@
                             $editLandline = $isEditingThis ? old('landline_number', $supplier->landline_number) : ($supplier->landline_number ?? '');
                             $editAddress = $isEditingThis ? old('company_address', $supplier->company_address) : ($supplier->company_address ?? '');
                             $editOperatingHours = $isEditingThis ? old('operating_hours', $supplier->operating_hours) : ($supplier->operating_hours ?? '');
+                            $editCheckName = $isEditingThis ? old('supplier_check_name', $supplier->supplier_check_name ?? '') : ($supplier->supplier_check_name ?? '');
                             $editAppUsed = $isEditingThis ? old('app_used', $supplier->app_used) : ($supplier->app_used ?? '');
                             $editStoreUrl = $isEditingThis ? old('store_url', $supplier->store_url) : ($supplier->store_url ?? '');
                             $editSellerId = $isEditingThis ? old('seller_id', $supplier->seller_id) : ($supplier->seller_id ?? '');
@@ -445,6 +450,11 @@
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Company Name <span class="text-red-500">*</span></label>
                                                     <input type="text" name="company_name" value="{{ $editName }}" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
+                                                <div>
+                                                    <label class="mb-1.5 block text-xs font-medium text-slate-500">Check Name</label>
+                                                    <input type="text" name="supplier_check_name" value="{{ $editCheckName }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="e.g. Wilcon Depot Ormoc for Computer" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <p class="mt-1 text-[11px] text-slate-400">Printed as the Payee on Direct Payment and Cash Installment. Leave blank to use the supplier name.</p>
+                                                </div>
                                                 <div class="grid gap-4 sm:grid-cols-2">
                                                     <div>
                                                         <label class="mb-1.5 block text-xs font-medium text-slate-500">Contact Person</label>
@@ -486,6 +496,11 @@
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Shop Name <span class="text-red-500">*</span></label>
                                                     <input type="text" name="shop_name" value="{{ $editName }}" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                </div>
+                                                <div>
+                                                    <label class="mb-1.5 block text-xs font-medium text-slate-500">Check Name</label>
+                                                    <input type="text" name="supplier_check_name" value="{{ $editCheckName }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="e.g. Mandaue Foam for Office Chairs" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <p class="mt-1 text-[11px] text-slate-400">Printed as the Payee on Direct Payment and Cash Installment. Leave blank to use the supplier name.</p>
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Primary Platform <span class="text-red-500">*</span></label>
@@ -707,7 +722,20 @@
                                     >
                                 </div>
 
-                                <div style="order: 2">
+                                <div class="sm:col-span-2" style="order: 2">
+                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Check Name</label>
+                                    <input
+                                        type="text"
+                                        name="supplier_check_name"
+                                        value="{{ old('supplier_check_name') }}"
+                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
+                                        placeholder="e.g. Wilcon Depot Ormoc for Computer"
+                                        class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
+                                    >
+                                    <p class="mt-1 text-[11px] text-slate-400">Printed as the Payee on Direct Payment and Cash Installment. Leave blank to use the supplier name.</p>
+                                </div>
+
+                                <div style="order: 3">
                                     <label class="mb-1.5 block text-xs font-medium text-gray-600">Contact Person</label>
                                     <input
                                         type="text"

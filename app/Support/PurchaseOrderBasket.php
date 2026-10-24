@@ -516,4 +516,14 @@ class PurchaseOrderBasket
 
         return (string) ($atp->company_name ?: 'Supplier');
     }
+
+    public static function checkPayee(object $atp): string
+    {
+        $checkName = trim((string) ($atp->supplier_check_name ?? ''));
+        if ($checkName !== '') {
+            return $checkName;
+        }
+
+        return self::supplierDisplay($atp);
+    }
 }

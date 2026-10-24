@@ -170,7 +170,7 @@
                         <td style="text-align: center;">{{ $item?->ris_quantity_requested ?? '' }}</td>
                         <td style="text-align: center;">{{ $item?->ris_quantity_issued ?? '' }}</td>
                         <td style="text-align: right;">{{ $item && $item->ris_unit_cost !== null ? number_format($item->ris_unit_cost, 2) : '' }}</td>
-                        <td style="text-align: right;">{{ $item && $item->ris_total_amount !== null ? number_format($item->ris_total_amount, 2) : '' }}</td>
+                        <td style="text-align: right;">{{ $item ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0)), 2) : '' }}</td>
                     </tr>
                 @endfor
             </tbody>

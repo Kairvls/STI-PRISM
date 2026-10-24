@@ -1060,18 +1060,46 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     white-space: nowrap;
 }
 .pm-queue-table .col-req { width: 12%; }
-.pm-queue-table .col-purpose { width: 18%; }
+.pm-queue-table .col-purpose { width: 13%; }
 .pm-queue-table .col-amount { width: 11%; white-space: nowrap; }
 .pm-queue-table .col-date { width: 10%; white-space: nowrap; }
 .pm-queue-table .col-status { width: 8%; white-space: nowrap; }
 .pm-queue-table .col-actions {
-    width: 10%;
+    width: 15%;
     white-space: nowrap;
     overflow: visible;
     position: relative;
     z-index: 2;
-    padding-right: 1rem;
+    padding-right: 0.7rem;
 }
+.row-action-menu-panel {
+    position: fixed;
+    z-index: 80;
+    min-width: 220px;
+    padding: 6px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .12);
+}
+.row-action-menu-panel[hidden] { display: none !important; }
+.row-action-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.2;
+    color: #334155;
+    text-align: left;
+    cursor: pointer;
+}
+.row-action-menu-item:hover { background: #f8fafc; color: #0f172a; }
+.row-action-menu-item.pin-btn.is-active { color: #1d4ed8; }
 .row-actions {
     display: inline-flex;
     align-items: center;

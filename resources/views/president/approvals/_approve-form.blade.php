@@ -154,6 +154,15 @@
         transition: background-color 99999s ease-out;
     }
     .president-ris-locked { pointer-events: none; user-select: none; }
+    .president-ris-form .ris-issued-input {
+        width: 100%;
+        border: 0;
+        background: #fff7ed;
+        text-align: center;
+        font-size: 12px;
+        outline: none;
+    }
+    .president-ris-form .ris-issued-input:focus { background: #ffedd5; }
 </style>
 @include('partials.ris-signature-overlay-styles')
 
@@ -170,7 +179,7 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
         <div class="mb-4 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-xs text-slate-900">
-            You can only fill <strong>Approved by</strong> and its <strong>Date</strong>. Add a signature below so it overlays the name on the form.
+            Fill <strong>Issued</strong> for each item (it cannot be higher than Requested), then sign <strong>Approved by</strong>. Choose who this RIS is passed to. You can select the School Administrator, the Purchaser who made the request, or both.
         </div>
 
         <div class="overflow-x-auto bg-gray-100 p-4 md:p-6">
@@ -184,7 +193,7 @@
                     </div>
                 </div>
 
-                <table class="ris-items-table president-ris-locked">
+                <table class="ris-items-table">
                     <thead>
                         <tr>
                             <th rowspan="2" class="ris-item-column">ITEM</th>
@@ -200,17 +209,52 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @php $rowCount = max(8, $items->count()); @endphp
+                        @php
+                            $rowCount = max(8, $items->count());
+                            $issuedAskedByName = [];
+                        @endphp
                         @for($i = 0; $i < $rowCount; $i++)
-                            @php $item = $items->get($i); @endphp
+                            @php
+                                $item = $items->get($i);
+                                $itemName = trim((string) ($item->ris_item_name_description ?? ''));
+                                $itemKey = mb_strtolower($itemName);
+                                $rowAsked = (int) ($item->ris_quantity_requested ?? 0);
+                                if ($itemKey !== '' && $rowAsked > 0 && !isset($issuedAskedByName[$itemKey])) {
+                                    $issuedAskedByName[$itemKey] = $rowAsked;
+                                }
+                                $groupAsked = $issuedAskedByName[$itemKey] ?? $rowAsked;
+                                $canFillIssued = $item && $itemName !== '';
+                                $purchaserAmount = $canFillIssued
+                                    ? ((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))
+                                    : null;
+                            @endphp
                             <tr>
-                                <td>{{ $item->ris_item_name_description ?? '' }}</td>
-                                <td class="text-center">{{ $item?->brand_name ?? '' }}</td>
-                                <td class="text-center">{{ $item?->uom_name ?? '' }}</td>
-                                <td class="text-center">{{ $item->ris_quantity_requested ?? '' }}</td>
-                                <td class="text-center">{{ $item->ris_quantity_issued ?? '' }}</td>
-                                <td class="text-right">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
-                                <td class="text-right">{{ isset($item->ris_total_amount) ? number_format((float) $item->ris_total_amount, 2) : '' }}</td>
+                                <td class="president-ris-locked">{{ $itemName }}</td>
+                                <td class="text-center president-ris-locked">{{ $item?->brand_name ?? '' }}</td>
+                                <td class="text-center president-ris-locked">{{ $item?->uom_name ?? '' }}</td>
+                                <td class="text-center president-ris-locked">{{ $item->ris_quantity_requested ?? '' }}</td>
+                                <td class="text-center">
+                                    @if ($canFillIssued)
+                                        <input
+                                            type="number"
+                                            name="issued[{{ (int) $item->ris_item_id }}]"
+                                            min="1"
+                                            max="{{ min(9999999, max(1, (int) $groupAsked)) }}"
+                                            required
+                                            inputmode="numeric"
+                                            data-issued-input
+                                            data-item-label="{{ $itemName }}"
+                                            data-item-key="{{ $itemKey }}"
+                                            data-group-asked="{{ $groupAsked }}"
+                                            data-unit-cost="{{ (float) ($item->ris_unit_cost ?? 0) }}"
+                                            value=""
+                                            class="ris-issued-input"
+                                            title="Issued cannot be higher than requested"
+                                        >
+                                    @endif
+                                </td>
+                                <td class="text-right president-ris-locked">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
+                                <td class="text-right president-ris-locked" @if($canFillIssued) data-issued-amount="{{ (int) $item->ris_item_id }}" data-purchaser-amount="{{ number_format($purchaserAmount, 2) }}" @endif>{{ $canFillIssued ? number_format($purchaserAmount, 2) : '' }}</td>
                             </tr>
                         @endfor
                     </tbody>
@@ -438,7 +482,22 @@
         </div>
     </div>
 
-    <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-white px-5 py-4 md:px-6">
+    <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 bg-white px-5 py-4 md:px-6">
+        @php $purchaserName = \App\Support\RisWorkflow::requesterName($ris, 'Purchaser'); @endphp
+        <fieldset class="mr-auto min-w-[16rem] border-0 p-0">
+            <legend class="text-xs font-semibold text-slate-800">Pass this RIS to</legend>
+            <div class="mt-2 flex flex-col gap-1.5">
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" name="return_to[]" value="school_admin" checked class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]">
+                    School Administrator
+                </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" name="return_to[]" value="purchaser" class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]">
+                    {{ $purchaserName }} <span class="text-slate-400">(Purchaser)</span>
+                </label>
+            </div>
+            <p class="mt-1 text-[11px] text-slate-400">Select one or both.</p>
+        </fieldset>
         <button
             type="button"
             onclick="if (!window._presidentPaFileDialogOpen) closePresidentApproveModal()"
@@ -1096,9 +1155,62 @@
     }
 
     if (form) {
+        form.addEventListener('input', function (event) {
+            var input = event.target;
+            if (!input || !input.matches || !input.matches('[data-issued-input]')) return;
+            var digits = String(input.value || '').replace(/\D/g, '').slice(0, 7);
+            if (input.value !== digits) input.value = digits;
+            var amountCell = form.querySelector('[data-issued-amount="' + String(input.name || '').replace(/\D/g, '') + '"]');
+            if (!amountCell) return;
+            var value = String(input.value || '').trim();
+            amountCell.textContent = /^\d+$/.test(value) && Number(value) > 0
+                ? Number(Number(value) * Number(input.getAttribute('data-unit-cost') || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : (amountCell.getAttribute('data-purchaser-amount') || '');
+        });
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             if (submitInFlight) return;
+
+            var issuedError = (function () {
+                var inputs = form.querySelectorAll('[data-issued-input]');
+                if (!inputs.length) return 'Fill Issued for each item.';
+                var groups = {};
+                for (var i = 0; i < inputs.length; i++) {
+                    var input = inputs[i];
+                    var label = input.getAttribute('data-item-label') || 'Item';
+                    var digits = String(input.value || '').replace(/\D/g, '').slice(0, 7);
+                    if (input.value !== digits) input.value = digits;
+                    var value = String(input.value || '').trim();
+                    if (!/^\d{1,7}$/.test(value) || Number(value) < 1 || Number(value) > 9999999) {
+                        return '"' + label + '" needs an Issued quantity of at least 1, up to 7 digits.';
+                    }
+                    var key = input.getAttribute('data-item-key') || label;
+                    var asked = Number(input.getAttribute('data-group-asked') || 0);
+                    if (!groups[key]) groups[key] = { asked: asked, allocated: 0, label: label };
+                    if (asked > groups[key].asked) groups[key].asked = asked;
+                    groups[key].allocated += Number(value);
+                    var amountCell = form.querySelector('[data-issued-amount="' + String(input.name || '').replace(/\D/g, '') + '"]');
+                    if (amountCell) {
+                        amountCell.textContent = Number(Number(value) * Number(input.getAttribute('data-unit-cost') || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+                }
+                var keys = Object.keys(groups);
+                for (var k = 0; k < keys.length; k++) {
+                    var group = groups[keys[k]];
+                    if (group.asked > 0 && group.allocated > group.asked) {
+                        return '"' + group.label + '" is over the requested amount (' + group.allocated + ' issued of ' + group.asked + ' requested).';
+                    }
+                }
+                return '';
+            })();
+            if (issuedError) {
+                showNotice(issuedError);
+                return;
+            }
+            if (!form.querySelector('input[name="return_to[]"]:checked')) {
+                showNotice('Choose who this RIS is passed to. You can select the School Administrator, the Purchaser, or both.');
+                return;
+            }
 
             var canvas = document.getElementById('paSignatureCanvas');
             if (canvasHasDrawing(canvas)) {
@@ -1150,10 +1262,11 @@
                             : null
                     });
                 }
+                var approvedMessage = (data && data.message) ? data.message : 'RIS approved.';
                 if (typeof window.showToast === 'function') {
-                    showToast('RIS approved. Notify Administrator when ready.', { title: 'Approved', type: 'success' });
+                    showToast(approvedMessage, { title: 'Approved', type: 'success' });
                 } else if (typeof window.showMpToast === 'function') {
-                    showMpToast('RIS approved. Notify Administrator when ready.', { title: 'Approved', type: 'success', timer: 3600 });
+                    showMpToast(approvedMessage, { title: 'Approved', type: 'success', timer: 3600 });
                 }
             })
             .catch(function (error) {

@@ -9,7 +9,7 @@
         <div class="min-w-0 hidden sm:block">
         </div>
         <div class="awaiting-indicator" data-tip="RIS currently waiting for your review" id="awaitingIndicator">
-            <span class="awaiting-label">Awaiting review</span>
+            <span class="awaiting-label">Waiting for Review</span>
             <strong id="awaitingReviewCount">{{ number_format($totalPendingRis ?? 0) }}</strong>
         </div>
     </header>
@@ -296,6 +296,34 @@
         setPinnedIds(getPinnedIds().filter(id => id !== String(risId)));
     }
 
+    window.closeRowActionMenus = function () {
+        document.querySelectorAll('.row-action-menu-panel').forEach(function (panel) {
+            panel.hidden = true;
+        });
+    };
+
+    window.toggleRowActionMenu = function (button) {
+        const menu = button.parentElement && button.parentElement.querySelector('.row-action-menu-panel');
+        if (!menu) return;
+        const willOpen = menu.hidden;
+        window.closeRowActionMenus();
+        if (!willOpen) return;
+        const rect = button.getBoundingClientRect();
+        menu.hidden = false;
+        menu.style.top = (rect.bottom + 6) + 'px';
+        menu.style.left = Math.max(8, rect.right - menu.offsetWidth) + 'px';
+    };
+
+    document.addEventListener('click', function () {
+        window.closeRowActionMenus();
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') window.closeRowActionMenus();
+    });
+    window.addEventListener('scroll', function () {
+        window.closeRowActionMenus();
+    }, true);
+
     window.toggleRisPin = function (risId) {
         const id = String(risId);
         let pins = getPinnedIds();
@@ -320,6 +348,8 @@
                 pinBtn.classList.toggle('is-active', isPinned);
                 pinBtn.setAttribute('data-tip', isPinned ? 'Unpin' : 'Pin to top');
                 pinBtn.setAttribute('aria-label', isPinned ? 'Unpin' : 'Pin to top');
+                const pinLabel = pinBtn.querySelector('.pin-label');
+                if (pinLabel) pinLabel.textContent = isPinned ? 'Unpin' : 'Pin to top';
             }
         });
 

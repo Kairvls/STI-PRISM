@@ -28,7 +28,7 @@
             'supplier_id' => (string) ($sourceItems[$i]['supplier_id'] ?? ''),
             'uom_id' => (string) ($sourceItems[$i]['uom_id'] ?? ''),
             'quantity_requested' => $sourceItems[$i]['quantity_requested'] ?? '',
-            'quantity_issued' => $sourceItems[$i]['quantity_issued'] ?? '',
+            'quantity_issued' => '',
             'unit_cost' => $sourceItems[$i]['unit_cost'] ?? '',
         ];
     }
@@ -59,6 +59,7 @@
                 if ($createItemsInit[$index]['quantity_requested'] === '' || $createItemsInit[$index]['quantity_requested'] === null) {
                     $createItemsInit[$index]['quantity_requested'] = $line['quantity'] ?? 1;
                 }
+                $createItemsInit[$index]['_sourceLocked'] = true;
             }
         }
     }
@@ -260,10 +261,6 @@
                 if (!String(row.supplier_id || '').trim()) {
                     errors.push('Item ' + rowNumber + ' needs a supplier.');
                 }
-                const issued = String(row.quantity_issued || '').trim();
-                if (!issued || Number(issued) < 1) {
-                    errors.push('Item ' + rowNumber + ' needs a Quantity Issued of at least 1.');
-                }
                 const cost = String(row.unit_cost || '').trim();
                 if (first && (!cost || Number(cost) <= 0)) {
                     errors.push('Item ' + rowNumber + ' needs a unit cost greater than 0.');
@@ -303,7 +300,7 @@
             const scopeEl = button && button.closest ? button.closest('[x-data]') : null;
             const scope = scopeEl && window.Alpine && Alpine.$data ? Alpine.$data(scopeEl) : null;
             if (form && scope && scope.editItems && this.risHasOverflow(scope.editItems)) {
-                this.showRisSubmitErrors(form, ['Issued quantity for a split item is higher than requested.']);
+                this.showRisSubmitErrors(form, ['Issued quantity cannot be higher than requested.']);
                 return;
             }
             const errors = window.risSubmitChecks.errors(form, {
@@ -323,7 +320,7 @@
             const form = this.$refs.createRisForm;
             if (!form || this.createSignSubmitting) return;
             if (this.risHasOverflow(this.createItems)) {
-                this.showRisSubmitErrors(form, ['Issued quantity for a split item is higher than requested.']);
+                this.showRisSubmitErrors(form, ['Issued quantity cannot be higher than requested.']);
                 return;
             }
             const errors = window.risSubmitChecks.errors(form, {
@@ -713,6 +710,7 @@
         createSignSubmitting: false,
         createSignPendingSave: false,
         createAttachmentName: '',
+        createAttachmentUrl: '',
         createSigUploadName: '',
         createSaveOnUpload: true,
         createSaveOnDraw: true,
@@ -968,15 +966,27 @@
         },
         onCreateAttachmentsChange(event) {
             const file = event.target.files && event.target.files[0];
+            if (this.createAttachmentUrl) {
+                URL.revokeObjectURL(this.createAttachmentUrl);
+            }
             this.createAttachmentName = file ? file.name : '';
+            this.createAttachmentUrl = file ? URL.createObjectURL(file) : '';
             this.$nextTick(() => {
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
             });
         },
+        viewCreateAttachment() {
+            if (!this.createAttachmentUrl) return;
+            window.open(this.createAttachmentUrl, '_blank', 'noopener');
+        },
         clearCreateAttachments() {
             this.createAttachmentName = '';
+            if (this.createAttachmentUrl) {
+                URL.revokeObjectURL(this.createAttachmentUrl);
+                this.createAttachmentUrl = '';
+            }
             if (this.$refs.createAttachmentsInput) {
                 this.$refs.createAttachmentsInput.value = '';
             }
@@ -1066,7 +1076,22 @@
                 .map((item, i) => this.risItemKey(item.name_description) === key ? i : -1)
                 .filter((i) => i >= 0);
 
-            if (groupIndexes.length < 2) return null;
+            if (groupIndexes.length < 2) {
+                const asked = Number(items[index].quantity_requested) || 0;
+                const issued = Number(items[index].quantity_issued) || 0;
+                if (asked > 0 && issued > asked) {
+                    return {
+                        asked,
+                        allocated: issued,
+                        remaining: asked - issued,
+                        isDuplicate: false,
+                        single: true,
+                        overflow: true,
+                        label: String(items[index].name_description || '').trim()
+                    };
+                }
+                return null;
+            }
 
             const first = items[groupIndexes[0]];
             const asked = Number(first.quantity_requested) || 0;
@@ -2566,7 +2591,7 @@
                                                     </span>
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
-                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
+                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2602,11 +2627,11 @@
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="1" max="9999999" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="number" min="1" max="9999999" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="w-full min-w-0 border-0 px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-transparent'">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="text" readonly tabindex="-1" value="" placeholder="—" title="Issued is filled by the School Administrator or the President" class="pointer-events-none w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-400 outline-none focus:ring-0 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
@@ -2614,7 +2639,7 @@
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="((Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="((Number(item.quantity_requested) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                             </tr>
@@ -2838,6 +2863,12 @@
                                         <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
                                     </div>
                                     <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="createAttachmentName"></p>
+                                    <button
+                                        type="button"
+                                        x-show="createAttachmentUrl"
+                                        x-on:click="viewCreateAttachment()"
+                                        class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
+                                    >View</button>
                                     <button
                                         type="button"
                                         x-on:click="clearCreateAttachments()"
@@ -3820,7 +3851,7 @@
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
-                                        <td class="text-right">{{ $item && $item->ris_total_amount !== null ? number_format((float) $item->ris_total_amount, 2) : ' ' }}</td>
+                                        <td class="text-right">{{ $item ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0)), 2) : ' ' }}</td>
                                     </tr>
                                 @endfor
                             </tbody>
@@ -4097,7 +4128,7 @@
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
-                                        <td class="text-right">{{ $item && $item->ris_total_amount !== null ? number_format((float) $item->ris_total_amount, 2) : ' ' }}</td>
+                                        <td class="text-right">{{ $item ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0)), 2) : ' ' }}</td>
                                     </tr>
                                 @endfor
                             </tbody>
@@ -4274,7 +4305,7 @@
                                 supplier_id: @js((string) ($item['supplier_id'] ?? '')),
                                 uom_id: @js((string) ($item['uom_id'] ?? '')),
                                 quantity_requested: @js($item['quantity_requested'] ?? ''),
-                                quantity_issued: @js($item['quantity_issued'] ?? ''),
+                                quantity_issued: '',
                                 unit_cost: @js($item['unit_cost'] ?? '')
                             }{{ !$loop->last ? ',' : '' }}
                         @endforeach
@@ -4342,7 +4373,7 @@
                         this.editItems.splice(index, 1);
                     },
                     itemTotal(item) {
-                        return (Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0);
+                        return (Number(item.quantity_requested) || 0) * (Number(item.unit_cost) || 0);
                     },
                     formatDateInput(event) {
                         const el = event.target;
@@ -4544,6 +4575,7 @@
                                                                 x-text="(() => {
                                                                     const info = risSplitInfo(editItems, index);
                                                                     if (!info) return '';
+                                                                    if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').';
                                                                     const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers');
                                                                     return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
                                                                 })()"
@@ -4625,11 +4657,11 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="9999999" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center">
+                                                        <input type="number" min="0" max="9999999" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="ris-cell-input text-center" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : ''">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="9999999" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center">
+                                                        <input type="text" readonly tabindex="-1" value="" placeholder="—" title="Issued is filled by the School Administrator or the President" class="ris-cell-input pointer-events-none cursor-not-allowed bg-gray-50 text-center text-gray-400">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
@@ -4777,17 +4809,30 @@
                                 class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white"
                                 x-data="{
                                     editAttachmentName: '',
+                                    editAttachmentUrl: '',
                                     onEditAttachmentsChange(event) {
                                         const file = event.target.files && event.target.files[0];
+                                        if (this.editAttachmentUrl) {
+                                            URL.revokeObjectURL(this.editAttachmentUrl);
+                                        }
                                         this.editAttachmentName = file ? file.name : '';
+                                        this.editAttachmentUrl = file ? URL.createObjectURL(file) : '';
                                         this.$nextTick(() => {
                                             if (window.lucide) {
                                                 window.lucide.createIcons();
                                             }
                                         });
                                     },
+                                    viewEditAttachment() {
+                                        if (!this.editAttachmentUrl) return;
+                                        window.open(this.editAttachmentUrl, '_blank', 'noopener');
+                                    },
                                     clearEditAttachments() {
                                         this.editAttachmentName = '';
+                                        if (this.editAttachmentUrl) {
+                                            URL.revokeObjectURL(this.editAttachmentUrl);
+                                            this.editAttachmentUrl = '';
+                                        }
                                         if (this.$refs.editAttachmentsInput) {
                                             this.$refs.editAttachmentsInput.value = '';
                                         }
@@ -4853,6 +4898,12 @@
                                         <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="editAttachmentName"></p>
                                         <button
                                             type="button"
+                                            x-show="editAttachmentUrl"
+                                            x-on:click="viewEditAttachment()"
+                                            class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
+                                        >View</button>
+                                        <button
+                                            type="button"
                                             x-on:click="clearEditAttachments()"
                                             class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
                                         >Remove</button>
@@ -4891,7 +4942,7 @@
                                 x-cloak
                                 class="mr-auto text-sm text-red-700"
                             >
-                                Issued quantity for a split item is higher than requested.
+                                Issued quantity cannot be higher than requested.
                             </p>
                             <button
                                 type="button"
@@ -5159,14 +5210,14 @@
 <script>
     // =====================================================
     // CREATE RIS: CALCULATE AMOUNT AUTOMATICALLY
-    // Amount = Quantity Issued x Unit Cost
+    // Amount = Quantity Requested x Unit Cost until Issued is filled later.
     // The controller recalculates this again before saving.
     // =====================================================
     document.addEventListener('input', function (event) {
         const input = event.target;
 
         if (
-            !input.matches('input[name^="ris_items"][name$="[quantity_issued]"]') &&
+            !input.matches('input[name^="ris_items"][name$="[quantity_requested]"]') &&
             !input.matches('input[name^="ris_items"][name$="[unit_cost]"]')
         ) {
             return;
@@ -5175,13 +5226,13 @@
         const row = input.closest('tr');
         if (!row) return;
 
-        const quantityIssued = row.querySelector('input[name$="[quantity_issued]"]');
+        const quantityRequested = row.querySelector('input[name$="[quantity_requested]"]');
         const unitCost = row.querySelector('input[name$="[unit_cost]"]');
         const amount = row.querySelector('input[name$="[total_amount]"]');
 
-        if (!quantityIssued || !unitCost || !amount) return;
+        if (!quantityRequested || !unitCost || !amount) return;
 
-        const quantity = Number(quantityIssued.value) || 0;
+        const quantity = Number(quantityRequested.value) || 0;
         const cost = Number(unitCost.value) || 0;
 
         amount.value = (quantity * cost).toFixed(2);

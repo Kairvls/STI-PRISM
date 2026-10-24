@@ -17,6 +17,12 @@
                 <input type="text" name="company_name" value="{{ $physical->company_name ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
             </div>
 
+            <div>
+                <label class="text-xs font-medium text-gray-500">Check Name</label>
+                <input type="text" name="supplier_check_name" value="{{ old('supplier_check_name', $supplier->supplier_check_name ?? '') }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="e.g. Wilcon Depot Ormoc for Computer" class="pur-input mt-1">
+                <p class="mt-1 text-[11px] text-slate-400">Printed as the Payee on Direct Payment and Cash Installment. Leave blank to use the supplier name.</p>
+            </div>
+
             <div class="grid gap-3 lg:grid-cols-2">
                 <div>
                     <label class="text-xs font-medium text-gray-500">Contact Person</label>
@@ -68,6 +74,12 @@
             <div>
                 <label class="text-xs font-medium text-gray-500">Shop Name <span class="text-red-500">*</span></label>
                 <input type="text" name="shop_name" value="{{ $online->shop_name ?? '' }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="pur-input mt-1" required>
+            </div>
+
+            <div>
+                <label class="text-xs font-medium text-gray-500">Check Name</label>
+                <input type="text" name="supplier_check_name" value="{{ old('supplier_check_name', $supplier->supplier_check_name ?? '') }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="e.g. Mandaue Foam for Office Chairs" class="pur-input mt-1">
+                <p class="mt-1 text-[11px] text-slate-400">Printed as the Payee on Direct Payment and Cash Installment. Leave blank to use the supplier name.</p>
             </div>
 
             <div class="grid gap-3 lg:grid-cols-2">

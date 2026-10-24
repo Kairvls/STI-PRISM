@@ -953,4 +953,82 @@ class RisWorkflow
 
         return $purpose;
     }
+
+    /**
+     * Save Issued quantities for an existing RIS.
+     * Each named item needs an issued quantity of at least 1, and the total
+     * issued for an item cannot be higher than what was requested.
+     *
+     * @param  array<int|string, mixed>  $posted  item id => issued quantity
+     */
+    public static function applyIssuedQuantities(int $risId, array $posted): ?string
+    {
+        $items = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get();
+
+        $groups = [];
+        $updates = [];
+
+        foreach ($items as $item) {
+            $name = trim((string) ($item->ris_item_name_description ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $itemId = (int) $item->ris_item_id;
+            $raw = $posted[$itemId] ?? $posted[(string) $itemId] ?? null;
+            if ($raw === null || $raw === '' || ! is_numeric($raw) || (int) $raw != $raw || (int) $raw < 1) {
+                return '"'.$name.'" needs an Issued quantity of at least 1.';
+            }
+
+            $issued = (int) $raw;
+            if ($issued > 9999999) {
+                return '"'.$name.'" Issued quantity can be up to 7 digits only.';
+            }
+
+            $key = mb_strtolower($name);
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'label' => $name,
+                    'asked' => 0,
+                    'allocated' => 0,
+                ];
+            }
+            $requested = (int) ($item->ris_quantity_requested ?? 0);
+            if ($groups[$key]['asked'] < 1 && $requested > 0) {
+                $groups[$key]['asked'] = $requested;
+            }
+            $groups[$key]['allocated'] += $issued;
+
+            $updates[$itemId] = [
+                'ris_quantity_issued' => $issued,
+                'ris_total_amount' => round($issued * (float) ($item->ris_unit_cost ?? 0), 2),
+            ];
+        }
+
+        if ($updates === []) {
+            return 'This RIS has no items to issue.';
+        }
+
+        foreach ($groups as $group) {
+            if ($group['asked'] < 1) {
+                return '"'.$group['label'].'" needs a requested quantity before Issued can be saved.';
+            }
+            if ($group['allocated'] > $group['asked']) {
+                return '"'.$group['label'].'" is over the requested amount ('
+                    .$group['allocated'].' issued of '.$group['asked'].' requested).';
+            }
+        }
+
+        foreach ($updates as $itemId => $payload) {
+            DB::table('requisition_issue_slip_items_table')
+                ->where('ris_item_id', $itemId)
+                ->where('ris_id', $risId)
+                ->update($payload);
+        }
+
+        return null;
+    }
 }

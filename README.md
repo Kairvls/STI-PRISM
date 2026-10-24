@@ -306,3 +306,5 @@ in the receiving officer system dashboard simplify & update the contents also (r
 for the entire procurement process, for every tables from ris to lr put a dedicated export pdf feature
 
 in the purchaser officer system dashboard retain/restay this part (image 1) and simplify & update the contents also (remove unnecessary information/details) then avoid using not important to have subtitle
+
+if not cash advance like Direct Payment/Cash Installment make the Payee is 

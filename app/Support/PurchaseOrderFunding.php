@@ -209,7 +209,7 @@ class PurchaseOrderFunding
                     'label' => $poLabel
                         .($isCashAdvance ? ' · whole PO' : ' · '.$supplierName)
                         .' · '.count($atpIds).' ATP'.(count($atpIds) === 1 ? '' : 's'),
-                    'payee' => $isCashAdvance ? $requester : $supplierName,
+                    'payee' => $isCashAdvance ? $requester : PurchaseOrderBasket::checkPayee($bucket->first()),
                     'amount' => $amount,
                     'purpose' => mb_substr(
                         $poLabel.' ('.implode(', ', $atpLabels).')'.($purposes !== [] ? ': '.implode('; ', $purposes) : ''),
@@ -368,6 +368,7 @@ class PurchaseOrderFunding
                 'authority_to_purchase_table.authority_purchase_payment_path',
                 'authority_to_purchase_table.authority_purchase_supplier_id',
                 'suppliers_table.supplier_store_type',
+                'suppliers_table.supplier_check_name',
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name',
                 'requisition_issue_slip_table.ris_purpose_description',

@@ -4330,6 +4330,11 @@ class AdminController extends Controller
                 return back()->with('error', 'Please add your signature for Checked by and Issued by before approving this RIS.');
             }
 
+            $issuedError = RisWorkflow::applyIssuedQuantities((int) $risId, (array) $request->input('issued', []));
+            if ($issuedError) {
+                return back()->withInput()->with('error', $issuedError);
+            }
+
             $proofPath = null;
             $proofName = null;
             if ($request->hasFile('direct_approval_proof')) {
@@ -4428,7 +4433,7 @@ class AdminController extends Controller
         });
     }
 
-    public function downloadDirectApprovalProof($risId)
+    public function downloadDirectApprovalProof(Request $request, $risId)
     {
         abort_unless(
             Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_path'),
@@ -4448,7 +4453,15 @@ class AdminController extends Controller
         $downloadName = trim((string) ($record->ris_direct_approval_proof_name ?? ''))
             ?: basename($path);
 
-        return Storage::disk('public')->response($path, $downloadName);
+        if ($request->boolean('download')) {
+            return Storage::disk('public')->download($path, $downloadName);
+        }
+
+        return app(RisController::class)->previewStoredFile(
+            $path,
+            $downloadName,
+            \App\Support\AdminPortal::route('procurement-review.ris.direct-approval-proof', ['ris' => $risId, 'download' => 1])
+        );
     }
 
     public function downloadForwardAttachment($risId)

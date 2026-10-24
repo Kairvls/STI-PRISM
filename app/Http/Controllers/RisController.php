@@ -710,6 +710,7 @@ class RisController extends Controller
                     || filled($item['supplier_id'] ?? null);
 
             })
+            ->map(fn ($item) => $this->clearPurchaserIssued($item))
             ->values();
 
         $splitOverflow = $this->risItemSplitOverflowMessage($items);
@@ -1304,6 +1305,7 @@ public function update(Request $request, $risId)
                 || filled($item['supplier_id'] ?? null);
 
         })
+        ->map(fn ($item) => $this->clearPurchaserIssued($item))
         ->values();
 
     $splitOverflow = $this->risItemSplitOverflowMessage($items);
@@ -1979,16 +1981,34 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     {
         [$attachment] = $this->canvasAttachmentForRequest($attachmentId);
 
-        $name = (string) $attachment->ris_attachment_original_name;
-        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        $absolute = Storage::disk('public')->path($attachment->ris_attachment_path);
+        return $this->previewStoredFile(
+            (string) $attachment->ris_attachment_path,
+            (string) $attachment->ris_attachment_original_name,
+            ProcurementPortal::route('ris.attachments.download', $attachment->ris_attachment_id)
+        );
+    }
 
-        if ($ext === 'pdf') {
-            return Storage::disk('public')->response(
-                $attachment->ris_attachment_path,
-                $name,
-                ['Content-Type' => 'application/pdf']
-            );
+    /**
+     * Open a stored proof or canvas file in the browser.
+     * Images and PDF display directly. Word and Excel render as a page.
+     */
+    public function previewStoredFile(string $relativePath, string $name, ?string $downloadUrl = null)
+    {
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $absolute = Storage::disk('public')->path($relativePath);
+        $inlineTypes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+        ];
+
+        if (isset($inlineTypes[$ext])) {
+            return Storage::disk('public')->response($relativePath, $name, [
+                'Content-Type' => $inlineTypes[$ext],
+            ], 'inline');
         }
 
         try {
@@ -1998,10 +2018,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 default => throw new \RuntimeException('This file type cannot be previewed.'),
             };
         } catch (\Throwable $e) {
-            $html = $this->canvasPreviewFallbackHtml(
-                $name,
-                ProcurementPortal::route('ris.attachments.download', $attachment->ris_attachment_id)
-            );
+            $html = $this->canvasPreviewFallbackHtml($name, $downloadUrl ?: '#');
         }
 
         return response($this->sanitizePreviewHtml($html), 200, [
@@ -2103,7 +2120,9 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     private function risItemPayload($risId, array $item): array
     {
         $quantityIssued = (int) ($item['quantity_issued'] ?? 0);
+        $quantityRequested = (int) ($item['quantity_requested'] ?? 0);
         $unitCost = (float) ($item['unit_cost'] ?? 0);
+        $amountBasis = $quantityIssued > 0 ? $quantityIssued : $quantityRequested;
 
         $payload = [
             'ris_id' => $risId,
@@ -2111,7 +2130,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             'ris_quantity_requested' => $item['quantity_requested'] ?? null,
             'ris_quantity_issued' => $quantityIssued,
             'ris_unit_cost' => $item['unit_cost'] ?? null,
-            'ris_total_amount' => round($quantityIssued * $unitCost, 2),
+            'ris_total_amount' => round($amountBasis * $unitCost, 2),
         ];
 
         if ($this->risItemsHaveUomColumn()) {
@@ -3258,10 +3277,8 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 return "Item {$rowNumber} needs a supplier.";
             }
 
-            // Blank issued fields are stored as 0 — treat 0 as not filled on submit.
-            if ($row['quantity_issued'] === null || $row['quantity_issued'] === '' || (int) $row['quantity_issued'] < 1) {
-                return "Item {$rowNumber} needs a Quantity Issued of at least 1.";
-            }
+            // Issued is filled later by the School Administrator (direct approval)
+            // or the President. The purchaser leaves this column blank.
 
             if ($isFirstOfGroup && ($row['unit_cost'] === null || $row['unit_cost'] === '' || (float) $row['unit_cost'] <= 0)) {
                 return "Item {$rowNumber} needs a unit cost greater than 0.";
@@ -3283,6 +3300,17 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
      *     unit_cost: mixed
      * }
      */
+    /**
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function clearPurchaserIssued(array $item): array
+    {
+        $item['quantity_issued'] = 0;
+
+        return $item;
+    }
+
     private function normalizeRisItemForValidation(array|object $item): array
     {
         if (is_array($item)) {

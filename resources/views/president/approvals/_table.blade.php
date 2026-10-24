@@ -61,22 +61,32 @@
                             <span class="status-pill status-notify">Approved</span>
                         </td>
                         <td class="col-actions">
-                            <div class="row-actions">
-                                <button type="button" class="icon-btn pin-btn" data-tip="Pin to top" aria-label="Pin to top" onclick="event.stopPropagation(); toggleRisPin({{ $ris->ris_id }})">
-                                    <i data-lucide="pin" class="h-4 w-4"></i>
-                                </button>
-                                @if ($hasAdminForward)
-                                    <button type="button" class="icon-btn" data-tip="Administrator supporting details" aria-label="Administrator supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
-                                        <i data-lucide="message-square" class="h-4 w-4"></i>
-                                    </button>
-                                @endif
-                                <button type="button" class="icon-btn" data-tip="Review approved RIS" aria-label="Review approved RIS" onclick="event.stopPropagation(); openApprovedRisPreviewModal({{ $ris->ris_id }})">
-                                    <i data-lucide="eye" class="h-4 w-4"></i>
-                                </button>
-                                <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="event.stopPropagation(); printRisDocument({{ $ris->ris_id }})">
-                                    <i data-lucide="printer" class="h-4 w-4"></i>
-                                </button>
-                            </div>
+                            @php
+                                $rowActions = [[
+                                    'icon' => 'pin',
+                                    'label' => 'Pin to top',
+                                    'class' => 'pin-btn',
+                                    'onclick' => 'toggleRisPin('.(int) $ris->ris_id.')',
+                                ]];
+                                if ($hasAdminForward) {
+                                    $rowActions[] = [
+                                        'icon' => 'message-square',
+                                        'label' => 'Administrator supporting details',
+                                        'onclick' => 'openAdminForwardDetails('.(int) $ris->ris_id.')',
+                                    ];
+                                }
+                                $rowActions[] = [
+                                    'icon' => 'eye',
+                                    'label' => 'Review approved RIS',
+                                    'onclick' => 'openApprovedRisPreviewModal('.(int) $ris->ris_id.')',
+                                ];
+                                $rowActions[] = [
+                                    'icon' => 'printer',
+                                    'label' => 'Print RIS',
+                                    'onclick' => 'printRisDocument('.(int) $ris->ris_id.')',
+                                ];
+                            @endphp
+                            @include('president.approvals._row-actions', ['actions' => $rowActions])
                         </td>
                     </tr>
                 @endforeach
@@ -116,19 +126,27 @@
                             <span class="status-pill status-pending">Pending</span>
                         </td>
                         <td class="col-actions">
-                            <div class="row-actions">
-                                @if ($hasAdminForward)
-                                    <button type="button" class="icon-btn" data-tip="Administrator supporting details" aria-label="Administrator supporting details" onclick="event.stopPropagation(); openAdminForwardDetails({{ $ris->ris_id }})">
-                                        <i data-lucide="message-square" class="h-4 w-4"></i>
-                                    </button>
-                                @endif
-                                <button type="button" class="icon-btn" data-tip="Review RIS" aria-label="Review RIS" onclick="event.stopPropagation(); openRisReviewModal({{ $ris->ris_id }})">
-                                    <i data-lucide="eye" class="h-4 w-4"></i>
-                                </button>
-                                <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="event.stopPropagation(); printRisDocument({{ $ris->ris_id }})">
-                                    <i data-lucide="printer" class="h-4 w-4"></i>
-                                </button>
-                            </div>
+                            @php
+                                $rowActions = [];
+                                if ($hasAdminForward) {
+                                    $rowActions[] = [
+                                        'icon' => 'message-square',
+                                        'label' => 'Administrator supporting details',
+                                        'onclick' => 'openAdminForwardDetails('.(int) $ris->ris_id.')',
+                                    ];
+                                }
+                                $rowActions[] = [
+                                    'icon' => 'eye',
+                                    'label' => 'Review RIS',
+                                    'onclick' => 'openRisReviewModal('.(int) $ris->ris_id.')',
+                                ];
+                                $rowActions[] = [
+                                    'icon' => 'printer',
+                                    'label' => 'Print RIS',
+                                    'onclick' => 'printRisDocument('.(int) $ris->ris_id.')',
+                                ];
+                            @endphp
+                            @include('president.approvals._row-actions', ['actions' => $rowActions])
                         </td>
                     </tr>
                 @endforeach

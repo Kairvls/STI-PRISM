@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\RoleAccess;
+use App\Support\SchoolAdminMenuSeen;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,8 @@ class SchoolAdminMiddleware
         }
 
         RoleAccess::enterPortal('school-admin');
+
+        SchoolAdminMenuSeen::capture($request);
 
         return $next($request);
     }

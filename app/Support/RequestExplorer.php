@@ -506,6 +506,173 @@ class RequestExplorer
         return null;
     }
 
+    /**
+     * Furthest document reached for each RIS (the request's latest stop).
+     *
+     * @param  array<int, int|string>  $risIds
+     * @return array<int, array{key: string, code: string, title: string}>
+     */
+    public static function latestStopsForRis(array $risIds): array
+    {
+        $risIds = array_values(array_unique(array_filter(array_map('intval', $risIds))));
+        $stops = [];
+        foreach ($risIds as $risId) {
+            $stops[$risId] = self::stopLabel('ris');
+        }
+        if ($stops === []) {
+            return $stops;
+        }
+
+        $rank = ['ris' => 0, 'atp' => 1, 'rfc' => 2, 'dv' => 3, 'rr' => 4, 'liq' => 5];
+        $raise = function (int $risId, string $key) use (&$stops, $rank): void {
+            if ($risId < 1 || ! isset($stops[$risId], $rank[$key])) {
+                return;
+            }
+            if ($rank[$key] > $rank[$stops[$risId]['key']]) {
+                $stops[$risId] = self::stopLabel($key);
+            }
+        };
+
+        if (! Schema::hasTable('authority_to_purchase_table')) {
+            return $stops;
+        }
+
+        $atpRows = DB::table('authority_to_purchase_table')
+            ->whereIn('authority_purchase_ris_id', $risIds)
+            ->get(['authority_purchase_id', 'authority_purchase_ris_id']);
+
+        $risByAtp = [];
+        foreach ($atpRows as $row) {
+            $atpId = (int) $row->authority_purchase_id;
+            $risId = (int) $row->authority_purchase_ris_id;
+            if ($atpId < 1 || $risId < 1) {
+                continue;
+            }
+            $risByAtp[$atpId] = $risId;
+            $raise($risId, 'atp');
+        }
+
+        $atpIds = array_keys($risByAtp);
+        if ($atpIds === [] || ! Schema::hasTable('request_check_table')) {
+            return $stops;
+        }
+
+        $risIdsByRfc = [];
+        $rememberRfc = function (int $rfcId, int $atpId) use (&$risIdsByRfc, $risByAtp, $raise): void {
+            $risId = $risByAtp[$atpId] ?? 0;
+            if ($rfcId < 1 || $risId < 1) {
+                return;
+            }
+            $risIdsByRfc[$rfcId][$risId] = $risId;
+            $raise($risId, 'rfc');
+        };
+
+        $directRfcs = DB::table('request_check_table')
+            ->whereIn('request_check_authority_purchase_id', $atpIds)
+            ->get(['request_check_id', 'request_check_authority_purchase_id']);
+        foreach ($directRfcs as $row) {
+            $rememberRfc((int) $row->request_check_id, (int) $row->request_check_authority_purchase_id);
+        }
+
+        if (Schema::hasTable('request_check_atps_table')) {
+            $links = DB::table('request_check_atps_table')
+                ->whereIn('authority_purchase_id', $atpIds)
+                ->get(['request_check_id', 'authority_purchase_id']);
+            foreach ($links as $row) {
+                $rememberRfc((int) $row->request_check_id, (int) $row->authority_purchase_id);
+            }
+        }
+
+        $rfcIds = array_keys($risIdsByRfc);
+        if ($rfcIds === []) {
+            return $stops;
+        }
+
+        $fan = function (int $rfcId, string $key) use ($risIdsByRfc, $raise): void {
+            foreach ($risIdsByRfc[$rfcId] ?? [] as $risId) {
+                $raise((int) $risId, $key);
+            }
+        };
+
+        if (Schema::hasTable('disbursement_vouchers_table')
+            && Schema::hasColumn('disbursement_vouchers_table', 'dv_request_check_id')) {
+            $dvRfcIds = DB::table('disbursement_vouchers_table')
+                ->whereIn('dv_request_check_id', $rfcIds)
+                ->pluck('dv_request_check_id');
+            foreach ($dvRfcIds as $rfcId) {
+                $fan((int) $rfcId, 'dv');
+            }
+        }
+
+        $rrIdsByRis = [];
+        if (Schema::hasTable('receiving_reports_table')
+            && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')) {
+            $reports = DB::table('receiving_reports_table')
+                ->whereIn('receiving_report_request_check_id', $rfcIds)
+                ->get(['receiving_report_id', 'receiving_report_request_check_id']);
+            foreach ($reports as $row) {
+                $rfcId = (int) $row->receiving_report_request_check_id;
+                $fan($rfcId, 'rr');
+                foreach ($risIdsByRfc[$rfcId] ?? [] as $risId) {
+                    $rrIdsByRis[(int) $row->receiving_report_id][(int) $risId] = (int) $risId;
+                }
+            }
+        }
+
+        if (Schema::hasColumn('request_check_table', 'request_check_receiving_report_id')) {
+            $linked = DB::table('request_check_table')
+                ->whereIn('request_check_id', $rfcIds)
+                ->whereNotNull('request_check_receiving_report_id')
+                ->get(['request_check_id', 'request_check_receiving_report_id']);
+            foreach ($linked as $row) {
+                $rfcId = (int) $row->request_check_id;
+                $rrId = (int) $row->request_check_receiving_report_id;
+                if ($rrId < 1) {
+                    continue;
+                }
+                $fan($rfcId, 'rr');
+                foreach ($risIdsByRfc[$rfcId] ?? [] as $risId) {
+                    $rrIdsByRis[$rrId][(int) $risId] = (int) $risId;
+                }
+            }
+        }
+
+        $rrIds = array_keys($rrIdsByRis);
+        if ($rrIds === [] || ! Schema::hasTable('liquidation_reports_table')
+            || ! Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')) {
+            return $stops;
+        }
+
+        $liqReports = DB::table('liquidation_reports_table')
+            ->whereIn('liquidation_report_receiving_report_id', $rrIds)
+            ->pluck('liquidation_report_receiving_report_id');
+        foreach ($liqReports as $rrId) {
+            foreach ($rrIdsByRis[(int) $rrId] ?? [] as $risId) {
+                $raise((int) $risId, 'liq');
+            }
+        }
+
+        return $stops;
+    }
+
+    /**
+     * @return array{key: string, code: string, title: string}
+     */
+    private static function stopLabel(string $key): array
+    {
+        $map = [
+            'ris' => ['RIS', 'Requisition and Issue Slip'],
+            'atp' => ['ATP', 'Authority to Purchase'],
+            'rfc' => ['Check', 'Request Check'],
+            'dv' => ['DV', 'Disbursement Voucher'],
+            'rr' => ['RR', 'Receiving Report'],
+            'liq' => ['Liquidation', 'Liquidation Report'],
+        ];
+        [$code, $title] = $map[$key] ?? $map['ris'];
+
+        return ['key' => $key, 'code' => $code, 'title' => $title];
+    }
+
     public static function layoutForPortal(?string $portal = null): string
     {
         $portal = $portal ?: self::viewerPortal();

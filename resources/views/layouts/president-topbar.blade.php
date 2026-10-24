@@ -7,7 +7,7 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('president/dashboard') => ['Dashboard', ''],
-                request()->is('president/direct-approvals*') => ['Administrator Direct Approvals', ''],
+                request()->is('president/direct-approvals*') => ['School Administrator Direct Approvals', ''],
                 request()->is('president/approvals/history*') => ['Approval History', ''],
                 request()->is('president/approvals*') => ['RIS Approvals', 'Review, sign, and notify Administrator when ready.'],
                 request()->is('president/reports/monthly-summary*') => ['Reports & Summary', ''],

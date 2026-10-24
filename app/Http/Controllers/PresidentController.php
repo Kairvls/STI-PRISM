@@ -770,6 +770,17 @@ class PresidentController extends Controller
 
         $this->attachDirectApprovalSupportingDocuments($records);
 
+        $latestStops = \App\Support\RequestExplorer::latestStopsForRis(
+            $records->getCollection()->pluck('ris_id')->all()
+        );
+        $records->getCollection()->each(function ($row) use ($latestStops) {
+            $row->latest_stop = $latestStops[(int) $row->ris_id] ?? [
+                'key' => 'ris',
+                'code' => 'RIS',
+                'title' => 'Requisition and Issue Slip',
+            ];
+        });
+
         if ($request->ajax()) {
             $tableHtml = view('president.direct-approvals._table', [
                 'records' => $records,
@@ -793,7 +804,7 @@ class PresidentController extends Controller
         ]);
     }
 
-    public function downloadDirectApprovalProof($ris)
+    public function downloadDirectApprovalProof(Request $request, $ris)
     {
         abort_unless(
             Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_proof_path'),
@@ -813,7 +824,15 @@ class PresidentController extends Controller
         $downloadName = trim((string) ($record->ris_direct_approval_proof_name ?? ''))
             ?: basename($path);
 
-        return Storage::disk('public')->response($path, $downloadName);
+        if ($request->boolean('download')) {
+            return Storage::disk('public')->download($path, $downloadName);
+        }
+
+        return app(RisController::class)->previewStoredFile(
+            $path,
+            $downloadName,
+            route('president.direct-approvals.proof', ['ris' => $ris, 'download' => 1])
+        );
     }
 
     private function attachDirectApprovalSupportingDocuments($records): void
@@ -904,12 +923,39 @@ class PresidentController extends Controller
             $updateValues['ris_approved_by_signature'] = $signature;
             $approvedDate = $this->parseFlexibleDate($request->input('ris_approved_by_date'));
             $updateValues['ris_approved_by_date'] = $approvedDate ?: now()->toDateString();
+
+            $returnTo = array_values(array_intersect(
+                (array) $request->input('return_to', []),
+                ['school_admin', 'purchaser']
+            ));
+            if ($returnTo === []) {
+                return $fail('Choose who this RIS is passed to. You can select the School Administrator, the Purchaser, or both.');
+            }
+
+            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+            if (in_array('purchaser', $returnTo, true) && $purchaserId <= 0) {
+                return $fail('This RIS has no purchaser to return it to.');
+            }
         }
 
         try {
-            DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $targetId)
-                ->update($updateValues);
+            DB::transaction(function () use ($targetId, $updateValues, $request, $decision) {
+                if ($decision === 'Approved') {
+                    $issuedError = RisWorkflow::applyIssuedQuantities(
+                        (int) $targetId,
+                        (array) $request->input('issued', [])
+                    );
+                    if ($issuedError) {
+                        throw new \RuntimeException($issuedError);
+                    }
+                }
+
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $targetId)
+                    ->update($updateValues);
+            });
+        } catch (\RuntimeException $e) {
+            return $fail($e->getMessage());
         } catch (\Throwable $e) {
             return $fail(
                 'Could not save the President decision. Run database migrations so presidential RIS statuses are valid.'
@@ -931,8 +977,61 @@ class PresidentController extends Controller
             // ignore logging failures to not break testing
         }
 
-        // Reject still notifies Admin immediately. Approve only persists the
-        // decision — Admin is notified when President clicks "Notify Admin".
+        $passedTo = [];
+        $adminNotified = false;
+
+        // Reject still notifies Admin immediately. Approve passes the RIS to
+        // whoever the President selected: School Administrator, Purchaser, or both.
+        if ($decision === 'Approved') {
+            $returnTo = array_values(array_intersect(
+                (array) $request->input('return_to', []),
+                ['school_admin', 'purchaser']
+            ));
+            $form = RisWorkflow::formNumber($target);
+            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+
+            if (in_array('school_admin', $returnTo, true)) {
+                try {
+                    DB::table('approval_logs_table')->insert([
+                        'approval_log_reference_type' => 'RIS',
+                        'approval_log_reference_id' => (int) $targetId,
+                        'approval_log_level' => 'President',
+                        'approval_log_approved_by' => Auth::id(),
+                        'approval_log_approval_status' => 'Approved',
+                        'approval_log_approval_remarks' => 'Notified Administrator for co-sign',
+                        'approval_log_approved_at' => now(),
+                    ]);
+                } catch (\Throwable $e) {
+                }
+
+                WorkflowNotifier::toRole(
+                    WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                    'President approved an RIS',
+                    $form . ' was approved by the President and is ready for School Administrator co-sign.',
+                    'ris_president_approved',
+                    'RIS',
+                    (int) $targetId,
+                    '/school-admin/digital-signatures/sign-ris'
+                );
+                $passedTo[] = 'School Administrator';
+                $adminNotified = true;
+            }
+
+            if (in_array('purchaser', $returnTo, true) && $purchaserId > 0) {
+                WorkflowNotifier::toUser(
+                    $purchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'President returned an approved RIS',
+                    $form . ' was approved and returned to you. Issued quantities are filled in.',
+                    'ris_president_returned',
+                    'RIS',
+                    (int) $targetId,
+                    '/purchaser/ris'
+                );
+                $passedTo[] = WorkflowNotifier::recipientName($purchaserId, 'the Purchaser');
+            }
+        }
+
         if ($decision === 'Rejected') {
             $form = RisWorkflow::formNumber($target);
             WorkflowNotifier::toRole(
@@ -954,9 +1053,9 @@ class PresidentController extends Controller
                 'approved_by_date' => $decision === 'Approved'
                     ? ($updateValues['ris_approved_by_date'] ?? null)
                     : null,
-                'admin_notified' => false,
+                'admin_notified' => $adminNotified,
                 'message' => $decision === 'Approved'
-                    ? 'RIS approved successfully. Notify Administrator when ready.'
+                    ? ('RIS approved and passed to ' . implode(' and ', $passedTo) . '.')
                     : 'RIS rejected successfully.',
             ]);
         }

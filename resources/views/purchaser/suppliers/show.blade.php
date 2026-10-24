@@ -67,6 +67,10 @@
                         <dt class="text-xs uppercase tracking-wide text-slate-500">Company name</dt>
                         <dd class="mt-1 text-sm text-slate-700">{{ $supplier->company_name ?? '—' }}</dd>
                     </div>
+                    <div class="sm:col-span-2">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Check name</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->supplier_check_name ?: '—' }}</dd>
+                    </div>
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-slate-500">Contact person</dt>
                         <dd class="mt-1 text-sm text-slate-700">{{ $supplier->contact_person ?? '—' }}</dd>
@@ -97,6 +101,10 @@
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-slate-500">Shop name</dt>
                         <dd class="mt-1 text-sm text-slate-700">{{ $supplier->shop_name ?? '—' }}</dd>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Check name</dt>
+                        <dd class="mt-1 text-sm text-slate-700">{{ $supplier->supplier_check_name ?: '—' }}</dd>
                     </div>
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-slate-500">App used</dt>

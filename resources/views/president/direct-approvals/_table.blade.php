@@ -2,7 +2,7 @@
     @php
         $reference = \App\Support\RisWorkflow::formNumber($row);
         $risId = $row->ris_id;
-        $adminName = $row->approved_by_name ?: 'Administrator';
+        $adminName = $row->approved_by_name ?: 'School Administrator';
         $reason = trim((string) ($row->ris_direct_approval_reason ?? ''));
         $decidedAt = $row->ris_direct_approval_at ?? $row->ris_approved_by_date ?? null;
         $dateLabel = $decidedAt
@@ -14,6 +14,16 @@
             : null;
         $proofName = $row->ris_direct_approval_proof_name ?: 'Download proof';
         $supportingDocs = $row->supportingDocuments ?? [];
+        $latestStop = $row->latest_stop ?? ['code' => 'RIS', 'title' => 'Requisition and Issue Slip'];
+        $requestNo = trim((string) ($row->ris_request_no ?? ''));
+        $requestUrl = null;
+        if ($requestNo !== '') {
+            try {
+                $requestUrl = \App\Support\RequestExplorer::showUrl($requestNo);
+            } catch (\Throwable) {
+                $requestUrl = null;
+            }
+        }
         $detailPayload = [
             'risId' => (int) $risId,
             'reference' => $reference,
@@ -27,7 +37,6 @@
     @endphp
 
     <tr class="border-b border-gray-100 transition-all duration-200">
-        <td class="px-2 py-4 text-sm font-semibold text-gray-600">RIS#{{ $risId }}</td>
         <td class="px-2 py-4 text-sm text-gray-700">
             <div>{{ $reference }}</div>
             @if (count($supportingDocs) > 0)
@@ -61,6 +70,20 @@
         <td class="px-2 py-4 text-sm text-gray-700">{{ $dateLabel }}</td>
         <td class="px-2 py-4 text-sm text-center font-semibold text-gray-800">
             ₱{{ number_format($row->total_amount ?? 0, 2) }}
+        </td>
+        <td class="px-2 py-4 text-sm">
+            @if ($requestUrl)
+                <a
+                    href="{{ $requestUrl }}"
+                    class="inline-flex items-center rounded-full bg-[#eef2ff] px-2.5 py-1 text-[11px] font-semibold text-[#1e3a8a] transition hover:bg-[#dbe4ff] hover:underline"
+                    title="Latest stop: {{ $latestStop['title'] }}. Open {{ $requestNo }}"
+                >{{ $latestStop['code'] }}</a>
+            @else
+                <span
+                    class="inline-flex items-center rounded-full bg-[#eef2ff] px-2.5 py-1 text-[11px] font-semibold text-[#1e3a8a]"
+                    title="Latest stop: {{ $latestStop['title'] }}"
+                >{{ $latestStop['code'] }}</span>
+            @endif
         </td>
         <td class="px-2 py-4 text-center">
             <div class="row-actions justify-center">
@@ -105,7 +128,7 @@
                 @if (request('search'))
                     No results match your search criteria.
                 @else
-                    When Administrator uses Approve Directly, those RIS records will appear here for your review.
+                    When the School Administrator uses Approve Directly, those RIS records will appear here for your review.
                 @endif
             </p>
         </td>

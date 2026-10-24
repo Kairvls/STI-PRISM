@@ -116,7 +116,7 @@ class RequestForCheckController extends Controller
         if (!$request->ajax()) {
             $fundingType = $this->resolveFundingType($request);
             $eligibleAtps = $this->eligibleAtpQuery($fundingType)->get();
-            foreach ($this->buildAtpPrefill($eligibleAtps) as $atpId => $row) {
+            foreach ($this->buildAtpPrefill($eligibleAtps, $fundingType) as $atpId => $row) {
                 $atpPrefill['atp:'.$atpId] = $row;
             }
             $fundingGroups = PurchaseOrderFunding::fundingGroups($fundingType);
@@ -226,7 +226,7 @@ class RequestForCheckController extends Controller
                 'request_check_purchase_order_id' => $poId,
                 'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
-                'request_check_payee' => $validated['request_check_payee'] ?? null,
+                'request_check_payee' => $this->payeeForFunding($fundingType, $validated['request_check_payee'] ?? null),
                 'request_check_amount_figures' => $validated['request_check_amount_figures'] ?? null,
                 'request_check_amount_words' => $this->amountInWords($validated['request_check_amount_figures'] ?? null),
                 'request_check_particulars_purpose' => $validated['request_check_particulars_purpose'] ?? null,
@@ -337,7 +337,7 @@ class RequestForCheckController extends Controller
                 'request_check_purchase_order_id' => $poId,
                 'request_check_funding_type' => $fundingType,
                 'request_check_date' => $validated['request_check_date'] ?? null,
-                'request_check_payee' => $validated['request_check_payee'] ?? null,
+                'request_check_payee' => $this->payeeForFunding($fundingType, $validated['request_check_payee'] ?? null),
                 'request_check_amount_figures' => $validated['request_check_amount_figures'] ?? null,
                 'request_check_amount_words' => $this->amountInWords($validated['request_check_amount_figures'] ?? null),
                 'request_check_particulars_purpose' => $validated['request_check_particulars_purpose'] ?? null,
@@ -779,6 +779,7 @@ class RequestForCheckController extends Controller
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name',
                 'suppliers_table.supplier_store_type',
+                'suppliers_table.supplier_check_name',
                 'requisition_issue_slip_table.ris_form_number',
                 'requisition_issue_slip_table.ris_purpose_description',
                 'equipment_table.equipment_name',
@@ -788,10 +789,12 @@ class RequestForCheckController extends Controller
             ->limit(50);
     }
 
-    private function buildAtpPrefill($eligibleAtps): array
+    private function buildAtpPrefill($eligibleAtps, ?string $fundingType = null): array
     {
         $prefill = [];
         $ids = collect($eligibleAtps)->pluck('authority_purchase_id');
+        $cashAdvance = ProcurementPaymentPath::requiresLiquidation($fundingType);
+        $purchaserName = trim((string) (auth()->user()->user_full_name ?? ''));
 
         $totals = DB::table('authority_to_purchase_items_table')
             ->whereIn('authority_purchase_id', $ids)
@@ -800,9 +803,9 @@ class RequestForCheckController extends Controller
             ->pluck('total', 'authority_purchase_id');
 
         foreach ($eligibleAtps as $atp) {
-            $payee = $atp->supplier_store_type === 'Physical Store'
-                ? ($atp->company_name ?? '')
-                : ($atp->shop_name ?? $atp->company_name ?? '');
+            $payee = $cashAdvance
+                ? $purchaserName
+                : PurchaseOrderBasket::checkPayee($atp);
 
             $purpose = $atp->equipment_name
                 ?? $atp->report_unlisted_equipment_name
@@ -818,6 +821,17 @@ class RequestForCheckController extends Controller
         }
 
         return $prefill;
+    }
+
+    private function payeeForFunding(string $fundingType, ?string $posted): ?string
+    {
+        if (! ProcurementPaymentPath::requiresLiquidation($fundingType)) {
+            return $posted;
+        }
+
+        $name = trim((string) (auth()->user()->user_full_name ?? ''));
+
+        return $name !== '' ? $name : $posted;
     }
 
     private function attachLinkedAtps($rfcs): void

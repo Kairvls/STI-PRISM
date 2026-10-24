@@ -29,6 +29,9 @@ class SupplierController extends Controller
                     ->orWhere('online_suppliers_table.contact_number', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('online_suppliers_table.app_used', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('online_suppliers_table.seller_id', 'LIKE', '%' . $request->search . '%');
+                if (Schema::hasColumn('suppliers_table', 'supplier_check_name')) {
+                    $q->orWhere('suppliers_table.supplier_check_name', 'LIKE', '%' . $request->search . '%');
+                }
             });
         }
 
@@ -223,10 +226,15 @@ class SupplierController extends Controller
         }
 
         return DB::transaction(function () use ($request, $id, $supplier) {
+            $parent = [];
             if (Schema::hasColumn('suppliers_table', 'operating_hours')) {
-                DB::table('suppliers_table')->where('supplier_id', $id)->update([
-                    'operating_hours' => $request->operating_hours ? trim($request->operating_hours) : null,
-                ]);
+                $parent['operating_hours'] = $request->operating_hours ? trim($request->operating_hours) : null;
+            }
+            if (Schema::hasColumn('suppliers_table', 'supplier_check_name')) {
+                $parent['supplier_check_name'] = $request->supplier_check_name ? trim($request->supplier_check_name) : null;
+            }
+            if ($parent !== []) {
+                DB::table('suppliers_table')->where('supplier_id', $id)->update($parent);
             }
 
             // ADDED SUPPLIERS MODULE: keep existing parent supplier type, update only type-specific details.
@@ -326,6 +334,10 @@ class SupplierController extends Controller
 
         if (Schema::hasColumn('suppliers_table', 'operating_hours')) {
             $payload['operating_hours'] = $request->operating_hours ? trim($request->operating_hours) : null;
+        }
+
+        if (Schema::hasColumn('suppliers_table', 'supplier_check_name')) {
+            $payload['supplier_check_name'] = $request->supplier_check_name ? trim($request->supplier_check_name) : null;
         }
 
         if (Schema::hasColumn('suppliers_table', 'supplier_is_blacklisted')) {

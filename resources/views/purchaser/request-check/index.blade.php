@@ -625,7 +625,14 @@
                                 <p class="mt-1 text-[11px] text-gray-500">ATPs approved through a Purchase Order are funded together under their Purchase Order.</p>
                             </div>
                         @endif
-                        @include('partials.request-check-paper', ['editable' => true, 'rfc' => null, 'signKey' => 'rfc-create'])
+                        @include('partials.request-check-paper', [
+                            'editable' => true,
+                            'rfc' => null,
+                            'signKey' => 'rfc-create',
+                            'cashAdvancePayee' => \App\Support\ProcurementPaymentPath::requiresLiquidation($selectedFundingType ?? null)
+                                ? (auth()->user()->user_full_name ?? '')
+                                : null,
+                        ])
                         <div id="purSigSlot-rfc-create" class="mt-4 w-full"></div>
                         @include('partials.single-file-upload', [
                             'name' => 'attachments[]',
@@ -893,7 +900,14 @@
                                         No approved ATP with a matching payment path is available. Link one before submitting to School Administrator.
                                     </div>
                                 @endif
-                                @include('partials.request-check-paper', ['editable' => true, 'rfc' => $rfc, 'signKey' => 'rfc-'.$rfc->request_check_id])
+                                @include('partials.request-check-paper', [
+                                    'editable' => true,
+                                    'rfc' => $rfc,
+                                    'signKey' => 'rfc-'.$rfc->request_check_id,
+                                    'cashAdvancePayee' => \App\Support\ProcurementPaymentPath::requiresLiquidation($rfc->request_check_funding_type ?? null)
+                                        ? (auth()->user()->user_full_name ?? '')
+                                        : null,
+                                ])
                                 <div id="purSigSlot-rfc-{{ $rfc->request_check_id }}" class="mt-4 w-full"></div>
                                 @include('partials.single-file-upload', [
                                     'name' => 'attachments[]',

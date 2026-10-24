@@ -13,11 +13,8 @@
     ];
 @endphp
 
-<div class="space-y-6 p-6">
-    <div>
-        <h1 class="text-2xl font-semibold text-slate-900">Disbursement Vouchers</h1>
-        <p class="mt-1 text-sm text-slate-500">Sign DVs from Accounting after School Administrator approval. Each request includes Canvas + RIS, ATP, and RFC.</p>
-    </div>
+<div class="space-y-6">
+    <!--<p class="text-sm text-slate-500">Sign DVs from Accounting after School Administrator approval. Each request includes Canvas + RIS, ATP, and RFC.</p>-->
 
     <div class="flex flex-wrap gap-x-5 border-b border-gray-100 text-sm">
         @foreach($filters as $key => $label)

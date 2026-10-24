@@ -2,7 +2,11 @@
     $editable = $editable ?? false;
     $rfc = $rfc ?? null;
     $dateValue = old('request_check_date', $rfc?->request_check_date ?? ($editable && !$rfc ? now()->toDateString() : ''));
+    $cashAdvancePayee = trim((string) ($cashAdvancePayee ?? ''));
     $payeeValue = old('request_check_payee', $rfc?->request_check_payee ?? '');
+    if ($cashAdvancePayee !== '') {
+        $payeeValue = $cashAdvancePayee;
+    }
     $amountValue = old('request_check_amount_figures', $rfc?->request_check_amount_figures ?? '');
     $purposeValue = old('request_check_particulars_purpose', $rfc?->request_check_particulars_purpose ?? '');
     $requestedByValue = old(
@@ -44,7 +48,7 @@
         <div class="flex items-end gap-3">
             <span class="w-24 shrink-0 font-semibold">Payee: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
-                <input type="text" name="request_check_payee" value="{{ $payeeValue }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
+                <input type="text" name="request_check_payee" value="{{ $payeeValue }}" maxlength="{{ \App\Support\InputLimits::NAME }}" @if($cashAdvancePayee !== '') readonly title="Cash Advance is paid to the purchaser who made this request." @endif class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
                 <span class="flex-1 border-b border-black px-1 pb-0.5">{{ $payeeValue }}</span>
             @endif

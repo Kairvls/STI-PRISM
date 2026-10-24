@@ -160,7 +160,8 @@
         </div>
 
         @php
-            $risSidebarBadge = (int) ($adminSidebarPendingRis ?? 0) + (int) ($adminSidebarAwaitingCosign ?? 0);
+            $saCounts = \App\Support\SchoolAdminSidebarCounts::counts();
+            $navCount = 'menu-count ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
             $risSidebarActive = request()->is('school-admin/procurement-review*')
                 || request()->is('school-admin/digital-signatures/sign-ris*');
         @endphp
@@ -169,14 +170,13 @@
             class="menu-item {{ $risSidebarActive ? 'active' : '' }}"
         >
 
-            <span class="menu-icon-wrap">
-                <i data-lucide="clipboard-check"></i>
-                @if($risSidebarBadge > 0)
-                    <span class="menu-notif-dot" title="{{ $risSidebarBadge }} RIS needing accept or sign"></span>
-                @endif
-            </span>
+            <i data-lucide="clipboard-check"></i>
 
             <span>RIS</span>
+
+            @if($saCounts['ris'] > 0)
+                <span class="{{ $navCount }}" title="{{ $saCounts['ris'] }} not viewed yet">{{ $saCounts['ris'] }}</span>
+            @endif
 
         </a>
 
@@ -186,6 +186,9 @@
         >
             <i data-lucide="file-check"></i>
             <span>ATP Requests</span>
+            @if($saCounts['atp'] > 0)
+                <span class="{{ $navCount }}" title="{{ $saCounts['atp'] }} not viewed yet">{{ $saCounts['atp'] }}</span>
+            @endif
         </a>
 
         <a
@@ -194,6 +197,9 @@
         >
             <i data-lucide="clipboard-list"></i>
             <span>Check Approval Requests</span>
+            @if($saCounts['rfc'] > 0)
+                <span class="{{ $navCount }}" title="{{ $saCounts['rfc'] }} not viewed yet">{{ $saCounts['rfc'] }}</span>
+            @endif
         </a>
 
         <a
@@ -202,6 +208,9 @@
         >
             <i data-lucide="file-spreadsheet"></i>
             <span>DV Requests</span>
+            @if($saCounts['dv'] > 0)
+                <span class="{{ $navCount }}" title="{{ $saCounts['dv'] }} not viewed yet">{{ $saCounts['dv'] }}</span>
+            @endif
         </a>
 
         <a

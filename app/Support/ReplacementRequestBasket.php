@@ -278,7 +278,7 @@ class ReplacementRequestBasket
             ]];
         }
 
-        return $lines->take(self::MAX_ITEMS)->map(function ($line) {
+        $mapped = $lines->take(self::MAX_ITEMS)->map(function ($line) {
             return [
                 'name' => self::displayName($line),
                 'room' => trim((string) ($line->room_name ?? '')),
@@ -291,6 +291,37 @@ class ReplacementRequestBasket
                 'reason' => $line->replacement_notes ?? '',
             ];
         })->values()->all();
+
+        return self::collapseSameItems($mapped);
+    }
+
+    /**
+     * One RIS row per item name. Matching names keep a single row whose quantity is the number of units.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     * @return array<int, array<string, mixed>>
+     */
+    public static function collapseSameItems(array $lines): array
+    {
+        $grouped = [];
+
+        foreach ($lines as $line) {
+            $name = trim((string) ($line['name'] ?? ''));
+            $key = mb_strtolower($name);
+            $quantity = max(1, (int) ($line['quantity'] ?? 1));
+
+            if (! isset($grouped[$key])) {
+                $line['name'] = $name;
+                $line['quantity'] = $quantity;
+                $grouped[$key] = $line;
+
+                continue;
+            }
+
+            $grouped[$key]['quantity'] += $quantity;
+        }
+
+        return array_values($grouped);
     }
 
     /**

@@ -31,6 +31,7 @@ class SupplierRequest extends FormRequest
             ),
             'company_address' => $this->filled('company_address') ? trim($this->company_address) : null,
             'operating_hours' => $this->filled('operating_hours') ? trim($this->operating_hours) : null,
+            'supplier_check_name' => $this->filled('supplier_check_name') ? trim($this->supplier_check_name) : null,
             'app_used' => $this->filled('app_used') ? trim($this->app_used) : null,
             'shop_name' => $shopName,
             'store_url' => $this->filled('store_url') ? trim($this->store_url) : null,
@@ -44,6 +45,7 @@ class SupplierRequest extends FormRequest
         $rules = [
             'supplier_store_type' => ['required', Rule::in(['Physical Store', 'Online Store'])],
             'operating_hours' => ['nullable', 'string', 'max:255'],
+            'supplier_check_name' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($this->input('supplier_store_type') === 'Physical Store') {
@@ -80,6 +82,7 @@ class SupplierRequest extends FormRequest
             'contact_number' => 'contact number',
             'email_address' => 'email address',
             'operating_hours' => 'operating hours',
+            'supplier_check_name' => 'check name',
         ];
     }
 }
