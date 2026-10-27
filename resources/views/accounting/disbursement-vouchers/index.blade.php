@@ -202,12 +202,12 @@
                                             @if($row->request_check_payee) · {{ $row->request_check_payee }}@endif
                                         </p>
                                         <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                                            <a href="{{ route('accounting.dv.package.rfc', $row->request_check_id) }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">View RFC</a>
+                                            <a href="{{ route('accounting.dv.package.rfc', $row->request_check_id) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">View RFC</a>
                                             @foreach(($row->atp_ids ?? []) as $atpId)
-                                                <a href="{{ route('accounting.dv.package.atp', [$row->request_check_id, $atpId]) }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">View ATP</a>
+                                                <a href="{{ route('accounting.dv.package.atp', [$row->request_check_id, $atpId]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">View ATP</a>
                                             @endforeach
                                             @foreach(($row->ris_ids ?? []) as $risId)
-                                                <a href="{{ route('accounting.dv.package.ris', [$row->request_check_id, $risId]) }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">View Canvas + RIS</a>
+                                                <a href="{{ route('accounting.dv.package.ris', [$row->request_check_id, $risId]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">View Canvas + RIS</a>
                                             @endforeach
                                         </div>
                                     </div>
@@ -336,12 +336,12 @@
                                     @endphp
                                     <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                                         <span class="text-slate-400">References:</span>
-                                        <a href="{{ route('accounting.dv.package.rfc', $pkgRfcId) }}?edit_dv={{ $dvId }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">RFC</a>
+                                        <a href="{{ route('accounting.dv.package.rfc', $pkgRfcId) }}?edit_dv={{ $dvId }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">RFC</a>
                                         @foreach($pkgAtps as $pkgAtp)
-                                            <a href="{{ route('accounting.dv.package.atp', [$pkgRfcId, $pkgAtp->authority_purchase_id]) }}?edit_dv={{ $dvId }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
+                                            <a href="{{ route('accounting.dv.package.atp', [$pkgRfcId, $pkgAtp->authority_purchase_id]) }}?edit_dv={{ $dvId }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
                                         @endforeach
                                         @foreach($pkgRis as $pkgRisRow)
-                                            <a href="{{ route('accounting.dv.package.ris', [$pkgRfcId, $pkgRisRow->ris_id]) }}?edit_dv={{ $dvId }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">Canvas + RIS</a>
+                                            <a href="{{ route('accounting.dv.package.ris', [$pkgRfcId, $pkgRisRow->ris_id]) }}?edit_dv={{ $dvId }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">Canvas + RIS</a>
                                         @endforeach
                                     </div>
                                 </div>
@@ -434,12 +434,12 @@
                                     @endphp
                                     <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                                         <span class="text-slate-400">References:</span>
-                                        <a href="{{ route('accounting.dv.package.rfc', $pkgRfcId) }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">RFC</a>
+                                        <a href="{{ route('accounting.dv.package.rfc', $pkgRfcId) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">RFC</a>
                                         @foreach($pkgAtps as $pkgAtp)
-                                            <a href="{{ route('accounting.dv.package.atp', [$pkgRfcId, $pkgAtp->authority_purchase_id]) }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
+                                            <a href="{{ route('accounting.dv.package.atp', [$pkgRfcId, $pkgAtp->authority_purchase_id]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
                                         @endforeach
                                         @foreach($pkgRis as $pkgRisRow)
-                                            <a href="{{ route('accounting.dv.package.ris', [$pkgRfcId, $pkgRisRow->ris_id]) }}" target="_blank" class="font-medium text-[#0025cc] hover:underline">Canvas + RIS</a>
+                                            <a href="{{ route('accounting.dv.package.ris', [$pkgRfcId, $pkgRisRow->ris_id]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">Canvas + RIS</a>
                                         @endforeach
                                     </div>
                                 </div>
@@ -529,4 +529,13 @@
         ])
     </div>
 </div>
+<script>
+document.addEventListener('click', function (event) {
+    var link = event.target.closest('a.js-pkg-tab');
+    if (!link) return;
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    window.open(link.href, '_blank');
+});
+</script>
 @endsection

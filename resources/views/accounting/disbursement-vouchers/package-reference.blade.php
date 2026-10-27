@@ -48,7 +48,7 @@
 <div class="acx mx-auto max-w-5xl space-y-4">
     <div class="print-hidden flex flex-wrap items-start justify-between gap-3">
         <div>
-            <a href="{{ $backDv }}" class="text-sm text-slate-500 hover:text-[#0025cc]">← Back to Disbursement requests</a>
+            <button type="button" id="pkg-close-tab" class="text-sm text-slate-500 hover:text-[#0025cc]">← Back to Disbursement requests</button>
             <h1 class="acx-h mt-2 text-2xl font-semibold">{{ $title }}</h1>
             <p class="mt-1 text-sm text-slate-500">{{ $subtitle ?? 'Approved request document for Disbursement Voucher reference' }}</p>
         </div>
@@ -174,6 +174,16 @@
         window.setTimeout(function () {
             if (mount.parentNode) mount.parentNode.removeChild(mount);
         }, 1500);
+    }
+
+    var closeTab = document.getElementById('pkg-close-tab');
+    if (closeTab) {
+        closeTab.addEventListener('click', function () {
+            window.close();
+            window.setTimeout(function () {
+                if (!window.closed) window.location.href = @json($backDv);
+            }, 400);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
