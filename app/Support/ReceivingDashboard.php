@@ -46,7 +46,7 @@ class ReceivingDashboard
             'snapshot' => self::snapshot($backOrders, $unresolved),
             'incomplete' => $incomplete['rows'] ?? collect(),
             'incompleteCount' => (int) ($incomplete['total'] ?? 0),
-            'suppliers' => self::supplierIssues($backOrders),
+            'suppliers' => self::supplierIssues($unresolved),
             'week' => self::safe(fn () => self::weekStrip(), []),
             'activity' => self::safe(fn () => self::recentActivity(), collect()),
         ];
@@ -423,8 +423,34 @@ class ReceivingDashboard
             return collect();
         }
 
-        $query = DB::table(BackOrders::TABLE.' as bo');
-        $select = ['bo.*'];
+        $query = DB::table(BackOrders::TABLE.' as bo')
+            ->where(function ($q) {
+                $q->whereIn('bo.back_order_status', BackOrders::UNRESOLVED)
+                    ->orWhere(function ($fulfilled) {
+                        $fulfilled->whereNotNull('bo.back_order_resolved_at')
+                            ->where('bo.back_order_resolved_at', '>=', now()->startOfMonth()->toDateTimeString());
+                    });
+            });
+
+        $select = [
+            'bo.back_order_id',
+            'bo.back_order_status',
+            'bo.back_order_type',
+            'bo.back_order_quantity',
+            'bo.back_order_unit',
+            'bo.back_order_unit_price',
+            'bo.back_order_article',
+            'bo.back_order_reason',
+            'bo.back_order_payment_path',
+            'bo.back_order_request_check_id',
+            'bo.back_order_root_receiving_report_id',
+            'bo.back_order_supplier_name',
+            'bo.back_order_created_at',
+            'bo.back_order_resolved_at',
+        ];
+        if (Schema::hasColumn(BackOrders::TABLE, 'back_order_number')) {
+            $select[] = 'bo.back_order_number';
+        }
         if (self::hasRr()) {
             $query->leftJoin(self::RR.' as root', 'root.receiving_report_id', '=', 'bo.back_order_root_receiving_report_id');
             $select[] = 'root.receiving_report_form_number as root_rr_number';
@@ -517,7 +543,9 @@ class ReceivingDashboard
             'oldestDays' => $oldest ? self::ageDays($oldest->back_order_created_at ?? null) : null,
             'oldestArticle' => $oldest->back_order_article ?? null,
             'fulfilledThisMonth' => $fulfilledThisMonth->count(),
-            'allTime' => $all->count(),
+            'allTime' => BackOrders::supported()
+                ? (int) DB::table(BackOrders::TABLE)->count()
+                : $all->count(),
         ];
     }
 

@@ -10,7 +10,7 @@
     $rfc = $package['rfc'] ?? null;
 @endphp
 
-<div class="acc-page acc-page--review fade-in p-6">
+<div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head print-hidden">
         <div>
             <a href="{{ route('school-admin.dv.index') }}" class="acc-back" data-tip="Back to DV queue" aria-label="Back to DV queue">

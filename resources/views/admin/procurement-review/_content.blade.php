@@ -40,7 +40,24 @@
                 'active' => $filter === 'accepted',
                 'title' => 'Accepted requests waiting on Ready to Sign',
             ],
+            [
+                'label' => 'Returned for Revision',
+                'hint' => '₱'.number_format((float) ($revisionRisAmount ?? 0), 2),
+                'value' => number_format($revisionRis ?? 0),
+                'tag' => 'button',
+                'filterKey' => 'revision',
+                'extraClass' => 'ris-filter-card',
+                'active' => $filter === 'revision',
+                'title' => 'RIS returned to the Purchaser for revision',
+            ],
         ];
+
+        $sectionTitle = match ($filter) {
+            'all' => 'All RIS',
+            'accepted' => 'Accepted',
+            'revision' => 'Returned for Revision',
+            default => 'Pending Accept',
+        };
     @endphp
 
 
@@ -52,20 +69,13 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Pending Accept</h2>
+                        <h2 class="text-base font-semibold text-gray-950">{{ $sectionTitle }}</h2>
                         <span
                             id="risTotalCount"
                             class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500"
                             title="Number of RIS records matching the current filter"
                         >{{ $risRecords->total() }} total</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-400">
-                        @if ($risCanAct)
-                            Accept purchaser submissions, then open <strong>Ready to Sign</strong> for Direct Approve or Pass to President.
-                        @else
-                            View only. The School Administrator accepts, then decides on Ready to Sign (Direct Approve or Pass to President).
-                        @endif
-                    </p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
@@ -104,7 +114,7 @@
                     @endif
 
                     <a
-                        href="{{ \App\Support\AdminPortal::route('procurement-review.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
+                        href="{{ \App\Support\AdminPortal::route('procurement-review.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? ''])) }}"
                         title="Export the current RIS table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >
@@ -117,18 +127,12 @@
             </div>
 
             <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div
+                <nav
                     id="risFilterSlider"
                     role="tablist"
                     aria-label="Procurement request filters"
-                    class="relative inline-flex max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1"
+                    class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                    <span
-                        class="ris-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-8 rounded-md bg-white shadow-sm will-change-transform"
-                        style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
-                        aria-hidden="true"
-                    ></span>
-
                     @foreach ($procurementCards as $card)
                         <button
                             type="button"
@@ -136,30 +140,26 @@
                             data-filter="{{ $card['filterKey'] }}"
                             title="{{ $card['title'] }}"
                             aria-selected="{{ $filter === $card['filterKey'] ? 'true' : 'false' }}"
-                            class="ris-filter-btn relative z-10 flex h-8 shrink-0 items-center whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition-colors
-                                {{ $filter === $card['filterKey'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                            class="ris-filter-btn shrink-0 rounded-lg px-3 py-2 text-sm transition
+                                {{ $filter === $card['filterKey']
+                                    ? 'bg-gray-100/80 font-medium text-black'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}
                             "
                         >
                             {{ $card['label'] }}
+                            <span class="ml-1 tabular-nums" data-count="{{ $card['filterKey'] }}">{{ $card['value'] }}</span>
                         </button>
                     @endforeach
-                </div>
+                </nav>
 
-                <div class="relative w-full lg:max-w-sm">
-                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
-                    </svg>
-                    <input
-                        id="risLiveSearch"
-                        type="search"
-                        name="search"
-                        value="{{ $search }}"
-                        placeholder="Search RIS, Request No., requester, equipment…"
-                        autocomplete="off"
-                        title="Search RIS records"
-                        class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                    >
-                </div>
+                @include('admin.partials.ris-submitted-date-search', [
+                    'search' => $search,
+                    'submittedDate' => $submittedDate ?? '',
+                    'searchInputId' => 'risLiveSearch',
+                    'dateInputId' => 'risSubmittedDate',
+                    'dateBtnId' => 'risSubmittedDateBtn',
+                    'dateClearId' => 'risSubmittedDateClear',
+                ])
             </div>
         </div>
 
@@ -171,7 +171,17 @@
             @forelse($risRecords as $ris)
                 @include('admin.partials.ris-info-card', ['ris' => $ris, 'cardMode' => 'procurement'])
             @empty
-                <div class="pur-empty">No RIS records found.</div>
+                <div class="pur-empty">
+                    @if ($filter === 'pending')
+                        No pending procurement requests.
+                    @elseif ($filter === 'accepted')
+                        No accepted requests waiting on Ready to Sign.
+                    @elseif ($filter === 'revision')
+                        No RIS returned for revision.
+                    @else
+                        No RIS records found.
+                    @endif
+                </div>
             @endforelse
 
             @include('layouts.partials.table-showing-pager', [

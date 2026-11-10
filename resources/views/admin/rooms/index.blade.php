@@ -207,7 +207,7 @@
                             <th class="px-5 py-3">Reporter</th>
                             <th class="px-5 py-3">Status</th>
                             <th class="px-5 py-3">Submitted</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="px-5 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -923,7 +923,7 @@
                                 <th class="px-4 py-2.5">Type</th>
                                 <th class="px-4 py-2.5">Rooms</th>
                                 <th class="px-4 py-2.5">Flags</th>
-                                <th class="px-4 py-2.5 text-right">Actions</th>
+                                <th class="px-4 py-2.5 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">

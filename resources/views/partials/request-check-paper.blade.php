@@ -26,7 +26,6 @@
 <div
     @if($printId) id="{{ $printId }}" @endif
     class="rfc-print-sheet mx-auto w-full max-w-[1095px] bg-white px-16 pb-5 pt-10 text-[15px] text-black shadow {{ $printClass }}"
-    style="min-height: 0; height: auto;"
 >
     <div class="text-center">
         <div class="text-2xl font-bold tracking-wide">STI COLLEGE- ORMOC, INC.</div>
@@ -110,7 +109,8 @@
                     >
                 </div>
             @else
-                <div class="relative mt-6 w-64 border-b border-black pb-1 min-h-[1.5rem]">
+                {{-- Center name + signature on the underline (same as ATP / Approved by). --}}
+                <div class="relative mt-6 flex w-64 min-h-[1.75rem] items-center justify-center border-b border-black pb-1 text-center">
                     @include('partials.drawn-signature', [
                         'value' => $requestedBySignature,
                         'printedName' => $requestedByValue,
@@ -123,7 +123,7 @@
             <div class="w-64 text-left">
                 <div class="font-semibold">Approved by:</div>
                 <div
-                    class="relative mt-6 w-full min-h-[1.5rem] border-b border-black pb-1 flex items-center justify-center"
+                    class="relative mt-6 flex w-full min-h-[1.75rem] items-center justify-center border-b border-black pb-1 text-center"
                     @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
                 >
                     @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($approvedBy ?? '')))
@@ -158,9 +158,10 @@
 </div>
 
 <style>
-    .rfc-print-sheet {
-        min-height: 0 !important;
-        height: auto !important;
+    /* Screen: allow fullscreen modals to stretch height. Print: collapse to content. */
+    .rfc-print-sheet .signature-name-stack {
+        margin-left: auto;
+        margin-right: auto;
     }
 
     @media print {
@@ -168,6 +169,11 @@
             min-height: 0 !important;
             height: auto !important;
             box-shadow: none !important;
+        }
+
+        .rfc-print-sheet .signature-name-stack {
+            margin-left: auto !important;
+            margin-right: auto !important;
         }
     }
 </style>

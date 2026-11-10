@@ -132,38 +132,59 @@ class AccountingDashboard
             });
         }
 
-        return $query
+        $rows = $query
             ->orderBy('request_check_sent_to_accounting_at')
-            ->get()
-            ->map(function ($row) {
-                $rfcId = (int) $row->request_check_id;
-                $dv = AccountingHandoff::dvForRfc($rfcId);
-                $editable = $dv && in_array((string) ($dv->dv_status ?? ''), ['Draft', 'Revision'], true);
-                $continue = $dv
-                    ? route('accounting.dv.index', [
-                        $editable ? 'edit_dv' : 'view_dv' => (int) $dv->dv_id,
-                        'status' => $editable ? 'incoming' : 'all',
-                        'rfc' => $rfcId,
-                    ])
-                    : url('/accounting/disbursement-vouchers?status=incoming&rfc='.$rfcId);
+            ->get([
+                'request_check_id',
+                'request_check_form_number',
+                'request_check_payee',
+                'request_check_requested_by',
+                'request_check_amount_figures',
+                'request_check_sent_to_accounting_at',
+            ]);
 
-                $item = self::item(
-                    'dv',
-                    $row->request_check_form_number ?: 'RFC-'.$rfcId,
-                    $row->request_check_payee ?: ($row->request_check_requested_by ?: 'Package'),
-                    'Needs a disbursement voucher',
-                    $row->request_check_amount_figures ?? null,
-                    $row->request_check_sent_to_accounting_at,
-                    false,
-                    'Open',
-                    $continue
-                );
-                $item->preview_url = $dv
-                    ? route('accounting.dashboard.preview', ['type' => 'dv', 'id' => (int) $dv->dv_id])
-                    : route('accounting.dashboard.preview', ['type' => 'rfc', 'id' => $rfcId]);
+        $dvByRfc = collect();
+        if (Schema::hasTable('disbursement_vouchers_table') && $rows->isNotEmpty()) {
+            $dvByRfc = DB::table('disbursement_vouchers_table')
+                ->whereIn('dv_request_check_id', $rows->pluck('request_check_id')->all())
+                ->where(function ($q) {
+                    $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+                })
+                ->orderByDesc('dv_id')
+                ->get(['dv_id', 'dv_request_check_id', 'dv_status'])
+                ->unique('dv_request_check_id')
+                ->keyBy(fn ($dv) => (int) $dv->dv_request_check_id);
+        }
 
-                return $item;
-            });
+        return $rows->map(function ($row) use ($dvByRfc) {
+            $rfcId = (int) $row->request_check_id;
+            $dv = $dvByRfc->get($rfcId);
+            $editable = $dv && in_array((string) ($dv->dv_status ?? ''), ['Draft', 'Revision'], true);
+            $continue = $dv
+                ? route('accounting.dv.index', [
+                    $editable ? 'edit_dv' : 'view_dv' => (int) $dv->dv_id,
+                    'status' => $editable ? 'incoming' : 'all',
+                    'rfc' => $rfcId,
+                ])
+                : url('/accounting/disbursement-vouchers?status=incoming&rfc='.$rfcId);
+
+            $item = self::item(
+                'dv',
+                $row->request_check_form_number ?: 'RFC-'.$rfcId,
+                $row->request_check_payee ?: ($row->request_check_requested_by ?: 'Package'),
+                'Needs a disbursement voucher',
+                $row->request_check_amount_figures ?? null,
+                $row->request_check_sent_to_accounting_at,
+                false,
+                'Open',
+                $continue
+            );
+            $item->preview_url = $dv
+                ? route('accounting.dashboard.preview', ['type' => 'dv', 'id' => (int) $dv->dv_id])
+                : route('accounting.dashboard.preview', ['type' => 'rfc', 'id' => $rfcId]);
+
+            return $item;
+        });
     }
 
     private static function atpQueue(): Collection

@@ -30,7 +30,7 @@
                     <th class="px-4 py-3">Payee</th>
                     <th class="px-4 py-3">Amount</th>
                     <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">Action</th>
+                    <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -48,6 +48,12 @@
                         <td class="px-4 py-4">
                             <div class="flex flex-wrap gap-2">
                                 <button type="button" @click="openView({{ $rfc->request_check_id }}); fetch('{{ route('admin.rfc.start-review', $rfc->request_check_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">View</button>
+                                @include('partials.share-document-button', [
+                                    'type' => 'rfc',
+                                    'id' => $rfc->request_check_id,
+                                    'label' => \App\Support\RequestExplorer::shareUiLabel('rfc', $rfc->request_check_form_number ?? null),
+                                    'variant' => 'button',
+                                ])
                                 @if($reviewable)
                                     <form method="POST" action="{{ route('admin.rfc.approve', $rfc->request_check_id) }}">
                                         @csrf

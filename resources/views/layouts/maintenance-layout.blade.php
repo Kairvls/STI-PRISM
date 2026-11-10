@@ -153,6 +153,25 @@
         color: #6b7280;
     }
 
+    .mp-toast-action {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 10px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--mp-toast-blue);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.3;
+        cursor: pointer;
+        letter-spacing: -0.01em;
+    }
+
+    .mp-toast-action:hover {
+        text-decoration: underline;
+    }
+
     /* Alpine inline toast (infrastructure) */
     .mp-toast.mp-toast-inline {
         opacity: 1;
@@ -293,13 +312,19 @@
                 : (message || '');
 
             const type = opts.type || 'success';
-            const timer = opts.timer == null ? 3200 : opts.timer;
+            const timer = opts.timer == null ? 3000 : opts.timer;
             const title = formatTitle(opts.title || rawMessage, type);
             const subtitle = opts.title
                 ? String(rawMessage || opts.subtitle || opts.text || '').trim()
                 : String(opts.subtitle || opts.text || '').trim();
             const replaceGroup = opts.replaceGroup
                 ? String(opts.replaceGroup)
+                : '';
+            const action = opts.action && typeof opts.action === 'object'
+                ? opts.action
+                : null;
+            const actionLabel = action && action.label
+                ? String(action.label).trim()
                 : '';
 
             const host = ensureHost();
@@ -334,7 +359,8 @@
                     '</div>' +
                 '</div>' +
                 '<p class="mp-toast-title"></p>' +
-                (subtitle ? '<p class="mp-toast-message"></p>' : '');
+                (subtitle ? '<p class="mp-toast-message"></p>' : '') +
+                (actionLabel ? '<button type="button" class="mp-toast-action"></button>' : '');
 
             toast.querySelector('.mp-toast-title').textContent = title;
             if (subtitle) {
@@ -354,6 +380,20 @@
             };
 
             toast.querySelector('.mp-toast-close').addEventListener('click', dismiss);
+
+            if (actionLabel) {
+                const actionBtn = toast.querySelector('.mp-toast-action');
+                actionBtn.textContent = actionLabel;
+                actionBtn.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    dismiss();
+                    if (typeof action.onClick === 'function') {
+                        action.onClick();
+                    }
+                });
+            }
+
             host.appendChild(toast);
             requestAnimationFrame(function () {
                 toast.classList.add('is-visible');
@@ -393,7 +433,7 @@
                     window.showMpToast(subtitle, {
                         title: options.title || '',
                         type: type,
-                        timer: options.timer == null ? 3200 : options.timer,
+                        timer: options.timer == null ? 3000 : options.timer,
                     });
 
                     return Promise.resolve({ isConfirmed: false, isDenied: false, isDismissed: true });

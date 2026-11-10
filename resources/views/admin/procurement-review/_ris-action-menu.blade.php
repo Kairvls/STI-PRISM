@@ -2,6 +2,9 @@
 @php
     $risId = $risId ?? ($ris->ris_id ?? null);
     $btnSizeClass = $btnSizeClass ?? 'h-8 w-8';
+    $mode = $mode ?? 'sign'; // sign | pending
+    $acceptRef = $acceptRef ?? null;
+    $acceptDetail = $acceptDetail ?? null;
 @endphp
 @if ($risId && \App\Support\AdminPortal::canActOnRis())
 <div
@@ -35,46 +38,76 @@
             class="fixed z-[9999] w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-lg shadow-slate-900/10"
             role="menu"
         >
-            <button
-                type="button"
-                role="menuitem"
-                @click="runAction(() => openDirectApproveModal('{{ $risId }}', 'forward'))"
-                title="Forward this RIS to the President (no Issued by signature required)"
-                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-            >
-                <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                </svg>
-                Forward RIS to President
-            </button>
+            @if ($mode === 'pending')
+                <button
+                    type="button"
+                    role="menuitem"
+                    @click="runAction(() => openAcceptRisModal('{{ $risId }}', @js($acceptRef), @js($acceptDetail)))"
+                    title="Accept and continue to Ready to Sign"
+                    class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-[#0025cc] transition hover:bg-blue-50"
+                >
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Accept
+                </button>
 
-            <button
-                type="button"
-                role="menuitem"
-                @click="runAction(() => openDirectApproveModal('{{ $risId }}', 'direct'))"
-                title="Sign Issued by and mark this RIS as approved by the School Administrator for the Purchaser"
-                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-            >
-                <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                Approve Directly
-            </button>
+                <div class="my-1 border-t border-slate-100"></div>
 
-            <div class="my-1 border-t border-slate-100"></div>
+                <button
+                    type="button"
+                    role="menuitem"
+                    @click="runAction(() => openAmendModal('{{ $risId }}'))"
+                    title="Return this RIS to the Purchaser for revision"
+                    class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-amber-50 hover:text-amber-900"
+                >
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    Return for Revision
+                </button>
+            @else
+                <button
+                    type="button"
+                    role="menuitem"
+                    @click="runAction(() => openDirectApproveModal('{{ $risId }}', 'forward'))"
+                    title="Forward this RIS to the President (no Issued by signature required)"
+                    class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    Forward RIS to President
+                </button>
 
-            <button
-                type="button"
-                role="menuitem"
-                @click="runAction(() => openAmendModal('{{ $risId }}'))"
-                title="Return this RIS to the Purchaser for revision (no signature)"
-                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-amber-50 hover:text-amber-900"
-            >
-                <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                </svg>
-                Return for Revision
-            </button>
+                <button
+                    type="button"
+                    role="menuitem"
+                    @click="runAction(() => openDirectApproveModal('{{ $risId }}', 'direct'))"
+                    title="Sign Issued by and mark this RIS as approved by the School Administrator for the Purchaser"
+                    class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Approve Directly
+                </button>
+
+                <div class="my-1 border-t border-slate-100"></div>
+
+                <button
+                    type="button"
+                    role="menuitem"
+                    @click="runAction(() => openAmendModal('{{ $risId }}'))"
+                    title="Return this RIS to the Purchaser for revision (no signature)"
+                    class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-amber-50 hover:text-amber-900"
+                >
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    Return for Revision
+                </button>
+            @endif
         </div>
     </template>
 </div>

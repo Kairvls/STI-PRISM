@@ -82,8 +82,13 @@ class ReceivingController extends Controller
         try {
             $items = WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), 'Receiving Officer')
                 ->orderByDesc('notification_created_at')
-                ->limit(80)
-                ->get();
+                ->limit(40)
+                ->get([
+                    'notifications_table.notification_id',
+                    'notifications_table.notification_title',
+                    'notifications_table.notification_message',
+                    'notifications_table.notification_created_at',
+                ]);
         } catch (\Throwable $e) {
         }
 

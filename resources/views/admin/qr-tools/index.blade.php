@@ -1488,7 +1488,7 @@
                         window.showMpToast(qrId, {
                             title: 'QR ID copied',
                             type: 'success',
-                            timer: 2800,
+                            timer: 3000,
                         });
                         return;
                     }
@@ -1500,7 +1500,7 @@
                         title: 'QR ID copied',
                         text: qrId,
                         showConfirmButton: false,
-                        timer: 2200,
+                        timer: 3000,
                         timerProgressBar: true,
                     });
                 })

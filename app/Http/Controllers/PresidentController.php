@@ -79,9 +79,9 @@ class PresidentController extends Controller
                 'ris_form_number',
                 'ris_status',
                 'ris_approved_by_date',
-                'ris_approved_by_signature',
                 'ris_purpose_description',
-                'ris_issued_by_signature'
+                DB::raw($this->risSignaturePresenceSql('ris_approved_by_signature').' as ris_approved_by_signature'),
+                DB::raw($this->risSignaturePresenceSql('ris_issued_by_signature').' as ris_issued_by_signature')
             )
             ->where(function ($q) {
                 $this->scopePresidentApproved($q);
@@ -89,14 +89,18 @@ class PresidentController extends Controller
             ->orderByDesc('ris_approved_by_date')
             ->orderByDesc('ris_id')
             ->limit(5)
-            ->get()
-            ->map(function ($ris) {
-                $ris->admin_notified = $this->presidentHasNotifiedAdmin((int) $ris->ris_id);
-                $ris->awaiting_notify = !$ris->admin_notified
-                    && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
+            ->get();
 
-                return $ris;
-            });
+        $dashboardNotifiedIds = $this->presidentNotifiedAdminIds(
+            $recentlyApprovedRis->pluck('ris_id')->map(fn ($id) => (int) $id)->all()
+        );
+        $recentlyApprovedRis = $recentlyApprovedRis->map(function ($ris) use ($dashboardNotifiedIds) {
+            $ris->admin_notified = isset($dashboardNotifiedIds[(int) $ris->ris_id]);
+            $ris->awaiting_notify = ! $ris->admin_notified
+                && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
+
+            return $ris;
+        });
 
         $toNotify = PresidentAttentionSummary::scopeAwaitingNotify(
             DB::table('requisition_issue_slip_table')->select('ris_id', 'ris_form_number', 'ris_approved_by_date')
@@ -273,8 +277,7 @@ class PresidentController extends Controller
             'ris.ris_purpose_description',
             'ris.ris_status',
             'ris.ris_approved_by_date',
-            'ris.ris_approved_by_signature',
-            'ris.ris_requested_by_signature',
+            DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_approved_by_signature').') as ris_approved_by_signature'),
             'ris.ris_created_by',
             'ris.ris_submitted_by',
             'ris.ris_created_at',
@@ -286,8 +289,6 @@ class PresidentController extends Controller
             'ris.ris_purpose_description',
             'ris.ris_status',
             'ris.ris_approved_by_date',
-            'ris.ris_approved_by_signature',
-            'ris.ris_requested_by_signature',
             'ris.ris_created_by',
             'ris.ris_submitted_by',
             'ris.ris_created_at',
@@ -335,7 +336,6 @@ class PresidentController extends Controller
                 $q->where('ris.ris_id', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%")
-                  ->orWhere('ris.ris_requested_by_signature', 'LIKE', "%{$search}%")
                   ->orWhereIn('ris.ris_created_by', RisWorkflow::userIdsMatchingName($search));
 
                 if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
@@ -368,9 +368,8 @@ class PresidentController extends Controller
             'ris.ris_purpose_description',
             'ris.ris_status',
             'ris.ris_approved_by_date',
-            'ris.ris_approved_by_signature',
-            'ris.ris_requested_by_signature',
-            'ris.ris_issued_by_signature',
+            DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_approved_by_signature').') as ris_approved_by_signature'),
+            DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_issued_by_signature').') as ris_issued_by_signature'),
             'ris.ris_created_by',
             'ris.ris_submitted_by',
             'ris.ris_created_at',
@@ -382,9 +381,6 @@ class PresidentController extends Controller
             'ris.ris_purpose_description',
             'ris.ris_status',
             'ris.ris_approved_by_date',
-            'ris.ris_approved_by_signature',
-            'ris.ris_requested_by_signature',
-            'ris.ris_issued_by_signature',
             'ris.ris_created_by',
             'ris.ris_submitted_by',
             'ris.ris_created_at',
@@ -417,6 +413,7 @@ class PresidentController extends Controller
         }
 
         $awaitingNotifyRis = $awaitingQuery
+            ->limit(40)
             ->get()
             ->map(function ($ris) {
                 $ris->is_president_approved = true;
@@ -438,8 +435,8 @@ class PresidentController extends Controller
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
                 'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature',
-                'ris.ris_issued_by_signature',
+                DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_approved_by_signature').') as ris_approved_by_signature'),
+                DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_issued_by_signature').') as ris_issued_by_signature'),
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
             ->whereIn('ris.ris_status', [
@@ -458,9 +455,7 @@ class PresidentController extends Controller
                 'ris.ris_status',
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
-                'ris.ris_approved_by_date',
-                'ris.ris_approved_by_signature',
-                'ris.ris_issued_by_signature'
+                'ris.ris_approved_by_date'
             )
             ->orderBy('ris.ris_approved_by_date')
             ->orderBy('ris.ris_created_at')
@@ -468,11 +463,15 @@ class PresidentController extends Controller
             ->paginate(10, ['*'], 'recent_page')
             ->withQueryString();
 
+        $recentNotifiedIds = $this->presidentNotifiedAdminIds(
+            $recentRis->getCollection()->pluck('ris_id')->map(fn ($id) => (int) $id)->all()
+        );
+
         $recentRis->setCollection(
-            $recentRis->getCollection()->map(function ($ris) {
+            $recentRis->getCollection()->map(function ($ris) use ($recentNotifiedIds) {
                 $isApproved = RisWorkflow::isPresidentApproved($ris);
                 $ris->is_president_approved = $isApproved;
-                $ris->admin_notified = $isApproved && $this->presidentHasNotifiedAdmin((int) $ris->ris_id);
+                $ris->admin_notified = $isApproved && isset($recentNotifiedIds[(int) $ris->ris_id]);
                 $ris->awaiting_notify = $isApproved && !$ris->admin_notified
                     && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
 
@@ -1657,7 +1656,14 @@ class PresidentController extends Controller
                         'notification_reads_table.notification_id'
                     )->where('notification_reads_table.user_id', '=', $userId);
                 })
-                    ->select('notifications_table.*')
+                    ->select(
+                        'notifications_table.notification_id',
+                        'notifications_table.notification_title',
+                        'notifications_table.notification_message',
+                        'notifications_table.notification_type',
+                        'notifications_table.notification_category',
+                        'notifications_table.notification_created_at'
+                    )
                     ->selectRaw(
                         'CASE
                             WHEN notification_reads_table.notification_read_id IS NULL
@@ -1666,8 +1672,14 @@ class PresidentController extends Controller
                         END AS is_read'
                     );
             } else {
-                $query->select('notifications_table.*')
-                    ->selectRaw('0 AS is_read');
+                $query->select(
+                    'notifications_table.notification_id',
+                    'notifications_table.notification_title',
+                    'notifications_table.notification_message',
+                    'notifications_table.notification_type',
+                    'notifications_table.notification_category',
+                    'notifications_table.notification_created_at'
+                )->selectRaw('0 AS is_read');
             }
 
             $query = $this->applyPresidentNotificationAccess($query, $userId);
@@ -1678,7 +1690,7 @@ class PresidentController extends Controller
 
             $notifications = $query
                 ->orderByDesc('notifications_table.notification_created_at')
-                ->limit(100)
+                ->limit(40)
                 ->get();
 
             $unreadQuery = $this->applyPresidentNotificationAccess(
@@ -2158,20 +2170,44 @@ class PresidentController extends Controller
 
     private function presidentHasNotifiedAdmin(int $risId): bool
     {
+        return isset($this->presidentNotifiedAdminIds([$risId])[$risId]);
+    }
+
+    /**
+     * @param  list<int>  $risIds
+     * @return array<int, true>
+     */
+    private function presidentNotifiedAdminIds(array $risIds): array
+    {
+        $risIds = array_values(array_unique(array_filter(array_map('intval', $risIds))));
+        if ($risIds === [] || ! Schema::hasTable('approval_logs_table')) {
+            return [];
+        }
+
         try {
             return DB::table('approval_logs_table')
                 ->where('approval_log_reference_type', 'RIS')
-                ->where('approval_log_reference_id', $risId)
+                ->whereIn('approval_log_reference_id', $risIds)
                 ->where('approval_log_level', 'President')
                 ->where(function ($q) {
                     $q->where('approval_log_approval_remarks', 'Notified Administrator for co-sign')
                         ->orWhere('approval_log_approval_remarks', 'Notified Admin for co-sign')
                         ->orWhere('approval_log_approval_remarks', 'Forwarded to Admin for co-sign');
                 })
-                ->exists();
+                ->pluck('approval_log_reference_id')
+                ->mapWithKeys(fn ($id) => [(int) $id => true])
+                ->all();
         } catch (\Throwable $e) {
-            return false;
+            return [];
         }
+    }
+
+    /**
+     * Tiny placeholder instead of base64 signature blobs for list/dashboard flags.
+     */
+    private function risSignaturePresenceSql(string $column): string
+    {
+        return "CASE WHEN TRIM(COALESCE({$column}, '')) <> '' THEN 'data:image/x' ELSE '' END";
     }
 
     private function risIsAwaitingPresident(object $ris): bool

@@ -136,6 +136,8 @@
 
     {{-- Records card --}}
     <div class="pur-card">
+        <div id="admin-ops-procurement-list-panel" data-list-panel-root class="relative">
+
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
@@ -146,7 +148,7 @@
                     <p class="mt-1 text-xs text-gray-400">Each row is one Request No. (PR) and its document pipeline.</p>
                 </div>
 
-                <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+                <form method="GET" data-auto-filter data-list-panel="#admin-ops-procurement-list-panel" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
                     <select
                         name="filter"
                         aria-label="Filter by pipeline stop"
@@ -193,7 +195,7 @@
                         <th>Latest stop</th>
                         <th>Submitted by</th>
                         <th>Amount</th>
-                        <th class="text-center">Action</th>
+                        <th class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -302,6 +304,7 @@
         @if(method_exists($rows, 'links'))
             <div class="border-t border-gray-100 px-5 py-4">{{ $rows->links() }}</div>
         @endif
+        </div>
     </div>
 
     {{-- Document preview modal (teleported) --}}

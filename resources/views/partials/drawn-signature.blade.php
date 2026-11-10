@@ -11,10 +11,11 @@
     @include('partials.ris-signature-overlay-styles')
 @endonce
 @if ($isDrawn)
-    <span class="signature-name-stack relative inline-flex w-full items-center justify-center">
+    {{-- Stack sized by the printed name (not the full underline) so left:50% centers on the name. --}}
+    <span class="signature-name-stack relative inline-flex max-w-full items-center justify-center">
         <img src="{{ $value }}" alt="Signature" class="{{ $imgClass }}" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
         @if ($lineText !== '')
-            <span class="signature-name relative z-[1] text-center text-xs font-medium leading-5">{{ $lineText }}</span>
+            <span class="signature-name relative z-[1] whitespace-nowrap text-center text-xs font-medium leading-5">{{ $lineText }}</span>
         @endif
     </span>
 @else

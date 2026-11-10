@@ -8,7 +8,9 @@
     $status = (string) ($ris->ris_status ?? '');
     $title = \App\Support\RisWorkflow::sourceLabel($ris);
     if ($title === '' || $title === 'N/A' || $title === '—') {
-        $title = $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? \App\Support\RisWorkflow::formNumber($ris));
+        $title = trim((string) ($ris->ris_purpose_description ?? ''))
+            ?: trim((string) ($ris->ris_manual_description ?? ''))
+            ?: \App\Support\RisWorkflow::formNumber($ris);
     }
     $requestor = \App\Support\RisWorkflow::requesterName($ris);
     $dateRaw = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? $ris->ris_created_at ?? null;
@@ -56,8 +58,13 @@
         </div>
         <div class="flex gap-2 sm:col-span-2">
             <span class="w-24 shrink-0 font-semibold text-slate-500">Activity</span>
-            <span class="min-w-0 truncate text-slate-800" title="{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? '—') }}">
-                {{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? '—') }}
+            @php
+                $activity = trim((string) ($ris->ris_purpose_description ?? ''))
+                    ?: trim((string) ($ris->ris_manual_description ?? ''))
+                    ?: '—';
+            @endphp
+            <span class="min-w-0 truncate text-slate-800" title="{{ $activity }}">
+                {{ $activity }}
             </span>
         </div>
         <div class="flex gap-2">
@@ -65,7 +72,7 @@
             <span class="min-w-0 font-semibold text-slate-900">₱{{ $amount }}</span>
         </div>
         <div class="flex gap-2">
-            <span class="w-24 shrink-0 font-semibold text-slate-500">Requested</span>
+            <span class="w-24 shrink-0 font-semibold text-slate-500">Submitted</span>
             <span class="min-w-0 text-slate-800">{{ $dateLabel }}</span>
         </div>
     </div>
@@ -76,39 +83,19 @@
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             </button>
-            @include('admin.partials.ris-print-icon-button', ['risId' => $ris->ris_id])
             @if ($isPending)
-                @php
-                    $acceptRef = \App\Support\RisWorkflow::formNumber($ris);
-                    $acceptDetail = $title;
-                @endphp
-                <button
-                    type="button"
-                    onclick="openAcceptRisModal('{{ $ris->ris_id }}', @js($acceptRef), @js($acceptDetail))"
-                    title="Accept and continue to Ready to Sign"
-                    aria-label="Accept procurement request"
-                    class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-sky-600 px-2.5 text-xs font-semibold text-white transition hover:bg-sky-700"
-                >
-                    Accept
-                </button>
-                <button
-                    type="button"
-                    onclick="openAmendModal('{{ $ris->ris_id }}')"
-                    title="Return this RIS to the Purchaser for revision"
-                    aria-label="Return for revision"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
-                >
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                    </svg>
-                </button>
+                @include('admin.procurement-review._ris-action-menu', [
+                    'risId' => $ris->ris_id,
+                    'mode' => 'pending',
+                    'acceptRef' => \App\Support\RisWorkflow::formNumber($ris),
+                    'acceptDetail' => $title,
+                ])
             @endif
         @elseif ($cardMode === 'sign')
             <button type="button" onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')" title="Preview RIS" aria-label="Preview RIS"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
             </button>
-            @include('admin.partials.ris-print-icon-button', ['risId' => $ris->ris_id])
             @include('admin.partials.ris-president-remarks-button', [
                 'ris' => $ris,
                 'btnClass' => 'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900',

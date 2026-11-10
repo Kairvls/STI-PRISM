@@ -155,7 +155,24 @@
         }
 
         /**
+         * Clear pixel pins so CSS left:50% / translate(-50%,-50%) can center on the name stack.
+         * Needed for print: pins computed in a 0×0 iframe (or before layout) land on the far left.
+         */
+        window.clearSignaturePixelPins = function (root) {
+            (root || document).querySelectorAll('img.signature-image').forEach(function (img) {
+                img.style.removeProperty('left');
+                img.style.removeProperty('top');
+                img.style.removeProperty('right');
+                img.style.removeProperty('bottom');
+                img.style.removeProperty('transform');
+                img.style.removeProperty('margin');
+                img.style.removeProperty('position');
+            });
+        };
+
+        /**
          * Pin signature image center to the full-name text/input center.
+         * Skips when the layout box has no size (hidden print iframe) so we don't pin to 0,0.
          */
         window.pinSignatureToFullName = function (img) {
             if (!img || img.style.display === 'none') return;
@@ -166,7 +183,10 @@
 
             var parentRect = parent.getBoundingClientRect();
             var nameRect = nameEl.getBoundingClientRect();
-            if (!nameRect.width && !nameRect.height) return;
+            // Hidden / zero-size hosts (print iframe at 0×0) — keep CSS centering.
+            if (parentRect.width < 4 || parentRect.height < 4 || (!nameRect.width && !nameRect.height)) {
+                return;
+            }
 
             var centerX = (nameRect.left + nameRect.width / 2) - parentRect.left;
             var centerY = (nameRect.top + nameRect.height / 2) - parentRect.top;
@@ -225,6 +245,13 @@
             scanSignatureOverlays(document);
             window.addEventListener('resize', window.scanSignatureNamePins);
             window.addEventListener('load', window.scanSignatureNamePins);
+            // Print reflow: drop bad pixel pins; CSS centers on the name stack.
+            window.addEventListener('beforeprint', function () {
+                window.clearSignaturePixelPins(document);
+            });
+            window.addEventListener('afterprint', function () {
+                window.scanSignatureNamePins();
+            });
         }
 
         if (document.readyState === 'loading') {

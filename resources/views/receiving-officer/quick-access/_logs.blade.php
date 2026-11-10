@@ -32,7 +32,7 @@
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Status</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Reference</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Officer</th>
-                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Action</th>
+                        <th class="px-4 py-2 text-center text-xs font-semibold uppercase text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">

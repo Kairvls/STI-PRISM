@@ -474,11 +474,18 @@ class DraftHandover
             $pending = DB::table(self::TABLE)
                 ->where('handover_status', self::STATUS_PENDING)
                 ->where('handover_to_user_id', $userId)
-                ->get();
+                ->get(['handover_id', 'handover_document_type', 'handover_document_id', 'handover_from_user_id']);
+
+            $docsByType = self::documentsForHandovers($pending);
 
             foreach ($pending as $handover) {
                 $type = (string) $handover->handover_document_type;
-                if (isset($counts[$type]) && self::stillValid($handover)) {
+                if (! isset($counts[$type])) {
+                    continue;
+                }
+
+                $doc = $docsByType[$type][(int) $handover->handover_document_id] ?? null;
+                if (self::stillValid($handover, $doc)) {
                     $counts[$type]++;
                     $counts['total']++;
                 }
@@ -518,12 +525,53 @@ class DraftHandover
     }
 
     /**
+     * Batch-load draft documents referenced by pending handovers (one query per type).
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $pending
+     * @return array<string, array<int, object>>
+     */
+    private static function documentsForHandovers($pending): array
+    {
+        $out = ['ris' => [], 'atp' => [], 'po' => []];
+
+        foreach (['ris', 'atp', 'po'] as $type) {
+            $ids = $pending
+                ->where('handover_document_type', $type)
+                ->pluck('handover_document_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($ids === []) {
+                continue;
+            }
+
+            $rows = match ($type) {
+                'ris' => DB::table('requisition_issue_slip_table')->whereIn('ris_id', $ids)->get()->keyBy('ris_id'),
+                'atp' => DB::table('authority_to_purchase_table')->whereIn('authority_purchase_id', $ids)->get()->keyBy('authority_purchase_id'),
+                'po' => PurchaseOrderBasket::tablesExist()
+                    ? DB::table('purchase_orders_table')->whereIn('purchase_order_id', $ids)->get()->keyBy('purchase_order_id')
+                    : collect(),
+                default => collect(),
+            };
+
+            foreach ($rows as $id => $row) {
+                $out[$type][(int) $id] = $row;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * A pending handover whose draft was submitted, deleted, or re-owned is closed as Expired.
      */
-    private static function stillValid(object $handover): bool
+    private static function stillValid(object $handover, ?object $doc = null): bool
     {
         $type = (string) $handover->handover_document_type;
-        $doc = self::document($type, (int) $handover->handover_document_id);
+        $doc ??= self::document($type, (int) $handover->handover_document_id);
 
         if (self::blockReason($type, $doc, (int) $handover->handover_from_user_id) === null) {
             return true;

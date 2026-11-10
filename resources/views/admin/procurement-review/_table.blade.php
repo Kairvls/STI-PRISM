@@ -9,12 +9,12 @@
         && $risRecords->contains(fn ($ris) => in_array($ris->ris_status, $risAcceptableStatuses, true));
 @endphp
 
-<table class="pur-table w-full min-w-[1020px] table-fixed">
+<table class="pur-table w-full table-fixed">
 
     <thead>
         <tr>
             @if ($risPageHasAcceptable)
-            <th class="w-[4%] !px-0 text-center align-middle">
+            <th class="w-[3%] !px-0 text-center align-middle">
                 <input
                     type="checkbox"
                     id="risSelectAllPage"
@@ -25,13 +25,13 @@
                 >
             </th>
             @endif
-            <th class="{{ $risPageHasAcceptable ? 'w-[12%]' : 'w-[14%]' }} text-left">RIS Number</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[14%]' : 'w-[15%]' }} text-left">RIS Number</th>
             <th class="w-[12%] text-left">Request No.</th>
-            <th class="w-[20%]">Equipment</th>
-            <th class="w-[12%]">Requested By</th>
-            <th class="w-[15%]">Status</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[23%]' : 'w-[25%]' }}">Equipment</th>
+            <th class="w-[15%]">Requested By</th>
+            <th class="w-[10%]">Status</th>
             <th class="w-[11%] text-right">Amount</th>
-            <th class="w-[16%] text-center">Actions</th>
+            <th class="w-[12%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -95,14 +95,27 @@
                 </td>
 
                 <td>
+                    @php
+                        $risSubmittedRaw = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? null;
+                        $risSubmittedLabel = $risSubmittedRaw
+                            ? \Carbon\Carbon::parse($risSubmittedRaw)->format('M j, Y')
+                            : null;
+                    @endphp
                     <div
                         class="truncate text-sm font-medium {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-700' }}"
                         title="{{ \App\Support\RisWorkflow::requesterName($ris) }}"
                     >
                         {{ \App\Support\RisWorkflow::requesterName($ris) }}
                     </div>
-                    <div class="mt-0.5 truncate text-[11px] text-gray-400" title="Date the RIS was submitted">
-                        {{ $ris->ris_requested_by_date ?? 'N/A' }}
+                    <div
+                        class="mt-0.5 whitespace-nowrap text-xs font-medium {{ !$isAcceptable ? 'text-gray-400' : 'text-gray-600' }}"
+                        title="{{ $risSubmittedLabel ? 'Submitted '.$risSubmittedLabel : 'Submit date unavailable' }}"
+                    >
+                        @if ($risSubmittedLabel)
+                            Submitted {{ $risSubmittedLabel }}
+                        @else
+                            Not submitted
+                        @endif
                     </div>
                 </td>
 
@@ -133,38 +146,20 @@
                             </svg>
                         </button>
 
-                        @include('admin.partials.ris-print-icon-button', [
-                            'risId' => $ris->ris_id,
-                            'btnClass' => 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900',
+                        @include('partials.share-document-button', [
+                            'type' => 'ris',
+                            'id' => $ris->ris_id,
+                            'label' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
                         ])
 
                         @if($isAcceptable && $risCanAct)
-                            @php
-                                $acceptRef = \App\Support\RisWorkflow::formNumber($ris);
-                                $acceptDetail = \App\Support\RisWorkflow::sourceLabel($ris);
-                            @endphp
-                            <button
-                                type="button"
-                                onclick="openAcceptRisModal('{{ $ris->ris_id }}', @js($acceptRef), @js($acceptDetail))"
-                                title="Accept and continue to Ready to Sign"
-                                aria-label="Accept procurement request"
-                                class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-2.5 text-xs font-semibold text-white transition hover:bg-[#001fa8]"
-                            >
-                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                onclick="openAmendModal('{{ $ris->ris_id }}')"
-                                title="Return this RIS to the Purchaser for revision"
-                                aria-label="Return for revision"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
-                            >
-                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                </svg>
-                            </button>
+                            @include('admin.procurement-review._ris-action-menu', [
+                                'risId' => $ris->ris_id,
+                                'mode' => 'pending',
+                                'btnSizeClass' => 'h-9 w-9',
+                                'acceptRef' => \App\Support\RisWorkflow::formNumber($ris),
+                                'acceptDetail' => \App\Support\RisWorkflow::sourceLabel($ris),
+                            ])
                         @endif
                     </div>
                 </td>
@@ -176,6 +171,8 @@
                         No pending procurement requests
                     @elseif (($filter ?? '') === 'accepted')
                         No accepted requests waiting on Ready to Sign
+                    @elseif (($filter ?? '') === 'revision')
+                        No RIS returned for revision
                     @else
                         No RIS records found
                     @endif

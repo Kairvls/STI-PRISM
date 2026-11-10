@@ -49,6 +49,13 @@
         },
 
         openCreate() {
+            @if(empty($loadFormDatasets))
+            window.location.href = @js(route(($pp ?? 'purchaser').'.atp.index', array_filter([
+                'view' => !empty($archiveView) ? 'archive' : null,
+                'create' => 1,
+            ])));
+            return;
+            @endif
             this.createOpen = true;
             this.modalFullscreen = false;
             this.bindDocSig('atp-create', 'Received by signature');
@@ -351,7 +358,7 @@
                     </p>
                 </div>
 
-                <form data-auto-filter method="GET" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <form data-auto-filter data-list-panel="#purchaser-atp-list-panel" method="GET" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
@@ -409,6 +416,7 @@
             </div>
         </div>
 
+        <div id="purchaser-atp-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-sm">
                 <thead class="bg-gray-50/70">
@@ -419,7 +427,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Supplier</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -521,6 +529,17 @@
                                         aria-label="View"
                                     >
                                         <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-share-doc-type="atp"
+                                        data-share-doc-id="{{ (int) $atp->authority_purchase_id }}"
+                                        data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('atp', $atp->authority_purchase_form_number ?? null) }}"
+                                        class="js-share-document inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="Share to Messages"
+                                        aria-label="Share to Messages"
+                                    >
+                                        <i data-lucide="share-2" class="h-4 w-4"></i>
                                     </button>
                                     <button
                                         type="button"
@@ -840,6 +859,7 @@
                 {{ $atps->links() }}
             </div>
         @endif
+        </div>
     </div>
 
 
@@ -1158,7 +1178,9 @@
                     </div>
 
                     @php
-                        $atpLineage = \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id);
+                        $atpIdKey = (int) $atp->authority_purchase_id;
+                        $atpLineage = ($atpLineages[$atpIdKey] ?? null)
+                            ?: \App\Support\DocumentLineage::stubAtp($atp);
                         $atpHint = \App\Support\DocumentLineage::reviewHint(
                             \App\Support\RisWorkflow::atpStatusLabel($atp),
                             null,

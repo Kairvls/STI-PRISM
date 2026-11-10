@@ -109,6 +109,48 @@ class DocumentRevisionNotes
         return self::$latest[$key];
     }
 
+    /**
+     * Prefetch latest revision notes for a page of documents (one query).
+     *
+     * @param  iterable<int|string>  $documentIds
+     */
+    public static function warmLatest(string $type, iterable $documentIds, string $kind = self::KIND_REVISION): void
+    {
+        if (! self::supported()) {
+            return;
+        }
+
+        $ids = collect($documentIds)->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->unique()->values();
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        foreach ($ids as $id) {
+            $key = self::cacheKey($type, $id, $kind);
+            if (! array_key_exists($key, self::$latest)) {
+                self::$latest[$key] = null;
+            }
+        }
+
+        try {
+            $rows = DB::table(self::TABLE)
+                ->where('document_type', $type)
+                ->where('revision_kind', $kind)
+                ->whereIn('document_id', $ids->all())
+                ->orderByDesc('document_revision_id')
+                ->get();
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $key = self::cacheKey($type, (int) $row->document_id, $kind);
+            if (self::$latest[$key] === null) {
+                self::$latest[$key] = $row;
+            }
+        }
+    }
+
     public static function imagesSuffix(array $images): string
     {
         $count = count($images);

@@ -142,6 +142,7 @@
 
     @stack('styles')
 
+    @stack('head')
 </head>
 
 <body class="text-black h-screen overflow-hidden @yield('body-class')">
@@ -989,7 +990,9 @@
 
     </script>
 
+    <link rel="stylesheet" href="{{ asset('css/list-soft-nav.css') }}">
     <script src="{{ asset('js/auto-filter.js') }}" defer></script>
+    <script src="{{ asset('js/list-soft-nav.js') }}" defer></script>
     <script src="{{ asset('js/input-limits.js') }}" defer></script>
     <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
 
@@ -1002,6 +1005,8 @@
     {{-- Chat/messaging: exclude from outside-click close --}}
     <div data-no-backdrop-close class="contents">
         @include('layouts.partials.messaging-modal')
+        @include('layouts.partials.share-document-to-messages')
+        @include('layouts.partials.file-preview-overlay')
     </div>
 
     <script>

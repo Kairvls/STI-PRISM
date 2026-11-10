@@ -35,6 +35,8 @@
 
 <div class="admin-page space-y-6">
     <div class="pur-card">
+        <div id="admin-ops-schedules-list-panel" data-list-panel-root class="relative">
+
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
@@ -44,7 +46,7 @@
                     </div>
                 </div>
 
-                <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+                <form method="GET" data-auto-filter data-list-panel="#admin-ops-schedules-list-panel" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
                     <input type="hidden" name="filter" value="{{ $filter }}">
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,7 +76,7 @@
                 @foreach($filters as $key => $label)
                     <a
                         href="{{ \App\Support\AdminPortal::route('operations.schedules', ['filter' => $key, 'q' => $q]) }}"
-                        class="pur-filter-chip {{ $filter === $key && empty($recordId) ? 'is-active' : '' }}"
+                        data-list-panel="#admin-ops-schedules-list-panel" class="pur-filter-chip {{ $filter === $key && empty($recordId) ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
             </div>
@@ -182,6 +184,7 @@
         @if(method_exists($rows, 'links'))
             <div class="border-t border-gray-100 px-5 py-4">{{ $rows->links() }}</div>
         @endif
+        </div>
     </div>
 </div>
 

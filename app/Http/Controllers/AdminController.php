@@ -37,169 +37,27 @@ class AdminController extends Controller
 
     public function dashboard(Request $request): View
     {
-        // =====================================================
-        // ADMIN DASHBOARD
-        // All queries are wrapped in try-catch so the dashboard
-        // still renders even if tables/columns are missing.
-        // =====================================================
-
-        // =====================================================
-        // USER STATISTICS
-        // =====================================================
-
-        try {
-            $totalUsers = DB::table('users_table')->count();
-        } catch (\Throwable $e) { $totalUsers = 0; }
-
-        try {
-            $maintenancePersonnel = DB::table('users_table')
-                ->where('user_role_id', 2)->count();
-        } catch (\Throwable $e) { $maintenancePersonnel = 0; }
-
-        try {
-            $purchasers = DB::table('users_table')
-                ->where('user_role_id', 3)->count();
-        } catch (\Throwable $e) { $purchasers = 0; }
-
-        try {
-            $presidents = DB::table('users_table')
-                ->where('user_role_id', 4)->count();
-        } catch (\Throwable $e) { $presidents = 0; }
-
-        try {
-            $accounting = DB::table('users_table')
-                ->where('user_role_id', 5)->count();
-        } catch (\Throwable $e) { $accounting = 0; }
-
-        try {
-            $receivingOfficers = DB::table('users_table')
-                ->where('user_role_id', 6)->count();
-        } catch (\Throwable $e) { $receivingOfficers = 0; }
-
-        try {
-            $activeUsers = DB::table('users_table')
-                ->whereNotNull('last_active_at')
-                ->where('last_active_at', '>=', now()->subDays(7))
-                ->count();
-        } catch (\Throwable $e) { $activeUsers = 0; }
-
-
-        // =====================================================
-        // RIS STATISTICS
-        // =====================================================
-
-        $totalRis = 0;
-        $pendingRis = 0;
-        $amendRis = 0;
-        $approvedRis = 0;
-        $directApprovedRis = 0;
-        $cosignedRis = 0;
-        $presidentRejectedRis = 0;
-        $totalRisAmount = 0;
-        $pendingRisAmount = 0;
-        $adminApprovedAmount = 0;
-        $presidentApprovedAmount = 0;
-        $presidentRejectedAmount = 0;
+        // Slim dashboard: only data used by admin/dashboard.blade.php.
         $budgetProposalYear = (int) now()->format('Y');
         $requestedBudgetYear = (int) $request->query('budget_year', $budgetProposalYear);
         if ($requestedBudgetYear >= 2000 && $requestedBudgetYear <= ((int) now()->format('Y') + 1)) {
             $budgetProposalYear = $requestedBudgetYear;
         }
-        $budgetProposalTotal = 0;
-        $budgetPendingAmount = 0;
-        $budgetAdminApprovedAmount = 0;
-        $budgetPresidentApprovedAmount = 0;
-        $budgetPresidentRejectedAmount = 0;
-        $budgetProposalYears = collect([(int) now()->format('Y')]);
-        $budgetProposalRisCount = 0;
-
-        try {
-            $baseRIS = DB::table('requisition_issue_slip_table')
-                ->whereNotNull('ris_requested_by_date');
-
-            $totalRis = (clone $baseRIS)->count();
-
-            $pendingRis = (clone $baseRIS)
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->count();
-
-            $amendRis = (clone $baseRIS)
-                ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
-                ->count();
-
-            $approvedRis = $this->applyRisPresidentApprovedScope(clone $baseRIS)->count();
-
-            $directApprovedRis = $this->applyRisAdminApprovedScope(clone $baseRIS)->count();
-
-            $cosignedRis = $this->applyRisCosignedScope(clone $baseRIS)->count();
-
-            $presidentRejectedRis = $this->applyRisPresidentRejectedScope(clone $baseRIS)->count();
-        } catch (\Throwable $e) { /* defaults stay 0 */ }
-
-        // Same scope as pending RIS from Purchaser awaiting Admin review.
-        $pendingPurchaserRisCount = $pendingRis;
-
-        try {
-            $totalRisAmount = DB::table('requisition_issue_slip_table')
-                ->leftJoin(
-                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
-                    'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id'
-                )
-                ->whereNotNull('ris_requested_by_date')
-                ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $totalRisAmount = 0; }
-
-        try {
-            $pendingRisAmount = DB::table('requisition_issue_slip_table')
-                ->leftJoin(
-                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
-                    'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id'
-                )
-                ->whereNotNull('ris_requested_by_date')
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $pendingRisAmount = 0; }
 
         $itemsJoin = DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum');
+        $budgetProposalTotal = 0.0;
+        $budgetProposalYears = collect([(int) now()->format('Y'), $budgetProposalYear])->unique()->sortDesc()->values();
+        $budgetUsage = [];
 
         try {
-            $adminApprovedAmount = $this->applyRisAdminApprovedScope(
-                DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
-                    ->whereNotNull('ris_requested_by_date')
-            )->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $adminApprovedAmount = 0; }
-
-        try {
-            $presidentApprovedAmount = $this->applyRisPresidentApprovedScope(
-                DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
-                    ->whereNotNull('ris_requested_by_date')
-            )->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $presidentApprovedAmount = 0; }
-
-        try {
-            $presidentRejectedAmount = $this->applyRisPresidentRejectedScope(
-                DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
-                    ->whereNotNull('ris_requested_by_date')
-            )->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $presidentRejectedAmount = 0; }
-
-        try {
-            $budgetProposalTotal = DB::table('requisition_issue_slip_table')
+            $budgetProposalTotal = (float) DB::table('requisition_issue_slip_table')
                 ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
                 ->whereNotNull('ris_requested_by_date')
                 ->whereYear('ris_requested_by_date', $budgetProposalYear)
                 ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $budgetProposalTotal = 0; }
-
-        try {
-            $budgetProposalRisCount = (int) DB::table('requisition_issue_slip_table')
-                ->whereNotNull('ris_requested_by_date')
-                ->whereYear('ris_requested_by_date', $budgetProposalYear)
-                ->count();
-        } catch (\Throwable $e) { $budgetProposalRisCount = 0; }
+        } catch (\Throwable $e) {
+            $budgetProposalTotal = 0.0;
+        }
 
         try {
             $yearsFromRis = DB::table('requisition_issue_slip_table')
@@ -217,509 +75,36 @@ class AdminController extends Controller
                 ->sortDesc()
                 ->values();
         } catch (\Throwable $e) {
-            $budgetProposalYears = collect([(int) now()->format('Y'), $budgetProposalYear])->unique()->sortDesc()->values();
+            // keep defaults
         }
 
-        $yearAmountBase = function () use ($itemsJoin, $budgetProposalYear) {
-            return DB::table('requisition_issue_slip_table')
+        try {
+            $releasedByYear = \App\Support\AdminDashboardInsights::releasedByYear([$budgetProposalYear]);
+            $usageBase = fn () => DB::table('requisition_issue_slip_table')
                 ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
                 ->whereNotNull('ris_requested_by_date')
                 ->whereYear('ris_requested_by_date', $budgetProposalYear);
-        };
 
-        try {
-            $budgetPendingAmount = (clone $yearAmountBase())
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $budgetPendingAmount = 0; }
-
-        try {
-            $budgetAdminApprovedAmount = $this->applyRisAdminApprovedScope($yearAmountBase())
-                ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $budgetAdminApprovedAmount = 0; }
-
-        try {
-            $budgetPresidentApprovedAmount = $this->applyRisPresidentApprovedScope($yearAmountBase())
-                ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $budgetPresidentApprovedAmount = 0; }
-
-        try {
-            $budgetPresidentRejectedAmount = $this->applyRisPresidentRejectedScope($yearAmountBase())
-                ->sum('ris_items_sum.ris_calculated_total');
-        } catch (\Throwable $e) { $budgetPresidentRejectedAmount = 0; }
-
-        // Budget used: funds released against approved RIS totals, per year
-        $budgetUsage = [];
-        try {
-            $usageYears = collect($budgetProposalYears)->take(4)->push($budgetProposalYear)->unique()->sortDesc()->values();
-            $releasedByYear = \App\Support\AdminDashboardInsights::releasedByYear($usageYears->all());
-
-            foreach ($usageYears as $usageYear) {
-                $usageBase = fn () => DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
-                    ->whereNotNull('ris_requested_by_date')
-                    ->whereYear('ris_requested_by_date', $usageYear);
-
-                $budgetUsage[(int) $usageYear] = [
-                    'year' => (int) $usageYear,
-                    'proposed' => (float) $usageBase()->sum('ris_items_sum.ris_calculated_total'),
-                    'approved' => (float) $this->applyRisAdminApprovedScope($usageBase())->sum('ris_items_sum.ris_calculated_total')
-                        + (float) $this->applyRisPresidentApprovedScope($usageBase())->sum('ris_items_sum.ris_calculated_total'),
-                    'released' => (float) ($releasedByYear[(int) $usageYear] ?? 0),
-                ];
-            }
+            $budgetUsage[$budgetProposalYear] = [
+                'year' => $budgetProposalYear,
+                'proposed' => (float) $usageBase()->sum('ris_items_sum.ris_calculated_total'),
+                'approved' => (float) $this->applyRisAdminApprovedScope($usageBase())->sum('ris_items_sum.ris_calculated_total')
+                    + (float) $this->applyRisPresidentApprovedScope($usageBase())->sum('ris_items_sum.ris_calculated_total'),
+                'released' => (float) ($releasedByYear[$budgetProposalYear] ?? 0),
+            ];
         } catch (\Throwable $e) {
             report($e);
             $budgetUsage = [];
         }
 
-
-        // =====================================================
-        // DIGITAL SIGNATURE STATS
-        // =====================================================
-
-        $forCosigningCount = 0;
-        $cosignedCount = 0;
-
-        try {
-            $acceptedCount = (int) DB::table('requisition_issue_slip_table')
-                ->where('ris_status', RisWorkflow::ACCEPTED)
-                ->count();
-            $forCosigningCount = $acceptedCount + $this->applyRisAwaitingAdminActionScope(
-                DB::table('requisition_issue_slip_table as ris'),
-                'ris'
-            )->count();
-        } catch (\Throwable $e) { $forCosigningCount = 0; }
-
-        try {
-            $cosignedCount = $this->applyRisCosignedScope(
-                DB::table('requisition_issue_slip_table')
-            )->count();
-        } catch (\Throwable $e) { $cosignedCount = 0; }
-
-
-        // =====================================================
-        // CALENDAR OF EVENTS — PROCUREMENT / RIS DATES
-        // =====================================================
-
-        $calendarEvents = collect();
-        try {
-            $calendarEvents = $this->adminProcurementCalendarEvents();
-        } catch (\Throwable $e) {
-            $calendarEvents = collect();
-        }
-        $calendarEventsByDate = [];
-        foreach ($calendarEvents as $evt) {
-            $dateKey = $evt->event_date ?? null;
-            if ($dateKey) {
-                if (!isset($calendarEventsByDate[$dateKey])) {
-                    $calendarEventsByDate[$dateKey] = [];
-                }
-                $calendarEventsByDate[$dateKey][] = $evt;
-            }
-        }
-
-
-        // =====================================================
-        // SUPPLIER COMPARISON — ATP spend by supplier
-        // =====================================================
-
-        $supplierComparison = collect();
-        $supplierTypeComparison = [
-            'physical_count' => 0,
-            'online_count' => 0,
-            'physical_amount' => 0,
-            'online_amount' => 0,
-        ];
-        $supplierComparisonMax = 0;
-
-        try {
-            if (Schema::hasTable('authority_to_purchase_table')) {
-                $query = DB::table('authority_to_purchase_table');
-
-                if (Schema::hasTable('physical_suppliers_table')) {
-                    $query->leftJoin(
-                        'physical_suppliers_table',
-                        'physical_suppliers_table.supplier_id',
-                        '=',
-                        'authority_to_purchase_table.authority_purchase_supplier_id'
-                    );
-                }
-                if (Schema::hasTable('online_suppliers_table')) {
-                    $query->leftJoin(
-                        'online_suppliers_table',
-                        'online_suppliers_table.supplier_id',
-                        '=',
-                        'authority_to_purchase_table.authority_purchase_supplier_id'
-                    );
-                }
-                if (Schema::hasTable('suppliers_table')) {
-                    $query->leftJoin(
-                        'suppliers_table',
-                        'suppliers_table.supplier_id',
-                        '=',
-                        'authority_to_purchase_table.authority_purchase_supplier_id'
-                    );
-                }
-                if (Schema::hasTable('authority_to_purchase_items_table')) {
-                    $query->leftJoin(
-                        'authority_to_purchase_items_table',
-                        'authority_to_purchase_items_table.authority_purchase_id',
-                        '=',
-                        'authority_to_purchase_table.authority_purchase_id'
-                    );
-                }
-
-                if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_is_archived')) {
-                    $query->where(function ($q) {
-                        $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
-                            ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
-                    });
-                }
-
-                $nameParts = ["'Unnamed supplier'"];
-                if (Schema::hasTable('online_suppliers_table')) {
-                    array_unshift($nameParts, 'online_suppliers_table.shop_name');
-                }
-                if (Schema::hasTable('physical_suppliers_table')) {
-                    array_unshift($nameParts, 'physical_suppliers_table.company_name');
-                }
-                $nameExpr = 'COALESCE(' . implode(', ', $nameParts) . ')';
-                $typeExpr = Schema::hasTable('suppliers_table')
-                    ? "COALESCE(suppliers_table.supplier_store_type, 'Unknown')"
-                    : "'Unknown'";
-
-                $rows = $query
-                    ->select(
-                        DB::raw($nameExpr . ' as supplier_name'),
-                        DB::raw($typeExpr . ' as supplier_type'),
-                        DB::raw('COUNT(DISTINCT authority_to_purchase_table.authority_purchase_id) as atp_count'),
-                        DB::raw(Schema::hasTable('authority_to_purchase_items_table')
-                            ? 'SUM(COALESCE(authority_to_purchase_items_table.atp_amount, 0)) as total_amount'
-                            : '0 as total_amount')
-                    )
-                    ->groupBy(DB::raw($nameExpr), DB::raw($typeExpr))
-                    ->orderByDesc('total_amount')
-                    ->limit(6)
-                    ->get();
-
-                $supplierComparison = $rows;
-                $supplierComparisonMax = (float) ($rows->max('total_amount') ?: 0);
-
-                foreach ($rows as $row) {
-                    $type = strtolower((string) ($row->supplier_type ?? ''));
-                    $amount = (float) ($row->total_amount ?? 0);
-                    $count = (int) ($row->atp_count ?? 0);
-                    if (str_contains($type, 'online')) {
-                        $supplierTypeComparison['online_count'] += $count;
-                        $supplierTypeComparison['online_amount'] += $amount;
-                    } else {
-                        $supplierTypeComparison['physical_count'] += $count;
-                        $supplierTypeComparison['physical_amount'] += $amount;
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            $supplierComparison = collect();
-        }
-
-
-        // =====================================================
-        // ACTIVITY LIST — Separated into pending (3) + completed (2)
-        // =====================================================
-
-        // Pending items come from live RIS forms (not approval_logs),
-        // because submitted RIS may not have an approval log yet.
-        try {
-            $pendingActivityLogs = DB::table('requisition_issue_slip_table')
-                ->select(
-                    'ris_id as id',
-                    'ris_status as status',
-                    'ris_purpose_description as description',
-                    'ris_form_number',
-                    DB::raw("'RIS' as ref_type"),
-                    'ris_id as ref_id',
-                    DB::raw('COALESCE(ris_submitted_at, ris_requested_by_date, ris_created_at) as created_at'),
-                    'ris_requested_by_signature',
-                    'ris_created_by',
-                    'ris_submitted_by',
-                    DB::raw("'ris' as log_source")
-                )
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->orderByDesc(DB::raw('COALESCE(ris_submitted_at, ris_requested_by_date, ris_created_at)'))
-                ->orderByDesc('ris_id')
-                ->limit(3)
-                ->get()
-                ->map(function ($log) {
-                    $log->is_pending = true;
-                    $log->actor_name = RisWorkflow::requesterName($log, '');
-                    $formNo = RisWorkflow::formNumber($log) ?: 'RIS';
-                    $log->title = $log->status . ' — ' . $formNo;
-                    if (empty($log->description)) {
-                        $log->description = 'Awaiting admin review';
-                    }
-                    return $log;
-                });
-        } catch (\Throwable $e) { $pendingActivityLogs = collect(); }
-
-        try {
-            $completedActivityLogs = DB::table('approval_logs_table')
-                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
-                ->select(
-                    'approval_logs_table.approval_log_id as id',
-                    'approval_logs_table.approval_log_approval_status as status',
-                    'approval_logs_table.approval_log_approval_remarks as description',
-                    'approval_logs_table.approval_log_reference_type as ref_type',
-                    'approval_logs_table.approval_log_reference_id as ref_id',
-                    'approval_logs_table.approval_log_approved_at as created_at',
-                    'users_table.user_full_name as actor_name',
-                    DB::raw("'approval' as log_source")
-                )
-                ->whereIn('approval_logs_table.approval_log_approval_status', [
-                    'Approved',
-                    'Co-signed',
-                    'Rejected',
-                    'Directly Approved',
-                    'Admin Approved',
-                    'Forwarded to President',
-                ])
-                ->orderByDesc('approval_logs_table.approval_log_approved_at')
-                ->limit(2)
-                ->get()
-                ->map(function ($log) {
-                    $log->is_pending = false;
-                    $statusLabel = match ((string) $log->status) {
-                        'Directly Approved' => 'Admin Approved',
-                        default => $log->status,
-                    };
-                    $log->title = $statusLabel . ' — ' . ($log->ref_type ?? 'RIS');
-                    return $log;
-                });
-        } catch (\Throwable $e) { $completedActivityLogs = collect(); }
-
-
-        // =====================================================
-        // RECENT APPROVAL LOGS (ACTIVITY) — kept for backward compat
-        // =====================================================
-
-        try {
-            $recentActivities = DB::table('approval_logs_table')
-                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
-                ->select(
-                    'approval_logs_table.*',
-                    'users_table.user_full_name as approver_name'
-                )
-                ->orderByDesc('approval_logs_table.approval_log_approved_at')
-                ->limit(8)
-                ->get()
-                ->map(function ($activity) {
-                    $activity->title = $activity->approval_log_approval_status . ' - ' . ($activity->approval_log_reference_type ?? 'RIS');
-                    $activity->description = $activity->approval_log_approval_remarks ?? 'No remarks.';
-                    $activity->created_at = $activity->approval_log_approved_at;
-                    $activity->icon = match ($activity->approval_log_approval_status) {
-                        'Approved', 'Co-signed' => 'check-circle',
-                        'Rejected' => 'x-circle',
-                        default => 'activity',
-                    };
-                    $activity->background = match ($activity->approval_log_approval_status) {
-                        'Approved', 'Co-signed' => '#dcfce7',
-                        'Rejected' => '#fee2e2',
-                        default => '#f3f4f6',
-                    };
-                    $activity->color = match ($activity->approval_log_approval_status) {
-                        'Approved', 'Co-signed' => '#16a34a',
-                        'Rejected' => '#dc2626',
-                        default => '#374151',
-                    };
-                    return $activity;
-                });
-        } catch (\Throwable $e) { $recentActivities = collect(); }
-
-
-        // =====================================================
-        // RIS MONTHLY TREND (LAST 6 MONTHS)
-        // Admin Approved, Approved by the President, Amend
-        // =====================================================
-
-        $risTrendLabels = [];
-        $risTrendApproved = [];
-        $risTrendForwarded = [];
-        $risTrendAmend = [];
-        $risTrendRejected = [];
-
-        try {
-            $monthNames = [
-                1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
-                5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
-                9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
-            ];
-
-            for ($i = 5; $i >= 0; $i--) {
-                $month = now()->copy()->subMonths($i)->startOfMonth();
-                $year = (int) $month->format('Y');
-                $monthNum = (int) $month->format('n');
-                $monthStart = $month->copy()->startOfMonth();
-                $monthEnd = $month->copy()->endOfMonth();
-
-                $monthBase = DB::table('requisition_issue_slip_table')
-                    ->whereNotNull('ris_created_at')
-                    ->whereBetween('ris_created_at', [$monthStart, $monthEnd]);
-
-                $risTrendLabels[] = ($monthNames[$monthNum] ?? $month->format('F')) . ' ' . $year;
-                $risTrendApproved[] = $this->applyRisAdminApprovedScope(clone $monthBase)->count();
-                $risTrendForwarded[] = $this->applyRisPresidentApprovedScope(clone $monthBase)->count();
-                $risTrendAmend[] = (clone $monthBase)
-                    ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
-                    ->count();
-                $risTrendRejected[] = $this->applyRisPresidentRejectedScope(clone $monthBase)->count();
-            }
-        } catch (\Throwable $e) {
-            $risTrendLabels = [];
-            $risTrendApproved = [];
-            $risTrendForwarded = [];
-            $risTrendAmend = [];
-            $risTrendRejected = [];
-        }
-
-
-        // =====================================================
-        // RIS STATUS DISTRIBUTION FOR CHART
-        // =====================================================
-
-        $risStatusChart = [
-            'labels' => [
-                'Pending',
-                'Approved by the President',
-                'Admin Approved',
-                'Amend',
-                'Rejected by the President',
-            ],
-            'data' => [
-                $pendingRis,
-                $approvedRis,
-                $directApprovedRis,
-                $amendRis,
-                $presidentRejectedRis,
-            ],
-            'colors' => [
-                '#d97706',
-                '#059669',
-                '#38bdf8',
-                '#f59e0b',
-                '#e11d48',
-            ],
-        ];
-
-
-        // =====================================================
-        // RECENT RIS RECORDS (TABLE)
-        // =====================================================
-
-        try {
-            $recentRisRecords = DB::table('requisition_issue_slip_table')
-                ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-                ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-                ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-                ->leftJoin(
-                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
-                    'requisition_issue_slip_table.ris_id',
-                    '=',
-                    'ris_items_sum.ris_id'
-                )
-                ->leftJoin(
-                    DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
-                    'requisition_issue_slip_table.ris_id',
-                    '=',
-                    'ris_items_names.ris_id'
-                )
-                ->leftJoin($this->risReleasedJoin(), 'requisition_issue_slip_table.ris_id', '=', 'ris_released.released_ris_id')
-                ->select(
-                    'requisition_issue_slip_table.*',
-                    'equipment_table.equipment_name',
-                    'reports_table.report_unlisted_equipment_name',
-                    'ris_items_sum.ris_calculated_total',
-                    'ris_items_names.ris_item_names',
-                    'ris_released.released_ris_id'
-                )
-                ->where(function ($q) {
-                    $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
-                        ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
-                        ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
-                        ->orWhereNotNull('requisition_issue_slip_table.ris_created_at');
-                })
-                ->orderByDesc(DB::raw('COALESCE(requisition_issue_slip_table.ris_submitted_at, requisition_issue_slip_table.ris_requested_by_date, requisition_issue_slip_table.ris_created_at)'))
-                ->orderByDesc('requisition_issue_slip_table.ris_id')
-                ->limit(10)
-                ->get();
-            $this->attachRisSupportingDocuments($recentRisRecords);
-        } catch (\Throwable $e) { $recentRisRecords = collect(); }
-
-
-        // =====================================================
-        // FULL OVERVIEW — ops, movements, queues, system pulse
-        // =====================================================
-
         $overview = [
-            'equipment_total' => 0,
-            'needs_maintenance' => 0,
-            'for_replacement' => 0,
-            'open_reports' => 0,
             'urgent_reports' => 0,
             'overdue_schedules' => 0,
-            'lifecycle_alerts' => 0,
             'overdue_borrows' => 0,
-            'active_borrows' => 0,
-            'transfers_30d' => 0,
-            'disposals_total' => 0,
-            'open_ris' => 0,
-            'stage_counts' => [
-                'ris' => 0,
-                'atp' => 0,
-                'rfc' => 0,
-                'receiving' => 0,
-                'liquidation' => 0,
-            ],
-            'can_purchaser' => \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::PURCHASER),
         ];
-
-        try {
-            if (Schema::hasTable('equipment_table')) {
-                $overview['equipment_total'] = DB::table('equipment_table')->count();
-                $overview['needs_maintenance'] = DB::table('equipment_table')
-                    ->where(function ($q) {
-                        $q->where('equipment_condition_status', 'Under Maintenance')
-                            ->orWhere('equipment_inventory_status', 'Under Maintenance');
-                    })
-                    ->count();
-                $overview['for_replacement'] = DB::table('equipment_table')
-                    ->where('equipment_inventory_status', 'For Replacement')
-                    ->count();
-                $lifeExpr = Schema::hasColumn('equipment_table', 'equipment_useful_life_years')
-                    ? 'COALESCE(equipment_useful_life_years, 5)'
-                    : '5';
-                $overview['lifecycle_alerts'] = DB::table('equipment_table')
-                    ->whereRaw('COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at) IS NOT NULL')
-                    ->where(function ($q) {
-                        $q->whereNull('equipment_inventory_status')
-                            ->orWhereNotIn('equipment_inventory_status', ['Disposed']);
-                    })
-                    ->whereRaw("({$lifeExpr} - TIMESTAMPDIFF(YEAR, COALESCE(equipment_purchase_date, equipment_acquired_date, equipment_created_at), CURDATE())) <= 1")
-                    ->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
 
         try {
             if (Schema::hasTable('reports_table')) {
-                $overview['open_reports'] = DB::table('reports_table')
-                    ->whereIn('report_current_status', ['Pending', 'Processing'])
-                    ->where(function ($q) {
-                        if (Schema::hasColumn('reports_table', 'report_is_archived')) {
-                            $q->where('report_is_archived', 0)->orWhereNull('report_is_archived');
-                        }
-                    })
-                    ->count();
                 $overview['urgent_reports'] = DB::table('reports_table')
                     ->where('report_urgency_level', 'Urgent')
                     ->whereIn('report_current_status', ['Pending', 'Processing', 'For Replacement'])
@@ -752,169 +137,19 @@ class AdminController extends Controller
 
         try {
             if (Schema::hasTable('borrowing_records_table')) {
-                DB::table('borrowing_records_table')
-                    ->where('borrowing_status', 'Borrowed')
-                    ->whereNotNull('borrowing_expected_return_date')
-                    ->whereDate('borrowing_expected_return_date', '<', today())
-                    ->update(['borrowing_status' => 'Overdue']);
-
                 $overview['overdue_borrows'] = DB::table('borrowing_records_table')
-                    ->where('borrowing_status', 'Overdue')
-                    ->count();
-                $overview['active_borrows'] = DB::table('borrowing_records_table')
-                    ->whereIn('borrowing_status', ['Borrowed', 'Overdue'])
-                    ->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        try {
-            if (Schema::hasTable('equipment_transfer_history_table')) {
-                $overview['transfers_30d'] = DB::table('equipment_transfer_history_table')
-                    ->where('created_at', '>=', now()->subDays(30))
-                    ->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        try {
-            if (Schema::hasTable('disposal_records_table')) {
-                $overview['disposals_total'] = DB::table('disposal_records_table')->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        try {
-            if (Schema::hasTable('requisition_issue_slip_table')) {
-                $overview['open_ris'] = DB::table('requisition_issue_slip_table')
-                    ->whereNotIn('ris_status', ['Completed', 'Rejected', 'Cancelled', 'Archived'])
-                    ->count();
-                $overview['stage_counts']['ris'] = DB::table('requisition_issue_slip_table')->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        foreach ([
-            'atp' => 'authority_to_purchase_table',
-            'rfc' => 'request_check_table',
-            'receiving' => 'receiving_reports_table',
-            'liquidation' => 'liquidation_reports_table',
-        ] as $key => $table) {
-            try {
-                if (Schema::hasTable($table)) {
-                    $overview['stage_counts'][$key] = DB::table($table)->count();
-                }
-            } catch (\Throwable $e) {
-                // ignore
-            }
-        }
-
-        $actionPendingRis = collect();
-        try {
-            $actionPendingRis = DB::table('requisition_issue_slip_table as ris')
-                ->leftJoin(
-                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
-                    'ris.ris_id',
-                    '=',
-                    'ris_items_sum.ris_id'
-                )
-                ->whereNotNull('ris.ris_requested_by_date')
-                ->whereIn('ris.ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->select('ris.ris_id', 'ris.ris_form_number', 'ris.ris_status', 'ris.ris_purpose_description', 'ris.ris_submitted_at', 'ris_items_sum.ris_calculated_total')
-                ->orderByDesc('ris.ris_id')
-                ->limit(6)
-                ->get();
-        } catch (\Throwable $e) {
-            $actionPendingRis = collect();
-        }
-
-        $actionSignRis = collect();
-        try {
-            $actionSignRis = DB::table('requisition_issue_slip_table as ris')
-                ->leftJoin(
-                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
-                    'ris.ris_id',
-                    '=',
-                    'ris_items_sum.ris_id'
-                )
-                ->where(function ($q) {
-                    $q->where('ris.ris_status', RisWorkflow::ACCEPTED)
-                        ->orWhere(function ($awaiting) {
-                            $awaiting->where(function ($status) {
-                                $status->where('ris.ris_status', 'Approved by the President')
-                                    ->orWhere(function ($legacy) {
-                                        $legacy->where('ris.ris_status', 'Approved')
-                                            ->whereNotNull('ris.ris_approved_by_signature')
-                                            ->where('ris.ris_approved_by_signature', '!=', '')
-                                            ->where('ris.ris_approved_by_signature', 'like', 'data:image%');
-                                    });
-                            })->where(function ($unsigned) {
-                                $unsigned->whereNull('ris.ris_issued_by_signature')
-                                    ->orWhere('ris.ris_issued_by_signature', '');
+                    ->where(function ($q) {
+                        $q->where('borrowing_status', 'Overdue')
+                            ->orWhere(function ($late) {
+                                $late->where('borrowing_status', 'Borrowed')
+                                    ->whereNotNull('borrowing_expected_return_date')
+                                    ->whereDate('borrowing_expected_return_date', '<', today());
                             });
-                        });
-                })
-                ->select('ris.ris_id', 'ris.ris_form_number', 'ris.ris_status', 'ris.ris_purpose_description', 'ris.ris_submitted_at', 'ris.ris_requested_by_date', 'ris_items_sum.ris_calculated_total')
-                ->orderByDesc('ris.ris_id')
-                ->limit(6)
-                ->get();
-        } catch (\Throwable $e) {
-            $actionSignRis = collect();
-        }
-
-        $movementTransfers = collect();
-        try {
-            if (Schema::hasTable('equipment_transfer_history_table')) {
-                $movementTransfers = DB::table('equipment_transfer_history_table')
-                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'equipment_transfer_history_table.equipment_id')
-                    ->leftJoin('rooms_table as from_room', 'from_room.room_id', '=', 'equipment_transfer_history_table.from_room_id')
-                    ->leftJoin('rooms_table as to_room', 'to_room.room_id', '=', 'equipment_transfer_history_table.to_room_id')
-                    ->select(
-                        'equipment_transfer_history_table.*',
-                        'equipment_table.equipment_name',
-                        'from_room.room_name as from_room_name',
-                        'to_room.room_name as to_room_name'
-                    )
-                    ->orderByDesc('equipment_transfer_history_table.created_at')
-                    ->limit(5)
-                    ->get();
+                    })
+                    ->count();
             }
         } catch (\Throwable $e) {
-            $movementTransfers = collect();
-        }
-
-        $movementBorrows = collect();
-        try {
-            if (Schema::hasTable('borrowing_records_table')) {
-                $movementBorrows = DB::table('borrowing_records_table')
-                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'borrowing_records_table.borrowing_equipment_id')
-                    ->select('borrowing_records_table.*', 'equipment_table.equipment_name')
-                    ->whereIn('borrowing_records_table.borrowing_status', ['Borrowed', 'Overdue'])
-                    ->orderByRaw("CASE WHEN borrowing_status = 'Overdue' THEN 0 ELSE 1 END")
-                    ->orderByDesc('borrowing_records_table.borrowing_created_at')
-                    ->limit(5)
-                    ->get();
-            }
-        } catch (\Throwable $e) {
-            $movementBorrows = collect();
-        }
-
-        $movementDisposals = collect();
-        try {
-            if (Schema::hasTable('disposal_records_table')) {
-                $movementDisposals = DB::table('disposal_records_table')
-                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'disposal_records_table.disposal_equipment_id')
-                    ->select('disposal_records_table.*', 'equipment_table.equipment_name')
-                    ->orderByDesc('disposal_records_table.disposal_record_id')
-                    ->limit(5)
-                    ->get();
-            }
-        } catch (\Throwable $e) {
-            $movementDisposals = collect();
+            // ignore
         }
 
         $urgentReportsList = collect();
@@ -947,14 +182,6 @@ class AdminController extends Controller
             $urgentReportsList = collect();
         }
 
-        $attentionTotal = (int) $pendingRis + (int) $forCosigningCount + (int) $amendRis
-            + (int) $overview['urgent_reports']
-            + (int) $overview['overdue_schedules']
-            + (int) $overview['overdue_borrows'];
-
-        $lifecycleAlerts = EquipmentLifecycle::agingAlerts(6);
-        $usefulLifeYears = EquipmentLifecycle::DEFAULT_USEFUL_LIFE_YEARS;
-
         $upcomingMaintenanceSchedules = collect();
         try {
             if (Schema::hasTable('maintenance_schedules_table')) {
@@ -974,7 +201,10 @@ class AdminController extends Controller
                             ->orWhere('maintenance_schedule_status', 'Overdue');
                     })
                     ->select(array_merge([
-                        'maintenance_schedules_table.*',
+                        'maintenance_schedules_table.maintenance_schedule_id',
+                        'maintenance_schedules_table.maintenance_schedule_title',
+                        'maintenance_schedules_table.maintenance_schedule_next_date',
+                        'maintenance_schedules_table.maintenance_schedule_status',
                         'equipment_table.equipment_name',
                         'rooms_table.room_name',
                     ], EquipmentIdentity::columns()))
@@ -994,13 +224,6 @@ class AdminController extends Controller
         } catch (\Throwable $e) {
             report($e);
             $receivingSummary = null;
-        }
-
-        try {
-            $supplierReliability = \App\Support\AdminDashboardInsights::supplierReliability(5);
-        } catch (\Throwable $e) {
-            report($e);
-            $supplierReliability = null;
         }
 
         try {
@@ -1027,7 +250,14 @@ class AdminController extends Controller
                         '=',
                         'borrowing_records_table.borrowing_equipment_id'
                     )
-                    ->where('borrowing_records_table.borrowing_status', 'Overdue')
+                    ->where(function ($q) {
+                        $q->where('borrowing_records_table.borrowing_status', 'Overdue')
+                            ->orWhere(function ($late) {
+                                $late->where('borrowing_records_table.borrowing_status', 'Borrowed')
+                                    ->whereNotNull('borrowing_records_table.borrowing_expected_return_date')
+                                    ->whereDate('borrowing_records_table.borrowing_expected_return_date', '<', today());
+                            });
+                    })
                     ->select(array_merge([
                         'borrowing_records_table.borrowing_record_id',
                         'borrowing_records_table.borrowing_borrower_name',
@@ -1043,90 +273,17 @@ class AdminController extends Controller
             $overdueBorrowsPreview = collect();
         }
 
-
-        // =====================================================
-        // RETURN VIEW
-        // =====================================================
-
         return view('admin.dashboard', compact(
-            // User stats
-            'totalUsers',
-            'maintenancePersonnel',
-            'purchasers',
-            'presidents',
-            'accounting',
-            'receivingOfficers',
-            'activeUsers',
-
-            // RIS stats
-            'totalRis',
-            'pendingRis',
-            'pendingPurchaserRisCount',
-            'amendRis',
-            'approvedRis',
-            'directApprovedRis',
-            'cosignedRis',
-            'presidentRejectedRis',
-            'totalRisAmount',
-            'pendingRisAmount',
-            'adminApprovedAmount',
-            'presidentApprovedAmount',
-            'presidentRejectedAmount',
             'budgetProposalYear',
             'budgetProposalTotal',
             'budgetProposalYears',
-            'budgetProposalRisCount',
-            'budgetPendingAmount',
-            'budgetAdminApprovedAmount',
-            'budgetPresidentApprovedAmount',
-            'budgetPresidentRejectedAmount',
-
-            // Digital signature stats
-            'forCosigningCount',
-            'cosignedCount',
-
-            // Activity
-            'recentActivities',
-
-            // Charts
-            'risTrendLabels',
-            'risTrendApproved',
-            'risTrendForwarded',
-            'risTrendAmend',
-            'risTrendRejected',
-            'risStatusChart',
-
-            // Recent records
-            'recentRisRecords',
-
-            // Calendar events
-            'calendarEvents',
-            'calendarEventsByDate',
-            'supplierComparison',
-            'supplierComparisonMax',
-            'supplierTypeComparison',
-
-            // Activity list (pending 3 + completed 2)
-            'pendingActivityLogs',
-            'completedActivityLogs',
-
-            // Full overview
+            'budgetUsage',
             'overview',
-            'actionPendingRis',
-            'actionSignRis',
-            'movementTransfers',
-            'movementBorrows',
-            'movementDisposals',
             'urgentReportsList',
-            'attentionTotal',
-            'lifecycleAlerts',
-            'usefulLifeYears',
             'upcomingMaintenanceSchedules',
             'semesterInspectionDue',
             'overdueBorrowsPreview',
             'receivingSummary',
-            'budgetUsage',
-            'supplierReliability',
             'warrantyWatch',
             'disposalWatch',
         ));
@@ -1355,8 +512,9 @@ class AdminController extends Controller
 
     $filter = strtolower($request->query('filter', 'pending'));
     $search = trim($request->query('search', ''));
+    $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
 
-    if (!in_array($filter, ['pending', 'accepted', 'all'], true)) {
+    if (!in_array($filter, ['pending', 'accepted', 'revision', 'all'], true)) {
         $filter = 'pending';
     }
 
@@ -1367,115 +525,35 @@ class AdminController extends Controller
         : null;
     if ($focusMeta === null) {
         $focus = '';
+    } elseif ($focus === AdminAttentionSummary::FOCUS_AMENDMENTS) {
+        $filter = 'revision';
+    } elseif ($focus === AdminAttentionSummary::FOCUS_PENDING_REVIEW) {
+        $filter = 'pending';
     }
     $recordRisId = max(0, (int) $request->query('ris', 0));
 
 
     // =====================================================
-    // BASE RIS QUERY
+    // STATS BASE (lean — no equipment / item-name joins)
     // =====================================================
 
-    $baseQuery = DB::table('requisition_issue_slip_table')
-
-        ->leftJoin(
-            'procurement_requests_table',
-            'requisition_issue_slip_table.ris_procurement_request_id',
-            '=',
-            'procurement_requests_table.procurement_request_id'
-        )
-
-        ->leftJoin(
-            'reports_table',
-            'procurement_requests_table.procurement_request_report_id',
-            '=',
-            'reports_table.report_id'
-        )
-
-        ->leftJoin(
-            'equipment_table',
-            'reports_table.report_equipment_id',
-            '=',
-            'equipment_table.equipment_id'
-        )
-
-        // =====================================================
-        // LEFT JOIN RIS ITEMS SUBQUERY
-        // Computes the total amount from RIS items
-        // (SUM of ris_total_amount per ris_id)
-        // =====================================================
-
-        ->leftJoin(
-            DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
-            'requisition_issue_slip_table.ris_id',
-            '=',
-            'ris_items_sum.ris_id'
-        )
-
-        // =====================================================
-        // LEFT JOIN RIS ITEMS SUBQUERY
-        // Gets the concatenated item names/descriptions per RIS
-        // =====================================================
-
-        ->leftJoin(
-            DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
-            'requisition_issue_slip_table.ris_id',
-            '=',
-            'ris_items_names.ris_id'
-        );
-
-    $select = [
-        'requisition_issue_slip_table.*',
-        'procurement_requests_table.procurement_request_id',
-        'reports_table.report_id',
-        'reports_table.report_unlisted_equipment_name',
-        'equipment_table.equipment_name',
-        'ris_items_sum.ris_calculated_total',
-        'ris_items_names.ris_item_names',
-    ];
-    if (Schema::hasTable('approval_logs_table')) {
-        $baseQuery->leftJoin($this->risReleasedJoin(), 'requisition_issue_slip_table.ris_id', '=', 'ris_released.released_ris_id');
-        $select[] = 'ris_released.released_ris_id';
-    }
-
-    $baseQuery->select($select)->where(function ($q) {
-        $added = false;
-        foreach (['ris_requested_by_date', 'ris_form_number', 'ris_submitted_at', 'ris_approved_by_date'] as $column) {
-            if (!Schema::hasColumn('requisition_issue_slip_table', $column)) {
-                continue;
-            }
-            $method = $added ? 'orWhereNotNull' : 'whereNotNull';
-            $q->{$method}('requisition_issue_slip_table.'.$column);
-            $added = true;
-        }
-        if (!$added) {
-            $q->whereNotNull('requisition_issue_slip_table.ris_id');
-        }
-    });
-
-    if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
-        ReviewerAssignment::applyQueueFilter($baseQuery, 'requisition_issue_slip_table.ris_assigned_reviewer_id');
-    }
+    $statsBase = $this->procurementReviewStatsBaseQuery();
+    $pendingRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'pending'));
+    $acceptedRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'accepted'));
+    $revisionRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'revision'));
+    $allRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'all'));
+    $pendingRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'pending'));
+    $acceptedRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'accepted'));
+    $revisionRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'revision'));
+    $allRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'all'));
+    $amendRis = $revisionRis;
 
 
     // =====================================================
-    // DASHBOARD CARD COUNTS
-    // These counts are NOT affected by the selected filter.
+    // TABLE QUERY (index-safe columns; no signature blobs)
     // =====================================================
 
-    $pendingRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending'));
-    $acceptedRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'accepted'));
-    $allRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all'));
-    $pendingRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending'));
-    $acceptedRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'accepted'));
-    $allRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all'));
-    $amendRis = 0;
-
-
-    // =====================================================
-    // TABLE QUERY
-    // =====================================================
-
-    $query = clone $baseQuery;
+    $query = $this->procurementReviewIndexQuery();
 
 
     // =====================================================
@@ -1498,8 +576,9 @@ class AdminController extends Controller
     // =====================================================
 
     if ($search !== '' && $recordRisId === 0) {
+        $nameIds = RisWorkflow::userIdsMatchingName($search);
 
-        $query->where(function ($searchQuery) use ($search) {
+        $query->where(function ($searchQuery) use ($search, $nameIds) {
 
             $searchQuery
 
@@ -1510,13 +589,9 @@ class AdminController extends Controller
                     '%' . $search . '%'
                 )
 
-                // Search person who sent/requested the RIS.
-                ->orWhere(
-                    'requisition_issue_slip_table.ris_requested_by_signature',
-                    'like',
-                    '%' . $search . '%'
-                )
-                ->orWhereIn('requisition_issue_slip_table.ris_created_by', RisWorkflow::userIdsMatchingName($search))
+                // Search requester account (avoid LIKE on signature longtext).
+                ->orWhereIn('requisition_issue_slip_table.ris_created_by', $nameIds)
+                ->orWhereIn('requisition_issue_slip_table.ris_submitted_by', $nameIds)
 
                 // Search equipment from equipment table.
                 ->orWhere(
@@ -1532,9 +607,14 @@ class AdminController extends Controller
                     '%' . $search . '%'
                 )
 
-                // Search status.
+                // Search status / title.
                 ->orWhere(
                     'requisition_issue_slip_table.ris_status',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_manual_title',
                     'like',
                     '%' . $search . '%'
                 );
@@ -1548,6 +628,10 @@ class AdminController extends Controller
             }
 
         });
+    }
+
+    if ($recordRisId === 0) {
+        $this->applyRisSubmittedDateFilter($query, $submittedDate);
     }
 
 
@@ -1572,6 +656,7 @@ class AdminController extends Controller
             'filter' => $focus === '' ? $filter : null,
             'focus' => $focus !== '' ? $focus : null,
             'search' => $search,
+            'submitted' => $submittedDate !== '' ? $submittedDate : null,
             'ris' => $recordRisId ?: null,
         ], fn ($value) => $value !== null && $value !== ''));
 
@@ -1612,11 +697,14 @@ class AdminController extends Controller
                 'risRecords',
                 'filter',
                 'search',
+                'submittedDate',
                 'pendingRis',
                 'acceptedRis',
+                'revisionRis',
                 'allRis',
                 'pendingRisAmount',
                 'acceptedRisAmount',
+                'revisionRisAmount',
                 'allRisAmount',
                 'attentionFocus'
             )
@@ -1631,11 +719,14 @@ class AdminController extends Controller
             'risRecords',
             'filter',
             'search',
+            'submittedDate',
             'pendingRis',
             'acceptedRis',
+            'revisionRis',
             'allRis',
             'pendingRisAmount',
             'acceptedRisAmount',
+            'revisionRisAmount',
             'allRisAmount',
             'attentionFocus'
         )
@@ -1655,6 +746,7 @@ class AdminController extends Controller
 
     $filter = strtolower($request->query('filter', 'pending'));
     $search = trim($request->query('search', ''));
+    $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
 
     if (!in_array($filter, ['all', 'pending', 'for_decision', 'for_cosign', 'cosigned', 'president_rejected'], true)) {
         $filter = 'pending';
@@ -1871,6 +963,10 @@ class AdminController extends Controller
         });
     }
 
+    if ($recordRisId === 0) {
+        $this->applyRisSubmittedDateFilter($query, $submittedDate);
+    }
+
 
     // =====================================================
     // SORTING — urgent first; pending signature queue = oldest waiting
@@ -1888,6 +984,7 @@ class AdminController extends Controller
             'filter' => $filter,
             'focus' => $focus,
             'search' => $search,
+            'submitted' => $submittedDate,
             'ris' => $recordRisId ?: '',
         ], fn ($value) => $value !== ''));
 
@@ -1924,6 +1021,7 @@ class AdminController extends Controller
                 'signableRisRecords',
                 'filter',
                 'search',
+                'submittedDate',
                 'pendingActionCount',
                 'forDecisionCount',
                 'forCosignCount',
@@ -1949,6 +1047,7 @@ class AdminController extends Controller
             'signableRisRecords',
             'filter',
             'search',
+            'submittedDate',
             'pendingActionCount',
             'forDecisionCount',
             'forCosignCount',
@@ -1979,6 +1078,7 @@ class AdminController extends Controller
         $search = trim($request->query('search', ''));
         $filter = strtolower($request->query('filter', 'all'));
         $document = strtolower($request->query('doc', 'ris'));
+        $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
 
         if (! in_array($document, ['ris', 'atp', 'rfc', 'dv'], true)) {
             $document = 'ris';
@@ -1989,7 +1089,7 @@ class AdminController extends Controller
         }
 
         if ($document !== 'ris') {
-            return $this->signatureDocumentHistory($request, $document, $search);
+            return $this->signatureDocumentHistory($request, $document, $search, $submittedDate);
         }
 
 
@@ -2085,6 +1185,7 @@ class AdminController extends Controller
             $query->whereIn('requisition_issue_slip_table.ris_status', ['Minor Revision', 'Rejected']);
         }
 
+        $this->applyRisSubmittedDateFilter($query, $submittedDate);
 
         // =====================================================
         // SEARCH
@@ -2152,10 +1253,11 @@ class AdminController extends Controller
 
             ->paginate(10)
 
-            ->appends([
+            ->appends(array_filter([
                 'search' => $search,
                 'filter' => $filter,
-            ]);
+                'submitted' => $submittedDate !== '' ? $submittedDate : null,
+            ]));
 
         $this->attachRisSupportingDocuments($signatureHistory);
 
@@ -2169,7 +1271,7 @@ class AdminController extends Controller
             if ($request->boolean('table_only')) {
                 return view(
                     'admin.digital-signatures._signature-history-quick-access',
-                    compact('signatureHistory', 'search', 'filter')
+                    compact('signatureHistory', 'search', 'filter', 'submittedDate')
                 );
             }
 
@@ -2180,6 +1282,7 @@ class AdminController extends Controller
                     'search',
                     'filter',
                     'document',
+                    'submittedDate',
                     'allCount',
                     'directApprovedCount',
                     'presidentApprovedCount',
@@ -2197,6 +1300,7 @@ class AdminController extends Controller
                 'search',
                 'filter',
                 'document',
+                'submittedDate',
                 'allCount',
                 'directApprovedCount',
                 'presidentApprovedCount',
@@ -2209,12 +1313,12 @@ class AdminController extends Controller
     /**
      * Signed or decided ATP, RFC, and DV records for Signature History.
      */
-    private function signatureDocumentHistory(Request $request, string $document, string $search): View
+    private function signatureDocumentHistory(Request $request, string $document, string $search, string $submittedDate = ''): View
     {
         $records = match ($document) {
-            'atp' => $this->signatureAtpHistory($search),
-            'rfc' => $this->signatureRfcHistory($search),
-            default => $this->signatureDvHistory($search),
+            'atp' => $this->signatureAtpHistory($search, $submittedDate),
+            'rfc' => $this->signatureRfcHistory($search, $submittedDate),
+            default => $this->signatureDvHistory($search, $submittedDate),
         };
 
         $page = max(1, (int) $request->query('page', 1));
@@ -2224,7 +1328,11 @@ class AdminController extends Controller
             $records->count(),
             10,
             $page,
-            ['path' => $request->url(), 'query' => ['doc' => $document, 'search' => $search]]
+            ['path' => $request->url(), 'query' => array_filter([
+                'doc' => $document,
+                'search' => $search !== '' ? $search : null,
+                'submitted' => $submittedDate !== '' ? $submittedDate : null,
+            ])]
         );
 
         $view = ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest')
@@ -2236,11 +1344,12 @@ class AdminController extends Controller
             'search' => $search,
             'filter' => 'all',
             'document' => $document,
+            'submittedDate' => $submittedDate,
             'documentRows' => true,
         ]);
     }
 
-    private function signatureAtpHistory(string $search): \Illuminate\Support\Collection
+    private function signatureAtpHistory(string $search, string $submittedDate = ''): \Illuminate\Support\Collection
     {
         if (! Schema::hasTable('authority_to_purchase_table')) {
             return collect();
@@ -2285,6 +1394,12 @@ class AdminController extends Controller
             });
         }
 
+        if ($submittedDate !== '' && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_submitted_at')) {
+            $query->whereDate('authority_to_purchase_table.authority_purchase_submitted_at', $submittedDate);
+        } elseif ($submittedDate !== '') {
+            $query->whereDate('authority_to_purchase_table.authority_purchase_updated_at', $submittedDate);
+        }
+
         return $query
             ->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at')
             ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
@@ -2308,7 +1423,7 @@ class AdminController extends Controller
             });
     }
 
-    private function signatureRfcHistory(string $search): \Illuminate\Support\Collection
+    private function signatureRfcHistory(string $search, string $submittedDate = ''): \Illuminate\Support\Collection
     {
         if (! Schema::hasTable('request_check_table')) {
             return collect();
@@ -2331,6 +1446,22 @@ class AdminController extends Controller
             });
         }
 
+        if ($submittedDate !== '') {
+            if (Schema::hasColumn('request_check_table', 'request_check_submitted_at')
+                && Schema::hasColumn('request_check_table', 'request_check_date')) {
+                $query->whereRaw(
+                    'DATE(COALESCE(request_check_submitted_at, request_check_date)) = ?',
+                    [$submittedDate]
+                );
+            } elseif (Schema::hasColumn('request_check_table', 'request_check_submitted_at')) {
+                $query->whereDate('request_check_submitted_at', $submittedDate);
+            } elseif (Schema::hasColumn('request_check_table', 'request_check_date')) {
+                $query->whereDate('request_check_date', $submittedDate);
+            } else {
+                $query->whereDate('request_check_updated_at', $submittedDate);
+            }
+        }
+
         return $query
             ->orderByDesc('request_check_updated_at')
             ->orderByDesc('request_check_id')
@@ -2350,7 +1481,7 @@ class AdminController extends Controller
             });
     }
 
-    private function signatureDvHistory(string $search): \Illuminate\Support\Collection
+    private function signatureDvHistory(string $search, string $submittedDate = ''): \Illuminate\Support\Collection
     {
         if (! Schema::hasTable('disbursement_vouchers_table')) {
             return collect();
@@ -2368,6 +1499,12 @@ class AdminController extends Controller
                     $q->orWhere('dv_request_no', 'like', $like);
                 }
             });
+        }
+
+        if ($submittedDate !== '' && Schema::hasColumn('disbursement_vouchers_table', 'dv_submitted_at')) {
+            $query->whereDate('dv_submitted_at', $submittedDate);
+        } elseif ($submittedDate !== '' && Schema::hasColumn('disbursement_vouchers_table', 'dv_updated_at')) {
+            $query->whereDate('dv_updated_at', $submittedDate);
         }
 
         return $query
@@ -2600,8 +1737,13 @@ class AdminController extends Controller
         try {
             $items = WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), 'Admin')
                 ->orderByDesc('notification_created_at')
-                ->limit(80)
-                ->get();
+                ->limit(40)
+                ->get([
+                    'notifications_table.notification_id',
+                    'notifications_table.notification_title',
+                    'notifications_table.notification_message',
+                    'notifications_table.notification_created_at',
+                ]);
         } catch (\Throwable $e) {
         }
 
@@ -5155,6 +4297,175 @@ public function rejectRis(Request $request, $risId)
         ) as ris_released');
     }
 
+    /**
+     * Lean RIS queue for filter card counts (no equipment / item-name joins).
+     */
+    private function procurementReviewStatsBaseQuery()
+    {
+        $query = DB::table('requisition_issue_slip_table');
+        $this->applyProcurementReviewActivityScope($query);
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+            ReviewerAssignment::applyQueueFilter($query, 'requisition_issue_slip_table.ris_assigned_reviewer_id');
+        }
+
+        return $query;
+    }
+
+    /**
+     * Index/list RIS query: slim columns, one items aggregate, no signature blobs.
+     */
+    private function procurementReviewIndexQuery()
+    {
+        $query = DB::table('requisition_issue_slip_table')
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            );
+
+        if (Schema::hasTable('requisition_issue_slip_items_table')) {
+            $query->leftJoin(
+                DB::raw('(
+                    SELECT
+                        ris_id,
+                        SUM(COALESCE(ris_total_amount, 0)) AS ris_calculated_total,
+                        GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") AS ris_item_names
+                    FROM requisition_issue_slip_items_table
+                    GROUP BY ris_id
+                ) AS ris_items_agg'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_agg.ris_id'
+            );
+        }
+
+        $select = $this->procurementReviewIndexSelectColumns();
+        if (Schema::hasTable('requisition_issue_slip_items_table')) {
+            $select[] = 'ris_items_agg.ris_calculated_total';
+            $select[] = 'ris_items_agg.ris_item_names';
+        } else {
+            $select[] = DB::raw('0 as ris_calculated_total');
+            $select[] = DB::raw('NULL as ris_item_names');
+        }
+        $select[] = 'reports_table.report_unlisted_equipment_name';
+        $select[] = 'equipment_table.equipment_name';
+
+        // Badge helpers without shipping signature longtext blobs.
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_approved_by_signature')) {
+            $select[] = DB::raw(
+                "(CASE WHEN requisition_issue_slip_table.ris_approved_by_signature LIKE 'data:image%' THEN 1 ELSE 0 END) AS ris_president_sig_image"
+            );
+        }
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_issued_by_signature')) {
+            $select[] = DB::raw(
+                "(CASE WHEN NULLIF(TRIM(requisition_issue_slip_table.ris_issued_by_signature), '') IS NOT NULL THEN 1 ELSE 0 END) AS ris_has_issued_by"
+            );
+        }
+
+        $query->select($select);
+        $this->applyProcurementReviewActivityScope($query);
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_reviewer_id')) {
+            ReviewerAssignment::applyQueueFilter($query, 'requisition_issue_slip_table.ris_assigned_reviewer_id');
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return list<string|\Illuminate\Database\Query\Expression>
+     */
+    private function procurementReviewIndexSelectColumns(): array
+    {
+        $wanted = [
+            'ris_id',
+            'ris_form_number',
+            'ris_request_no',
+            'ris_request_type',
+            'ris_status',
+            'ris_urgency',
+            'ris_manual_title',
+            'ris_purpose_description',
+            'ris_manual_description',
+            'ris_created_by',
+            'ris_submitted_by',
+            'ris_requested_by_signature',
+            'ris_requested_by_date',
+            'ris_submitted_at',
+            'ris_approved_by_date',
+            'ris_created_at',
+            'ris_updated_at',
+            'ris_is_archived',
+            'ris_assigned_reviewer_id',
+            'ris_procurement_request_id',
+        ];
+
+        $columns = [];
+        foreach ($wanted as $column) {
+            if (Schema::hasColumn('requisition_issue_slip_table', $column)) {
+                $columns[] = 'requisition_issue_slip_table.'.$column;
+            }
+        }
+
+        return $columns !== []
+            ? $columns
+            : ['requisition_issue_slip_table.ris_id'];
+    }
+
+    private function applyProcurementReviewActivityScope($query): void
+    {
+        $query->where(function ($q) {
+            $added = false;
+            foreach (['ris_requested_by_date', 'ris_form_number', 'ris_submitted_at', 'ris_approved_by_date'] as $column) {
+                if (! Schema::hasColumn('requisition_issue_slip_table', $column)) {
+                    continue;
+                }
+                $method = $added ? 'orWhereNotNull' : 'whereNotNull';
+                $q->{$method}('requisition_issue_slip_table.'.$column);
+                $added = true;
+            }
+            if (! $added) {
+                $q->whereNotNull('requisition_issue_slip_table.ris_id');
+            }
+        });
+    }
+
+    private function sumRisAmountLean($query): float
+    {
+        if (! Schema::hasTable('requisition_issue_slip_items_table')) {
+            return 0.0;
+        }
+
+        try {
+            $clone = clone $query;
+            $this->clearQueryPresentation($clone);
+            $clone->leftJoin(
+                DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_sum.ris_id'
+            );
+
+            return (float) $clone->sum('ris_items_sum.ris_calculated_total');
+        } catch (\Throwable $e) {
+            return 0.0;
+        }
+    }
+
     private function risReleasedExistsCallback(string $risIdColumn)
     {
         return function ($sub) use ($risIdColumn) {
@@ -5212,6 +4523,47 @@ public function rejectRis(Request $request, $risId)
         $base->offset = null;
     }
 
+    private function normalizeRisSubmittedDateQuery(Request $request): string
+    {
+        $raw = trim((string) $request->query('submitted', $request->query('date', '')));
+        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return '';
+        }
+
+        try {
+            return \Carbon\Carbon::createFromFormat('Y-m-d', $raw)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    private function applyRisSubmittedDateFilter($query, string $submittedDate, string $table = 'requisition_issue_slip_table')
+    {
+        if ($submittedDate === '') {
+            return $query;
+        }
+
+        $hasSubmittedAt = Schema::hasColumn('requisition_issue_slip_table', 'ris_submitted_at');
+        $hasRequestedBy = Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_date');
+
+        if ($hasSubmittedAt && $hasRequestedBy) {
+            return $query->whereRaw(
+                'DATE(COALESCE('.$table.'.ris_submitted_at, '.$table.'.ris_requested_by_date)) = ?',
+                [$submittedDate]
+            );
+        }
+
+        if ($hasSubmittedAt) {
+            return $query->whereDate($table.'.ris_submitted_at', $submittedDate);
+        }
+
+        if ($hasRequestedBy) {
+            return $query->whereDate($table.'.ris_requested_by_date', $submittedDate);
+        }
+
+        return $query;
+    }
+
     private function applyProcurementReviewStatusFilter($query, string $filter)
     {
         if ($filter === 'pending') {
@@ -5226,6 +4578,10 @@ public function rejectRis(Request $request, $risId)
                 'requisition_issue_slip_table.ris_status',
                 RisWorkflow::ACCEPTED
             );
+        }
+
+        if ($filter === 'revision' || $filter === 'amend') {
+            return AdminAttentionSummary::scopeAmendRis($query, 'requisition_issue_slip_table.');
         }
 
         if ($filter === 'forwarded') {

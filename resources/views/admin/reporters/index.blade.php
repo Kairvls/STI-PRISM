@@ -2684,7 +2684,7 @@
                 if (typeof window.showMpToast === 'function') {
                     window.showMpToast('Contact number copied!', {
                         type: 'success',
-                        timer: 2200,
+                        timer: 3000,
                         replaceGroup: 'reporter-contact-copy',
                     });
                     return;
@@ -2696,7 +2696,7 @@
                         icon: 'success',
                         title: 'Contact number copied!',
                         showConfirmButton: false,
-                        timer: 2200,
+                        timer: 3000,
                     });
                 }
             };

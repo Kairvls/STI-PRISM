@@ -6,9 +6,7 @@ use App\Support\AccountingAttentionSummary;
 use App\Support\AdminAttentionSummary;
 use App\Support\AdminPipeline;
 use App\Support\ReviewerAssignment;
-use App\Support\RisWorkflow;
 use App\Support\RoleHolderLabel;
-use App\Support\SemesterInspections;
 use App\Support\WorkflowNotifier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -32,19 +30,8 @@ class SchoolAdminController extends Controller
         $stats = [
             'pending_ris' => (int) $attention['pendingRis'],
             'awaiting_issued_by' => 0,
-            'ready_to_forward' => 0,
-            'ready_to_forward_amount' => 0.0,
-            'with_president' => 0,
-            'with_president_amount' => 0.0,
             'amend_ris' => (int) $attention['amendRis'],
-            'amend_ris_amount' => 0.0,
             'open_ris' => 0,
-            'pending_ris_amount' => 0.0,
-            'equipment_total' => 0,
-            'needs_maintenance' => 0,
-            'for_replacement' => 0,
-            'active_inspections' => 0,
-            'overdue_inspections' => 0,
             'overdue_borrows' => 0,
             'overdue_schedules' => 0,
         ];
@@ -56,60 +43,6 @@ class SchoolAdminController extends Controller
             if ($hasRis) {
                 $stats['open_ris'] = DB::table('requisition_issue_slip_table')
                     ->whereNotIn('ris_status', ['Completed', 'Rejected', 'Cancelled', 'Archived'])
-                    ->count();
-
-                $pendingAmount = DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsSum, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id');
-                $this->applyReviewerQueue($pendingAmount);
-                $stats['pending_ris_amount'] = (float) AdminAttentionSummary::scopePendingRis($pendingAmount)
-                    ->sum('ris_items_sum.ris_calculated_total');
-
-                $readyToForward = DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsSum, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
-                    ->where('requisition_issue_slip_table.ris_status', RisWorkflow::ACCEPTED);
-                $stats['ready_to_forward'] = (clone $readyToForward)->count();
-                $stats['ready_to_forward_amount'] = (float) $readyToForward->sum('ris_items_sum.ris_calculated_total');
-
-                $amendAmount = DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsSum, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id');
-                $this->applyReviewerQueue($amendAmount);
-                $stats['amend_ris_amount'] = (float) AdminAttentionSummary::scopeAmendRis($amendAmount, 'requisition_issue_slip_table.')
-                    ->sum('ris_items_sum.ris_calculated_total');
-
-                $withPresident = DB::table('requisition_issue_slip_table')
-                    ->leftJoin($itemsSum, 'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id')
-                    ->where('requisition_issue_slip_table.ris_status', RisWorkflow::FORWARDED);
-                $stats['with_president'] = (clone $withPresident)->count();
-                $stats['with_president_amount'] = (float) $withPresident->sum('ris_items_sum.ris_calculated_total');
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        try {
-            if (Schema::hasTable('equipment_table')) {
-                $stats['equipment_total'] = DB::table('equipment_table')->count();
-                $stats['needs_maintenance'] = DB::table('equipment_table')
-                    ->where(function ($q) {
-                        $q->where('equipment_condition_status', 'Under Maintenance')
-                            ->orWhere('equipment_inventory_status', 'Under Maintenance');
-                    })
-                    ->count();
-                $stats['for_replacement'] = DB::table('equipment_table')
-                    ->where('equipment_inventory_status', 'For Replacement')
-                    ->count();
-            }
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        try {
-            if (SemesterInspections::tablesReady()) {
-                $openCampaigns = DB::table('semester_inspection_campaigns_table')
-                    ->whereIn('campaign_status', ['Active', 'In Progress']);
-                $stats['active_inspections'] = (clone $openCampaigns)->count();
-                $stats['overdue_inspections'] = (clone $openCampaigns)
-                    ->whereDate('campaign_due_date', '<', today())
                     ->count();
             }
         } catch (\Throwable $e) {
@@ -225,9 +158,8 @@ class SchoolAdminController extends Controller
                     });
                 }
 
-                $latestProcurements = $latestQuery->get()->each(function ($row) {
-                    $row->pipeline = AdminPipeline::build((int) $row->ris_id);
-                });
+                $latestProcurements = $latestQuery->get();
+                AdminPipeline::attachSummaries($latestProcurements);
             }
         } catch (\Throwable $e) {
             $latestProcurements = collect();
@@ -522,8 +454,13 @@ class SchoolAdminController extends Controller
         try {
             $items = WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), WorkflowNotifier::ROLE_SCHOOL_ADMIN)
                 ->orderByDesc('notification_created_at')
-                ->limit(80)
-                ->get();
+                ->limit(40)
+                ->get([
+                    'notifications_table.notification_id',
+                    'notifications_table.notification_title',
+                    'notifications_table.notification_message',
+                    'notifications_table.notification_created_at',
+                ]);
         } catch (\Throwable $e) {
         }
 

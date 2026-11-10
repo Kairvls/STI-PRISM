@@ -1,4 +1,4 @@
-<div class="bg-slate-100 p-3 md:p-5">
+<div class="form-preview-sheet-wrap bg-slate-100 p-3 md:p-5">
     @if (($kind ?? '') === 'dv')
         @include('partials.disbursement-voucher-paper', [
             'dv' => $dv,

@@ -65,7 +65,7 @@
                         {{ $archiveView ? 'Restore orders when you need them again.' : 'Draft ATPs pack here — review, then submit to the School Administrator.' }}
                     </p>
                 </div>
-                <form data-auto-filter method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <form data-auto-filter data-list-panel="#purchaser-po-list-panel" method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                     @if($archiveView)
                         <input type="hidden" name="view" value="archive">
                     @endif
@@ -95,6 +95,7 @@
             </div>
         </div>
 
+        <div id="purchaser-po-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto overflow-y-visible">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/70">
@@ -105,7 +106,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Updated</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -345,6 +346,7 @@
         @if($orders->hasPages())
             <div class="border-t border-gray-100 px-5 py-4">{{ $orders->links() }}</div>
         @endif
+        </div>
     </div>
 
     @foreach($orders as $order)

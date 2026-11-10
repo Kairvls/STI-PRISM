@@ -169,6 +169,7 @@
                 </div>
 
                 <form data-auto-filter
+                    data-list-panel="#purchaser-liq-list-panel"
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.liq.index') }}"
                     role="search"
@@ -222,6 +223,7 @@
             </div>
         </div>
 
+        <div id="purchaser-liq-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-sm">
                 <thead class="bg-gray-50/70">
@@ -232,7 +234,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Employee</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -246,7 +248,7 @@
                                     </div>
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: 'â€”' }}</p>
+                                            <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: '—' }}</p>
                                             @if(\App\Support\DocumentUrgency::isUrgent('LIQ', $liq))
                                                 @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
                                             @endif
@@ -258,16 +260,27 @@
                             <td class="px-5 py-4">
                                 @include('partials.procurement-request-no', ['requestNo' => $liq->liquidation_report_request_no ?? null, 'inline' => true, 'showLabel' => false])
                                 @if(blank($liq->liquidation_report_request_no ?? null))
-                                    <span class="text-xs text-gray-400">â€”</span>
+                                    <span class="text-xs text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? 'â€”' }}</td>
-                            <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: 'â€”' }}</td>
-                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? 'â‚±'.number_format((float) $liq->liquidation_report_amount_advance, 2) : 'â€”' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
+                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? '?'.number_format((float) $liq->liquidation_report_amount_advance, 2) : '—' }}</td>
                             <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])</td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    <button
+                                        type="button"
+                                        data-share-doc-type="liq"
+                                        data-share-doc-id="{{ (int) $liq->liquidation_report_id }}"
+                                        data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('liq', $liq->liquidation_report_form_number ?? null) }}"
+                                        class="js-share-document inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="Share to Messages"
+                                        aria-label="Share to Messages"
+                                    >
+                                        <i data-lucide="share-2" class="h-4 w-4"></i>
+                                    </button>
                                     <button type="button" @click="printLiq({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
@@ -361,6 +374,7 @@
 
         <div class="border-t border-gray-100 px-5 py-4">
             {{ $reports->links() }}
+        </div>
         </div>
     </div>
 
@@ -519,7 +533,7 @@
                                     <option value="">Select RR</option>
                                     @foreach($eligibleRrs as $rr)
                                         <option value="{{ $rr->receiving_report_id }}" {{ old('liquidation_report_receiving_report_id', $selectedRrId ?? '') == $rr->receiving_report_id ? 'selected' : '' }}>
-                                            {{ $rr->receiving_report_form_number }} @if($rr->request_check_form_number)Â· {{ $rr->request_check_form_number }}@endif
+                                            {{ $rr->receiving_report_form_number }} @if($rr->request_check_form_number)· {{ $rr->request_check_form_number }}@endif
                                         </option>
                                     @endforeach
                                 </select>
@@ -532,9 +546,9 @@
                             'refKey' => 'createLiqAttachment',
                             'class' => 'mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white',
                             'title' => 'Supporting Document',
-                            'hint' => 'Optional Â· 1 file Â· PDF, JPG, PNG Â· max 5MB',
+                            'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
                             'uploadLabel' => 'Upload file',
-                            'helpLine' => 'One file only Â· PDF, JPG, or PNG',
+                            'helpLine' => 'One file only · PDF, JPG, or PNG',
                         ])
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
@@ -593,7 +607,7 @@
                                             @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                                         @endif
                                     </div>
-                                    <p class="mt-0.5 text-sm text-gray-500">RR: {{ $liq->receiving_report_form_number ?? 'â€”' }}</p>
+                                    <p class="mt-0.5 text-sm text-gray-500">RR: {{ $liq->receiving_report_form_number ?? '—' }}</p>
                                 </div>
                             </div>
                         </div>
@@ -735,9 +749,9 @@
                                     'refKey' => 'editLiqAttachment'.$liq->liquidation_report_id,
                                     'class' => 'mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white',
                                     'title' => 'Supporting Document',
-                                    'hint' => 'Optional Â· 1 file Â· PDF, JPG, PNG Â· max 5MB',
+                                    'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
                                     'uploadLabel' => 'Upload file',
-                                    'helpLine' => 'One file only Â· remove the current file first to replace',
+                                    'helpLine' => 'One file only · remove the current file first to replace',
                                     'existing' => $liqFiles->map(fn ($file) => [
                                         'id' => $file->liquidation_attachment_id,
                                         'name' => $file->liquidation_attachment_original_name,
@@ -747,9 +761,9 @@
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <p class="mr-auto max-w-md text-xs text-gray-500">
                                     @if($liq->liquidation_report_status === 'Minor Revision')
-                                        Save your corrections here, then use <strong>â‹® â†’ Resubmit to Accounting</strong> in the list.
+                                        Save your corrections here, then use <strong>? ? Resubmit to Accounting</strong> in the list.
                                     @else
-                                        Save your changes here (including signature), then use <strong>â‹® â†’ Submit to Accounting</strong> in the list.
+                                        Save your changes here (including signature), then use <strong>? ? Submit to Accounting</strong> in the list.
                                     @endif
                                 </p>
                                 <button

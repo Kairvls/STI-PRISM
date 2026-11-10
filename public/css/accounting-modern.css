@@ -1391,38 +1391,70 @@ a.icon-btn:hover {
 }
 
 .pur-modal-is-fullscreen > form {
-    flex: 1 0 auto;
-    min-height: auto;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     height: auto;
     background-color: #fff;
 }
 
-.pur-modal-is-fullscreen .bg-slate-100,
-.pur-modal-is-fullscreen .bg-gray-100 {
+.pur-modal-is-fullscreen > form > .bg-slate-100,
+.pur-modal-is-fullscreen > form > .bg-gray-100,
+.pur-modal-is-fullscreen > .bg-slate-100,
+.pur-modal-is-fullscreen > .bg-gray-100 {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
     min-height: calc(100dvh - 4.75rem);
     padding: 1rem 1.25rem;
 }
 
 @media (min-width: 768px) {
-    .pur-modal-is-fullscreen .bg-slate-100 {
+    .pur-modal-is-fullscreen > form > .bg-slate-100,
+    .pur-modal-is-fullscreen > .bg-slate-100 {
         padding: 1.25rem 1.75rem;
     }
 }
 
 .pur-modal-is-fullscreen .atp-print-sheet,
 .pur-modal-is-fullscreen .rfc-print-sheet,
-.pur-modal-is-fullscreen .rr-print-sheet,
 .pur-modal-is-fullscreen .liq-print-sheet,
 .pur-modal-is-fullscreen .dv-print-sheet,
 .pur-modal-is-fullscreen .ris-print-sheet {
     max-width: none !important;
-    width: 100%;
-    min-height: calc(100dvh - 14rem);
+    width: 100% !important;
+    flex: 1 1 auto;
+    min-height: calc(100dvh - 14rem) !important;
+    height: auto !important;
+    box-shadow: none;
+}
+
+.pur-modal-is-fullscreen .bg-slate-100 > .atp-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .rfc-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .liq-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .dv-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .ris-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .atp-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .rfc-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .liq-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .dv-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .ris-print-sheet + * {
+    flex-shrink: 0;
+}
+
+/* RR paper: full width only — height stretch breaks Check vs OR grid */
+.pur-modal-is-fullscreen .rr-print-sheet {
+    max-width: none !important;
+    width: 100% !important;
+    flex: 0 0 auto;
+    min-height: 0 !important;
+    height: auto !important;
     box-shadow: none;
 }
 
 .pur-modal-is-fullscreen .dv-print-sheet > table.dv-grid {
-    min-height: calc(100dvh - 16rem);
+    min-height: calc(100dvh - 16rem) !important;
 }
 
 .pur-modal-is-fullscreen [id^="purSigSlot-"],
@@ -1442,4 +1474,62 @@ a.icon-btn:hover {
 .pur-modal-is-fullscreen .bg-slate-100 > .mx-auto {
     max-width: none !important;
     width: 100%;
+}
+
+/* School Admin / Accounting list form-preview modals (View eye → fullscreen) */
+.sa-form-preview-modal[data-fullscreen="1"] {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    overflow: hidden !important;
+}
+
+.sa-form-preview-modal[data-fullscreen="1"] .sa-form-preview-panel {
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sa-form-preview-modal[data-fullscreen="1"] .sa-form-preview-body {
+    max-height: none !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    padding: 0 !important;
+    background: #f1f5f9;
+}
+
+.sa-form-preview-modal[data-fullscreen="1"] .form-preview-sheet-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100%;
+    padding: 1rem 1.25rem !important;
+}
+
+.sa-form-preview-modal[data-fullscreen="1"] .form-preview-sheet-wrap > .atp-print-sheet,
+.sa-form-preview-modal[data-fullscreen="1"] .form-preview-sheet-wrap > .rfc-print-sheet,
+.sa-form-preview-modal[data-fullscreen="1"] .form-preview-sheet-wrap > .liq-print-sheet,
+.sa-form-preview-modal[data-fullscreen="1"] .form-preview-sheet-wrap > .dv-print-sheet {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    flex: 1 1 auto;
+    min-height: calc(100dvh - 8.5rem) !important;
+    height: auto !important;
+    box-shadow: none !important;
+}
+
+.sa-form-preview-modal[data-fullscreen="1"] .form-preview-sheet-wrap > .dv-print-sheet > table.dv-grid {
+    min-height: calc(100dvh - 10.5rem) !important;
 }

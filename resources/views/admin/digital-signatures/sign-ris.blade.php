@@ -9,7 +9,10 @@
 @section('content')
 
 <div class="admin-page">
-    @include('admin.partials.ris-phase-tabs', ['phase' => 'sign'])
+    @include('admin.partials.ris-phase-tabs', [
+        'phase' => 'sign',
+        'readyToSignCount' => (int) ($pendingActionCount ?? 0),
+    ])
     <div id="signRisContentContainer">
         @include('admin.digital-signatures._sign-ris-content')
     </div>
@@ -51,9 +54,77 @@
 
     let signRisSearchTimer = null;
     let signRisFilterFetchTimer = null;
+    let signRisFetchSeq = 0;
     let currentFilter = '{{ $filter ?? 'pending' }}';
     let currentSearch = '{{ $search ?? '' }}';
+    let currentSubmittedDate = @json($submittedDate ?? '');
     let currentFocus = @json($attentionFocus['key'] ?? '');
+
+    function syncSignRisDateFilterUi() {
+        const btn = document.getElementById('signRisSubmittedDateBtn');
+        const input = document.getElementById('signRisSubmittedDate');
+        const clear = document.getElementById('signRisSubmittedDateClear');
+        const hasDate = !!currentSubmittedDate;
+
+        if (input) {
+            input.value = currentSubmittedDate || '';
+        }
+        if (btn) {
+            btn.classList.toggle('border-[#0025cc]', hasDate);
+            btn.classList.toggle('bg-blue-50', hasDate);
+            btn.classList.toggle('text-[#0025cc]', hasDate);
+            btn.classList.toggle('border-gray-200', !hasDate);
+            btn.classList.toggle('bg-white', !hasDate);
+            btn.classList.toggle('text-gray-600', !hasDate);
+            btn.title = hasDate
+                ? ('Submitted ' + currentSubmittedDate + ' — click to change')
+                : 'Filter by submitted date';
+        }
+        if (clear) {
+            clear.classList.toggle('hidden', !hasDate);
+        }
+    }
+
+    function snapshotSignRisSearch() {
+        const el = document.getElementById('signRisLiveSearch');
+        if (!el) {
+            return null;
+        }
+
+        return {
+            focused: document.activeElement === el,
+            value: el.value,
+            start: el.selectionStart,
+            end: el.selectionEnd,
+        };
+    }
+
+    function restoreSignRisSearch(snap, requestedSearch) {
+        const el = document.getElementById('signRisLiveSearch');
+        if (!el) {
+            return;
+        }
+
+        const liveValue = snap ? snap.value : (requestedSearch || currentSearch || '');
+        el.value = liveValue;
+
+        if (snap && snap.focused) {
+            el.focus();
+            try {
+                if (typeof snap.start === 'number' && typeof snap.end === 'number') {
+                    el.setSelectionRange(snap.start, snap.end);
+                }
+            } catch (e) {}
+        }
+
+        if (snap && snap.value !== (requestedSearch || '')) {
+            clearTimeout(signRisSearchTimer);
+            signRisSearchTimer = setTimeout(function () {
+                currentSearch = snap.value;
+                fetchSignRisData(currentFilter, currentSearch, null);
+            }, 180);
+        }
+    }
 
 
     // =====================================================
@@ -63,6 +134,8 @@
     function fetchSignRisData(filter, search, page) {
 
         const params = new URLSearchParams();
+        const requestedSearch = search || '';
+        const seq = ++signRisFetchSeq;
 
         params.set('filter', filter || 'pending');
 
@@ -70,52 +143,42 @@
             params.set('focus', currentFocus);
         }
 
-        if (search) {
-            params.set('search', search);
+        if (requestedSearch) {
+            params.set('search', requestedSearch);
+        }
+
+        if (currentSubmittedDate) {
+            params.set('submitted', currentSubmittedDate);
         }
 
         if (page) {
             params.set('page', page);
         }
 
-        // Show loading indicator on the table.
         const tableContainer =
             document.getElementById('signRisTableContainer');
+        const searchFocused = (function () {
+            const el = document.getElementById('signRisLiveSearch');
+            return !!(el && document.activeElement === el);
+        })();
+        const requestUrl = new URL(
+            '{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris') }}?' + params.toString(),
+            window.location.origin
+        ).href;
+        const cachedHtml = window.PrismListCache?.get?.(requestUrl) || null;
 
-        if (tableContainer) {
+        if (!cachedHtml && tableContainer && !searchFocused) {
             tableContainer.innerHTML = window.prismSkeleton('table', { rows: 6, label: 'Loading RIS to sign' });
         }
 
-        // Fetch the updated content.
-        fetch(
-            '{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris') }}?' +
-            params.toString(),
-            {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                },
-            }
-        )
-
-        .then(function (response) {
-
-            if (!response.ok) {
-                throw new Error(
-                    'Server responded with ' +
-                    response.status
-                );
+        const applySignRisHtml = function (html) {
+            if (seq !== signRisFetchSeq) {
+                return;
             }
 
-            return response.text();
-
-        })
-
-        .then(function (html) {
-
-            // Replace the entire content area.
             const contentContainer =
                 document.getElementById('signRisContentContainer');
+            const searchSnap = snapshotSignRisSearch();
 
             if (contentContainer) {
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
@@ -130,32 +193,69 @@
                 }
             }
 
-            // Re-bind event listeners after DOM update.
+            restoreSignRisSearch(searchSnap, requestedSearch);
+            syncSignRisDateFilterUi();
             bindSignRisEventListeners();
             if (typeof window.bindPageCarousels === 'function') {
                 window.bindPageCarousels();
             }
 
-            // Update URL without reloading the page.
-            const url =
-                '{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris') }}?' +
-                params.toString();
-
             window.history.replaceState(
-                { filter: filter, search: search, page: page },
+                { filter: filter, search: requestedSearch, submitted: currentSubmittedDate, page: page },
                 '',
-                url
+                requestUrl
             );
+        };
 
+        if (cachedHtml) {
+            applySignRisHtml(cachedHtml);
+            fetch(requestUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Server responded with ' + response.status);
+                    return response.text();
+                })
+                .then(function (html) {
+                    if (seq !== signRisFetchSeq) {
+                        return;
+                    }
+                    window.PrismListCache?.set?.(requestUrl, html);
+                    if (html !== cachedHtml) applySignRisHtml(html);
+                })
+                .catch(function () {});
+            return;
+        }
+
+        fetch(requestUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html',
+            },
+            credentials: 'same-origin',
         })
-
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error('Server responded with ' + response.status);
+            }
+            return response.text();
+        })
+        .then(function (html) {
+            if (seq !== signRisFetchSeq) {
+                return;
+            }
+            window.PrismListCache?.set?.(requestUrl, html);
+            applySignRisHtml(html);
+        })
         .catch(function (error) {
-
-            console.error(
-                'Sign RIS fetch error:',
-                error
-            );
-
+            if (seq !== signRisFetchSeq) {
+                return;
+            }
+            console.error('Sign RIS fetch error:', error);
             if (tableContainer) {
                 tableContainer.innerHTML =
                     '<div class="px-5 py-16 text-center text-sm text-red-600">Failed to load data. Please try again.</div>';
@@ -300,6 +400,42 @@
             );
 
         }
+
+        const dateBtn = document.getElementById('signRisSubmittedDateBtn');
+        const dateInput = document.getElementById('signRisSubmittedDate');
+        const dateClear = document.getElementById('signRisSubmittedDateClear');
+
+        if (dateBtn && dateInput) {
+            dateBtn.addEventListener('click', function () {
+                try {
+                    if (typeof dateInput.showPicker === 'function') {
+                        dateInput.showPicker();
+                    } else {
+                        dateInput.focus();
+                        dateInput.click();
+                    }
+                } catch (e) {
+                    dateInput.focus();
+                }
+            });
+            dateInput.addEventListener('change', function () {
+                currentSubmittedDate = this.value || '';
+                syncSignRisDateFilterUi();
+                fetchSignRisData(currentFilter, currentSearch, null);
+            });
+        }
+
+        if (dateClear) {
+            dateClear.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                currentSubmittedDate = '';
+                syncSignRisDateFilterUi();
+                fetchSignRisData(currentFilter, currentSearch, null);
+            });
+        }
+
+        syncSignRisDateFilterUi();
 
         document.querySelectorAll('.sign-ris-filter-btn, .sign-ris-filter-card').forEach(function (el) {
             el.addEventListener('click', function () {

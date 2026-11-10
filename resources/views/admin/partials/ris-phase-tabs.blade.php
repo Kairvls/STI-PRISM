@@ -3,8 +3,9 @@
     use App\Support\AdminPortal;
 
     $phase = $phase ?? (request()->is('*digital-signatures/sign-ris*') ? 'sign' : 'accept');
-    $pendingAcceptCount = (int) ($adminSidebarPendingRis ?? 0);
-    $readyToSignCount = (int) ($adminSidebarAwaitingCosign ?? 0);
+    // Prefer page-local stats when present; fall back to sidebar attention counts.
+    $pendingAcceptCount = (int) ($pendingAcceptCount ?? $pendingRis ?? $adminSidebarPendingRis ?? 0);
+    $readyToSignCount = (int) ($readyToSignCount ?? $adminSidebarAwaitingCosign ?? 0);
     $acceptUrl = AdminPortal::route('procurement-review', ['filter' => 'pending']);
     $signUrl = AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'for_decision']);
 @endphp
@@ -16,21 +17,23 @@
     <a
         href="{{ $acceptUrl }}"
         class="inline-flex items-center gap-2 rounded-[0.65rem] px-3.5 py-2 text-[13px] font-semibold transition {{ $phase === 'accept' ? 'bg-[#0025cc] font-bold text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}"
+        title="{{ $pendingAcceptCount }} RIS waiting to be accepted"
     >
         <i data-lucide="inbox" class="h-3.5 w-3.5"></i>
         Pending Accept
         @if ($pendingAcceptCount > 0)
-            <span class="rounded-full px-1.5 py-0.5 text-[11px] tabular-nums {{ $phase === 'accept' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}">{{ $pendingAcceptCount }}</span>
+            <span class="min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none {{ $phase === 'accept' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' }}">{{ $pendingAcceptCount }}</span>
         @endif
     </a>
     <a
         href="{{ $signUrl }}"
         class="inline-flex items-center gap-2 rounded-[0.65rem] px-3.5 py-2 text-[13px] font-semibold transition {{ $phase === 'sign' ? 'bg-[#0025cc] font-bold text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}"
+        title="{{ $readyToSignCount }} RIS awaiting Ready to Sign action"
     >
         <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
         Ready to Sign
         @if ($readyToSignCount > 0)
-            <span class="rounded-full px-1.5 py-0.5 text-[11px] tabular-nums {{ $phase === 'sign' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}">{{ $readyToSignCount }}</span>
+            <span class="min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none {{ $phase === 'sign' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' }}">{{ $readyToSignCount }}</span>
         @endif
     </a>
 </nav>

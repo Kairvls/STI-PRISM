@@ -452,7 +452,8 @@
                     {{ now()->format('d/m/Y') }}
                 </div>
             @else
-                <div class="relative mt-6 w-56 border-b border-black pb-1 min-h-[1.5rem]">
+                {{-- Center name + signature on the underline (same as ATP / RFC). --}}
+                <div class="relative mt-6 flex w-56 min-h-[1.75rem] items-center justify-center border-b border-black pb-1 text-center">
                     @include('partials.drawn-signature', [
                         'value' => $secondCount,
                         'printedName' => \App\Support\RisWorkflow::isDrawnSignature((string) $secondCount)
@@ -492,7 +493,7 @@
                         >
                     </div>
                 @else
-                    <div class="relative mt-6 w-full border-b border-black pb-1 min-h-[1.5rem]">
+                    <div class="relative mt-6 flex w-full min-h-[1.75rem] items-center justify-center border-b border-black pb-1 text-center">
                         @include('partials.drawn-signature', [
                             'value' => $receivedBySignature ?: $legacyReceivedSig,
                             'printedName' => $receivedByName,
@@ -509,6 +510,11 @@
     .rr-print-sheet {
         min-height: 0 !important;
         height: auto !important;
+    }
+
+    .rr-print-sheet .signature-name-stack {
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .rr-address-textarea {
@@ -537,6 +543,11 @@
             min-height: 0 !important;
             height: auto !important;
             box-shadow: none !important;
+        }
+
+        .rr-print-sheet .signature-name-stack {
+            margin-left: auto !important;
+            margin-right: auto !important;
         }
 
         .rr-print-sheet .rr-or-card,

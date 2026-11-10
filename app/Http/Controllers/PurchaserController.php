@@ -67,8 +67,13 @@ class PurchaserController extends Controller
         try {
             $items = \App\Support\WorkflowNotifier::scopeVisibleTo(DB::table('notifications_table'), Auth::id(), 'Purchaser')
                 ->orderByDesc('notification_created_at')
-                ->limit(80)
-                ->get();
+                ->limit(40)
+                ->get([
+                    'notification_id',
+                    'notification_title',
+                    'notification_message',
+                    'notification_created_at',
+                ]);
         } catch (\Throwable $e) {
         }
 

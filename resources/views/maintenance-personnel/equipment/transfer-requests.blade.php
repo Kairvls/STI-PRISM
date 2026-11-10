@@ -71,7 +71,7 @@
                             <th class="px-5 py-3">Equipment</th>
                             <th class="px-5 py-3">Transfer to</th>
                             <th class="px-5 py-3">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="px-5 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">

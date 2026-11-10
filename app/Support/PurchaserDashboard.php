@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Data for the Purchaser dashboard. Workload counts come from PurchaserAttentionSummary (same numbers as
- * the daily reminder); spend and document figures come from PurchaserHistory (strictly this account's own).
+ * the daily reminder); document lists come from PurchaserHistory (strictly this account's own).
  */
 class PurchaserDashboard
 {
@@ -23,32 +23,17 @@ class PurchaserDashboard
         $documents = PurchaserHistory::allDocuments($userId)
             ->each(fn ($doc) => $doc->stage = self::stage($doc));
         $active = $documents->reject(fn ($doc) => $doc->is_archived);
-
-        $thisMonth = PurchaserHistory::summary($userId, ['from' => now()->startOfMonth()->toDateString()]);
-        $lastMonth = PurchaserHistory::summary($userId, [
-            'from' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
-            'to' => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
-        ]);
-        $allTime = PurchaserHistory::summary($userId, []);
+        $attention = PurchaserAttentionSummary::counts();
 
         return [
-            'attention' => PurchaserAttentionSummary::counts(),
+            'attention' => $attention,
             'handovers' => DraftHandover::incomingCounts(),
             'openBackOrders' => self::openBackOrders($documents),
             'backOrderReports' => self::backOrderReports($documents),
-            'thisMonth' => $thisMonth,
-            'spendChange' => self::percentChange($thisMonth['approved_spend'], $lastMonth['approved_spend']),
-            'lastMonthSpend' => (float) $lastMonth['approved_spend'],
-            'allTime' => $allTime,
-            'awaitingReview' => $active->where('stage', 'review')->count(),
-            'pipeline' => self::pipeline($active),
             'needsAction' => $active->where('stage', 'attention')->take(5)->values(),
-            'needsActionCount' => $active->where('stage', 'attention')->count(),
             'recent' => $documents->take(5)->values(),
             'recentTotal' => $documents->count(),
-            'monthlySpend' => PurchaserHistory::monthlySpend($userId),
-            'topSuppliers' => PurchaserHistory::suppliers($userId, [])->take(4)->values(),
-            'replacementCounts' => self::replacementCounts(),
+            'replacementCounts' => self::replacementCounts($attention),
         ];
     }
 
@@ -67,30 +52,6 @@ class PurchaserDashboard
             $doc->tone === 'red' => 'closed',
             default => 'review',
         };
-    }
-
-    /**
-     * Active documents per type, split by stage.
-     *
-     * @return array<string, array{label: string, total: int, stages: array<string, int>}>
-     */
-    private static function pipeline(Collection $active): array
-    {
-        $pipeline = [];
-        foreach (PurchaserHistory::DOCUMENT_TYPES as $type => $label) {
-            $ofType = $active->where('type', $type);
-            $stages = [];
-            foreach (array_keys(self::STAGES) as $stage) {
-                $stages[$stage] = $ofType->where('stage', $stage)->count();
-            }
-            $pipeline[$type] = [
-                'label' => $label,
-                'total' => $ofType->count(),
-                'stages' => $stages,
-            ];
-        }
-
-        return $pipeline;
     }
 
     private static function openBackOrders(Collection $documents): int
@@ -141,19 +102,11 @@ class PurchaserDashboard
             ->values();
     }
 
-    private static function percentChange(float $current, float $previous): ?int
-    {
-        if ($previous <= 0) {
-            return null;
-        }
-
-        return (int) round((($current - $previous) / $previous) * 100);
-    }
-
     /**
+     * @param  array<string, int>  $attention
      * @return array{pending: int, approved: int, completed: int}
      */
-    private static function replacementCounts(): array
+    private static function replacementCounts(array $attention): array
     {
         $counts = DB::table('procurement_requests_table')
             ->where('procurement_request_is_archived', false)
@@ -162,7 +115,7 @@ class PurchaserDashboard
             ->pluck('aggregate', 'procurement_request_status');
 
         return [
-            'pending' => (int) PurchaserAttentionSummary::counts()['pendingReplacementRequests'],
+            'pending' => (int) ($attention['pendingReplacementRequests'] ?? 0),
             'approved' => (int) ($counts['Approved'] ?? 0),
             'completed' => (int) ($counts['Completed'] ?? 0),
         ];

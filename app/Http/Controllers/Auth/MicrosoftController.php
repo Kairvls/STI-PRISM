@@ -24,7 +24,10 @@ class MicrosoftController extends Controller
 
     public function redirectToMicrosoft()
     {
-        if (request()->boolean('admin') || AdminLoginGate::isAdminIntent()) {
+        // Only ?admin=1 starts an admin OAuth attempt. Do not reuse a sticky
+        // session intent — visiting /admin/login earlier would otherwise force
+        // staff "Log in with Office 365" back onto the admin path.
+        if (request()->boolean('admin')) {
             AdminLoginGate::markAdminIntent();
 
             $key = $this->adminRateKey();
@@ -162,7 +165,7 @@ class MicrosoftController extends Controller
 
                     return redirect()
                         ->route('admin.login')
-                        ->with('error', 'This account is not an Administrator. Use the main staff sign-in instead.');
+                        ->with('error', 'Unable to sign in with this account.');
                 }
 
                 if (! AdminLoginGate::emailIsAllowed($email)) {
@@ -175,7 +178,7 @@ class MicrosoftController extends Controller
 
                     return redirect()
                         ->route('admin.login')
-                        ->with('error', 'This Administrator account is not allowed to sign in here.');
+                        ->with('error', 'Unable to sign in with this account.');
                 }
             } elseif (RoleAccess::isAdmin($user)) {
                 // Staff login must not admit administrators (and must not reveal /admin/login).

@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Support\DocumentLineage;
+use App\Support\DocumentRevisionNotes;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
@@ -75,15 +77,19 @@ class RequestForCheckController extends Controller
             $this->applyStatusFilter($query, $request->status);
         }
 
-        $dateFrom = $request->input('date_from', $request->input('date'));
-        $dateTo = $request->input('date_to');
+        $dateFrom = trim((string) $request->input('date_from', $request->input('date', '')));
+        $dateTo = trim((string) $request->input('date_to', ''));
 
-        if ($dateFrom) {
-            $query->whereDate('request_check_table.request_check_date', '>=', $dateFrom);
-        }
-
-        if ($dateTo) {
-            $query->whereDate('request_check_table.request_check_date', '<=', $dateTo);
+        // Single calendar pick (date_from only) = exact submitted day.
+        if ($dateFrom !== '' && $dateTo === '') {
+            $query->whereDate('request_check_table.request_check_date', $dateFrom);
+        } else {
+            if ($dateFrom !== '') {
+                $query->whereDate('request_check_table.request_check_date', '>=', $dateFrom);
+            }
+            if ($dateTo !== '') {
+                $query->whereDate('request_check_table.request_check_date', '<=', $dateTo);
+            }
         }
 
         DocumentUrgency::select($query, 'RFC');
@@ -113,7 +119,17 @@ class RequestForCheckController extends Controller
         $eligibleAtps = collect();
         $fundingGroups = [];
         $atpPrefill = [];
-        if (!$request->ajax()) {
+        $selectedSource = trim((string) $request->query('selected_source', ''));
+        if ($selectedSource === '' && $request->filled('selected_atp')) {
+            $selectedSource = 'atp:'.(int) $request->query('selected_atp');
+        }
+        $loadFormDatasets = ! $request->ajax()
+            && (
+                $request->boolean('create')
+                || $selectedSource !== ''
+                || ($request->session()->getOldInput('request_check_funding_source') !== null)
+            );
+        if ($loadFormDatasets) {
             $fundingType = $this->resolveFundingType($request);
             $eligibleAtps = $this->eligibleAtpQuery($fundingType)->get();
             foreach ($this->buildAtpPrefill($eligibleAtps, $fundingType) as $atpId => $row) {
@@ -160,6 +176,17 @@ class RequestForCheckController extends Controller
 
         $this->attachLinkedAtps($rfcs->getCollection());
 
+        $revisionRfcIds = $rfcs->getCollection()
+            ->filter(fn ($row) => filled($row->request_check_revision_notes ?? null))
+            ->pluck('request_check_id')
+            ->all();
+        DocumentRevisionNotes::warmLatest('RFC', $revisionRfcIds);
+
+        $rfcLineages = [];
+        if ($viewRfcId > 0) {
+            $rfcLineages[$viewRfcId] = DocumentLineage::forRfc($viewRfcId);
+        }
+
         foreach ($rfcs as $rfc) {
             $rrAtps = $rfcHasRr[(int) $rfc->request_check_id] ?? null;
             $linked = $rfc->linked_atp_ids ?? [];
@@ -168,11 +195,6 @@ class RequestForCheckController extends Controller
             $rfc->funds_released = !empty($rfc->request_check_funds_released_at ?? null);
             $rfc->sent_to_accounting = AccountingHandoff::rfcIsSentToAccounting($rfc);
             $rfc->can_send_to_accounting = AccountingHandoff::purchaserCanSendRfc($rfc);
-        }
-
-        $selectedSource = trim((string) $request->query('selected_source', ''));
-        if ($selectedSource === '' && $request->filled('selected_atp')) {
-            $selectedSource = 'atp:'.(int) $request->query('selected_atp');
         }
 
         return view('purchaser.request-check.index', [
@@ -190,7 +212,11 @@ class RequestForCheckController extends Controller
             'openCreate' => $request->boolean('create') || $selectedSource !== '',
             'viewRfcId' => $viewRfcId ?: null,
             'fundingTypeLabels' => ProcurementPaymentPath::labels(),
-            'savedSignatures' => UserSignatureLibrary::forUser((int) auth()->id()),
+            'savedSignatures' => ($loadFormDatasets || $viewRfcId > 0)
+                ? UserSignatureLibrary::forUser((int) auth()->id())
+                : collect(),
+            'rfcLineages' => $rfcLineages,
+            'loadFormDatasets' => $loadFormDatasets,
         ]);
     }
 
@@ -636,6 +662,16 @@ class RequestForCheckController extends Controller
             'authority_to_purchase_table.authority_purchase_payment_path',
             'authority_to_purchase_table.authority_purchase_status as atp_status',
         ];
+
+        if ($this->rfcHas('request_check_assigned_reviewer_id') && Schema::hasTable('users_table')) {
+            $query->leftJoin(
+                'users_table as rfc_reviewers',
+                'rfc_reviewers.user_id',
+                '=',
+                'request_check_table.request_check_assigned_reviewer_id'
+            );
+            $select[] = 'rfc_reviewers.user_full_name as assigned_reviewer_name';
+        }
 
         if (Schema::hasTable('receiving_reports_table')
             && $this->rfcHas('request_check_receiving_report_id')

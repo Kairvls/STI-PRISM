@@ -130,12 +130,6 @@ class MaintenanceController extends Controller
             ->where('borrowing_status', 'Borrowed')
             ->count();
 
-        DB::table('borrowing_records_table')
-            ->where('borrowing_status', 'Borrowed')
-            ->whereNotNull('borrowing_expected_return_date')
-            ->whereDate('borrowing_expected_return_date', '<', today())
-            ->update(['borrowing_status' => 'Overdue']);
-
 
         // =====================================================
         // PENDING REPORTS SUBMITTED TODAY
@@ -146,41 +140,6 @@ class MaintenanceController extends Controller
             ->whereDate('report_submitted_at', today())
             ->where('report_is_archived', false)
             ->count();
-
-
-        // =====================================================
-        // MARK OPEN REPORTS AS OVERDUE
-        // Submitted before today and still Pending / Processing
-        // =====================================================
-
-        $closedReportStatuses = \App\Support\ReportStatuses::closed();
-
-        DB::table('reports_table')
-            ->whereIn('report_current_status', $closedReportStatuses)
-            ->where('report_is_overdue', true)
-            ->update(['report_is_overdue' => false]);
-
-        DB::table('reports_table')
-            ->where('report_urgency_level', 'Urgent')
-            ->whereIn('report_current_status', ['Pending', 'Processing'])
-            ->where('report_is_archived', false)
-            ->whereDate('report_submitted_at', '<', today())
-            ->where('report_is_overdue', false)
-            ->update(['report_is_overdue' => true]);
-
-        DB::table('reports_table')
-            ->where('report_urgency_level', 'Non-Urgent')
-            ->whereIn('report_current_status', ['Pending', 'Processing'])
-            ->where('report_is_overdue', true)
-            ->update(['report_is_overdue' => false]);
-
-        ReportGrouping::applyNonUrgentReminderWindow(
-            DB::table('reports_table')
-                ->where('report_urgency_level', 'Non-Urgent')
-                ->whereIn('report_current_status', ['Pending', 'Processing'])
-                ->where('report_is_archived', false)
-                ->where('report_is_overdue', false)
-        )->update(['report_is_overdue' => true]);
 
 
         // =====================================================
@@ -290,48 +249,16 @@ class MaintenanceController extends Controller
         // USED BY ADD EQUIPMENT MODAL
         // =====================================================
 
-        $categories = DB::table('equipment_categories_table')
-            ->orderBy('equipment_category_name', 'asc')
-            ->get();
+        $categories = collect();
 
-        $usedAssetTags = DB::table('equipment_table')
-            ->whereNotNull('equipment_asset_tag')
-            ->where('equipment_asset_tag', '!=', '')
-            ->whereNotIn('equipment_inventory_status', ['Disposed'])
-            ->pluck('equipment_asset_tag');
-
+        $usedAssetTags = collect();
 
         // =====================================================
         // EQUIPMENT
         // USED BY SCHEDULE AND BORROWING MODALS
         // =====================================================
 
-        $equipment = DB::table('equipment_table')
-
-            ->leftJoin(
-                'rooms_table',
-                'equipment_table.equipment_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-
-            ->select(
-                'equipment_table.*',
-                'rooms_table.room_name'
-            )
-
-            ->where(
-                'equipment_table.equipment_inventory_status',
-                '!=',
-                'Disposed'
-            )
-
-            ->orderBy(
-                'equipment_table.equipment_name',
-                'asc'
-            )
-
-            ->get();
+        $equipment = collect();
 
         // Create-schedule modal: Active equipment with a generated QR (matches Schedules module)
         $scheduleEquipment = DB::table('equipment_table')
@@ -345,7 +272,10 @@ class MaintenanceController extends Controller
             ->whereNotNull('equipment_table.equipment_qr_code')
             ->where('equipment_table.equipment_qr_code', '!=', '')
             ->select(
-                'equipment_table.*',
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_qr_code',
                 'rooms_table.room_name'
             )
             ->orderBy('equipment_name')
@@ -587,167 +517,15 @@ class MaintenanceController extends Controller
         ];
 
 
-        // =====================================================
-        // NEW DASHBOARD DATA
-        //
-        // TOP 5 LOCATIONS WITH THE MOST REPORTS
-        // =====================================================
-
-        $reportsByLocation = DB::table('reports_table')
-
-            ->join(
-                'rooms_table',
-                'reports_table.report_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-
-            ->where(
-                'reports_table.report_is_archived',
-                false
-            )
-
-            ->select(
-                'rooms_table.room_id',
-
-                'rooms_table.room_name'
-            )
-
-            ->selectRaw(
-                'COUNT(reports_table.report_id) AS report_count'
-            )
-
-            ->groupBy(
-                'rooms_table.room_id',
-
-                'rooms_table.room_name'
-            )
-
-            ->orderByDesc(
-                'report_count'
-            )
-
-            ->limit(5)
-
-            ->get();
-
-
-        // =====================================================
-        // NEW DASHBOARD DATA
-        //
-        // RESOLUTION RATE
-        //
-        // COMPLETED REPORTS ARE:
-        //
-        // RESOLVED
-        // REJECTED
-        // FOR REPLACEMENT
-        //
-        // RESOLUTION RATE =
-        //
-        // RESOLVED / COMPLETED REPORTS * 100
-        // =====================================================
-
-        $resolvedReportCount =
-            DB::table('reports_table')
-
-                ->where(
-                    'report_current_status',
-                    'Resolved'
-                )
-
-                ->count();
-
-
-        $completedReportCount =
-            DB::table('reports_table')
-
-                ->whereIn(
-                    'report_current_status',
-                    [
-                        'Resolved',
-                        'Rejected',
-                        'For Replacement',
-                    ]
-                )
-
-                ->count();
-
-
-        $resolutionRate =
-            $completedReportCount > 0
-
-                ? round(
-
-                    (
-                        $resolvedReportCount
-                        /
-                        $completedReportCount
-                    )
-
-                    * 100
-
-                )
-
-                : 0;
-
-
-        // =====================================================
-        // NEW DASHBOARD DATA
-        //
-        // LOCATION HEALTH SUMMARY
-        // =====================================================
-
-        $rooms = BuildingLayout3D::rooms();
-
+        $reportsByLocation = collect();
+        $resolutionRate = 0;
+        $rooms = collect();
         $locationHealth = [
-
-            'normal' =>
-
-                $rooms
-                    ->where(
-                        'dashboard_status',
-                        'available'
-                    )
-                    ->count(),
-
-
-            'maintenance_needed' =>
-
-                $rooms
-                    ->whereIn(
-                        'dashboard_status',
-                        [
-                            'needs-repair',
-                            'maintenance',
-                        ]
-                    )
-                    ->count(),
-
-
-            'critical' =>
-
-                $rooms
-                    ->where(
-                        'dashboard_status',
-                        'critical'
-                    )
-                    ->count(),
-
+            'normal' => 0,
+            'maintenance_needed' => 0,
+            'critical' => 0,
         ];
-
-
-        // =====================================================
-        // NEW DASHBOARD DATA
-        //
-        // MOST REPORTED LOCATION
-        //
-        // REUSE TOP LOCATION QUERY RESULT
-        // =====================================================
-
-        $mostReportedLocation =
-            $reportsByLocation->first();
-
+        $mostReportedLocation = null;
 
         // =====================================================
         // RECENT ACTIVITIES
@@ -2114,107 +1892,143 @@ class MaintenanceController extends Controller
         $now = now();
         $yearNow = (int) $now->format('Y');
 
-        $buildSlice = function ($from, $to): array {
-            $statusQuery = DB::table('reports_table')
-                ->where('report_is_archived', false);
-
-            if ($from && $to) {
-                $statusQuery->whereBetween('report_submitted_at', [$from, $to]);
-            }
-
-            $statusRows = $statusQuery
-                ->select('report_current_status')
-                ->selectRaw('COUNT(*) AS status_count')
-                ->groupBy('report_current_status')
-                ->pluck('status_count', 'report_current_status');
-
-            $pending = (int) $statusRows->get('Pending', 0);
-            $processing = (int) $statusRows->get('Processing', 0);
-            $resolved = (int) $statusRows->get('Resolved', 0);
-            $replacement = (int) $statusRows->get('For Replacement', 0);
-            $rejected = (int) $statusRows->get('Rejected', 0);
-            $submitted = $pending + $processing + $resolved + $replacement + $rejected;
-            $accepted = max(0, $submitted - $rejected);
-            $actioned = $processing + $resolved + $replacement;
-            $closed = $resolved + $replacement;
-
-            $overdueQuery = DB::table('maintenance_schedules_table')
-                ->where(function ($query) {
-                    $query
-                        ->where('maintenance_schedule_status', 'Overdue')
-                        ->orWhere(function ($activePastDue) {
-                            $activePastDue
-                                ->where('maintenance_schedule_status', 'Active')
-                                ->whereDate(
-                                    'maintenance_schedule_next_date',
-                                    '<',
-                                    today()
-                                );
-                        });
-                });
-
-            if ($from && $to) {
-                $overdueQuery->whereBetween(
-                    'maintenance_schedule_next_date',
-                    [$from->toDateString(), $to->toDateString()]
-                );
-            }
-
-            $overdue = (int) $overdueQuery->count();
-            $open = $pending + $overdue;
-            $fillPercent = $open > 0
-                ? min(92, max(18, (int) round(($pending / max(1, $open)) * 100)))
-                : 22;
-            $handled = $open > 0
-                ? max(0, 100 - (int) round(($overdue / max(1, $open)) * 100))
-                : 100;
-
-            return [
-                'pending' => $pending,
-                'overdue' => $overdue,
-                'open' => $open,
-                'handled' => $handled,
-                'fill_percent' => $fillPercent,
-                'wave_y' => 200 - (($fillPercent / 100) * 200),
-                'reports' => [
-                    'pending' => $pending,
-                    'processing' => $processing,
-                    'resolved' => $resolved,
-                    'replacement' => $replacement,
-                    'rejected' => $rejected,
-                    'submitted' => $submitted,
-                    'accepted' => $accepted,
-                    'actioned' => $actioned,
-                    'closed' => $closed,
-                ],
-            ];
-        };
-
-        $periods = [
-            'week' => $buildSlice($now->copy()->startOfWeek(), $now->copy()->endOfWeek()),
-            'month' => $buildSlice($now->copy()->startOfMonth(), $now->copy()->endOfMonth()),
-            'year' => $buildSlice($now->copy()->startOfYear(), $now->copy()->endOfYear()),
-            'all' => $buildSlice(null, null),
-        ];
-
-        $years = [];
-        for ($year = $yearNow; $year >= $yearNow - 3; $year--) {
-            $years[$year] = $buildSlice(
-                $now->copy()->setYear($year)->startOfYear(),
-                $now->copy()->setYear($year)->endOfYear()
-            );
-        }
-
+        // First paint: only the default "all" slice. Other periods/years load on demand.
         return [
             'period' => 'all',
             'year' => $yearNow,
-            'periods' => $periods,
-            'years' => $years,
+            'periods' => [
+                'all' => $this->dashboardMetricsSlice(null, null),
+            ],
+            'years' => [],
             'periodLabels' => [
                 'week' => 'Week',
                 'month' => 'Month',
                 'year' => 'Year',
                 'all' => 'All',
+            ],
+            'metrics_url' => url('/maintenance/dashboard/metrics'),
+            'year_options' => range($yearNow, $yearNow - 3),
+        ];
+    }
+
+    /**
+     * Lazy metrics slice for dashboard period/year toggles.
+     */
+    public function dashboardMetrics(Request $request)
+    {
+        $now = now();
+        $period = (string) $request->query('period', '');
+        $year = (int) $request->query('year', 0);
+
+        if ($year >= 2000 && $year <= ((int) $now->format('Y') + 1)) {
+            return response()->json([
+                'ok' => true,
+                'kind' => 'year',
+                'key' => (string) $year,
+                'slice' => $this->dashboardMetricsSlice(
+                    $now->copy()->setYear($year)->startOfYear(),
+                    $now->copy()->setYear($year)->endOfYear()
+                ),
+            ]);
+        }
+
+        $ranges = [
+            'week' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+            'month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'all' => [null, null],
+        ];
+
+        if (! isset($ranges[$period])) {
+            return response()->json(['ok' => false, 'message' => 'Unknown period'], 422);
+        }
+
+        [$from, $to] = $ranges[$period];
+
+        return response()->json([
+            'ok' => true,
+            'kind' => 'period',
+            'key' => $period,
+            'slice' => $this->dashboardMetricsSlice($from, $to),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dashboardMetricsSlice($from, $to): array
+    {
+        $statusQuery = DB::table('reports_table')
+            ->where('report_is_archived', false);
+
+        if ($from && $to) {
+            $statusQuery->whereBetween('report_submitted_at', [$from, $to]);
+        }
+
+        $statusRows = $statusQuery
+            ->select('report_current_status')
+            ->selectRaw('COUNT(*) AS status_count')
+            ->groupBy('report_current_status')
+            ->pluck('status_count', 'report_current_status');
+
+        $pending = (int) $statusRows->get('Pending', 0);
+        $processing = (int) $statusRows->get('Processing', 0);
+        $resolved = (int) $statusRows->get('Resolved', 0);
+        $replacement = (int) $statusRows->get('For Replacement', 0);
+        $rejected = (int) $statusRows->get('Rejected', 0);
+        $submitted = $pending + $processing + $resolved + $replacement + $rejected;
+        $accepted = max(0, $submitted - $rejected);
+        $actioned = $processing + $resolved + $replacement;
+        $closed = $resolved + $replacement;
+
+        $overdueQuery = DB::table('maintenance_schedules_table')
+            ->where(function ($query) {
+                $query
+                    ->where('maintenance_schedule_status', 'Overdue')
+                    ->orWhere(function ($activePastDue) {
+                        $activePastDue
+                            ->where('maintenance_schedule_status', 'Active')
+                            ->whereDate(
+                                'maintenance_schedule_next_date',
+                                '<',
+                                today()
+                            );
+                    });
+            });
+
+        if ($from && $to) {
+            $overdueQuery->whereBetween(
+                'maintenance_schedule_next_date',
+                [$from->toDateString(), $to->toDateString()]
+            );
+        }
+
+        $overdue = (int) $overdueQuery->count();
+        $open = $pending + $overdue;
+        $fillPercent = $open > 0
+            ? min(92, max(18, (int) round(($pending / max(1, $open)) * 100)))
+            : 22;
+        $handled = $open > 0
+            ? max(0, 100 - (int) round(($overdue / max(1, $open)) * 100))
+            : 100;
+
+        return [
+            'pending' => $pending,
+            'overdue' => $overdue,
+            'open' => $open,
+            'handled' => $handled,
+            'fill_percent' => $fillPercent,
+            'wave_y' => 200 - (($fillPercent / 100) * 200),
+            'reports' => [
+                'pending' => $pending,
+                'processing' => $processing,
+                'resolved' => $resolved,
+                'replacement' => $replacement,
+                'rejected' => $rejected,
+                'submitted' => $submitted,
+                'accepted' => $accepted,
+                'actioned' => $actioned,
+                'closed' => $closed,
             ],
         ];
     }

@@ -423,8 +423,10 @@
 }
 
 .pur-modal-is-fullscreen > form {
-    flex: 1 0 auto;
-    min-height: auto;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     height: auto;
     background-color: #fff;
 }
@@ -434,6 +436,9 @@
 .pur-modal-is-fullscreen > form > .bg-gray-100,
 .pur-modal-is-fullscreen > .bg-slate-100,
 .pur-modal-is-fullscreen > .bg-gray-100 {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
     min-height: calc(100dvh - 4.75rem);
     padding: 1rem 1.25rem;
 }
@@ -453,22 +458,39 @@
 .pur-modal-is-fullscreen .ris-edit-form.is-fullscreen,
 .pur-modal-is-fullscreen .ris-original-form.is-fullscreen {
     max-width: none !important;
-    width: 100%;
-    min-height: calc(100dvh - 14rem);
+    width: 100% !important;
+    flex: 1 1 auto;
+    min-height: calc(100dvh - 14rem) !important;
+    height: auto !important;
     box-shadow: none;
+}
+
+/* Keep attachments / trailing blocks under the stretched paper */
+.pur-modal-is-fullscreen .bg-slate-100 > .atp-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .rfc-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .liq-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .dv-print-sheet + *,
+.pur-modal-is-fullscreen .bg-slate-100 > .ris-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .atp-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .rfc-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .liq-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .dv-print-sheet + *,
+.pur-modal-is-fullscreen .bg-gray-100 > .ris-print-sheet + * {
+    flex-shrink: 0;
 }
 
 /* RR paper: full width in fullscreen, but do not stretch height (breaks Check vs OR grid) */
 .pur-modal-is-fullscreen .rr-print-sheet {
     max-width: none !important;
-    width: 100%;
+    width: 100% !important;
+    flex: 0 0 auto;
     min-height: 0 !important;
     height: auto !important;
     box-shadow: none;
 }
 
 .pur-modal-is-fullscreen .dv-print-sheet > table.dv-grid {
-    min-height: calc(100dvh - 16rem);
+    min-height: calc(100dvh - 16rem) !important;
 }
 
 .pur-modal-is-fullscreen [id^="purSigSlot-"],

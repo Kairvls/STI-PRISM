@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\AtpRisSuppliers;
+use App\Support\DocumentLineage;
 use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
 use App\Support\ReplacementRequestBasket;
@@ -74,11 +75,11 @@ class RisController extends Controller
                 DB::raw('CASE WHEN requisition_issue_slip_table.ris_issued_by_signature IS NOT NULL AND TRIM(requisition_issue_slip_table.ris_issued_by_signature) != "" THEN 1 ELSE 0 END as has_issued_by_signature'),
                 DB::raw('CASE WHEN requisition_issue_slip_table.ris_approved_by_signature IS NOT NULL AND TRIM(requisition_issue_slip_table.ris_approved_by_signature) != "" THEN 1 ELSE 0 END as has_approved_by_signature'),
                 DB::raw('CASE WHEN requisition_issue_slip_table.ris_received_by_signature IS NOT NULL AND TRIM(requisition_issue_slip_table.ris_received_by_signature) != "" THEN 1 ELSE 0 END as has_received_by_signature'),
+                DB::raw("(CASE WHEN requisition_issue_slip_table.ris_approved_by_signature LIKE 'data:image%' THEN 1 ELSE 0 END) AS ris_president_sig_image"),
+                DB::raw("(CASE WHEN NULLIF(TRIM(requisition_issue_slip_table.ris_issued_by_signature), '') IS NOT NULL THEN 1 ELSE 0 END) AS ris_has_issued_by"),
                 'procurement_requests_table.procurement_request_id',
                 'procurement_requests_table.procurement_request_status',
                 'reports_table.report_id',
-                'reports_table.report_problem_description',
-                'reports_table.report_replacement_notes',
                 'reports_table.report_unlisted_equipment_name',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_asset_tag',
@@ -91,10 +92,6 @@ class RisController extends Controller
 
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
             $risQuery->addSelect('requisition_issue_slip_table.ris_request_no');
-        }
-
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')) {
-            $risQuery->addSelect('requisition_issue_slip_table.ris_requested_by_signature_image');
         }
 
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approval_by')) {
@@ -267,9 +264,19 @@ class RisController extends Controller
 
         // Dashboard counts
         $risSummary = $this->risStatusSummary();
+        $isAjax = $request->ajax();
+        $editRisId = (int) $request->session()->get('edit_ris', 0);
+        $loadFormDatasets = ! $isAjax && (
+            $request->boolean('create')
+            || $request->filled('replacement_request')
+            || $request->filled('copy_from')
+            || $editRisId > 0
+            || $request->session()->hasOldInput()
+        );
+
         $availableReplacementRequests = collect();
         $replacementSourceError = null;
-        if (!$request->ajax()) {
+        if ($loadFormDatasets) {
             $availableReplacementRequests = $this->availableReplacementRequests();
             $requestedReplacementId = (int) $request->query('replacement_request', 0);
             if ($requestedReplacementId > 0) {
@@ -301,24 +308,23 @@ class RisController extends Controller
             }
         }
 
-        $isAjax = $request->ajax();
-        $activeSuppliers = $isAjax ? collect() : $this->activeSuppliersForRis();
-        $uoms = ($isAjax || !$this->uomTableExists())
-            ? collect()
-            : DB::table('uom_table')->orderBy('uom_name')->get();
-        $brands = ($isAjax || !$this->brandsTableExists())
-            ? collect()
-            : DB::table('brands_table')
+        $activeSuppliers = $loadFormDatasets ? $this->activeSuppliersForRis() : collect();
+        $uoms = ($loadFormDatasets && $this->uomTableExists())
+            ? DB::table('uom_table')->orderBy('uom_name')->get()
+            : collect();
+        $brands = ($loadFormDatasets && $this->brandsTableExists())
+            ? DB::table('brands_table')
                 ->where('brand_status', 'Active')
                 ->orderBy('brand_name')
-                ->get();
-        $itemCatalog = ($isAjax || !Schema::hasTable('items_table'))
-            ? collect()
-            : DB::table('items_table')
+                ->get()
+            : collect();
+        $itemCatalog = ($loadFormDatasets && Schema::hasTable('items_table'))
+            ? DB::table('items_table')
                 ->where('item_status', 'Active')
                 ->orderBy('item_id')
-                ->get(['item_id', 'item_name']);
-        $itemHints = $isAjax ? [] : $this->itemBrandUnitHints();
+                ->get(['item_id', 'item_name'])
+            : collect();
+        $itemHints = $loadFormDatasets ? $this->itemBrandUnitHints() : [];
 
         $supplierIdsOnPage = $risRecords->getCollection()->pluck('ris_supplier_id')->filter()->unique()->values();
         $supplierNames = $this->supplierOptionsForRis(false, $supplierIdsOnPage)->keyBy('supplier_id');
@@ -326,16 +332,39 @@ class RisController extends Controller
             $ris->supplier_display_name = optional($supplierNames->get($ris->ris_supplier_id ?? null))->display_name;
         }
 
-        $risCopyPrefill = $isAjax ? null : $this->risCopyPrefillFromRequest($request);
-        $defaultRequestedBy = $isAjax
-            ? null
-            : (trim((string) (Auth::user()->user_full_name ?? '')) ?: ($risCopyPrefill['requested_by'] ?? ''));
-        $defaultRequestedByDate = $isAjax
-            ? null
-            : ($risCopyPrefill['requested_by_date'] ?? now()->format('d/m/Y'));
-        $savedSignatures = $isAjax
-            ? collect()
-            : UserSignatureLibrary::forUser((int) Auth::id());
+        $risCopyPrefill = $loadFormDatasets ? $this->risCopyPrefillFromRequest($request) : null;
+        $defaultRequestedBy = $loadFormDatasets
+            ? (trim((string) (Auth::user()->user_full_name ?? '')) ?: ($risCopyPrefill['requested_by'] ?? ''))
+            : null;
+        $defaultRequestedByDate = $loadFormDatasets
+            ? ($risCopyPrefill['requested_by_date'] ?? now()->format('d/m/Y'))
+            : null;
+        $savedSignatures = ($loadFormDatasets || $viewRisId > 0 || $editRisId > 0)
+            ? UserSignatureLibrary::forUser((int) Auth::id())
+            : collect();
+
+        $risLineages = [];
+        if ($viewRisId > 0) {
+            $risLineages[$viewRisId] = DocumentLineage::forRis($viewRisId);
+        }
+
+        // Signature image blobs only for the open/edit spotlight (list paper uses typed/drawn overlays already on row).
+        if (
+            ($viewRisId > 0 || $editRisId > 0)
+            && Schema::hasColumn('requisition_issue_slip_table', 'ris_requested_by_signature_image')
+        ) {
+            $spotlightIds = array_values(array_unique(array_filter([(int) $viewRisId, (int) $editRisId])));
+            $images = DB::table('requisition_issue_slip_table')
+                ->whereIn('ris_id', $spotlightIds)
+                ->get(['ris_id', 'ris_requested_by_signature_image'])
+                ->keyBy('ris_id');
+            foreach ($risRecords as $ris) {
+                $img = $images->get((int) $ris->ris_id);
+                if ($img) {
+                    $ris->ris_requested_by_signature_image = $img->ris_requested_by_signature_image;
+                }
+            }
+        }
 
         return view('purchaser.ris.index', compact(
             'attentionFocus',
@@ -355,7 +384,9 @@ class RisController extends Controller
             'defaultRequestedBy',
             'defaultRequestedByDate',
             'savedSignatures',
-            'archiveView'
+            'archiveView',
+            'risLineages',
+            'loadFormDatasets'
         ));
     }
 
@@ -1969,7 +2000,15 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     // RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
     public function downloadAttachment($attachmentId)
     {
-        [$attachment] = $this->canvasAttachmentForRequest($attachmentId);
+        [$attachment] = $this->canvasAttachmentForRequest($attachmentId, requireFile: false);
+
+        if (! Storage::disk('public')->exists($attachment->ris_attachment_path)) {
+            return response(
+                $this->canvasMissingFileHtml((string) $attachment->ris_attachment_original_name),
+                404,
+                ['Content-Type' => 'text/html; charset=UTF-8']
+            );
+        }
 
         return Storage::disk('public')->download(
             $attachment->ris_attachment_path,
@@ -1979,7 +2018,15 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     public function previewAttachment($attachmentId)
     {
-        [$attachment] = $this->canvasAttachmentForRequest($attachmentId);
+        [$attachment] = $this->canvasAttachmentForRequest($attachmentId, requireFile: false);
+
+        if (! Storage::disk('public')->exists($attachment->ris_attachment_path)) {
+            return response(
+                $this->canvasMissingFileHtml((string) $attachment->ris_attachment_original_name),
+                404,
+                ['Content-Type' => 'text/html; charset=UTF-8']
+            );
+        }
 
         return $this->previewStoredFile(
             (string) $attachment->ris_attachment_path,
@@ -2798,7 +2845,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         ]);
     }
 
-    private function canvasAttachmentForRequest($attachmentId): array
+    private function canvasAttachmentForRequest($attachmentId, bool $requireFile = true): array
     {
         $attachment = DB::table('ris_attachments_table')
             ->where('ris_attachment_id', $attachmentId)
@@ -2823,7 +2870,9 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             PurchaserDocumentAccess::assertOwns($ris, 'ris');
         }
 
-        abort_if(! Storage::disk('public')->exists($attachment->ris_attachment_path), 404);
+        if ($requireFile) {
+            abort_if(! Storage::disk('public')->exists($attachment->ris_attachment_path), 404);
+        }
 
         return [$attachment, $ris];
     }
@@ -3197,6 +3246,22 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             .'.card{max-width:28rem;margin:4rem auto;padding:1.5rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px}'
             .'a{color:#0025cc}</style></head><body><div class="card"><p>This file cannot be shown in the browser.</p>'
             .'<p><strong>'.$safeName.'</strong></p><p><a href="'.$safeUrl.'">Download the file</a></p></div></body></html>';
+    }
+
+    private function canvasMissingFileHtml(string $name): string
+    {
+        $safeName = e($name !== '' ? $name : 'Canvas file');
+
+        return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>File unavailable</title>'
+            .'<style>body{margin:0;font-family:Segoe UI,sans-serif;background:#f8fafc;color:#0f172a}'
+            .'.card{max-width:28rem;margin:4rem auto;padding:1.5rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px}'
+            .'p{margin:0 0 .75rem;line-height:1.45;color:#475569}'
+            .'strong{color:#0f172a}</style></head><body><div class="card">'
+            .'<p><strong>This Canvas file is no longer on the server.</strong></p>'
+            .'<p>'.$safeName.'</p>'
+            .'<p>The record is still linked, but the uploaded file is missing from storage. '
+            .'Open the RIS in Edit and upload the Canvas file again.</p>'
+            .'</div></body></html>';
     }
 
     private function sanitizePreviewHtml(string $html): string

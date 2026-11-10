@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Schema;
  */
 class DocumentLineage
 {
-    public static function forRis(int $risId): array
+    public static function forRis(int $risId, ?object $ris = null): array
     {
         $chain = self::emptyChain();
-        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+        $ris ??= DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
         $chain['ris'] = self::node(
             'RIS',
             $risId,
@@ -69,6 +69,58 @@ class DocumentLineage
         }
 
         return self::extendFromAtp($chain, $atp);
+    }
+
+    /**
+     * Lightweight RIS node only (no ATP/RFC chain lookups) for closed list modals.
+     */
+    public static function stubRis(object $ris): array
+    {
+        $risId = (int) ($ris->ris_id ?? 0);
+        $chain = self::emptyChain();
+        $chain['ris'] = self::node(
+            'RIS',
+            $risId,
+            RisWorkflow::formNumber($ris, $risId),
+            route('purchaser.ris.index', ['view_ris' => $risId]),
+            self::reviewHintForRis($ris)
+        );
+
+        return $chain;
+    }
+
+    /**
+     * Lightweight ATP node only (no RFC/RR/LIQ lookups) for closed list modals.
+     */
+    public static function stubAtp(object $atp): array
+    {
+        $chain = self::emptyChain();
+        $chain['atp'] = self::node(
+            'ATP',
+            (int) $atp->authority_purchase_id,
+            $atp->authority_purchase_form_number ?? ('ATP #'.$atp->authority_purchase_id),
+            route('purchaser.atp.index', ['view_atp' => $atp->authority_purchase_id]),
+            self::reviewHint(RisWorkflow::atpStatusLabel($atp), null, 'atp')
+        );
+
+        return $chain;
+    }
+
+    /**
+     * Lightweight RFC node only (no RR/LIQ lookups) for closed list modals.
+     */
+    public static function stubRfc(object $rfc): array
+    {
+        $chain = self::emptyChain();
+        $chain['rfc'] = self::node(
+            'RFC',
+            (int) $rfc->request_check_id,
+            $rfc->request_check_form_number ?? ('RFC #'.$rfc->request_check_id),
+            route('purchaser.rfc.index', ['view_rfc' => $rfc->request_check_id]),
+            self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
+        );
+
+        return $chain;
     }
 
     /**

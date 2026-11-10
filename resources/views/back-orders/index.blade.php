@@ -212,7 +212,7 @@
                         <th class="px-5 py-3">Reason</th>
                         <th class="px-5 py-3">Expected delivery</th>
                         <th class="px-5 py-3">Status</th>
-                        <th class="px-5 py-3 text-right">Action</th>
+                        <th class="px-5 py-3 text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">

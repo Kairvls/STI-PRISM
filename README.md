@@ -308,3 +308,10 @@ for the entire procurement process, for every tables from ris to lr put a dedica
 in the purchaser officer system dashboard retain/restay this part (image 1) and simplify & update the contents also (remove unnecessary information/details) then avoid using not important to have subtitle
 
 if not cash advance like Direct Payment/Cash Installment make the Payee is 
+
+
+how do we make the chat system much more reliable/important should we make it like any procurement forms like RIS, ATP, RFC, DV, RR, LR can be drag to messages to be send... like that or what
+
+make it it will open the form shows not new tab of the system like on the second image
+
+when got new messages that hasn't read yet

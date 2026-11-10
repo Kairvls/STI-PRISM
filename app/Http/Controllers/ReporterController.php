@@ -7,7 +7,6 @@ use App\Support\ComputerSets;
 use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
-use App\Support\ReportItems;
 use App\Support\ReporterPins;
 use App\Support\ReportSeverity;
 use App\Support\SuggestedIssues;
@@ -317,52 +316,6 @@ class ReporterController extends Controller
             ];
         });
 
-        $currentMonth = now()->copy()->startOfMonth();
-        $monthStart = $currentMonth->copy()->startOfDay();
-        $monthEnd = $currentMonth->copy()->endOfMonth()->endOfDay();
-        $daysInMonth = (int) $currentMonth->daysInMonth;
-
-        $monthlyDayCounts = collect();
-        if ($reportsQuery) {
-            $monthlyDayCounts = (clone $reportsQuery)
-                ->selectRaw('DAY(report_submitted_at) as day_num, COUNT(*) as total')
-                ->whereBetween('report_submitted_at', [$monthStart, $monthEnd])
-                ->when(
-                    Schema::hasColumn('reports_table', 'report_is_archived'),
-                    fn ($query) => $query->where('report_is_archived', false)
-                )
-                ->groupBy(DB::raw('DAY(report_submitted_at)'))
-                ->pluck('total', 'day_num');
-        }
-
-        $monthlyReportDays = collect();
-        $monthlyReportMax = 1;
-        for (
-            $cursor = $monthStart->copy();
-            $cursor->month === $currentMonth->month && $cursor->year === $currentMonth->year;
-            $cursor->addDay()
-        ) {
-            $day = (int) $cursor->day;
-            $count = (int) ($monthlyDayCounts[$day] ?? 0);
-            $monthlyReportMax = max($monthlyReportMax, $count);
-            $monthlyReportDays->push((object) [
-                'day' => $day,
-                'count' => $count,
-                'date' => $cursor->toDateString(),
-            ]);
-        }
-
-        $monthlyReportDays = $monthlyReportDays->map(function ($item) use ($monthlyReportMax) {
-            $item->height = $item->count > 0
-                ? max(10, (int) round(($item->count / $monthlyReportMax) * 100))
-                : 6;
-            $item->isPeak = $item->count === $monthlyReportMax && $item->count > 0;
-            return $item;
-        });
-
-        $monthlyReportTotal = (int) $monthlyReportDays->sum('count');
-        $monthlyReportLabel = now()->format('F Y');
-
         $yearStart = now()->copy()->startOfYear()->startOfDay();
         $yearEnd = now()->copy()->endOfYear()->endOfDay();
         $yearlyReportTotal = 0;
@@ -376,141 +329,6 @@ class ReporterController extends Controller
                 ->count();
         }
         $yearlyReportYear = (int) now()->year;
-
-        $monthlyStatusCounts = [
-            'Pending' => 0,
-            'Processing' => 0,
-            'Resolved' => 0,
-        ];
-        if ($reportsQuery) {
-            $statusRows = (clone $reportsQuery)
-                ->selectRaw('report_current_status as status, COUNT(*) as total')
-                ->whereBetween('report_submitted_at', [$monthStart, $monthEnd])
-                ->when(
-                    Schema::hasColumn('reports_table', 'report_is_archived'),
-                    fn ($query) => $query->where('report_is_archived', false)
-                )
-                ->groupBy('report_current_status')
-                ->pluck('total', 'status');
-
-            foreach ($monthlyStatusCounts as $status => $_) {
-                $monthlyStatusCounts[$status] = (int) ($statusRows[$status] ?? 0);
-            }
-        }
-
-        $equipmentReportedTodayCount = 0;
-        $latestReportedEquipmentToday = collect();
-
-        if ($reportsQuery) {
-            $entries = collect();
-
-            if (ReportItems::tableExists()) {
-                $itemQuery = ReportItems::itemsQuery()
-                    ->join('reports_table', 'report_items_table.report_id', '=', 'reports_table.report_id')
-                    ->leftJoin('rooms_table as report_rooms', 'reports_table.report_room_id', '=', 'report_rooms.room_id');
-
-                if (Schema::hasTable('floors_table')) {
-                    $itemQuery->leftJoin(
-                        'floors_table as report_floors',
-                        'report_rooms.room_floor_id',
-                        '=',
-                        'report_floors.floor_id'
-                    );
-                }
-
-                $itemQuery
-                    ->whereDate('reports_table.report_submitted_at', today())
-                    ->when(
-                        Schema::hasColumn('reports_table', 'report_is_archived'),
-                        fn ($query) => $query->where('reports_table.report_is_archived', false)
-                    )
-                    ->addSelect([
-                        'reports_table.report_submitted_at',
-                        'report_rooms.room_name as report_room_name',
-                    ]);
-
-                if (Schema::hasTable('floors_table')) {
-                    $itemQuery->addSelect('report_floors.floor_level as report_floor_level');
-                }
-
-                foreach ($itemQuery
-                    ->orderByDesc('reports_table.report_submitted_at')
-                    ->orderByDesc('report_items_table.report_item_id')
-                    ->get() as $item) {
-                    $entries->push((object) [
-                        'equipment_name' => ReportItems::displayName($item),
-                        'identifier' => $this->formatEquipmentIdentifier($item),
-                        'location' => $this->formatReportLocation($item),
-                        'submitted_at' => $item->report_submitted_at,
-                    ]);
-                }
-            }
-
-            $legacyQuery = (clone $reportsQuery)
-                ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-                ->leftJoin('rooms_table as report_rooms', 'reports_table.report_room_id', '=', 'report_rooms.room_id');
-
-            if (Schema::hasTable('floors_table')) {
-                $legacyQuery->leftJoin(
-                    'floors_table as report_floors',
-                    'report_rooms.room_floor_id',
-                    '=',
-                    'report_floors.floor_id'
-                );
-            }
-
-            if (ReportItems::tableExists()) {
-                $legacyQuery->whereNotIn('reports_table.report_id', function ($sub) {
-                    $sub->select('report_id')->from('report_items_table');
-                });
-            }
-
-            $legacySelect = [
-                'reports_table.report_submitted_at',
-                'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name',
-                'equipment_table.equipment_asset_tag',
-                'equipment_table.equipment_serial_number',
-                'equipment_table.equipment_current_location',
-                'report_rooms.room_name as report_room_name',
-            ];
-
-            if (Schema::hasTable('floors_table')) {
-                $legacySelect[] = 'report_floors.floor_level as report_floor_level';
-            }
-
-            foreach ($legacyQuery
-                ->whereDate('reports_table.report_submitted_at', today())
-                ->when(
-                    Schema::hasColumn('reports_table', 'report_is_archived'),
-                    fn ($query) => $query->where('reports_table.report_is_archived', false)
-                )
-                ->select($legacySelect)
-                ->orderByDesc('reports_table.report_submitted_at')
-                ->get() as $report) {
-                $name = trim((string) ($report->equipment_name ?? ''));
-                if ($name === '') {
-                    $name = trim((string) ($report->report_unlisted_equipment_name ?? ''));
-                }
-                if ($name === '') {
-                    $name = 'Unlisted equipment';
-                }
-
-                $entries->push((object) [
-                    'equipment_name' => $name,
-                    'identifier' => $this->formatEquipmentIdentifier($report),
-                    'location' => $this->formatReportLocation($report),
-                    'submitted_at' => $report->report_submitted_at,
-                ]);
-            }
-
-            $equipmentReportedTodayCount = $entries->count();
-
-            $latestReportedEquipmentToday = $entries
-                ->sortByDesc('submitted_at')
-                ->take(3)
-                ->values();
-        }
 
         $campusBuildings = $rooms
             ->groupBy(fn ($room) => $room->building_name ?: 'Campus Building')
@@ -567,16 +385,9 @@ class ReporterController extends Controller
             'qrTaggedCount',
             'buildings',
             'upcomingSchedules',
-            'monthlyReportDays',
-            'monthlyReportTotal',
-            'monthlyReportLabel',
-            'daysInMonth',
-            'monthlyStatusCounts',
             'campusBuildings',
             'yearlyReportTotal',
-            'yearlyReportYear',
-            'equipmentReportedTodayCount',
-            'latestReportedEquipmentToday'
+            'yearlyReportYear'
         ));
     }
 
@@ -983,45 +794,5 @@ class ReporterController extends Controller
         ]);
     }
 
-    private function formatEquipmentIdentifier(object $row): string
-    {
-        $tag = trim((string) ($row->equipment_asset_tag ?? ''));
-        if ($tag !== '') {
-            return $tag;
-        }
-
-        $serial = trim((string) ($row->equipment_serial_number ?? ''));
-        if ($serial !== '') {
-            return $serial;
-        }
-
-        return '—';
-    }
-
-    private function formatReportLocation(object $row): string
-    {
-        $reportRoom = trim((string) ($row->report_room_name ?? ''));
-        $reportFloor = $row->report_floor_level ?? null;
-        $equipmentRoom = trim((string) ($row->room_name ?? ''));
-        $currentLocation = trim((string) ($row->equipment_current_location ?? ''));
-
-        if ($reportRoom !== '') {
-            if ($reportFloor !== null && $reportFloor !== '') {
-                return $reportFloor.' - '.$reportRoom;
-            }
-
-            return $reportRoom;
-        }
-
-        if ($equipmentRoom !== '') {
-            return $equipmentRoom;
-        }
-
-        if ($currentLocation !== '') {
-            return $currentLocation;
-        }
-
-        return '—';
-    }
 }
 

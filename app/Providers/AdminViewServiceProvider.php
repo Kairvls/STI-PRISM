@@ -17,7 +17,12 @@ class AdminViewServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer(
-            ['layouts.admin-sidebar', 'layouts.admin-topbar', 'layouts.school-admin-sidebar'],
+            [
+                'layouts.admin-sidebar',
+                'layouts.admin-topbar',
+                'layouts.school-admin-sidebar',
+                'admin.partials.ris-phase-tabs',
+            ],
             function ($view) {
                 $adminSidebarPendingRis = 0;
                 $adminSidebarAwaitingCosign = 0;

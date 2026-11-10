@@ -10,6 +10,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\AtpFormNumber;
 use App\Support\AtpRisSuppliers;
+use App\Support\DocumentLineage;
+use App\Support\DocumentRevisionNotes;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
@@ -114,7 +116,7 @@ class AuthorityToPurchaseController extends Controller
                     ->orWhere('equipment_table.equipment_name', 'LIKE', $search)
                     ->orWhere('reports_table.report_unlisted_equipment_name', 'LIKE', $search);
                 if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
-                    $q->orWhere('authority_to_purchase_table.authority_purchase_request_no', 'LIKE', $search);
+                    $subQuery->orWhere('authority_to_purchase_table.authority_purchase_request_no', 'LIKE', $search);
                 }
             });
         }
@@ -171,9 +173,25 @@ class AuthorityToPurchaseController extends Controller
 
         $atpSummary = $this->atpStatusSummary();
 
-        $risChoices = $this->buildRisOptions($this->eligibleRisQuery()->limit(200)->get());
-        $risOptions = $risChoices['options'];
-        $risPrefill = $risChoices['prefill'];
+        $loadFormDatasets = filled($selectedRisId)
+            || filled($editAtpId)
+            || $request->boolean('create')
+            || ($request->session()->getOldInput('authority_purchase_ris_id') !== null);
+
+        $risOptions = [];
+        $risPrefill = [];
+        $suppliers = collect();
+        $uomNames = collect();
+
+        if ($loadFormDatasets) {
+            $risChoices = $this->buildRisOptions($this->eligibleRisQuery()->limit(200)->get());
+            $risOptions = $risChoices['options'];
+            $risPrefill = $risChoices['prefill'];
+            $suppliers = $this->activeSuppliersQuery()->get();
+            $uomNames = Schema::hasTable('uom_table')
+                ? DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->values()
+                : collect();
+        }
 
         // Create ATP from Incoming RIS, but that RIS already has a live ATP → open it instead.
         if (
@@ -201,18 +219,15 @@ class AuthorityToPurchaseController extends Controller
             }
         }
 
-        $suppliers = $this->activeSuppliersQuery()->get();
-        $uomNames = Schema::hasTable('uom_table')
-            ? DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->values()
-            : collect();
-
         $atpIds = $atps->getCollection()->pluck('authority_purchase_id');
 
-        $atpItems = DB::table('authority_to_purchase_items_table')
-            ->whereIn('authority_purchase_id', $atpIds)
-            ->orderBy('atp_item_id')
-            ->get()
-            ->groupBy('authority_purchase_id');
+        $atpItems = $atpIds->isEmpty()
+            ? collect()
+            : DB::table('authority_to_purchase_items_table')
+                ->whereIn('authority_purchase_id', $atpIds)
+                ->orderBy('atp_item_id')
+                ->get()
+                ->groupBy('authority_purchase_id');
 
         $supplierBreakdown = AtpRisSuppliers::breakdown(
             $atps->getCollection()
@@ -222,8 +237,25 @@ class AuthorityToPurchaseController extends Controller
 
         $atpHasRfc = RfcAtpLinks::fundedAtpIds($atpIds->all());
         $poFundedAtpIds = PurchaseOrderFunding::poFundedAtpIds($atpIds->all());
+        $poMap = PurchaseOrderBasket::mapForAtps($atpIds->all());
+
+        $revisionAtpIds = $atps->getCollection()
+            ->filter(fn ($row) => filled($row->authority_purchase_rejection_reason ?? null))
+            ->pluck('authority_purchase_id')
+            ->all();
+        DocumentRevisionNotes::warmLatest('ATP', $revisionAtpIds);
+
+        $lineageAtpIds = array_values(array_unique(array_filter([
+            (int) $viewAtpId,
+            (int) $editAtpId,
+        ])));
+        $atpLineages = [];
+        foreach ($lineageAtpIds as $lineageId) {
+            $atpLineages[$lineageId] = DocumentLineage::forAtp($lineageId);
+        }
 
         foreach ($atps as $atp) {
+            $atpId = (int) $atp->authority_purchase_id;
             $atp->ris_supplier_position = null;
             $atp->ris_supplier_total = 0;
             if ((int) ($atp->authority_purchase_ris_supplier_split ?? 0) === 1) {
@@ -232,23 +264,13 @@ class AuthorityToPurchaseController extends Controller
                 $atp->ris_supplier_position = $group['position'] ?? null;
                 $atp->ris_supplier_total = count($groups);
             }
-            $atp->has_rfc = in_array((int) $atp->authority_purchase_id, $atpHasRfc, true);
-            $atp->funds_via_po = in_array((int) $atp->authority_purchase_id, $poFundedAtpIds, true);
-            $atp->purchase_order_id = PurchaseOrderBasket::poIdForAtp((int) $atp->authority_purchase_id);
-            if ($atp->purchase_order_id && PurchaseOrderBasket::tablesExist()) {
-                $po = DB::table('purchase_orders_table')
-                    ->where('purchase_order_id', $atp->purchase_order_id)
-                    ->first();
-                $atp->purchase_order_label = $po
-                    ? PurchaseOrderBasket::displayNumber($po)
-                    : null;
-                $atp->purchase_order_status = $po->purchase_order_status ?? null;
-                $atp->purchase_order_atp_count = PurchaseOrderBasket::atpCount((int) $atp->purchase_order_id);
-            } else {
-                $atp->purchase_order_label = null;
-                $atp->purchase_order_status = null;
-                $atp->purchase_order_atp_count = 0;
-            }
+            $atp->has_rfc = in_array($atpId, $atpHasRfc, true);
+            $atp->funds_via_po = in_array($atpId, $poFundedAtpIds, true);
+            $poMeta = $poMap[$atpId] ?? null;
+            $atp->purchase_order_id = $poMeta['purchase_order_id'] ?? null;
+            $atp->purchase_order_label = $poMeta['purchase_order_label'] ?? null;
+            $atp->purchase_order_status = $poMeta['purchase_order_status'] ?? null;
+            $atp->purchase_order_atp_count = (int) ($poMeta['purchase_order_atp_count'] ?? 0);
             $atp->submits_via_po = false; // PO workflow retired
             $atp->released_to_purchaser = SupplyHandoff::atpIsReleasedToPurchaser($atp);
             $atp->can_release_to_purchaser = ($atp->authority_purchase_status ?? null) === 'Approved'
@@ -256,8 +278,10 @@ class AuthorityToPurchaseController extends Controller
                 && ProcurementPortal::isSupplyOfficerContext();
         }
 
-        $savedSignatures = UserSignatureLibrary::forUser((int) auth()->id());
-        $suggestedAtpFormNumber = AtpFormNumber::next();
+        $savedSignatures = $loadFormDatasets || filled($viewAtpId) || filled($editAtpId)
+            ? UserSignatureLibrary::forUser((int) auth()->id())
+            : collect();
+        $suggestedAtpFormNumber = $loadFormDatasets ? AtpFormNumber::next() : null;
 
         return view(
             'purchaser.authority-to-purchase.index',
@@ -276,7 +300,9 @@ class AuthorityToPurchaseController extends Controller
                 'editAtpId',
                 'risPrefill',
                 'savedSignatures',
-                'suggestedAtpFormNumber'
+                'suggestedAtpFormNumber',
+                'atpLineages',
+                'loadFormDatasets'
             )
         );
     }

@@ -354,13 +354,157 @@ class RequestExplorer
         ];
     }
 
-    private static function viewUrlFor(string $key, int $id): ?string
+    /**
+     * Build a chat-shareable card for one procurement document.
+     *
+     * @return array{
+     *   type: string,
+     *   id: int,
+     *   title: string,
+     *   label: string,
+     *   status: string|null,
+     *   url: string|null
+     * }|null
+     */
+    public static function shareCard(string $key, int $id): ?array
+    {
+        $key = strtolower(trim($key));
+        if ($key === 'lr') {
+            $key = 'liq';
+        }
+
+        if ($id < 1 || ! in_array($key, self::STAGE_ORDER, true)) {
+            return null;
+        }
+
+        $row = match ($key) {
+            'ris' => Schema::hasTable('requisition_issue_slip_table')
+                ? DB::table('requisition_issue_slip_table')->where('ris_id', $id)->first()
+                : null,
+            'atp' => Schema::hasTable('authority_to_purchase_table')
+                ? DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->first()
+                : null,
+            'rfc' => Schema::hasTable('request_check_table')
+                ? DB::table('request_check_table')->where('request_check_id', $id)->first()
+                : null,
+            'dv' => Schema::hasTable('disbursement_vouchers_table')
+                ? DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first()
+                : null,
+            'rr' => Schema::hasTable('receiving_reports_table')
+                ? DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first()
+                : null,
+            'liq' => Schema::hasTable('liquidation_reports_table')
+                ? DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first()
+                : null,
+            default => null,
+        };
+
+        if (! $row) {
+            return null;
+        }
+
+        [$formNumber, $status, $draftLabel, $requestNo] = match ($key) {
+            'ris' => [
+                (string) (data_get($row, 'ris_form_number') ?? ''),
+                (string) (data_get($row, 'ris_status') ?? ''),
+                'Draft RIS',
+                (string) (data_get($row, 'ris_request_no') ?? ''),
+            ],
+            'atp' => [
+                (string) (data_get($row, 'authority_purchase_form_number') ?? ''),
+                (string) (data_get($row, 'authority_purchase_status') ?? ''),
+                'Draft ATP',
+                '',
+            ],
+            'rfc' => [
+                (string) (data_get($row, 'request_check_form_number') ?? ''),
+                (string) (data_get($row, 'request_check_status') ?? ''),
+                'Draft RFC',
+                '',
+            ],
+            'dv' => [
+                (string) (data_get($row, 'dv_form_number') ?? ''),
+                (string) (data_get($row, 'dv_status') ?? ''),
+                'Draft DV',
+                '',
+            ],
+            'rr' => [
+                (string) (data_get($row, 'receiving_report_form_number') ?? ''),
+                (string) (data_get($row, 'receiving_report_status') ?? ''),
+                'Draft RR',
+                '',
+            ],
+            'liq' => [
+                (string) (data_get($row, 'liquidation_report_form_number') ?? ''),
+                (string) (data_get($row, 'liquidation_report_status') ?? ''),
+                'Draft LR',
+                '',
+            ],
+            default => ['', '', 'Draft document', ''],
+        };
+
+        $formNumber = trim($formNumber);
+        $requestNo = trim($requestNo);
+        // Prefer formal form number; never expose internal DB ids like "RIS #13".
+        if ($formNumber !== '') {
+            $label = $formNumber;
+        } elseif ($requestNo !== '') {
+            $label = $draftLabel.' · '.$requestNo;
+        } else {
+            $label = $draftLabel;
+        }
+
+        return [
+            'type' => $key,
+            'id' => $id,
+            'title' => self::STAGE_LABELS[$key] ?? strtoupper($key),
+            'label' => $label,
+            'status' => $status !== '' ? $status : null,
+            'url' => self::viewUrlFor($key, $id),
+        ];
+    }
+
+    /**
+     * Human label for Share UI (modal subtitle). Form number when present; otherwise Draft …
+     * Never uses internal DB ids (#13).
+     */
+    public static function shareUiLabel(string $key, ?string $formNumber, ?string $requestNo = null): string
+    {
+        $key = strtolower(trim($key));
+        if ($key === 'lr') {
+            $key = 'liq';
+        }
+
+        $draft = match ($key) {
+            'ris' => 'Draft RIS',
+            'atp' => 'Draft ATP',
+            'rfc' => 'Draft RFC',
+            'dv' => 'Draft DV',
+            'rr' => 'Draft RR',
+            'liq' => 'Draft LR',
+            default => 'Draft document',
+        };
+
+        $formNumber = trim((string) $formNumber);
+        if ($formNumber !== '') {
+            return $formNumber;
+        }
+
+        $requestNo = trim((string) $requestNo);
+        if ($requestNo !== '') {
+            return $draft.' · '.$requestNo;
+        }
+
+        return $draft;
+    }
+
+    private static function viewUrlFor(string $key, int $id, ?string $portal = null): ?string
     {
         if ($id < 1) {
             return null;
         }
 
-        $portal = self::viewerPortal();
+        $portal = $portal ?: self::viewerPortal();
 
         if (in_array($portal, ['admin', 'school-admin'], true)
             && in_array($key, ['ris', 'atp', 'rfc', 'rr', 'liq'], true)
@@ -372,17 +516,24 @@ class RequestExplorer
             }
         }
 
+        // Prefer the *current viewer's* portal so shared "Open RIS" links
+        // don't send a Supply Officer to /purchaser/ris (403).
         $candidates = match ($key) {
             'ris' => [
                 ['purchaser.ris.index', ['view_ris' => $id]],
-                ['supply-officer.ris.index', ['view_ris' => $id]],
+                ['supply-officer.incoming-ris.show', ['risId' => $id]],
+                ['supply-officer.dashboard.preview-ris', ['ris' => $id]],
+                ['president.ris.view', ['ris' => $id]],
+                ['accounting.ris.show', ['id' => $id]],
             ],
             'atp' => [
                 ['supply-officer.atp.index', ['view_atp' => $id]],
                 ['purchaser.atp.index', ['view_atp' => $id]],
+                ['accounting.atp.index', ['view_atp' => $id]],
             ],
             'rfc' => [
                 ['purchaser.rfc.index', ['view_rfc' => $id]],
+                ['accounting.rfc.index', ['view_rfc' => $id]],
             ],
             'dv' => [
                 ['accounting.dv.show', ['id' => $id]],
@@ -420,6 +571,35 @@ class RequestExplorer
         }
 
         return null;
+    }
+
+    /**
+     * Open URL for a procurement document in the current viewer's portal.
+     */
+    public static function documentOpenUrl(string $key, int $id): ?string
+    {
+        return self::viewUrlFor($key, $id);
+    }
+
+    /**
+     * Open URL for a procurement document as if the viewer were on a given portal.
+     */
+    public static function documentOpenUrlForPortal(string $key, int $id, string $portal): ?string
+    {
+        return self::viewUrlFor($key, $id, $portal);
+    }
+
+    /**
+     * URL template with __ID__ placeholder for client-side share card rendering.
+     */
+    public static function documentOpenUrlTemplate(string $key): ?string
+    {
+        $url = self::viewUrlFor($key, 987654321);
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        return str_replace('987654321', '__ID__', $url);
     }
 
     private static function viewerPortal(): string

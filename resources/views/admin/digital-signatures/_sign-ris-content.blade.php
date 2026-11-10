@@ -74,7 +74,7 @@
                     ])
 
                     <a
-                        href="{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris.export-pdf', ['filter' => $filter, 'search' => $search]) }}"
+                        href="{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? ''])) }}"
                         title="Export the current Sign RIS table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >
@@ -115,21 +115,14 @@
                     @endforeach
                 </div>
 
-                <div class="relative w-full lg:max-w-sm">
-                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
-                    </svg>
-                    <input
-                        id="signRisLiveSearch"
-                        type="search"
-                        name="search"
-                        value="{{ $search }}"
-                        placeholder="Search RIS, Request No., requester, equipment…"
-                        autocomplete="off"
-                        title="Search RIS records"
-                        class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                    >
-                </div>
+                @include('admin.partials.ris-submitted-date-search', [
+                    'search' => $search,
+                    'submittedDate' => $submittedDate ?? '',
+                    'searchInputId' => 'signRisLiveSearch',
+                    'dateInputId' => 'signRisSubmittedDate',
+                    'dateBtnId' => 'signRisSubmittedDateBtn',
+                    'dateClearId' => 'signRisSubmittedDateClear',
+                ])
             </div>
         </div>
 

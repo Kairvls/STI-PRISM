@@ -89,7 +89,7 @@
 
         @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $reports->total()])
 
-        <form method="GET" action="{{ route('receiving.rr.index') }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <form method="GET" action="{{ route('receiving.rr.index') }}" data-auto-filter data-list-panel="#roRrTable" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <input type="hidden" name="status" value="{{ $filter }}">
             @if($focusKey)
                 <input type="hidden" name="focus" value="{{ $focusKey }}">
@@ -145,7 +145,7 @@
                 </nav>
             </div>
 
-            <div id="roRrTable" class="overflow-x-auto">
+            <div id="roRrTable" data-list-panel-root class="overflow-x-auto">
                 <table class="w-full min-w-[960px] text-sm">
                     <thead class="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
@@ -154,7 +154,7 @@
                             <th class="px-5 py-3.5">RFC</th>
                             <th class="px-5 py-3.5">Received from</th>
                             <th class="px-5 py-3.5">Status</th>
-                            <th class="px-5 py-3.5">Action</th>
+                            <th class="px-5 py-3.5 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -178,11 +178,11 @@
                                     @if($requestNo !== '')
                                         @include('partials.procurement-request-no', ['requestNo' => $requestNo, 'inline' => true, 'showLabel' => false])
                                     @else
-                                        <span class="text-slate-400">â€”</span>
+                                        <span class="text-slate-400">—</span>
                                     @endif
                                 </td>
-                                <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? 'â€”' }}</td>
-                                <td class="px-5 py-4 text-slate-600">{{ $rr->receiving_report_received_from ?? 'â€”' }}</td>
+                                <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? '—' }}</td>
+                                <td class="px-5 py-4 text-slate-600">{{ $rr->receiving_report_received_from ?? '—' }}</td>
                                 <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $displayStatus])</td>
                                 <td class="px-5 py-4">
                                     <div class="flex flex-wrap items-center gap-2">
@@ -193,6 +193,11 @@
                                         >
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
+                                        @include('partials.share-document-button', [
+                                            'type' => 'rr',
+                                            'id' => $rr->receiving_report_id,
+                                            'label' => \App\Support\RequestExplorer::shareUiLabel('rr', $rr->receiving_report_form_number ?? null),
+                                        ])
                                         <button
                                             type="button"
                                             @click="printRr({{ $rr->receiving_report_id }})"
@@ -243,11 +248,11 @@
                     @include('receiving-officer.partials.list-info-card', [
                         'title' => $rr->receiving_report_form_number,
                         'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
-                        'subtitle' => 'Request No.: '.($requestNo !== '' ? $requestNo : 'â€”').' Â· RFC: '.($rr->request_check_form_number ?? 'â€”'),
+                        'subtitle' => 'Request No.: '.($requestNo !== '' ? $requestNo : '—').' · RFC: '.($rr->request_check_form_number ?? '—'),
                         'status' => $displayStatus,
                         'statusClass' => 'border-slate-200 bg-slate-50 text-slate-700',
                         'fields' => [
-                            ['label' => 'From', 'value' => $rr->receiving_report_received_from ?? 'â€”'],
+                            ['label' => 'From', 'value' => $rr->receiving_report_received_from ?? '—'],
                             ['label' => 'Status', 'value' => $displayStatus],
                         ],
                         'actionsHtml' => $actionsHtml,
@@ -294,7 +299,7 @@
                                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                                 @endif
                             </div>
-                            <p class="text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? 'â€”' }}</p>
+                            <p class="text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#0025cc] text-white hover:bg-blue-800" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
@@ -334,7 +339,7 @@
                         <div class="flex items-center justify-between gap-3 border-b px-6 py-5">
                             <div>
                                 <h3 class="text-xl font-semibold">Confirm Second Count</h3>
-                                <p class="text-sm text-gray-500">{{ $rr->receiving_report_form_number }} Â· Sign Second Count on the document below</p>
+                                <p class="text-sm text-gray-500">{{ $rr->receiving_report_form_number }} · Sign Second Count on the document below</p>
                             </div>
                             <button type="button" @click="signOpen = false" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600" title="Close" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
@@ -366,7 +371,7 @@
                                     <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
                                         <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
                                             <div>
-                                                <p class="text-sm font-semibold text-gray-800">Item inspection Â· second verification</p>
+                                                <p class="text-sm font-semibold text-gray-800">Item inspection · second verification</p>
                                                 <p class="text-xs text-gray-500">
                                                     The Purchaser's first check is filled in. Correct the received or damaged count if yours differs.
                                                     Missing and damaged units stay on back order and the RR is marked Incomplete until they are delivered.
@@ -400,11 +405,11 @@
                                                             <td class="py-2 pr-3 text-gray-800">
                                                                 {{ $line->receiving_report_item_article ?: 'Item' }}
                                                                 @if($lineLabel)
-                                                                    <span class="block text-[11px] font-semibold {{ $lineLabel['new'] ? 'text-violet-700' : 'text-sky-700' }}">{{ $lineLabel['label'] }}{{ filled($line->receiving_report_item_supplier_name ?? null) ? ' Â· '.$line->receiving_report_item_supplier_name : '' }}</span>
+                                                                    <span class="block text-[11px] font-semibold {{ $lineLabel['new'] ? 'text-violet-700' : 'text-sky-700' }}">{{ $lineLabel['label'] }}{{ filled($line->receiving_report_item_supplier_name ?? null) ? ' · '.$line->receiving_report_item_supplier_name : '' }}</span>
                                                                 @endif
                                                             </td>
-                                                            <td class="py-2 pr-3 text-center text-gray-600">{{ $lineOrdered ?? 'â€”' }}</td>
-                                                            <td class="py-2 pr-3 text-center text-xs text-gray-500">{{ $lineQty }} received{{ $lineDamaged > 0 ? ' Â· '.$lineDamaged.' damaged' : '' }}</td>
+                                                            <td class="py-2 pr-3 text-center text-gray-600">{{ $lineOrdered ?? '—' }}</td>
+                                                            <td class="py-2 pr-3 text-center text-xs text-gray-500">{{ $lineQty }} received{{ $lineDamaged > 0 ? ' · '.$lineDamaged.' damaged' : '' }}</td>
                                                             <td class="py-2 pr-3">
                                                                 <input
                                                                     type="number"

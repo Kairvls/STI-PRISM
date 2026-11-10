@@ -172,7 +172,7 @@
 
             <i data-lucide="clipboard-check"></i>
 
-            <span>RIS</span>
+            <span>RIS Approval Requests</span>
 
             @if($saCounts['ris'] > 0)
                 <span class="{{ $navCount }}" title="{{ $saCounts['ris'] }} not viewed yet">{{ $saCounts['ris'] }}</span>
@@ -185,7 +185,7 @@
             class="menu-item {{ request()->is('school-admin/authority-to-purchase*') ? 'active' : '' }}"
         >
             <i data-lucide="file-check"></i>
-            <span>ATP Requests</span>
+            <span>ATP Approval Requests</span>
             @if($saCounts['atp'] > 0)
                 <span class="{{ $navCount }}" title="{{ $saCounts['atp'] }} not viewed yet">{{ $saCounts['atp'] }}</span>
             @endif
@@ -207,7 +207,7 @@
             class="menu-item {{ request()->is('school-admin/disbursement-vouchers*') ? 'active' : '' }}"
         >
             <i data-lucide="file-spreadsheet"></i>
-            <span>DV Requests</span>
+            <span>DV Approval Requests</span>
             @if($saCounts['dv'] > 0)
                 <span class="{{ $navCount }}" title="{{ $saCounts['dv'] }} not viewed yet">{{ $saCounts['dv'] }}</span>
             @endif

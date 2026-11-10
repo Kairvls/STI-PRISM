@@ -14,7 +14,7 @@
         inset: 0;
         transform: translateX(-100%);
         background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.65) 50%, rgba(255, 255, 255, 0) 100%);
-        animation: prism-skel-shimmer 1.4s ease-in-out infinite;
+        animation: prism-skel-shimmer 0.55s ease-in-out infinite;
     }
 
     .prism-skel-round {

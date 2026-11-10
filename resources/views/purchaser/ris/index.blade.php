@@ -79,7 +79,7 @@
         'editRisModal' => $editRisId > 0 ? 'edit-ris-' . $editRisId : null,
         'createRisModal' => $editRisId > 0
             ? false
-            : ($errors->any() || request()->filled('replacement_request') || $openCreateFromCopy),
+            : ($errors->any() || request()->filled('replacement_request') || request()->boolean('create') || $openCreateFromCopy),
         'createItems' => $createItemsInit,
         'risDefaultRows' => $risDefaultRows,
         'risMaxRows' => $risMaxRows,
@@ -870,7 +870,7 @@
                     this.showCreateSigNotice(err.message || 'Could not save signature to your list.');
                 }
             } else if (this.createSaveOnDraw && this.savedSignatures.length >= this.maxSavedSignatures) {
-                this.showCreateSigNotice('Signature applied. List is full (4 max) â€” remove one to save this drawing.');
+                this.showCreateSigNotice('Signature applied. List is full (4 max) — remove one to save this drawing.');
             }
             if (shouldSubmit) {
                 this.submitCreateRisForm();
@@ -909,7 +909,7 @@
                 this.applyCreateSignature(dataUrl || '');
                 if (this.createSaveOnUpload) {
                     if (this.savedSignatures.length >= this.maxSavedSignatures) {
-                        this.showCreateSigNotice('Signature applied. List is full (4 max) â€” remove one to save this upload.');
+                        this.showCreateSigNotice('Signature applied. List is full (4 max) — remove one to save this upload.');
                     } else {
                         const label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
                         await this.saveSignatureToLibrary({ file, label });
@@ -1194,24 +1194,15 @@
                 requestUrl = query ? `${form.action}?${query}` : form.action;
             }
 
-            this.recordsLoading = true;
+            const absUrl = new URL(requestUrl, window.location.origin).href;
+            const cachedHtml = window.PrismListCache?.get?.(absUrl) || null;
+
+            this.recordsLoading = !cachedHtml;
             this.filterError = null;
             this.openModal = null;
             this.editRisModal = null;
 
-            try {
-                const response = await fetch(requestUrl, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'text/html'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Unable to refresh RIS records.');
-                }
-
-                const html = await response.text();
+            const applyRisHtml = (html) => {
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
 
                 const nextRecords = parsed.querySelector('#ris-records-section');
@@ -1251,8 +1242,47 @@
                     window.bindPageCarousels();
                 }
 
-                const nextUrl = new URL(requestUrl, window.location.origin);
+                const nextUrl = new URL(absUrl, window.location.origin);
                 window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
+            };
+
+            try {
+                if (cachedHtml) {
+                    applyRisHtml(cachedHtml);
+                    this.recordsLoading = false;
+                    fetch(absUrl, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                        credentials: 'same-origin',
+                    })
+                        .then((response) => {
+                            if (!response.ok) throw new Error('Unable to refresh RIS records.');
+                            return response.text();
+                        })
+                        .then((html) => {
+                            window.PrismListCache?.set?.(absUrl, html);
+                            if (html !== cachedHtml) {
+                                applyRisHtml(html);
+                            }
+                        })
+                        .catch(() => {});
+                    return;
+                }
+
+                const response = await fetch(absUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'text/html'
+                    },
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Unable to refresh RIS records.');
+                }
+
+                const html = await response.text();
+                window.PrismListCache?.set?.(absUrl, html);
+                applyRisHtml(html);
             } catch (error) {
                 console.error(error);
                 this.filterError = 'Could not refresh records. Please try again.';
@@ -1314,7 +1344,16 @@
 
                 <button
                     type="button"
-                    x-on:click="lockedReplacement = false; selectedReplacement = ''; copiedFromRisId = null; createRisFullscreen = false; createRisModal = true"
+                    x-on:click="
+                        @if(empty($loadFormDatasets))
+                        window.location.href = @js(route(($pp ?? 'purchaser').'.ris.index', array_filter([
+                            'view' => !empty($archiveView) ? 'archive' : null,
+                            'create' => 1,
+                        ])));
+                        @else
+                        lockedReplacement = false; selectedReplacement = ''; copiedFromRisId = null; createRisFullscreen = false; createRisModal = true
+                        @endif
+                    "
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
@@ -2343,9 +2382,9 @@
                                     <p class="mt-0.5 truncate text-sm font-semibold text-slate-950">
                                         Request #<span x-text="selectedReplacement"></span>
                                         <span class="font-normal text-slate-500" x-show="selectedReplacementData()">
-                                            Â· <span x-text="selectedReplacementData()?.equipment"></span>
-                                            <span x-show="selectedReplacementData()?.room"> Â· <span x-text="selectedReplacementData()?.room"></span></span>
-                                            <span x-show="(selectedReplacementData()?.item_count || 0) > 1"> Â· <span x-text="selectedReplacementData()?.item_count"></span> items</span>
+                                            · <span x-text="selectedReplacementData()?.equipment"></span>
+                                            <span x-show="selectedReplacementData()?.room"> · <span x-text="selectedReplacementData()?.room"></span></span>
+                                            <span x-show="(selectedReplacementData()?.item_count || 0) > 1"> · <span x-text="selectedReplacementData()?.item_count"></span> items</span>
                                         </span>
                                     </p>
                                 </div>
@@ -2387,9 +2426,9 @@
                                                 <p class="truncate font-medium text-slate-900" x-text="line.name"></p>
                                                 <p class="mt-0.5 truncate text-[11px] leading-4 text-slate-400">
                                                     <span x-show="line.brand" x-text="line.brand"></span>
-                                                    <span x-show="line.brand && line.model"> Â· </span>
+                                                    <span x-show="line.brand && line.model"> · </span>
                                                     <span x-show="line.model" x-text="line.model"></span>
-                                                    <span x-show="(line.brand || line.model) && line.room"> Â· </span>
+                                                    <span x-show="(line.brand || line.model) && line.room"> · </span>
                                                     <span x-show="line.room" x-text="line.room"></span>
                                                     <span x-show="!line.brand && !line.model && !line.room" class="text-slate-300">No brand / model on record</span>
                                                 </p>
@@ -2471,12 +2510,12 @@
                                     {{ (string) old('ris_procurement_request_id', request('replacement_request')) === (string) $replacementRequest->procurement_request_id ? 'selected' : '' }}
                                 >
                                     Request #{{ $replacementRequest->procurement_request_id }}
-                                    â€¢ {{ $replacementEquipment }}
+                                    • {{ $replacementEquipment }}
                                     @if($replacementItemCount > 1)
-                                        â€¢ {{ $replacementItemCount }} items
+                                        • {{ $replacementItemCount }} items
                                     @endif
                                     @if($replacementRoom)
-                                        â€¢ {{ $replacementRoom }}
+                                        • {{ $replacementRoom }}
                                     @endif
                                 </option>
                             @endforeach
@@ -2521,9 +2560,9 @@
                                                 <p class="truncate font-medium text-slate-900" x-text="line.name"></p>
                                                 <p class="mt-0.5 truncate text-[11px] leading-4 text-slate-400">
                                                     <span x-show="line.brand" x-text="line.brand"></span>
-                                                    <span x-show="line.brand && line.model"> Â· </span>
+                                                    <span x-show="line.brand && line.model"> · </span>
                                                     <span x-show="line.model" x-text="line.model"></span>
-                                                    <span x-show="(line.brand || line.model) && line.room"> Â· </span>
+                                                    <span x-show="(line.brand || line.model) && line.room"> · </span>
                                                     <span x-show="line.room" x-text="line.room"></span>
                                                     <span x-show="!line.brand && !line.model && !line.room" class="text-slate-300">No brand / model on record</span>
                                                 </p>
@@ -2591,7 +2630,7 @@
                                                     </span>
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
-                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' â€” ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
+                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2631,7 +2670,7 @@
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="text" readonly tabindex="-1" value="" placeholder="â€”" title="Issued is filled by the School Administrator or the President" class="pointer-events-none w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-400 outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="text" readonly tabindex="-1" value="" placeholder="—" title="Issued is filled by the School Administrator or the President" class="pointer-events-none w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-400 outline-none focus:ring-0 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
@@ -2820,7 +2859,7 @@
                                 </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
-                                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional Â· PNG, JPG, or similar Â· can be saved to your list</span>
+                                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or similar · can be saved to your list</span>
                                     <span x-show="createSigUploadName" x-cloak class="mt-1 block truncate text-[11px] font-medium text-slate-600" x-text="createSigUploadName"></span>
                                 </span>
                                 <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
@@ -2853,7 +2892,7 @@
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
-                                    <p class="truncate text-[11px] text-slate-500">Required to submit Â· 1 file Â· Word, Excel, or PDF</p>
+                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word, Excel, or PDF</p>
                                 </div>
                             </div>
 
@@ -2893,7 +2932,7 @@
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-medium text-slate-800">Upload file</p>
-                                        <p class="truncate text-[10px] text-slate-500">One file only Â· Word, Excel, or PDF</p>
+                                        <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
                                     </div>
                                 </label>
                             </div>
@@ -3235,7 +3274,7 @@
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
-                        <th class="py-3 pl-3 pr-5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="py-3 pl-3 pr-5 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -3262,7 +3301,7 @@
                             <td class="px-3 py-3.5">
                                 @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
                                 @if(blank($ris->ris_request_no ?? null))
-                                    <span class="text-xs text-gray-400">â€”</span>
+                                    <span class="text-xs text-gray-400">—</span>
                                 @endif
                             </td>
 
@@ -3279,8 +3318,8 @@
                                     @php $attachment = $ris->risAttachments->first(); @endphp
                                     <a
                                         href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
-                                        target="_blank"
-                                        rel="noopener"
+                                        data-file-preview
+                                        data-file-preview-title="{{ $attachment->ris_attachment_original_name }}"
                                         class="inline-flex max-w-[7.5rem] items-center gap-1.5 text-xs font-medium text-sky-600 transition hover:text-sky-700 hover:underline"
                                         title="View {{ $attachment->ris_attachment_original_name }}"
                                     >
@@ -3315,8 +3354,8 @@
                                             @foreach($ris->risAttachments as $attachment)
                                                 <a
                                                     href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
-                                        target="_blank"
-                                        rel="noopener"
+                                                    data-file-preview
+                                                    data-file-preview-title="{{ $attachment->ris_attachment_original_name }}"
                                                     class="block truncate px-3 py-2 text-sm font-medium text-sky-600 hover:bg-sky-50 hover:underline"
                                                     title="{{ $attachment->ris_attachment_original_name }}"
                                                 >
@@ -3393,6 +3432,17 @@
                                         aria-label="View"
                                     >
                                         <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-share-doc-type="ris"
+                                        data-share-doc-id="{{ (int) $ris->ris_id }}"
+                                        data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null) }}"
+                                        class="js-share-document inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="Share to Messages"
+                                        aria-label="Share to Messages"
+                                    >
+                                        <i data-lucide="share-2" class="h-4 w-4"></i>
                                     </button>
 
                                     @if($canEditRis)
@@ -3500,7 +3550,7 @@
                                                     @else
                                                         <button
                                                             type="button"
-                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'ris', id: {{ (int) $ris->ris_id }}, label: @js(($ris->ris_form_number ?: 'Draft RIS').' Â· Record #'.$ris->ris_id) } }))"
+                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'ris', id: {{ (int) $ris->ris_id }}, label: @js(($ris->ris_form_number ?: 'Draft RIS').' · Record #'.$ris->ris_id) } }))"
                                                             class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                         >
                                                             <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
@@ -3604,6 +3654,10 @@
         {{-- PAGINATION --}}
         <div
             class="border-t border-gray-100 px-6 py-4"
+            x-on:pointerenter.capture="
+                const link = $event.target.closest('a[href]');
+                if (link && window.PrismListCache?.prefetch) window.PrismListCache.prefetch(link.href);
+            "
             x-on:click="
                 const link = $event.target.closest('a');
                 if (!link) return;
@@ -3706,7 +3760,9 @@
                 </div>
 
                 @php
-                    $risLineage = \App\Support\DocumentLineage::forRis((int) $ris->ris_id);
+                    $risIdKey = (int) $ris->ris_id;
+                    $risLineage = ($risLineages[$risIdKey] ?? null)
+                        ?: \App\Support\DocumentLineage::stubRis($ris);
                     $risHint = \App\Support\DocumentLineage::reviewHintForRis($ris);
                 @endphp
                 @include('partials.document-lineage', [
@@ -3756,7 +3812,7 @@
                                             >
                                                 <i data-lucide="file-check" class="h-3.5 w-3.5"></i>
                                                 {{ $group['atp']->authority_purchase_form_number ?: 'ATP #'.$group['atp']->authority_purchase_id }}
-                                                <span class="font-normal text-green-600">Â· {{ \App\Support\RisWorkflow::atpStatusLabel($group['atp']) }}</span>
+                                                <span class="font-normal text-green-600">· {{ \App\Support\RisWorkflow::atpStatusLabel($group['atp']) }}</span>
                                             </a>
                                         @elseif(!empty($ris->can_create_atp))
                                             <a
@@ -3926,8 +3982,8 @@
                                             <div class="min-w-0 flex-1">
                                                 <a
                                                     href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
-                                                    target="_blank"
-                                                    rel="noopener"
+                                                    data-file-preview
+                                                    data-file-preview-title="{{ $attachment->ris_attachment_original_name }}"
                                                     class="block truncate text-sm font-medium text-[#0025cc] hover:underline"
                                                 >{{ $attachment->ris_attachment_original_name }}</a>
                                                 <p class="mt-0.5 text-xs text-slate-500">
@@ -3940,8 +3996,8 @@
                                             </div>
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
-                                                target="_blank"
-                                                rel="noopener"
+                                                data-file-preview
+                                                data-file-preview-title="{{ $attachment->ris_attachment_original_name }}"
                                                 data-tooltip="View"
                                                 aria-label="View {{ $attachment->ris_attachment_original_name }}"
                                                 class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
@@ -4577,7 +4633,7 @@
                                                                     if (!info) return '';
                                                                     if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').';
                                                                     const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers');
-                                                                    return prefix + ' â€” ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
+                                                                    return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
                                                                 })()"
                                                             ></p>
                                                         </div>
@@ -4661,7 +4717,7 @@
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="text" readonly tabindex="-1" value="" placeholder="â€”" title="Issued is filled by the School Administrator or the President" class="ris-cell-input pointer-events-none cursor-not-allowed bg-gray-50 text-center text-gray-400">
+                                                        <input type="text" readonly tabindex="-1" value="" placeholder="—" title="Issued is filled by the School Administrator or the President" class="ris-cell-input pointer-events-none cursor-not-allowed bg-gray-50 text-center text-gray-400">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
@@ -4844,9 +4900,9 @@
                                         <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
                                         <p class="truncate text-[11px] text-slate-500">
                                             @if($ris->risAttachments->isNotEmpty())
-                                                Current file on file Â· replace by uploading a new one
+                                                Current file on file · replace by uploading a new one
                                             @else
-                                                Required to submit Â· 1 file Â· Word, Excel, or PDF
+                                                Required to submit · 1 file · Word, Excel, or PDF
                                             @endif
                                         </p>
                                     </div>
@@ -4876,8 +4932,8 @@
                                             <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800">{{ $attachment->ris_attachment_original_name }}</p>
                                             <a
                                                 href="{{ route(($pp ?? 'purchaser').'.ris.attachments.preview', $attachment->ris_attachment_id) }}"
-                                                target="_blank"
-                                                rel="noopener"
+                                                data-file-preview
+                                                data-file-preview-title="{{ $attachment->ris_attachment_original_name }}"
                                                 aria-label="View {{ $attachment->ris_attachment_original_name }}"
                                                 class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
                                             >View</a>
@@ -4927,14 +4983,14 @@
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-xs font-medium text-slate-800">{{ $ris->risAttachments->isNotEmpty() ? 'Replace file' : 'Upload file' }}</p>
-                                            <p class="truncate text-[10px] text-slate-500">One file only Â· Word, Excel, or PDF</p>
+                                            <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
                                         </div>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- EDIT ACTION BUTTONS (submit/resubmit via row â‹® menu) --}}
+                        {{-- EDIT ACTION BUTTONS (submit/resubmit via row ? menu) --}}
                         <div data-ris-form-errors hidden></div>
                         <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                             <p
@@ -5174,7 +5230,7 @@
                                 required
                                 class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
                             >
-                                <option value="">Select School Administratorâ€¦</option>
+                                <option value="">Select School Administrator…</option>
                                 @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN) as $reviewer)
                                     <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
                                 @endforeach

@@ -51,6 +51,7 @@
             </div>
 
             <form data-auto-filter
+                data-list-panel="#sa-eq-history-list-panel"
                 method="GET"
                 action="{{ $historyUrl }}"
                 class="mt-5 space-y-4"
@@ -131,6 +132,7 @@
             </form>
         </div>
 
+        <div id="sa-eq-history-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto">
             <table class="w-full">
                 <thead class="border-b border-slate-200 bg-slate-50">
@@ -233,6 +235,7 @@
                 {{ $equipment->links() }}
             </div>
         @endif
+        </div>
     </div>
 
     {{-- Full history modal --}}

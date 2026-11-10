@@ -40,7 +40,28 @@
     let currentSearch = '{{ $search ?? '' }}';
     let currentFilter = '{{ $filter ?? 'all' }}';
     let currentDoc = '{{ $document ?? 'ris' }}';
+    let currentSubmittedDate = @json($submittedDate ?? '');
 
+    function syncSignatureHistoryDateFilterUi() {
+        const btn = document.getElementById('signatureHistorySubmittedDateBtn');
+        const input = document.getElementById('signatureHistorySubmittedDate');
+        const clear = document.getElementById('signatureHistorySubmittedDateClear');
+        const hasDate = !!currentSubmittedDate;
+
+        if (input) input.value = currentSubmittedDate || '';
+        if (btn) {
+            btn.classList.toggle('border-[#0025cc]', hasDate);
+            btn.classList.toggle('bg-blue-50', hasDate);
+            btn.classList.toggle('text-[#0025cc]', hasDate);
+            btn.classList.toggle('border-gray-200', !hasDate);
+            btn.classList.toggle('bg-white', !hasDate);
+            btn.classList.toggle('text-gray-600', !hasDate);
+            btn.title = hasDate
+                ? ('Submitted ' + currentSubmittedDate + ' — click to change')
+                : 'Filter by submitted date';
+        }
+        if (clear) clear.classList.toggle('hidden', !hasDate);
+    }
 
     function fetchSignatureHistoryData(search, page, filter) {
 
@@ -53,46 +74,27 @@
             params.set('search', search);
         }
 
+        if (currentSubmittedDate) {
+            params.set('submitted', currentSubmittedDate);
+        }
+
         if (page) {
             params.set('page', page);
         }
 
-        // Show loading indicator on the table.
         const tableContainer =
             document.getElementById('signatureHistoryTableContainer');
+        const requestUrl = new URL(
+            '{{ \App\Support\AdminPortal::route('digital-signatures.history') }}?' + params.toString(),
+            window.location.origin
+        ).href;
+        const cachedHtml = window.PrismListCache?.get?.(requestUrl) || null;
 
-        if (tableContainer) {
+        if (!cachedHtml && tableContainer) {
             tableContainer.innerHTML = window.prismSkeleton('table', { rows: 6, label: 'Loading signature history' });
         }
 
-        // Fetch the updated content.
-        fetch(
-            '{{ \App\Support\AdminPortal::route('digital-signatures.history') }}?' +
-            params.toString(),
-            {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                },
-            }
-        )
-
-        .then(function (response) {
-
-            if (!response.ok) {
-                throw new Error(
-                    'Server responded with ' +
-                    response.status
-                );
-            }
-
-            return response.text();
-
-        })
-
-        .then(function (html) {
-
-            // Replace the entire content area.
+        const applySignatureHistoryHtml = function (html) {
             const contentContainer =
                 document.getElementById('signatureHistoryContentContainer');
 
@@ -105,25 +107,59 @@
                     : html;
             }
 
-            // Re-bind event listeners after DOM update.
             bindSignatureHistoryEventListeners();
             if (typeof window.bindPageCarousels === 'function') {
                 window.bindPageCarousels();
             }
-
-            // Update URL without reloading the page.
-            const url =
-                '{{ \App\Support\AdminPortal::route('digital-signatures.history') }}?' +
-                params.toString();
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
 
             window.history.replaceState(
-                { search: search, page: page, filter: currentFilter },
+                { search: search, page: page, filter: currentFilter, submitted: currentSubmittedDate },
                 '',
-                url
+                requestUrl
             );
+        };
 
+        if (cachedHtml) {
+            applySignatureHistoryHtml(cachedHtml);
+            fetch(requestUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Server responded with ' + response.status);
+                    return response.text();
+                })
+                .then(function (html) {
+                    window.PrismListCache?.set?.(requestUrl, html);
+                    if (html !== cachedHtml) applySignatureHistoryHtml(html);
+                })
+                .catch(function () {});
+            return;
+        }
+
+        fetch(requestUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html',
+            },
+            credentials: 'same-origin',
         })
-
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error('Server responded with ' + response.status);
+            }
+            return response.text();
+        })
+        .then(function (html) {
+            window.PrismListCache?.set?.(requestUrl, html);
+            applySignatureHistoryHtml(html);
+        })
         .catch(function (error) {
 
             console.error(
@@ -252,6 +288,42 @@
             );
 
         }
+
+        const dateBtn = document.getElementById('signatureHistorySubmittedDateBtn');
+        const dateInput = document.getElementById('signatureHistorySubmittedDate');
+        const dateClear = document.getElementById('signatureHistorySubmittedDateClear');
+
+        if (dateBtn && dateInput) {
+            dateBtn.addEventListener('click', function () {
+                try {
+                    if (typeof dateInput.showPicker === 'function') {
+                        dateInput.showPicker();
+                    } else {
+                        dateInput.focus();
+                        dateInput.click();
+                    }
+                } catch (e) {
+                    dateInput.focus();
+                }
+            });
+            dateInput.addEventListener('change', function () {
+                currentSubmittedDate = this.value || '';
+                syncSignatureHistoryDateFilterUi();
+                fetchSignatureHistoryData(currentSearch, null, currentFilter);
+            });
+        }
+
+        if (dateClear) {
+            dateClear.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                currentSubmittedDate = '';
+                syncSignatureHistoryDateFilterUi();
+                fetchSignatureHistoryData(currentSearch, null, currentFilter);
+            });
+        }
+
+        syncSignatureHistoryDateFilterUi();
 
         document.querySelectorAll('[data-history-doc]').forEach(function (btn) {
             btn.addEventListener('click', function () {

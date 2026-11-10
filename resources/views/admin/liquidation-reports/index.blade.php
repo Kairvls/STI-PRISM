@@ -15,7 +15,7 @@
                     <th class="px-4 py-2.5">Employee</th>
                     <th class="px-4 py-2.5 text-right">Amount</th>
                     <th class="px-4 py-2.5">Status</th>
-                    <th class="px-4 py-2.5">Action</th>
+                    <th class="px-4 py-2.5 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -36,6 +36,12 @@
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-1.5">
                                 <button type="button" @click="selectedLiq={{ $liq->liquidation_report_id }}; viewOpen=true; fetch('{{ route('admin.liq.start-review', $liq->liquidation_report_id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">View</button>
+                                @include('partials.share-document-button', [
+                                    'type' => 'liq',
+                                    'id' => $liq->liquidation_report_id,
+                                    'label' => \App\Support\RequestExplorer::shareUiLabel('liq', $liq->liquidation_report_form_number ?? null),
+                                    'variant' => 'button',
+                                ])
                                 @if($reviewable)
                                     <form method="POST" action="{{ route('admin.liq.approve', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-[#0025cc] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#001da3]" onclick="return confirm('Endorse and approve?')">Approve</button></form>
                                     <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; reviseOpen=true" class="rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-700 transition hover:bg-orange-100">Revise</button>

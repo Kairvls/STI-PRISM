@@ -182,7 +182,7 @@
                     <option value="">All rooms</option>
                     @foreach ($rooms as $room)
                         <option value="{{ $room->room_id }}" @selected((string) $filters['room'] === (string) $room->room_id)>
-                            {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage Â· '.$room->room_name : $room->room_name }}
+                            {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
                         </option>
                     @endforeach
                 </select>
@@ -250,7 +250,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Condition</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Department</th>
-                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -260,7 +260,7 @@
                             $identifier = collect([
                                 $item->equipment_asset_tag ? 'Tag: '.$item->equipment_asset_tag : null,
                                 $item->equipment_serial_number ? 'Serial: '.$item->equipment_serial_number : null,
-                            ])->filter()->implode(' Â· ');
+                            ])->filter()->implode(' · ');
                             $unitLabel = $identifier ? $item->equipment_name.' ('.$identifier.')' : $item->equipment_name;
                             $zone = $item->equipment_placement_zone ?: $item->equipment_current_location;
                             $inStorage = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);
@@ -293,17 +293,17 @@
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $item->equipment_asset_tag ?: 'No asset tag' }}</p>
                                 <p class="mt-0.5 text-xs text-gray-400">
                                     {{ $item->equipment_category_name ?: 'Uncategorized' }}
-                                    Â·
+                                    ·
                                     @if ($isBulk)
                                         Qty {{ number_format((int) $item->equipment_quantity) }}
                                     @else
-                                        Serial {{ $item->equipment_serial_number ?: 'â€”' }}
+                                        Serial {{ $item->equipment_serial_number ?: '—' }}
                                     @endif
                                 </p>
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-2">
-                                    <p class="text-gray-800">{{ $item->room_name ?: 'â€”' }}</p>
+                                    <p class="text-gray-800">{{ $item->room_name ?: '—' }}</p>
                                     @if ($inStorage)
                                         <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Storage</span>
                                     @endif
@@ -314,16 +314,16 @@
                             </td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium {{ $conditionClass($item->equipment_condition_status) }}">
-                                    {{ $item->equipment_condition_status ?: 'â€”' }}
+                                    {{ $item->equipment_condition_status ?: '—' }}
                                 </span>
                             </td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium {{ $statusClass($item->equipment_inventory_status) }}">
-                                    {{ $item->equipment_inventory_status ?: 'â€”' }}
+                                    {{ $item->equipment_inventory_status ?: '—' }}
                                 </span>
                                 @if ($item->open_loan)
                                     <p class="mt-1 text-xs text-gray-500">
-                                        {{ $isBulk && $item->open_loan->quantity > 0 ? $item->open_loan->quantity.' on loan Â· ' : '' }}{{ $item->open_loan->borrower ?: 'Borrower not recorded' }}
+                                        {{ $isBulk && $item->open_loan->quantity > 0 ? $item->open_loan->quantity.' on loan · ' : '' }}{{ $item->open_loan->borrower ?: 'Borrower not recorded' }}
                                     </p>
                                     @if ($item->open_loan->due)
                                         <p class="text-xs {{ $item->open_loan->overdue ? 'font-semibold text-rose-600' : 'text-gray-400' }}">
@@ -332,7 +332,7 @@
                                     @endif
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ ($item->unit_department_name ?? null) ?: 'â€”' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ ($item->unit_department_name ?? null) ?: '—' }}</td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center justify-end gap-1.5">
                                     <button
@@ -381,7 +381,7 @@
                                         type="button"
                                         onclick="openDeployedTransferLogs(this)"
                                         data-id="{{ $item->equipment_id }}"
-                                        data-title="{{ $identifier ? $item->equipment_name.' Â· '.$identifier : $item->equipment_name }}"
+                                        data-title="{{ $identifier ? $item->equipment_name.' · '.$identifier : $item->equipment_name }}"
                                         class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
                                         title="Transfer logs"
                                         aria-label="Transfer logs for {{ $unitLabel }}"
@@ -468,7 +468,7 @@
                     @foreach (['Name' => 'Equipment', 'Tag' => 'Asset tag', 'Serial' => 'Serial number', 'Room' => 'Current room'] as $suffix => $label)
                         <div class="flex items-center justify-between gap-6 px-4 py-3">
                             <span class="shrink-0 text-sm text-slate-500">{{ $label }}</span>
-                            <span id="deployedTransfer{{ $suffix }}" class="min-w-0 truncate text-right text-sm font-medium text-slate-900">â€”</span>
+                            <span id="deployedTransfer{{ $suffix }}" class="min-w-0 truncate text-right text-sm font-medium text-slate-900">—</span>
                         </div>
                     @endforeach
                 </div>
@@ -642,7 +642,7 @@
                 </div>
 
                 <div>
-                    <label for="deployedDisposeResidual" class="mb-2 block text-sm font-medium text-slate-700">Residual value (â‚±)</label>
+                    <label for="deployedDisposeResidual" class="mb-2 block text-sm font-medium text-slate-700">Residual value (?)</label>
                     <input
                         id="deployedDisposeResidual"
                         name="residual_value"
@@ -732,9 +732,9 @@
         const data = button.dataset;
         document.getElementById('deployedTransferEquipmentId').value = data.id;
         document.getElementById('deployedTransferName').textContent = data.name || 'Equipment';
-        document.getElementById('deployedTransferTag').textContent = data.tag || 'â€”';
-        document.getElementById('deployedTransferSerial').textContent = data.serial || 'â€”';
-        document.getElementById('deployedTransferRoom').textContent = data.room || 'â€”';
+        document.getElementById('deployedTransferTag').textContent = data.tag || '—';
+        document.getElementById('deployedTransferSerial').textContent = data.serial || '—';
+        document.getElementById('deployedTransferRoom').textContent = data.room || '—';
         document.getElementById('deployedTransferRemarks').value = '';
         resetInventoryTransferDestination('deployedTransfer');
         showDeployedModal('deployedTransferModal');
@@ -756,8 +756,8 @@
 
         const labels = selected.map((box) => box.dataset.label || 'Equipment');
         document.getElementById('deployedBatchCount').textContent = String(selected.length);
-        document.getElementById('deployedBatchSummary').textContent = labels.slice(0, 3).join(' Â· ')
-            + (labels.length > 3 ? ` Â· +${labels.length - 3} more` : '');
+        document.getElementById('deployedBatchSummary').textContent = labels.slice(0, 3).join(' · ')
+            + (labels.length > 3 ? ` · +${labels.length - 3} more` : '');
         document.getElementById('deployedBatchRemarks').value = '';
         resetInventoryTransferDestination('deployedBatchTransfer');
         showDeployedModal('deployedBatchTransferModal');
@@ -789,7 +789,7 @@
                 <div class="rounded-xl border border-slate-200 bg-white p-4">
                     <p class="text-sm font-semibold text-slate-900">
                         ${deployedEscape(log.from_room_name ?? 'No previous room')}
-                        <span class="mx-2 text-slate-400">â†’</span>
+                        <span class="mx-2 text-slate-400">?</span>
                         ${deployedEscape(log.to_room_name ?? 'Unknown room')}
                     </p>
                     ${log.to_destination_label ? `<p class="mt-1 text-xs font-medium text-[#1d5d93]">Handed to ${deployedEscape(log.to_destination_label)}</p>` : ''}

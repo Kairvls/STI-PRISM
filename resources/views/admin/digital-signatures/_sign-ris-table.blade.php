@@ -9,10 +9,10 @@
             <th class="w-[12%]">RIS Number</th>
             <th class="w-[12%]">Request No.</th>
             <th class="w-[20%]">Equipment</th>
-            <th class="w-[12%]">Requested By</th>
-            <th class="w-[16%]">Status</th>
+            <th class="w-[15%]">Requested By</th>
+            <th class="w-[15%]">Status</th>
             <th class="w-[11%] text-right">Amount</th>
-            <th class="w-[17%] text-center">Actions</th>
+            <th class="w-[15%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -62,14 +62,27 @@
                 </td>
 
                 <td>
+                    @php
+                        $risSubmittedRaw = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? null;
+                        $risSubmittedLabel = $risSubmittedRaw
+                            ? \Carbon\Carbon::parse($risSubmittedRaw)->format('M j, Y')
+                            : null;
+                    @endphp
                     <div
                         class="truncate text-sm font-medium {{ $rowDimmed ? 'text-gray-500' : 'text-gray-700' }}"
                         title="{{ \App\Support\RisWorkflow::requesterName($ris) }}"
                     >
                         {{ \App\Support\RisWorkflow::requesterName($ris) }}
                     </div>
-                    <div class="mt-0.5 truncate text-[11px] text-gray-400" title="Date the RIS was submitted">
-                        {{ $ris->ris_requested_by_date ?? 'N/A' }}
+                    <div
+                        class="mt-0.5 whitespace-nowrap text-xs font-medium {{ $rowDimmed ? 'text-gray-400' : 'text-gray-600' }}"
+                        title="{{ $risSubmittedLabel ? 'Submitted '.$risSubmittedLabel : 'Submit date unavailable' }}"
+                    >
+                        @if ($risSubmittedLabel)
+                            Submitted {{ $risSubmittedLabel }}
+                        @else
+                            Not submitted
+                        @endif
                     </div>
                 </td>
 
@@ -100,9 +113,10 @@
                             </svg>
                         </button>
 
-                        @include('admin.partials.ris-print-icon-button', [
-                            'risId' => $ris->ris_id,
-                            'btnClass' => 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900',
+                        @include('partials.share-document-button', [
+                            'type' => 'ris',
+                            'id' => $ris->ris_id,
+                            'label' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
                         ])
 
                         @include('admin.partials.ris-president-remarks-button', ['ris' => $ris])

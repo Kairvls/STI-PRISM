@@ -240,6 +240,63 @@ class PurchaseOrderBasket
         return $id ? (int) $id : null;
     }
 
+    /**
+     * Batch PO metadata for a page of ATPs (avoids per-row poIdForAtp + atpCount queries).
+     *
+     * @param  iterable<int|string>  $atpIds
+     * @return array<int, array{purchase_order_id: int|null, purchase_order_label: string|null, purchase_order_status: string|null, purchase_order_atp_count: int}>
+     */
+    public static function mapForAtps(iterable $atpIds): array
+    {
+        $ids = collect($atpIds)->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->unique()->values();
+        $empty = [
+            'purchase_order_id' => null,
+            'purchase_order_label' => null,
+            'purchase_order_status' => null,
+            'purchase_order_atp_count' => 0,
+        ];
+        $map = [];
+        foreach ($ids as $id) {
+            $map[$id] = $empty;
+        }
+
+        if ($ids->isEmpty() || ! self::tablesExist()) {
+            return $map;
+        }
+
+        $links = self::activeLinksQuery()
+            ->whereIn('purchase_order_atps_table.authority_purchase_id', $ids->all())
+            ->get([
+                'purchase_order_atps_table.authority_purchase_id',
+                'purchase_order_atps_table.purchase_order_id',
+                'purchase_orders_table.purchase_order_number',
+                'purchase_orders_table.purchase_order_status',
+                'purchase_orders_table.purchase_order_created_at',
+            ]);
+
+        $poIds = $links->pluck('purchase_order_id')->map(fn ($id) => (int) $id)->unique()->values();
+        $counts = $poIds->isEmpty()
+            ? collect()
+            : DB::table('purchase_order_atps_table')
+                ->whereIn('purchase_order_id', $poIds->all())
+                ->select('purchase_order_id', DB::raw('COUNT(*) as atp_count'))
+                ->groupBy('purchase_order_id')
+                ->pluck('atp_count', 'purchase_order_id');
+
+        foreach ($links as $link) {
+            $atpId = (int) $link->authority_purchase_id;
+            $poId = (int) $link->purchase_order_id;
+            $map[$atpId] = [
+                'purchase_order_id' => $poId,
+                'purchase_order_label' => self::displayNumber($link),
+                'purchase_order_status' => $link->purchase_order_status ?? null,
+                'purchase_order_atp_count' => (int) ($counts[$poId] ?? 0),
+            ];
+        }
+
+        return $map;
+    }
+
     public static function atpIdsForPo(int $poId): array
     {
         if (! self::tablesExist() || $poId < 1) {

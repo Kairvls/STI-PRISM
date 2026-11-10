@@ -47,13 +47,20 @@
             @include('accounting.partials.status-badge', ['status' => $row->liquidation_report_status])
         </td>
         <td class="px-5 py-4 text-right">
-            <x-view-action-button
-                :href="'/accounting/liquidation-reports/'.$row->liquidation_report_id.'?return_status='.urlencode($filter ?? 'incoming').$deadlineQs"
-                label="View"
-                title="Review liquidation"
-                aria-label="Review liquidation"
-                data-tip="Review liquidation"
-            />
+            <div class="inline-flex items-center justify-end gap-1.5">
+                @include('partials.share-document-button', [
+                    'type' => 'liq',
+                    'id' => $row->liquidation_report_id,
+                    'label' => \App\Support\RequestExplorer::shareUiLabel('liq', $row->liquidation_report_form_number ?? null),
+                ])
+                <x-view-action-button
+                    :href="'/accounting/liquidation-reports/'.$row->liquidation_report_id.'?return_status='.urlencode($filter ?? 'incoming').$deadlineQs"
+                    label="View"
+                    title="Review liquidation"
+                    aria-label="Review liquidation"
+                    data-tip="Review liquidation"
+                />
+            </div>
         </td>
     </tr>
 @empty

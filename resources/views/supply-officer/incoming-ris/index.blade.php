@@ -17,7 +17,7 @@
                 </span>
             </div>
 
-            <form method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <form method="GET" data-auto-filter data-list-panel="#supply-incoming-ris-panel" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div class="relative">
                     <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
@@ -51,7 +51,7 @@
         </div>
     </div>
 
-    <div class="overflow-x-auto">
+    <div id="supply-incoming-ris-panel" data-list-panel-root class="overflow-x-auto">
         <table class="w-full min-w-[900px] text-sm">
             <thead class="bg-gray-50/70">
                 <tr class="border-b border-gray-100">
@@ -59,7 +59,7 @@
                     <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Purpose</th>
                     <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Sent by</th>
                     <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Received</th>
-                    <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                    <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
@@ -106,6 +106,12 @@
                         </td>
                         <td class="px-5 py-4">
                             <div class="flex flex-wrap items-center justify-end gap-1.5">
+                                @include('partials.share-document-button', [
+                                    'type' => 'ris',
+                                    'id' => $ris->ris_id,
+                                    'label' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
+                                    'variant' => 'button',
+                                ])
                                 <button
                                     type="button"
                                     data-ris-preview

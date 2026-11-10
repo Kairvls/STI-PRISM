@@ -2,80 +2,364 @@
 
 @section('title', 'Disbursement Vouchers')
 
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+@endpush
+
 @section('content')
 @include('accounting.partials.flash')
 
 @php
     $filters = [
+        'all' => 'All',
         'incoming' => 'Needs review',
         'revision' => 'Returned',
         'approved' => 'Approved',
-        'all' => 'All',
     ];
+    $search = $search ?? '';
+    $submittedDate = $submittedDate ?? '';
 @endphp
 
-<div class="space-y-6 p-6">
-    <div>
-        <h1 class="text-2xl font-semibold text-slate-900">Disbursement Vouchers</h1>
-        <p class="mt-1 text-sm text-slate-500">Open a request to see the form, approve or return, and view the procurement pipeline. President route and check release come later.</p>
-    </div>
+<div class="acc-page acc-content-fill space-y-6 fade-in">
+    <div class="pur-card">
+        @include('accounting.partials.status-filter-bar', [
+            'filters' => $filters,
+            'activeFilter' => $filter,
+            'baseUrl' => route('school-admin.dv.index'),
+            'counts' => $counts,
+            'search' => $search,
+            'searchValue' => $search,
+            'searchPlaceholder' => 'Search DV, Request No., RFC...',
+            'formId' => 'dvSearchForm',
+            'searchId' => 'dvSearch',
+            'listPanel' => '#sa-dv-list-panel',
+            'dateName' => 'submitted',
+            'dateValue' => $submittedDate,
+            'dateInputId' => 'dvSubmittedDate',
+            'dateBtnId' => 'dvSubmittedDateBtn',
+            'dateClearId' => 'dvSubmittedDateClear',
+            'dateTitle' => 'Filter by submitted date',
+        ])
 
-    <div class="flex flex-wrap gap-x-5 border-b border-slate-100 text-sm">
-        @foreach($filters as $key => $label)
-            <a
-                href="{{ route('school-admin.dv.index', ['status' => $key]) }}"
-                class="-mb-px border-b-2 pb-2.5 {{ $filter === $key ? 'border-[#0025cc] font-medium text-slate-900' : 'border-transparent text-slate-400' }}"
-            >
-                {{ $label }}
-                @if(isset($counts[$key]))
-                    <span class="ml-1 tabular-nums">{{ $counts[$key] }}</span>
-                @endif
-            </a>
-        @endforeach
-    </div>
-
-    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400">
-                    <th class="px-5 py-3 font-medium">DV</th>
-                    <th class="py-3 pr-4 font-medium">Request No.</th>
-                    <th class="py-3 pr-4 font-medium">RFC</th>
-                    <th class="py-3 pr-4 font-medium">Amount</th>
-                    <th class="py-3 pr-4 font-medium">Status</th>
-                    <th class="py-3 pr-5"></th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                @forelse($records as $row)
-                    @php
-                        $dvRequestNo = trim((string) ($row->dv_request_no ?? ($row->request_check_request_no ?? '')));
-                    @endphp
-                    <tr>
-                        <td class="px-5 py-3 font-medium text-slate-900">{{ $row->dv_form_number ?: 'Disbursement Voucher' }}</td>
-                        <td class="py-3 pr-4">
-                            @include('partials.procurement-request-no', ['requestNo' => $dvRequestNo, 'inline' => true, 'showLabel' => false])
-                            @if($dvRequestNo === '')
-                                <span class="text-xs text-slate-400">—</span>
-                            @endif
-                        </td>
-                        <td class="py-3 pr-4 text-slate-600">{{ $row->request_check_form_number ?: 'Request for Check' }}</td>
-                        <td class="py-3 pr-4 tabular-nums">{{ $row->dv_amount !== null ? '₱'.number_format((float) $row->dv_amount, 2) : '—' }}</td>
-                        <td class="py-3 pr-4">{{ $row->dv_status }}</td>
-                        <td class="py-3 pr-5 text-right">
-                            <a href="{{ route('school-admin.dv.show', $row->dv_id) }}" class="font-medium text-[#0025cc] hover:underline">Review</a>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="px-5 py-12 text-center text-slate-500">No Disbursement Vouchers in this view.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-        @if($records->hasPages())
-            <div class="border-t border-slate-100 px-5 py-3">{{ $records->links() }}</div>
-        @endif
+        <div id="sa-dv-list-panel" data-list-panel-root class="relative">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[980px] text-sm">
+                    <thead class="bg-gray-50/70">
+                        <tr class="border-b border-gray-100">
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">DV Number</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RFC</th>
+                            <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                            <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 bg-white">
+                        @forelse($records as $row)
+                            @php
+                                $dvRequestNo = trim((string) ($row->dv_request_no ?? ($row->request_check_request_no ?? '')));
+                                $dvLabel = $row->dv_form_number ?: ('DV-'.$row->dv_id);
+                                $dvReviewUrl = route('school-admin.dv.show', $row->dv_id);
+                                $dvPreviewUrl = route('school-admin.dv.preview', $row->dv_id);
+                                $submittedAt = $row->dv_submitted_at ?? null;
+                            @endphp
+                            <tr class="transition hover:bg-gray-50/70">
+                                <td class="px-5 py-4">
+                                    <button
+                                        type="button"
+                                        class="font-semibold text-gray-900 transition hover:text-[#0025cc] hover:underline"
+                                        data-dv-preview
+                                        data-preview-url="{{ $dvPreviewUrl }}"
+                                        data-review-url="{{ $dvReviewUrl }}"
+                                        data-preview-title="{{ $dvLabel }}"
+                                        title="View DV form"
+                                    >
+                                        {{ $dvLabel }}
+                                    </button>
+                                </td>
+                                <td class="px-5 py-4">
+                                    @include('partials.procurement-request-no', ['requestNo' => $dvRequestNo, 'inline' => true, 'showLabel' => false])
+                                    @if($dvRequestNo === '')
+                                        <span class="text-xs text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-4 text-gray-600">{{ $row->request_check_form_number ?: 'Request for Check' }}</td>
+                                <td class="px-5 py-4 text-right tabular-nums text-gray-900">{{ $row->dv_amount !== null ? '₱'.number_format((float) $row->dv_amount, 2) : '—' }}</td>
+                                <td class="px-5 py-4 text-gray-600 whitespace-nowrap">
+                                    @if($submittedAt)
+                                        {{ \Illuminate\Support\Carbon::parse($submittedAt)->format('M j, Y') }}
+                                        <span class="block text-xs text-gray-400">{{ \Illuminate\Support\Carbon::parse($submittedAt)->format('g:i A') }}</span>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-4">
+                                    @include('accounting.partials.status-badge', [
+                                        'status' => $row->dv_status,
+                                        'submitted' => $row->dv_submitted_at ?? null,
+                                    ])
+                                </td>
+                                <td class="px-5 py-4 text-center">
+                                    <div class="inline-flex items-center justify-center gap-2">
+                                        <button
+                                            type="button"
+                                            data-dv-preview
+                                            data-preview-url="{{ $dvPreviewUrl }}"
+                                            data-review-url="{{ $dvReviewUrl }}"
+                                            data-preview-title="{{ $dvLabel }}"
+                                            title="View DV form"
+                                            aria-label="View DV form"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                                        >
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                        @include('partials.share-document-button', [
+                                            'type' => 'dv',
+                                            'id' => $row->dv_id,
+                                            'label' => \App\Support\RequestExplorer::shareUiLabel('dv', $row->dv_form_number ?? null),
+                                            'variant' => 'button',
+                                        ])
+                                        <x-view-action-button
+                                            :href="$dvReviewUrl"
+                                            label="Review"
+                                            title="Review DV — form and pipeline"
+                                            aria-label="Review DV"
+                                            data-tip="Review DV — form and pipeline"
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-5 py-12 text-center text-gray-500">No Disbursement Vouchers in this view.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($records->hasPages())
+                <div class="border-t border-gray-100 px-5 py-3">{{ $records->links('pagination.president') }}</div>
+            @endif
+        </div>
     </div>
 </div>
+
+{{-- DV form preview (stay on list; Review still opens the full decision page) --}}
+<div
+    id="dvFormPreviewModal"
+    class="sa-form-preview-modal fixed inset-0 z-[12000] hidden items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-6"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dvFormPreviewTitle"
+    data-fullscreen="0"
+>
+    <div id="dvFormPreviewPanel" class="sa-form-preview-panel my-4 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
+            <h2 id="dvFormPreviewTitle" class="truncate text-lg font-semibold text-slate-950">DV Form</h2>
+            <div class="flex shrink-0 items-center gap-2">
+                <button
+                    type="button"
+                    id="dvFormPreviewFullscreen"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+                    title="Full screen"
+                    aria-label="Full screen"
+                    data-fs-btn
+                >
+                    <svg data-fs-icon="expand" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"></path>
+                    </svg>
+                    <svg data-fs-icon="collapse" class="hidden h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4H5v4M15 4h4v4M9 20H5v-4M15 20h4v-4"></path>
+                    </svg>
+                </button>
+                <button
+                    type="button"
+                    id="dvFormPreviewClose"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+        </div>
+        <div id="dvFormPreviewBody" class="sa-form-preview-body max-h-[72vh] flex-1 overflow-auto bg-slate-50"></div>
+        <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-5 py-3.5">
+            <button
+                type="button"
+                id="dvFormPreviewDismiss"
+                class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+                Close
+            </button>
+            <button
+                type="button"
+                id="dvFormPreviewPrint"
+                class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+                <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                Print
+            </button>
+            <a
+                id="dvFormPreviewReview"
+                href="#"
+                class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001db3]"
+            >
+                Open review
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        let searchTimer = null;
+        document.addEventListener('input', function (event) {
+            const input = event.target;
+            if (!input || input.id !== 'dvSearch') return;
+            const form = input.form;
+            if (!form) return;
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () {
+                if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                else form.submit();
+            }, 350);
+        });
+
+        function syncDvStatusTabs(active) {
+            document.querySelectorAll('.status-filter-tab').forEach(function (tab) {
+                const on = tab.getAttribute('data-filter') === active;
+                tab.classList.toggle('bg-gray-100/80', on);
+                tab.classList.toggle('font-medium', on);
+                tab.classList.toggle('text-black', on);
+                tab.classList.toggle('text-slate-500', !on);
+                tab.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            const hidden = document.querySelector('#dvSearchForm input[name="status"]');
+            if (hidden) hidden.value = active;
+        }
+
+        document.addEventListener('click', function (event) {
+            const tab = event.target.closest('.status-filter-tab[data-list-panel="#sa-dv-list-panel"]');
+            if (!tab) return;
+            syncDvStatusTabs(tab.getAttribute('data-filter') || 'incoming');
+        });
+
+        const previewModal = document.getElementById('dvFormPreviewModal');
+        const previewTitle = document.getElementById('dvFormPreviewTitle');
+        const previewBody = document.getElementById('dvFormPreviewBody');
+        const previewReview = document.getElementById('dvFormPreviewReview');
+        if (!previewModal || !previewBody) return;
+
+        const previewSkeleton = '<div class="space-y-3 p-5" aria-hidden="true">'
+            + '<div class="h-8 w-1/3 animate-pulse rounded-md bg-slate-200"></div>'
+            + '<div class="h-48 animate-pulse rounded-lg bg-slate-200"></div>'
+            + '<div class="h-28 animate-pulse rounded-lg bg-slate-200"></div>'
+            + '</div>';
+
+        function setDvPreviewFullscreen(isFs) {
+            previewModal.dataset.fullscreen = isFs ? '1' : '0';
+            const btn = document.getElementById('dvFormPreviewFullscreen');
+            if (!btn) return;
+            const expand = btn.querySelector('[data-fs-icon="expand"]');
+            const collapse = btn.querySelector('[data-fs-icon="collapse"]');
+            if (expand) expand.classList.toggle('hidden', isFs);
+            if (collapse) collapse.classList.toggle('hidden', !isFs);
+            btn.title = isFs ? 'Exit full screen' : 'Full screen';
+            btn.setAttribute('aria-label', isFs ? 'Exit full screen' : 'Full screen');
+        }
+
+        function closeDvPreview() {
+            setDvPreviewFullscreen(false);
+            previewModal.classList.add('hidden');
+            previewModal.classList.remove('flex');
+            previewBody.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+
+        async function openDvPreview(trigger) {
+            const previewUrl = trigger.getAttribute('data-preview-url') || '';
+            const reviewUrl = trigger.getAttribute('data-review-url') || '#';
+            const title = trigger.getAttribute('data-preview-title') || 'DV Form';
+
+            if (!previewUrl) {
+                if (reviewUrl && reviewUrl !== '#') window.location = reviewUrl;
+                return;
+            }
+
+            if (previewModal.parentElement !== document.body) {
+                document.body.appendChild(previewModal);
+            }
+
+            if (previewTitle) previewTitle.textContent = title;
+            if (previewReview) {
+                previewReview.href = reviewUrl;
+                previewReview.classList.toggle('hidden', !reviewUrl || reviewUrl === '#');
+            }
+            setDvPreviewFullscreen(false);
+            previewBody.innerHTML = previewSkeleton;
+            previewModal.classList.remove('hidden');
+            previewModal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) lucide.createIcons();
+
+            try {
+                const response = await fetch(previewUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) throw new Error('Preview failed');
+                previewBody.innerHTML = await response.text();
+                if (window.lucide) lucide.createIcons();
+            } catch (error) {
+                previewBody.innerHTML = '<p class="px-5 py-10 text-center text-sm text-red-600">Could not load this DV form.</p>';
+            }
+        }
+
+        document.addEventListener('click', function (event) {
+            const trigger = event.target.closest('[data-dv-preview]');
+            if (!trigger) return;
+            event.preventDefault();
+            openDvPreview(trigger);
+        });
+
+        document.getElementById('dvFormPreviewClose')?.addEventListener('click', closeDvPreview);
+        document.getElementById('dvFormPreviewDismiss')?.addEventListener('click', closeDvPreview);
+        document.getElementById('dvFormPreviewFullscreen')?.addEventListener('click', function () {
+            setDvPreviewFullscreen(previewModal.dataset.fullscreen !== '1');
+        });
+        previewModal.addEventListener('click', function (event) {
+            if (event.target === previewModal && previewModal.dataset.fullscreen !== '1') {
+                closeDvPreview();
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape' || previewModal.classList.contains('hidden')) return;
+            if (previewModal.dataset.fullscreen === '1') {
+                setDvPreviewFullscreen(false);
+                return;
+            }
+            closeDvPreview();
+        });
+        document.getElementById('dvFormPreviewPrint')?.addEventListener('click', function () {
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return;
+            printWindow.document.write(
+                '<!DOCTYPE html><html><head><title>'
+                + (previewTitle ? previewTitle.textContent : 'DV')
+                + '</title><link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}"></head><body>'
+                + previewBody.innerHTML
+                + '</body></html>'
+            );
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(function () {
+                printWindow.print();
+            }, 250);
+        });
+    })();
+</script>
 @endsection

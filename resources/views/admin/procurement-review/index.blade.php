@@ -13,7 +13,10 @@
 @section('content')
 
 <div class="admin-page">
-    @include('admin.partials.ris-phase-tabs', ['phase' => 'accept'])
+    @include('admin.partials.ris-phase-tabs', [
+        'phase' => 'accept',
+        'pendingAcceptCount' => (int) ($pendingRis ?? 0),
+    ])
     <div id="risContentContainer">
         @include('admin.procurement-review._content')
     </div>
@@ -41,9 +44,78 @@
 
     let risSearchTimer = null;
     let risFilterFetchTimer = null;
+    let risFetchSeq = 0;
     let currentFilter = '{{ $filter ?? 'pending' }}';
     let currentSearch = '{{ $search ?? '' }}';
+    let currentSubmittedDate = @json($submittedDate ?? '');
     let currentFocus = @json($attentionFocus['key'] ?? '');
+
+    function syncRisDateFilterUi() {
+        const btn = document.getElementById('risSubmittedDateBtn');
+        const input = document.getElementById('risSubmittedDate');
+        const clear = document.getElementById('risSubmittedDateClear');
+        const hasDate = !!currentSubmittedDate;
+
+        if (input) {
+            input.value = currentSubmittedDate || '';
+        }
+        if (btn) {
+            btn.classList.toggle('border-[#0025cc]', hasDate);
+            btn.classList.toggle('bg-blue-50', hasDate);
+            btn.classList.toggle('text-[#0025cc]', hasDate);
+            btn.classList.toggle('border-gray-200', !hasDate);
+            btn.classList.toggle('bg-white', !hasDate);
+            btn.classList.toggle('text-gray-600', !hasDate);
+            btn.title = hasDate
+                ? ('Submitted ' + currentSubmittedDate + ' — click to change')
+                : 'Filter by submitted date';
+        }
+        if (clear) {
+            clear.classList.toggle('hidden', !hasDate);
+        }
+    }
+
+    function snapshotRisSearch() {
+        const el = document.getElementById('risLiveSearch');
+        if (!el) {
+            return null;
+        }
+
+        return {
+            focused: document.activeElement === el,
+            value: el.value,
+            start: el.selectionStart,
+            end: el.selectionEnd,
+        };
+    }
+
+    function restoreRisSearch(snap, requestedSearch) {
+        const el = document.getElementById('risLiveSearch');
+        if (!el) {
+            return;
+        }
+
+        // Keep whatever the user was typing — never clobber with a stale server value.
+        const liveValue = snap ? snap.value : (requestedSearch || currentSearch || '');
+        el.value = liveValue;
+
+        if (snap && snap.focused) {
+            el.focus();
+            try {
+                if (typeof snap.start === 'number' && typeof snap.end === 'number') {
+                    el.setSelectionRange(snap.start, snap.end);
+                }
+            } catch (e) {}
+        }
+
+        if (snap && snap.value !== (requestedSearch || '')) {
+            clearTimeout(risSearchTimer);
+            risSearchTimer = setTimeout(function () {
+                currentSearch = snap.value;
+                fetchRisData(currentFilter, currentSearch, null);
+            }, 180);
+        }
+    }
 
 
     // =====================================================
@@ -54,6 +126,8 @@
 
         // Build query parameters.
         const params = new URLSearchParams();
+        const requestedSearch = search || '';
+        const seq = ++risFetchSeq;
 
         if (currentFocus) {
             params.set('focus', currentFocus);
@@ -61,54 +135,43 @@
             params.set('filter', filter || 'pending');
         }
 
-        if (search) {
-            params.set('search', search);
+        if (requestedSearch) {
+            params.set('search', requestedSearch);
+        }
+
+        if (currentSubmittedDate) {
+            params.set('submitted', currentSubmittedDate);
         }
 
         if (page) {
             params.set('page', page);
         }
 
-        // Show loading indicator on the table.
         const tableContainer =
             document.getElementById('risTableContainer');
+        const searchFocused = (function () {
+            const el = document.getElementById('risLiveSearch');
+            return !!(el && document.activeElement === el);
+        })();
+        const requestUrl = new URL(
+            '{{ \App\Support\AdminPortal::route('procurement-review.ris') }}?' + params.toString(),
+            window.location.origin
+        ).href;
+        const cachedHtml = window.PrismListCache?.get?.(requestUrl) || null;
 
-        if (tableContainer) {
+        // Don't wipe the toolbar/search while typing — only skeleton the table body.
+        if (!cachedHtml && tableContainer && !searchFocused) {
             tableContainer.innerHTML = window.prismSkeleton('table', { rows: 6, label: 'Loading procurement requests' });
         }
 
-
-        // Fetch the updated content.
-        fetch(
-            '{{ \App\Support\AdminPortal::route('procurement-review.ris') }}?' +
-            params.toString(),
-            {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                },
+        const applyRisHtml = function (html) {
+            if (seq !== risFetchSeq) {
+                return;
             }
-        )
-
-        .then(function (response) {
-
-            if (!response.ok) {
-
-                throw new Error(
-                    'Server responded with ' +
-                    response.status
-                );
-
-            }
-
-            return response.text();
-
-        })
-
-        .then(function (html) {
 
             const contentContainer =
                 document.getElementById('risContentContainer');
+            const searchSnap = snapshotRisSearch();
 
             if (contentContainer) {
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
@@ -126,43 +189,73 @@
                 }
             }
 
-
-            // Re-bind event listeners after DOM update.
+            restoreRisSearch(searchSnap, requestedSearch);
+            syncRisDateFilterUi();
             bindRisEventListeners();
             if (typeof window.bindPageCarousels === 'function') {
                 window.bindPageCarousels();
             }
 
-
-            // Update URL without reloading the page.
-            const url =
-                '{{ \App\Support\AdminPortal::route('procurement-review.ris') }}?' +
-                params.toString();
-
             window.history.replaceState(
-                { filter: filter, search: search, page: page },
+                { filter: filter, search: requestedSearch, submitted: currentSubmittedDate, page: page },
                 '',
-                url
+                requestUrl
             );
+        };
 
+        if (cachedHtml) {
+            applyRisHtml(cachedHtml);
+            fetch(requestUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Server responded with ' + response.status);
+                    return response.text();
+                })
+                .then(function (html) {
+                    if (seq !== risFetchSeq) {
+                        return;
+                    }
+                    window.PrismListCache?.set?.(requestUrl, html);
+                    if (html !== cachedHtml) applyRisHtml(html);
+                })
+                .catch(function () {});
+            return;
+        }
+
+        fetch(requestUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html',
+            },
+            credentials: 'same-origin',
         })
-
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error('Server responded with ' + response.status);
+            }
+            return response.text();
+        })
+        .then(function (html) {
+            if (seq !== risFetchSeq) {
+                return;
+            }
+            window.PrismListCache?.set?.(requestUrl, html);
+            applyRisHtml(html);
+        })
         .catch(function (error) {
-
-            console.error(
-                'RIS fetch error:',
-                error
-            );
-
-
-            // Restore a basic error state.
+            if (seq !== risFetchSeq) {
+                return;
+            }
+            console.error('RIS fetch error:', error);
             if (tableContainer) {
-
                 tableContainer.innerHTML =
                     '<div class="px-5 py-16 text-center text-sm text-red-600">Failed to load RIS data. Please try again.</div>';
-
             }
-
         });
 
     }
@@ -172,56 +265,26 @@
     // BIND RIS EVENT LISTENERS
     // =====================================================
 
-    function updateRisFilterSlider(activeFilter, animate) {
-
+    function updateRisFilterSlider(activeFilter) {
         const track = document.getElementById('risFilterSlider');
-        if (!track) {
-            return;
-        }
+        if (!track) return;
 
-        const thumb = track.querySelector('.ris-filter-thumb');
         const buttons = track.querySelectorAll('.ris-filter-btn');
-        if (!thumb || !buttons.length) {
-            return;
-        }
-
         let activeBtn = null;
 
-        for (let i = 0; i < buttons.length; i++) {
-            const btn = buttons[i];
+        buttons.forEach(function (btn) {
             const isActive = btn.getAttribute('data-filter') === activeFilter;
-            btn.style.color = isActive ? '#020617' : '#64748b';
+            btn.classList.toggle('bg-gray-100/80', isActive);
+            btn.classList.toggle('font-medium', isActive);
+            btn.classList.toggle('text-black', isActive);
+            btn.classList.toggle('text-slate-500', !isActive);
             btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
             btn.setAttribute('tabindex', isActive ? '0' : '-1');
-            if (isActive) {
-                activeBtn = btn;
-            }
-        }
+            if (isActive) activeBtn = btn;
+        });
 
-        // Reminder focus lists are not produced by any tab.
-        if (!activeBtn) {
-            thumb.style.opacity = '0';
-            return;
-        }
-        thumb.style.opacity = '';
-
-        const x = activeBtn.offsetLeft;
-        const w = activeBtn.offsetWidth;
-
-        if (!animate) {
-            const previous = thumb.style.transition;
-            thumb.style.transition = 'none';
-            thumb.style.width = w + 'px';
-            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
-            void thumb.offsetWidth;
-            thumb.style.transition = previous || 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)';
-        } else {
-            thumb.style.width = w + 'px';
-            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
-        }
-
-        if (typeof activeBtn.scrollIntoView === 'function') {
-            activeBtn.scrollIntoView({ behavior: animate ? 'smooth' : 'auto', inline: 'nearest', block: 'nearest' });
+        if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+            activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
         }
     }
 
@@ -233,7 +296,7 @@
 
         currentFocus = '';
         currentFilter = filter;
-        updateRisFilterSlider(currentFilter, true);
+        updateRisFilterSlider(currentFilter);
 
         clearTimeout(risFilterFetchTimer);
         risFilterFetchTimer = setTimeout(function () {
@@ -314,6 +377,42 @@
 
         }
 
+        const dateBtn = document.getElementById('risSubmittedDateBtn');
+        const dateInput = document.getElementById('risSubmittedDate');
+        const dateClear = document.getElementById('risSubmittedDateClear');
+
+        if (dateBtn && dateInput) {
+            dateBtn.addEventListener('click', function () {
+                try {
+                    if (typeof dateInput.showPicker === 'function') {
+                        dateInput.showPicker();
+                    } else {
+                        dateInput.focus();
+                        dateInput.click();
+                    }
+                } catch (e) {
+                    dateInput.focus();
+                }
+            });
+            dateInput.addEventListener('change', function () {
+                currentSubmittedDate = this.value || '';
+                syncRisDateFilterUi();
+                fetchRisData(currentFilter, currentSearch, null);
+            });
+        }
+
+        if (dateClear) {
+            dateClear.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                currentSubmittedDate = '';
+                syncRisDateFilterUi();
+                fetchRisData(currentFilter, currentSearch, null);
+            });
+        }
+
+        syncRisDateFilterUi();
+
 
         // =====================================================
         // FILTER BUTTONS
@@ -338,7 +437,7 @@
             });
         });
 
-        updateRisFilterSlider(currentFilter, false);
+        updateRisFilterSlider(currentFilter);
 
 
         // =====================================================
@@ -755,7 +854,7 @@
 
             }
 
-            updateRisFilterSlider(currentFilter, false);
+            updateRisFilterSlider(currentFilter);
 
         }
     );

@@ -194,7 +194,7 @@
                     </p>
                 </div>
                 <div class="flex flex-col gap-3 sm:flex-row">
-                    <form method="GET" action="{{ route($departmentsIndexRoute) }}" class="flex gap-2">
+                    <form method="GET" data-auto-filter data-list-panel="#sa-departments-list-panel" action="{{ route($departmentsIndexRoute) }}" class="flex gap-2">
                         @if ($filter !== 'active')
                             <input type="hidden" name="filter" value="{{ $filter }}">
                         @endif
@@ -216,10 +216,12 @@
                 </div>
             </div>
 
+            <div id="sa-departments-list-panel" data-list-panel-root class="relative">
             <div class="flex flex-wrap gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
                 @foreach (\App\Support\Departments::FILTERS as $key => $label)
                     <a
                         href="{{ route($departmentsIndexRoute, array_filter(['filter' => $key === 'active' ? null : $key, 'search' => $search ?: null])) }}"
+                        data-list-panel="#sa-departments-list-panel"
                         class="inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ring-1 transition {{ $filter === $key ? 'bg-slate-100 text-slate-900 ring-slate-300' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50' }}"
                     >
                         {{ $label }}
@@ -472,6 +474,7 @@
                     @endunless
                 </div>
             @endif
+                </div>
         </div>
     @endif
 

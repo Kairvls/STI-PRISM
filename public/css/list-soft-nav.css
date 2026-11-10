@@ -1,0 +1,28 @@
+.prism-list-soft-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    overflow: hidden;
+    background: #fff;
+    border-radius: inherit;
+}
+
+.prism-list-soft-overlay.is-visible {
+    display: block;
+}
+
+.prism-list-soft-overlay.is-soft {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(1px);
+}
+
+.prism-list-soft-overlay__skel {
+    height: 100%;
+    overflow: hidden;
+    background: #fff;
+}
+
+.prism-list-soft-overlay.is-soft .prism-list-soft-overlay__skel {
+    opacity: 0.55;
+}

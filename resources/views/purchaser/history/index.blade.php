@@ -214,7 +214,7 @@
         {{-- ===================================================== --}}
 
         <div class="border-b border-gray-100 px-5 py-4">
-            <form data-auto-filter method="GET" action="{{ route($pp.'.history.index') }}" class="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
+            <form data-auto-filter data-list-panel="#purchaser-history-list-panel" method="GET" action="{{ route($pp.'.history.index') }}" class="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
                 <input type="hidden" name="tab" value="{{ $tab }}">
                 @if($isAdmin && ! $isOwnHistory)
                     <input type="hidden" name="purchaser" value="{{ $subject->user_id }}">
@@ -271,6 +271,7 @@
             </form>
         </div>
 
+        <div id="purchaser-history-list-panel" data-list-panel-root class="relative">
         {{-- ===================================================== --}}
         {{-- PURCHASED ITEMS --}}
         {{-- ===================================================== --}}
@@ -367,7 +368,7 @@
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
                             @if($isOwnHistory)
-                                <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                                <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                             @endif
                         </tr>
                     </thead>
@@ -482,6 +483,7 @@
                 </table>
             </div>
         @endif
+        </div>
     </div>
 </div>
 @endsection

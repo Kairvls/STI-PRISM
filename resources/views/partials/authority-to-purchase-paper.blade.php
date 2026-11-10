@@ -326,7 +326,7 @@
                     >
                 </div>
             @else
-                <div class="relative mt-6 flex min-h-[1.5rem] items-center justify-center border-b border-black pb-1 text-center">
+                <div class="relative mt-6 flex min-h-[1.75rem] w-full items-center justify-center border-b border-black pb-1 text-center">
                     @include('partials.drawn-signature', [
                         'value' => $receivedBySignature,
                         'printedName' => $receivedBy,
@@ -346,7 +346,7 @@
         <div class="w-full max-w-xs justify-self-end text-left">
             <div class="leading-6">Authorized by</div>
             <div
-                class="relative mt-6 flex min-h-[1.5rem] w-full items-center justify-center border-b border-black pb-1"
+                class="relative mt-6 flex min-h-[1.75rem] w-full items-center justify-center border-b border-black pb-1 text-center"
                 @if(!empty($accLiveSign)) id="accPaperSigTarget" @endif
             >
                 @if(!empty($accLiveSign) && !\App\Support\RisWorkflow::isDrawnSignature((string) ($atp?->authority_purchase_authorized_by_signature ?? '')))

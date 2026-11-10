@@ -108,7 +108,7 @@
             {{-- ADD BETWEEN HEADER AND TABLE --}}
             {{-- ===================================================== --}}
 
-            <form method="GET" action="{{ url()->current() }}" data-auto-filter
+            <form method="GET" action="{{ url()->current() }}" data-auto-filter data-list-panel="#sa-disposal-list-panel"
                 class="border-b border-slate-200 px-5 py-4"
             >
                 <input type="hidden" name="archive" value="{{ !empty($showArchive) ? 1 : 0 }}" />
@@ -367,7 +367,7 @@
 
                     <div class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1">
                         <a
-                            href="{{ $disposalUrl }}?archive=0"
+                            href="{{ $disposalUrl }}?archive=0" data-list-panel="#sa-disposal-list-panel"
                             class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                                 {{ empty($showArchive)
                                     ? 'bg-white text-slate-900 shadow-sm'
@@ -377,7 +377,7 @@
                             Active
                         </a>
                         <a
-                            href="{{ $disposalUrl }}?archive=1"
+                            href="{{ $disposalUrl }}?archive=1" data-list-panel="#sa-disposal-list-panel"
                             class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                                 {{ !empty($showArchive)
                                     ? 'bg-white text-slate-900 shadow-sm'
@@ -399,6 +399,7 @@
             {{-- TABLE --}}
             {{-- ===================================================== --}}
 
+            <div id="sa-disposal-list-panel" data-list-panel-root class="relative">
             <div class="overflow-x-auto">
 
                 <table class="w-full min-w-[1100px] text-left">
@@ -1087,6 +1088,7 @@
                 </div>
 
             @endif
+            </div>
 
         </section>
     </div>

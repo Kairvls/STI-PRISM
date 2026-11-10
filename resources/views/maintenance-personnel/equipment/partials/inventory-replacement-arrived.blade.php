@@ -22,7 +22,7 @@
                     <th class="px-4 py-3">Receiving report</th>
                     <th class="px-4 py-3 text-right">Qty left</th>
                     <th class="px-4 py-3">Replaces</th>
-                    <th class="px-4 py-3 text-center">Action</th>
+                    <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">

@@ -2,14 +2,19 @@
     $risStatus = (string) ($ris->ris_status ?? '');
     $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
     $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
-    $presidentImage = $presidentSig !== '' && str_starts_with($presidentSig, 'data:image');
+    $presidentImage = isset($ris->ris_president_sig_image)
+        ? ((int) $ris->ris_president_sig_image === 1)
+        : ($presidentSig !== '' && str_starts_with($presidentSig, 'data:image'));
+    if (isset($ris->ris_has_issued_by)) {
+        $issuedBy = ((int) $ris->ris_has_issued_by === 1) ? '1' : '';
+    }
     $presidentApproved = $risStatus === 'Approved by the President'
         || ($risStatus === 'Approved' && $presidentImage);
 
     // Soft slate base + light blue (active) / soft yellow (needs attention)
     if (in_array($risStatus, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
         $risStatusLabel = 'Pending';
-        $risStatusClass = 'border-sky-200 bg-sky-50 text-sky-700';
+        $risStatusClass = 'border-yellow-300 bg-yellow-50 text-yellow-700';
         $risStatusTitle = 'Waiting for Administrator to accept this procurement request';
     } elseif ($risStatus === 'Accepted') {
         $risStatusLabel = 'Accepted';
@@ -47,7 +52,7 @@
 @endphp
 
 <span
-    class="inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ !empty($wrap) ? 'whitespace-normal leading-snug' : 'truncate' }} {{ $risStatusClass }}"
+    class="inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-xs font-bold leading-tight {{ !empty($wrap) ? 'whitespace-normal' : 'whitespace-nowrap' }} {{ $risStatusClass }}"
     title="{{ $risStatusTitle }}"
 >
     {{ $risStatusLabel }}

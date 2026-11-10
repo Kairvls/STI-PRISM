@@ -42,6 +42,14 @@
         },
 
         openCreate() {
+            @if(empty($loadFormDatasets))
+            window.location.href = @js(route(($pp ?? 'purchaser').'.rfc.index', array_filter([
+                'view' => !empty($archiveView) ? 'archive' : null,
+                'fund' => $fundFilter ?? null,
+                'create' => 1,
+            ])));
+            return;
+            @endif
             this.createOpen = true;
             this.modalFullscreen = false;
             this.bindDocSig('rfc-create', 'Requested by signature');
@@ -122,22 +130,13 @@
                 requestUrl = query ? `${form.action}?${query}` : form.action;
             }
 
-            this.recordsLoading = true;
+            const absUrl = new URL(requestUrl, window.location.origin).href;
+            const cachedHtml = window.PrismListCache?.get?.(absUrl) || null;
+
+            this.recordsLoading = !cachedHtml;
             this.filterError = null;
 
-            try {
-                const response = await fetch(requestUrl, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'text/html'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Unable to refresh RFC records.');
-                }
-
-                const html = await response.text();
+            const applyRfcHtml = (html) => {
                 const parsed = new DOMParser().parseFromString(html, 'text/html');
 
                 const nextRecords = parsed.querySelector('#rfc-records-section');
@@ -147,17 +146,64 @@
                     throw new Error('RFC records section was not found.');
                 }
 
+                if (window.Alpine?.destroyTree) {
+                    try { Alpine.destroyTree(currentRecords); } catch (e) {}
+                }
+
                 currentRecords.innerHTML = nextRecords.innerHTML;
                 if (window.Alpine) {
                     Alpine.initTree(currentRecords);
+                }
+
+                if (window.lucide) {
+                    window.lucide.createIcons();
                 }
 
                 if (typeof window.bindPageCarousels === 'function') {
                     window.bindPageCarousels();
                 }
 
-                const nextUrl = new URL(requestUrl, window.location.origin);
+                const nextUrl = new URL(absUrl, window.location.origin);
                 window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
+            };
+
+            try {
+                if (cachedHtml) {
+                    applyRfcHtml(cachedHtml);
+                    this.recordsLoading = false;
+                    fetch(absUrl, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                        credentials: 'same-origin',
+                    })
+                        .then((response) => {
+                            if (!response.ok) throw new Error('Unable to refresh RFC records.');
+                            return response.text();
+                        })
+                        .then((html) => {
+                            window.PrismListCache?.set?.(absUrl, html);
+                            if (html !== cachedHtml) {
+                                applyRfcHtml(html);
+                            }
+                        })
+                        .catch(() => {});
+                    return;
+                }
+
+                const response = await fetch(absUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'text/html'
+                    },
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Unable to refresh RFC records.');
+                }
+
+                const html = await response.text();
+                window.PrismListCache?.set?.(absUrl, html);
+                applyRfcHtml(html);
             } catch (error) {
                 console.error(error);
                 this.filterError = 'Could not refresh records. Please try again.';
@@ -226,11 +272,11 @@
 
 
     @php
+        $rfcSubmittedDate = trim((string) request('date_from', request('date', '')));
         $rfcHasFilters = request()->filled('search')
             || request()->filled('status')
-            || request()->filled('date_from')
-            || request()->filled('date_to')
-            || request()->filled('date');
+            || $rfcSubmittedDate !== ''
+            || request()->filled('date_to');
         $rfcClearUrl = $archiveView
             ? route(($pp ?? 'purchaser').'.rfc.index', ['view' => 'archive'] + $fundQuery)
             : route(($pp ?? 'purchaser').'.rfc.index', $fundQuery);
@@ -286,6 +332,47 @@
                         <input type="hidden" name="view" value="archive">
                     @endif
                     <div class="relative shrink-0">
+                        <button
+                            type="button"
+                            x-ref="rfcDateBtn"
+                            x-on:click="
+                                const input = $refs.rfcDateInput;
+                                if (!input) return;
+                                try {
+                                    if (typeof input.showPicker === 'function') input.showPicker();
+                                    else { input.focus(); input.click(); }
+                                } catch (e) { input.focus(); }
+                            "
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition {{ $rfcSubmittedDate !== '' ? 'border-[#0025cc] bg-blue-50 text-[#0025cc]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}"
+                            title="{{ $rfcSubmittedDate !== '' ? 'Date '.$rfcSubmittedDate.' — click to change' : 'Filter by date' }}"
+                            aria-label="Filter by date"
+                        >
+                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                        </button>
+                        <input
+                            type="date"
+                            name="date_from"
+                            x-ref="rfcDateInput"
+                            value="{{ $rfcSubmittedDate }}"
+                            x-on:change="refreshRfcRecords()"
+                            class="sr-only"
+                            tabindex="-1"
+                        >
+                        <button
+                            type="button"
+                            x-on:click="
+                                if ($refs.rfcDateInput) $refs.rfcDateInput.value = '';
+                                refreshRfcRecords();
+                            "
+                            class="absolute -right-1.5 -top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold leading-none text-white shadow {{ $rfcSubmittedDate !== '' ? '' : 'hidden' }}"
+                            title="Clear date filter"
+                            aria-label="Clear date filter"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div class="relative min-w-0 flex-1 sm:flex-none">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
                         </svg>
@@ -302,31 +389,23 @@
                         >
                     </div>
 
-                    <select name="status" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:w-36">
+                    <select
+                        name="status"
+                        x-on:change="refreshRfcRecords()"
+                        class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:w-36"
+                    >
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
+                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'Submitted to SA' : $status }}</option>
                         @endforeach
                     </select>
-
-                    <input type="date" name="date_from" value="{{ request('date_from', request('date')) }}" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-
-                    <button
-                        type="submit"
-                        x-bind:disabled="recordsLoading"
-                        class="box-border inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-[13px] font-semibold leading-none text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
-                    >
-                        <i data-lucide="filter" class="h-4 w-4 shrink-0"></i>
-                        <span x-cloak x-show="!recordsLoading">Apply</span>
-                        <span x-cloak x-show="recordsLoading">Loading...</span>
-                    </button>
 
                     @if($rfcHasFilters)
                         <button
                             type="button"
                             x-on:click="
                                 $refs.rfcFilterForm.reset();
+                                if ($refs.rfcDateInput) $refs.rfcDateInput.value = '';
                                 refreshRfcRecords('{{ $rfcClearUrl }}');
                             "
                             class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
@@ -348,7 +427,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -398,12 +477,41 @@
                                         @include('accounting.partials.status-badge', ['status' => 'Waiting for funds'])
                                     @endif
                                 @else
-                                    @include('accounting.partials.status-badge', ['status' => $rfc->request_check_status])
+                                    @php
+                                        $rfcReviewerName = trim((string) ($rfc->assigned_reviewer_name ?? ''));
+                                        $rfcUnderReviewBy = $rfc->request_check_status === 'Under Review'
+                                            ? (
+                                                $rfcReviewerName !== ''
+                                                    ? 'Under review by '.$rfcReviewerName
+                                                    : 'Under review by '.\App\Support\RoleHolderLabel::who(
+                                                        \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                                                        null,
+                                                        'the School Administrator'
+                                                    )
+                                            )
+                                            : null;
+                                    @endphp
+                                    @include('accounting.partials.status-badge', [
+                                        'status' => $rfc->request_check_status,
+                                        'toSa' => in_array($rfc->request_check_status, ['Submitted', 'Resubmitted'], true),
+                                        'displayLabel' => $rfcUnderReviewBy,
+                                    ])
                                 @endif
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    <button
+                                        type="button"
+                                        data-share-doc-type="rfc"
+                                        data-share-doc-id="{{ (int) $rfc->request_check_id }}"
+                                        data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('rfc', $rfc->request_check_form_number ?? null) }}"
+                                        class="js-share-document inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="Share to Messages"
+                                        aria-label="Share to Messages"
+                                    >
+                                        <i data-lucide="share-2" class="h-4 w-4"></i>
+                                    </button>
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
@@ -533,6 +641,10 @@
 
         <div
             class="border-t border-gray-100 px-5 py-4"
+            x-on:pointerenter.capture="
+                const link = $event.target.closest('a[href]');
+                if (link && window.PrismListCache?.prefetch) window.PrismListCache.prefetch(link.href);
+            "
             x-on:click="
                 const link = $event.target.closest('a');
                 if (!link) return;
@@ -764,7 +876,9 @@
                         </div>
                     </div>
                     @php
-                        $rfcLineage = \App\Support\DocumentLineage::forRfc((int) $rfc->request_check_id);
+                        $rfcIdKey = (int) $rfc->request_check_id;
+                        $rfcLineage = ($rfcLineages[$rfcIdKey] ?? null)
+                            ?: \App\Support\DocumentLineage::stubRfc($rfc);
                         $rfcHint = \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc');
                     @endphp
                     @include('partials.document-lineage', [

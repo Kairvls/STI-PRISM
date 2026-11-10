@@ -3,9 +3,12 @@
     if (in_array($raw, ['Pending Admin Approval', 'For Admin'], true)) {
         $raw = 'Waiting for Accounting';
     }
+    if (in_array($raw, ['Submitted', 'Resubmitted'], true) && !empty($toSa)) {
+        $raw = 'Submitted to SA';
+    }
     $label = $raw;
     $cls = 'bg-slate-100 text-slate-700 ring-slate-200';
-    if (in_array($raw, ['Pending', 'Submitted', 'Under Review', 'Resubmitted', 'Waiting for funds', 'Waiting for Accounting'], true) || !empty($submitted)) {
+    if (in_array($raw, ['Pending', 'Submitted', 'Submitted to SA', 'Under Review', 'Resubmitted', 'Waiting for funds', 'Waiting for Accounting'], true) || !empty($submitted)) {
         if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released', 'Checks released'], true)) {
             // keep approved
         } elseif (!in_array($raw, ['Rejected', 'Minor Revision'], true)) {
@@ -33,5 +36,11 @@
     if ($raw === 'Incomplete') {
         $cls = 'bg-amber-50 text-amber-800 ring-amber-300';
     }
+    if (! empty($displayLabel)) {
+        $label = (string) $displayLabel;
+    }
 @endphp
-<span class="acc-status-badge inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold leading-tight ring-1 {{ $cls }}">{{ $label }}</span>
+<span
+    class="acc-status-badge inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold leading-tight ring-1 {{ $cls }}"
+    @if (! empty($displayLabel) && $displayLabel !== $raw) title="{{ $displayLabel }}" @endif
+>{{ $label }}</span>

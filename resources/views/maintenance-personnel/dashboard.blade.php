@@ -9699,11 +9699,45 @@ document.addEventListener(
                 periodMenu?.classList.toggle('hidden', !willOpen);
                 periodPill.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
             });
+            const ensureMetricsSlice = async (kind, key) => {
+                const bag = kind === 'year' ? (metricsDashboard.years ||= {}) : (metricsDashboard.periods ||= {});
+                if (bag[key]) {
+                    return bag[key];
+                }
+                const base = metricsDashboard.metrics_url || '/maintenance/dashboard/metrics';
+                const url = new URL(base, window.location.origin);
+                if (kind === 'year') {
+                    url.searchParams.set('year', key);
+                } else {
+                    url.searchParams.set('period', key);
+                }
+                try {
+                    const res = await fetch(url.toString(), {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    });
+                    if (!res.ok) {
+                        return null;
+                    }
+                    const data = await res.json();
+                    if (!data?.ok || !data.slice) {
+                        return null;
+                    }
+                    bag[key] = data.slice;
+                    return data.slice;
+                } catch (e) {
+                    return null;
+                }
+            };
+
             metricsCard.querySelectorAll('[data-eq-period]').forEach((option) => {
-                option.addEventListener('click', (event) => {
+                option.addEventListener('click', async (event) => {
                     event.stopPropagation();
                     const key = option.getAttribute('data-eq-period');
-                    const slice = metricsDashboard?.periods?.[key];
+                    const slice = await ensureMetricsSlice('period', key);
+                    if (!slice) {
+                        return;
+                    }
                     applySlice(slice);
                     setPeriodLabel(metricsDashboard?.periodLabels?.[key] || option.textContent.trim(), key);
                     document.querySelectorAll('.mh-year-tab').forEach((item) => {
@@ -9716,9 +9750,12 @@ document.addEventListener(
             });
 
             document.querySelectorAll('.mh-year-tab').forEach((yearTab) => {
-                yearTab.addEventListener('click', () => {
+                yearTab.addEventListener('click', async () => {
                     const year = yearTab.getAttribute('data-mh-year');
-                    const slice = metricsDashboard?.years?.[year];
+                    const slice = await ensureMetricsSlice('year', year);
+                    if (!slice) {
+                        return;
+                    }
                     applySlice(slice);
                     setPeriodLabel(year, null);
                     document.querySelectorAll('.mh-year-tab').forEach((item) => {

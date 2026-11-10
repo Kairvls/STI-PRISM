@@ -938,6 +938,9 @@ Route::middleware(['auth', 'school_admin'])
         )->whereNumber('signature')->name('saved-signatures.destroy');
 
         Route::get('/authority-to-purchase', [AccountingController::class, 'authorityToPurchase'])->name('atp.index');
+        Route::get('/authority-to-purchase/{id}/preview', [AccountingController::class, 'previewAtpForm'])
+            ->whereNumber('id')
+            ->name('atp.preview');
         Route::get('/authority-to-purchase/{id}', [AccountingController::class, 'showAtp'])->whereNumber('id')->name('atp.show');
         Route::post('/authority-to-purchase/{id}/approve', [AccountingController::class, 'approveAtp'])->whereNumber('id')->name('atp.approve');
         Route::post('/authority-to-purchase/{id}/revise', [AccountingController::class, 'reviseAtp'])->whereNumber('id')->name('atp.revise');
@@ -954,6 +957,9 @@ Route::middleware(['auth', 'school_admin'])
             ->name('ris.attachment');
 
         Route::get('/request-check', [AccountingController::class, 'requestCheck'])->name('rfc.index');
+        Route::get('/request-check/{id}/preview', [AccountingController::class, 'previewRfcForm'])
+            ->whereNumber('id')
+            ->name('rfc.preview');
         Route::get('/request-check/{id}', [AccountingController::class, 'showRequestCheck'])->whereNumber('id')->name('rfc.show');
         Route::post('/request-check/{id}/approve', [AccountingController::class, 'approveRequestCheck'])->whereNumber('id')->name('rfc.approve');
         Route::post('/request-check/{id}/revise', [AccountingController::class, 'reviseRequestCheck'])->whereNumber('id')->name('rfc.revise');
@@ -963,6 +969,9 @@ Route::middleware(['auth', 'school_admin'])
             ->name('rfc.attachment');
 
         Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'schoolAdminIndex'])->name('dv.index');
+        Route::get('/disbursement-vouchers/{id}/preview', [DisbursementVoucherController::class, 'previewDvForm'])
+            ->whereNumber('id')
+            ->name('dv.preview');
         Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'schoolAdminShow'])->whereNumber('id')->name('dv.show');
         Route::post('/disbursement-vouchers/{id}/approve', [DisbursementVoucherController::class, 'approve'])->whereNumber('id')->name('dv.approve');
         Route::post('/disbursement-vouchers/{id}/revise', [DisbursementVoucherController::class, 'revise'])->whereNumber('id')->name('dv.revise');
@@ -1063,16 +1072,6 @@ Route::post('/logout',
 // PUT HERE THE MAINTENANCE PERSONNEL ROUTES BELOW
 // =====================================================
 
-Route::middleware(['auth', 'maintenance'])->group(function () {
-
-    Route::get('/maintenance/dashboard', function () {
-
-        return view('maintenance-personnel.dashboard');
-
-    });
-
-});
-
 // MICROSOFT LOGIN
 
 Route::get(
@@ -1095,6 +1094,11 @@ Route::middleware(['auth', 'maintenance'])->group(function () {
         '/maintenance/dashboard',
         [MaintenanceController::class, 'dashboard']
     );
+
+    Route::get(
+        '/maintenance/dashboard/metrics',
+        [MaintenanceController::class, 'dashboardMetrics']
+    )->name('maintenance.dashboard.metrics');
 
     Route::get(
         '/maintenance/building-layout',
@@ -2621,6 +2625,26 @@ Route::middleware(['auth'])
             '/conversations/{conversation}/send',
             [MessageController::class, 'store']
         )->name('conversations.send');
+
+        Route::post(
+            '/share-document',
+            [MessageController::class, 'shareDocument']
+        )->name('share-document');
+
+        // Any authenticated user can open a shared procurement form in a new tab (view, not download).
+        Route::get(
+            '/documents/{type}/{id}',
+            [MessageController::class, 'viewSharedDocument']
+        )->whereNumber('id')
+            ->where('type', 'ris|atp|rfc|dv|rr|liq|lr')
+            ->name('documents.show');
+
+        Route::get(
+            '/documents/{type}/{id}/print',
+            [MessageController::class, 'printSharedDocument']
+        )->whereNumber('id')
+            ->where('type', 'ris|atp|rfc|dv|rr|liq|lr')
+            ->name('documents.print');
 
         Route::post(
             '/conversations/{conversation}/read',

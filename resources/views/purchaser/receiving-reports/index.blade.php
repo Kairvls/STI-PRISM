@@ -210,6 +210,7 @@
                 </div>
 
                 <form data-auto-filter
+                    data-list-panel="#purchaser-rr-list-panel"
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.rr.index') }}"
                     role="search"
@@ -272,6 +273,7 @@
             </div>
         </div>
 
+        <div id="purchaser-rr-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-sm">
                 <thead class="bg-gray-50/70">
@@ -282,7 +284,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Received from</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -328,6 +330,17 @@
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    <button
+                                        type="button"
+                                        data-share-doc-type="rr"
+                                        data-share-doc-id="{{ (int) $rr->receiving_report_id }}"
+                                        data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('rr', $rr->receiving_report_form_number ?? null) }}"
+                                        class="js-share-document inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="Share to Messages"
+                                        aria-label="Share to Messages"
+                                    >
+                                        <i data-lucide="share-2" class="h-4 w-4"></i>
+                                    </button>
                                     <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if(!$archiveView && ($rr->open_back_orders ?? 0) > 0)
                                         <a href="{{ route(($pp ?? 'purchaser').'.bo.index', ['rr' => $rr->receiving_report_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100" title="Back orders ({{ $rr->open_back_orders }} open)" aria-label="Back orders"><i data-lucide="package-x" class="h-4 w-4"></i></a>
@@ -429,6 +442,7 @@
 
         <div class="border-t border-gray-100 px-5 py-4">
             {{ $reports->links() }}
+        </div>
         </div>
     </div>
 

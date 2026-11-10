@@ -1,22 +1,22 @@
-{{-- Pill Cards | Table switcher --}}
+{{-- Soft Cards | Table switcher (matches ATP/RFC status-filter style) --}}
 @php
     $switcherId = $switcherId ?? 'adminViewSwitcher';
     $btnClass = $btnClass ?? 'admin-view-mode-btn';
 @endphp
 <div
     id="{{ $switcherId }}"
-    class="admin-view-switcher relative inline-flex items-center rounded-lg border border-gray-200 bg-gray-100 p-0.5"
+    class="admin-view-switcher relative inline-flex items-center rounded-lg bg-slate-100 p-1"
     role="group"
     aria-label="View mode"
 >
     <span
-        class="admin-view-switcher-thumb pointer-events-none absolute top-0.5 left-0.5 z-0 h-[calc(100%-4px)] rounded-lg bg-[#0025cc] shadow-sm"
+        class="admin-view-switcher-thumb pointer-events-none absolute top-1 left-1 z-0 h-8 rounded-md bg-white shadow-sm"
         aria-hidden="true"
     ></span>
     <button
         type="button"
         data-view-mode="cards"
-        class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
+        class="{{ $btnClass }} relative z-10 inline-flex h-8 items-center gap-1.5 rounded-md px-3.5 text-xs font-semibold text-slate-500 transition-colors duration-200"
         title="Cards view"
     >
         Cards
@@ -24,7 +24,7 @@
     <button
         type="button"
         data-view-mode="table"
-        class="{{ $btnClass }} relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors duration-200"
+        class="{{ $btnClass }} relative z-10 inline-flex h-8 items-center gap-1.5 rounded-md px-3.5 text-xs font-semibold text-slate-500 transition-colors duration-200"
         title="Table view"
     >
         Table
@@ -33,7 +33,7 @@
 @once
 <style>
     .admin-view-switcher button.is-active {
-        color: #ffffff;
+        color: #020617;
     }
     .admin-view-switcher-thumb {
         transition:
@@ -60,7 +60,7 @@
             || switcher.querySelector('button');
         if (!thumb || !active) return;
 
-        var pad = 2;
+        var pad = 4;
         var x = active.offsetLeft - pad;
         var w = active.offsetWidth;
 

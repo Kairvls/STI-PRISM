@@ -15,7 +15,7 @@
                 <p class="mt-0.5 text-xs text-gray-400">{{ $hint }}</p>
             @endif
         </div>
-        <a href="{{ $url }}" class="shrink-0 text-xs font-semibold text-gray-400 transition hover:text-[#0025cc]">
+        <a href="{{ $url }}" class="shrink-0 text-xs font-semibold text-[#0025cc] transition hover:text-[#001db3]">
             View all
         </a>
     </div>

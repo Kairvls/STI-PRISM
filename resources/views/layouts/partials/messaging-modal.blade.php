@@ -2622,8 +2622,35 @@
     (function() {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const currentUserId = {{ auth()->id() }};
+        window.currentUserId = currentUserId;
         const currentUserName = @json(auth()->user()?->user_full_name ?? 'You');
         const currentUserProfilePicture = @json(auth()->user()?->user_profile_picture);
+        @php
+            // Shared Open always uses the messages document viewer (any role can open in a new tab).
+            $procurementDocUrlTemplates = [
+                'ris' => route('messages.documents.show', ['type' => 'ris', 'id' => 987654321]),
+                'atp' => route('messages.documents.show', ['type' => 'atp', 'id' => 987654321]),
+                'rfc' => route('messages.documents.show', ['type' => 'rfc', 'id' => 987654321]),
+                'dv' => route('messages.documents.show', ['type' => 'dv', 'id' => 987654321]),
+                'rr' => route('messages.documents.show', ['type' => 'rr', 'id' => 987654321]),
+                'liq' => route('messages.documents.show', ['type' => 'liq', 'id' => 987654321]),
+                'lr' => route('messages.documents.show', ['type' => 'liq', 'id' => 987654321]),
+            ];
+            foreach ($procurementDocUrlTemplates as $k => $url) {
+                $procurementDocUrlTemplates[$k] = str_replace('987654321', '__ID__', $url);
+            }
+        @endphp
+        const procurementDocUrlTemplates = @json($procurementDocUrlTemplates);
+
+        function resolveSharedDocumentUrl(card) {
+            const type = String(card?.type || '').toLowerCase();
+            const id = Number(card?.id || 0);
+            const template = procurementDocUrlTemplates[type] || null;
+            if (template && id > 0) {
+                return String(template).split('__ID__').join(String(id));
+            }
+            return card?.url || '';
+        }
         let currentConversationId = null;
         let lastPinNoticeEl = null;
         let lastUnpinNoticeEl = null;
@@ -2636,6 +2663,67 @@
         let messagesPage = 1;
         let isLoadingMessages = false;
         let hasMoreMessages = true;
+        // Warm thread payloads so opening a chat often skips a cold fetch wait.
+        const threadMessagesPrefetch = new Map();
+        const threadMessagesCache = new Map();
+        const THREAD_CACHE_TTL_MS = 90000;
+
+        function cacheThreadMessagesPayload(conversationId, data) {
+            const id = Number(conversationId);
+            if (!id || !data) {
+                return;
+            }
+            threadMessagesCache.set(id, { at: Date.now(), data });
+        }
+
+        function getCachedThreadMessagesPayload(conversationId) {
+            const id = Number(conversationId);
+            const hit = threadMessagesCache.get(id);
+            if (!hit) {
+                return null;
+            }
+            if (Date.now() - hit.at > THREAD_CACHE_TTL_MS) {
+                threadMessagesCache.delete(id);
+                return null;
+            }
+            return hit.data;
+        }
+
+        function prefetchThreadMessages(conversationId) {
+            const id = Number(conversationId);
+            if (!id) {
+                return Promise.resolve(null);
+            }
+            if (threadMessagesPrefetch.has(id)) {
+                return threadMessagesPrefetch.get(id);
+            }
+            if (getCachedThreadMessagesPayload(id)) {
+                return Promise.resolve(getCachedThreadMessagesPayload(id));
+            }
+
+            const request = fetch(`/messages/conversations/${id}/messages?page=1`, {
+                headers: { Accept: 'application/json' },
+            })
+                .then((response) => (response.ok ? response.json() : null))
+                .then((data) => {
+                    if (data) {
+                        cacheThreadMessagesPayload(id, data);
+                    }
+                    return data;
+                })
+                .catch(() => null)
+                .finally(() => {
+                    // Keep completed promise briefly so open can reuse it.
+                    setTimeout(() => {
+                        if (threadMessagesPrefetch.get(id) === request) {
+                            threadMessagesPrefetch.delete(id);
+                        }
+                    }, 1500);
+                });
+
+            threadMessagesPrefetch.set(id, request);
+            return request;
+        }
         let threadSettled = false;
         let bottomSnapTimers = [];
         let stickThreadToBottom = true;
@@ -3055,6 +3143,8 @@
 
                 if (count <= 0) {
 
+                    hideTopbarMessagePreviewBubble();
+
                     badge.textContent = '0';
 
                     badge.classList.add('hidden');
@@ -3178,6 +3268,113 @@
             return messagingModalIsOpen === true;
         }
 
+        // =====================================================
+        // TOPBAR MESSAGE PREVIEW BUBBLE (chat-head style)
+        // Compact peek under the messages icon for unread mail.
+        // =====================================================
+
+        let topbarMessagePreviewTimer = null;
+        let topbarMessagePreviewConversationId = null;
+        let topbarMessagePreviewReposition = null;
+
+        function hideTopbarMessagePreviewBubble() {
+            if (topbarMessagePreviewReposition) {
+                window.removeEventListener('resize', topbarMessagePreviewReposition);
+                window.removeEventListener('scroll', topbarMessagePreviewReposition, true);
+                topbarMessagePreviewReposition = null;
+            }
+            const el = document.getElementById('topbarMessagePreviewBubble');
+            if (el) {
+                el.remove();
+            }
+            if (topbarMessagePreviewTimer) {
+                clearTimeout(topbarMessagePreviewTimer);
+                topbarMessagePreviewTimer = null;
+            }
+            topbarMessagePreviewConversationId = null;
+        }
+
+        function positionTopbarMessagePreviewBubble(bubble, host) {
+            if (!bubble || !host) return;
+            const rect = host.getBoundingClientRect();
+            const gap = 10;
+            bubble.style.position = 'fixed';
+            bubble.style.top = Math.round(rect.bottom + gap) + 'px';
+            bubble.style.right = Math.max(8, Math.round(window.innerWidth - rect.right)) + 'px';
+            bubble.style.left = 'auto';
+            bubble.style.zIndex = '10050';
+        }
+
+        function showTopbarMessagePreviewBubble({ senderName, preview, conversationId }) {
+            const badge = document.getElementById('topbarMessageBadge');
+            const host = badge
+                ? (badge.closest('a.dashboard-icon-action, a[aria-label], button') || badge.parentElement)
+                : document.querySelector('a.dashboard-icon-action[aria-label="PaAyo messages"]');
+
+            if (!host) {
+                return false;
+            }
+
+            hideTopbarMessagePreviewBubble();
+
+            const name = String(senderName || 'New message').trim() || 'New message';
+            let text = String(preview || 'Sent you a message').trim() || 'Sent you a message';
+            if (text.length > 48) {
+                text = text.substring(0, 48) + '...';
+            }
+
+            const bubble = document.createElement('button');
+            bubble.type = 'button';
+            bubble.id = 'topbarMessagePreviewBubble';
+            bubble.className = 'topbar-msg-preview-bubble';
+            bubble.setAttribute('aria-label', 'Open unread message from ' + name);
+            bubble.dataset.conversationId = String(conversationId || '');
+
+            const label = document.createElement('span');
+            label.className = 'topbar-msg-preview-bubble__text';
+            const strong = document.createElement('strong');
+            strong.textContent = name;
+            label.appendChild(strong);
+            label.appendChild(document.createTextNode(': ' + text));
+            bubble.appendChild(label);
+
+            document.body.appendChild(bubble);
+            positionTopbarMessagePreviewBubble(bubble, host);
+            topbarMessagePreviewConversationId = Number(conversationId || 0) || null;
+
+            // Reveal after layout so the CSS transition runs.
+            requestAnimationFrame(() => {
+                bubble.classList.add('is-visible');
+            });
+
+            bubble.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const cid = Number(bubble.dataset.conversationId || 0) || null;
+                hideTopbarMessagePreviewBubble();
+                openMessagingModal();
+                if (cid) {
+                    await openModalConversation(cid);
+                }
+                await updateTopbarMessageBadge();
+            });
+
+            topbarMessagePreviewReposition = () => positionTopbarMessagePreviewBubble(bubble, host);
+            window.addEventListener('resize', topbarMessagePreviewReposition);
+            window.addEventListener('scroll', topbarMessagePreviewReposition, true);
+
+            topbarMessagePreviewTimer = setTimeout(() => {
+                bubble.classList.remove('is-visible');
+                setTimeout(() => {
+                    if (bubble.isConnected) {
+                        hideTopbarMessagePreviewBubble();
+                    }
+                }, 180);
+            }, 7000);
+
+            return true;
+        }
+
         function leaveConversationRealtime() {
             if (
                 activeRealtimeConversationId === null ||
@@ -3255,6 +3452,11 @@
                 preview = 'Sent you attachments';
             }
 
+            const sharedDocPreview = documentSharePreviewText(msg.message_content, false);
+            if (sharedDocPreview) {
+                preview = sharedDocPreview;
+            }
+
             if (isLikeStickerContent(preview) || isLikeStickerContent(msg.message_content)) {
                 preview = 'Sent a like';
             }
@@ -3262,6 +3464,16 @@
             if (preview.length > 90) {
                 preview =
                     preview.substring(0, 90) + '...';
+            }
+
+            // Icon-anchored preview bubble (chat-head style) — primary when modal is closed.
+            const bubbleShown = showTopbarMessagePreviewBubble({
+                senderName,
+                preview,
+                conversationId: msg.conversation_id,
+            });
+            if (bubbleShown) {
+                return;
             }
 
             // PaAyo toast card (Maintenance / President / Admin layouts)
@@ -3533,6 +3745,10 @@
                     updateTopbarMessageBadge();
 
                     showIncomingMessageToast(msg);
+
+                    // Drop warm cache so the next open fetches the new message.
+                    threadMessagesCache.delete(Number(msg.conversation_id));
+                    threadMessagesPrefetch.delete(Number(msg.conversation_id));
 
                 })
 
@@ -9549,6 +9765,8 @@ if (!isGroup) {
             conversationContainer?.classList.add('flex');
         }
 
+        window.openModalConversation = openModalConversation;
+
         window.openMessagingModal = function() {
             const modal = document.getElementById('messagingModal');
             const backdrop = document.getElementById('messagingModalBackdrop');
@@ -9556,6 +9774,7 @@ if (!isGroup) {
 
             if (!modal || !backdrop || !container) return;
 
+            hideTopbarMessagePreviewBubble();
             messagingModalIsOpen = true;
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
@@ -10856,6 +11075,11 @@ if (!isGroup) {
                                 ? 'You sent a file.'
                                 : `${lastMessageSenderName} sent a file.`;
 
+                    }
+
+                    else if (rawMessage.startsWith('[document_share]')) {
+                        const shared = documentSharePreviewText(rawMessage, lastMessageIsMine);
+                        preview = shared || (lastMessageIsMine ? 'You shared a document.' : 'Shared a document.');
                     }
 
 
@@ -13477,6 +13701,122 @@ if (!isGroup) {
             `;
         }
 
+        function parseDocumentShareContent(content) {
+            const raw = String(content || '');
+            if (!raw.startsWith('[document_share]')) {
+                return null;
+            }
+
+            try {
+                const payload = JSON.parse(raw.slice('[document_share]'.length));
+                if (!payload || typeof payload !== 'object') {
+                    return null;
+                }
+                return payload;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function normalizeDocumentShareLabel(card) {
+            const rawType = String(card?.type || '').toLowerCase();
+            const typeKey = rawType === 'lr' ? 'liq' : rawType;
+            const draftByType = {
+                ris: 'Draft RIS',
+                atp: 'Draft ATP',
+                rfc: 'Draft RFC',
+                dv: 'Draft DV',
+                rr: 'Draft RR',
+                liq: 'Draft LR',
+            };
+            const label = String(card?.label || '').trim();
+
+            // Soften legacy shares that stored internal ids like "RIS #13".
+            if (/^(ris|atp|rfc|dv|rr|lr|liq)\s*#\d+$/i.test(label)) {
+                const fromLabel = label.split('#')[0].trim().toLowerCase();
+                const key = fromLabel === 'lr' ? 'liq' : fromLabel;
+                return draftByType[key] || draftByType[typeKey] || 'Draft document';
+            }
+
+            if (label) {
+                return label;
+            }
+
+            return draftByType[typeKey] || card?.title || 'Document';
+        }
+
+        function documentSharePreviewText(content, isMine = false) {
+            const card = parseDocumentShareContent(content);
+            if (!card) {
+                return null;
+            }
+
+            const label = normalizeDocumentShareLabel(card);
+            return isMine
+                ? `You shared ${label}`
+                : `Shared ${label}`;
+        }
+
+        function renderDocumentShareMessageRow(msg, isOwn, card) {
+            const fullTime = getFullMessageDateTime(msg.created_at);
+            const title = card.title || 'Procurement document';
+            const label = normalizeDocumentShareLabel(card);
+            const status = card.status || '';
+            const note = card.note || '';
+            const url = resolveSharedDocumentUrl(card);
+            const type = String(card.type || 'doc').toUpperCase();
+
+            const statusHtml = status
+                ? `<p class="mt-1 text-xs font-medium text-slate-500">${escapeHtml(status)}</p>`
+                : '';
+            const noteHtml = note
+                ? `<p class="mt-2 text-sm text-slate-700">${escapeHtml(note)}</p>`
+                : '';
+            const openLabel = type === 'LIQ' ? 'LR' : type;
+            // New browser tab → PaAyo form page (e.g. /purchaser/ris?view_ris=41), not a bare file preview.
+            const openHtml = url
+                ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#0025cc] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#001db3]">Open ${escapeHtml(openLabel)}</a>`
+                : '';
+
+            return `
+                <div class="
+                    message-row
+                    flex
+                    ${isOwn ? 'justify-end' : 'justify-start'}
+                    my-2
+                "
+                data-message-id="${Number(msg.message_id || 0)}"
+                data-message-own="${isOwn ? '1' : '0'}"
+                data-message-content="${escapeHtml(msg.message_content || '')}">
+
+                    <div class="
+                        w-[min(100%,300px)]
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-slate-200
+                        bg-white
+                        shadow-sm
+                    " data-tooltip="${escapeHtml(fullTime)}">
+                        <div class="flex items-start gap-3 px-4 py-3">
+                            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#0025cc]">
+                                <i data-lucide="file-text" class="h-4 w-4"></i>
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">${escapeHtml(type)}</p>
+                                <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(label)}</p>
+                                <p class="truncate text-xs text-slate-500">${escapeHtml(title)}</p>
+                                ${statusHtml}
+                                ${noteHtml}
+                                <p class="mt-1 text-xs text-slate-400">${formatMessageTime(msg.created_at)}</p>
+                            </div>
+                        </div>
+                        ${openHtml ? `<div class="border-t border-slate-100 px-4 py-3">${openHtml}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderMessengerMessageRow(msg, isOwn) {
             
             if (
@@ -13485,6 +13825,12 @@ if (!isGroup) {
             ) {
                 return renderCallMessageRow(msg, isOwn);
             }
+
+            const documentShare = parseDocumentShareContent(msg.message_content);
+            if (documentShare) {
+                return renderDocumentShareMessageRow(msg, isOwn, documentShare);
+            }
+
             const senderName = msg.sender?.name || msg.sender?.user_full_name || (isOwn ? 'You' : 'Unknown');
 
             const rawAttachments = Array.isArray(msg.attachments)
@@ -14421,7 +14767,7 @@ if (!isGroup) {
                 const confirmed = await showMessageActionDialog({
                     title: 'Remove for you',
                     text: 'This will remove the message from your devices. Other chat members will still be able to see it.',
-                    confirmText: 'Remove', danger: false
+                    confirmText: 'Remove', danger: true
                 });
                 if (!confirmed) return;
             }
@@ -14491,7 +14837,12 @@ if (!isGroup) {
                 return 'Attachments';
             }
 
-            if (content && !content.startsWith('[attachment:')) {
+            const sharedPin = documentSharePreviewText(content, false);
+            if (sharedPin) {
+                return sharedPin;
+            }
+
+            if (content && !content.startsWith('[attachment:') && !content.startsWith('[document_share]')) {
                 return content.length > 72 ? `${content.slice(0, 72)}...` : content;
             }
 
@@ -15989,15 +16340,61 @@ if (!isGroup) {
                     });
             }
 
-            let response;
+            let data = null;
+            let usedWarmPayload = false;
 
             try {
-                response = await fetch(`/messages/conversations/${conversationId}/messages?page=${messagesPage}`, {
-                    headers: {
-                        'Accept': 'application/json'
-                    },
-                    signal: signal || undefined
-                });
+                const conversationKey = Number(conversationId);
+                const canUseWarmPayload = !append && Number(messagesPage) === 1;
+
+                if (canUseWarmPayload) {
+                    const pending = threadMessagesPrefetch.get(conversationKey);
+                    if (pending) {
+                        data = await pending;
+                        threadMessagesPrefetch.delete(conversationKey);
+                        usedWarmPayload = Boolean(data);
+                    }
+                    if (!data) {
+                        data = getCachedThreadMessagesPayload(conversationKey);
+                        usedWarmPayload = Boolean(data);
+                    }
+                }
+
+                if (!data) {
+                    const response = await fetch(
+                        `/messages/conversations/${conversationId}/messages?page=${messagesPage}`,
+                        {
+                            headers: {
+                                'Accept': 'application/json',
+                            },
+                            signal: signal || undefined,
+                        }
+                    );
+
+                    if (Number(conversationId) !== Number(currentConversationId)) {
+                        isLoadingMessages = false;
+                        return;
+                    }
+                    if (!response.ok) {
+                        isLoadingMessages = false;
+                        return;
+                    }
+
+                    data = await response.json();
+                } else if (usedWarmPayload) {
+                    // Revalidate in the background so the next open stays fresh.
+                    fetch(
+                        `/messages/conversations/${conversationId}/messages?page=1`,
+                        { headers: { Accept: 'application/json' } }
+                    )
+                        .then((response) => (response.ok ? response.json() : null))
+                        .then((fresh) => {
+                            if (fresh) {
+                                cacheThreadMessagesPayload(conversationId, fresh);
+                            }
+                        })
+                        .catch(() => {});
+                }
             } catch (error) {
                 isLoadingMessages = false;
                 if (error.name === 'AbortError') {
@@ -16010,12 +16407,16 @@ if (!isGroup) {
                 isLoadingMessages = false;
                 return;
             }
-            if (!response.ok) {
+
+            if (!data) {
                 isLoadingMessages = false;
                 return;
             }
 
-            const data = await response.json();
+            if (!append && Number(messagesPage) === 1) {
+                cacheThreadMessagesPayload(conversationId, data);
+            }
+
             const messages = data.data;
 
             const conversationEvents =
@@ -16291,9 +16692,15 @@ if (!isGroup) {
 
             if (!append) {
                 stickThreadToBottom = true;
-                await restorePinSystemNotice();
-                await waitForThreadImages(container);
-                await settleOpenedThread(container);
+                // Reveal the thread as soon as bubbles are painted — don't wait
+                // for pin fetch / image decode (those used to keep the skeleton up).
+                snapThreadToBottom();
+                setThreadLoading(false);
+
+                restorePinSystemNotice().catch(() => {});
+                waitForThreadImages(container, 250)
+                    .then(() => settleOpenedThread(container))
+                    .catch(() => settleOpenedThread(container));
             }
 
             isLoadingMessages = false;
@@ -23070,6 +23477,14 @@ if (!isGroup) {
 
             const conversationsList = document.getElementById('modalConversationsList');
             if (conversationsList) {
+                conversationsList.addEventListener('pointerenter', (e) => {
+                    const item = e.target.closest?.('.conversation-item');
+                    const id = item?.dataset?.id;
+                    if (id) {
+                        prefetchThreadMessages(id);
+                    }
+                }, true);
+
                 conversationsList.addEventListener('click', (e) => {
                     const optionsButton = e.target.closest('.conversation-options-button');
                     if (optionsButton) {
@@ -23090,7 +23505,10 @@ if (!isGroup) {
                     const item = e.target.closest('.conversation-item');
                     if (item) {
                         const id = item.dataset.id;
-                        if (id) openModalConversation(id);
+                        if (id) {
+                            prefetchThreadMessages(id);
+                            openModalConversation(id);
+                        }
                     }
                 });
             }
@@ -24028,6 +24446,61 @@ if (!isGroup) {
 
 <style>
 
+    /* Topbar unread message peek (under Messages icon) */
+    .topbar-msg-preview-bubble {
+        display: block;
+        max-width: min(280px, calc(100vw - 24px));
+        padding: 8px 12px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 9999px;
+        background: #f1f5f9;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.35;
+        text-align: left;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+        cursor: pointer;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        pointer-events: auto;
+    }
+
+    .topbar-msg-preview-bubble.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .topbar-msg-preview-bubble::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        right: 14px;
+        width: 12px;
+        height: 12px;
+        background: #f1f5f9;
+        border-left: 1px solid rgba(148, 163, 184, 0.55);
+        border-top: 1px solid rgba(148, 163, 184, 0.55);
+        transform: rotate(45deg);
+    }
+
+    .topbar-msg-preview-bubble__text {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .topbar-msg-preview-bubble__text strong {
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .topbar-msg-preview-bubble:hover {
+        background: #e2e8f0;
+    }
+
     .message-more {
         overflow: visible;
     }
@@ -24729,7 +25202,12 @@ if (!isGroup) {
     .animate-pulse {
         background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
         background-size: 200% 100%;
-        animation: shimmer 1.5s ease-in-out infinite;
+        animation: shimmer 0.7s ease-in-out infinite;
+    }
+
+    /* Chat thread skeleton — slightly snappier than the shared pulse */
+    #modalThreadLoading .animate-pulse {
+        animation-duration: 0.55s;
     }
 
     /* ======================================
@@ -24738,6 +25216,11 @@ if (!isGroup) {
 
     #messagingModalBackdrop {
         will-change: opacity;
+    }
+
+    /* While fading out (or if opacity stuck at 0), never block page clicks */
+    #messagingModalBackdrop.opacity-0 {
+        pointer-events: none;
     }
 
     /* ======================================

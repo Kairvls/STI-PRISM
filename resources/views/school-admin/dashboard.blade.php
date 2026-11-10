@@ -14,31 +14,28 @@
         'liq' => 'Liquidation',
     ];
 
-    $risPanels = [
-        [
-            'title' => 'RIS — Pending Accept',
-            'url' => route('school-admin.procurement-review', ['filter' => 'pending', 'focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]),
-            'total' => $stats['pending_ris'],
-            'empty' => 'No RIS waiting for acceptance.',
-            'rows' => $pendingRisList,
-            'kind' => 'accept',
-            'hint' => null,
-            'dateField' => 'ris_requested_by_date',
-            'agePrefix' => null,
-            'statusText' => null,
-        ],
-        [
-            'title' => 'RIS — Ready to Sign (Issued by)',
-            'url' => route('school-admin.digital-signatures.sign-ris', ['filter' => 'for_cosign']),
-            'total' => $stats['awaiting_issued_by'],
-            'empty' => 'Nothing to sign right now. RIS approved by the President will appear here.',
-            'rows' => $awaitingSignList,
-            'kind' => 'sign',
-            'dateField' => 'ris_approved_by_date',
-            'agePrefix' => 'Waiting',
-            'statusText' => null,
-        ],
-    ];
+    $pendingRisTotal = (int) ($stats['pending_ris'] ?? 0);
+    $signRisTotal = (int) ($stats['awaiting_issued_by'] ?? 0);
+    $combinedRisTotal = $pendingRisTotal + $signRisTotal;
+    $combinedRisRows = collect($pendingRisList ?? [])
+        ->map(function ($row) {
+            $row->_ris_kind = 'accept';
+            $row->_ris_date = $row->ris_requested_by_date ?? null;
+
+            return $row;
+        })
+        ->concat(collect($awaitingSignList ?? [])->map(function ($row) {
+            $row->_ris_kind = 'sign';
+            $row->_ris_date = $row->ris_approved_by_date ?? null;
+
+            return $row;
+        }))
+        ->sortBy(fn ($row) => $row->_ris_date ? \Carbon\Carbon::parse($row->_ris_date)->timestamp : PHP_INT_MAX)
+        ->values()
+        ->take(6);
+    $combinedRisUrl = $pendingRisTotal > 0
+        ? route('school-admin.procurement-review', ['filter' => 'pending', 'focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW])
+        : route('school-admin.digital-signatures.sign-ris', ['filter' => 'for_cosign']);
 @endphp
 
 <style>
@@ -49,80 +46,88 @@
     <h2 class="text-base font-semibold text-gray-950">Your approvals</h2>
 
     <div class="grid gap-4 md:grid-cols-2">
-        @foreach($risPanels as $panel)
-            <div class="pur-card">
-                @include('school-admin.partials.dashboard-list-header', [
-                    'title' => $panel['title'],
-                    'total' => $panel['total'],
-                    'rows' => $panel['rows'],
-                    'url' => $panel['url'],
-                    'hint' => $panel['hint'] ?? null,
-                ])
-                <ul class="divide-y divide-gray-100">
-                    @forelse($panel['rows'] as $row)
-                        @php
-                            $dateValue = $row->{$panel['dateField']} ?? null;
-                            $since = ! empty($dateValue)
-                                ? \Carbon\Carbon::parse($dateValue)->startOfDay()
-                                : null;
-                            $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
-                            if ($panel['kind'] === 'sign') {
-                                $who = \App\Support\RoleHolderLabel::who(
-                                    \App\Support\WorkflowNotifier::ROLE_PRESIDENT,
-                                    $row->president_name ?? $row->ris_approved_by ?? null,
-                                    ''
-                                );
-                                $statusText = $who !== '' ? 'Approved by '.$who : 'Approved by the President';
-                            } else {
-                                $who = \App\Support\RoleHolderLabel::who(
-                                    \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-                                    $row->assigned_reviewer_name ?? null,
-                                    ''
-                                );
-                                $statusText = $who !== '' ? 'Under review by '.$who : 'Under review by the School Administrator';
-                            }
-                        @endphp
-                        <li>
-                            <div
-                                role="button"
-                                tabindex="0"
-                                onclick="if (event.target.closest('a')) return; window.openDashboardRisPreview(this)"
-                                onkeydown="if (event.key === 'Enter' && !event.target.closest('a')) { event.preventDefault(); window.openDashboardRisPreview(this) }"
-                                data-ris-id="{{ (int) $row->ris_id }}"
-                                data-ris-number="{{ $row->ris_form_number ?: \App\Support\RisWorkflow::formNumber($row) }}"
-                                data-kind="{{ $panel['kind'] }}"
-                                title="Preview this RIS"
-                                class="flex w-full cursor-pointer items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70"
-                            >
-                                <div class="min-w-0">
+        <div class="pur-card">
+            @include('school-admin.partials.dashboard-list-header', [
+                'title' => 'RIS — Needs action',
+                'total' => $combinedRisTotal,
+                'rows' => $combinedRisRows,
+                'url' => $combinedRisUrl,
+                'hint' => $pendingRisTotal > 0 && $signRisTotal > 0
+                    ? $pendingRisTotal.' pending accept · '.$signRisTotal.' ready to sign'
+                    : ($signRisTotal > 0 ? 'Sign Issued by after President approval' : 'Accept RIS waiting for review'),
+            ])
+            <ul class="divide-y divide-gray-100">
+                @forelse($combinedRisRows as $row)
+                    @php
+                        $kind = $row->_ris_kind ?? 'accept';
+                        $dateValue = $row->_ris_date ?? null;
+                        $since = ! empty($dateValue)
+                            ? \Carbon\Carbon::parse($dateValue)->startOfDay()
+                            : null;
+                        $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
+                        if ($kind === 'sign') {
+                            $who = \App\Support\RoleHolderLabel::who(
+                                \App\Support\WorkflowNotifier::ROLE_PRESIDENT,
+                                $row->president_name ?? $row->ris_approved_by ?? null,
+                                ''
+                            );
+                            $statusText = $who !== '' ? 'Approved by '.$who : 'Approved by the President';
+                            $badge = 'Ready to sign';
+                            $badgeClass = 'border-blue-200 bg-blue-50 text-blue-700';
+                        } else {
+                            $who = \App\Support\RoleHolderLabel::who(
+                                \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                                $row->assigned_reviewer_name ?? null,
+                                ''
+                            );
+                            $statusText = $who !== '' ? 'Under review by '.$who : 'Under review by the School Administrator';
+                            $badge = 'Pending accept';
+                            $badgeClass = 'border-amber-200 bg-amber-50 text-amber-700';
+                        }
+                    @endphp
+                    <li>
+                        <div
+                            role="button"
+                            tabindex="0"
+                            onclick="if (event.target.closest('a')) return; window.openDashboardRisPreview(this)"
+                            onkeydown="if (event.key === 'Enter' && !event.target.closest('a')) { event.preventDefault(); window.openDashboardRisPreview(this) }"
+                            data-ris-id="{{ (int) $row->ris_id }}"
+                            data-ris-number="{{ $row->ris_form_number ?: \App\Support\RisWorkflow::formNumber($row) }}"
+                            data-kind="{{ $kind }}"
+                            title="Preview this RIS"
+                            class="flex w-full cursor-pointer items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70"
+                        >
+                            <div class="min-w-0">
+                                <div class="flex min-w-0 flex-wrap items-center gap-2">
                                     <p class="text-sm font-semibold text-gray-900">{{ \App\Support\RisWorkflow::formNumber($row) }}</p>
-                                    @if(!blank($row->ris_request_no ?? null))
-                                        <p class="mt-0.5">
-                                            @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no, 'inline' => true, 'showLabel' => false])
-                                        </p>
-                                    @endif
-                                    <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
+                                    <span class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold {{ $badgeClass }}">{{ $badge }}</span>
                                 </div>
-                                <div class="max-w-[10.5rem] shrink-0 text-right">
-                                    <p class="text-[11px] font-semibold leading-4 text-gray-700">{{ $statusText }}</p>
-                                    @if($age !== null)
-                                        <p class="mt-0.5 text-[11px] {{ $age >= 3 ? 'sa-alert font-semibold' : 'text-gray-400' }}">
-                                            @if($panel['agePrefix'])
-                                                {{ $age === 0 ? 'Arrived today' : $panel['agePrefix'].' '.$age.' '.\Illuminate\Support\Str::plural('day', $age) }}
-                                            @else
-                                                {{ $age === 0 ? 'Today' : $age.'d waiting' }}
-                                            @endif
-                                        </p>
-                                    @endif
-                                </div>
+                                @if(!blank($row->ris_request_no ?? null))
+                                    <p class="mt-0.5">
+                                        @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no, 'inline' => true, 'showLabel' => false])
+                                    </p>
+                                @endif
+                                <p class="mt-1 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                             </div>
-                        </li>
-                    @empty
-                        <li class="px-5 py-8 text-sm text-gray-400">{{ $panel['empty'] }}</li>
-                    @endforelse
-                </ul>
-            </div>
-        @endforeach
+                            <div class="max-w-[10.5rem] shrink-0 text-right">
+                                <p class="text-[11px] font-semibold leading-4 text-gray-700">{{ $statusText }}</p>
+                                @if($age !== null)
+                                    <p class="mt-0.5 text-[11px] {{ $age >= 3 ? 'sa-alert font-semibold' : 'text-gray-400' }}">
+                                        @if($kind === 'sign')
+                                            {{ $age === 0 ? 'Arrived today' : 'Waiting '.$age.' '.\Illuminate\Support\Str::plural('day', $age) }}
+                                        @else
+                                            {{ $age === 0 ? 'Today' : $age.'d waiting' }}
+                                        @endif
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+                    </li>
+                @empty
+                    <li class="px-5 py-8 text-sm text-gray-400">No RIS waiting for accept or Issued by signature.</li>
+                @endforelse
+            </ul>
+        </div>
 
         @foreach($approvalQueues as $queue)
             <div class="pur-card">
@@ -147,7 +152,7 @@
                                             @include('partials.procurement-request-no', ['requestNo' => $row->request_no, 'inline' => true, 'showLabel' => false])
                                         </p>
                                     @endif
-                                    <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) $row->amount, 2) }}</p>
+                                    <p class="mt-1 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) $row->amount, 2) }}</p>
                                 </div>
                                 <div class="shrink-0 text-right">
                                     <p class="text-[11px] font-semibold text-gray-700">{{ $row->status }}</p>
@@ -206,7 +211,7 @@
                             @if($requestNo !== '' && $formNumber !== '')
                                 <p class="mt-0.5 text-[11px] text-gray-400">{{ $formNumber }}</p>
                             @endif
-                            <p class="mt-0.5 text-xs text-gray-400">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
+                            <p class="mt-1 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                         </div>
                         <div class="min-w-0">
                             <div class="flex items-center">

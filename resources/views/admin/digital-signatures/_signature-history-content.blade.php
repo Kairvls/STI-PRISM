@@ -9,6 +9,7 @@
         $search = $search ?? '';
         $filter = $filter ?? 'all';
         $document = $document ?? 'ris';
+        $submittedDate = $submittedDate ?? '';
         $documentRows = $documentRows ?? false;
         $documentTabs = [
             'ris' => 'RIS',
@@ -90,7 +91,7 @@
                         ])
 
                         <a
-                            href="{{ \App\Support\AdminPortal::route('digital-signatures.history.export-pdf', ['search' => $search, 'filter' => $filter]) }}"
+                            href="{{ \App\Support\AdminPortal::route('digital-signatures.history.export-pdf', array_filter(['search' => $search, 'filter' => $filter, 'submitted' => $submittedDate !== '' ? $submittedDate : null])) }}"
                             title="Export the current Signature History table to PDF"
                             class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                         >
@@ -134,20 +135,18 @@
                 </div>
                 @endunless
 
-                <div class="relative w-full lg:max-w-sm {{ $documentRows ? 'lg:ml-auto' : '' }}">
-                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
-                    </svg>
-                    <input
-                        id="signatureHistoryLiveSearch"
-                        type="search"
-                        name="search"
-                        value="{{ $search }}"
-                        placeholder="{{ $documentRows ? 'Search number, request no., or name…' : 'Search RIS, Request No., requester, equipment…' }}"
-                        autocomplete="off"
-                        title="Search signature history records"
-                        class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                    >
+                <div class="{{ $documentRows ? 'lg:ml-auto' : '' }}">
+                    @include('admin.partials.ris-submitted-date-search', [
+                        'search' => $search,
+                        'submittedDate' => $submittedDate,
+                        'searchInputId' => 'signatureHistoryLiveSearch',
+                        'dateInputId' => 'signatureHistorySubmittedDate',
+                        'dateBtnId' => 'signatureHistorySubmittedDateBtn',
+                        'dateClearId' => 'signatureHistorySubmittedDateClear',
+                        'searchPlaceholder' => $documentRows
+                            ? 'Search number, request no., or name…'
+                            : 'Search RIS, Request No., requester, equipment…',
+                    ])
                 </div>
             </div>
         </div>

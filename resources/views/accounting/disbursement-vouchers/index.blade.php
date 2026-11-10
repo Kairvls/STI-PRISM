@@ -120,7 +120,7 @@
                     </span>
                 </div>
 
-                <form method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <form method="GET" data-auto-filter data-list-panel="#accounting-dv-list-panel" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                     @if(! empty($focusRfc))
                         <input type="hidden" name="rfc" value="{{ $focusRfc }}">
                     @endif
@@ -171,7 +171,7 @@
             </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div id="accounting-dv-list-panel" data-list-panel-root class="overflow-x-auto">
             <table class="w-full min-w-[960px] text-sm">
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
@@ -180,7 +180,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 max-md:hidden">ATP</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">DV status</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -234,6 +234,12 @@
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     @if($rowDvId)
+                                        @include('partials.share-document-button', [
+                                            'type' => 'dv',
+                                            'id' => $rowDvId,
+                                            'label' => \App\Support\RequestExplorer::shareUiLabel('dv', $row->dv_form_number ?? null),
+                                            'variant' => 'button',
+                                        ])
                                         @if($rowEditable)
                                             <button
                                                 type="button"
@@ -282,11 +288,11 @@
                     @endforelse
                 </tbody>
             </table>
-        </div>
 
-        @if($packages->hasPages())
-            <div class="border-t border-gray-100 px-5 py-4">{{ $packages->links() }}</div>
-        @endif
+            @if($packages->hasPages())
+                <div class="border-t border-gray-100 px-5 py-4">{{ $packages->links() }}</div>
+            @endif
+        </div>
     </div>
 
     {{-- DV modals --}}

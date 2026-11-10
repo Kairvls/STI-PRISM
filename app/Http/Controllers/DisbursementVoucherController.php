@@ -37,14 +37,24 @@ class DisbursementVoucherController extends Controller
                         $q->whereNull('dv.dv_is_archived')->orWhere('dv.dv_is_archived', 0);
                     });
             })
-            ->select(
-                'request_check_table.*',
+            ->select(array_values(array_filter([
+                'request_check_table.request_check_id',
+                'request_check_table.request_check_form_number',
+                'request_check_table.request_check_payee',
+                'request_check_table.request_check_amount_figures',
+                'request_check_table.request_check_sent_to_accounting_at',
+                Schema::hasColumn('request_check_table', 'request_check_authority_purchase_id')
+                    ? 'request_check_table.request_check_authority_purchase_id'
+                    : null,
+                Schema::hasColumn('request_check_table', 'request_check_request_no')
+                    ? 'request_check_table.request_check_request_no'
+                    : null,
                 'dv.dv_id',
                 'dv.dv_status',
                 'dv.dv_form_number',
                 'dv.dv_request_no as linked_dv_request_no',
-                'dv.dv_amount as linked_dv_amount'
-            )
+                'dv.dv_amount as linked_dv_amount',
+            ])))
             ->orderByDesc('request_check_table.request_check_sent_to_accounting_at');
 
         if ($filter === 'incoming') {
@@ -459,6 +469,8 @@ class DisbursementVoucherController extends Controller
         abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
 
         $filter = trim((string) $request->query('status', 'incoming'));
+        $search = trim((string) $request->query('search', ''));
+        $submittedDate = $this->normalizeSubmittedDateQuery($request);
 
         $query = DB::table('disbursement_vouchers_table')
             ->leftJoin('request_check_table', 'disbursement_vouchers_table.dv_request_check_id', '=', 'request_check_table.request_check_id')
@@ -485,6 +497,32 @@ class DisbursementVoucherController extends Controller
         }
         // status=all → no status filter
 
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like, $search) {
+                $q->where('disbursement_vouchers_table.dv_form_number', 'like', $like)
+                    ->orWhere('disbursement_vouchers_table.dv_status', 'like', $like)
+                    ->orWhere('request_check_table.request_check_form_number', 'like', $like);
+
+                if (Schema::hasColumn('disbursement_vouchers_table', 'dv_request_no')) {
+                    $q->orWhere('disbursement_vouchers_table.dv_request_no', 'like', $like);
+                }
+                if (Schema::hasColumn('request_check_table', 'request_check_request_no')) {
+                    $q->orWhere('request_check_table.request_check_request_no', 'like', $like);
+                }
+                if (Schema::hasColumn('disbursement_vouchers_table', 'dv_amount')) {
+                    $q->orWhere('disbursement_vouchers_table.dv_amount', 'like', $like);
+                }
+                if (ctype_digit($search)) {
+                    $q->orWhere('disbursement_vouchers_table.dv_id', (int) $search);
+                }
+            });
+        }
+
+        if ($submittedDate !== '' && Schema::hasColumn('disbursement_vouchers_table', 'dv_submitted_at')) {
+            $query->whereDate('disbursement_vouchers_table.dv_submitted_at', $submittedDate);
+        }
+
         $records = $query->orderByDesc('dv_submitted_at')->orderByDesc('dv_id')->paginate(20)->withQueryString();
 
         $base = DB::table('disbursement_vouchers_table')
@@ -496,6 +534,7 @@ class DisbursementVoucherController extends Controller
         }
 
         $counts = [
+            'all' => (clone $base)->count(),
             'incoming' => (clone $base)->where('dv_status', 'Pending')->count(),
             'revision' => (clone $base)->where('dv_status', 'Revision')->count(),
             'approved' => (clone $base)->where('dv_status', 'Approved')->count(),
@@ -504,7 +543,24 @@ class DisbursementVoucherController extends Controller
         return view('accounting.disbursement-vouchers.school-admin-index', [
             'records' => $records,
             'filter' => $filter,
+            'search' => $search,
+            'submittedDate' => $submittedDate,
             'counts' => $counts,
+        ]);
+    }
+
+    /**
+     * Lightweight DV paper for in-list preview (School Administrator queue).
+     */
+    public function previewDvForm($id)
+    {
+        abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+        $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
+        abort_if(! $dv, 404);
+
+        return view('accounting.dashboard-preview', [
+            'kind' => 'dv',
+            'dv' => $dv,
         ]);
     }
 
@@ -1177,6 +1233,20 @@ class DisbursementVoucherController extends Controller
         return response()->file($path, [
             'Content-Disposition' => 'inline; filename="'.$file->ris_attachment_original_name.'"',
         ]);
+    }
+
+    private function normalizeSubmittedDateQuery(Request $request): string
+    {
+        $raw = trim((string) $request->query('submitted', $request->query('date_from', $request->query('date', ''))));
+        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return '';
+        }
+
+        try {
+            return \Carbon\Carbon::createFromFormat('Y-m-d', $raw)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     private function assertAccountingPackageRfc(int $rfcId): object

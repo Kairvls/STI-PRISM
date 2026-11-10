@@ -26,12 +26,24 @@ class AdminPipeline
     }
 
     /**
+     * Stage dots for dashboard/list cards — skips funds, payment path, and approval logs.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     */
+    public static function attachSummaries($rows): void
+    {
+        foreach ($rows as $row) {
+            $row->pipeline = self::build((int) $row->ris_id, false, false, $row);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    public static function build(int $risId, bool $withLogs = false): array
+    public static function build(int $risId, bool $withLogs = false, bool $withFunds = true, ?object $ris = null): array
     {
         try {
-            return self::buildInner($risId, $withLogs);
+            return self::buildInner($risId, $withLogs, $withFunds, $ris);
         } catch (\Throwable $e) {
             return [
                 'ris_id' => $risId,
@@ -64,9 +76,9 @@ class AdminPipeline
     /**
      * @return array<string, mixed>
      */
-    private static function buildInner(int $risId, bool $withLogs = false): array
+    private static function buildInner(int $risId, bool $withLogs = false, bool $withFunds = true, ?object $ris = null): array
     {
-        $chain = DocumentLineage::forRis($risId);
+        $chain = DocumentLineage::forRis($risId, $ris);
         $stageOrder = self::STAGE_ORDER;
         $stages = [];
         $paymentPath = null;
@@ -102,7 +114,7 @@ class AdminPipeline
             ];
         }
 
-        if (! empty($stages['rfc']['id']) && Schema::hasTable('request_check_table')) {
+        if ($withFunds && ! empty($stages['rfc']['id']) && Schema::hasTable('request_check_table')) {
             $rfc = DB::table('request_check_table')->where('request_check_id', $stages['rfc']['id'])->first();
             if ($rfc) {
                 if (! empty($rfc->request_check_funding_type)) {
@@ -118,7 +130,7 @@ class AdminPipeline
             }
         }
 
-        if (! $paymentPath && ! empty($stages['atp']['id']) && Schema::hasTable('authority_to_purchase_table')) {
+        if ($withFunds && ! $paymentPath && ! empty($stages['atp']['id']) && Schema::hasTable('authority_to_purchase_table')) {
             $atp = DB::table('authority_to_purchase_table')
                 ->where('authority_purchase_id', $stages['atp']['id'])
                 ->first();
@@ -187,7 +199,9 @@ class AdminPipeline
         }
 
         $requestNo = null;
-        if (class_exists(ProcurementRequestNumber::class)) {
+        if ($ris && filled($ris->ris_request_no ?? null)) {
+            $requestNo = (string) $ris->ris_request_no;
+        } elseif (class_exists(ProcurementRequestNumber::class)) {
             $requestNo = ProcurementRequestNumber::resolveFromRis($risId);
         } elseif (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
             $requestNo = DB::table('requisition_issue_slip_table')

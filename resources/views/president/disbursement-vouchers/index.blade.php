@@ -37,7 +37,7 @@
                     <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Payee / RFC</th>
                     <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                     <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                    <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                    <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -65,7 +65,15 @@
                             <span class="inline-flex rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $row->dv_status }}</span>
                         </td>
                         <td class="px-5 py-4 text-right">
-                            <a href="{{ route('president.dv.show', $row->dv_id) }}" class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white hover:bg-[#001db3]">Open</a>
+                            <div class="inline-flex items-center justify-end gap-1.5">
+                                @include('partials.share-document-button', [
+                                    'type' => 'dv',
+                                    'id' => $row->dv_id,
+                                    'label' => \App\Support\RequestExplorer::shareUiLabel('dv', $row->dv_form_number ?? null),
+                                    'variant' => 'button',
+                                ])
+                                <a href="{{ route('president.dv.show', $row->dv_id) }}" class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white hover:bg-[#001db3]">Open</a>
+                            </div>
                         </td>
                     </tr>
                 @empty

@@ -17,12 +17,14 @@ use App\Models\Message;
 use App\Models\MessageHiddenUser;
 use App\Models\User;
 use App\Models\MessageAttachment;
+use App\Support\RequestExplorer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
 
 
@@ -370,6 +372,523 @@ class MessageController extends Controller
         
 
         return response()->json($response, 201);
+    }
+
+    /**
+     * Share a procurement document card into a conversation.
+     * Accepts an existing conversation_id or a user_id (creates/finds a direct chat).
+     */
+    public function shareDocument(Request $request): JsonResponse
+    {
+        $userId = (int) Auth::id();
+
+        $validated = $request->validate([
+            'document_type' => ['required', 'string', 'in:ris,atp,rfc,dv,rr,liq,lr'],
+            'document_id' => ['required', 'integer', 'min:1'],
+            'conversation_id' => ['nullable', 'integer', 'exists:conversations,conversation_id'],
+            'user_id' => ['nullable', 'integer', 'exists:users_table,user_id'],
+            'recipients' => ['nullable', 'array', 'max:25'],
+            'recipients.*.kind' => ['required_with:recipients', 'string', 'in:conversation,user'],
+            'recipients.*.id' => ['required_with:recipients', 'integer', 'min:1'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $targets = [];
+        foreach ($validated['recipients'] ?? [] as $recipient) {
+            $kind = (string) ($recipient['kind'] ?? '');
+            $id = (int) ($recipient['id'] ?? 0);
+            if ($id < 1 || ! in_array($kind, ['conversation', 'user'], true)) {
+                continue;
+            }
+            $targets[$kind.':'.$id] = ['kind' => $kind, 'id' => $id];
+        }
+
+        // Backward-compatible single target.
+        if (! empty($validated['conversation_id'])) {
+            $id = (int) $validated['conversation_id'];
+            $targets['conversation:'.$id] = ['kind' => 'conversation', 'id' => $id];
+        }
+        if (! empty($validated['user_id'])) {
+            $id = (int) $validated['user_id'];
+            $targets['user:'.$id] = ['kind' => 'user', 'id' => $id];
+        }
+
+        if ($targets === []) {
+            return response()->json([
+                'message' => 'Choose at least one conversation or person to share with.',
+            ], 422);
+        }
+
+        $card = RequestExplorer::shareCard(
+            (string) $validated['document_type'],
+            (int) $validated['document_id']
+        );
+
+        if (! $card) {
+            return response()->json([
+                'message' => 'This document could not be shared. It may have been removed or is not available.',
+            ], 404);
+        }
+
+        // Always store the role-neutral messages viewer URL so any receiver can Open in a new tab.
+        $card['url'] = route('messages.documents.show', [
+            'type' => $card['type'],
+            'id' => $card['id'],
+        ]);
+
+        $payload = [
+            'type' => $card['type'],
+            'id' => $card['id'],
+            'title' => $card['title'],
+            'label' => $card['label'],
+            'status' => $card['status'],
+            'url' => $card['url'],
+        ];
+
+        $note = trim((string) ($validated['note'] ?? ''));
+        if ($note !== '') {
+            $payload['note'] = $note;
+        }
+
+        $sharedConversationIds = [];
+        $lastMessage = null;
+        $errors = [];
+
+        foreach ($targets as $target) {
+            try {
+                $conversation = $this->resolveShareConversation($userId, $target['kind'], $target['id']);
+                $message = $this->postSharedDocumentMessage($userId, $conversation, $payload);
+                $sharedConversationIds[] = (int) $conversation->conversation_id;
+                $lastMessage = $message;
+            } catch (\Throwable $e) {
+                report($e);
+                $errors[] = $target['kind'].' #'.$target['id'];
+            }
+        }
+
+        if ($sharedConversationIds === []) {
+            return response()->json([
+                'message' => 'Could not share this document to the selected people.',
+                'failed' => $errors,
+            ], 422);
+        }
+
+        $count = count($sharedConversationIds);
+
+        return response()->json([
+            'message' => $count === 1 ? 'Document shared.' : 'Document shared with '.$count.' conversations.',
+            'data' => $lastMessage,
+            'conversation_id' => $sharedConversationIds[0],
+            'conversation_ids' => $sharedConversationIds,
+            'shared_count' => $count,
+            'failed' => $errors,
+            'card' => $card,
+        ], 201);
+    }
+
+    /**
+     * @param  array{kind: string, id: int}|string  $kind
+     */
+    private function resolveShareConversation(int $userId, string $kind, int $targetId): Conversation
+    {
+        if ($kind === 'conversation') {
+            $conversation = Conversation::findOrFail($targetId);
+            $this->authorizeConversation($conversation, $userId);
+
+            return $conversation;
+        }
+
+        if ($targetId === $userId) {
+            throw new \InvalidArgumentException('You cannot share a document with yourself.');
+        }
+
+        $conversation = $this->findConversationBetween($userId, $targetId);
+
+        if (! $conversation) {
+            $conversation = DB::transaction(function () use ($userId, $targetId) {
+                $conversation = Conversation::create([
+                    'conversation_type' => 'direct',
+                    'conversation_name' => null,
+                    'last_message_at' => null,
+                ]);
+
+                ConversationParticipant::insert([
+                    [
+                        'conversation_id' => $conversation->conversation_id,
+                        'user_id' => $userId,
+                        'is_muted' => false,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
+                    [
+                        'conversation_id' => $conversation->conversation_id,
+                        'user_id' => $targetId,
+                        'is_muted' => false,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
+                ]);
+
+                return $conversation;
+            });
+        }
+
+        $this->authorizeConversation($conversation, $userId);
+
+        return $conversation;
+    }
+
+    private function postSharedDocumentMessage(int $userId, Conversation $conversation, array $payload): Message
+    {
+        $message = new Message([
+            'conversation_id' => $conversation->conversation_id,
+            'sender_id' => $userId,
+            'message_content' => '[document_share]'.json_encode($payload, JSON_UNESCAPED_SLASHES),
+            'message_type' => 'text',
+        ]);
+        $message->save();
+
+        $conversation->update([
+            'last_message_id' => $message->message_id,
+            'last_message_at' => now(),
+        ]);
+
+        $this->revealConversationForParticipants((int) $conversation->conversation_id);
+
+        $message->load([
+            'sender',
+            'replyTo.sender',
+            'reactions.user',
+            'attachments',
+        ]);
+
+        try {
+            broadcast(new MessageSent($message))->toOthers();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $message;
+    }
+
+    /**
+     * Open a shared procurement form in a new tab (real paper form for any authenticated role).
+     */
+    public function viewSharedDocument(string $type, int $id): View
+    {
+        $type = strtolower(trim($type));
+        if ($type === 'lr') {
+            $type = 'liq';
+        }
+
+        $card = RequestExplorer::shareCard($type, $id);
+        abort_if(! $card, 404);
+
+        return view('messages.shared-document', array_merge([
+            'card' => $card,
+            'type' => $type,
+            'printUrl' => route('messages.documents.print', ['type' => $type, 'id' => $id]),
+        ], $this->sharedDocumentPaperData($type, $id)));
+    }
+
+    /**
+     * Dedicated print sheet (same landscape RIS print as Purchaser — no app chrome).
+     */
+    public function printSharedDocument(string $type, int $id): View
+    {
+        $type = strtolower(trim($type));
+        if ($type === 'lr') {
+            $type = 'liq';
+        }
+
+        abort_if(! RequestExplorer::shareCard($type, $id), 404);
+
+        if ($type === 'ris') {
+            $data = $this->sharedRisPaper($id);
+
+            return view('purchaser.ris.print', [
+                'ris' => $data['ris'],
+                'risItems' => $data['risItems'],
+                'presidentName' => $data['presidentName'] ?? null,
+            ]);
+        }
+
+        // Other procurement forms: bare print sheet (paper only).
+        return view('messages.shared-document-print', array_merge([
+            'type' => $type,
+        ], $this->sharedDocumentPaperData($type, $id)));
+    }
+
+    /**
+     * Load the same paper-form payload used on purchaser/view screens.
+     *
+     * @return array<string, mixed>
+     */
+    private function sharedDocumentPaperData(string $type, int $id): array
+    {
+        return match ($type) {
+            'ris' => $this->sharedRisPaper($id),
+            'atp' => $this->sharedAtpPaper($id),
+            'rfc' => $this->sharedRfcPaper($id),
+            'rr' => $this->sharedRrPaper($id),
+            'liq' => $this->sharedLiqPaper($id),
+            'dv' => $this->sharedDvPaper($id),
+            default => ['paper' => null],
+        };
+    }
+
+    /**
+     * @return array{paper: string, ris: object, risItems: \Illuminate\Support\Collection<int, object>, presidentName: ?string}
+     */
+    private function sharedRisPaper(int $id): array
+    {
+        abort_unless(Schema::hasTable('requisition_issue_slip_table'), 404);
+        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $id)->first();
+        abort_if(! $ris, 404);
+
+        $presidentName = null;
+        if (
+            ! empty($ris->ris_approved_by_signature)
+            && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+            && Schema::hasTable('approval_logs_table')
+        ) {
+            try {
+                $presidentApproval = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                    ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                    ->where('approval_logs_table.approval_log_reference_id', $id)
+                    ->where('approval_logs_table.approval_log_level', 'President')
+                    ->where('approval_logs_table.approval_log_approval_status', 'Approved')
+                    ->select('users_table.user_full_name')
+                    ->first();
+
+                if ($presidentApproval && ! empty($presidentApproval->user_full_name)) {
+                    $presidentName = $presidentApproval->user_full_name;
+                }
+            } catch (\Throwable $e) {
+                $presidentName = null;
+            }
+        }
+
+        return [
+            'paper' => 'ris',
+            'ris' => $ris,
+            'risItems' => $this->sharedRisItemsWithLookups($id),
+            'presidentName' => $presidentName,
+        ];
+    }
+
+    /**
+     * @return array{paper: string, atp: object, items: \Illuminate\Support\Collection<int, object>}
+     */
+    private function sharedAtpPaper(int $id): array
+    {
+        abort_unless(Schema::hasTable('authority_to_purchase_table'), 404);
+
+        // Same supplier joins as Purchaser ATP print (To: line needs company/shop name).
+        $query = DB::table('authority_to_purchase_table')
+            ->where('authority_to_purchase_table.authority_purchase_id', $id);
+
+        $select = ['authority_to_purchase_table.*'];
+
+        if (Schema::hasTable('suppliers_table')) {
+            $query->leftJoin(
+                'suppliers_table',
+                'authority_to_purchase_table.authority_purchase_supplier_id',
+                '=',
+                'suppliers_table.supplier_id'
+            );
+            $select[] = 'suppliers_table.supplier_store_type';
+
+            if (Schema::hasTable('physical_suppliers_table')) {
+                $query->leftJoin(
+                    'physical_suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'physical_suppliers_table.supplier_id'
+                );
+                $select[] = 'physical_suppliers_table.company_name';
+            }
+
+            if (Schema::hasTable('online_suppliers_table')) {
+                $query->leftJoin(
+                    'online_suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'online_suppliers_table.supplier_id'
+                );
+                $select[] = 'online_suppliers_table.shop_name';
+            }
+        }
+
+        $atp = $query->select($select)->first();
+        abort_if(! $atp, 404);
+
+        $items = Schema::hasTable('authority_to_purchase_items_table')
+            ? DB::table('authority_to_purchase_items_table')
+                ->where('authority_purchase_id', $id)
+                ->orderBy('atp_item_id')
+                ->get()
+            : collect();
+
+        return [
+            'paper' => 'atp',
+            'atp' => $atp,
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @return array{paper: string, rfc: object}
+     */
+    private function sharedRfcPaper(int $id): array
+    {
+        abort_unless(Schema::hasTable('request_check_table'), 404);
+        $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
+        abort_if(! $rfc, 404);
+
+        return [
+            'paper' => 'rfc',
+            'rfc' => $rfc,
+        ];
+    }
+
+    /**
+     * @return array{paper: string, rr: object, rows: \Illuminate\Support\Collection<int, object>}
+     */
+    private function sharedRrPaper(int $id): array
+    {
+        abort_unless(Schema::hasTable('receiving_reports_table'), 404);
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
+        abort_if(! $rr, 404);
+
+        $rows = Schema::hasTable('receiving_report_items_table')
+            ? DB::table('receiving_report_items_table')
+                ->where('receiving_report_id', $id)
+                ->orderBy('receiving_report_item_id')
+                ->get()
+            : collect();
+
+        return [
+            'paper' => 'rr',
+            'rr' => $rr,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array{paper: string, liq: object, rows: \Illuminate\Support\Collection<int, object>}
+     */
+    private function sharedLiqPaper(int $id): array
+    {
+        abort_unless(Schema::hasTable('liquidation_reports_table'), 404);
+        $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+        abort_if(! $liq, 404);
+
+        $rows = Schema::hasTable('liquidation_report_items_table')
+            ? DB::table('liquidation_report_items_table')
+                ->where('liquidation_report_id', $id)
+                ->orderBy('liquidation_item_id')
+                ->get()
+            : collect();
+
+        return [
+            'paper' => 'liq',
+            'liq' => $liq,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array{paper: string, dv: object}
+     */
+    private function sharedDvPaper(int $id): array
+    {
+        abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+        $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
+        abort_if(! $dv, 404);
+
+        return [
+            'paper' => 'dv',
+            'dv' => $dv,
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function sharedRisItemsWithLookups(int $risId)
+    {
+        if (! Schema::hasTable('requisition_issue_slip_items_table')) {
+            return collect();
+        }
+
+        $query = DB::table('requisition_issue_slip_items_table')
+            ->where('requisition_issue_slip_items_table.ris_id', $risId)
+            ->orderBy('ris_item_id');
+
+        $select = ['requisition_issue_slip_items_table.*'];
+
+        if (
+            Schema::hasTable('uom_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
+        ) {
+            $query->leftJoin(
+                'uom_table',
+                'uom_table.uom_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_uom_id'
+            );
+            $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('brands_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+        ) {
+            $query->leftJoin(
+                'brands_table',
+                'brands_table.brand_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_brand_id'
+            );
+            $select[] = 'brands_table.brand_name';
+        }
+
+        if (
+            Schema::hasTable('suppliers_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')
+        ) {
+            $query
+                ->leftJoin(
+                    'suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'requisition_issue_slip_items_table.ris_item_supplier_id'
+                )
+                ->leftJoin(
+                    'physical_suppliers_table',
+                    'physical_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                )
+                ->leftJoin(
+                    'online_suppliers_table',
+                    'online_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                );
+
+            $select[] = DB::raw(
+                "CASE
+                    WHEN suppliers_table.supplier_store_type = 'Online Store'
+                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
+                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
+                END as supplier_display_name"
+            );
+        }
+
+        return $query->select($select)->get()->values();
     }
 
     /**

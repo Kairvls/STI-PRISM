@@ -51,6 +51,7 @@
                 </div>
 
                 <form data-auto-filter
+                    data-list-panel="#purchaser-suppliers-list-panel"
                     method="GET"
                     action="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}"
                     class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
@@ -104,6 +105,7 @@
             </div>
         </div>
 
+        <div id="purchaser-suppliers-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/70">
@@ -113,7 +115,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Contact</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Added</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -292,7 +294,7 @@
                                                 </div>
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Check name</dt>
-                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->supplier_check_name ?: 'â€”' }}</dd>
+                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->supplier_check_name ?: '—' }}</dd>
                                                 </div>
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Status</dt>
@@ -300,25 +302,25 @@
                                                 </div>
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Contact person</dt>
-                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->contact_person ?? 'â€”' }}</dd>
+                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->contact_person ?? '—' }}</dd>
                                                 </div>
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Operating hours</dt>
-                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->operating_hours ?? 'â€”' }}</dd>
+                                                    <dd class="text-sm font-medium text-slate-900">{{ $supplier->operating_hours ?? '—' }}</dd>
                                                 </div>
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Contact number</dt>
-                                                    <dd class="text-sm font-medium text-slate-900">{{ \App\Support\PhoneNumber::formatForDisplay($supplier->contact_number) ?? 'â€”' }}</dd>
+                                                    <dd class="text-sm font-medium text-slate-900">{{ \App\Support\PhoneNumber::formatForDisplay($supplier->contact_number) ?? '—' }}</dd>
                                                 </div>
                                                 @if($supplier->supplier_store_type === 'Physical Store')
                                                     <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                         <dt class="text-sm text-slate-500">Landline</dt>
-                                                        <dd class="text-sm font-medium text-slate-900">{{ \App\Support\PhoneNumber::formatLandlineForDisplay($supplier->landline_number) ?? 'â€”' }}</dd>
+                                                        <dd class="text-sm font-medium text-slate-900">{{ \App\Support\PhoneNumber::formatLandlineForDisplay($supplier->landline_number) ?? '—' }}</dd>
                                                     </div>
                                                 @endif
                                                 <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                     <dt class="text-sm text-slate-500">Email</dt>
-                                                    <dd class="break-all text-sm font-medium text-slate-900">{{ $supplier->email_address ?? 'â€”' }}</dd>
+                                                    <dd class="break-all text-sm font-medium text-slate-900">{{ $supplier->email_address ?? '—' }}</dd>
                                                 </div>
                                                 @if($supplier->company_address)
                                                     <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
@@ -335,11 +337,11 @@
                                                 <dl class="mt-4 divide-y divide-slate-100">
                                                     <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                         <dt class="text-sm text-slate-500">Platform</dt>
-                                                        <dd class="text-sm font-medium text-slate-900">{{ $supplier->app_used ?? 'â€”' }}</dd>
+                                                        <dd class="text-sm font-medium text-slate-900">{{ $supplier->app_used ?? '—' }}</dd>
                                                     </div>
                                                     <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                         <dt class="text-sm text-slate-500">Shop name</dt>
-                                                        <dd class="text-sm font-medium text-slate-900">{{ $supplier->shop_name ?? 'â€”' }}</dd>
+                                                        <dd class="text-sm font-medium text-slate-900">{{ $supplier->shop_name ?? '—' }}</dd>
                                                     </div>
                                                     <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                         <dt class="text-sm text-slate-500">Store URL</dt>
@@ -347,13 +349,13 @@
                                                             @if(!empty($supplier->store_url))
                                                                 <a href="{{ $supplier->store_url }}" target="_blank" rel="noopener noreferrer" class="break-all text-[#0f172a] hover:underline">{{ $supplier->store_url }}</a>
                                                             @else
-                                                                â€”
+                                                                —
                                                             @endif
                                                         </dd>
                                                     </div>
                                                     <div class="grid grid-cols-1 gap-1 py-3.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
                                                         <dt class="text-sm text-slate-500">Seller / Store ID</dt>
-                                                        <dd class="text-sm font-medium text-slate-900">{{ $supplier->seller_id ?? 'â€”' }}</dd>
+                                                        <dd class="text-sm font-medium text-slate-900">{{ $supplier->seller_id ?? '—' }}</dd>
                                                     </div>
                                                 </dl>
                                             </section>
@@ -422,7 +424,7 @@
                                             <h3 id="edit-supplier-title-{{ $supplier->supplier_id }}" class="text-xl font-semibold tracking-tight text-slate-950">
                                                 Edit Supplier
                                             </h3>
-                                            <p class="mt-1 font-mono text-sm text-slate-500">{{ $supplierCode }} Â· {{ $supplier->supplier_store_type }}</p>
+                                            <p class="mt-1 font-mono text-sm text-slate-500">{{ $supplierCode }} · {{ $supplier->supplier_store_type }}</p>
                                         </div>
                                         <button
                                             type="button"
@@ -490,7 +492,7 @@
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Operating Hours</label>
-                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Monâ€“Fri 9:00 AM â€“ 6:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                             @else
                                                 <div>
@@ -539,7 +541,7 @@
                                                 </div>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Operating Hours</label>
-                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Monâ€“Sun 8:00 AM â€“ 10:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
+                                                    <input type="text" name="operating_hours" value="{{ $editOperatingHours }}" placeholder="e.g. Mon–Sun 8:00 AM – 10:00 PM" maxlength="{{ \App\Support\InputLimits::NAME }}" class="box-border h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white">
                                                 </div>
                                             @endif
                                         </div>
@@ -595,6 +597,7 @@
             </div>
 
         @endif
+        </div>
 
     </div>
 
@@ -794,7 +797,7 @@
                                         type="text"
                                         name="operating_hours"
                                         value="{{ old('operating_hours') }}"
-                                        placeholder="e.g. Monâ€“Fri 9:00 AM â€“ 6:00 PM"
+                                        placeholder="e.g. Mon–Fri 9:00 AM – 6:00 PM"
                                         maxlength="255"
                                         class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
                                     >

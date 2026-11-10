@@ -100,7 +100,7 @@
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $categories->total() }}</span>
                     </div>
                 </div>
-                <form data-auto-filter method="GET" action="{{ route(($pp ?? 'purchaser').'.file-maintenance.index') }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <form data-auto-filter data-list-panel="#purchaser-fm-categories-list-panel" method="GET" action="{{ route(($pp ?? 'purchaser').'.file-maintenance.index') }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <input type="hidden" name="tab" value="categories">
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,6 +130,7 @@
             </div>
         </div>
 
+        <div id="purchaser-fm-categories-list-panel" data-list-panel-root class="relative">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50/70">
@@ -137,7 +138,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Category Name</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Description</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -151,7 +152,7 @@
                                     <p class="font-semibold text-gray-900">{{ $category->item_category_name }}</p>
                                 </div>
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $category->item_category_description ?: 'â€”' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $category->item_category_description ?: '—' }}</td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $category->item_category_status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $category->item_category_status }}
@@ -198,6 +199,7 @@
         @if($categories->hasPages())
             <div class="border-t border-gray-100 px-5 py-4">{{ $categories->links() }}</div>
         @endif
+        </div>
     </div>
 
     <template x-teleport="body">

@@ -231,8 +231,13 @@ class SupplyOfficerController extends Controller
                 WorkflowNotifier::ROLE_SUPPLY_OFFICER
             )
                 ->orderByDesc('notification_created_at')
-                ->limit(80)
-                ->get();
+                ->limit(40)
+                ->get([
+                    'notifications_table.notification_id',
+                    'notifications_table.notification_title',
+                    'notifications_table.notification_message',
+                    'notifications_table.notification_created_at',
+                ]);
         } catch (\Throwable $e) {
         }
 
@@ -252,10 +257,19 @@ class SupplyOfficerController extends Controller
                     '=',
                     'senders.user_id'
                 )
-                ->select(
-                    'requisition_issue_slip_table.*',
-                    'senders.user_full_name as sent_by_name'
-                );
+                ->select(array_values(array_filter([
+                    'requisition_issue_slip_table.ris_id',
+                    'requisition_issue_slip_table.ris_form_number',
+                    Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                        ? 'requisition_issue_slip_table.ris_request_no'
+                        : null,
+                    'requisition_issue_slip_table.ris_status',
+                    'requisition_issue_slip_table.ris_purpose_description',
+                    'requisition_issue_slip_table.ris_requested_by_date',
+                    'requisition_issue_slip_table.ris_sent_to_supply_at',
+                    'requisition_issue_slip_table.ris_sent_to_supply_by',
+                    'senders.user_full_name as sent_by_name',
+                ])));
 
             SupplyHandoff::scopeIncomingRisForSupply($query);
 

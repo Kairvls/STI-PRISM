@@ -24,6 +24,8 @@
 
     {{-- Records --}}
     <div class="pur-card">
+        <div id="admin-ops-movements-list-panel" data-list-panel-root class="relative">
+
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
@@ -34,7 +36,7 @@
                     <p class="mt-1 text-xs text-gray-400">{{ $tabHints[$tab] ?? 'Track equipment movement activity.' }}</p>
                 </div>
 
-                <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+                <form method="GET" data-auto-filter data-list-panel="#admin-ops-movements-list-panel" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
                     <input type="hidden" name="tab" value="{{ $tab }}">
                     <input type="hidden" name="filter" value="{{ $filter }}">
                     <div class="relative">
@@ -66,7 +68,7 @@
                 @foreach(['all' => 'All', 'recent' => 'Last 30 days'] as $key => $label)
                     <a
                         href="{{ \App\Support\AdminPortal::route('operations.movements', ['tab' => 'transfers', 'filter' => $key, 'q' => $q]) }}"
-                        class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
+                        data-list-panel="#admin-ops-movements-list-panel" class="pur-filter-chip {{ $filter === $key ? 'is-active' : '' }}"
                     >{{ $label }}</a>
                 @endforeach
             </div>
@@ -157,6 +159,7 @@
         @if(method_exists($rows, 'links'))
             <div class="border-t border-gray-100 px-5 py-4">{{ $rows->links() }}</div>
         @endif
+        </div>
     </div>
 </div>
 @endsection

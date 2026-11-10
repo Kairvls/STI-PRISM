@@ -102,7 +102,7 @@
                             <th class="px-4 py-3">Next inspection</th>
                             <th class="px-4 py-3">Last inspection</th>
                             <th class="px-4 py-3 text-center">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="px-5 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -158,7 +158,7 @@
                                         <p class="text-sm text-slate-700">{{ Carbon::parse($schedule->room_inspection_schedule_last_date)->format('M j, Y') }}</p>
                                         @if ($schedule->last_result)
                                             <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ RoomInspections::resultTone($schedule->last_result) }}">
-                                                {{ $schedule->last_result }}{{ (int) $schedule->last_issue_count > 0 ? ' Â· '.(int) $schedule->last_issue_count.' issue'.((int) $schedule->last_issue_count === 1 ? '' : 's') : '' }}
+                                                {{ $schedule->last_result }}{{ (int) $schedule->last_issue_count > 0 ? ' · '.(int) $schedule->last_issue_count.' issue'.((int) $schedule->last_issue_count === 1 ? '' : 's') : '' }}
                                             </span>
                                         @endif
                                     @else
@@ -253,17 +253,17 @@
                         <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-slate-900">
                                 {{ $log->room_name }}
-                                <span class="font-normal text-slate-400">Â· {{ $log->inspection_title ?: 'Room inspection' }}</span>
+                                <span class="font-normal text-slate-400">· {{ $log->inspection_title ?: 'Room inspection' }}</span>
                             </p>
                             <p class="mt-0.5 truncate text-xs text-slate-500">
-                                {{ $log->inspector_name ?: 'Unknown' }} Â· {{ Carbon::parse($log->room_inspection_log_inspected_at)->format('M j, Y g:i A') }}
+                                {{ $log->inspector_name ?: 'Unknown' }} · {{ Carbon::parse($log->room_inspection_log_inspected_at)->format('M j, Y g:i A') }}
                                 @if (filled($log->room_inspection_log_findings))
-                                    Â· {{ \Illuminate\Support\Str::limit($log->room_inspection_log_findings, 80) }}
+                                    · {{ \Illuminate\Support\Str::limit($log->room_inspection_log_findings, 80) }}
                                 @endif
                             </p>
                         </div>
                         <span class="inline-flex shrink-0 self-start rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 sm:self-center {{ RoomInspections::resultTone($log->room_inspection_log_result) }}">
-                            {{ $log->room_inspection_log_result }}{{ (int) $log->room_inspection_log_issue_count > 0 ? ' Â· '.(int) $log->room_inspection_log_issue_count.' issue'.((int) $log->room_inspection_log_issue_count === 1 ? '' : 's') : '' }}
+                            {{ $log->room_inspection_log_result }}{{ (int) $log->room_inspection_log_issue_count > 0 ? ' · '.(int) $log->room_inspection_log_issue_count.' issue'.((int) $log->room_inspection_log_issue_count === 1 ? '' : 's') : '' }}
                         </span>
                     </div>
                 @empty
@@ -476,7 +476,7 @@
                         <h2 class="text-xl font-semibold tracking-tight text-slate-900">Inspect <span x-text="current?.room"></span></h2>
                         <p class="mt-1 text-sm text-slate-500">
                             <span x-text="current?.title"></span>
-                            <template x-if="current?.next_label"><span> Â· scheduled for <span x-text="current.next_label"></span></span></template>
+                            <template x-if="current?.next_label"><span> · scheduled for <span x-text="current.next_label"></span></span></template>
                         </p>
                     </div>
                     <button type="button" @click="closeAll()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -573,7 +573,7 @@
                     <div class="space-y-4 px-6 py-6">
                         <div>
                             <h2 class="text-lg font-semibold tracking-tight text-slate-900">Reschedule inspection</h2>
-                            <p class="mt-1 text-sm text-slate-500"><span x-text="current?.room"></span> Â· <span x-text="current?.title"></span></p>
+                            <p class="mt-1 text-sm text-slate-500"><span x-text="current?.room"></span> · <span x-text="current?.title"></span></p>
                         </div>
                         <div>
                             <label for="roomRescheduleDate" class="mb-1.5 block text-sm text-slate-600">New date <span class="text-red-500">*</span></label>
@@ -621,21 +621,21 @@
                 <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold tracking-tight text-slate-900">Inspection history</h2>
-                        <p class="mt-1 truncate text-sm text-slate-500"><span x-text="current?.room"></span> Â· <span x-text="current?.title"></span></p>
+                        <p class="mt-1 truncate text-sm text-slate-500"><span x-text="current?.room"></span> · <span x-text="current?.title"></span></p>
                     </div>
                     <button type="button" @click="closeAll()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                         <i data-lucide="x" class="h-5 w-5"></i>
                     </button>
                 </div>
                 <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-6">
-                    <p x-show="historyLoading" class="text-sm text-slate-400">Loading inspectionsâ€¦</p>
+                    <p x-show="historyLoading" class="text-sm text-slate-400">Loading inspections…</p>
                     <p x-show="!historyLoading && historyError" class="text-sm text-rose-600" x-text="historyError"></p>
                     <p x-show="!historyLoading && !historyError && !historyLogs.length" class="text-sm text-slate-400">This room has not been inspected on this schedule yet.</p>
                     <template x-for="(log, index) in historyLogs" :key="index">
                         <div class="rounded-xl p-4 ring-1 ring-slate-200/80">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="text-sm font-medium text-slate-900"><span x-text="log.inspected_at"></span> <span class="font-normal text-slate-400">Â· <span x-text="log.inspected_by"></span></span></p>
-                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1" :class="log.tone" x-text="log.result + (log.issues ? ' Â· ' + log.issues + ' issue' + (log.issues === 1 ? '' : 's') : '')"></span>
+                                <p class="text-sm font-medium text-slate-900"><span x-text="log.inspected_at"></span> <span class="font-normal text-slate-400">· <span x-text="log.inspected_by"></span></span></p>
+                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1" :class="log.tone" x-text="log.result + (log.issues ? ' · ' + log.issues + ' issue' + (log.issues === 1 ? '' : 's') : '')"></span>
                             </div>
                             <div class="mt-3 flex flex-wrap gap-1.5">
                                 <template x-for="check in log.checklist" :key="check.item">

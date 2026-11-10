@@ -249,6 +249,16 @@
             </div>
         </section>
     </main>
+@if (request()->boolean('auto'))
+<script>
+    window.__sharedPrintStarted = true;
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            try { window.focus(); window.print(); } catch (e) {}
+        }, 280);
+    });
+</script>
+@endif
 </body>
 </html>
 

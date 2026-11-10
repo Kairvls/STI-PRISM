@@ -46,7 +46,7 @@
                 }
             </style>
             <div class="border-b border-slate-100 p-4 sm:p-5">
-                <form data-auto-filter method="GET" action="{{ $inspectionsUrl }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <form data-auto-filter data-list-panel="#sa-si-list-panel" method="GET" action="{{ $inspectionsUrl }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
                     <div class="relative min-w-0 lg:flex-[1.6]">
                         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                         <input
@@ -87,7 +87,7 @@
                 </form>
             </div>
 
-            <div class="divide-y divide-slate-100">
+            <div id="sa-si-list-panel" data-list-panel-root class="relative divide-y divide-slate-100">
                 @forelse ($campaigns as $campaign)
                     @php
                         $p = $campaign->progress;
@@ -191,13 +191,13 @@
                         @endif
                     </div>
                 @endforelse
-            </div>
 
             @if (method_exists($campaigns, 'links') && $campaigns->hasPages())
                 <div class="border-t border-slate-100 px-5 py-4">
                     {{ $campaigns->links() }}
                 </div>
             @endif
+            </div>
         </div>
     @endif
 </div>
