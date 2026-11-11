@@ -88,11 +88,19 @@
             @endif
             @if ($canManage && $campaign->campaign_status === 'Cancelled')
                 <form action="{{ $campaignUrl }}/archive" method="POST"
-                    onsubmit="return confirm('Archive this cancelled campaign? It will be hidden from the default list.')">
+                    data-pur-confirm="This cancelled campaign will be hidden from the default list."
+                    data-pur-confirm-title="Archive campaign?"
+                    data-pur-confirm-ok="Archive"
+                    data-pur-confirm-kind="archive">
                     @csrf
-                    <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-700">
+                    <button
+                        type="submit"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                        title="Archive"
+                        aria-label="Archive"
+                        data-tooltip="Archive"
+                    >
                         <i data-lucide="archive" class="h-4 w-4"></i>
-                        Archive
                     </button>
                 </form>
             @endif
@@ -161,7 +169,10 @@
                         @endforeach
                     </select>
                 @endif
-                <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">Apply</button>
+                <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                    <i data-lucide="filter" class="h-4 w-4"></i>
+                    Apply
+                </button>
             </form>
         </div>
 

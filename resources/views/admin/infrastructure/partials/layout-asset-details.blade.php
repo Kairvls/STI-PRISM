@@ -171,7 +171,15 @@
         </template>
     </div>
 
-    <div class="py-3">
+    <div class="space-y-2 py-3">
+        <button
+            type="button"
+            @click="openLayoutTransferModal()"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+            <i data-lucide="arrow-right-left" class="h-4 w-4 text-slate-500"></i>
+            Transfer to another room
+        </button>
         <a
             :href="selectedLayoutAsset()?.view_url || ('/maintenance/equipment/view/' + selectedLayoutAsset()?.id)"
             class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"

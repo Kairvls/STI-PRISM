@@ -6,6 +6,7 @@
 @php
     $formatDate = fn ($value) => filled($value) ? \Carbon\Carbon::parse($value)->format('M d, Y') : '—';
     $holdsProperty = $activeItems->isNotEmpty();
+    $highlightEquipmentId = (int) request()->query('equipment', 0);
     $statusTone = [
         'Active' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
         'On Leave' => 'bg-sky-50 text-sky-700 ring-sky-100',
@@ -76,6 +77,24 @@
                     <i data-lucide="pencil" class="h-4 w-4"></i>
                     Edit details
                 </button>
+                @if ($canReceive)
+                    <button
+                        type="button"
+                        onclick="openAddItemsModal()"
+                        class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Add item
+                    </button>
+                    <button
+                        type="button"
+                        onclick="openAssignSetModal()"
+                        class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <i data-lucide="pc-case" class="h-4 w-4"></i>
+                        Assign computer set
+                    </button>
+                @endif
                 <a
                     href="{{ \App\Support\PropertyAssignments::route('person.form', $person->custodian_id) }}"
                     target="_blank"
@@ -111,113 +130,324 @@
         </p>
     @endif
 
+    <!-- Edit Person Modal -->
+    <div id="editPersonModal" class="fixed inset-0 z-[10050] hidden items-center justify-center bg-[#0b1220]/70 p-4">
+        <div class="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+            <div class="relative">
+                <button type="button" onclick="closeEditPersonModal()" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+                <div class="p-4 overflow-y-auto">
+                    @include('maintenance-personnel.property-assignments._person-form-fields', [
+                        'person' => $person,
+                        'rooms' => $rooms,
+                        'departments' => $departments,
+                        'linkableReporters' => $linkableReporters,
+                        'defaultRoomId' => $person->custodian_room_id ?? null,
+                    ])
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function mountPersonModal(modal) {
+            if (!modal || modal.parentElement === document.body) return modal;
+            document.body.appendChild(modal);
+            return modal;
+        }
+
+        function openEditPersonModal() {
+            const modal = mountPersonModal(document.getElementById('editPersonModal'));
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            if (window.lucide) lucide.createIcons();
+            try {
+                const input = document.getElementById('custodian-contact-number');
+                if (typeof window.refreshPrismPhoneInput === 'function' && input) {
+                    window.refreshPrismPhoneInput(input);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function closeEditPersonModal() {
+            const modal = document.getElementById('editPersonModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+
+        function suffixForCustodianType(type) {
+            if (type === 'Faculty') return 'F';
+            if (type === 'Staff') return 'S';
+            return '';
+        }
+
+        function syncCustodianEmployeeIdEditModal() {
+            const type = document.getElementById('custodian-employment-type');
+            const digits = document.getElementById('custodianEmployeeDigits');
+            const full = document.getElementById('custodian_employee_id');
+            const suffixEl = document.getElementById('custodianEmployeeIdSuffix');
+            const field = document.getElementById('custodianEmployeeIdField');
+            const hint = document.getElementById('custodianEmployeeHint');
+
+            if (!type || !digits || !full || !suffixEl || !field) return;
+
+            const selectedType = type.value || '';
+            const suffix = suffixForCustodianType(selectedType);
+            const normalizedDigits = String(digits.value || '').replace(/\D/g, '').slice(0, 5);
+            digits.value = normalizedDigits;
+            suffixEl.textContent = suffix || '?';
+            suffixEl.classList.toggle('is-empty', !suffix);
+
+            if (selectedType) {
+                digits.readOnly = false;
+                digits.disabled = false;
+                digits.removeAttribute('readonly');
+                digits.removeAttribute('disabled');
+                digits.tabIndex = 0;
+                field.classList.remove('is-disabled');
+                if (hint) hint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+            } else {
+                digits.readOnly = true;
+                digits.disabled = true;
+                digits.setAttribute('readonly', 'readonly');
+                digits.setAttribute('disabled', 'disabled');
+                digits.tabIndex = -1;
+                field.classList.add('is-disabled');
+                if (hint) hint.textContent = 'Select type first, then enter the 5-digit number.';
+            }
+
+            full.value = (selectedType && normalizedDigits.length === 5 && suffix) ? ('OMC' + normalizedDigits + suffix) : '';
+        }
+
+        (function () {
+            const type = document.getElementById('custodian-employment-type');
+            const digits = document.getElementById('custodianEmployeeDigits');
+            const field = document.getElementById('custodianEmployeeIdField');
+            if (!type || !digits || !field) return;
+
+            type.addEventListener('change', syncCustodianEmployeeIdEditModal);
+            digits.addEventListener('input', syncCustodianEmployeeIdEditModal);
+            field.addEventListener('click', function () { try { digits.focus(); } catch (e) { } });
+            syncCustodianEmployeeIdEditModal();
+        })();
+    </script>
+
+    @if ($canReceive)
+        @php
+            $addModalOpen = request()->boolean('add_items')
+                || $itemSearch !== ''
+                || $itemRoomId
+                || old('equipment_ids');
+        @endphp
+        <div
+            id="addItemsModal"
+            class="fixed inset-0 z-[10050] {{ $addModalOpen ? 'flex' : 'hidden' }} items-center justify-center bg-[#0b1220]/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="addItemsModalTitle"
+        >
+            <div class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+                <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                    <div class="min-w-0 pr-2">
+                        <h2 id="addItemsModalTitle" class="text-base font-semibold text-slate-950">Add items</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">Tick the items {{ $person->custodian_full_name }} uses and assign them in one go.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="closeAddItemsModal()"
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        aria-label="Close"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto">
+                    <form method="GET" action="{{ url()->current() }}" class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center">
+                        <input type="hidden" name="add_items" value="1">
+                        <div class="relative min-w-0 flex-1">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="search"
+                                name="item_search"
+                                value="{{ $itemSearch }}"
+                                placeholder="Search item, asset tag, serial, or room"
+                                class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                            >
+                        </div>
+                        <select name="item_room" class="h-10 rounded-xl border-0 bg-slate-50 px-3 text-sm ring-1 ring-slate-200/80" onchange="this.form.submit()">
+                            <option value="">Offices and their current rooms</option>
+                            @foreach ($assignableRooms as $roomOption)
+                                <option value="{{ $roomOption->room_id }}" @selected((int) $itemRoomId === (int) $roomOption->room_id)>
+                                    {{ $roomOption->room_name }} ({{ $roomOption->item_count }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                            <i data-lucide="search" class="h-4 w-4"></i>
+                            Search
+                        </button>
+                    </form>
+
+                    @if ($assignableItems->isNotEmpty())
+                        @include('maintenance-personnel.property-assignments.partials.batch-assign-form', [
+                            'items' => $assignableItems,
+                            'people' => collect(),
+                            'fixedPerson' => $person,
+                            'showRoom' => true,
+                        ])
+                    @else
+                        <p class="px-5 py-10 text-center text-sm text-slate-500">
+                            @if ($itemSearch !== '' || $itemRoomId)
+                                No unassigned items match. Try another search or room.
+                            @else
+                                No unassigned items in offices yet. Pick a room above or search for an item.
+                            @endif
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        @php
+            $assignSetModalOpen = request()->boolean('assign_set')
+                || $setSearch !== ''
+                || old('computer_set_id');
+        @endphp
+        <div
+            id="assignSetModal"
+            class="fixed inset-0 z-[10050] {{ $assignSetModalOpen ? 'flex' : 'hidden' }} items-center justify-center bg-[#0b1220]/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assignSetModalTitle"
+        >
+            <div class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+                <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                    <div class="min-w-0 pr-2">
+                        <h2 id="assignSetModalTitle" class="text-base font-semibold text-slate-950">Assign computer set</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">
+                            Issue every component in a COMPSET to {{ $person->custodian_full_name }} under one document number.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="closeAssignSetModal()"
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        aria-label="Close"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto">
+                    <form method="GET" action="{{ url()->current() }}" class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center">
+                        <input type="hidden" name="assign_set" value="1">
+                        <div class="relative min-w-0 flex-1">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="search"
+                                name="set_search"
+                                value="{{ $setSearch }}"
+                                placeholder="COMPSET tag, name, room, row…"
+                                class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                            >
+                        </div>
+                        <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                            <i data-lucide="search" class="h-4 w-4"></i>
+                            Search
+                        </button>
+                    </form>
+
+                    @if ($assignableSets->isNotEmpty())
+                        @include('maintenance-personnel.property-assignments.partials.assign-computer-set-form', [
+                            'sets' => $assignableSets,
+                            'person' => $person,
+                        ])
+                    @else
+                        <p class="px-5 py-10 text-center text-sm text-slate-500">
+                            @if ($setSearch !== '')
+                                No computer sets match that search.
+                            @else
+                                No active computer sets with remaining items to assign.
+                            @endif
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function openPersonActionModal(id) {
+                const modal = typeof mountPersonModal === 'function'
+                    ? mountPersonModal(document.getElementById(id))
+                    : document.getElementById(id);
+                if (!modal) return;
+                if (modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+                if (window.lucide) lucide.createIcons();
+            }
+
+            function closePersonActionModal(id) {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                const addHidden = !document.getElementById('addItemsModal') || document.getElementById('addItemsModal').classList.contains('hidden');
+                const setHidden = !document.getElementById('assignSetModal') || document.getElementById('assignSetModal').classList.contains('hidden');
+                if (addHidden && setHidden) {
+                    document.body.style.overflow = '';
+                }
+            }
+
+            function openAddItemsModal() { openPersonActionModal('addItemsModal'); }
+            function closeAddItemsModal() { closePersonActionModal('addItemsModal'); }
+            function openAssignSetModal() { openPersonActionModal('assignSetModal'); }
+            function closeAssignSetModal() { closePersonActionModal('assignSetModal'); }
+
+            (function () {
+                ['addItemsModal', 'assignSetModal'].forEach(function (id) {
+                    const modal = document.getElementById(id);
+                    if (!modal) return;
+                    if (modal.parentElement !== document.body) {
+                        document.body.appendChild(modal);
+                    }
+                    if (!modal.classList.contains('hidden')) {
+                        document.body.style.overflow = 'hidden';
+                    }
+                    modal.addEventListener('click', function (event) {
+                        if (event.target === modal) closePersonActionModal(id);
+                    });
+                });
+                document.addEventListener('keydown', function (event) {
+                    if (event.key !== 'Escape') return;
+                    ['assignSetModal', 'addItemsModal'].forEach(function (id) {
+                        const modal = document.getElementById(id);
+                        if (modal && !modal.classList.contains('hidden')) {
+                            closePersonActionModal(id);
+                        }
+                    });
+                });
+            })();
+        </script>
+    @endif
+
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <div>
                 <h2 class="text-base font-semibold text-slate-900">Currently accountable for</h2>
                 <p class="mt-0.5 text-sm text-slate-500">Open an item to transfer or return it.</p>
             </div>
             <i data-lucide="package" class="h-5 w-5 text-slate-400"></i>
         </div>
-
-        <!-- Edit Person Modal -->
-        <div id="editPersonModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4">
-            <div class="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
-                <div class="relative">
-                    <button type="button" onclick="closeEditPersonModal()" class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
-                    <div class="p-4 overflow-y-auto">
-                        @include('maintenance-personnel.property-assignments._person-form-fields', [
-                            'person' => $person,
-                            'rooms' => $rooms,
-                            'departments' => $departments,
-                            'linkableReporters' => $linkableReporters,
-                            'defaultRoomId' => $person->custodian_room_id ?? null,
-                        ])
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            function openEditPersonModal() {
-                const modal = document.getElementById('editPersonModal');
-                if (!modal) return;
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                if (window.lucide) lucide.createIcons();
-                try {
-                    const input = document.getElementById('custodian-contact-number');
-                    if (typeof window.refreshPrismPhoneInput === 'function' && input) {
-                        window.refreshPrismPhoneInput(input);
-                    }
-                } catch (e) { /* ignore */ }
-            }
-
-            function closeEditPersonModal() {
-                const modal = document.getElementById('editPersonModal');
-                if (!modal) return;
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-
-            function suffixForCustodianType(type) {
-                if (type === 'Faculty') return 'F';
-                if (type === 'Staff') return 'S';
-                return '';
-            }
-
-            function syncCustodianEmployeeIdEditModal() {
-                const type = document.getElementById('custodian-employment-type');
-                const digits = document.getElementById('custodianEmployeeDigits');
-                const full = document.getElementById('custodian_employee_id');
-                const suffixEl = document.getElementById('custodianEmployeeIdSuffix');
-                const field = document.getElementById('custodianEmployeeIdField');
-                const hint = document.getElementById('custodianEmployeeHint');
-
-                if (!type || !digits || !full || !suffixEl || !field) return;
-
-                const selectedType = type.value || '';
-                const suffix = suffixForCustodianType(selectedType);
-                const normalizedDigits = String(digits.value || '').replace(/\D/g, '').slice(0, 5);
-                digits.value = normalizedDigits;
-                suffixEl.textContent = suffix || '?';
-                suffixEl.classList.toggle('is-empty', !suffix);
-
-                if (selectedType) {
-                    digits.readOnly = false;
-                    digits.disabled = false;
-                    digits.removeAttribute('readonly');
-                    digits.removeAttribute('disabled');
-                    digits.tabIndex = 0;
-                    field.classList.remove('is-disabled');
-                    if (hint) hint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
-                } else {
-                    digits.readOnly = true;
-                    digits.disabled = true;
-                    digits.setAttribute('readonly', 'readonly');
-                    digits.setAttribute('disabled', 'disabled');
-                    digits.tabIndex = -1;
-                    field.classList.add('is-disabled');
-                    if (hint) hint.textContent = 'Select type first, then enter the 5-digit number.';
-                }
-
-                full.value = (selectedType && normalizedDigits.length === 5 && suffix) ? ('OMC' + normalizedDigits + suffix) : '';
-            }
-
-            (function () {
-                const type = document.getElementById('custodian-employment-type');
-                const digits = document.getElementById('custodianEmployeeDigits');
-                const field = document.getElementById('custodianEmployeeIdField');
-                if (!type || !digits || !field) return;
-
-                type.addEventListener('change', syncCustodianEmployeeIdEditModal);
-                digits.addEventListener('input', syncCustodianEmployeeIdEditModal);
-                field.addEventListener('click', function () { try { digits.focus(); } catch (e) { } });
-                syncCustodianEmployeeIdEditModal();
-            })();
-        </script>
 
         @if ($holdsProperty)
             <div class="overflow-x-auto">
@@ -235,12 +465,24 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($activeItems as $item)
-                            <tr class="hover:bg-slate-50/80">
+                            @php $isHighlighted = $highlightEquipmentId > 0 && (int) $item->equipment_id === $highlightEquipmentId; @endphp
+                            <tr
+                                id="equipment-{{ $item->equipment_id }}"
+                                class="scroll-mt-28 transition {{ $isHighlighted ? 'bg-sky-50 ring-2 ring-inset ring-[#0025cc]/30' : 'hover:bg-slate-50/80' }}"
+                                @if ($isHighlighted) data-highlight-equipment="1" @endif
+                            >
                                 <td class="px-5 py-3">
                                     <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id) }}#property-assignment" class="font-semibold text-[#0025cc] hover:underline">
                                         {{ $item->equipment_name }}
                                     </a>
                                     <p class="text-xs text-slate-500">{{ implode(' · ', array_filter([$item->equipment_category_name, $item->equipment_brand_name, $item->equipment_model])) ?: '—' }}</p>
+                                    @if (! empty($item->computer_set_tag))
+                                        <p class="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                            <i data-lucide="pc-case" class="h-3 w-3"></i>
+                                            {{ $item->computer_set_name ?: $item->computer_set_tag }}
+                                            <span class="font-mono text-slate-400">{{ $item->computer_set_tag }}</span>
+                                        </p>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-3 font-mono text-xs text-slate-600">
                                     {{ $item->equipment_asset_tag ?: '—' }}<br>
@@ -257,7 +499,7 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-3 text-slate-700">{{ $item->equipment_condition_status ?: '—' }}</td>
-                                <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ $item->assignment_document_no ?: '—' }}</td>
+                                <td class="px-5 py-3 font-mono text-sm font-medium text-slate-700">{{ $item->assignment_document_no ?: '—' }}</td>
                                 <td class="px-5 py-3 text-slate-700">{{ $formatDate($item->assignment_issued_at) }}</td>
                                 <td class="px-5 py-3 {{ filled($item->assignment_verified_at ?? null) ? 'text-slate-700' : 'text-slate-400' }}" title="Confirmed with this person during a semester inspection">
                                     {{ filled($item->assignment_verified_at ?? null) ? $formatDate($item->assignment_verified_at) : 'Not yet' }}
@@ -272,63 +514,22 @@
         @endif
     </section>
 
-    @if ($canReceive)
-        @php
-            $addOpen = ! $holdsProperty || $itemSearch !== '' || $itemRoomId || old('equipment_ids');
-        @endphp
-        <details id="add-items" class="group overflow-hidden rounded-2xl border border-slate-200 bg-white" @if ($addOpen) open @endif>
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
-                <div>
-                    <h2 class="text-base font-semibold text-slate-900">Add items</h2>
-                    <p class="mt-0.5 text-sm text-slate-500">Tick the items {{ $person->custodian_full_name }} uses and assign them in one go.</p>
-                </div>
-                <i data-lucide="chevron-down" class="h-5 w-5 text-slate-400 transition group-open:rotate-180"></i>
-            </summary>
-
-            <form method="GET" action="{{ url()->current() }}#add-items" class="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center">
-                <div class="relative min-w-0 flex-1">
-                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                    <input
-                        type="search"
-                        name="item_search"
-                        value="{{ $itemSearch }}"
-                        placeholder="Search item, asset tag, serial, or room"
-                        class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-10 pr-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
-                    >
-                </div>
-                <select name="item_room" class="h-10 rounded-xl border-0 bg-slate-50 px-3 text-sm ring-1 ring-slate-200/80" onchange="this.form.submit()">
-                    <option value="">Offices and their current rooms</option>
-                    @foreach ($assignableRooms as $roomOption)
-                        <option value="{{ $roomOption->room_id }}" @selected((int) $itemRoomId === (int) $roomOption->room_id)>
-                            {{ $roomOption->room_name }} ({{ $roomOption->item_count }})
-                        </option>
-                    @endforeach
-                </select>
-                <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
-                    <i data-lucide="search" class="h-4 w-4"></i>
-                    Search
-                </button>
-            </form>
-
-            @if ($assignableItems->isNotEmpty())
-                <div class="border-t border-slate-100">
-                    @include('maintenance-personnel.property-assignments.partials.batch-assign-form', [
-                        'items' => $assignableItems,
-                        'people' => collect(),
-                        'fixedPerson' => $person,
-                        'showRoom' => true,
-                    ])
-                </div>
-            @else
-                <p class="border-t border-slate-100 px-5 py-10 text-center text-sm text-slate-500">
-                    @if ($itemSearch !== '' || $itemRoomId)
-                        No unassigned items match. Try another search or room.
-                    @else
-                        No unassigned items in offices yet. Pick a room above or search for an item.
-                    @endif
-                </p>
-            @endif
-        </details>
+    @if ($highlightEquipmentId > 0)
+        <script>
+            (function () {
+                const row = document.querySelector('[data-highlight-equipment="1"]')
+                    || document.getElementById('equipment-{{ $highlightEquipmentId }}');
+                if (!row) return;
+                requestAnimationFrame(function () {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                setTimeout(function () {
+                    row.classList.remove('bg-sky-50', 'ring-2', 'ring-inset', 'ring-[#0025cc]/30');
+                    row.classList.add('hover:bg-slate-50/80');
+                    row.removeAttribute('data-highlight-equipment');
+                }, 4000);
+            })();
+        </script>
     @endif
 
     @if ($pastItems->isNotEmpty())

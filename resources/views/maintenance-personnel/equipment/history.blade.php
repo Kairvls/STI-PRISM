@@ -199,15 +199,16 @@
 
                             <td class="px-5 py-4">
                                 <div class="flex items-center justify-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        @click="openTimeline({{ (int) $item->equipment_id }}, @js($item->equipment_name), @js($item->room_name))"
-                                        data-tooltip="View full history"
-                                        aria-label="View full history"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200 active:scale-95"
+                                    <a
+                                        href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id) }}"
+                                        @click.prevent="openTimeline({{ (int) $item->equipment_id }}, @js($item->equipment_name), @js($item->room_name))"
+                                        data-tooltip="View"
+                                        aria-label="View"
+                                        title="View"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                                     >
-                                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
-                                    </button>
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -456,7 +457,18 @@
 
             profileUrl() {
                 if (!this.profile) return null;
-                if (this.profileUrlBase && this.profile.id) return `${this.profileUrlBase}/${this.profile.id}`;
+
+                const historyReturn = @js($historyUrl);
+                if (this.profileUrlBase && this.profile.id) {
+                    const base = `${this.profileUrlBase}/${this.profile.id}`;
+                    return historyReturn
+                        ? `${base}${base.includes('?') ? '&' : '?'}return=${encodeURIComponent(historyReturn)}`
+                        : base;
+                }
+
+                if (this.profile.id && historyReturn) {
+                    return `/maintenance/equipment/view/${this.profile.id}?return=${encodeURIComponent(historyReturn)}`;
+                }
 
                 return this.profile.view_url || null;
             },

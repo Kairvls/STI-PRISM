@@ -136,57 +136,132 @@
                                     <th class="px-5 py-3">Person</th>
                                     <th class="px-5 py-3">Type - Department</th>
                                     <th class="px-5 py-3">Room</th>
-                                    <th class="px-5 py-3">Contact</th>
-                                    <th class="px-5 py-3">Property held</th>
+                                    <th class="px-5 py-3">Equipment</th>
                                     <th class="px-5 py-3">Status</th>
+                                    <th class="px-5 py-3 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 @foreach ($rows as $row)
                                     @php $personUrl = \App\Support\PropertyAssignments::route('person', $row->custodian_id); @endphp
-                                    <tr class="cursor-pointer align-top transition hover:bg-slate-50/80" onclick="window.location='{{ $personUrl }}'">
+                                    <tr class="align-top transition hover:bg-slate-50/80">
                                         <td class="px-5 py-3">
-                                            <a href="{{ $personUrl }}" class="font-semibold text-slate-950 hover:underline">{{ $row->custodian_full_name }}</a>
-                                            <p class="font-mono text-xs text-slate-400">{{ $row->custodian_employee_id ?: 'No employee ID' }}</p>
-                                            <p class="mt-0.5 inline-flex items-center gap-1 text-[11px] text-slate-400" title="Employment basis">
-                                                <i data-lucide="users" class="h-3 w-3"></i>
-                                                {{ $row->custodian_employment_basis ?: '—' }}
-                                            </p>
+                                            <a href="{{ $personUrl }}" class="text-base font-semibold text-slate-950 hover:underline">{{ $row->custodian_full_name }}</a>
+                                            <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                                <span class="font-mono text-sm font-medium text-slate-600">{{ $row->custodian_employee_id ?: 'No employee ID' }}</span>
+                                                <span class="inline-flex items-center gap-1 text-xs text-slate-500" title="Employment basis">
+                                                    <i data-lucide="users" class="h-3.5 w-3.5"></i>
+                                                    {{ $row->custodian_employment_basis ?: '—' }}
+                                                </span>
+                                            </div>
                                         </td>
-                                        <td class="px-5 py-3 text-slate-700">
-                                            {{ $row->custodian_position ?: '—' }}
-                                            @if ($row->custodian_department)
-                                                <p class="text-xs text-slate-500">{{ $row->custodian_department }}</p>
-                                            @endif
+                                        <td class="px-5 py-3 text-sm text-slate-700">
+                                            {{ $row->custodian_position ?: '—' }}{{ $row->custodian_department ? ' - '.$row->custodian_department : '' }}
                                         </td>
                                         <td class="px-5 py-3 text-slate-700">{{ $row->home_room_name ?: '—' }}</td>
-                                        <td class="px-5 py-3 text-sm leading-snug text-slate-700">
-                                            @if ($row->custodian_email_address)
-                                                <p class="break-all">{{ $row->custodian_email_address }}</p>
-                                            @endif
-                                            @if ($row->custodian_contact_number)
-                                                <p class="{{ $row->custodian_email_address ? 'mt-0.5' : '' }} tabular-nums">
-                                                    {{ \App\Support\PhoneNumber::formatForDisplay($row->custodian_contact_number) ?: $row->custodian_contact_number }}
-                                                </p>
-                                            @endif
-                                            @if (! $row->custodian_email_address && ! $row->custodian_contact_number)
+                                        <td class="px-5 py-3" onclick="event.stopPropagation()">
+                                            @php
+                                                $heldEquipment = collect(explode('||', (string) ($row->equipment_names ?? '')))
+                                                    ->map(function ($chunk) {
+                                                        $parts = explode('^^', (string) $chunk, 4);
+                                                        // Prefer id^^name^^asset^^serial; fall back to older name^^asset^^serial.
+                                                        $hasId = isset($parts[0]) && ctype_digit((string) $parts[0]) && count($parts) >= 2;
+                                                        $equipmentId = $hasId ? (int) $parts[0] : 0;
+                                                        $name = trim((string) ($hasId ? ($parts[1] ?? '') : ($parts[0] ?? '')));
+                                                        if ($name === '') {
+                                                            return null;
+                                                        }
+                                                        $asset = trim((string) ($hasId ? ($parts[2] ?? '') : ($parts[1] ?? '')));
+                                                        $serial = trim((string) ($hasId ? ($parts[3] ?? '') : ($parts[2] ?? '')));
+                                                        $unique = $asset !== ''
+                                                            ? $asset
+                                                            : ($serial !== '' ? 'SN: '.$serial : 'No asset tag');
+
+                                                        return [
+                                                            'id' => $equipmentId,
+                                                            'name' => $name,
+                                                            'unique' => $unique,
+                                                        ];
+                                                    })
+                                                    ->filter()
+                                                    ->values();
+                                                $heldCount = $heldEquipment->count();
+                                                $firstEquipment = $heldEquipment->first();
+                                                $moreCount = max(0, $heldCount - 1);
+                                            @endphp
+                                            @if ($heldCount === 0)
                                                 <span class="text-slate-400">—</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-5 py-3">
-                                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $row->active_count > 0 ? 'bg-teal-50 text-teal-700 ring-teal-100' : 'bg-slate-50 text-slate-500 ring-slate-200' }}">
-                                                <i data-lucide="package" class="h-3.5 w-3.5"></i>
-                                                {{ $row->active_count }} {{ \Illuminate\Support\Str::plural('item', $row->active_count) }}
-                                            </span>
-                                            @if ($row->room_names)
-                                                <p class="mt-1 max-w-[16rem] truncate text-xs text-slate-500" title="{{ $row->room_names }}">{{ $row->room_names }}</p>
-                                            @endif
-                                            @if ($row->last_issued_at)
-                                                <p class="text-[11px] text-slate-400">Last issued {{ $formatDate($row->last_issued_at) }}</p>
+                                            @elseif ($heldCount === 1)
+                                                <div>
+                                                    @if (($firstEquipment['id'] ?? 0) > 0)
+                                                        <a href="{{ $personUrl }}?equipment={{ $firstEquipment['id'] }}#equipment-{{ $firstEquipment['id'] }}" class="text-sm font-medium text-slate-800 hover:text-[#0025cc] hover:underline">
+                                                            {{ $firstEquipment['name'] }}
+                                                        </a>
+                                                    @else
+                                                        <p class="text-sm font-medium text-slate-800">{{ $firstEquipment['name'] }}</p>
+                                                    @endif
+                                                    @if ($row->last_issued_at)
+                                                        <p class="mt-0.5 text-xs font-medium text-slate-500">Last issued {{ $formatDate($row->last_issued_at) }}</p>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <div class="group relative inline-flex max-w-full flex-col items-start gap-0.5">
+                                                    <div class="inline-flex max-w-full items-center gap-1.5">
+                                                        <span class="max-w-[9rem] truncate text-sm font-medium text-slate-800">{{ $firstEquipment['name'] }}</span>
+                                                        <span class="inline-flex shrink-0 items-center rounded-md border border-sky-100 bg-sky-50 px-1.5 py-0.5 text-[11px] font-semibold text-sky-800">
+                                                            +{{ $moreCount }} more
+                                                        </span>
+                                                    </div>
+                                                    @if ($row->last_issued_at)
+                                                        <p class="text-xs font-medium text-slate-500">Last issued {{ $formatDate($row->last_issued_at) }}</p>
+                                                    @endif
+                                                    {{-- pt-1.5 is an invisible hover bridge so the cursor can reach the panel without dropping group-hover --}}
+                                                    <div
+                                                        class="invisible absolute left-0 top-full z-30 w-72 pt-1.5 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+                                                        role="tooltip"
+                                                    >
+                                                        <div class="rounded-xl border border-slate-200 bg-white p-2 shadow-lg shadow-slate-900/10">
+                                                            <p class="px-1.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                Held equipment · {{ $heldCount }}
+                                                            </p>
+                                                            <ul class="max-h-[14rem] space-y-0.5 overflow-y-auto overscroll-contain pr-0.5">
+                                                                @foreach ($heldEquipment as $equipment)
+                                                                    <li>
+                                                                        @if (($equipment['id'] ?? 0) > 0)
+                                                                            <a
+                                                                                href="{{ $personUrl }}?equipment={{ $equipment['id'] }}#equipment-{{ $equipment['id'] }}"
+                                                                                class="block rounded-lg px-2.5 py-2 transition hover:bg-sky-50 focus:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-[#0025cc]/20"
+                                                                            >
+                                                                                <p class="text-sm font-semibold text-slate-900">{{ $equipment['name'] }}</p>
+                                                                                <p class="mt-0.5 font-mono text-xs text-slate-500">{{ $equipment['unique'] }}</p>
+                                                                            </a>
+                                                                        @else
+                                                                            <div class="rounded-lg px-2.5 py-2">
+                                                                                <p class="text-sm font-semibold text-slate-900">{{ $equipment['name'] }}</p>
+                                                                                <p class="mt-0.5 font-mono text-xs text-slate-500">{{ $equipment['unique'] }}</p>
+                                                                            </div>
+                                                                        @endif
+                                                                    </li>
+                                                                @endforeach
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             @endif
                                         </td>
                                         <td class="px-5 py-3">
                                             <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $statusTone[$row->custodian_status] ?? $statusTone['Inactive'] }}">{{ $row->custodian_status }}</span>
+                                        </td>
+                                        <td class="px-5 py-3 text-center">
+                                            <a
+                                                href="{{ $personUrl }}"
+                                                class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                                                title="Open person record"
+                                                aria-label="Open record for {{ $row->custodian_full_name }}"
+                                            >
+                                                <i data-lucide="file-text" class="h-4 w-4"></i>
+                                                Record
+                                            </a>
                                         </td>
                                     </tr>
                                 @endforeach

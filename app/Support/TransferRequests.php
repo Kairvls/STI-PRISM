@@ -33,9 +33,15 @@ class TransferRequests
         return self::tableReady() && ! RoleAccess::isAdmin(Auth::user());
     }
 
-    public static function create(string $kind, array $equipmentIds, int $roomId, array $destination, ?string $remarks): int
-    {
-        return (int) DB::table(self::TABLE)->insertGetId([
+    public static function create(
+        string $kind,
+        array $equipmentIds,
+        int $roomId,
+        array $destination,
+        ?string $remarks,
+        ?int $quantity = null
+    ): int {
+        $payload = [
             'transfer_request_kind' => $kind,
             'transfer_request_equipment_ids' => json_encode(array_values(array_map('intval', $equipmentIds))),
             'transfer_request_room_id' => $roomId,
@@ -46,7 +52,24 @@ class TransferRequests
             'transfer_request_status' => self::PENDING,
             'transfer_request_requested_by' => Auth::id(),
             'transfer_request_requested_at' => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn(self::TABLE, 'transfer_request_quantity') && $quantity !== null && $quantity > 0) {
+            $payload['transfer_request_quantity'] = $quantity;
+        }
+
+        return (int) DB::table(self::TABLE)->insertGetId($payload);
+    }
+
+    public static function quantity(object $row): ?int
+    {
+        if (! isset($row->transfer_request_quantity) || $row->transfer_request_quantity === null) {
+            return null;
+        }
+
+        $qty = (int) $row->transfer_request_quantity;
+
+        return $qty > 0 ? $qty : null;
     }
 
     public static function find(int $requestId, bool $lock = false): ?object

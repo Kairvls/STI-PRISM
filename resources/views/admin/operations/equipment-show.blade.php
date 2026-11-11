@@ -45,6 +45,7 @@
         'Borrowed' => 'border-sky-200 bg-sky-50 text-sky-700',
         'Under Maintenance' => 'border-amber-200 bg-amber-50 text-amber-700',
         'For Replacement' => 'border-orange-200 bg-orange-50 text-orange-700',
+        'Replaced' => 'border-blue-200 bg-blue-50 text-blue-700',
         'Disposed' => 'border-rose-200 bg-rose-50 text-rose-700',
         default => 'border-slate-200 bg-slate-50 text-slate-600',
     };
@@ -54,6 +55,7 @@
         'Borrowed' => 'bg-sky-500',
         'Under Maintenance' => 'bg-amber-500',
         'For Replacement' => 'bg-orange-500',
+        'Replaced' => 'bg-blue-500',
         'Disposed' => 'bg-rose-500',
         default => 'bg-slate-400',
     };

@@ -57,6 +57,7 @@ class PropertyAssignmentController extends Controller
         $canReceive = $person->custodian_status === Custodians::STATUS_ACTIVE;
         $itemSearch = trim((string) $request->query('item_search', ''));
         $itemRoomId = (int) $request->query('item_room', 0) ?: null;
+        $setSearch = trim((string) $request->query('set_search', ''));
 
         return view('maintenance-personnel.property-assignments.person', [
             'person' => $person,
@@ -65,10 +66,14 @@ class PropertyAssignmentController extends Controller
             'canReceive' => $canReceive,
             'itemSearch' => $itemSearch,
             'itemRoomId' => $itemRoomId,
+            'setSearch' => $setSearch,
             'assignableItems' => $canReceive
                 ? PropertyAssignments::assignableItems($custodian, $itemSearch, $itemRoomId)
                 : collect(),
             'assignableRooms' => $canReceive ? PropertyAssignments::assignableRoomOptions() : collect(),
+            'assignableSets' => $canReceive
+                ? PropertyAssignments::assignableComputerSets($custodian, $setSearch)
+                : collect(),
         ]);
     }
 
@@ -398,6 +403,39 @@ class PropertyAssignmentController extends Controller
             'Assigned '.$count.' '.Str::plural('item', $count).' to '.$name
                 .'. Document no. '.$issued->first()->assignment_document_no.'.'
         );
+    }
+
+    public function storeComputerSet(Request $request)
+    {
+        $validated = $request->validate([
+            'custodian_id' => ['required', 'integer'],
+            'computer_set_id' => ['required', 'integer'],
+            'document_no' => ['nullable', 'string', 'max:64'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'computer_set_id.required' => 'Choose a computer set to assign.',
+            'custodian_id.required' => 'Choose the accountable person.',
+        ]);
+
+        try {
+            $issued = PropertyAssignments::issueComputerSet(
+                (int) $validated['computer_set_id'],
+                (int) $validated['custodian_id'],
+                $validated
+            );
+        } catch (RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        $name = DB::table('custodians_table')->where('custodian_id', $validated['custodian_id'])->value('custodian_full_name');
+        $count = $issued->count();
+
+        return redirect(PropertyAssignments::url('/people/'.$validated['custodian_id']))
+            ->with(
+                'success',
+                'Assigned computer set ('.$count.' '.Str::plural('item', $count).') to '.$name
+                    .'. Document no. '.$issued->first()->assignment_document_no.'.'
+            );
     }
 
     public function returnAssignment(Request $request, int $assignment)

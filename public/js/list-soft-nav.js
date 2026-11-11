@@ -102,10 +102,15 @@
             },
             signal: signal,
             credentials: 'same-origin',
+            redirect: 'follow',
         })
             .then(function (response) {
                 if (!response.ok) {
                     throw new Error('List refresh failed');
+                }
+                var contentType = String(response.headers.get('content-type') || '').toLowerCase();
+                if (contentType.indexOf('text/html') === -1) {
+                    throw new Error('List refresh returned non-HTML');
                 }
                 return response.text();
             })
@@ -273,6 +278,10 @@
                 return;
             }
             console.error(error);
+            // Avoid hard-navigating into API/JSON endpoints (e.g. timeline) when soft-nav fails.
+            if (error && String(error.message || '').indexOf('non-HTML') !== -1) {
+                return;
+            }
             window.location.href = url;
         } finally {
             hideOverlay(panel);

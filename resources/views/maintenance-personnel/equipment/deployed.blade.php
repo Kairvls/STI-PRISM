@@ -36,7 +36,8 @@
         'Active' => 'bg-emerald-50 text-emerald-700',
         'Borrowed' => 'bg-sky-50 text-sky-700',
         'Under Maintenance' => 'bg-amber-50 text-amber-700',
-        'For Replacement' => 'bg-rose-50 text-rose-700',
+        'For Replacement' => 'bg-orange-50 text-orange-700',
+        'Replaced' => 'bg-blue-50 text-blue-700',
         default => 'bg-slate-100 text-slate-600',
     };
 
@@ -77,86 +78,112 @@
         </div>
     @endif
 
+    @php
+        $deployedExportPdfUrl = request()->is('admin/*')
+            ? '/admin/inventory/deployed/export-pdf'
+            : '/maintenance/equipment/deployed/export-pdf';
+    @endphp
+    <div class="flex flex-wrap items-center justify-end gap-2">
+        @if (! $transferNeedsApproval && $pendingTransferCount > 0)
+            <a href="{{ $transferRequestsUrl }}" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                <i data-lucide="shield-check" class="h-4 w-4"></i>
+                Transfer requests
+                <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
+            </a>
+        @endif
+        @if (! $disposalNeedsApproval && $pendingDisposalCount > 0)
+            <a href="{{ $disposalRequestsUrl }}" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                Disposal approvals
+                <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingDisposalCount }}</span>
+            </a>
+        @endif
+        <button
+            type="button"
+            id="deployedDisposeSelectedBtn"
+            onclick="openDeployedBatchDispose()"
+            disabled
+            data-pur-tip-title="Dispose selected"
+            data-pur-tip="Move selected Replaced deployed units into Disposal. Units still For Replacement must be marked Replaced first."
+            data-pur-tip-accent="#fb7185"
+            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 transition disabled:cursor-not-allowed enabled:border-[#e32626] enabled:bg-[#e32626] enabled:text-white enabled:hover:bg-red-700"
+        >
+            <i data-lucide="archive-x" class="h-4 w-4"></i>
+            Dispose selected
+            <span id="deployedDisposeSelectedCount" class="hidden rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#e32626]">0</span>
+        </button>
+        <button
+            type="button"
+            id="deployedTransferSelectedBtn"
+            onclick="openDeployedBatchTransfer()"
+            disabled
+            data-pur-tip-title="Transfer selected"
+            data-pur-tip="Move selected deployed units to another room"
+            data-pur-tip-accent="#38bdf8"
+            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 transition disabled:cursor-not-allowed enabled:border-sky-200 enabled:bg-sky-50 enabled:text-sky-800 enabled:hover:bg-sky-100"
+        >
+            <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
+            Transfer selected
+            <span id="deployedSelectedCount" class="hidden rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold text-white">0</span>
+        </button>
+        <button
+            type="button"
+            id="deployedTransferAllBtn"
+            onclick="openDeployedTransferAll()"
+            @if (empty($deployedTransferIds ?? [])) disabled @endif
+            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+            <i data-lucide="boxes" class="h-4 w-4"></i>
+            Transfer all
+            @if (! empty($deployedTransferIds ?? []))
+                <span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">{{ number_format(count($deployedTransferIds)) }}</span>
+            @endif
+        </button>
+    </div>
+
+    @if (($onLoanOffCampus ?? 0) > 0)
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-sky-300 bg-sky-50 px-4 py-3.5 text-sm text-sky-900 shadow-sm shadow-sky-100/80">
+            <i data-lucide="hand-helping" class="h-5 w-5 shrink-0 text-sky-700"></i>
+            <span class="min-w-0 flex-1 font-medium leading-snug">
+                {{ $onLoanOffCampus }} borrowed {{ $onLoanOffCampus === 1 ? 'equipment is' : 'equipments are' }} off campus and not listed here. Returns go to Inventory.
+            </span>
+            <a href="{{ $deployedUrl }}?status=Borrowed" class="shrink-0 font-semibold underline-offset-2 hover:underline">View borrowed equipment</a>
+            @if (! empty($borrowingUrl))
+                <a href="{{ $borrowingUrl }}" class="shrink-0 font-semibold underline-offset-2 hover:underline">Open Borrowing</a>
+            @endif
+        </div>
+    @endif
 
     <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Deployed equipment</h2>
-                        <div
-                            class="inline-flex w-fit items-center gap-2
-                                rounded-lg border border-slate-200
-                                bg-slate-50 px-3 py-2
-                                text-xs font-medium text-slate-500"
-                        >
-                            <i data-lucide="package" class="h-3.5 w-3.5"></i>
-                            {{ number_format($equipmentTotal) }} total
-                        </div>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2 class="text-base font-semibold text-gray-950">Deployed equipment</h2>
+                    <div
+                        class="inline-flex w-fit items-center gap-2
+                            rounded-lg border border-slate-200
+                            bg-slate-50 px-3 py-2
+                            text-xs font-medium text-slate-500"
+                    >
+                        <i data-lucide="package" class="h-3.5 w-3.5"></i>
+                        {{ number_format($equipmentTotal) }} total
                     </div>
-                    <p class="mt-1 text-sm text-gray-500">
-                        Equipment in classrooms, labs and offices. View details, transfer units, or check their transfer logs.
-                    </p>
                 </div>
-
-                <div class="flex flex-wrap items-center gap-2">
-                    @if (! $transferNeedsApproval && $pendingTransferCount > 0)
-                        <a href="{{ $transferRequestsUrl }}" class="box-border inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">
-                            <i data-lucide="shield-check" class="h-3.5 w-3.5"></i>
-                            Transfer requests
-                            <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
-                        </a>
-                    @endif
-                    @if (! $disposalNeedsApproval && $pendingDisposalCount > 0)
-                        <a href="{{ $disposalRequestsUrl }}" class="box-border inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">
-                            <i data-lucide="clipboard-check" class="h-3.5 w-3.5"></i>
-                            Disposal approvals
-                            <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingDisposalCount }}</span>
-                        </a>
-                    @endif
-                    <button
-                        type="button"
-                        id="deployedDisposeSelectedBtn"
-                        onclick="openDeployedBatchDispose()"
-                        disabled
-                        title="Only units marked For Replacement and not on loan can be disposed"
-                        class="box-border inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-400 transition disabled:cursor-not-allowed enabled:border-rose-600 enabled:bg-rose-600 enabled:text-white enabled:hover:bg-rose-700"
-                    >
-                        <i data-lucide="archive-x" class="h-3.5 w-3.5"></i>
-                        Dispose selected
-                        <span id="deployedDisposeSelectedCount" class="hidden rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold"></span>
-                    </button>
-                    <button
-                        type="button"
-                        id="deployedTransferSelectedBtn"
-                        onclick="openDeployedBatchTransfer()"
-                        disabled
-                        class="box-border inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-400 transition disabled:cursor-not-allowed enabled:border-[#0025cc] enabled:bg-[#0025cc] enabled:text-white enabled:hover:bg-blue-800"
-                    >
-                        <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
-                        Transfer selected
-                        <span id="deployedSelectedCount" class="hidden rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold"></span>
-                    </button>
-                </div>
+                <a
+                    href="{{ $deployedExportPdfUrl }}?{{ http_build_query(request()->only(['search', 'room', 'category', 'department', 'status', 'on_floor', 'include_storage'])) }}"
+                    class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    data-pur-tip-title="Export PDF"
+                    data-pur-tip="Download the current deployed equipment list as a PDF"
+                    data-pur-tip-accent="#64748b"
+                >
+                    <i data-lucide="file-down" class="h-4 w-4"></i>
+                    Export PDF
+                </a>
             </div>
 
             @if (! empty($attentionFocus))
                 <div class="mt-4">
                     @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $equipmentTotal])
-                </div>
-            @endif
-
-            @if (($onLoanOffCampus ?? 0) > 0)
-                <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs text-sky-800">
-                    <i data-lucide="hand-helping" class="h-4 w-4 shrink-0"></i>
-                    <span>
-                        {{ $onLoanOffCampus }} item{{ $onLoanOffCampus === 1 ? ' is' : 's are' }} out on loan and not counted here, since borrowed equipment is off campus.
-                        When returned, it goes back to storage (Inventory).
-                    </span>
-                    <a href="{{ $deployedUrl }}?status=Borrowed" class="font-semibold underline-offset-2 hover:underline">Show on-loan items</a>
-                    @if (! empty($borrowingUrl))
-                        <a href="{{ $borrowingUrl }}" class="font-semibold underline-offset-2 hover:underline">Open Borrowing</a>
-                    @endif
                 </div>
             @endif
 
@@ -182,13 +209,13 @@
                     <option value="">All rooms</option>
                     @foreach ($rooms as $room)
                         <option value="{{ $room->room_id }}" @selected((string) $filters['room'] === (string) $room->room_id)>
-                            {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
+                            {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage Â· '.$room->room_name : $room->room_name }}
                         </option>
                     @endforeach
                 </select>
 
                 <select name="category" class="{{ $selectClass }}">
-                    <option value="">All categories</option>
+                    <option value="">All classifications</option>
                     @foreach ($categories as $category)
                         <option value="{{ $category->equipment_category_id }}" @selected((string) $filters['category'] === (string) $category->equipment_category_id)>
                             {{ $category->equipment_category_name }}
@@ -209,7 +236,7 @@
 
                 <select name="status" class="{{ $selectClass }}">
                     <option value="">All status</option>
-                    @foreach (['Active', 'Borrowed', 'Under Maintenance', 'For Replacement'] as $status)
+                    @foreach (['Active', 'Borrowed', 'Under Maintenance', 'For Replacement', 'Replaced'] as $status)
                         <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $status }}</option>
                     @endforeach
                 </select>
@@ -247,9 +274,9 @@
                         </th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Equipment</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Location</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Department</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Condition</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Department</th>
                         <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
@@ -260,19 +287,23 @@
                             $identifier = collect([
                                 $item->equipment_asset_tag ? 'Tag: '.$item->equipment_asset_tag : null,
                                 $item->equipment_serial_number ? 'Serial: '.$item->equipment_serial_number : null,
-                            ])->filter()->implode(' · ');
+                            ])->filter()->implode(' Â· ');
                             $unitLabel = $identifier ? $item->equipment_name.' ('.$identifier.')' : $item->equipment_name;
                             $zone = $item->equipment_placement_zone ?: $item->equipment_current_location;
                             $inStorage = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);
                             $canTransferRow = ! $item->transfer_pending && ! $item->transfer_lock;
-                            $canDisposeRow = $item->equipment_inventory_status === 'For Replacement'
+                            $canMarkReplacedRow = ($item->equipment_inventory_status ?? null) === 'For Replacement'
+                                && ! $item->open_loan
+                                && ! $item->transfer_pending
+                                && ! $item->disposal_pending;
+                            $canDisposeRow = ($item->equipment_inventory_status ?? null) === 'Replaced'
                                 && ! $item->open_loan
                                 && ! $item->transfer_pending
                                 && ! $item->disposal_pending;
                         @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td class="py-4 pl-5 pr-0">
-                                @if ($canTransferRow || $canDisposeRow)
+                                @if ($canTransferRow || $canDisposeRow || $canMarkReplacedRow)
                                     <input
                                         type="checkbox"
                                         class="deployed-unit-checkbox h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
@@ -289,41 +320,42 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4">
-                                <p class="font-semibold text-gray-950">{{ $item->equipment_name }}</p>
+                                <p class="text-base font-semibold text-slate-900">{{ $item->equipment_name }}</p>
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $item->equipment_asset_tag ?: 'No asset tag' }}</p>
                                 <p class="mt-0.5 text-xs text-gray-400">
                                     {{ $item->equipment_category_name ?: 'Uncategorized' }}
-                                    ·
+                                    Â·
                                     @if ($isBulk)
                                         Qty {{ number_format((int) $item->equipment_quantity) }}
                                     @else
-                                        Serial {{ $item->equipment_serial_number ?: '—' }}
+                                        Serial {{ $item->equipment_serial_number ?: 'No serial' }}
                                     @endif
                                 </p>
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-2">
-                                    <p class="text-gray-800">{{ $item->room_name ?: '—' }}</p>
+                                    <p class="text-gray-800">{{ $item->room_name ?: 'No room' }}</p>
                                     @if ($inStorage)
                                         <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Storage</span>
                                     @endif
                                 </div>
-                                @if (filled($zone))
+                                @if (filled($zone) && strcasecmp((string) $zone, 'Holding') !== 0)
                                     <p class="mt-0.5 text-xs text-gray-400">{{ $zone }}</p>
                                 @endif
                             </td>
+                            <td class="px-5 py-4 text-gray-600">{{ ($item->unit_department_name ?? null) ?: 'No department' }}</td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium {{ $conditionClass($item->equipment_condition_status) }}">
-                                    {{ $item->equipment_condition_status ?: '—' }}
+                                    {{ $item->equipment_condition_status ?: 'â€”' }}
                                 </span>
                             </td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium {{ $statusClass($item->equipment_inventory_status) }}">
-                                    {{ $item->equipment_inventory_status ?: '—' }}
+                                    {{ $item->equipment_inventory_status ?: 'â€”' }}
                                 </span>
                                 @if ($item->open_loan)
                                     <p class="mt-1 text-xs text-gray-500">
-                                        {{ $isBulk && $item->open_loan->quantity > 0 ? $item->open_loan->quantity.' on loan · ' : '' }}{{ $item->open_loan->borrower ?: 'Borrower not recorded' }}
+                                        {{ $isBulk && $item->open_loan->quantity > 0 ? $item->open_loan->quantity.' borrowed Â· ' : '' }}{{ $item->open_loan->borrower ?: 'Borrower not recorded' }}
                                     </p>
                                     @if ($item->open_loan->due)
                                         <p class="text-xs {{ $item->open_loan->overdue ? 'font-semibold text-rose-600' : 'text-gray-400' }}">
@@ -332,32 +364,42 @@
                                     @endif
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ ($item->unit_department_name ?? null) ?: '—' }}</td>
                             <td class="px-5 py-4">
-                                <div class="flex items-center justify-end gap-1.5">
+                                <div class="flex items-center justify-start gap-1.5">
                                     <button
                                         type="button"
                                         onclick='openEquipmentModal(@json(\App\Support\LayoutEquipmentPayload::fromRow($item, $eqImageUrl($item->equipment_image ?? null))))'
-                                        class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-                                        title="View equipment details"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                        data-pur-tip-title="View"
+                                        data-pur-tip="Open asset details for this unit"
+                                        aria-label="View"
+                                        title="View"
                                     >
-                                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
-                                        
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
                                     </button>
                                     @if ($item->transfer_pending)
-                                        <span class="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-3 text-xs font-semibold text-amber-700" title="A transfer request for this unit is waiting for the Administrator">
+                                        <span
+                                            class="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-3 text-xs font-semibold text-amber-700"
+                                            data-pur-tip-title="Awaiting approval"
+                                            data-pur-tip="Transfer waiting for Administrator approval"
+                                        >
                                             <i data-lucide="hourglass" class="h-3.5 w-3.5"></i>
                                             Awaiting approval
                                         </span>
                                     @elseif ($item->disposal_pending)
-                                        <span class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-3 text-xs font-semibold text-rose-700" title="A disposal request for this unit is waiting for the Administrator">
+                                        <span
+                                            class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-3 text-xs font-semibold text-rose-700"
+                                            data-pur-tip-title="Disposal pending"
+                                            data-pur-tip="Disposal waiting for Administrator approval"
+                                        >
                                             <i data-lucide="hourglass" class="h-3.5 w-3.5"></i>
                                             Disposal pending
                                         </span>
                                     @elseif ($item->transfer_lock)
                                         <span
                                             class="inline-flex h-10 items-center justify-center rounded-lg bg-gray-100 px-3 text-gray-400"
-                                            title="{{ $item->transfer_lock }}"
+                                            data-pur-tip-title="Transfer locked"
+                                            data-pur-tip="{{ $item->transfer_lock }}"
                                             aria-label="{{ $item->transfer_lock }}"
                                         >
                                             <i data-lucide="lock" class="h-3.5 w-3.5"></i>
@@ -371,35 +413,58 @@
                                             data-room="{{ $item->room_name }}"
                                             data-tag="{{ $item->equipment_asset_tag }}"
                                             data-serial="{{ $item->equipment_serial_number }}"
-                                            class="inline-flex items-center gap-1 rounded-lg bg-[#0025cc] px-3 py-3 text-xs font-semibold text-white transition hover:bg-blue-800"
+                                            data-tracking="{{ $item->equipment_tracking_mode ?? 'Individual' }}"
+                                            data-qty="{{ (int) ($item->equipment_quantity ?? 1) }}"
+                                            class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
+                                            data-pur-tip-title="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
+                                            data-pur-tip="Move this deployed unit to another room"
+                                            data-pur-tip-accent="#38bdf8"
+                                            aria-label="Transfer {{ $unitLabel }}"
                                         >
                                             <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
-                                            
                                         </button>
                                     @endif
                                     <button
                                         type="button"
                                         onclick="openDeployedTransferLogs(this)"
                                         data-id="{{ $item->equipment_id }}"
-                                        data-title="{{ $identifier ? $item->equipment_name.' · '.$identifier : $item->equipment_name }}"
+                                        data-title="{{ $identifier ? $item->equipment_name.' Â· '.$identifier : $item->equipment_name }}"
                                         class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-                                        title="Transfer logs"
-                                        aria-label="Transfer logs for {{ $unitLabel }}"
+                                        data-pur-tip-title="Transfer history"
+                                        data-pur-tip="See where this unit has been moved"
+                                        aria-label="Transfer history for {{ $unitLabel }}"
                                     >
                                         <i data-lucide="route" class="h-3.5 w-3.5"></i>
                                     </button>
-                                    @if ($canDisposeRow)
+                                    @if ($canMarkReplacedRow)
+                                        <button
+                                            type="button"
+                                            onclick="openDeployedMarkReplaced(this)"
+                                            data-id="{{ $item->equipment_id }}"
+                                            data-label="{{ $unitLabel }}"
+                                            class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
+                                            data-pur-tip-title="Mark as Replaced"
+                                            data-pur-tip="No successor will be installed. Closes For Replacement so this unit can be disposed."
+                                            data-pur-tip-accent="#60a5fa"
+                                            aria-label="Mark {{ $unitLabel }} as Replaced"
+                                        >
+                                            <i data-lucide="replace" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                    @elseif ($canDisposeRow)
                                         <button
                                             type="button"
                                             onclick="openDeployedDispose(this)"
                                             data-id="{{ $item->equipment_id }}"
                                             data-label="{{ $unitLabel }}"
                                             data-room="{{ $item->room_name }}"
-                                            class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-rose-200 text-rose-600 transition hover:bg-rose-50"
-                                            title="{{ $disposalNeedsApproval ? 'Request disposal' : 'Dispose equipment' }}"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
+                                            data-pur-tip-title="{{ $disposalNeedsApproval ? 'Request disposal' : 'Dispose equipment' }}"
+                                            data-pur-tip="{{ $disposalNeedsApproval ? 'Ask the Administrator to move this replaced deployed unit into Disposal' : 'Move this replaced deployed unit into Disposal' }}"
+                                            data-pur-tip-accent="#e32626"
                                             aria-label="Dispose {{ $unitLabel }}"
+                                            title="Dispose"
                                         >
-                                            <i data-lucide="archive-x" class="h-3.5 w-3.5"></i>
+                                            <i data-lucide="archive-x" class="h-4 w-4"></i>
                                         </button>
                                     @endif
                                 </div>
@@ -446,7 +511,7 @@
     class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     onclick="if (event.target === this) closeDeployedModal('deployedTransferModal')"
 >
-    <div class="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div class="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
             <div class="min-w-0">
                 <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-[#0025cc]">
@@ -468,7 +533,7 @@
                     @foreach (['Name' => 'Equipment', 'Tag' => 'Asset tag', 'Serial' => 'Serial number', 'Room' => 'Current room'] as $suffix => $label)
                         <div class="flex items-center justify-between gap-6 px-4 py-3">
                             <span class="shrink-0 text-sm text-slate-500">{{ $label }}</span>
-                            <span id="deployedTransfer{{ $suffix }}" class="min-w-0 truncate text-right text-sm font-medium text-slate-900">—</span>
+                            <span id="deployedTransfer{{ $suffix }}" class="min-w-0 truncate text-right text-sm font-medium text-slate-900">â€”</span>
                         </div>
                     @endforeach
                 </div>
@@ -504,33 +569,53 @@
     class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     onclick="if (event.target === this) closeDeployedModal('deployedBatchTransferModal')"
 >
-    <div class="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div class="flex shrink-0 items-start justify-between gap-6 border-b border-slate-200 px-6 py-5">
-            <div class="min-w-0">
-                <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
-                    <i data-lucide="check-square" class="h-4 w-4"></i>
+    <div class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div class="shrink-0 border-b border-slate-200 px-6 py-5">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                        <i data-lucide="check-square" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer selected</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Choose a destination for each of
+                        <span id="deployedBatchCount" class="font-semibold text-slate-800">0</span>
+                        selected unit(s). Destinations can differ.
+                    </p>
                 </div>
-                <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer selected</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Move <span id="deployedBatchCount" class="font-semibold text-slate-800">0</span> selected unit(s) together.
-                </p>
-                <p id="deployedBatchSummary" class="mt-2 text-xs text-slate-400"></p>
+                <button type="button" onclick="closeDeployedModal('deployedBatchTransferModal')" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
             </div>
-            <button type="button" onclick="closeDeployedModal('deployedBatchTransferModal')" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
-                <i data-lucide="x" class="h-5 w-5"></i>
-            </button>
         </div>
 
         <form action="{{ $transferActionBase }}/transfer-batch" method="POST" class="flex min-h-0 flex-1 flex-col">
             @csrf
-            <div id="deployedBatchIds"></div>
 
             <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
-                @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', [
-                    'prefix' => 'deployedBatchTransfer',
-                    'roomOptions' => $deployRooms,
-                ])
-                <p class="text-xs text-slate-400">Batch transfers go to classrooms, labs and offices. To return a unit to storage, transfer it on its own.</p>
+                @if ($transferNeedsApproval ?? false)
+                    <div class="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-5 text-amber-900">
+                        <i data-lucide="shield-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                        <p>
+                            <span class="font-semibold">Needs the Administrator's approval.</span>
+                            Items with the same destination are grouped into one request.
+                        </p>
+                    </div>
+                @endif
+
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-sm font-semibold text-slate-800">Per-item destinations</p>
+                    <button
+                        type="button"
+                        id="deployedBatchApplyAll"
+                        onclick="applyFirstBatchDestinationToAll(document.getElementById('deployedBatchRows'))"
+                        class="text-xs font-semibold text-[#0025cc] transition hover:text-blue-800"
+                    >
+                        Apply first to all
+                    </button>
+                </div>
+
+                <div id="deployedBatchRows" class="space-y-3"></div>
 
                 <div>
                     <div class="mb-2 flex items-center justify-between gap-4">
@@ -545,6 +630,69 @@
                 <button type="button" onclick="closeDeployedModal('deployedBatchTransferModal')" class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">Cancel</button>
                 <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
                     {{ $transferNeedsApproval ? 'Send for approval' : 'Transfer selected' }}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @include('maintenance-personnel.equipment.partials.inventory-transfer-batch-row-template', [
+        'templateId' => 'deployedBatchRowTemplate',
+        'prefixBase' => 'depSel',
+        'roomOptions' => $deployRooms,
+    ])
+</div>
+
+{{-- Transfer all filtered deployed units to one destination --}}
+<div
+    id="deployedTransferAllModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    onclick="if (event.target === this) closeDeployedModal('deployedTransferAllModal')"
+>
+    <div class="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div class="shrink-0 border-b border-slate-200 px-6 py-5">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                        <i data-lucide="boxes" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer all deployed equipment</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Move all
+                        <span class="font-semibold text-slate-800">{{ number_format(count($deployedTransferIds ?? [])) }}</span>
+                        filtered unit(s) to one room, person or department.
+                    </p>
+                </div>
+                <button type="button" onclick="closeDeployedModal('deployedTransferAllModal')" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <form action="{{ $transferActionBase }}/transfer-batch" method="POST" class="flex min-h-0 flex-1 flex-col">
+            @csrf
+            @foreach (($deployedTransferIds ?? []) as $transferId)
+                <input type="hidden" name="equipment_ids[]" value="{{ $transferId }}">
+            @endforeach
+
+            <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
+                @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', [
+                    'prefix' => 'deployedTransferAll',
+                    'roomOptions' => $deployRooms,
+                ])
+
+                <div>
+                    <div class="mb-2 flex items-center justify-between gap-4">
+                        <label for="deployedTransferAllRemarks" class="text-sm font-semibold text-slate-700">Remarks</label>
+                        <span class="text-xs text-slate-400">Optional</span>
+                    </div>
+                    <textarea id="deployedTransferAllRemarks" name="remarks" rows="3" placeholder="e.g. Relocate filtered equipment to Computer Laboratory 1" class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
+                </div>
+            </div>
+
+            <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                <button type="button" onclick="closeDeployedModal('deployedTransferAllModal')" class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">Cancel</button>
+                <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
+                    {{ $transferNeedsApproval ? 'Send for approval' : 'Transfer all' }}
                 </button>
             </div>
         </form>
@@ -574,7 +722,63 @@
     </div>
 </div>
 
-{{-- Dispose a unit marked For Replacement --}}
+{{-- Mark For Replacement as Replaced when there is no successor --}}
+<div
+    id="deployedMarkReplacedModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    onclick="if (event.target === this) closeDeployedModal('deployedMarkReplacedModal')"
+>
+    <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+            <div class="min-w-0">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                    <i data-lucide="replace" class="h-4 w-4"></i>
+                </div>
+                <h2 class="text-lg font-semibold tracking-tight text-slate-950">Mark as Replaced</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-500">
+                    No replacement unit will be installed. This closes For Replacement so the unit can be moved to Disposal.
+                </p>
+            </div>
+            <button type="button" onclick="closeDeployedModal('deployedMarkReplacedModal')" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <form action="{{ $markReplacedAction }}" method="POST">
+            @csrf
+            <input type="hidden" name="equipment_id" id="deployedMarkReplacedEquipmentId" value="">
+            <div class="space-y-5 border-y border-slate-100 px-6 py-5">
+                <div>
+                    <p class="mb-1 text-sm font-medium text-slate-700">Equipment</p>
+                    <div id="deployedMarkReplacedEquipmentName" class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></div>
+                </div>
+                <div>
+                    <label for="deployedMarkReplacedReason" class="mb-2 block text-sm font-medium text-slate-700">
+                        Reason <span class="text-red-500">*</span>
+                    </label>
+                    <textarea
+                        id="deployedMarkReplacedReason"
+                        name="reason"
+                        rows="3"
+                        required
+                        maxlength="1000"
+                        placeholder="Why is there no successor for this unit?"
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                    ></textarea>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 px-6 py-4">
+                <button type="button" onclick="closeDeployedModal('deployedMarkReplacedModal')" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+                    Cancel
+                </button>
+                <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">
+                    Mark as Replaced
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- Dispose a unit marked Replaced --}}
 <div
     id="deployedDisposeModal"
     class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
@@ -591,7 +795,7 @@
                     @if ($disposalNeedsApproval)
                         The Administrator has to approve this first. Once approved, the equipment moves to the Disposal module.
                     @else
-                        Units marked For Replacement. Disposing moves them to the Disposal module until they are restored there.
+                        Only units marked Replaced. Disposing moves them to the Disposal module until they are restored there.
                     @endif
                 </p>
             </div>
@@ -708,9 +912,11 @@
     function syncDeployedSelectionButton(buttonId, countId, total) {
         const button = document.getElementById(buttonId);
         const count = document.getElementById(countId);
-        button.disabled = total === 0;
-        count.textContent = String(total);
-        count.classList.toggle('hidden', total === 0);
+        if (button) button.disabled = total === 0;
+        if (count) {
+            count.textContent = String(total);
+            count.classList.toggle('hidden', total === 0);
+        }
     }
 
     function updateDeployedSelection() {
@@ -732,11 +938,12 @@
         const data = button.dataset;
         document.getElementById('deployedTransferEquipmentId').value = data.id;
         document.getElementById('deployedTransferName').textContent = data.name || 'Equipment';
-        document.getElementById('deployedTransferTag').textContent = data.tag || '—';
-        document.getElementById('deployedTransferSerial').textContent = data.serial || '—';
-        document.getElementById('deployedTransferRoom').textContent = data.room || '—';
+        document.getElementById('deployedTransferTag').textContent = data.tag || 'No tag';
+        document.getElementById('deployedTransferSerial').textContent = data.serial || 'No serial';
+        document.getElementById('deployedTransferRoom').textContent = data.room || 'No room';
         document.getElementById('deployedTransferRemarks').value = '';
         resetInventoryTransferDestination('deployedTransfer');
+        setInventoryTransferQuantity('deployedTransfer', data.tracking, data.qty);
         showDeployedModal('deployedTransferModal');
     }
 
@@ -744,23 +951,30 @@
         const selected = deployedSelected('transferable');
         if (selected.length === 0) return;
 
-        const ids = document.getElementById('deployedBatchIds');
-        ids.innerHTML = '';
-        selected.forEach((box) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'equipment_ids[]';
-            input.value = box.value;
-            ids.appendChild(input);
-        });
+        const items = selected.map((box) => ({
+            id: box.value,
+            name: box.dataset.label || 'Equipment',
+        }));
 
-        const labels = selected.map((box) => box.dataset.label || 'Equipment');
-        document.getElementById('deployedBatchCount').textContent = String(selected.length);
-        document.getElementById('deployedBatchSummary').textContent = labels.slice(0, 3).join(' · ')
-            + (labels.length > 3 ? ` · +${labels.length - 3} more` : '');
+        document.getElementById('deployedBatchCount').textContent = String(items.length);
+        buildInventoryBatchTransferRows(
+            document.getElementById('deployedBatchRows'),
+            document.getElementById('deployedBatchRowTemplate'),
+            items
+        );
+
+        const applyAll = document.getElementById('deployedBatchApplyAll');
+        if (applyAll) applyAll.classList.toggle('hidden', items.length < 2);
+
         document.getElementById('deployedBatchRemarks').value = '';
-        resetInventoryTransferDestination('deployedBatchTransfer');
         showDeployedModal('deployedBatchTransferModal');
+    }
+
+    function openDeployedTransferAll() {
+        if (@json(empty($deployedTransferIds ?? []))) return;
+        resetInventoryTransferDestination('deployedTransferAll');
+        document.getElementById('deployedTransferAllRemarks').value = '';
+        showDeployedModal('deployedTransferAllModal');
     }
 
     async function openDeployedTransferLogs(button) {
@@ -802,10 +1016,17 @@
     }
 
     function resetDeployedDisposeForm(location) {
-        document.getElementById('deployedDisposeReason').value = 'Marked For Replacement.';
+        document.getElementById('deployedDisposeReason').value = 'Marked for disposal (Replaced).';
         document.getElementById('deployedDisposeMethod').value = '';
         document.getElementById('deployedDisposeResidual').value = '';
         document.getElementById('deployedDisposeLocation').value = location || '';
+    }
+
+    function openDeployedMarkReplaced(button) {
+        document.getElementById('deployedMarkReplacedEquipmentId').value = button.dataset.id;
+        document.getElementById('deployedMarkReplacedEquipmentName').textContent = button.dataset.label || 'Equipment';
+        document.getElementById('deployedMarkReplacedReason').value = '';
+        showDeployedModal('deployedMarkReplacedModal');
     }
 
     function openDeployedDispose(button) {
@@ -854,7 +1075,7 @@
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
-        ['deployedTransferModal', 'deployedBatchTransferModal', 'deployedLogsModal', 'deployedDisposeModal'].forEach(closeDeployedModal);
+        ['deployedTransferModal', 'deployedBatchTransferModal', 'deployedTransferAllModal', 'deployedLogsModal', 'deployedDisposeModal'].forEach(closeDeployedModal);
     });
 </script>
 @endsection

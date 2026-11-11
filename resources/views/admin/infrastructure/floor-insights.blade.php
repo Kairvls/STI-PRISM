@@ -23,8 +23,12 @@
             <p class="text-[13px] font-normal text-[#999999]">Overall Progress</p>
 
             <div class="mt-1 flex flex-wrap items-center gap-2.5">
-                <p class="text-[34px] font-bold leading-none tracking-tight text-[#1A1A1A]">
-                    <span x-text="floorHealthAverage"></span>% <span class="font-bold" x-text="floorHealthAverage >= 70 ? 'Healthy' : floorHealthAverage >= 40 ? 'Fair' : 'At Risk'"></span>
+                <p class="text-[22px] font-bold leading-none tracking-tight text-[#1A1A1A]">
+                    <span x-text="floorHealthAverage"></span>%
+                    <span
+                        class="text-[16px] font-semibold text-[#555555]"
+                        x-text="floorHealthAverage >= 70 ? 'Healthy' : floorHealthAverage >= 40 ? 'Needs attention' : 'At Risk'"
+                    ></span>
                 </p>
                 <span
                     x-show="floorStats.todayReports > 0"
@@ -45,28 +49,25 @@
                     <span class="w-10 text-right font-bold text-[#1A1A1A]" x-text="floorStats.reports"></span>
                 </div>
                 <div class="flex items-center gap-3 text-[13px]">
-                    <span class="flex-1 text-[#888888]">Assets tracked</span>
+                    <span class="flex-1 text-[#888888]">Equipments tracker</span>
                     <span class="text-[#DDDDDD]">|</span>
                     <span class="w-10 text-right font-bold text-[#1A1A1A]" x-text="floorStats.equipment"></span>
                 </div>
             </div>
 
-            <div class="min-h-0 flex-1"></div>
-
-            {{-- Goal bar (reference style — gray pill, left column) --}}
-            <div class="mt-8 flex w-full items-center gap-2.5 rounded-full bg-[#D8D8D8] px-4 py-[10px]">
-                <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] bg-black">
-                    <i data-lucide="check" class="h-2.5 w-2.5 text-white"></i>
-                </span>
-                <p class="truncate text-[12px] font-normal text-[#666666]">
-                    <span x-text="floorHealthAverage"></span>% of your floor health target reached
-                </p>
-            </div>
         </div>
 
         {{-- Right: radar chart --}}
-        <div class="relative flex items-center justify-center lg:justify-end">
-            <svg viewBox="0 0 240 240" class="h-[210px] w-[210px] lg:h-[230px] lg:w-[230px]" aria-hidden="true">
+        <div
+            class="relative h-[210px] w-[210px] lg:h-[230px] lg:w-[230px] lg:justify-self-end"
+            @mouseleave="setFloorRadarHover(null)"
+        >
+            <svg
+                viewBox="0 0 240 240"
+                class="pointer-events-none h-full w-full"
+                role="img"
+                aria-label="Floor health radar"
+            >
                 <defs>
                     <radialGradient id="floorRadarFill" cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stop-color="#4DA3FF" stop-opacity="0.7" />
@@ -109,11 +110,46 @@
                     <text x="120" y="16" text-anchor="middle">Reports</text>
                     <text x="210" y="68" text-anchor="start">Attention</text>
                     <text x="210" y="178" text-anchor="start">Health</text>
-                    <text x="120" y="232" text-anchor="middle">Assets</text>
+                    <text x="120" y="232" text-anchor="middle">Equipments</text>
                     <text x="30" y="178" text-anchor="end">Schedules</text>
-                    <text x="30" y="68" text-anchor="end">Issues</text>
+                    <text x="30" y="68" text-anchor="end">Problems</text>
                 </g>
             </svg>
+
+            {{-- HTML hit targets (SVG transparent fills often ignore hover) --}}
+            <template x-for="axis in floorRadarAxes" :key="'radar-' + axis.key">
+                <button
+                    type="button"
+                    class="absolute z-10 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full focus:outline-none"
+                    :style="`left:${(axis.x / 240) * 100}%; top:${(axis.y / 240) * 100}%`"
+                    :aria-label="axis.label + ' ' + axis.percent + '%'"
+                    @mouseenter="setFloorRadarHover(axis)"
+                    @focus="setFloorRadarHover(axis)"
+                    @mouseleave="setFloorRadarHover(null)"
+                    @blur="setFloorRadarHover(null)"
+                >
+                    <span
+                        class="block h-2.5 w-2.5 rounded-full ring-2 ring-white shadow-sm transition"
+                        :class="floorRadarHover?.key === axis.key ? 'bg-[#005EA6] scale-125' : 'bg-[#3B8FE8]'"
+                    ></span>
+                </button>
+            </template>
+
+            <div
+                x-show="floorRadarHover"
+                x-cloak
+                x-transition.opacity.duration.100ms
+                class="pointer-events-none absolute z-20 min-w-[7.5rem] -translate-x-1/2 -translate-y-[130%] rounded-xl bg-[#0f172a] px-3 py-2 text-left shadow-xl"
+                :style="floorRadarHover
+                    ? `left:${(floorRadarHover.x / 240) * 100}%; top:${(floorRadarHover.y / 240) * 100}%`
+                    : ''"
+            >
+                <p class="text-[11px] font-bold text-white">
+                    <span x-text="floorRadarHover?.label"></span>
+                    <span class="text-sky-300" x-text="' · ' + (floorRadarHover?.percent ?? 0) + '%'"></span>
+                </p>
+                <p class="mt-0.5 text-[10px] font-medium text-slate-300" x-text="floorRadarHover?.detail || ''"></p>
+            </div>
         </div>
     </div>
 </section>

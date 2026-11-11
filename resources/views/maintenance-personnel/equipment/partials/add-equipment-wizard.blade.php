@@ -60,8 +60,8 @@
             :class="fullscreen
                 ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
                 : (step === 2
-                    ? 'max-h-[90vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
-                    : 'max-h-[90vh] max-w-4xl rounded-2xl')"
+                    ? 'max-h-[85vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
+                    : 'max-h-[85vh] max-w-4xl rounded-2xl')"
         >
             @csrf
             <input type="hidden" name="equipment_tracking_mode" :value="tracking">
@@ -102,14 +102,14 @@
                             class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold transition"
                             :class="index === currentStepIndex()
                                 ? 'bg-[#0025cc] text-white'
-                                : (index < currentStepIndex() ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-white text-slate-400 ring-1 ring-slate-200')"
-                            :disabled="index >= currentStepIndex()"
+                                : (index <= furthestStepIndex ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-white text-slate-400 ring-1 ring-slate-200')"
+                            :disabled="index > furthestStepIndex || index === currentStepIndex()"
                             @click="goToStep(wizardStep.key)"
                         >
                             <span
                                 class="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]"
-                                :class="index === currentStepIndex() ? 'bg-white/20' : (index < currentStepIndex() ? 'bg-emerald-500 text-white' : 'bg-slate-100')"
-                                x-text="index < currentStepIndex() ? '✓' : (index + 1)"
+                                :class="index === currentStepIndex() ? 'bg-white/20' : (index <= furthestStepIndex ? 'bg-emerald-500 text-white' : 'bg-slate-100')"
+                                x-text="index <= furthestStepIndex && index !== currentStepIndex() ? '✓' : (index + 1)"
                             ></span>
                             <span x-text="wizardStep.label"></span>
                         </button>
@@ -132,7 +132,8 @@
 
             <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
                 @if ($isStockPage)
-                <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80" x-show="page === 1">
+                <div class="space-y-3" x-show="page === 1">
+                <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
@@ -168,7 +169,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="overflow-y-auto" :class="fullscreen ? 'max-h-[calc(100dvh-24rem)] min-h-[16rem]' : 'max-h-52'">
+                            <div class="overflow-y-auto" :class="fullscreen ? 'max-h-[calc(100dvh-22rem)] min-h-[16rem]' : 'max-h-[min(20rem,calc(85vh-24rem))] min-h-[12rem]'">
                                 <template x-if="rrLoading">
                                     <p class="px-3 py-4 text-xs text-slate-400">Loading delivered lines…</p>
                                 </template>
@@ -202,10 +203,10 @@
                                                 <div class="min-w-0 flex-1">
                                                     <p class="truncate text-sm font-semibold text-slate-900">
                                                         <span x-text="group.rr_number"></span>
-                                                        <span class="ml-1 text-xs font-normal text-slate-400" x-text="group.lines.length + (group.lines.length === 1 ? ' line' : ' lines')"></span>
+                                                        <span class="ml-1 text-xs font-normal text-slate-500" x-text="group.lines.length + (group.lines.length === 1 ? ' equipment' : ' equipments')"></span>
                                                     </p>
-                                                    <p class="mt-0.5 truncate text-[11px] text-slate-500" x-text="rrGroupMeta(group)"></p>
-                                                    <p x-show="rrGroupPaperwork(group)" class="mt-0.5 truncate text-[11px] text-slate-400" x-text="rrGroupPaperwork(group)"></p>
+                                                    <p class="mt-0.5 truncate text-[11px] text-slate-600" x-text="rrGroupMeta(group)"></p>
+                                                    <p x-show="rrGroupPaperwork(group)" class="mt-0.5 truncate text-[11px] text-slate-600" x-text="rrGroupPaperwork(group)"></p>
                                                 </div>
                                                 <span
                                                     class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -216,14 +217,22 @@
                                                 ></span>
                                             </button>
                                             </div>
-                                            <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-slate-50/60 pl-8">
-                                                <template x-for="line in group.lines" :key="line.id">
-                                                    <li class="border-l border-slate-200/90">
+                                            <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-white">
+                                                <template x-for="(line, lineIndex) in group.lines" :key="line.id">
+                                                    <li class="relative border-b border-slate-100 last:border-b-0">
+                                                        {{-- Tree connector: |-- under RR chevron --}}
+                                                        <span class="pointer-events-none absolute left-[2.75rem] top-0 bottom-0 w-5" aria-hidden="true">
+                                                            <span
+                                                                class="absolute left-0 w-px bg-slate-300"
+                                                                :class="lineIndex === group.lines.length - 1 ? 'top-0 h-1/2' : 'inset-y-0'"
+                                                            ></span>
+                                                            <span class="absolute left-0 top-1/2 h-px w-full -translate-y-px bg-slate-300"></span>
+                                                        </span>
                                                         <label
-                                                            class="flex w-full items-start gap-3 py-2 pl-3 pr-3 text-left transition"
+                                                            class="flex w-full items-start gap-3 py-2 pl-14 pr-3 text-left transition"
                                                             :class="isRrSelected(line)
                                                                 ? 'bg-[#0025cc]/5 ring-inset ring-1 ring-[#0025cc]/20'
-                                                                : (line.is_selectable ? 'cursor-pointer hover:bg-white' : 'opacity-70')"
+                                                                : (line.is_selectable ? 'cursor-pointer hover:bg-slate-50' : 'bg-white')"
                                                         >
                                                             <input
                                                                 type="checkbox"
@@ -235,14 +244,14 @@
                                                             >
                                                             <div class="min-w-0 flex-1">
                                                                 <p class="truncate text-sm font-medium text-slate-900" x-text="line.article"></p>
-                                                                <p x-show="rrLineCost(line)" class="mt-0.5 truncate text-[11px] text-slate-500" x-text="rrLineCost(line)"></p>
-                                                                <p class="mt-0.5 text-[11px] text-slate-400">
+                                                                <p x-show="rrLineCost(line)" class="mt-0.5 truncate text-[13px] font-medium text-slate-700" x-text="rrLineCost(line)"></p>
+                                                                <p class="mt-0.5 text-xs text-slate-600">
                                                                     <template x-if="line.ordered_qty != null">
                                                                         <span>Ordered <span x-text="line.ordered_qty"></span> · </span>
                                                                     </template>
                                                                     Received <span x-text="line.received_qty || 0"></span>
                                                                     · In inventory <span x-text="line.stocked_qty || 0"></span>
-                                                                    · Left <span class="font-semibold" :class="(line.remaining_qty || 0) > 0 ? 'text-amber-700' : 'text-slate-500'" x-text="line.remaining_qty || 0"></span>
+                                                                    · Left <span class="font-semibold" :class="(line.remaining_qty || 0) > 0 ? 'text-amber-700' : 'text-slate-600'" x-text="line.remaining_qty || 0"></span>
                                                                 </p>
                                                             </div>
                                                             <span
@@ -259,25 +268,6 @@
                                     </template>
                                 </ul>
                             </div>
-                        </div>
-
-                        <div
-                            x-show="!rrLoading && rrLines.length === 0"
-                            x-cloak
-                            class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-600 ring-1"
-                            :class="errors.rr ? 'ring-2 ring-rose-400' : 'ring-slate-200/80'"
-                        >
-                            <div class="flex min-w-0 flex-1 items-start gap-2.5">
-                                <i data-lucide="package-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
-                                <p x-text="rrGuide.length > 0
-                                    ? 'Nothing left to add: every delivered RR line above is already in inventory. New deliveries appear here after the next Receiving Report is completed.'
-                                    : 'No completed Receiving Reports yet. Deliveries appear here after receiving finishes the second count on an RR.'"></p>
-                            </div>
-                            <button
-                                type="button"
-                                class="inline-flex h-9 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-semibold text-[#0025cc] ring-1 ring-slate-200 transition hover:bg-slate-50"
-                                @click="setIntakeBasis('non_procurement')"
-                            >Use non-procurement intake</button>
                         </div>
 
                         <div x-show="rrLoading || rrLines.length > 0">
@@ -405,6 +395,26 @@
                             <p x-show="errors.intake_reason" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.intake_reason"></p>
                         </div>
                     </div>
+                </div>
+
+                <div
+                    x-show="intakeBasis !== 'non_procurement' && !rrLoading && rrLines.length === 0"
+                    x-cloak
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-600 ring-1"
+                    :class="errors.rr ? 'ring-2 ring-rose-400' : 'ring-slate-200/80'"
+                >
+                    <div class="flex min-w-0 flex-1 items-start gap-2.5">
+                        <i data-lucide="package-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                        <p x-text="rrGuide.length > 0
+                            ? 'Nothing left to add: every delivered RR line above is already in inventory. New deliveries appear here after the next Receiving Report is completed.'
+                            : 'No completed Receiving Reports yet. Deliveries appear here after receiving finishes the second count on an RR.'"></p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex h-9 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-semibold text-[#0025cc] ring-1 ring-slate-200 transition hover:bg-slate-50"
+                        @click="setIntakeBasis('non_procurement')"
+                    >Use non-procurement intake</button>
+                </div>
                 </div>
                 @endif
                 <div x-show="page === 2" x-cloak>
@@ -586,17 +596,17 @@
                             <div class="flex h-11 rounded-xl bg-slate-100 p-1">
                                 <button
                                     type="button"
-                                    @click="if (rrLocksIndividual()) return; tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()"
+                                    @click="if (categoryLocksIndividual()) return; tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()"
                                     class="flex-1 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
                                     :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
-                                    :disabled="rrLocksIndividual()"
+                                    :disabled="categoryLocksIndividual()"
                                 >Bulk</button>
                                 <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                             </div>
-                            <p class="mt-1.5 text-xs text-slate-400" x-text="rrLocksIndividual()
-                                ? 'RR equipment must be Individual (one identity per unit). Bulk is only for consumables/supplies.'
+                            <p class="mt-1.5 text-xs text-slate-400" x-text="categoryLocksIndividual()
+                                ? 'Computer Equipment must be Individual (one identity per unit). Use quantity to add many.'
                                 : (tracking === 'Bulk'
-                                    ? 'One record with the combined quantity.'
+                                    ? 'One quantity pile — you can later transfer part of it to other rooms.'
                                     : 'Creates separate trackable assets (asset tag, serial, QR per unit).')"></p>
                         </div>
                         <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
@@ -690,7 +700,7 @@
                                     <select
                                         :id="'multi_category_' + row.id"
                                         x-model="row.category"
-                                        @change="row.categoryManual = true; clearMultiError(row, 'category')"
+                                        @change="row.categoryManual = true; clearMultiError(row, 'category'); if (!rowAllowsBulk(row)) { row.tracking = 'Individual'; syncPieces(row); }"
                                         class="{{ $eqField }}"
                                         :class="multiError(row, 'category') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     >
@@ -816,9 +826,11 @@
                                 </div>
                             </div>
                             <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-                                <p class="text-[11px] text-slate-400" x-text="row.tracking === 'Bulk'
-                                    ? 'One record with the combined quantity.'
-                                    : ('Creates ' + (Number(row.quantity) || 0) + ' separate assets, each with its own asset tag and QR.')"></p>
+                                <p class="text-[11px] text-slate-400" x-text="!rowAllowsBulk(row)
+                                    ? 'Computer Equipment must be Individual (one identity per unit). Use quantity to add many.'
+                                    : (row.tracking === 'Bulk'
+                                        ? 'One quantity pile — you can later transfer part of it to other rooms.'
+                                        : ('Creates ' + (Number(row.quantity) || 0) + ' separate assets, each with its own asset tag and QR.'))"></p>
                                 <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
                                     <input type="checkbox" x-model="row.borrowable" class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30">
                                     Can be borrowed
@@ -886,9 +898,14 @@
                                     type="date"
                                     name="equipment_purchase_date"
                                     x-model="purchaseDate"
+                                    :max="todayIso()"
                                     :disabled="!manualIntake()"
+                                    @input="clearError('purchase_date'); clearError('received_date')"
+                                    :class="errors.purchase_date ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     class="{{ $eqField }}"
                                 />
+                                <p x-show="errors.purchase_date" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.purchase_date"></p>
+                                <p x-show="!errors.purchase_date" class="mt-1.5 text-xs text-slate-400">Past dates are allowed. Future dates are not.</p>
                             </div>
                             <div x-show="!isMultiManual()">
                                 <label for="add_manual_purchase_cost" class="{{ $eqLabel }}" x-text="acqSource === 'donation' ? 'Estimated value per unit (₱)' : 'Cost per unit (₱)'"></label>
@@ -911,9 +928,15 @@
                                     type="date"
                                     name="equipment_acquired_date"
                                     x-model="receivedDate"
+                                    :max="todayIso()"
+                                    :min="purchaseDate || null"
                                     :disabled="!manualIntake()"
+                                    @input="clearError('received_date')"
+                                    :class="errors.received_date ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     class="{{ $eqField }}"
                                 />
+                                <p x-show="errors.received_date" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.received_date"></p>
+                                <p x-show="!errors.received_date" class="mt-1.5 text-xs text-slate-400">When it entered campus stock. Cannot be after today or before the purchase date.</p>
                             </div>
                         </div>
                     </div>
@@ -994,7 +1017,7 @@
                                     </div>
                                 </template>
                             </div>
-                            <p class="text-xs text-slate-400">Individually tracked items can still get a different warranty per unit on the Units step.</p>
+                            <p class="text-xs text-slate-400">These values apply to every unit by default. On the Units step you can change purchase date, cost, warranty, or lifespan for individual units that differ.</p>
                         </div>
                     </div>
                 </div>
@@ -1116,7 +1139,7 @@
                 </div>
             </div>
 
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 2" x-cloak>
+            <div class="eq-modal-scroll min-h-0 flex-1 overflow-auto px-6 py-5" x-show="step === 2" x-cloak>
                 <div x-show="!isMulti()">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
                     <div class="text-sm text-slate-600">
@@ -1132,17 +1155,20 @@
                     </div>
                 </div>
                 <div class="rounded-xl ring-1 ring-slate-200">
-                    <table class="w-full table-fixed divide-y divide-slate-200 text-left text-sm">
+                    <table class="min-w-[72rem] w-full table-fixed divide-y divide-slate-200 text-left text-sm">
                         <colgroup>
                             <col class="w-[3%]">
-                            <col class="w-[13%]">
-                            <col class="w-[18%]">
-                            <col class="w-[15%]">
-                            <col class="w-[11%]">
+                            <col class="w-[10%]">
+                            <col class="w-[12%]">
                             <col class="w-[10%]">
                             <col class="w-[9%]">
-                            <col class="w-[10%]">
-                            <col class="w-[11%]">
+                            <col class="w-[8%]">
+                            <col class="w-[8%]">
+                            <col class="w-[8%]">
+                            <col class="w-[9%]">
+                            <col class="w-[8%]">
+                            <col class="w-[7%]">
+                            <col class="w-[8%]">
                         </colgroup>
                         <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
@@ -1154,6 +1180,9 @@
                                 <th class="px-2 py-2.5">Brand</th>
                                 <th class="px-2 py-2.5">Model</th>
                                 <th class="px-2 py-2.5">Condition</th>
+                                <th class="px-2 py-2.5">Purchase</th>
+                                <th class="px-2 py-2.5">Cost</th>
+                                <th class="px-2 py-2.5">Life (yrs)</th>
                                 <th class="px-2 py-2.5">Warranty</th>
                             </tr>
                         </thead>
@@ -1287,7 +1316,48 @@
                                         </select>
                                     </td>
                                     <td class="px-2 py-2">
-                                        <input type="date" :name="'items[' + index + '][equipment_warranty_expiration]'" x-model="item.equipment_warranty_expiration" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm" />
+                                        <input
+                                            type="date"
+                                            :name="'items[' + index + '][equipment_purchase_date]'"
+                                            x-model="item.equipment_purchase_date"
+                                            :max="todayIso()"
+                                            @input="item._purchaseManual = true"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                        />
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            :name="'items[' + index + '][equipment_purchase_cost]'"
+                                            x-model="item.equipment_purchase_cost"
+                                            @input="item._costManual = true"
+                                            placeholder="0.00"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                        />
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="50"
+                                            step="1"
+                                            :name="'items[' + index + '][equipment_useful_life_years]'"
+                                            x-model="item.equipment_useful_life_years"
+                                            @input="item._lifeManual = true"
+                                            placeholder="5"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                        />
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input
+                                            type="date"
+                                            :name="'items[' + index + '][equipment_warranty_expiration]'"
+                                            x-model="item.equipment_warranty_expiration"
+                                            @input="item._warrantyManual = true"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                        />
                                     </td>
                                 </tr>
                             </template>
@@ -1312,7 +1382,7 @@
                         </div>
                     </div>
                     <template x-for="row in multiLines" :key="'units-' + row.id">
-                        <div class="overflow-hidden rounded-xl ring-1 ring-slate-200">
+                        <div class="rounded-xl ring-1 ring-slate-200">
                             <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2">
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-900" x-text="row.name || row.article"></p>
@@ -1325,13 +1395,16 @@
                             </div>
                             <table class="w-full table-fixed divide-y divide-slate-100 text-left text-sm">
                                 <colgroup>
-                                    <col class="w-[4%]">
-                                    <col class="w-[14%]">
-                                    <col class="w-[21%]">
-                                    <col class="w-[13%]">
-                                    <col class="w-[14%]">
-                                    <col class="w-[17%]">
-                                    <col class="w-[17%]">
+                                    <col class="w-[3%]">
+                                    <col class="w-[10%]">
+                                    <col class="w-[12%]">
+                                    <col class="w-[9%]">
+                                    <col class="w-[10%]">
+                                    <col class="w-[8%]">
+                                    <col class="w-[7%]">
+                                    <col class="w-[10%]">
+                                    <col class="w-[15%]">
+                                    <col class="w-[16%]">
                                 </colgroup>
                                 <thead class="bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                                     <tr>
@@ -1339,6 +1412,9 @@
                                         <th class="px-2 py-2">Photo</th>
                                         <th class="px-2 py-2">Asset tag</th>
                                         <th class="px-2 py-2">Serial</th>
+                                        <th class="px-2 py-2">Purchase</th>
+                                        <th class="px-2 py-2">Cost</th>
+                                        <th class="px-2 py-2">Life</th>
                                         <th class="px-2 py-2">Warranty</th>
                                         <th class="px-2 py-2">Room</th>
                                         <th class="px-2 py-2">Assign to</th>
@@ -1389,6 +1465,41 @@
                                             </td>
                                             <td class="px-2 py-2">
                                                 <input type="text" x-model="unit.serial" placeholder="Optional" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input
+                                                    type="date"
+                                                    x-model="unit.purchase_date"
+                                                    :max="todayIso()"
+                                                    @input="unit._purchaseManual = true"
+                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    :aria-label="'Purchase date for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
+                                                />
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    x-model="unit.cost"
+                                                    @input="unit._costManual = true"
+                                                    placeholder="0.00"
+                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    :aria-label="'Cost for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
+                                                />
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="50"
+                                                    step="1"
+                                                    x-model="unit.useful_life_years"
+                                                    @input="unit._lifeManual = true"
+                                                    placeholder="5"
+                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    :aria-label="'Useful lifespan for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
+                                                />
                                             </td>
                                             <td class="px-2 py-2">
                                                 <input
@@ -1531,6 +1642,19 @@
                 open: false,
                 step: 1,
                 page: firstPage,
+                furthestStepIndex: 0,
+                todayIso() {
+                    return todayLocal();
+                },
+                isFutureDate(value) {
+                    const day = String(value || '').trim();
+                    return day !== '' && day > todayLocal();
+                },
+                isBeforeDate(value, other) {
+                    const a = String(value || '').trim();
+                    const b = String(other || '').trim();
+                    return a !== '' && b !== '' && a < b;
+                },
                 placement: 'storage',
                 deployRoom: '',
                 custodianId: '',
@@ -1958,19 +2082,35 @@
                     if (!name) return false;
                     return (this.consumableNeedles || []).some((needle) => name.includes(String(needle)));
                 },
+                isComputerEquipmentCategory(categoryId) {
+                    const name = String(this.categoryName(categoryId) || '').toLowerCase();
+                    return name.includes('computer equipment');
+                },
+                categoryAllowsBulk() {
+                    return !this.isComputerEquipmentCategory(this.category);
+                },
+                categoryLocksIndividual() {
+                    return this.isComputerEquipmentCategory(this.category);
+                },
                 rrLocksIndividual() {
-                    return String(this.rrItemId || '') !== '' && !this.isConsumableCategory(this.category);
+                    return this.categoryLocksIndividual();
                 },
                 rowAllowsBulk(row) {
-                    return this.isConsumableCategory(row?.category);
+                    return !this.isComputerEquipmentCategory(row?.category);
                 },
                 applyRrTrackingLock() {
-                    if (this.rrLocksIndividual() && this.tracking !== 'Individual') {
+                    if (this.categoryLocksIndividual() && this.tracking !== 'Individual') {
                         this.tracking = 'Individual';
                         this.assetTagManual = false;
                         this.syncAssetTag();
                         this.onSharedPhotoModeChange();
                     }
+                    (this.multiLines || []).forEach((row) => {
+                        if (!this.rowAllowsBulk(row) && row.tracking !== 'Individual') {
+                            row.tracking = 'Individual';
+                            this.syncPieces(row);
+                        }
+                    });
                     (this.rrMultiLines || []).forEach((row) => {
                         if (!this.rowAllowsBulk(row) && row.tracking !== 'Individual') {
                             row.tracking = 'Individual';
@@ -2124,7 +2264,13 @@
                             return {
                                 asset_tag: prev._tagManual ? prev.asset_tag : '',
                                 serial: prev.serial || '',
+                                purchase_date: prev._purchaseManual ? (prev.purchase_date || '') : (this.purchaseDate || ''),
+                                cost: prev._costManual ? (prev.cost ?? '') : (row.cost || this.purchaseCost || ''),
+                                useful_life_years: prev._lifeManual ? (prev.useful_life_years ?? '') : (row.useful_life_years || this.usefulLifeYears || ''),
                                 warranty: prev._warrantyManual ? prev.warranty : (row.warranty || this.warranty || ''),
+                                _purchaseManual: !!prev._purchaseManual,
+                                _costManual: !!prev._costManual,
+                                _lifeManual: !!prev._lifeManual,
                                 _warrantyManual: !!prev._warrantyManual,
                                 deploy_room_id: roomManual ? prev.deploy_room_id : (deploying ? String(this.deployRoom || '') : ''),
                                 _roomManual: roomManual,
@@ -2252,6 +2398,10 @@
                                 }
                                 serials[serial] = label;
                             }
+                            if (this.isFutureDate(unit.purchase_date)) {
+                                this.formError = 'Purchase date for ' + label + ' cannot be in the future.';
+                                return false;
+                            }
                             if (this.deploying() && !String(unit.deploy_room_id || this.deployRoom || '').trim()) {
                                 this.formError = 'Choose a room for ' + label + '.';
                                 return false;
@@ -2353,6 +2503,10 @@
                 currentStep() {
                     return this.wizardSteps()[this.currentStepIndex()] || { hint: '' };
                 },
+                markFurthest() {
+                    const max = Math.max(0, this.wizardSteps().length - 1);
+                    this.furthestStepIndex = Math.min(max, Math.max(this.furthestStepIndex, this.currentStepIndex()));
+                },
                 isFirstStep() {
                     return this.step === 1 && this.page === firstPage;
                 },
@@ -2364,7 +2518,7 @@
                 },
                 goToStep(key) {
                     const target = this.wizardSteps().findIndex((s) => s.key === key);
-                    if (target < 0 || target >= this.currentStepIndex()) return;
+                    if (target < 0 || target > this.furthestStepIndex || target === this.currentStepIndex()) return;
                     this.clearErrors();
                     if (key === 'units') {
                         this.step = 2;
@@ -2374,6 +2528,7 @@
                         this.step = 1;
                         this.page = Number(key.slice(1));
                     }
+                    this.markFurthest();
                     this.scrollToTop();
                 },
                 next() {
@@ -2384,6 +2539,7 @@
                         }
                         if (this.page < 4) {
                             this.page += 1;
+                            this.markFurthest();
                             this.scrollToTop();
                             return;
                         }
@@ -2394,12 +2550,14 @@
                         this.items = [];
                         this.syncAssetTag();
                         this.step = 3;
+                        this.markFurthest();
                         this.scrollToTop();
                         return;
                     }
                     if (this.step === 2) {
                         if (!(this.isMulti() ? this.validateMultiUnits() : this.validateItems())) return;
                         this.step = 3;
+                        this.markFurthest();
                         this.scrollToTop();
                     }
                 },
@@ -2483,6 +2641,17 @@
                         }
                     }
                     if (page === 3) {
+                        if (this.manualIntake()) {
+                            const purchaseLabel = this.acqSource === 'donation' ? 'Donation date' : 'Purchase date';
+                            if (this.isFutureDate(this.purchaseDate)) {
+                                next.purchase_date = purchaseLabel + ' cannot be in the future.';
+                            }
+                            if (this.isFutureDate(this.receivedDate)) {
+                                next.received_date = 'Received on cannot be in the future.';
+                            } else if (this.isBeforeDate(this.receivedDate, this.purchaseDate)) {
+                                next.received_date = 'Received on cannot be before the ' + purchaseLabel.toLowerCase() + '.';
+                            }
+                        }
                         const badLife = (value) => {
                             if (value === '' || value === null || value === undefined) return false;
                             const years = Number(value);
@@ -2517,7 +2686,7 @@
                     const keys = Object.keys(this.errors || {});
                     if (isStockPage && keys.some((k) => ['rr', 'intake_reason', 'acq_source'].includes(k))) return 1;
                     if (keys.some((k) => ['name', 'category', 'quantity', 'image', 'multi'].includes(k))) return 2;
-                    if (keys.includes('useful_life')) return 3;
+                    if (keys.some((k) => ['useful_life', 'purchase_date', 'received_date'].includes(k))) return 3;
                     if (keys.some((k) => ['room', 'deploy', 'custodian'].includes(k))) return 4;
                     return firstPage;
                 },
@@ -2550,8 +2719,9 @@
                     const tags = {};
                     const serials = {};
                     for (let i = 0; i < this.items.length; i++) {
-                        const tag = String(this.items[i].equipment_asset_tag || '').trim().toLowerCase();
-                        const serial = String(this.items[i].equipment_serial_number || '').trim().toLowerCase();
+                        const item = this.items[i];
+                        const tag = String(item.equipment_asset_tag || '').trim().toLowerCase();
+                        const serial = String(item.equipment_serial_number || '').trim().toLowerCase();
                         if (tag) {
                             if (tags[tag] !== undefined) {
                                 this.formError = `Duplicate asset tag on rows ${tags[tag] + 1} and ${i + 1}.`;
@@ -2567,6 +2737,11 @@
                                 return false;
                             }
                             serials[serial] = i;
+                        }
+                        if (this.isFutureDate(item.equipment_purchase_date)) {
+                            this.formError = `Purchase date on row ${i + 1} cannot be in the future.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
                         }
                     }
                     this.formError = '';
@@ -2603,6 +2778,7 @@
                 reset() {
                     this.step = 1;
                     this.page = firstPage;
+                    this.furthestStepIndex = 0;
                     this.placement = 'storage';
                     this.deployRoom = '';
                     this.custodianId = '';
@@ -2853,10 +3029,17 @@
                             equipment_brand_name: this.brand || '',
                             equipment_model: this.model || '',
                             equipment_condition_status: this.manualIntake() ? this.condition : 'Good',
-                            equipment_warranty_expiration: this.warranty || '',
+                            equipment_purchase_date: prev._purchaseManual ? (prev.equipment_purchase_date || '') : (this.purchaseDate || ''),
+                            equipment_purchase_cost: prev._costManual ? (prev.equipment_purchase_cost ?? '') : (this.purchaseCost ?? ''),
+                            equipment_useful_life_years: prev._lifeManual ? (prev.equipment_useful_life_years ?? '') : (this.usefulLifeYears ?? ''),
+                            equipment_warranty_expiration: prev._warrantyManual ? (prev.equipment_warranty_expiration || '') : (this.warranty || ''),
                             deploy_room_id: roomManual ? prev.deploy_room_id : (deploying ? String(this.deployRoom || '') : ''),
                             _roomManual: roomManual,
                             _tagManual: prev._tagManual || false,
+                            _purchaseManual: !!prev._purchaseManual,
+                            _costManual: !!prev._costManual,
+                            _lifeManual: !!prev._lifeManual,
+                            _warrantyManual: !!prev._warrantyManual,
                             _imagePreview: prev._imagePreview || null,
                             _imageFile: prev._imageFile || null,
                         };
@@ -2874,9 +3057,16 @@
                         equipment_brand_name: this.brand || '',
                         equipment_model: this.model || '',
                         equipment_condition_status: this.manualIntake() ? this.condition : 'Good',
+                        equipment_purchase_date: this.purchaseDate || '',
+                        equipment_purchase_cost: this.purchaseCost ?? '',
+                        equipment_useful_life_years: this.usefulLifeYears ?? '',
                         equipment_warranty_expiration: this.warranty || '',
                         deploy_room_id: deploying ? String(this.deployRoom || '') : '',
                         _roomManual: false,
+                        _purchaseManual: false,
+                        _costManual: false,
+                        _lifeManual: false,
+                        _warrantyManual: false,
                     }));
                     this.fillItemTags(false);
                 },
@@ -2887,6 +3077,7 @@
                     if (this.isMulti()) {
                         this.buildMultiUnits();
                         this.step = 2;
+                        this.markFurthest();
                         this.clearErrors();
                         this.scrollToTop();
                         return;
@@ -2894,6 +3085,7 @@
                     this.clearImage();
                     this.buildItems();
                     this.step = 2;
+                    this.markFurthest();
                     this.clearErrors();
                     this.$nextTick(() => {
                         this.restoreItemImageInputs();
@@ -3003,6 +3195,11 @@
                                 form.append(unitKey + '[model]', values.model);
                             }
                             if (unit.warranty) form.append(unitKey + '[warranty]', unit.warranty);
+                            if (unit.purchase_date) form.append(unitKey + '[purchase_date]', unit.purchase_date);
+                            if (unit.cost !== '' && unit.cost !== null && unit.cost !== undefined) form.append(unitKey + '[cost]', String(unit.cost));
+                            if (unit.useful_life_years !== '' && unit.useful_life_years !== null && unit.useful_life_years !== undefined) {
+                                form.append(unitKey + '[useful_life_years]', String(unit.useful_life_years));
+                            }
                             if (deploying) form.append(unitKey + '[room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
                             if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
                             if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
@@ -3039,6 +3236,11 @@
                                 form.append(unitKey + '[model]', values.model);
                             }
                             if (unit.warranty) form.append(unitKey + '[warranty]', unit.warranty);
+                            if (unit.purchase_date) form.append(unitKey + '[purchase_date]', unit.purchase_date);
+                            if (unit.cost !== '' && unit.cost !== null && unit.cost !== undefined) form.append(unitKey + '[cost]', String(unit.cost));
+                            if (unit.useful_life_years !== '' && unit.useful_life_years !== null && unit.useful_life_years !== undefined) {
+                                form.append(unitKey + '[useful_life_years]', String(unit.useful_life_years));
+                            }
                             if (deploying) form.append(unitKey + '[deploy_room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
                             if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
                             if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);

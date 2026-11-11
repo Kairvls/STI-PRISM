@@ -12,6 +12,8 @@
         $canTransfer = $isStockPage && ($inAdminPortal || $canMaintain);
         $equipmentActionBase = $inAdminPortal ? '/admin/inventory' : '/maintenance/equipment';
         $disposeAction = $inAdminPortal ? '/admin/inventory/dispose' : '/maintenance/disposal/store';
+        $markReplacedAction = $inAdminPortal ? '/admin/inventory/mark-replaced' : '/maintenance/disposal/mark-replaced';
+        $inventoryExportPdfUrl = $inAdminPortal ? '/admin/inventory/export-pdf' : '/maintenance/equipment/inventory/export-pdf';
         $showHistory = $isStockPage && ($movementHistory ?? null) !== null && request('view') === 'history';
         $showReplacementArrived = $isStockPage && request('view') === 'replacement';
         $selectable = $canTransfer && ! $showHistory && ! $showReplacementArrived;
@@ -49,12 +51,14 @@
                 @if ($canTransfer)
                 <a
                     href="{{ $transferRequestsUrl }}"
-                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
+                    class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+                    title="Transfer requests"
+                    data-tooltip="Transfer requests"
+                    aria-label="Transfer requests"
                 >
                     <i data-lucide="shield-check" class="h-4 w-4"></i>
-                    Transfer requests
                     @if ($pendingTransferCount > 0)
-                        <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
+                        <span class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-amber-500 px-1 py-0.5 text-[10px] font-bold leading-none text-white">{{ $pendingTransferCount }}</span>
                     @endif
                 </a>
                 @endif
@@ -63,34 +67,43 @@
                     type="button"
                     id="inventoryTransferSelectedBtn"
                     onclick="openInventoryTransferSelectedModal()"
-                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled
+                    title="Transfer selected"
+                    data-tooltip="Transfer selected"
+                    aria-label="Transfer selected"
                 >
                     <i data-lucide="check-square" class="h-4 w-4"></i>
-                    Transfer selected
-                    <span id="inventoryTransferSelectedCount" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-600">0</span>
+                    <span id="inventoryTransferSelectedCount" class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-slate-700 px-1 py-0.5 text-[10px] font-bold leading-none text-white">0</span>
                 </button>
                 @if ($canManage)
                 <button
                     type="button"
                     id="inventoryDisposeSelectedBtn"
                     onclick="openInventoryDisposeSelectedModal()"
-                    class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled
+                    data-pur-tip-title="Dispose selected"
+                    data-pur-tip="Move selected Replaced storage units into Disposal"
+                    data-pur-tip-accent="#e32626"
+                    aria-label="Dispose selected"
+                    title="Dispose selected"
                 >
                     <i data-lucide="archive-x" class="h-4 w-4"></i>
-                    Dispose selected
-                    <span id="inventoryDisposeSelectedCount" class="rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-bold text-rose-700">0</span>
+                    <span id="inventoryDisposeSelectedCount" class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-white px-1 py-0.5 text-[10px] font-bold leading-none text-[#e32626]">0</span>
                 </button>
                 @endif
                 <button
                     type="button"
                     onclick="openInventoryTransferAllModal()"
-                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
                     @if (empty($stockTransferIds ?? [])) disabled @endif
+                    data-pur-tip-title="Transfer all"
+                    data-pur-tip="Move every storage unit shown by the current filters"
+                    data-pur-tip-accent="#38bdf8"
+                    aria-label="Transfer all"
                 >
                     <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
-                    Transfer all
                 </button>
                 @endif
                 @if ($canManage)
@@ -98,13 +111,7 @@
                     $openBalanceReports = $openBalance['reports'] ?? [];
                     $openBalancePending = (int) (($openBalance['totals']['pending_stock'] ?? 0));
                     $openBalancePendingReplacement = (int) (($openBalance['totals']['pending_replacement'] ?? 0));
-                    $monitoringGhost = (int) (($monitoring['ghost_count'] ?? null) ?? count($monitoring['ghost'] ?? []));
-                    $monitoringWarranty = (int) (($monitoring['warranty_count'] ?? null) ?? count($monitoring['warranty'] ?? []));
-                    $showOpenBalanceBtn = ! empty($openBalanceReports)
-                        || $monitoringGhost > 0
-                        || $monitoringWarranty > 0
-                        || ! empty($monitoring['ghost'] ?? null)
-                        || ! empty($monitoring['warranty'] ?? null);
+                    $showOpenBalanceBtn = ! empty($openBalanceReports);
                 @endphp
                 @if ($showOpenBalanceBtn)
                 <button
@@ -113,7 +120,7 @@
                     class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] font-semibold text-amber-800 transition hover:bg-amber-100"
                 >
                     <i data-lucide="scale" class="h-4 w-4"></i>
-                    {{ ! empty($openBalanceReports) ? 'Open balance' : 'Monitoring' }}
+                    RR ready to stock
                     @if ($openBalancePending > 0)
                         <span class="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $openBalancePending }}</span>
                     @endif
@@ -295,6 +302,17 @@
                             </option>
 
                             <option
+                                value="Replaced"
+                                {{
+                                    request("status") == "Replaced"
+                                        ? "selected"
+                                        : ""
+                                }}
+                            >
+                                Replaced
+                            </option>
+
+                            <option
                                 value="Disposed"
                                 {{
                                     request("status") == "Disposed"
@@ -378,11 +396,41 @@
                 {{-- ===================================================== --}}
 
                 <div
-                    class="flex flex-col gap-3 border-b border-slate-200
-                        bg-white px-5 py-4
-                        xl:flex-row xl:items-center"
+                    class="border-b border-slate-200 bg-white px-5 py-4
+                        @if (! $isStockPage)
+                            flex flex-col gap-3 xl:flex-row xl:items-center
+                        @endif"
                 >
 
+                    @if ($isStockPage)
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
+                                    <i data-lucide="warehouse" class="h-4 w-4 text-slate-400"></i>
+                                    In storage
+                                </h2>
+                                <div
+                                    class="inline-flex w-fit items-center gap-2
+                                        rounded-lg border border-slate-200
+                                        bg-slate-50 px-3 py-2
+                                        text-xs font-medium text-slate-500"
+                                >
+                                    <i data-lucide="package" class="h-3.5 w-3.5"></i>
+                                    {{ number_format($equipment->total()) }} total
+                                </div>
+                            </div>
+                            <a
+                                href="{{ $inventoryExportPdfUrl }}?{{ http_build_query(request()->only(['search', 'category', 'condition', 'status'])) }}"
+                                class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                                data-pur-tip-title="Export PDF"
+                                data-pur-tip="Download the current In storage list as a PDF"
+                                data-pur-tip-accent="#64748b"
+                            >
+                                <i data-lucide="file-down" class="h-4 w-4"></i>
+                                Export PDF
+                            </a>
+                        </div>
+                    @else
                     {{-- ================================================= --}}
                     {{-- LEFT SIDE --}}
                     {{-- STATUS TABS (All Equipment only) --}}
@@ -390,12 +438,6 @@
 
                     <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
 
-                        @if ($isStockPage)
-                            <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900">
-                                <i data-lucide="warehouse" class="h-4 w-4 text-slate-400"></i>
-                                In storage
-                            </h2>
-                        @else
                         @php
                             $statusOptions = [
                                 '' => ['label' => 'All Status', 'count' => (int) ($totalEquipment ?? 0)],
@@ -403,6 +445,7 @@
                                 'Under Maintenance' => ['label' => 'Maintenance', 'count' => (int) ($underMaintenanceEquipment ?? 0)],
                                 'Borrowed' => ['label' => 'Borrowed', 'count' => (int) ($borrowedEquipment ?? 0)],
                                 'For Replacement' => ['label' => 'For Replacement', 'count' => (int) ($forReplacementEquipment ?? 0)],
+                                'Replaced' => ['label' => 'Replaced', 'count' => (int) ($replacedEquipment ?? 0)],
                                 'Disposed' => ['label' => 'Disposed', 'count' => (int) ($disposedEquipment ?? 0)],
                             ];
                         @endphp
@@ -458,7 +501,6 @@
                             ></i>
 
                         </div>
-                        @endif
 
                         <div
                             class="inline-flex w-fit items-center gap-2
@@ -471,6 +513,7 @@
                         </div>
 
                     </div>
+                    @endif
 
 
                     {{-- ================================================= --}}
@@ -481,15 +524,16 @@
 
                     <form method="GET" action="{{ url()->current() }}"
 
-                        class="flex shrink-0 flex-wrap items-center gap-2
-                            xl:flex-nowrap"
+                        class="flex flex-wrap items-center gap-2
+                            xl:flex-nowrap
+                            @if ($isStockPage) mt-4 w-full @else shrink-0 @endif"
                     >
 
                         {{-- ================================================= --}}
-                        {{-- PRESERVE STATUS --}}
+                        {{-- PRESERVE STATUS (All Equipment left-side filter) --}}
                         {{-- ================================================= --}}
 
-                        @if (request()->filled('status'))
+                        @if (! $isStockPage && request()->filled('status'))
 
                             <input
                                 type="hidden"
@@ -503,7 +547,7 @@
                         {{-- SEARCH --}}
                         {{-- ================================================= --}}
 
-                        <div class="relative">
+                        <div class="relative min-w-0 @if ($isStockPage) flex-1 @endif">
 
                             <i
                                 data-lucide="search"
@@ -522,14 +566,15 @@
 
                                 placeholder="Search equipment..."
 
-                                class="h-10 w-48 rounded-lg
+                                class="h-10 rounded-lg
                                     border border-slate-200
                                     bg-white pl-10 pr-3
                                     text-sm text-slate-700
                                     outline-none transition
                                     placeholder:text-slate-400
                                     focus:border-slate-400
-                                    focus:ring-2 focus:ring-slate-100"
+                                    focus:ring-2 focus:ring-slate-100
+                                    @if ($isStockPage) w-full @else w-48 @endif"
                             >
 
                         </div>
@@ -587,9 +632,60 @@
 
                         </div>
 
+                        @if ($isStockPage)
+                        {{-- ================================================= --}}
+                        {{-- CONDITION (In storage) --}}
+                        {{-- ================================================= --}}
+                        <div class="relative">
+                            <select
+                                name="condition"
+                                data-searchable="1"
+                                data-search-placeholder="Search condition…"
+                                class="h-10 w-40 appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-sm text-slate-600 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            >
+                                <option value="">All conditions</option>
+                                @foreach (\App\Support\EquipmentConditions::ALL as $conditionValue)
+                                    @if ($conditionValue === 'Disposed')
+                                        @continue
+                                    @endif
+                                    <option value="{{ $conditionValue }}" @selected(request('condition') === $conditionValue)>
+                                        {{ $conditionValue }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                        </div>
 
                         {{-- ================================================= --}}
-                        {{-- ROOM --}}
+                        {{-- STATUS (In storage) --}}
+                        {{-- ================================================= --}}
+                        <div class="relative">
+                            <select
+                                name="status"
+                                data-searchable="1"
+                                data-search-placeholder="Search status…"
+                                class="h-10 w-44 appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-sm text-slate-600 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            >
+                                <option value="">All statuses</option>
+                                @foreach ([
+                                    'Active' => 'Active',
+                                    'Under Maintenance' => 'Under Maintenance',
+                                    'For Replacement' => 'For Replacement',
+                                    'Replaced' => 'Replaced',
+                                ] as $statusValue => $statusLabel)
+                                    <option value="{{ $statusValue }}" @selected(request('status') === $statusValue)>
+                                        {{ $statusLabel }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                        </div>
+                        @endif
+
+
+                        @unless ($isStockPage)
+                        {{-- ================================================= --}}
+                        {{-- ROOM (All Equipment only) --}}
                         {{-- ================================================= --}}
 
                         <div class="relative">
@@ -609,7 +705,7 @@
                             >
 
                                 <option value="">
-                                    {{ $isStockPage ? 'All storage rooms' : 'All Rooms' }}
+                                    All Rooms
                                 </option>
 
                                 @foreach ($rooms as $room)
@@ -638,6 +734,7 @@
                             ></i>
 
                         </div>
+                        @endunless
 
 
                         {{-- ================================================= --}}
@@ -671,7 +768,9 @@
                         @if (
                             request()->filled('search')
                             || request()->filled('category')
-                            || request()->filled('room')
+                            || (! $isStockPage && request()->filled('room'))
+                            || ($isStockPage && request()->filled('status'))
+                            || request()->filled('condition')
                         )
 
                             <a
@@ -679,6 +778,8 @@
                                     'search' => null,
                                     'category' => null,
                                     'room' => null,
+                                    'status' => $isStockPage ? null : request('status'),
+                                    'condition' => null,
                                     'page' => null,
                                 ]) }}"
 
@@ -767,6 +868,7 @@
                                     "Borrowed" => "bg-sky-50 text-sky-700",
                                     "Under Maintenance" => "bg-amber-50 text-amber-700",
                                     "For Replacement" => "bg-orange-50 text-orange-700",
+                                    "Replaced" => "bg-blue-50 text-blue-700",
                                     "Disposed" => "bg-rose-50 text-rose-700",
                                     default => "bg-slate-100 text-slate-600",
                                 };
@@ -799,6 +901,8 @@
                                             class="inventory-stock-checkbox h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
                                             value="{{ (int) $item->equipment_id }}"
                                             data-name="{{ $item->equipment_name }}"
+                                            data-status="{{ $item->equipment_inventory_status ?? '' }}"
+                                            data-disposable="{{ ($item->equipment_inventory_status ?? '') === 'Replaced' ? '1' : '0' }}"
                                             onchange="syncInventoryTransferSelection()"
                                             aria-label="Select {{ $item->equipment_name }}"
                                         />
@@ -914,9 +1018,10 @@
                                         <button
                                             type="button"
                                             onclick='openEquipmentModal(@json(\App\Support\LayoutEquipmentPayload::fromRow($item, $eqImageUrl($item->equipment_image))))'
-                                            class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
-                                            data-tooltip="View equipment"
-                                            aria-label="View equipment"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                            data-tooltip="View"
+                                            aria-label="View"
+                                            title="View"
                                         >
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
@@ -937,13 +1042,17 @@
                                                     {{ (int) $item->equipment_id }},
                                                     {{ json_encode($item->equipment_name) }},
                                                     {{ json_encode($item->room_name ?? '') }},
-                                                    {{ json_encode($item->equipment_asset_tag ?? '') }}
+                                                    {{ json_encode($item->equipment_asset_tag ?? '') }},
+                                                    {{ json_encode($item->equipment_tracking_mode ?? 'Individual') }},
+                                                    {{ (int) ($item->equipment_quantity ?? 1) }}
                                                 )"
-                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-sky-50 px-3 text-xs font-medium text-sky-800 transition hover:bg-sky-100"
-                                                data-tooltip="Transfer"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
+                                                data-pur-tip-title="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
+                                                data-pur-tip="Move this storage unit to a room, person, or department"
+                                                data-pur-tip-accent="#38bdf8"
                                                 aria-label="Transfer"
                                             >
-                                                <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
+                                                <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
                                             </button>
                                         @endif
 
@@ -1001,17 +1110,34 @@
                                         @if (($item->equipment_inventory_status ?? '') === 'For Replacement')
                                             <button
                                                 type="button"
+                                                onclick="openInventoryMarkReplacedModal(
+                                                    {{ (int) $item->equipment_id }},
+                                                    {{ json_encode($item->equipment_name) }}
+                                                )"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
+                                                data-pur-tip-title="Mark as Replaced"
+                                                data-pur-tip="No successor will be installed. Closes For Replacement so this unit can be disposed."
+                                                data-pur-tip-accent="#60a5fa"
+                                                aria-label="Mark as Replaced"
+                                            >
+                                                <i data-lucide="replace" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        @elseif (($item->equipment_inventory_status ?? '') === 'Replaced')
+                                            <button
+                                                type="button"
                                                 onclick="openInventoryDisposeModal(
                                                     {{ (int) $item->equipment_id }},
                                                     {{ json_encode($item->equipment_name) }},
                                                     {{ json_encode($item->room_name ?? '') }}
                                                 )"
-                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-rose-600 px-3 text-xs font-medium text-white transition hover:bg-rose-700"
-                                                data-tooltip="Dispose equipment"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
+                                                data-pur-tip-title="Dispose equipment"
+                                                data-pur-tip="Move this replaced storage unit into Disposal"
+                                                data-pur-tip-accent="#e32626"
                                                 aria-label="Dispose equipment"
+                                                title="Dispose"
                                             >
                                                 <i data-lucide="archive-x" class="h-4 w-4"></i>
-                                                
                                             </button>
                                         @endif
                                         @endif
@@ -1050,6 +1176,7 @@
                                                     || request()->filled('category')
                                                     || request()->filled('room')
                                                     || request()->filled('status')
+                                                    || request()->filled('condition')
                                                         ? 'search-x'
                                                         : 'package-open'
                                                 }}"
@@ -1069,6 +1196,7 @@
                                                 || request()->filled('category')
                                                 || request()->filled('room')
                                                 || request()->filled('status')
+                                                || request()->filled('condition')
 
                                                     ? 'No matching equipment'
 
@@ -1092,6 +1220,7 @@
                                                 || request()->filled('category')
                                                 || request()->filled('room')
                                                 || request()->filled('status')
+                                                || request()->filled('condition')
 
                                                     ? 'No equipment matches your current search or filters. Try adjusting them.'
 
@@ -1111,6 +1240,7 @@
                                             || request()->filled('category')
                                             || request()->filled('room')
                                             || request()->filled('status')
+                                            || request()->filled('condition')
                                         )
 
                                             <a
@@ -1327,7 +1457,7 @@
                                     <td class="max-w-xs px-4 py-3.5 text-sm text-slate-600">{{ $move->remarks ?: '—' }}</td>
                                     <td class="whitespace-nowrap px-4 py-3.5">
                                         <p class="text-sm text-slate-700">{{ $move->current_room_name ?: '—' }}</p>
-                                        @if (in_array($move->equipment_inventory_status, ['Disposed', 'Under Maintenance', 'Borrowed', 'For Replacement'], true))
+                                        @if (in_array($move->equipment_inventory_status, ['Disposed', 'Under Maintenance', 'Borrowed', 'For Replacement', 'Replaced'], true))
                                             <p class="text-xs text-slate-500">{{ $move->equipment_inventory_status }}</p>
                                         @endif
                                     </td>
@@ -1336,9 +1466,10 @@
                                             <button
                                                 type="button"
                                                 onclick='openEquipmentModal(@json($movePayload))'
-                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-slate-100 px-3 text-xs text-slate-800 shadow-sm transition hover:bg-slate-200 hover:text-gray-600"
-                                                data-tooltip="View equipment"
-                                                aria-label="View equipment details"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                                data-tooltip="View"
+                                                aria-label="View"
+                                                title="View"
                                             >
                                                 <i data-lucide="eye" class="h-4 w-4"></i>
                                             </button>
@@ -1507,6 +1638,7 @@
                                 <option value="Under Maintenance">Under maintenance</option>
                                 <option value="Borrowed">Borrowed</option>
                                 <option value="For Replacement">For replacement</option>
+                                <option value="Replaced">Replaced</option>
                                 <option value="Disposed">Disposed</option>
                             </select>
                         </div>
@@ -1864,7 +1996,7 @@
         }
 
         function openInventoryDisposeSelectedModal() {
-            const boxes = Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'));
+            const boxes = getInventoryDisposableSelected();
             if (!boxes.length) return;
 
             const container = document.getElementById("inventoryDisposeIds");
@@ -1895,6 +2027,22 @@
             showInventoryDisposeModal();
         }
 
+        function openInventoryMarkReplacedModal(equipmentId, equipmentName) {
+            document.getElementById("inventoryMarkReplacedEquipmentId").value = equipmentId;
+            document.getElementById("inventoryMarkReplacedEquipmentName").textContent = equipmentName || "Equipment";
+            document.getElementById("inventoryMarkReplacedReason").value = "";
+            const modal = document.getElementById("inventoryMarkReplacedModal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeInventoryMarkReplacedModal() {
+            const modal = document.getElementById("inventoryMarkReplacedModal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
         function showInventoryDisposeModal() {
             const modal = document.getElementById("inventoryDisposeModal");
             modal.classList.remove("hidden");
@@ -1911,12 +2059,13 @@
             modal.classList.remove("flex");
         }
 
-        function openInventoryTransferToModal(equipmentId, equipmentName, roomName, assetTag) {
+        function openInventoryTransferToModal(equipmentId, equipmentName, roomName, assetTag, trackingMode, quantity) {
             document.getElementById("inventoryTransferEquipmentId").value = equipmentId;
             document.getElementById("inventoryTransferEquipmentName").textContent = equipmentName || "Equipment";
             document.getElementById("inventoryTransferCurrentRoom").textContent = roomName || "—";
             document.getElementById("inventoryTransferAssetTag").textContent = assetTag || "No asset tag";
             resetInventoryTransferDestination("inventoryTransfer");
+            setInventoryTransferQuantity("inventoryTransfer", trackingMode, quantity);
             document.getElementById("inventoryTransferRemarks").value = "";
 
             const modal = document.getElementById("inventoryTransferToModal");
@@ -1956,8 +2105,14 @@
                 .filter((id) => Number.isFinite(id) && id > 0);
         }
 
+        function getInventoryDisposableSelected() {
+            return Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'))
+                .filter((input) => input.dataset.disposable === '1');
+        }
+
         function syncInventoryTransferSelection() {
             const selected = getInventorySelectedIds();
+            const disposableSelected = getInventoryDisposableSelected();
             const countEl = document.getElementById('inventoryTransferSelectedCount');
             const btn = document.getElementById('inventoryTransferSelectedBtn');
             const selectAll = document.getElementById('inventorySelectAllPage');
@@ -1968,8 +2123,8 @@
 
             const disposeCount = document.getElementById('inventoryDisposeSelectedCount');
             const disposeBtn = document.getElementById('inventoryDisposeSelectedBtn');
-            if (disposeCount) disposeCount.textContent = String(selected.length);
-            if (disposeBtn) disposeBtn.disabled = selected.length === 0;
+            if (disposeCount) disposeCount.textContent = String(disposableSelected.length);
+            if (disposeBtn) disposeBtn.disabled = disposableSelected.length === 0;
 
             if (selectAll && boxes.length) {
                 selectAll.checked = selected.length === boxes.length;
@@ -1985,34 +2140,26 @@
         }
 
         function openInventoryTransferSelectedModal() {
-            const ids = getInventorySelectedIds();
-            if (!ids.length) return;
+            const selected = Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'));
+            if (!selected.length) return;
 
-            const container = document.getElementById('inventoryTransferSelectedIds');
-            if (!container) return;
-
-            container.innerHTML = '';
-            ids.forEach((id) => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'equipment_ids[]';
-                input.value = String(id);
-                container.appendChild(input);
-            });
+            const items = selected.map((input) => ({
+                id: input.value,
+                name: input.dataset.name || 'Item',
+            }));
 
             const countLabel = document.getElementById('inventoryTransferSelectedModalCount');
-            if (countLabel) countLabel.textContent = String(ids.length);
+            if (countLabel) countLabel.textContent = String(items.length);
 
-            const summary = document.getElementById('inventoryTransferSelectedSummary');
-            if (summary) {
-                const names = Array.from(document.querySelectorAll('.inventory-stock-checkbox:checked'))
-                    .map((input) => input.dataset.name || 'Item')
-                    .slice(0, 6);
-                const extra = ids.length > names.length ? ` +${ids.length - names.length} more` : '';
-                summary.textContent = names.join(', ') + extra;
-            }
+            buildInventoryBatchTransferRows(
+                document.getElementById('inventoryTransferSelectedRows'),
+                document.getElementById('inventoryTransferSelectedRowTemplate'),
+                items
+            );
 
-            resetInventoryTransferDestination('inventoryTransferSelected');
+            const applyAll = document.getElementById('inventoryTransferSelectedApplyAll');
+            if (applyAll) applyAll.classList.toggle('hidden', items.length < 2);
+
             document.getElementById('inventoryTransferSelectedRemarks').value = '';
 
             const modal = document.getElementById('inventoryTransferSelectedModal');
@@ -2037,44 +2184,75 @@
         id="inventoryTransferSelectedModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
-        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
-            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
-                <div class="min-w-0">
-                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
-                        <i data-lucide="check-square" class="h-4 w-4"></i>
+        <div class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div class="shrink-0 border-b border-slate-200 px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                            <i data-lucide="check-square" class="h-4 w-4"></i>
+                        </div>
+                        <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer selected</h2>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Choose a destination for each of
+                            <span id="inventoryTransferSelectedModalCount" class="font-semibold text-slate-800">0</span>
+                            selected item(s). Destinations can differ.
+                        </p>
                     </div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Transfer selected</h2>
-                    <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Deploy
-                        <span id="inventoryTransferSelectedModalCount" class="font-semibold text-slate-800">0</span>
-                        selected item(s) to one room, person or department. Then select another set for a different destination.
-                    </p>
-                    <p id="inventoryTransferSelectedSummary" class="mt-2 text-xs text-slate-400"></p>
+                    <button type="button" onclick="closeInventoryTransferSelectedModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                        <i data-lucide="x" class="h-5 w-5"></i>
+                    </button>
                 </div>
-                <button type="button" onclick="closeInventoryTransferSelectedModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
             </div>
 
-            <form action="{{ $equipmentActionBase }}/transfer-batch" method="POST">
+            <form action="{{ $equipmentActionBase }}/transfer-batch" method="POST" class="flex min-h-0 flex-1 flex-col">
                 @csrf
-                <div id="inventoryTransferSelectedIds"></div>
 
-                <div class="max-h-[60vh] overflow-y-auto border-y border-slate-100 px-6 py-5 space-y-5">
-                    @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', ['prefix' => 'inventoryTransferSelected'])
+                <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
+                    @if ($transferNeedsApproval ?? false)
+                        <div class="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-5 text-amber-900">
+                            <i data-lucide="shield-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                            <p>
+                                <span class="font-semibold">Needs the Administrator's approval.</span>
+                                Items with the same destination are grouped into one request.
+                            </p>
+                        </div>
+                    @endif
+
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-semibold text-slate-800">Per-item destinations</p>
+                        <button
+                            type="button"
+                            id="inventoryTransferSelectedApplyAll"
+                            onclick="applyFirstBatchDestinationToAll(document.getElementById('inventoryTransferSelectedRows'))"
+                            class="text-xs font-semibold text-[#0025cc] transition hover:text-blue-800"
+                        >
+                            Apply first to all
+                        </button>
+                    </div>
+
+                    <div id="inventoryTransferSelectedRows" class="space-y-3"></div>
 
                     <div>
-                        <label for="inventoryTransferSelectedRemarks" class="mb-2 block text-sm font-medium text-slate-700">Remarks (optional)</label>
-                        <textarea id="inventoryTransferSelectedRemarks" name="remarks" rows="3" placeholder="e.g. 5 mice for Room 204" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
+                        <div class="mb-2 flex items-center justify-between gap-4">
+                            <label for="inventoryTransferSelectedRemarks" class="text-sm font-semibold text-slate-700">Remarks</label>
+                            <span class="text-xs text-slate-400">Optional</span>
+                        </div>
+                        <textarea id="inventoryTransferSelectedRemarks" name="remarks" rows="3" placeholder="e.g. 5 mice for Room 204" class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"></textarea>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-end gap-2 px-6 py-4">
-                    <button type="button" onclick="closeInventoryTransferSelectedModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer selected' }}</button>
+                <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                    <button type="button" onclick="closeInventoryTransferSelectedModal()" class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">Cancel</button>
+                    <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer selected' }}</button>
                 </div>
             </form>
         </div>
+
+        @include('maintenance-personnel.equipment.partials.inventory-transfer-batch-row-template', [
+            'templateId' => 'inventoryTransferSelectedRowTemplate',
+            'prefixBase' => 'invSel',
+            'roomOptions' => $deployRooms ?? collect(),
+        ])
     </div>
 
     <div
@@ -2137,7 +2315,7 @@
         id="inventoryTransferAllModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
-        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
             <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
                 <div class="min-w-0">
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-700">
@@ -2185,6 +2363,66 @@
 
     @if ($canManage)
     <div
+        id="inventoryMarkReplacedModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeInventoryMarkReplacedModal()"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                        <i data-lucide="replace" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Mark as Replaced</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        No replacement unit will be installed. This closes For Replacement so the unit can be moved to Disposal.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeInventoryMarkReplacedModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+            <form action="{{ $markReplacedAction }}" method="POST">
+                @csrf
+                <input type="hidden" name="equipment_id" id="inventoryMarkReplacedEquipmentId" value="" />
+                <div class="space-y-5 border-y border-slate-100 px-6 py-5">
+                    <div>
+                        <p class="mb-1 text-sm font-medium text-slate-700">Equipment</p>
+                        <div id="inventoryMarkReplacedEquipmentName" class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></div>
+                    </div>
+                    <div>
+                        <label for="inventoryMarkReplacedReason" class="mb-2 block text-sm font-medium text-slate-700">
+                            Reason <span class="text-red-500">*</span>
+                        </label>
+                        <textarea
+                            id="inventoryMarkReplacedReason"
+                            name="reason"
+                            rows="3"
+                            required
+                            maxlength="1000"
+                            placeholder="Why is there no successor for this unit?"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        ></textarea>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 px-6 py-4">
+                    <button type="button" onclick="closeInventoryMarkReplacedModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+                        Cancel
+                    </button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">
+                        Mark as Replaced
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div
         id="inventoryDisposeModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
@@ -2198,7 +2436,7 @@
                         Dispose equipment
                     </h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Move from inventory into the Disposal module. This is permanent until restored from Disposal.
+                        Only units marked Replaced can be moved into Disposal. This is permanent until restored from Disposal.
                     </p>
                 </div>
                 <button

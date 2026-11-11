@@ -9,6 +9,7 @@ use App\Support\Persons;
 use App\Support\PhoneNumber;
 use App\Support\PropertyAssignments;
 use App\Support\ReporterImport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -33,6 +34,46 @@ class PersonController extends Controller
             'departmentId' => $departmentId,
             'departments' => Departments::options($departmentId),
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        abort_unless(Persons::tableReady(), 503);
+
+        $search = trim((string) $request->query('search', ''));
+        $filter = array_key_exists((string) $request->query('filter'), Persons::FILTERS)
+            ? (string) $request->query('filter')
+            : 'active';
+        $departmentId = (int) $request->query('department', 0) ?: null;
+
+        $rows = Persons::list($search, $filter, $departmentId)
+            ->take(2000)
+            ->map(fn ($person) => [
+                (string) ($person->person_full_name ?? '—'),
+                (string) ($person->person_employee_id ?: '—'),
+                (string) ($person->person_employment_type ?: '—'),
+                (string) ($person->department_name ?: '—'),
+                (string) ($person->person_email_address ?: '—'),
+                PhoneNumber::formatForDisplay($person->person_contact_number) ?: '—',
+                (string) ($person->person_status ?: '—'),
+            ])
+            ->all();
+
+        $filterBits = array_filter([
+            $search !== '' ? 'search' : null,
+            $departmentId ? 'department' : null,
+            $filter !== 'all' ? Persons::FILTERS[$filter] : null,
+        ]);
+
+        $pdf = Pdf::loadView('maintenance-personnel.equipment.table-export-pdf', [
+            'title' => 'Faculty & Staff',
+            'headers' => ['Name', 'Employee ID', 'Type', 'Department', 'Email', 'Contact', 'Status'],
+            'rows' => $rows,
+            'generatedAt' => now()->format('Y-m-d H:i'),
+            'filterNote' => $filterBits === [] ? 'All faculty & staff' : 'Filtered by '.implode(', ', $filterBits),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('faculty-staff-'.now()->format('Ymd-His').'.pdf');
     }
 
     public function show(int $id)

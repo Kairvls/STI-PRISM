@@ -81,7 +81,8 @@
                         <option value="week" @selected(($due ?? '') === 'week')>Due within 7 days</option>
                         <option value="later" @selected(($due ?? '') === 'later')>Due later</option>
                     </select>
-                    <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                    <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                        <i data-lucide="filter" class="h-4 w-4"></i>
                         Apply
                     </button>
                 </form>
@@ -157,15 +158,20 @@
                                 action="{{ $inspectionsUrl.'/'.$campaign->campaign_id }}/archive"
                                 method="POST"
                                 class="shrink-0"
-                                onsubmit="return confirm('Archive this cancelled campaign? It will be hidden from the default list.')"
+                                data-pur-confirm="This cancelled campaign will be hidden from the default list."
+                                data-pur-confirm-title="Archive campaign?"
+                                data-pur-confirm-ok="Archive"
+                                data-pur-confirm-kind="archive"
                             >
                                 @csrf
                                 <button
                                     type="submit"
-                                    class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-white transition hover:bg-slate-700"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                                    title="Archive"
+                                    aria-label="Archive"
+                                    data-tooltip="Archive"
                                 >
-                                    <i data-lucide="archive" class="h-3.5 w-3.5"></i>
-                                    Archive
+                                    <i data-lucide="archive" class="h-4 w-4"></i>
                                 </button>
                             </form>
                         @endif

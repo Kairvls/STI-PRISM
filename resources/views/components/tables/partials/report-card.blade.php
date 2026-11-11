@@ -251,9 +251,13 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                             data-pur-confirm-kind="archive"
                         >
                             @csrf
-                            <button class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#007a3f] transition hover:bg-slate-50">
-                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
-                                Archive
+                            <button
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                                title="Archive"
+                                aria-label="Archive"
+                                data-tooltip="Archive"
+                            >
+                                <i data-lucide="archive" class="h-4 w-4"></i>
                             </button>
                         </form>
                     @endif
@@ -281,10 +285,12 @@ $issueParts = \App\Support\ReportItems::splitMoreLabel(
                     >
                         @csrf
                         <button
-                            class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-[#007a3f] transition hover:bg-slate-50"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                            title="Archive"
+                            aria-label="Archive"
+                            data-tooltip="Archive"
                         >
-                            <i data-lucide="archive" class="h-3.5 w-3.5"></i>
-                            Archive
+                            <i data-lucide="archive" class="h-4 w-4"></i>
                         </button>
                     </form>
                 @endif

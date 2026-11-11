@@ -28,12 +28,17 @@
         </div>
     @else
         <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold text-slate-950">Computer sets</h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Each set gets a <span class="font-mono text-xs">COMPSET-YYYYMMDD-#####</span> tag. Equipment inside keep their own QR / asset tags.
-                    </p>
+            <div class="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <i data-lucide="pc-case" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-900">Computer Sets</h2>
+                        <p class="mt-0.5 text-xs text-slate-500">
+                            {{ $sets->count() }} {{ \Illuminate\Support\Str::plural('set', $sets->count()) }}
+                        </p>
+                    </div>
                 </div>
                 <button
                     type="button"
@@ -118,6 +123,15 @@
                         </ul>
                     </div>
                 </div>
+                <div class="min-w-[200px]">
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Computer set name</label>
+                    <select name="name" class="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                        <option value="">All names</option>
+                        @foreach (($nameOptions ?? []) as $nameOption)
+                            <option value="{{ $nameOption }}" @selected(($name ?? '') === $nameOption)>{{ $nameOption }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div>
                     <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
                     <select name="status" class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
@@ -132,24 +146,50 @@
                 <table class="min-w-full text-left text-sm">
                     <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th class="px-5 py-3">Set tag</th>
+                            <th class="px-5 py-3">Computer set tag</th>
                             <th class="px-5 py-3">Name / zone</th>
                             <th class="px-5 py-3">Room</th>
-                            <th class="px-5 py-3">Members</th>
+                            <th class="px-5 py-3">Components</th>
                             <th class="px-5 py-3">Status</th>
                             <th class="px-5 py-3"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @forelse ($sets as $set)
+                            @php $needsReplacement = (int) ($set->needs_replacement_count ?? 0); @endphp
                             <tr class="hover:bg-slate-50/80">
                                 <td class="px-5 py-3">
-                                    <span class="font-mono text-xs font-semibold text-[#0025cc]">{{ $set->computer_set_tag }}</span>
+                                    <span class="text-sm font-normal text-slate-900">{{ $set->computer_set_tag }}</span>
+                                    @if (! empty($set->accountable_person_name))
+                                        <div class="mt-1">
+                                            @if (! empty($set->accountable_person_url))
+                                                <a href="{{ $set->accountable_person_url }}" class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-[#0025cc] hover:underline">
+                                                    <i data-lucide="user-round" class="h-3 w-3 shrink-0 text-slate-400"></i>
+                                                    <span class="truncate">{{ $set->accountable_person_name }}</span>
+                                                </a>
+                                            @else
+                                                <p class="inline-flex items-center gap-1 text-xs font-medium text-slate-600">
+                                                    <i data-lucide="user-round" class="h-3 w-3 shrink-0 text-slate-400"></i>
+                                                    {{ $set->accountable_person_name }}
+                                                </p>
+                                            @endif
+                                            @if (! empty($set->accountable_employee_id))
+                                                <p class="pl-4 font-mono text-[11px] text-slate-400">{{ $set->accountable_employee_id }}</p>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <p class="mt-1 text-xs text-slate-400">No accountable person</p>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-3">
                                     <div class="font-medium text-slate-900">{{ $set->computer_set_name ?: 'Computer set' }}</div>
                                     @if ($set->computer_set_placement_zone)
                                         <div class="text-xs text-slate-500">{{ $set->computer_set_placement_zone }}</div>
+                                    @endif
+                                    @if ($needsReplacement > 0)
+                                        <div class="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                            {{ $needsReplacement }} equipment part{{ $needsReplacement === 1 ? '' : 's' }} need{{ $needsReplacement === 1 ? 's' : '' }} replacement
+                                        </div>
                                     @endif
                                 </td>
                                 <td class="px-5 py-3 text-slate-700">
@@ -290,10 +330,15 @@
                     <div class="mb-2 flex items-center justify-between gap-2">
                         <div>
                             <label class="text-xs font-semibold uppercase tracking-wide text-slate-500">Place computer equipment inside (optional)</label>
-                            <p class="mt-0.5 text-[11px] text-slate-400">Computer parts in this room (incl. TV) · tags/QR/serial shown for uniqueness</p>
+                            <p class="mt-0.5 text-[11px] text-slate-400">One per type only (monitor, keyboard, mouse, etc.) · tags/QR/serial shown for uniqueness</p>
                         </div>
                         <span class="shrink-0 text-xs text-slate-400" x-text="selectedCount() + ' selected'"></span>
                     </div>
+                    <p
+                        x-show="roleLimitMessage"
+                        x-text="roleLimitMessage"
+                        class="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                    ></p>
                     <div class="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-slate-200 p-3">
                         <template x-if="!roomId">
                             <p class="py-6 text-center text-sm text-slate-400">Select a room first.</p>
@@ -305,16 +350,31 @@
                             <p class="py-6 text-center text-sm text-slate-400">No free computer equipment in this room (or all are already in a set).</p>
                         </template>
                         <template x-for="item in available" :key="item.equipment_id">
-                            <label class="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
+                            <label
+                                class="flex items-start gap-3 rounded-lg px-2 py-2"
+                                :class="isRoleBlocked(item) ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-50'"
+                            >
                                 <input
                                     type="checkbox"
                                     class="mt-1 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]"
-                                    :value="item.equipment_id"
+                                    :value="String(item.equipment_id)"
                                     name="equipment_ids[]"
-                                    x-model="selected"
+                                    :disabled="isRoleBlocked(item)"
+                                    :checked="isSelected(item.equipment_id)"
+                                    @change="toggleEquipment(item, $event.target.checked)"
                                 >
+                                <template x-if="isSelected(item.equipment_id)">
+                                    <input
+                                        type="hidden"
+                                        :name="'equipment_roles[' + item.equipment_id + ']'"
+                                        :value="item.suggested_role || 'other'"
+                                    >
+                                </template>
                                 <span class="min-w-0 flex-1">
-                                    <span class="block text-sm font-medium text-slate-900" x-text="item.equipment_name"></span>
+                                    <span class="flex flex-wrap items-center gap-2">
+                                        <span class="block text-sm font-medium text-slate-900" x-text="item.equipment_name"></span>
+                                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600" x-text="roleLabel(item.suggested_role)"></span>
+                                    </span>
                                     <span class="mt-0.5 block font-mono text-[11px] text-slate-600" x-text="equipmentUniqueId(item)"></span>
                                     <span class="mt-0.5 block text-[11px] text-slate-400" x-text="equipmentMeta(item)"></span>
                                 </span>
@@ -346,6 +406,7 @@ function computerSetsIndex(rooms, initialFilterRoomId) {
         zones: [],
         available: [],
         selected: [],
+        roleLimitMessage: '',
         loading: false,
         loadingZones: false,
         createRoomOpen: false,
@@ -353,8 +414,55 @@ function computerSetsIndex(rooms, initialFilterRoomId) {
         filterRoomOpen: false,
         filterRoomQuery: '',
         filterRoomId: String(initialFilterRoomId || ''),
+        uniqueRoles: @js(\App\Support\ComputerSets::uniqueRoles()),
+        roleLabels: @js(\App\Support\ComputerSets::ROLES),
         selectedCount() {
             return this.selected.length;
+        },
+        roleLabel(role) {
+            const key = String(role || 'other');
+            return this.roleLabels[key] || key;
+        },
+        isSelected(id) {
+            return this.selected.map(String).includes(String(id));
+        },
+        itemById(id) {
+            return this.available.find((row) => String(row.equipment_id) === String(id));
+        },
+        selectedRoleMap() {
+            const map = {};
+            this.selected.forEach((id) => {
+                const item = this.itemById(id);
+                const role = String(item?.suggested_role || 'other');
+                if (!map[role]) map[role] = [];
+                map[role].push(String(id));
+            });
+            return map;
+        },
+        isRoleBlocked(item) {
+            if (this.isSelected(item.equipment_id)) return false;
+            const role = String(item.suggested_role || 'other');
+            if (!this.uniqueRoles.includes(role)) return false;
+            return (this.selectedRoleMap()[role] || []).length > 0;
+        },
+        toggleEquipment(item, checked) {
+            const id = String(item.equipment_id);
+            const role = String(item.suggested_role || 'other');
+            this.roleLimitMessage = '';
+
+            if (checked) {
+                if (this.uniqueRoles.includes(role)) {
+                    const taken = (this.selectedRoleMap()[role] || []).filter((existing) => existing !== id);
+                    if (taken.length > 0) {
+                        this.roleLimitMessage = 'Only one ' + this.roleLabel(role) + ' is allowed per computer set.';
+                        return;
+                    }
+                }
+                if (!this.isSelected(id)) this.selected.push(id);
+                return;
+            }
+
+            this.selected = this.selected.filter((existing) => String(existing) !== id);
         },
         zonePlaceholder() {
             if (!this.roomId) return 'Select a room first';
@@ -430,7 +538,7 @@ function computerSetsIndex(rooms, initialFilterRoomId) {
             const assetTag = String(item.equipment_asset_tag || '').trim();
             const qr = String(item.equipment_qr_code || '').trim();
             const serial = String(item.equipment_serial_number || '').trim();
-            if (assetTag) return 'Tag: ' + assetTag;
+            if (assetTag) return 'Asset Tag: ' + assetTag;
             if (qr) return 'QR: ' + qr;
             if (serial) return 'SN: ' + serial;
             return 'ID #' + item.equipment_id;

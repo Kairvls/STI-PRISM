@@ -1227,6 +1227,11 @@ class EquipmentTimeline
             } elseif ($isSwap) {
                 $title = 'Replaced from inventory stock';
                 $lead = 'Replaced by '.trim(($replacementTag ? $replacementTag.' · ' : '').$row->replacement_log_replacement_label);
+            } elseif ($row->replacement_log_fulfillment_type === ReplacementStock::NO_SUCCESSOR) {
+                $title = 'Marked Replaced (no successor)';
+                $lead = $row->replacement_log_notes
+                    ? trim((string) $row->replacement_log_notes)
+                    : 'Closed without a replacement unit';
             } else {
                 $title = 'Sent for procurement replacement';
                 $lead = $row->replacement_log_stock_was_available

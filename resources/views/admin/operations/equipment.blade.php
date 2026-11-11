@@ -52,6 +52,7 @@
         'Borrowed' => 'bg-sky-50 text-sky-700',
         'Under Maintenance' => 'bg-amber-50 text-amber-700',
         'For Replacement' => 'bg-orange-50 text-orange-700',
+        'Replaced' => 'bg-blue-50 text-blue-700',
         'Disposed' => 'bg-rose-50 text-rose-700',
         default => 'bg-slate-100 text-slate-600',
     };

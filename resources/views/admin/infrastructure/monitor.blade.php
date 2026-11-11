@@ -12,6 +12,9 @@
         $layoutCustodians = \App\Support\PropertyAssignments::activeByEquipment(
             $rooms->flatMap(fn ($room) => $room->equipment->pluck('equipment_id'))->all()
         );
+        $computerSetsByRoom = \App\Support\ComputerSets::layoutPayloadByRoom(
+            $rooms->pluck('room_id')->map(fn ($id) => (int) $id)->all()
+        );
         $roomCatalog = $rooms
             ->map(
                 fn($room) => [
@@ -42,6 +45,7 @@
                     "monitoring" => $room->monitoring,
                     "comlab_rows" => data_get($room->room_metadata, 'comlab_rows', []),
                     "comlab_row_layouts" => data_get($room->room_metadata, 'comlab_row_layouts'),
+                    "computer_sets" => $computerSetsByRoom[(int) $room->room_id] ?? [],
                     "equipment" => $room->equipment
                         ->values()
                         ->map(fn($equipment) => LayoutEquipmentPayload::fromModel($equipment, $layoutCustodians[$equipment->equipment_id] ?? null))
@@ -51,6 +55,11 @@
             ->values();
         $roomCountsByFloor = $rooms->countBy("room_floor_id");
         $buildingStatusUrl = $buildingStatusUrl ?? route('admin.infrastructure.status');
+        $roomTypeFilterOptions = $rooms
+            ->map(fn ($room) => trim((string) ($room->room_type ?: 'Room')) ?: 'Room')
+            ->unique()
+            ->sort()
+            ->values();
     @endphp
 
     <div
@@ -208,33 +217,107 @@
                         >
                     </div>
 
+                    <div class="inline-flex flex-nowrap items-center gap-1.5">
+                        <label for="blueprintRoomTypeFilter" class="text-[11px] font-semibold text-slate-500">Type</label>
+                        <select
+                            id="blueprintRoomTypeFilter"
+                            x-model="roomTypeFilter"
+                            @change="onRoomTypeFilterChange()"
+                            class="h-9 max-w-[11rem] rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-sm outline-none focus:border-slate-400"
+                        >
+                            <option value="">All types</option>
+                            @foreach ($roomTypeFilterOptions as $typeOption)
+                                <option value="{{ $typeOption }}">{{ $typeOption }}</option>
+                            @endforeach
+                        </select>
                 </div>
 
-                {{-- RIGHT: SEARCH + FIND + CONFIGURE CAMPUS --}}
+                </div>
+
+                {{-- RIGHT: SEARCH + CONFIGURE CAMPUS --}}
                 <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
 
-                    {{-- SEARCH --}}
-                    <div class="relative">
-                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                    {{-- SEARCH + ROOM DROPDOWN --}}
+                    <div
+                        class="relative"
+                        @keydown.escape.window="if (roomSearchOpen) closeRoomSearchDropdown()"
+                        @click.outside="closeRoomSearchDropdown()"
+                    >
+                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
                         <input
                             id="room-blueprint-search"
+                            x-ref="roomSearchInput"
                             type="search"
                             x-model="roomSearch"
-                            @keydown.enter.prevent="focusRoomSearch()"
+                            @focus="openRoomSearchDropdown()"
+                            @input="onRoomSearchInput()"
+                            @search="onRoomSearchNativeClear($event)"
+                            @keydown.enter.prevent="selectHighlightedRoomSearch()"
+                            @keydown.arrow-down.prevent="moveRoomSearchHighlight(1)"
+                            @keydown.arrow-up.prevent="moveRoomSearchHighlight(-1)"
+                            @keydown.escape.prevent="closeRoomSearchDropdown()"
                             placeholder="Search rooms…"
-                            class="h-9 w-48 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:w-60 xl:w-52"
+                            autocomplete="off"
+                            role="combobox"
+                            :aria-expanded="roomSearchOpen"
+                            aria-controls="room-search-results"
+                            aria-autocomplete="list"
+                            class="h-9 w-52 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:w-64 xl:w-56"
                         >
+
+                        <div
+                            id="room-search-results"
+                            x-show="roomSearchOpen"
+                            x-cloak
+                            x-transition.origin.top.right
+                            role="listbox"
+                            class="absolute right-0 top-full z-50 mt-1.5 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                        >
+                            <div class="border-b border-slate-100 px-3 py-2">
+                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">
+                                    Rooms
+                                    <span class="font-semibold normal-case tracking-normal text-slate-500" x-text="'(' + filteredRoomSearchResults.length + ')'"></span>
+                                </p>
                     </div>
 
-                    {{-- FIND --}}
+                            <div class="max-h-64 overflow-y-auto overscroll-contain py-1">
+                                <template x-if="filteredRoomSearchResults.length === 0">
+                                    <p class="px-3 py-4 text-center text-[11px] text-slate-400">No matching rooms</p>
+                                </template>
+
+                                <template x-for="(room, index) in filteredRoomSearchResults" :key="room.id">
                     <button
                         type="button"
-                        @click="focusRoomSearch()"
-                        class="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
-                    >
-                        <i data-lucide="scan-search" class="h-3.5 w-3.5"></i>
-                        Find
+                                        role="option"
+                                        :aria-selected="roomSearchHighlight === index"
+                                        @mousedown.prevent="pickRoomFromSearch(room.id)"
+                                        @mouseenter="roomSearchHighlight = index"
+                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left transition"
+                                        :class="roomSearchHighlight === index ? 'bg-slate-50' : 'hover:bg-slate-50'"
+                                    >
+                                        <span
+                                            class="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                            :style="`background-color: ${room.statusColor || room.color || '#3B82F6'}`"
+                                        ></span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-[11px] font-semibold text-slate-800" x-text="room.name"></span>
+                                            <span class="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+                                                <span class="truncate" x-text="roomFloorLabel(room.floor_id)"></span>
+                                                <span class="text-slate-300">·</span>
+                                                <span class="truncate" x-text="room.type || 'Room'"></span>
+                                            </span>
+                                        </span>
+                                        <span
+                                            x-show="Number(room.floor_id) !== Number(activeFloor)"
+                                            class="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500"
+                                        >
+                                            Other floor
+                                        </span>
                     </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
 
                     {{-- CONFIGURE CAMPUS --}}
                     <button
@@ -263,8 +346,9 @@
             <div class="layout-monitor-main flex min-h-0 min-w-0 flex-col gap-6">
             <div class="flex min-w-0 flex-col">
                 {{-- FLOOR FOLDER TABS --}}
+                <div class="flex min-w-0 items-end justify-between gap-3">
                 <div
-                    class="floor-tabs-bar flex min-w-0 items-end gap-1 overflow-x-auto"
+                        class="floor-tabs-bar flex min-w-0 flex-1 items-end gap-1 overflow-x-auto"
                     role="tablist"
                     aria-label="Floor selection"
                 >
@@ -282,6 +366,11 @@
                             :aria-selected="Number(activeFloor) === {{ $floor->floor_id }}"
                         >
                             <span class="floor-tab__label">{{ $floor->floor_level }}</span>
+                                <span
+                                    class="floor-tab__default"
+                                    x-show="Number(defaultFloorId) === {{ $floor->floor_id }}"
+                                    x-cloak
+                                >Default</span>
                             <span class="floor-tab__count">{{ $floorRoomCount }}</span>
                         </button>
                     @empty
@@ -289,6 +378,20 @@
                             No floors
                         </div>
                     @endforelse
+                    </div>
+
+                    @if ($canManageCampusSetup ?? false)
+                        <button
+                            type="button"
+                            class="mb-1 inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                            :disabled="!activeFloor || defaultFloorSaving || Number(defaultFloorId) === Number(activeFloor)"
+                            @click="setDefaultFloor(activeFloor)"
+                            :title="Number(defaultFloorId) === Number(activeFloor) ? 'This floor already opens first for everyone' : 'Make the active floor open first for everyone'"
+                        >
+                            <i data-lucide="pin" class="h-3.5 w-3.5"></i>
+                            <span x-text="Number(defaultFloorId) === Number(activeFloor) ? 'Default floor' : (defaultFloorSaving ? 'Saving…' : 'Set as default')"></span>
+                        </button>
+                    @endif
                 </div>
 
             <section
@@ -646,10 +749,22 @@
                     @mousedown="startBlueprintPan($event)"
                     @mousemove.window="moveBlueprintPan($event)"
                     @mouseup.window="endBlueprintPan()"
-                    @mouseleave="endBlueprintPan()"
+                    @mouseleave="endBlueprintPan(); hideRoomHoverTip()"
                     class="relative min-h-[420px] flex-1 overflow-hidden bg-white xl:min-h-[480px]"
                     :class="isRotating ? 'cursor-grabbing' : blueprint.isPanning ? 'cursor-grabbing' : 'cursor-grab'"
                 >
+                    <div
+                        x-show="roomHoverTip.visible"
+                        x-cloak
+                        x-ref="roomHoverTip"
+                        class="room-hover-tip pointer-events-none absolute z-[90] max-w-[280px] rounded-lg border border-slate-600/80 bg-[#0f172a] px-3 py-2.5 text-left shadow-[0_12px_28px_rgba(15,23,42,0.35)]"
+                        :style="`left:${roomHoverTip.x}px;top:${roomHoverTip.y}px`"
+                        role="tooltip"
+                    >
+                        <p class="text-[13px] font-semibold leading-snug text-white" x-text="roomHoverTip.title"></p>
+                        <p class="mt-1 text-[12px] leading-snug text-slate-300" x-text="roomHoverTip.departments"></p>
+                        <p class="mt-0.5 text-[12px] font-medium leading-snug text-slate-200" x-text="roomHoverTip.reports"></p>
+                    </div>
                     <!--bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] for blueprintCanvas-->
                     <div
                         x-ref="blueprintCanvas"
@@ -757,7 +872,11 @@
                                         type="button"
                                         @click.stop="selectRoom({{ $room->room_id }})"
                                         @dblclick.stop="openRoomInspector({{ $room->room_id }})"
-                                        title="{{ e($hoverTitle) }}"
+                                        @mouseenter="showRoomHoverTip($event, {{ $room->room_id }})"
+                                        @mousemove="moveRoomHoverTip($event)"
+                                        @mouseleave="hideRoomHoverTip()"
+                                        data-hover-title="{{ e($hoverTitle) }}"
+                                        x-show="roomMatchesTypeFilter(@js($room->room_type ?: 'Room'))"
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $layoutStatus === 'critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
@@ -1060,7 +1179,7 @@
                                         </span>
                                         <span class="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
                                             <span x-text="room.status"></span>
-                                            <span x-text="room.reports + (room.reports === 1 ? ' issue' : ' issues')"></span>
+                                            <span x-text="room.reports + (room.reports === 1 ? ' report' : ' reports')"></span>
                                             <span x-text="room.assets + ' equipment'"></span>
                                         </span>
                                     </span>
@@ -1080,7 +1199,7 @@
                                             <span x-text="room.status || 'Normal'"></span>
                                             <span> · </span>
                                             <span x-text="room.reports"></span>
-                                            <span x-text="room.reports === 1 ? ' issue' : ' issues'"></span>
+                                            <span x-text="room.reports === 1 ? ' report' : ' reports'"></span>
                                         </p>
                                     </div>
                                     <button
@@ -1096,15 +1215,21 @@
                     </div>
 
                     <div class="mt-6" x-show="floorHotIssues.length > 0">
-                        <h3 class="text-[13px] font-bold text-[#1A1A1A]">Frequent issues</h3>
+                        <h3 class="text-[13px] font-bold text-[#1A1A1A]">Common problems</h3>
                         <div class="mt-3 space-y-2">
                             <template x-for="issue in floorHotIssues" :key="'report-issue-' + issue.label">
-                                <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-3.5 py-2.5">
-                                    <p class="min-w-0 truncate text-[13px] font-medium text-slate-700" x-text="issue.label"></p>
+                                <div class="rounded-2xl border border-slate-100 px-3.5 py-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-[13px] font-semibold leading-5 text-slate-800" x-text="issue.label"></p>
+                                            <p class="mt-1 truncate text-[11px] text-slate-500" x-text="issue.roomSummary"></p>
+                                            <p class="mt-0.5 text-[11px] text-slate-400" x-text="issue.metaSummary"></p>
+                                        </div>
                                     <span
                                         class="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600"
                                         x-text="issue.count + '×'"
                                     ></span>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -1113,8 +1238,8 @@
                     <div class="mt-6" x-show="upcomingSchedules.length > 0">
                         <h3 class="text-[13px] font-bold text-[#1A1A1A]">Upcoming maintenance</h3>
                         <div class="mt-3 space-y-2">
-                            <template x-for="(item, idx) in upcomingSchedules.slice(0, 6)" :key="'report-sched-' + idx">
-                                <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-3.5 py-2.5">
+                            <template x-for="(item, idx) in upcomingSchedules.slice(0, 6)" :key="'report-sched-' + (item.equipmentId || idx)">
+                                <div class="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 px-3.5 py-3">
                                     <div class="min-w-0">
                                         <p class="truncate text-[13px] font-semibold text-slate-800" x-text="item.title"></p>
                                         <p class="mt-0.5 truncate text-[11px] text-slate-500">
@@ -1122,9 +1247,13 @@
                                             <span> · </span>
                                             <span x-text="item.equipment"></span>
                                         </p>
+                                        <p
+                                            class="mt-0.5 truncate text-[11px] font-medium text-slate-600"
+                                            x-text="item.identity"
+                                        ></p>
                                     </div>
                                     <span
-                                        class="shrink-0 text-[11px] font-semibold"
+                                        class="shrink-0 pt-0.5 text-[11px] font-semibold"
                                         :class="scheduleIsOverdue(item.date) ? 'text-rose-600' : 'text-slate-500'"
                                         x-text="formatInsightDate(item.date)"
                                     ></span>
@@ -1270,7 +1399,7 @@
             x-transition.opacity
             x-cloak
             @keydown.escape.window="
-                if (!roomLayout.open) return;
+                if (!roomLayout.open || placeFromStorageModal || layoutTransferModal || closeLayoutModal.open) return;
                 if (roomLayout.fullscreen) {
                     roomLayout.fullscreen = false;
                     $nextTick(() => { if (window.lucide) lucide.createIcons(); });
@@ -1279,8 +1408,11 @@
                 }
             "
             class="fixed inset-0 z-[1250] flex items-center justify-center bg-[#0b1220]/70"
-            :class="roomLayout.fullscreen ? 'p-0' : 'p-4'"
-            @click.self="if (!roomLayout.edit) requestCloseRoomLayout()"
+            :class="[
+                roomLayout.fullscreen ? 'p-0' : 'p-4',
+                closeLayoutModal.open ? 'pointer-events-none' : '',
+            ]"
+            @click.self="if (!roomLayout.edit && !closeLayoutModal.open) requestCloseRoomLayout()"
         >
             <div
                 class="flex w-full flex-col overflow-hidden bg-white shadow-2xl"
@@ -1325,8 +1457,8 @@
                             type="button"
                             x-show="roomLayout.edit"
                             x-cloak
-                            @click="undoRoomLayoutChange()"
-                            :disabled="!roomLayoutUndoStack.length"
+                            @click.stop="undoRoomLayoutChange()"
+                            :disabled="!roomLayoutUndoStack.length || closeLayoutModal.open"
                             :title="roomLayoutUndoStack.length ? 'Undo last change (Ctrl+Z)' : 'Nothing to undo'"
                             :class="roomLayoutUndoStack.length
                                 ? 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
@@ -1357,8 +1489,9 @@
                             </button>
                             <button
                                 type="button"
-                                @click="requestCloseRoomLayout()"
-                                class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                @click.stop="requestCloseRoomLayout()"
+                                :disabled="closeLayoutModal.open"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
                                 aria-label="Close room layout"
                             >
                                 <i data-lucide="x" class="h-4 w-4"></i>
@@ -1719,6 +1852,17 @@
                                             x-text="layoutGroups().length + (layoutGroups().length === 1 ? ' group' : ' groups')"
                                         ></span>
                                     </div>
+                                    <button
+                                        type="button"
+                                        x-show="roomLayout.edit"
+                                        x-cloak
+                                        @click="placeFromStorageModal = true"
+                                        class="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#005EA6]/20 bg-[#005EA6]/5 px-3 py-2 text-[11px] font-semibold text-[#005EA6] hover:bg-[#005EA6]/10"
+                                        title="Assign RR-stocked storage equipment into Holding"
+                                    >
+                                        <i data-lucide="package-plus" class="h-3.5 w-3.5"></i>
+                                        Add from storage
+                                    </button>
                                     <div class="relative mt-3">
                                         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
                                         <input
@@ -1846,6 +1990,13 @@
             </div>
         </div>
 
+        @include('admin.infrastructure.partials.place-from-storage-modal', [
+            'roomIdExpr' => 'roomLayout.id',
+            'roomNameExpr' => 'roomLayout.name',
+        ])
+
+        @include('admin.infrastructure.partials.layout-transfer-modal')
+
         <!-- ===================================== -->
         <!-- Discard Layout Changes Modal -->
         <!-- Place BELOW Room Layout Modal -->
@@ -1855,8 +2006,9 @@
             x-show="closeLayoutModal.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1300] flex items-center justify-center bg-[#0b1220]/70 p-4"
-            @click.self="closeLayoutModal.open = false"
+            class="fixed inset-0 z-[10050] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @click.self="cancelCloseLayoutModal()"
+            @keydown.escape.window="if (closeLayoutModal.open) cancelCloseLayoutModal()"
         >
 
             <div
@@ -1894,7 +2046,7 @@
 
                         <button
                             type="button"
-                            @click="closeLayoutModal.open = false"
+                            @click="cancelCloseLayoutModal()"
                             class="
                                 absolute right-5 top-5
                                 flex h-8 w-8
@@ -1929,7 +2081,7 @@
 
                         <button
                             type="button"
-                            @click="closeLayoutModal.open = false"
+                            @click="cancelCloseLayoutModal()"
                             class="
                                 min-w-[100px]
                                 rounded-md
@@ -1946,21 +2098,7 @@
 
                         <button
                             type="button"
-                            @click="
-                                closeLayoutModal.open = false;
-                                if (layoutDirty && originalRoomLayout) {
-                                    roomLayout.equipment = JSON.parse(JSON.stringify(originalRoomLayout));
-                                    if (originalComlabRows) {
-                                        roomLayout.comlabRows = JSON.parse(JSON.stringify(originalComlabRows));
-                                    }
-                                    if (originalComlabRowLayouts) {
-                                        roomLayout.comlabRowLayouts = JSON.parse(JSON.stringify(originalComlabRowLayouts));
-                                    }
-                                    layoutDirty = false;
-                                    clearRoomLayoutUndoStack();
-                                }
-                                closeRoomLayout();
-                            "
+                            @click="confirmCloseLayoutModal()"
                             class="
                                 min-w-[50px]
                                 rounded-md
@@ -2243,6 +2381,25 @@
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             color: #64748b;
+        }
+
+        .floor-tab__default {
+            display: inline-flex;
+            align-items: center;
+            height: 1.125rem;
+            padding: 0 0.35rem;
+            border-radius: 999px;
+            background: rgba(0, 94, 166, 0.12);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #005ea6;
+        }
+
+        .floor-tab--active .floor-tab__default {
+            background: #dbeafe;
+            color: #0747a6;
         }
 
         .floor-tab--inactive:hover {
@@ -2776,6 +2933,19 @@
                 return {
                     activeFloor: initialFloor || null,
                     selectedRoom: null,
+                    roomHoverTip: {
+                        visible: false,
+                        x: 0,
+                        y: 0,
+                        title: "",
+                        departments: "",
+                        reports: "",
+                    },
+                    inspectorCache: new Map(),
+                    inspectorPrefetching: new Set(),
+                    inspectorAbort: null,
+                    inspectorRequestId: 0,
+                    inspectorMountedRoomId: null,
                     pendingRoomFocusId: null,
                     pendingRoomFocusAnimate: false,
                     roomFocusUntil: 0,
@@ -2823,6 +2993,10 @@
                     equipmentRotationHandleOffset: 90,
                     equipmentRotateHandleSide: "bottom",
                     roomSearch: "",
+                    roomSearchOpen: false,
+                    roomSearchHighlight: 0,
+                    roomSearchViewSnapshot: null,
+                    roomTypeFilter: "",
                     zoomInput: "100",
                     roomRotationInput: 0,
                     roomPaintMode: false,
@@ -2835,6 +3009,9 @@
                         pointerId: null,
                     },
                     statusPaletteUrl: @js($statusPaletteUrl ?? ''),
+                    defaultFloorUrl: @js($defaultFloorUrl ?? ''),
+                    defaultFloorId: {{ (int) ($defaultFloorId ?? 0) }},
+                    defaultFloorSaving: false,
                     statusPalette: @js($statusPalette ?? ['normal' => '#3B82F6', 'under_maintenance' => '#F59E0B', 'critical' => '#EF4444']),
                     statusPaletteDefaults: @js($statusPaletteDefaults ?? ['normal' => '#3B82F6', 'under_maintenance' => '#F59E0B', 'critical' => '#EF4444']),
                     statusPaletteDraft: @js($statusPalette ?? ['normal' => '#3B82F6', 'under_maintenance' => '#F59E0B', 'critical' => '#EF4444']),
@@ -2952,6 +3129,7 @@
                         name: "",
                         type: "",
                         equipment: [],
+                        computerSets: [],
                         selectedGroupKey: null,
                         selectedAssetId: null,
                         listSearch: "",
@@ -2982,6 +3160,21 @@
                     originalComlabRows: null,
                     originalComlabRowLayouts: null,
 
+                    placeFromStorageModal: false,
+                    placeableStock: [],
+                    placeableStockLoading: false,
+                    placeableStockError: '',
+                    placeSelectedIds: [],
+                    placeQuery: '',
+                    placingFromStorage: false,
+
+                    layoutTransferModal: false,
+                    layoutTransferAsset: null,
+                    layoutTransferRoomId: '',
+                    layoutTransferQuery: '',
+                    layoutTransferError: '',
+                    layoutTransferring: false,
+
                     blueprintLayoutModal:{
 
                         open:false,
@@ -2992,6 +3185,7 @@
 
                     },
                     floorHealthReportOpen: false,
+                    floorRadarHover: null,
                     
                     wizardOpen: {{
                 $errors->getBag("campusWizard")->any()
@@ -3056,6 +3250,226 @@
                         return (this.roomCatalog || []).filter(
                             (room) => Number(room.floor_id) === Number(this.activeFloor)
                         );
+                    },
+                    roomMatchesTypeFilter(type) {
+                        const filter = String(this.roomTypeFilter || "").trim();
+                        if (!filter) return true;
+                        return String(type || "Room").trim() === filter;
+                    },
+                    roomPriorityScore(room) {
+                        const criticalStatus =
+                            String(room?.layoutStatus || "").toLowerCase() === "critical" ||
+                            String(room?.status || "").toLowerCase() === "critical"
+                                ? 1
+                                : 0;
+                        const todayReports = Number(room?.monitoring?.today_reports || 0);
+                        const activeReports = Number(room?.monitoring?.active_reports || 0);
+
+                        return {
+                            criticalStatus,
+                            criticalReports: Number(room?.criticalReportCount || 0),
+                            highReports: Number(room?.highReportCount || 0),
+                            reportCount: Number(room?.reportCount || 0),
+                            todayReports,
+                            activeReports,
+                        };
+                    },
+                    compareRoomsByPriority(a, b) {
+                        const aScore = this.roomPriorityScore(a);
+                        const bScore = this.roomPriorityScore(b);
+                        const keys = [
+                            "criticalStatus",
+                            "criticalReports",
+                            "highReports",
+                            "todayReports",
+                            "reportCount",
+                            "activeReports",
+                        ];
+
+                        for (const key of keys) {
+                            if (bScore[key] !== aScore[key]) {
+                                return bScore[key] - aScore[key];
+                            }
+                        }
+
+                        return String(a?.name || "").localeCompare(String(b?.name || ""));
+                    },
+                    pickBestRoomForTypeFilter() {
+                        const candidates = (this.roomCatalog || []).filter((room) =>
+                            this.roomMatchesTypeFilter(room.type),
+                        );
+
+                        if (!candidates.length) {
+                            return null;
+                        }
+
+                        const activeFloor = Number(this.activeFloor);
+                        const onFloor = candidates.filter(
+                            (room) => Number(room.floor_id) === activeFloor,
+                        );
+                        const pool = onFloor.length ? onFloor : candidates;
+
+                        return [...pool].sort((a, b) => this.compareRoomsByPriority(a, b))[0] || null;
+                    },
+                    onRoomTypeFilterChange() {
+                        this.hideRoomHoverTip?.();
+                        this.roomSearchHighlight = 0;
+
+                        const selected = (this.roomCatalog || []).find(
+                            (room) => Number(room.id) === Number(this.selectedRoom),
+                        );
+
+                        // Keep current room when it still matches (including All types).
+                        if (selected && this.roomMatchesTypeFilter(selected.type)) {
+                            if (!this.drawerOpen) {
+                                this.setDrawerOpen(true);
+                            }
+                            return;
+                        }
+
+                        const best = this.pickBestRoomForTypeFilter();
+                        if (!best) {
+                            this.selectedRoom = null;
+                            return;
+                        }
+
+                        this.openRoomInspector(best.id);
+                    },
+                    get filteredRoomSearchResults() {
+                        const query = String(this.roomSearch || "").trim().toLowerCase();
+                        const activeFloor = Number(this.activeFloor);
+                        const rooms = (this.roomCatalog || []).filter((room) => {
+                            if (!this.roomMatchesTypeFilter(room.type)) return false;
+                            if (!query) return true;
+                            const haystack = [room.name, room.type]
+                                .filter(Boolean)
+                                .join(" ")
+                                .toLowerCase();
+                            return haystack.includes(query);
+                        });
+
+                        return rooms.slice().sort((a, b) => {
+                            const aActive = Number(a.floor_id) === activeFloor ? 0 : 1;
+                            const bActive = Number(b.floor_id) === activeFloor ? 0 : 1;
+                            if (aActive !== bActive) return aActive - bActive;
+                            return String(a.name || "").localeCompare(String(b.name || ""));
+                        });
+                    },
+                    roomFloorLabel(floorId) {
+                        const floor = (this.floors || []).find(
+                            (item) => Number(item.id) === Number(floorId),
+                        );
+                        return floor?.label || "Unknown floor";
+                    },
+                    openRoomSearchDropdown(focusInput = false) {
+                        this.roomSearchOpen = true;
+                        if (this.roomSearchHighlight < 0) {
+                            this.roomSearchHighlight = 0;
+                        }
+                        if (focusInput) {
+                            this.$nextTick(() => this.$refs.roomSearchInput?.focus());
+                        }
+                    },
+                    closeRoomSearchDropdown() {
+                        this.roomSearchOpen = false;
+                        this.roomSearchHighlight = 0;
+                    },
+                    captureRoomSearchViewSnapshot() {
+                        if (this.roomSearchViewSnapshot) {
+                            return;
+                        }
+                        this.roomSearchViewSnapshot = {
+                            zoom: Number(this.blueprint?.zoom) || 1,
+                            panX: Number(this.blueprint?.panX) || 0,
+                            panY: Number(this.blueprint?.panY) || 0,
+                            floorId: Number(this.activeFloor) || null,
+                            selectedRoom: this.selectedRoom ?? null,
+                        };
+                    },
+                    onRoomSearchInput() {
+                        this.openRoomSearchDropdown();
+                        this.roomSearchHighlight = 0;
+                        if (!String(this.roomSearch || "").trim() && this.roomSearchViewSnapshot) {
+                            this.clearRoomSearchAndRestoreView();
+                        }
+                    },
+                    onRoomSearchNativeClear(event) {
+                        if (String(event?.target?.value || "").trim() !== "") {
+                            return;
+                        }
+                        this.clearRoomSearchAndRestoreView();
+                    },
+                    clearRoomSearchAndRestoreView() {
+                        this.roomSearch = "";
+                        this.closeRoomSearchDropdown();
+
+                        const snap = this.roomSearchViewSnapshot;
+                        this.roomSearchViewSnapshot = null;
+
+                        if (!snap) {
+                            return;
+                        }
+
+                        const restore = () => {
+                            this.roomFocusUntil = 0;
+                            this.selectedRoom =
+                                snap.selectedRoom != null ? Number(snap.selectedRoom) : null;
+                            this.animateBlueprintTo({
+                                zoom: Number(snap.zoom) || 1,
+                                panX: Number(snap.panX) || 0,
+                                panY: Number(snap.panY) || 0,
+                                duration: 650,
+                            });
+                        };
+
+                        if (
+                            snap.floorId != null &&
+                            Number(snap.floorId) !== Number(this.activeFloor)
+                        ) {
+                            this.activeFloor = Number(snap.floorId);
+                            this.$nextTick(() => {
+                                requestAnimationFrame(() => requestAnimationFrame(restore));
+                            });
+                            return;
+                        }
+
+                        restore();
+                    },
+                    moveRoomSearchHighlight(delta) {
+                        const results = this.filteredRoomSearchResults;
+                        if (!results.length) {
+                            this.roomSearchHighlight = 0;
+                            return;
+                        }
+                        this.openRoomSearchDropdown();
+                        const next = (this.roomSearchHighlight + delta + results.length) % results.length;
+                        this.roomSearchHighlight = next;
+                    },
+                    selectHighlightedRoomSearch() {
+                        const results = this.filteredRoomSearchResults;
+                        if (!results.length) {
+                            this.focusRoomSearch();
+                            return;
+                        }
+                        const index = Math.min(
+                            Math.max(this.roomSearchHighlight, 0),
+                            results.length - 1,
+                        );
+                        this.pickRoomFromSearch(results[index].id);
+                    },
+                    pickRoomFromSearch(roomId) {
+                        const room = (this.roomCatalog || []).find(
+                            (item) => Number(item.id) === Number(roomId),
+                        );
+                        if (!room) {
+                            this.toast = "No matching room found";
+                            setTimeout(() => (this.toast = ""), 2500);
+                            return;
+                        }
+                        this.captureRoomSearchViewSnapshot();
+                        this.roomSearch = room.name || "";
+                        this.closeRoomSearchDropdown();
+                        this.focusRoomOnCanvas(room.id);
                     },
                     roomStatusTone(status) {
                         const value = String(status || "Normal");
@@ -3144,6 +3558,24 @@
                             })
                             ;
                     },
+                    equipmentIdentityLabel(row = {}) {
+                        const tag = String(row.equipment_asset_tag || "").trim();
+                        const serial = String(row.equipment_serial_number || "").trim();
+                        const qr = String(row.equipment_qr_code || "").trim();
+                        const isBulk =
+                            String(row.equipment_tracking_mode || "Individual") === "Bulk";
+                        const qty = Number(row.equipment_quantity || 0);
+                        const parts = [];
+
+                        if (tag) parts.push("Tag " + tag);
+                        if (!isBulk && serial) parts.push("Serial " + serial);
+                        if (qr) parts.push("QR " + qr);
+                        if (isBulk && qty > 0) parts.push("Qty " + qty);
+
+                        return parts.length
+                            ? parts.join(" · ")
+                            : "No asset tag / serial";
+                    },
                     get upcomingSchedules() {
                         const items = [];
 
@@ -3158,6 +3590,8 @@
                                             "Maintenance",
                                         equipment:
                                             schedule.equipment_name || "Equipment",
+                                        equipmentId: Number(schedule.equipment_id || 0) || null,
+                                        identity: this.equipmentIdentityLabel(schedule),
                                         date: schedule.maintenance_schedule_next_date,
                                         status:
                                             schedule.maintenance_schedule_status ||
@@ -3174,7 +3608,7 @@
                             );
                     },
                     get floorHotIssues() {
-                        const counts = new Map();
+                        const grouped = new Map();
 
                         this.floorRooms.forEach((room) => {
                             (room.monitoring?.frequent_problems || []).forEach(
@@ -3187,19 +3621,68 @@
                                         return;
                                     }
 
-                                    counts.set(
+                                    const key = label.toLowerCase();
+                                    const entry = grouped.get(key) || {
                                         label,
-                                        (counts.get(label) || 0) +
-                                            Number(problem.occurrences || 0),
+                                        count: 0,
+                                        rooms: new Map(),
+                                        lastAt: null,
+                                    };
+                                    const occurrences = Number(problem.occurrences || 0);
+                                    entry.count += occurrences;
+                                    entry.rooms.set(
+                                        room.name,
+                                        (entry.rooms.get(room.name) || 0) + occurrences,
                                     );
+
+                                    const lastAt =
+                                        problem.last_reported_at ||
+                                        problem.lastReportedAt ||
+                                        null;
+                                    if (
+                                        lastAt &&
+                                        (!entry.lastAt ||
+                                            new Date(lastAt) > new Date(entry.lastAt))
+                                    ) {
+                                        entry.lastAt = lastAt;
+                                    }
+
+                                    grouped.set(key, entry);
                                 },
                             );
                         });
 
-                        return Array.from(counts.entries())
-                            .map(([label, count]) => ({ label, count }))
-                            .sort((a, b) => b.count - a.count)
-                            .slice(0, 4);
+                        return Array.from(grouped.values())
+                            .map((entry) => {
+                                const roomParts = Array.from(entry.rooms.entries())
+                                    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                                    .map(([name, count]) =>
+                                        entry.rooms.size > 1 ? `${name} (${count}×)` : name,
+                                    );
+                                const roomCount = entry.rooms.size;
+                                const metaParts = [
+                                    entry.count === 1
+                                        ? "1 report"
+                                        : `${entry.count} reports`,
+                                    roomCount === 1
+                                        ? "1 room"
+                                        : `${roomCount} rooms`,
+                                ];
+                                if (entry.lastAt) {
+                                    metaParts.push(
+                                        `Last reported ${this.formatInsightDate(entry.lastAt)}`,
+                                    );
+                                }
+
+                                return {
+                                    label: entry.label,
+                                    count: entry.count,
+                                    roomSummary: roomParts.join(" · "),
+                                    metaSummary: metaParts.join(" · "),
+                                };
+                            })
+                            .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+                            .slice(0, 5);
                     },
                     roomHealthPercent(room) {
                         const monitoring = room.monitoring || {};
@@ -3227,14 +3710,26 @@
                         return Math.max(8, Math.min(100, pct - reports * 4));
                     },
                     get floorHealthRooms() {
+                        const attentionIds = new Set(
+                            (this.attentionRooms || []).map((room) => Number(room.id)),
+                        );
+
                         return this.floorRooms
-                            .map((room) => ({
+                            .map((room) => {
+                                const health = this.roomHealthPercent(room);
+                                const needsAttention =
+                                    attentionIds.has(Number(room.id)) || health < 70;
+
+                                return {
                                 id: room.id,
                                 name: room.name,
                                 color: room.statusColor || room.color || "#3B82F6",
-                                health: this.roomHealthPercent(room),
-                            }))
-                            .sort((a, b) => b.health - a.health)
+                                    health,
+                                    needsAttention,
+                                };
+                            })
+                            .filter((room) => room.needsAttention)
+                            .sort((a, b) => a.health - b.health)
                             .slice(0, 2);
                     },
                     get floorHealthReportRooms() {
@@ -3280,40 +3775,113 @@
 
                         return Math.round(total / this.floorRooms.length);
                     },
-                    get floorRadarPolygon() {
-                        const clamp = (value, max) =>
-                            Math.max(0.15, Math.min(1, Number(value || 0) / max));
-
-                        const values = [
-                            clamp(this.floorStats.reports, 40),
-                            clamp(this.floorStats.attention, 6),
-                            clamp(this.floorHealthAverage, 100),
-                            clamp(this.floorStats.equipment, 15),
-                            clamp(this.upcomingSchedules.length, 4),
-                            clamp(
-                                this.floorHotIssues.reduce(
+                    get floorRadarAxes() {
+                        const roomCount = Math.max(1, Number(this.floorStats?.rooms || this.floorRooms?.length || 1));
+                        const reports = Number(this.floorStats?.reports || 0);
+                        const attention = Number(this.attentionRooms?.length || this.floorStats?.attention || 0);
+                        const health = Number(this.floorHealthAverage || 0);
+                        const assets = Number(this.floorStats?.equipment || 0);
+                        const schedules = Number(this.upcomingSchedules?.length || 0);
+                        const issueCount = (this.floorHotIssues || []).reduce(
                                     (sum, issue) => sum + Number(issue.count || 0),
                                     0,
+                        );
+
+                        // Chart fill (0..1). Keep a small floor so the shape stays readable.
+                        const visual = (percent) =>
+                            Math.max(0.12, Math.min(1, Number(percent || 0) / 100));
+
+                        // Data-backed percents shown on hover.
+                        const axes = [
+                            {
+                                key: "reports",
+                                label: "Reports",
+                                // Lower open-report load = healthier axis.
+                                percent: Math.max(
+                                    0,
+                                    Math.min(100, Math.round(100 - (reports / Math.max(1, roomCount * 4)) * 100)),
                                 ),
-                                8,
-                            ),
+                                detail: reports === 1 ? "1 open report" : `${reports} open reports`,
+                            },
+                            {
+                                key: "attention",
+                                label: "Attention",
+                                percent: Math.max(
+                                    0,
+                                    Math.min(100, Math.round(100 - (attention / roomCount) * 100)),
+                                ),
+                                detail:
+                                    attention === 1
+                                        ? "1 room needs attention"
+                                        : `${attention} rooms need attention`,
+                            },
+                            {
+                                key: "health",
+                                label: "Health",
+                                percent: Math.max(0, Math.min(100, Math.round(health))),
+                                detail: `${Math.round(health)}% floor health`,
+                            },
+                            {
+                                key: "assets",
+                                label: "Equipments",
+                                percent: Math.max(
+                                    0,
+                                    Math.min(100, Math.round((assets / Math.max(1, roomCount * 8)) * 100)),
+                                ),
+                                detail:
+                                    assets === 1
+                                        ? "1 equipment tracked"
+                                        : `${assets} equipments tracked`,
+                            },
+                            {
+                                key: "schedules",
+                                label: "Schedules",
+                                percent: Math.max(0, Math.min(100, Math.round((schedules / 4) * 100))),
+                                detail:
+                                    schedules === 1
+                                        ? "1 upcoming schedule"
+                                        : `${schedules} upcoming schedules`,
+                            },
+                            {
+                                key: "issues",
+                                label: "Problems",
+                                percent: Math.max(
+                                    0,
+                                    Math.min(100, Math.round(100 - (issueCount / Math.max(1, roomCount * 2)) * 100)),
+                                ),
+                                detail:
+                                    issueCount === 1
+                                        ? "1 common problem"
+                                        : `${issueCount} common problems`,
+                            },
                         ];
 
                         const cx = 120;
                         const cy = 120;
                         const maxR = 82;
+                        // Clockwise from top so points match axis labels.
+                        const step = (2 * Math.PI) / 6;
 
-                        return values
-                            .map((value, index) => {
-                                const angle =
-                                    Math.PI / 2 + index * ((2 * Math.PI) / 6);
+                        return axes.map((axis, index) => {
+                            const angle = Math.PI / 2 - index * step;
+                            const ratio = visual(axis.percent);
+                            const x = cx + maxR * ratio * Math.cos(angle);
+                            const y = cy - maxR * ratio * Math.sin(angle);
 
-                                const x = cx + maxR * value * Math.cos(angle);
-                                const y = cy - maxR * value * Math.sin(angle);
-
-                                return `${x},${y}`;
-                            })
+                            return {
+                                ...axis,
+                                x: Number(x.toFixed(2)),
+                                y: Number(y.toFixed(2)),
+                            };
+                        });
+                    },
+                    get floorRadarPolygon() {
+                        return (this.floorRadarAxes || [])
+                            .map((axis) => `${axis.x},${axis.y}`)
                             .join(" ");
+                    },
+                    setFloorRadarHover(axis) {
+                        this.floorRadarHover = axis || null;
                     },
                     openFloorHealthReport() {
                         this.floorHealthReportOpen = true;
@@ -3337,6 +3905,7 @@
                         return date.toLocaleDateString(undefined, {
                             month: "short",
                             day: "numeric",
+                            year: "numeric",
                         });
                     },
                     scheduleIsOverdue(value) {
@@ -3535,7 +4104,7 @@
                             this.generateFloors();
                         });
 
-                        this.$watch("selectedRoom", () => {
+                        this.$watch("selectedRoom", (roomId) => {
                             this.roomRotationInput = this.getSelectedRoomRotation();
                             this.syncSelectedRoomControl();
 
@@ -3549,9 +4118,12 @@
                                         this.defaultRoomColor(room.type);
                                 }
                             }
+
+                            this.loadRoomInspector(roomId);
                         });
 
                         this.$watch("editMode", () => {
+                            this.hideRoomHoverTip();
                             this.$nextTick(() => this.updateRotateHandlePlacement());
                             this.syncAllRoomBlockVisuals();
                         });
@@ -3774,6 +4346,46 @@
                         event.preventDefault();
 
                         this.zoomBlueprint(event.deltaY > 0 ? -0.08 : 0.08);
+                    },
+
+                    /**
+                     * Keep wheel gestures inside the Room Inspector.
+                     * When the drawer (or nested pane) has nothing left to scroll,
+                     * do not chain scroll to the page / blueprint behind it.
+                     */
+                    trapDrawerWheel(event) {
+                        event.stopPropagation();
+
+                        const path = typeof event.composedPath === 'function'
+                            ? event.composedPath()
+                            : [];
+
+                        const scrollable = path.find((node) => {
+                            if (!(node instanceof Element)) {
+                                return false;
+                            }
+                            const style = window.getComputedStyle(node);
+                            const overflowY = style.overflowY;
+                            if (!/(auto|scroll|overlay)/.test(overflowY)) {
+                                return false;
+                            }
+                            return node.scrollHeight > node.clientHeight + 1;
+                        });
+
+                        if (!scrollable) {
+                            event.preventDefault();
+                            return;
+                        }
+
+                        const delta = event.deltaY;
+                        const atTop = scrollable.scrollTop <= 0;
+                        const atBottom =
+                            scrollable.scrollTop + scrollable.clientHeight
+                            >= scrollable.scrollHeight - 1;
+
+                        if ((delta < 0 && atTop) || (delta > 0 && atBottom)) {
+                            event.preventDefault();
+                        }
                     },
                     getSelectedRoomRotation() {
                         if (!this.selectedRoom) {
@@ -4425,8 +5037,8 @@
                             node.classList.remove("dragging");
                             node.releasePointerCapture?.(event.pointerId);
                             this.equipmentPendingDrag = null;
-                            this.layoutDirty = true;
                             this.dropRoomLayoutUndoIfUnchanged();
+                            this.syncRoomLayoutDirtyFromOriginal();
                             this.$nextTick(() => this.updateComlabRowRotateHandlePlacement(node));
                             return;
                         }
@@ -4453,8 +5065,8 @@
                                 node.classList.remove("dragging");
                                 node.releasePointerCapture?.(event.pointerId);
                                 this.equipmentPendingDrag = null;
-                                this.layoutDirty = true;
                                 this.dropRoomLayoutUndoIfUnchanged();
+                                this.syncRoomLayoutDirtyFromOriginal();
                                 this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                                 return;
                             }
@@ -4488,9 +5100,9 @@
                         node.classList.remove("dragging");
                         node.releasePointerCapture?.(event.pointerId);
                         this.syncEquipmentZone(node);
-                        this.layoutDirty = true;
                         this.equipmentPendingDrag = null;
                         this.dropRoomLayoutUndoIfUnchanged();
+                        this.syncRoomLayoutDirtyFromOriginal();
                         this.syncSelectedEquipmentControl();
                     },
                     getSelectedEquipmentRotation() {
@@ -4820,6 +5432,7 @@
                         // Ignore clicks on rooms
                         if (event.target.closest(".room-block")) return;
 
+                        this.hideRoomHoverTip();
                         this.blueprint.isPanning = true;
 
                         this.blueprint.startX = event.clientX;
@@ -5389,14 +6002,7 @@
                             JSON.stringify(snapshot.comlabRowLayouts || []),
                         );
 
-                        this.layoutDirty = !this.roomLayoutSnapshotsEqual(
-                            this.snapshotRoomLayoutState(),
-                            {
-                                equipment: this.originalRoomLayout || [],
-                                comlabRows: this.originalComlabRows || [],
-                                comlabRowLayouts: this.originalComlabRowLayouts || [],
-                            },
-                        );
+                        this.syncRoomLayoutDirtyFromOriginal();
 
                         this.$nextTick(() => {
                             this.bindDragging();
@@ -5411,6 +6017,16 @@
                                 lucide.createIcons();
                             }
                         });
+                    },
+                    syncRoomLayoutDirtyFromOriginal() {
+                        this.layoutDirty = !this.roomLayoutSnapshotsEqual(
+                            this.snapshotRoomLayoutState(),
+                            {
+                                equipment: this.originalRoomLayout || [],
+                                comlabRows: this.originalComlabRows || [],
+                                comlabRowLayouts: this.originalComlabRowLayouts || [],
+                            },
+                        );
                     },
                     undoRoomLayoutChange() {
                         if (!this.roomLayout.edit || !this.roomLayoutUndoStack.length) {
@@ -5443,6 +6059,8 @@
                         this.roomLayoutUndoStack = stack;
                         this.roomLayoutUndoOpenedGroup = false;
                         this.applyRoomLayoutSnapshot(snapshot);
+                        // After a full undo back to the edit baseline, discard should not still appear.
+                        this.syncRoomLayoutDirtyFromOriginal();
                     },
                     applyLayoutSnapshot(snapshot = []) {
                         snapshot.forEach((original) => {
@@ -5532,6 +6150,9 @@
                         }
 
                         if (this.roomLayout?.open && this.roomLayout.edit) {
+                            if (this.closeLayoutModal?.open || this.placeFromStorageModal || this.layoutTransferModal) {
+                                return;
+                            }
                             if (!this.roomLayoutUndoStack.length) {
                                 return;
                             }
@@ -5615,9 +6236,13 @@
 
                         return names.length ? names.join(", ") : "No departments";
                     },
-                    roomHoverTitle(room) {
+                    roomHoverMeta(room) {
                         if (!room) {
-                            return "";
+                            return {
+                                title: "",
+                                departments: "Departments: No departments",
+                                reports: "0 reports",
+                            };
                         }
 
                         let status = room.status || "Normal";
@@ -5636,7 +6261,54 @@
                         const reports = Number(room.reportCount || 0);
                         const reportLabel = reports === 1 ? "1 report" : `${reports} reports`;
 
-                        return `${room.name || "Room"} · ${status}\nDepartments: ${this.formatDepartmentsLabel(room.departments)}\n${reportLabel}`;
+                        return {
+                            title: `${room.name || "Room"} · ${status}`,
+                            departments: `Departments: ${this.formatDepartmentsLabel(room.departments)}`,
+                            reports: reportLabel,
+                        };
+                    },
+                    roomHoverTitle(room) {
+                        const meta = this.roomHoverMeta(room);
+                        return `${meta.title}\n${meta.departments}\n${meta.reports}`;
+                    },
+                    positionRoomHoverTip(event) {
+                        const viewport = this.$refs.blueprintViewport;
+                        if (!viewport || !event) return;
+                        const rect = viewport.getBoundingClientRect();
+                        const tip = this.$refs.roomHoverTip;
+                        const tipWidth = tip?.offsetWidth || 220;
+                        const tipHeight = tip?.offsetHeight || 78;
+                        let x = event.clientX - rect.left + 14;
+                        let y = event.clientY - rect.top + 16;
+                        const maxX = Math.max(8, rect.width - tipWidth - 8);
+                        const maxY = Math.max(8, rect.height - tipHeight - 8);
+                        if (x > maxX) x = Math.max(8, event.clientX - rect.left - tipWidth - 12);
+                        if (y > maxY) y = Math.max(8, event.clientY - rect.top - tipHeight - 12);
+                        this.roomHoverTip.x = x;
+                        this.roomHoverTip.y = y;
+                    },
+                    showRoomHoverTip(event, roomId) {
+                        if (this.editMode || this.blueprint?.isPanning) {
+                            this.hideRoomHoverTip();
+                            return;
+                        }
+                        const room = (this.roomCatalog || []).find(
+                            (item) => Number(item.id) === Number(roomId),
+                        );
+                        const meta = this.roomHoverMeta(room);
+                        this.roomHoverTip.title = meta.title;
+                        this.roomHoverTip.departments = meta.departments;
+                        this.roomHoverTip.reports = meta.reports;
+                        this.roomHoverTip.visible = true;
+                        this.$nextTick(() => this.positionRoomHoverTip(event));
+                        this.prefetchRoomInspector(roomId);
+                    },
+                    moveRoomHoverTip(event) {
+                        if (!this.roomHoverTip.visible) return;
+                        this.positionRoomHoverTip(event);
+                    },
+                    hideRoomHoverTip() {
+                        this.roomHoverTip.visible = false;
                     },
                     statusColorForLabel(status) {
                         const value = String(status || "").toLowerCase();
@@ -5682,6 +6354,56 @@
                         };
                         this.statusPaletteDraft = { ...defaults };
                     },
+                    async setDefaultFloor(floorId) {
+                        if (!this.canManageCampusSetup || !this.defaultFloorUrl || this.defaultFloorSaving) {
+                            return;
+                        }
+
+                        const nextId = Number(floorId);
+                        if (!Number.isFinite(nextId) || nextId <= 0) {
+                            return;
+                        }
+                        if (Number(this.defaultFloorId) === nextId) {
+                            return;
+                        }
+
+                        this.defaultFloorSaving = true;
+                        try {
+                            const response = await fetch(this.defaultFloorUrl, {
+                                method: "PUT",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Accept: "application/json",
+                                    "X-CSRF-TOKEN":
+                                        document.querySelector('meta[name="csrf-token"]')
+                                            ?.content || "",
+                                },
+                                body: JSON.stringify({ floor_id: nextId }),
+                            });
+
+                            const payload = await response.json().catch(() => ({}));
+                            if (!response.ok) {
+                                throw new Error(payload.message || "Could not save default floor");
+                            }
+
+                            this.defaultFloorId = Number(payload.default_floor_id || nextId);
+                            this.toast = payload.message || "Default floor updated.";
+                            this.$nextTick(() => {
+                                if (window.lucide) lucide.createIcons();
+                            });
+                        } catch (error) {
+                            console.error(error);
+                            this.toast = error?.message || "Could not save default floor.";
+                        } finally {
+                            this.defaultFloorSaving = false;
+                            setTimeout(() => {
+                                if (this.toast && String(this.toast).includes("floor")) {
+                                    this.toast = "";
+                                }
+                            }, 3200);
+                        }
+                    },
+
                     async saveStatusPalette(options = {}) {
                         if (!this.statusPaletteUrl || this.statusPaletteSaving) {
                             return;
@@ -5760,7 +6482,8 @@
                         node.dataset.statusLabel = room.status || "Normal";
                         node.dataset.layoutStatus = room.layoutStatus || "normal";
                         node.dataset.activeReports = String(Number(room.reportCount || 0));
-                        node.title = this.roomHoverTitle(room);
+                        node.dataset.hoverTitle = this.roomHoverTitle(room);
+                        node.removeAttribute("title");
                         node.classList.toggle(
                             "critical-room",
                             String(room.layoutStatus || "").toLowerCase() === "critical" ||
@@ -6297,13 +7020,13 @@
                         const query = this.roomSearch.trim().toLowerCase();
                         if (!query) return;
 
-                        const room = this.roomCatalog.find((item) =>
+                        const room = (this.filteredRoomSearchResults || []).find((item) =>
                             [item.name, item.type]
                                 .filter(Boolean)
                                 .join(" ")
                                 .toLowerCase()
                                 .includes(query),
-                        );
+                        ) || (this.filteredRoomSearchResults || [])[0];
 
                         if (!room) {
                             this.toast = "No matching room found";
@@ -6311,6 +7034,8 @@
                             return;
                         }
 
+                        this.captureRoomSearchViewSnapshot();
+                        this.roomSearch = room.name || this.roomSearch;
                         this.focusRoomOnCanvas(room.id);
                     },
                     addFloor() {
@@ -7085,25 +7810,8 @@
                                 firstItem = item;
                             }
 
-                            const room = this.roomCatalog.find(
-                                (room) => room.id === this.roomLayout.id,
-                            );
-
-                            const catalogItem = room?.equipment?.find(
-                                (equipment) => equipment.id === id,
-                            );
-
-                            if (catalogItem && catalogItem !== item) {
-                                Object.assign(catalogItem, {
-                                    x: item.x,
-                                    y: item.y,
-                                    width: item.width,
-                                    height: item.height,
-                                    rotation: item.rotation,
-                                    location: zone,
-                                    placement_zone: zone,
-                                });
-                            }
+                            // Do not write into roomCatalog while editing.
+                            // Catalog stays at the last saved snapshot until Save or Discard.
                         });
 
                         return firstItem;
@@ -7651,14 +8359,64 @@
                             this.equipmentDrag = null;
 
                             if (this.roomLayout.edit) {
-
-                                this.layoutDirty = true;
                                 this.dropRoomLayoutUndoIfUnchanged();
-
+                                this.syncRoomLayoutDirtyFromOriginal();
                             }
 
                         });
                     },
+                    collectComlabComputerSetsForSave() {
+                        if (!this.roomLayout.open || !this.isComputerLabLayout()) {
+                            return null;
+                        }
+
+                        const sets = [];
+                        const rows = (this.roomLayout.comlabRows || []).length
+                            ? this.roomLayout.comlabRows
+                            : (this.roomLayout.comlabRowLayouts || []).map((entry) => entry.name);
+
+                        rows.forEach((rowName) => {
+                            (this.comlabComputerSetsForRow(rowName) || []).forEach((set) => {
+                                const members = (set.members || [])
+                                    .map((member) => {
+                                        const id = Number(member.id || 0);
+                                        if (!id) return null;
+                                        const role = member.role
+                                            || this.computerSetComponentRole(member.name)
+                                            || null;
+                                        return { id, role };
+                                    })
+                                    .filter(Boolean);
+
+                                if (!members.length && !set.id) {
+                                    return;
+                                }
+
+                                sets.push({
+                                    id: set.id ? Number(set.id) : undefined,
+                                    name: set.label || set.name || null,
+                                    placement_zone: rowName,
+                                    members,
+                                });
+                            });
+                        });
+
+                        return sets;
+                    },
+
+                    applyRoomComputerSets(roomId, computerSets) {
+                        const sets = Array.isArray(computerSets)
+                            ? JSON.parse(JSON.stringify(computerSets))
+                            : [];
+                        const room = this.roomCatalog.find((item) => Number(item.id) === Number(roomId));
+                        if (room) {
+                            room.computer_sets = sets;
+                        }
+                        if (this.roomLayout.open && Number(this.roomLayout.id) === Number(roomId)) {
+                            this.roomLayout.computerSets = sets;
+                        }
+                    },
+
                     async saveLayout(manual = true) {
                         if (this.saving) return;
                         this.saving = true;
@@ -7669,6 +8427,10 @@
                             ),
                         ];
                         try {
+                            const computerSetsPayload = this.roomLayout.open && this.isComputerLabLayout()
+                                ? this.collectComlabComputerSetsForSave()
+                                : null;
+
                             const response = await fetch(
                                 @js (route("admin.infrastructure.layout.save")),
                                 {
@@ -7688,6 +8450,9 @@
                                                 comlab_room_id: this.roomLayout.id,
                                                 comlab_rows: (this.roomLayout.comlabRowLayouts || []).map((entry) => entry.name),
                                                 comlab_row_layouts: this.roomLayout.comlabRowLayouts || [],
+                                                ...(computerSetsPayload
+                                                    ? { computer_sets: computerSetsPayload }
+                                                    : {}),
                                             }
                                             : {}),
 
@@ -7760,7 +8525,10 @@
                                     }),
                                 },
                             );
-                            if (!response.ok) throw new Error();
+                            const savePayload = await response.json().catch(() => ({}));
+                            if (!response.ok) {
+                                throw new Error(savePayload.message || 'Could not save the layout');
+                            }
 
                             /* =======================================
                         Refresh from database after saving
@@ -7768,6 +8536,10 @@
                         ======================================= */
 
                             if (this.roomLayout.open) {
+                                if (Array.isArray(savePayload.computer_sets)) {
+                                    this.applyRoomComputerSets(this.roomLayout.id, savePayload.computer_sets);
+                                }
+
                                 await this.refreshRoomEquipment(this.roomLayout.id);
 
                                 const room = this.roomCatalog.find(
@@ -7819,8 +8591,8 @@
 
                             }
                         } catch (e) {
-                            this.toast = "Could not save the layout";
-                            setTimeout(() => (this.toast = ""), 3000);
+                            this.toast = e?.message || "Could not save the layout";
+                            setTimeout(() => (this.toast = ""), 4000);
                         } finally {
                             this.saving = false;
                             
@@ -7831,11 +8603,193 @@
                     // BELOW saveLayout()
                     // ======================================
 
+                    roomInspectorLoadingHtml() {
+                        return (
+                            '<div class="flex h-full min-h-0 flex-col items-center justify-center gap-2 bg-[#F8FAFC] p-8" data-inspector-loading>' +
+                            '<p class="text-sm font-semibold text-slate-600">Loading…</p>' +
+                            '<p class="text-xs text-slate-400">Fetching room details</p>' +
+                            "</div>"
+                        );
+                    },
+                    showRoomInspectorLoading(mount) {
+                        if (!mount) return;
+                        if (mount.querySelector("[data-inspector-loading]")) {
+                            this.inspectorMountedRoomId = null;
+                            return;
+                        }
+                        mount.innerHTML = this.roomInspectorLoadingHtml();
+                        this.inspectorMountedRoomId = null;
+                    },
+
+                    clearRoomInspectorMount(mount) {
+                        const target =
+                            mount ||
+                            this.$refs.roomInspectorMount ||
+                            document.getElementById("roomInspectorMount");
+                        if (!target) return;
+                        if (window.Alpine?.destroyTree) {
+                            try {
+                                window.Alpine.destroyTree(target);
+                            } catch (error) {
+                                // Ignore destroy failures on empty mounts.
+                            }
+                        }
+                        this.showRoomInspectorLoading(target);
+                    },
+
+                    mountRoomInspectorHtml(mount, html, roomId) {
+                        if (!mount) return;
+                        if (window.Alpine?.destroyTree) {
+                            try {
+                                window.Alpine.destroyTree(mount);
+                            } catch (error) {
+                                // Ignore.
+                            }
+                        }
+                        mount.innerHTML = html;
+                        this.inspectorMountedRoomId = Number(roomId) || null;
+                        this.$nextTick(() => {
+                            if (window.Alpine?.initTree) {
+                                window.Alpine.initTree(mount);
+                            }
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
+                    },
+
+                    invalidateRoomInspectorCache(roomId) {
+                        const id = Number(roomId);
+                        if (!Number.isFinite(id) || id <= 0) return;
+                        // Drop cache only — live equipment UI reads roomCatalog.
+                        // Avoid remounting the open panel (would reset the active tab).
+                        this.inspectorCache.delete(id);
+                    },
+
+                    rememberInspectorHtml(id, html) {
+                        const roomId = Number(id);
+                        if (!Number.isFinite(roomId) || roomId <= 0 || !html) {
+                            return;
+                        }
+                        this.inspectorCache.set(roomId, html);
+                        while (this.inspectorCache.size > 24) {
+                            const oldest = this.inspectorCache.keys().next().value;
+                            this.inspectorCache.delete(oldest);
+                        }
+                    },
+                    prefetchRoomInspector(roomId) {
+                        const id = Number(roomId);
+                        if (!Number.isFinite(id) || id <= 0) return;
+                        if (this.inspectorCache.has(id) || this.inspectorPrefetching.has(id)) {
+                            return;
+                        }
+                        if (Number(this.selectedRoom) === id) {
+                            return;
+                        }
+
+                        this.inspectorPrefetching.add(id);
+                        fetch(`/admin/infrastructure/rooms/${id}/inspector`, {
+                            headers: {
+                                Accept: "text/html",
+                                "X-Requested-With": "XMLHttpRequest",
+                            },
+                            credentials: "same-origin",
+                        })
+                            .then((response) => {
+                                if (!response.ok) {
+                                    throw new Error("prefetch failed");
+                                }
+                                return response.text();
+                            })
+                            .then((html) => {
+                                this.rememberInspectorHtml(id, html);
+                            })
+                            .catch(() => {
+                                // Prefetch is best-effort.
+                            })
+                            .finally(() => {
+                                this.inspectorPrefetching.delete(id);
+                            });
+                    },
+                    async loadRoomInspector(roomId, options = {}) {
+                        const mount =
+                            this.$refs.roomInspectorMount ||
+                            document.getElementById("roomInspectorMount");
+                        if (!mount) return;
+
+                        const id = Number(roomId);
+                        if (!Number.isFinite(id) || id <= 0) {
+                            this.inspectorAbort?.abort();
+                            this.clearRoomInspectorMount(mount);
+                            return;
+                        }
+
+                        if (
+                            !options.force &&
+                            Number(this.inspectorMountedRoomId) === id &&
+                            !mount.querySelector("[data-inspector-loading]")
+                        ) {
+                            return;
+                        }
+
+                        if (!options.force && this.inspectorCache.has(id)) {
+                            this.mountRoomInspectorHtml(
+                                mount,
+                                this.inspectorCache.get(id),
+                                id,
+                            );
+                            return;
+                        }
+
+                        this.inspectorAbort?.abort();
+                        this.inspectorAbort = new AbortController();
+                        const requestId = ++this.inspectorRequestId;
+                        this.showRoomInspectorLoading(mount);
+
+                        try {
+                            const response = await fetch(
+                                `/admin/infrastructure/rooms/${id}/inspector`,
+                                {
+                                    headers: {
+                                        Accept: "text/html",
+                                        "X-Requested-With": "XMLHttpRequest",
+                                    },
+                                    credentials: "same-origin",
+                                    signal: this.inspectorAbort.signal,
+                                },
+                            );
+                            if (!response.ok) {
+                                throw new Error("Could not load room inspector");
+                            }
+                            const html = await response.text();
+                            if (
+                                requestId !== this.inspectorRequestId ||
+                                Number(this.selectedRoom) !== id
+                            ) {
+                                this.rememberInspectorHtml(id, html);
+                                return;
+                            }
+                            this.rememberInspectorHtml(id, html);
+                            this.mountRoomInspectorHtml(mount, html, id);
+                        } catch (error) {
+                            if (
+                                error?.name === "AbortError" ||
+                                requestId !== this.inspectorRequestId
+                            ) {
+                                return;
+                            }
+                            console.error(error);
+                            mount.innerHTML =
+                                '<div class="flex h-full items-center justify-center p-6 text-center text-sm text-red-600">Could not load this room.</div>';
+                            this.inspectorMountedRoomId = null;
+                        }
+                    },
+
                     async refreshRoomEquipment(roomId) {
 
                         const response = await fetch(
 
-                            `/admin/infrastructure/rooms/${roomId}/equipment`
+                            `/admin/infrastructure/rooms/${roomId}/equipment?with_computer_sets=1`
 
                         );
 
@@ -7845,7 +8799,13 @@
 
                         }
 
-                        const latestEquipment = await response.json();
+                        const payload = await response.json();
+                        const latestEquipment = Array.isArray(payload)
+                            ? payload
+                            : (Array.isArray(payload?.equipment) ? payload.equipment : []);
+                        if (payload && !Array.isArray(payload) && Array.isArray(payload.computer_sets)) {
+                            this.applyRoomComputerSets(roomId, payload.computer_sets);
+                        }
 
                         const room = this.roomCatalog.find(
 
@@ -7903,13 +8863,343 @@
 
                         ){
 
-                            this.roomLayout.equipment = room.equipment;
-                            this.originalRoomLayout = JSON.parse(
-                                JSON.stringify(this.roomLayout.equipment)
+                            const previousById = new Map(
+                                (this.roomLayout.equipment || []).map((item) => [Number(item.id), item])
                             );
 
+                            this.roomLayout.equipment = room.equipment.map((item) => {
+                                const prev = previousById.get(Number(item.id));
+                                const merged = {
+                                    width: item.width || prev?.width || 120,
+                                    height: item.height || prev?.height || 96,
+                                    rotation: item.rotation ?? prev?.rotation ?? 0,
+                                    ...item,
+                                };
+
+                                // Keep unsaved canvas placement when the server row is still Holding / unplaced.
+                                if (prev && (prev.x != null || prev.y != null)) {
+                                    const serverUnplaced =
+                                        item._holding
+                                        || item.placement_zone === 'Holding'
+                                        || item.location === 'Holding'
+                                        || (item.x == null && item.y == null);
+                                    if (serverUnplaced && (prev.placement_zone !== 'Holding' && prev.location !== 'Holding' && !prev._holding)) {
+                                        merged.x = prev.x;
+                                        merged.y = prev.y;
+                                        merged.placement_zone = prev.placement_zone;
+                                        merged.location = prev.location;
+                                        merged._holding = prev._holding;
+                                        merged.width = prev.width ?? merged.width;
+                                        merged.height = prev.height ?? merged.height;
+                                        merged.rotation = prev.rotation ?? merged.rotation;
+                                    }
+                                }
+
+                                return merged;
+                            });
+
+                            if (typeof this.comlabHoldingPageCount === 'function') {
+                                this.roomLayout.comlabHoldingPage = Math.min(
+                                    this.roomLayout.comlabHoldingPage || 0,
+                                    Math.max(0, this.comlabHoldingPageCount() - 1)
+                                );
+                            }
+
+                            this.$nextTick(() => {
+                                this.bindDragging?.();
+                                if (window.lucide) lucide.createIcons();
+                            });
                         }
 
+                        this.invalidateRoomInspectorCache(roomId);
+
+                    },
+
+                    openLayoutTransferModal() {
+                        const asset = typeof this.selectedLayoutAsset === 'function'
+                            ? this.selectedLayoutAsset()
+                            : null;
+
+                        if (!asset?.id) {
+                            this.toast = 'Select an equipment item first.';
+                            setTimeout(() => {
+                                if (this.toast === 'Select an equipment item first.') this.toast = '';
+                            }, 2500);
+                            return;
+                        }
+
+                        if (this.roomLayout.edit && this.layoutDirty) {
+                            this.toast = 'Save or discard layout changes before transferring.';
+                            setTimeout(() => {
+                                if (this.toast === 'Save or discard layout changes before transferring.') this.toast = '';
+                            }, 3500);
+                            return;
+                        }
+
+                        this.layoutTransferAsset = { ...asset };
+                        this.layoutTransferRoomId = '';
+                        this.layoutTransferQuery = '';
+                        this.layoutTransferError = '';
+                        this.layoutTransferring = false;
+                        this.layoutTransferModal = true;
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    },
+
+                    closeLayoutTransferModal() {
+                        this.layoutTransferModal = false;
+                        this.layoutTransferAsset = null;
+                        this.layoutTransferRoomId = '';
+                        this.layoutTransferQuery = '';
+                        this.layoutTransferError = '';
+                        this.layoutTransferring = false;
+                        document.body.style.overflow = '';
+                    },
+
+                    layoutTransferDestRooms() {
+                        const currentId = Number(this.roomLayout?.id);
+                        const q = String(this.layoutTransferQuery || '').trim().toLowerCase();
+                        return (this.roomCatalog || [])
+                            .filter((room) => Number(room.id) !== currentId)
+                            .filter((room) => {
+                                if (!q) return true;
+                                const hay = [room.name, room.type].filter(Boolean).join(' ').toLowerCase();
+                                return hay.includes(q);
+                            })
+                            .slice()
+                            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+                    },
+
+                    async confirmLayoutTransfer() {
+                        if (this.layoutTransferring) return;
+
+                        const equipmentId = Number(this.layoutTransferAsset?.id);
+                        const destinationId = Number(this.layoutTransferRoomId);
+                        if (!equipmentId || !destinationId) {
+                            this.layoutTransferError = 'Select a destination room.';
+                            return;
+                        }
+
+                        this.layoutTransferring = true;
+                        this.layoutTransferError = '';
+
+                        try {
+                            const response = await fetch(
+                                `/admin/infrastructure/equipment/${equipmentId}/transfer`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Accept: 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
+                                    },
+                                    body: JSON.stringify({
+                                        room_id: destinationId,
+                                    }),
+                                }
+                            );
+                            const payload = await response.json().catch(() => ({}));
+                            if (!response.ok) {
+                                const firstError = payload?.errors
+                                    ? Object.values(payload.errors).flat()[0]
+                                    : null;
+                                throw new Error(firstError || payload?.message || 'Could not transfer equipment.');
+                            }
+
+                            const sourceRoom = this.roomCatalog.find(
+                                (room) => Number(room.id) === Number(this.roomLayout.id)
+                            );
+                            const destRoom = this.roomCatalog.find(
+                                (room) => Number(room.id) === destinationId
+                            );
+                            const moved = this.layoutTransferAsset
+                                ? { ...this.layoutTransferAsset }
+                                : null;
+
+                            if (sourceRoom?.equipment) {
+                                sourceRoom.equipment = sourceRoom.equipment.filter(
+                                    (item) => Number(item.id) !== equipmentId
+                                );
+                            }
+
+                            this.roomLayout.equipment = (this.roomLayout.equipment || []).filter(
+                                (item) => Number(item.id) !== equipmentId
+                            );
+
+                            if (Array.isArray(this.originalRoomLayout)) {
+                                this.originalRoomLayout = this.originalRoomLayout.filter(
+                                    (item) => Number(item.id) !== equipmentId
+                                );
+                            }
+
+                            if (destRoom && moved) {
+                                destRoom.equipment = Array.isArray(destRoom.equipment)
+                                    ? destRoom.equipment
+                                    : [];
+                                if (!destRoom.equipment.some((item) => Number(item.id) === equipmentId)) {
+                                    destRoom.equipment.push({
+                                        ...moved,
+                                        placement_zone: 'Holding',
+                                        location: 'Holding',
+                                        _holding: true,
+                                        x: 50,
+                                        y: 90,
+                                    });
+                                }
+                            }
+
+                            this.clearLayoutSelection?.();
+                            this.roomLayout.selectedAssetId = null;
+                            this.selectedEquipmentId = null;
+                            this.invalidateRoomInspectorCache?.(Number(this.roomLayout.id));
+                            this.invalidateRoomInspectorCache?.(destinationId);
+
+                            const destName = destRoom?.name || 'the selected room';
+                            this.closeLayoutTransferModal();
+                            this.toast = `Transferred to ${destName}.`;
+                            setTimeout(() => {
+                                if (this.toast === `Transferred to ${destName}.`) this.toast = '';
+                            }, 3000);
+                            this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                        } catch (e) {
+                            this.layoutTransferError = e?.message || 'Could not transfer equipment.';
+                        } finally {
+                            this.layoutTransferring = false;
+                        }
+                    },
+
+                    async openPlaceFromStorage() {
+                        this.placeableStockError = '';
+                        this.placeSelectedIds = [];
+                        this.placeQuery = '';
+                        this.placeableStockLoading = true;
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+
+                        const roomId = Number(this.roomLayout?.id);
+                        if (!roomId) {
+                            this.placeableStock = [];
+                            this.placeableStockError = 'Open a room layout first.';
+                            this.placeableStockLoading = false;
+                            return;
+                        }
+
+                        try {
+                            const response = await fetch(
+                                `/admin/infrastructure/rooms/${roomId}/placeable-stock`,
+                                { headers: { Accept: 'application/json' } }
+                            );
+                            if (!response.ok) {
+                                throw new Error('Could not load storage stock.');
+                            }
+                            const payload = await response.json();
+                            this.placeableStock = Array.isArray(payload.items) ? payload.items : [];
+                            if (payload.message && this.placeableStock.length === 0) {
+                                this.placeableStockError = payload.message;
+                            }
+                        } catch (e) {
+                            this.placeableStock = [];
+                            this.placeableStockError = e?.message || 'Could not load storage stock.';
+                        } finally {
+                            this.placeableStockLoading = false;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                        }
+                    },
+
+                    closePlaceFromStorage() {
+                        this.placeFromStorageModal = false;
+                        this.placeSelectedIds = [];
+                        this.placeQuery = '';
+                        this.placeableStockError = '';
+                        this.placingFromStorage = false;
+                        document.body.style.overflow = '';
+                    },
+
+                    filteredPlaceableStock() {
+                        const q = String(this.placeQuery || '').trim().toLowerCase();
+                        const items = Array.isArray(this.placeableStock) ? this.placeableStock : [];
+                        if (!q) {
+                            return items;
+                        }
+                        return items.filter((item) => {
+                            const hay = [
+                                item.name,
+                                item.asset_tag,
+                                item.serial_number,
+                                item.category_name,
+                                item.storage_room_name,
+                                item.receiving_report_number,
+                                item.brand,
+                                item.model,
+                            ]
+                                .filter(Boolean)
+                                .join(' ')
+                                .toLowerCase();
+                            return hay.includes(q);
+                        });
+                    },
+
+                    togglePlaceStockId(id) {
+                        const equipmentId = Number(id);
+                        if (this.placeSelectedIds.includes(equipmentId)) {
+                            this.placeSelectedIds = this.placeSelectedIds.filter((value) => value !== equipmentId);
+                        } else {
+                            this.placeSelectedIds = [...this.placeSelectedIds, equipmentId];
+                        }
+                    },
+
+                    selectAllPlaceableStock() {
+                        this.placeSelectedIds = this.filteredPlaceableStock().map((item) => Number(item.id));
+                    },
+
+                    async confirmPlaceFromStorage() {
+                        if (this.placingFromStorage || this.placeSelectedIds.length === 0) {
+                            return;
+                        }
+
+                        const roomId = Number(this.roomLayout?.id);
+                        if (!roomId) {
+                            this.placeableStockError = 'Open a room layout first.';
+                            return;
+                        }
+
+                        this.placingFromStorage = true;
+                        this.placeableStockError = '';
+
+                        try {
+                            const response = await fetch(
+                                `/admin/infrastructure/rooms/${roomId}/place-from-storage`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Accept: 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
+                                    },
+                                    body: JSON.stringify({
+                                        equipment_ids: this.placeSelectedIds,
+                                    }),
+                                }
+                            );
+                            const payload = await response.json().catch(() => ({}));
+                            if (!response.ok) {
+                                const firstError = payload?.errors
+                                    ? Object.values(payload.errors).flat()[0]
+                                    : null;
+                                throw new Error(firstError || payload?.message || 'Could not place equipment.');
+                            }
+
+                            this.closePlaceFromStorage();
+                            await this.refreshRoomEquipment(roomId);
+                            this.toast = payload.message || 'Assets placed into Holding from storage.';
+                            setTimeout(() => {
+                                if (this.toast === (payload.message || 'Assets placed into Holding from storage.')) {
+                                    this.toast = '';
+                                }
+                            }, 3500);
+                        } catch (e) {
+                            this.placeableStockError = e?.message || 'Could not place equipment.';
+                        } finally {
+                            this.placingFromStorage = false;
+                        }
                     },
 
                     applyRoomUpdate(roomId, updates = {}) {
@@ -8082,11 +9372,22 @@
                     },
 
                     roomLayoutHint() {
+                        const holdingCount = typeof this.comlabHoldingItems === 'function'
+                            ? this.comlabHoldingItems().length
+                            : 0;
+
                         if (!this.isComlabRoomLayout()) {
-                            return 'Drag equipment inside the room, then save to apply your changes.';
+                            return holdingCount > 0
+                                ? 'Drag Holding equipment onto the floor to place it, then save.'
+                                : 'Drag equipment inside the room, then save to apply your changes.';
                         }
                         if (this.roomLayout.edit) {
-                            return 'Drag row tables to arrange. Drop any equipment on rows, or place icons on the floor.';
+                            return holdingCount > 0
+                                ? 'Drag Holding equipment onto a row or the floor to place it. Drag row tables to arrange.'
+                                : 'Drag row tables to arrange. Drop equipment on rows, or place icons on the floor.';
+                        }
+                        if (holdingCount > 0) {
+                            return 'Turn on Edit layout, then drag Holding equipment onto a row or the floor to place it.';
                         }
                         return this.isComputerLabLayout()
                             ? 'Select a row and click Open to browse computer sets and equipment.'
@@ -8896,15 +10197,108 @@
                         );
                     },
 
+                    rawComlabComputerSetsForRow(rowName) {
+                        const moduleSets = this.buildComlabComputerSetsFromModule(rowName, 1);
+                        if (moduleSets.length) {
+                            return moduleSets;
+                        }
+
+                        // Fallback only when this room has no Computer Sets module records yet.
+                        if ((this.roomLayout.computerSets || []).length === 0) {
+                            return this.buildComlabComputerSets(
+                                this.equipmentInComlabRow(rowName),
+                                1,
+                            );
+                        }
+
+                        return [];
+                    },
+
                     comlabSetNumberOffset(rowName) {
                         let offset = 0;
                         for (const row of (this.roomLayout.comlabRows || [])) {
                             if (row === rowName) {
                                 break;
                             }
-                            offset += this.buildComlabComputerSets(this.equipmentInComlabRow(row)).length;
+                            offset += this.rawComlabComputerSetsForRow(row).length;
                         }
                         return offset;
+                    },
+
+                    resolveComlabSetMembers(moduleMembers) {
+                        return (moduleMembers || []).map((member) => {
+                            const id = Number(member.id || member.equipment_id || 0);
+                            const live = (this.roomLayout.equipment || []).find(
+                                (item) => Number(item.id) === id,
+                            );
+                            if (live) {
+                                return {
+                                    ...live,
+                                    role: member.role || live.role || null,
+                                    role_label: member.role_label || null,
+                                    needs_replacement: Boolean(
+                                        member.needs_replacement
+                                        || live.inventory_status === 'For Replacement',
+                                    ),
+                                };
+                            }
+
+                            return {
+                                id,
+                                name: member.name || 'Equipment',
+                                asset_tag: member.asset_tag || null,
+                                qr_code: member.qr_code || null,
+                                serial_number: member.serial_number || null,
+                                condition: member.condition || null,
+                                inventory_status: member.inventory_status || null,
+                                placement_zone: member.placement_zone || null,
+                                role: member.role || null,
+                                role_label: member.role_label || null,
+                                needs_replacement: Boolean(member.needs_replacement),
+                            };
+                        });
+                    },
+
+                    buildComlabComputerSetsFromModule(rowName, startSetNum = 1) {
+                        const moduleSets = Array.isArray(this.roomLayout.computerSets)
+                            ? this.roomLayout.computerSets
+                            : [];
+                        if (!moduleSets.length) {
+                            return [];
+                        }
+
+                        const rowItems = this.equipmentInComlabRow(rowName);
+                        const rowItemIds = new Set(rowItems.map((item) => Number(item.id)));
+                        const rowKey = String(rowName || '').trim().toLowerCase();
+
+                        const matching = moduleSets.filter((set) => {
+                            const zone = String(set.placement_zone || '').trim().toLowerCase();
+                            if (zone && zone === rowKey) {
+                                return true;
+                            }
+                            return (set.members || []).some((member) =>
+                                rowItemIds.has(Number(member.id || member.equipment_id || 0)),
+                            );
+                        });
+
+                        return matching.map((set, index) => {
+                            const members = this.resolveComlabSetMembers(set.members || []);
+                            const label = String(set.name || '').trim()
+                                || String(set.tag || '').trim()
+                                || `Computer Set ${startSetNum + index}`;
+
+                            return {
+                                index,
+                                id: set.id,
+                                tag: set.tag || null,
+                                manage_url: set.manage_url || null,
+                                from_module: true,
+                                label,
+                                members,
+                                needs_replacement_count: Number(set.needs_replacement_count || 0)
+                                    || members.filter((member) => member.needs_replacement).length,
+                            };
+                        });
                     },
 
                     buildComlabComputerSets(rowItems, startSetNum = 1) {
@@ -8962,6 +10356,7 @@
 
                             sets.push({
                                 index: sets.length,
+                                from_module: false,
                                 label: `Computer Set ${startSetNum + sets.length}`,
                                 members,
                             });
@@ -8970,14 +10365,30 @@
                         return sets;
                     },
 
+                    comlabComputerSetsForRow(rowName) {
+                        const startNum = this.comlabSetNumberOffset(rowName) + 1;
+                        const moduleSets = this.buildComlabComputerSetsFromModule(rowName, startNum);
+                        if (moduleSets.length) {
+                            return moduleSets;
+                        }
+
+                        if ((this.roomLayout.computerSets || []).length === 0) {
+                            return this.buildComlabComputerSets(
+                                this.equipmentInComlabRow(rowName),
+                                startNum,
+                            );
+                        }
+
+                        return [];
+                    },
+
                     comlabRowSummary(rowName) {
                         const items = this.equipmentInComlabRow(rowName);
-                        const startNum = this.comlabSetNumberOffset(rowName) + 1;
-                        const sets = this.buildComlabComputerSets(items, startNum);
+                        const sets = this.comlabComputerSetsForRow(rowName);
                         const setMemberIds = new Set(
-                            sets.flatMap((set) => (set.members || []).map((member) => member.id)),
+                            sets.flatMap((set) => (set.members || []).map((member) => Number(member.id))),
                         );
-                        const other = items.filter((item) => !setMemberIds.has(item.id));
+                        const other = items.filter((item) => !setMemberIds.has(Number(item.id)));
 
                         return {
                             sets,
@@ -8992,11 +10403,7 @@
                         if (!this.roomLayout.selectedComlabRow) {
                             return [];
                         }
-                        const startNum = this.comlabSetNumberOffset(this.roomLayout.selectedComlabRow) + 1;
-                        return this.buildComlabComputerSets(
-                            this.equipmentInComlabRow(this.roomLayout.selectedComlabRow),
-                            startNum,
-                        );
+                        return this.comlabComputerSetsForRow(this.roomLayout.selectedComlabRow);
                     },
 
                     comlabOtherInSelectedRow() {
@@ -9635,6 +11042,9 @@
                                 rotation: item.rotation || 0,
                                 ...item,
                             })),
+                            computerSets: Array.isArray(room.computer_sets)
+                                ? JSON.parse(JSON.stringify(room.computer_sets))
+                                : [],
                             selectedGroupKey: null,
                             selectedAssetId: null,
                             listSearch: '',
@@ -9656,6 +11066,9 @@
                             this.bindDragging();
                             if (window.lucide) lucide.createIcons();
                         });
+
+                        // Pull latest COMPSETs from the Computer Sets module (module → layout).
+                        this.refreshRoomEquipment(roomId);
                     },
                     async loadWorkstationLayout(roomId) {
                         this.workstationLayout.loading = true;
@@ -9754,19 +11167,96 @@
 
                         title:"",
 
-                        message:""
+                        message:"",
+
+                        mode:"close", // close | exitEdit
 
                     },
                     closeRoomLayout() {
                         this.roomLayout.open = false;
                         this.roomLayout.edit = false;
                         this.roomLayout.fullscreen = false;
+                        this.closeLayoutModal.open = false;
+                        this.closeLayoutModal.mode = "close";
                         this.clearRoomLayoutUndoStack();
                         this.clearLayoutSelection();
+                    },
+                    restoreRoomLayoutFromOriginal() {
+                        if (this.originalRoomLayout) {
+                            this.roomLayout.equipment = JSON.parse(
+                                JSON.stringify(this.originalRoomLayout),
+                            );
+                        }
+                        if (this.originalComlabRows) {
+                            this.roomLayout.comlabRows = JSON.parse(
+                                JSON.stringify(this.originalComlabRows),
+                            );
+                        }
+                        if (this.originalComlabRowLayouts) {
+                            this.roomLayout.comlabRowLayouts = JSON.parse(
+                                JSON.stringify(this.originalComlabRowLayouts),
+                            );
+                        }
+
+                        // Keep the in-memory room catalog aligned with the discarded snapshot
+                        // so reopening this room does not show unsaved moves as if they were saved.
+                        this.syncRoomCatalogFromRoomLayout();
+
+                        this.layoutDirty = false;
+                        this.clearRoomLayoutUndoStack();
+                        this.clearLayoutSelection();
+                        this.$nextTick(() => {
+                            this.bindDragging?.();
+                            if (window.lucide) lucide.createIcons();
+                        });
+                    },
+                    syncRoomCatalogFromRoomLayout() {
+                        const roomId = Number(this.roomLayout?.id);
+                        if (!roomId) {
+                            return;
+                        }
+
+                        const room = this.roomCatalog.find((item) => item.id === roomId);
+                        if (!room) {
+                            return;
+                        }
+
+                        room.equipment = JSON.parse(
+                            JSON.stringify(this.roomLayout.equipment || []),
+                        );
+
+                        if (this.isComlabRoomLayout()) {
+                            room.comlab_rows = JSON.parse(
+                                JSON.stringify(this.roomLayout.comlabRows || []),
+                            );
+                            room.comlab_row_layouts = JSON.parse(
+                                JSON.stringify(this.roomLayout.comlabRowLayouts || []),
+                            );
+                        }
+                    },
+                    confirmCloseLayoutModal() {
+                        const mode = this.closeLayoutModal.mode || "close";
+                        this.closeLayoutModal.open = false;
+
+                        if (mode === "exitEdit") {
+                            this.restoreRoomLayoutFromOriginal();
+                            this.roomLayout.edit = false;
+                            this.closeLayoutModal.mode = "close";
+                            return;
+                        }
+
+                        this.restoreRoomLayoutFromOriginal();
+                        this.closeRoomLayout();
+                    },
+                    cancelCloseLayoutModal() {
+                        this.closeLayoutModal.open = false;
+                        this.closeLayoutModal.mode = "close";
                     },
                     requestCloseRoomLayout(){
 
                         if(this.roomLayout.edit && this.layoutDirty){
+
+                            this.closeLayoutModal.mode = "close";
 
                             this.closeLayoutModal.title = "Discard Changes?";
 
@@ -9799,6 +11289,8 @@
                     toggleRoomLayoutEdit() {
 
                         if (this.roomLayout.edit && this.layoutDirty) {
+
+                            this.closeLayoutModal.mode = "exitEdit";
 
                             this.closeLayoutModal.title = "Discard Unsaved Changes?";
 

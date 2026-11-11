@@ -730,11 +730,12 @@
                                     type="button"
                                     data-tooltip="View Report"
                                     onclick="openReportModal('view-modal-{{ $report->report_id }}'); switchReportViewTab({{ $report->report_id }}, 'details')"
-                                    class="report-action-btn flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
+                                    class="report-action-btn inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                    title="View"
                                 >
                                     <i
                                         data-lucide="eye"
-                                        class="h-3.5 w-3.5"
+                                        class="h-4 w-4"
                                     ></i>
                                     <span class="report-action-label">View</span>
                                 </button>
@@ -786,8 +787,8 @@
                                             data-pur-confirm-kind="archive"
                                         >
                                             @csrf
-                                            <button data-tooltip="Archive Report" class="report-action-btn is-archive inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50">
-                                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                            <button data-tooltip="Archive" title="Archive" aria-label="Archive" class="report-action-btn is-archive inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50">
+                                                <i data-lucide="archive" class="h-4 w-4"></i>
                                                 <span class="report-action-label">Archive</span>
                                             </button>
                                         </form>
@@ -831,12 +832,14 @@
                                         @csrf
 
                                         <button
-                                            data-tooltip="Archive Report"
-                                            class="report-action-btn is-archive inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-[#007a3f] transition hover:bg-slate-50 active:scale-95"
+                                            data-tooltip="Archive"
+                                            title="Archive"
+                                            aria-label="Archive"
+                                            class="report-action-btn is-archive inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
                                         >
                                             <i
                                                 data-lucide="archive"
-                                                class="h-3.5 w-3.5"
+                                                class="h-4 w-4"
                                             ></i>
                                             <span class="report-action-label">Archive</span>
                                         </button>

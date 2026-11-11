@@ -40,7 +40,6 @@
                 </label>
             @endforeach
         </div>
-        <p id="{{ $prefix }}TypeHint" class="mt-1.5 text-xs text-slate-400">Moves the item to another room. Who owns it does not change.</p>
     </div>
 
     <div id="{{ $prefix }}PersonField" class="hidden">
@@ -61,10 +60,6 @@
                 >{{ \App\Support\Custodians::optionLabel($person) }}{{ ! empty($person->custodian_department) ? ' · '.$person->custodian_department : '' }}</option>
             @endforeach
         </select>
-        <p class="mt-1.5 text-xs text-slate-400">
-            The item is issued to this person (property assignment) and tagged to their department.
-            Only individually tracked items (quantity 1) can go to a person.
-        </p>
     </div>
 
     <div id="{{ $prefix }}DepartmentField" class="hidden">
@@ -75,7 +70,24 @@
                 <option value="{{ $department->department_id }}">{{ $department->department_name }}</option>
             @endforeach
         </select>
-        <p class="mt-1.5 text-xs text-slate-400">A department is an office, not a place, so the item still goes to the room below.</p>
+    </div>
+
+    <div id="{{ $prefix }}QuantityField" class="hidden">
+        <label for="{{ $prefix }}Quantity" class="mb-2 block text-sm font-medium text-slate-700">
+            Quantity to transfer <span class="text-red-500">*</span>
+        </label>
+        <input
+            type="number"
+            id="{{ $prefix }}Quantity"
+            name="transfer_quantity"
+            min="1"
+            step="1"
+            class="{{ $fieldClass }}"
+            disabled
+        >
+        <p class="mt-1.5 text-xs text-slate-400">
+            Available: <span id="{{ $prefix }}QuantityAvailable">0</span>. Leave as full stock to move the whole pile, or enter a smaller number to split it across rooms.
+        </p>
     </div>
 
     <div>
@@ -91,63 +103,6 @@
     </div>
 </div>
 
-@once
-<script>
-    function inventoryTransferDestinationChanged(prefix) {
-        const wrapper = document.querySelector(`[data-transfer-destination="${prefix}"]`);
-        if (!wrapper) return;
+@include('maintenance-personnel.equipment.partials.inventory-transfer-destination-script')
 
-        const type = wrapper.querySelector('input[name="destination_type"]:checked')?.value || 'room';
-        const fields = {
-            person: [document.getElementById(prefix + 'PersonField'), document.getElementById(prefix + 'CustodianId')],
-            department: [document.getElementById(prefix + 'DepartmentField'), document.getElementById(prefix + 'DepartmentId')],
-        };
 
-        Object.entries(fields).forEach(([key, [field, select]]) => {
-            const active = key === type;
-            field?.classList.toggle('hidden', !active);
-            if (select) {
-                select.disabled = !active;
-                select.required = active;
-            }
-        });
-
-        const roomLabel = document.getElementById(prefix + 'RoomLabel');
-        if (roomLabel) {
-            roomLabel.textContent = type === 'room' ? 'Destination room' : 'Place it in (room)';
-        }
-
-        const hint = document.getElementById(prefix + 'TypeHint');
-        if (hint) {
-            hint.textContent = {
-                room: 'Moves the item to another room. Who owns it does not change.',
-                person: 'Moves the item and makes this person accountable for it.',
-                department: 'Moves the item and charges it to an office for accountability.',
-            }[type];
-        }
-    }
-
-    function inventoryTransferPersonChanged(prefix) {
-        const option = document.getElementById(prefix + 'CustodianId')?.selectedOptions[0];
-        const roomSelect = document.getElementById(prefix + 'RoomId');
-        const homeRoomId = option?.dataset.roomId || '';
-
-        if (roomSelect && homeRoomId) {
-            roomSelect.value = homeRoomId;
-        }
-    }
-
-    function resetInventoryTransferDestination(prefix) {
-        const wrapper = document.querySelector(`[data-transfer-destination="${prefix}"]`);
-        if (!wrapper) return;
-
-        const roomRadio = wrapper.querySelector('input[name="destination_type"][value="room"]');
-        if (roomRadio) roomRadio.checked = true;
-        ['RoomId', 'CustodianId', 'DepartmentId'].forEach((suffix) => {
-            const select = document.getElementById(prefix + suffix);
-            if (select) select.value = '';
-        });
-        inventoryTransferDestinationChanged(prefix);
-    }
-</script>
-@endonce

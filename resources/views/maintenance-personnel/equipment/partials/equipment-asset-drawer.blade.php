@@ -81,6 +81,7 @@
                 'Under Maintenance': 'bg-amber-50 text-amber-700',
                 'Borrowed': 'bg-sky-50 text-sky-700',
                 'For Replacement': 'bg-orange-50 text-orange-700',
+                'Replaced': 'bg-blue-50 text-blue-700',
                 'Disposed': 'bg-rose-50 text-rose-700',
             };
 
@@ -424,7 +425,17 @@
 
             setEquipmentModalText('eqAssetModal_drawer_subtitle', `Review ${displayName} information and lifecycle.`);
             setEquipmentModalText('eqAssetModal_profile_name', displayName);
-            setEquipmentModalText('eqAssetModal_meta_tag', asset.asset_tag);
+            const assetTag = asset.asset_tag && String(asset.asset_tag).trim() !== '' ? String(asset.asset_tag).trim() : '';
+            setEquipmentModalText('eqAssetModal_meta_tag', assetTag);
+            const metaTagEl = document.getElementById('eqAssetModal_meta_tag');
+            const metaTagTip = document.getElementById('eqAssetModal_meta_tag_tip');
+            if (metaTagEl) {
+                metaTagEl.setAttribute('title', assetTag);
+            }
+            if (metaTagTip) {
+                metaTagTip.textContent = assetTag;
+                metaTagTip.classList.toggle('group-hover/assettag:block', assetTag !== '');
+            }
             setEquipmentModalText('eqAssetModal_meta_serial', asset.serial_number);
             setEquipmentModalText('eqAssetModal_meta_room', asset.room_name);
             setEquipmentModalText('eqAssetModal_brand', asset.brand);
@@ -492,8 +503,8 @@
                 imageWrap.classList.add('hidden');
                 iconWrap.classList.remove('hidden');
                 iconWrap.classList.add('flex');
-                if (icon && window.PrismEquipmentIcons) {
-                    icon.innerHTML = window.PrismEquipmentIcons.svg(displayName);
+                if (icon) {
+                    icon.innerHTML = '';
                 }
             }
 

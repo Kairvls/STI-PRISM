@@ -15,6 +15,9 @@ class EquipmentInventoryStatuses
 
     public const FOR_REPLACEMENT = 'For Replacement';
 
+    /** Swapped out by a newer unit; awaiting repair decision or disposal. */
+    public const REPLACED = 'Replaced';
+
     public const DISPOSED = 'Disposed';
 
     /** @var list<string> */
@@ -23,6 +26,7 @@ class EquipmentInventoryStatuses
         self::BORROWED,
         self::UNDER_MAINTENANCE,
         self::FOR_REPLACEMENT,
+        self::REPLACED,
         self::DISPOSED,
     ];
 

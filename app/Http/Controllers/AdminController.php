@@ -23,8 +23,12 @@ use App\Support\ReviewerAssignment;
 use App\Support\UserSignatureLibrary;
 use App\Support\RisRevisionImages;
 use App\Support\WorkflowNotifier;
+use App\Support\ComputerSets;
 use App\Support\EquipmentIdentity;
+use App\Support\EquipmentInventoryStatuses;
 use App\Support\EquipmentLifecycle;
+use App\Support\ReplacementStock;
+use App\Support\RoomCategories;
 use App\Support\SemesterInspections;
 
 class AdminController extends Controller
@@ -101,6 +105,7 @@ class AdminController extends Controller
             'urgent_reports' => 0,
             'overdue_schedules' => 0,
             'overdue_borrows' => 0,
+            'open_back_orders' => 0,
         ];
 
         try {
@@ -152,125 +157,111 @@ class AdminController extends Controller
             // ignore
         }
 
-        $urgentReportsList = collect();
         try {
-            if (Schema::hasTable('reports_table')) {
-                $urgentReportsList = DB::table('reports_table')
-                    ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
-                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'reports_table.report_room_id')
-                    ->where('reports_table.report_urgency_level', 'Urgent')
-                    ->whereIn('reports_table.report_current_status', ['Pending', 'Processing', 'For Replacement'])
-                    ->where(function ($q) {
-                        if (Schema::hasColumn('reports_table', 'report_is_archived')) {
-                            $q->where('reports_table.report_is_archived', 0)
-                                ->orWhereNull('reports_table.report_is_archived');
-                        }
-                    })
-                    ->select(array_merge([
-                        'reports_table.report_id',
-                        'reports_table.report_current_status',
-                        'reports_table.report_suggested_issue',
-                        'reports_table.report_submitted_at',
-                        'equipment_table.equipment_name',
-                        'rooms_table.room_name',
-                    ], EquipmentIdentity::columns()))
-                    ->orderByDesc('reports_table.report_submitted_at')
-                    ->limit(5)
-                    ->get();
-            }
+            $overview['open_back_orders'] = (int) (\App\Support\AdminReceivingSummary::build(1)['open'] ?? 0);
         } catch (\Throwable $e) {
-            $urgentReportsList = collect();
+            $overview['open_back_orders'] = 0;
         }
 
-        $upcomingMaintenanceSchedules = collect();
+        $system = [
+            'equipment_total' => 0,
+            'equipment_storage' => 0,
+            'equipment_deployed' => 0,
+            'for_replacement' => 0,
+            'replaced' => 0,
+            'disposed' => 0,
+            'computer_sets' => 0,
+            'rooms' => 0,
+            'departments' => 0,
+            'users' => 0,
+            'stock_swaps' => 0,
+            'procurement_replacements' => 0,
+        ];
+
         try {
-            if (Schema::hasTable('maintenance_schedules_table')) {
-                $horizon = now()->addDays(14)->toDateString();
-                $upcomingMaintenanceSchedules = DB::table('maintenance_schedules_table')
-                    ->leftJoin(
-                        'equipment_table',
-                        'equipment_table.equipment_id',
-                        '=',
-                        'maintenance_schedules_table.maintenance_schedule_equipment_id'
+            if (Schema::hasTable('equipment_table')) {
+                $system['equipment_total'] = (int) DB::table('equipment_table')->count();
+                $system['for_replacement'] = (int) DB::table('equipment_table')
+                    ->where('equipment_inventory_status', EquipmentInventoryStatuses::FOR_REPLACEMENT)
+                    ->count();
+                $system['replaced'] = (int) DB::table('equipment_table')
+                    ->where('equipment_inventory_status', EquipmentInventoryStatuses::REPLACED)
+                    ->count();
+                $system['disposed'] = (int) DB::table('equipment_table')
+                    ->where('equipment_inventory_status', EquipmentInventoryStatuses::DISPOSED)
+                    ->count();
+
+                if (Schema::hasTable('rooms_table')) {
+                    $system['equipment_storage'] = (int) DB::table('equipment_table as e')
+                        ->join('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
+                        ->where('r.room_type', RoomCategories::STORAGE_TYPE)
+                        ->where('e.equipment_inventory_status', '!=', EquipmentInventoryStatuses::DISPOSED)
+                        ->count();
+                    $system['equipment_deployed'] = (int) DB::table('equipment_table as e')
+                        ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
+                        ->where(function ($q) {
+                            $q->whereNull('r.room_type')
+                                ->orWhere('r.room_type', '!=', RoomCategories::STORAGE_TYPE);
+                        })
+                        ->whereNotIn('e.equipment_inventory_status', [
+                            EquipmentInventoryStatuses::DISPOSED,
+                            EquipmentInventoryStatuses::REPLACED,
+                        ])
+                        ->count();
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (ComputerSets::tablesReady()) {
+                $system['computer_sets'] = (int) (ComputerSets::stats()['sets'] ?? 0);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('rooms_table')) {
+                $system['rooms'] = (int) DB::table('rooms_table')
+                    ->when(
+                        Schema::hasColumn('rooms_table', 'room_is_archived'),
+                        fn ($q) => $q->where(fn ($w) => $w->whereNull('room_is_archived')->orWhere('room_is_archived', false))
                     )
-                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'equipment_table.equipment_room_id')
-                    ->whereIn('maintenance_schedule_status', ['Active', 'Overdue'])
-                    ->whereNotNull('maintenance_schedule_next_date')
-                    ->where(function ($q) use ($horizon) {
-                        $q->whereDate('maintenance_schedule_next_date', '<=', $horizon)
-                            ->orWhere('maintenance_schedule_status', 'Overdue');
-                    })
-                    ->select(array_merge([
-                        'maintenance_schedules_table.maintenance_schedule_id',
-                        'maintenance_schedules_table.maintenance_schedule_title',
-                        'maintenance_schedules_table.maintenance_schedule_next_date',
-                        'maintenance_schedules_table.maintenance_schedule_status',
-                        'equipment_table.equipment_name',
-                        'rooms_table.room_name',
-                    ], EquipmentIdentity::columns()))
-                    ->orderByRaw("CASE WHEN maintenance_schedule_status = 'Overdue' OR maintenance_schedule_next_date < CURDATE() THEN 0 ELSE 1 END")
-                    ->orderBy('maintenance_schedule_next_date')
-                    ->limit(3)
-                    ->get();
+                    ->count();
             }
         } catch (\Throwable $e) {
-            $upcomingMaintenanceSchedules = collect();
-        }
-
-        $semesterInspectionDue = SemesterInspections::activeCampaignsDueSoon(7, 4);
-
-        try {
-            $receivingSummary = \App\Support\AdminReceivingSummary::build(4);
-        } catch (\Throwable $e) {
-            report($e);
-            $receivingSummary = null;
+            // ignore
         }
 
         try {
-            $warrantyWatch = \App\Support\AdminDashboardInsights::warrantyWatch(30, 4);
-        } catch (\Throwable $e) {
-            report($e);
-            $warrantyWatch = null;
-        }
-
-        try {
-            $disposalWatch = \App\Support\AdminDashboardInsights::disposalWatch(3);
-        } catch (\Throwable $e) {
-            report($e);
-            $disposalWatch = null;
-        }
-
-        $overdueBorrowsPreview = collect();
-        try {
-            if (Schema::hasTable('borrowing_records_table')) {
-                $overdueBorrowsPreview = DB::table('borrowing_records_table')
-                    ->leftJoin(
-                        'equipment_table',
-                        'equipment_table.equipment_id',
-                        '=',
-                        'borrowing_records_table.borrowing_equipment_id'
-                    )
-                    ->where(function ($q) {
-                        $q->where('borrowing_records_table.borrowing_status', 'Overdue')
-                            ->orWhere(function ($late) {
-                                $late->where('borrowing_records_table.borrowing_status', 'Borrowed')
-                                    ->whereNotNull('borrowing_records_table.borrowing_expected_return_date')
-                                    ->whereDate('borrowing_records_table.borrowing_expected_return_date', '<', today());
-                            });
-                    })
-                    ->select(array_merge([
-                        'borrowing_records_table.borrowing_record_id',
-                        'borrowing_records_table.borrowing_borrower_name',
-                        'borrowing_records_table.borrowing_expected_return_date',
-                        'borrowing_records_table.borrowing_status',
-                        'equipment_table.equipment_name',
-                    ], EquipmentIdentity::columns()))
-                    ->orderBy('borrowing_records_table.borrowing_expected_return_date')
-                    ->limit(3)
-                    ->get();
+            if (Schema::hasTable('departments_table')) {
+                $system['departments'] = (int) DB::table('departments_table')->count();
             }
         } catch (\Throwable $e) {
-            $overdueBorrowsPreview = collect();
+            // ignore
+        }
+
+        try {
+            if (Schema::hasTable('users_table')) {
+                $system['users'] = (int) DB::table('users_table')->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        try {
+            if (ReplacementStock::tableReady()) {
+                $system['stock_swaps'] = (int) DB::table(ReplacementStock::TABLE)
+                    ->where('replacement_log_fulfillment_type', ReplacementStock::STOCK_SWAP)
+                    ->count();
+                $system['procurement_replacements'] = (int) DB::table(ReplacementStock::TABLE)
+                    ->where('replacement_log_fulfillment_type', ReplacementStock::PROCUREMENT)
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            // ignore
         }
 
         return view('admin.dashboard', compact(
@@ -279,13 +270,7 @@ class AdminController extends Controller
             'budgetProposalYears',
             'budgetUsage',
             'overview',
-            'urgentReportsList',
-            'upcomingMaintenanceSchedules',
-            'semesterInspectionDue',
-            'overdueBorrowsPreview',
-            'receivingSummary',
-            'warrantyWatch',
-            'disposalWatch',
+            'system',
         ));
     }
 

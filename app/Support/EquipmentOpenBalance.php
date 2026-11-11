@@ -286,7 +286,7 @@ class EquipmentOpenBalance
             'r.room_type',
             'r.room_name',
         ];
-        foreach (['equipment_name', 'equipment_asset_tag', 'equipment_serial_number', 'equipment_condition_status', 'equipment_tracking_mode'] as $column) {
+        foreach (['equipment_name', 'equipment_asset_tag', 'equipment_serial_number', 'equipment_qr_code', 'equipment_condition_status', 'equipment_tracking_mode'] as $column) {
             if (Schema::hasColumn('equipment_table', $column)) {
                 $columns[] = 'e.'.$column;
             }
@@ -336,13 +336,16 @@ class EquipmentOpenBalance
                 $bucket['deployed'] += $qty;
             }
 
+            $tracking = $row->equipment_tracking_mode ?? null;
             $bucket['units'][] = [
                 'equipment_id' => $equipmentId,
                 'name' => trim((string) ($row->equipment_name ?? '')) ?: 'Equipment #'.$equipmentId,
                 'asset_tag' => $row->equipment_asset_tag ?? null,
                 'serial' => $row->equipment_serial_number ?? null,
+                'qr' => $row->equipment_qr_code ?? null,
                 'quantity' => $qty,
-                'tracking' => $row->equipment_tracking_mode ?? null,
+                'tracking' => $tracking,
+                'uniqueness' => EquipmentIdentity::label($row) ?: 'No asset tag / serial',
                 'condition' => $row->equipment_condition_status ?? null,
                 'room_name' => $row->room_name ?? null,
                 'placement' => $placement,

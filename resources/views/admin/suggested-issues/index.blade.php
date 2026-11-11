@@ -77,7 +77,7 @@
                     name="category"
                     class="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                 >
-                    <option value="">All categories</option>
+                    <option value="">All classifications</option>
                     @foreach ($categories as $category)
                         <option
                             value="{{ $category->equipment_category_id }}"

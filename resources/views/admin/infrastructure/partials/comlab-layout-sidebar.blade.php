@@ -42,10 +42,14 @@
                 <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400" x-text="roomLayout.comlabNav === 'rows' ? 'Equipment' : roomLayout.selectedComlabRow"></p>
                 <p class="mt-1 text-sm text-slate-500" x-text="roomLayout.comlabNav === 'rows'
                     ? (roomLayout.edit
-                        ? 'Arrange row tables on the floor. Drop any equipment on rows or place icons on the floor.'
-                        : (isComputerLabLayout()
-                            ? 'Click Open on a row to browse computer sets and equipment.'
-                            : 'Click Open on a row to browse equipment, or select a floor icon.'))
+                        ? (comlabHoldingItems().length
+                            ? 'Drag Holding equipment onto a row or the floor to place it.'
+                            : 'Arrange row tables on the floor. Drop equipment on rows or place icons on the floor.')
+                        : (comlabHoldingItems().length
+                            ? 'Turn on Edit layout, then drag Holding equipment onto a row or the floor.'
+                            : (isComputerLabLayout()
+                                ? 'Click Open on a row to browse computer sets and equipment.'
+                                : 'Click Open on a row to browse equipment, or select a floor icon.')))
                     : (isComputerLabLayout() ? 'Browse sets and equipment.' : 'Browse equipment in this row.')"></p>
             </div>
 
@@ -90,8 +94,35 @@
                     </template>
                     <p x-show="!comlabCanvasEquipment().length" class="px-3 py-2 text-[11px] text-slate-400">None placed on floor yet.</p>
 
-                    <div x-show="comlabHoldingItems().length > 0" x-cloak>
+                    <div
+                        class="mt-3 px-2"
+                        x-show="roomLayout.edit"
+                        x-cloak
+                    >
+                        <button
+                            type="button"
+                            @click="placeFromStorageModal = true"
+                            class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#005EA6]/20 bg-[#005EA6]/5 px-3 py-2 text-[11px] font-semibold text-[#005EA6] hover:bg-[#005EA6]/10"
+                            title="Assign RR-stocked storage equipment into Holding"
+                        >
+                            <i data-lucide="package-plus" class="h-3.5 w-3.5"></i>
+                            Add from storage
+                        </button>
+                    </div>
+
+                    <div x-show="comlabHoldingItems().length > 0 || roomLayout.edit" x-cloak>
                         <p class="mt-3 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Holding area</p>
+                        <p class="px-3 pb-1 text-[11px] leading-4 text-slate-400" x-text="roomLayout.edit
+                            ? (comlabHoldingItems().length
+                                ? 'Drag an item onto a row or the floor to place it in the room.'
+                                : 'Add from storage — new items land here until you drag them onto the canvas.')
+                            : 'Turn on Edit layout to drag these into the room.'"></p>
+                        <p
+                            x-show="roomLayout.edit && !comlabHoldingItems().length"
+                            class="px-3 py-2 text-[11px] text-slate-400"
+                        >
+                            Holding is empty.
+                        </p>
                         <template x-for="item in comlabHoldingItems()" :key="'sidebar-hold-' + item.id">
                             <button
                                 type="button"
@@ -102,7 +133,7 @@
                                 <span class="inline-flex h-5 w-5 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(item.name)"></span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block truncate text-sm font-medium text-slate-800" x-text="item.quantity > 1 ? (item.name + ' × ' + item.quantity) : item.name"></span>
-                                    <span class="block text-[11px] text-slate-400">Drop on a row or the floor</span>
+                                    <span class="block text-[11px] text-slate-400" x-text="roomLayout.edit ? 'Drag onto a row or the floor' : 'Edit layout to place'"></span>
                                 </span>
                             </button>
                         </template>
@@ -137,15 +168,23 @@
                     <template x-if="isComputerLabLayout()">
                         <div>
                             <p class="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Computer sets</p>
-                            <template x-for="(set, idx) in comlabSetsInSelectedRow()" :key="'sidebar-set-' + set.index">
+                            <template x-for="(set, idx) in comlabSetsInSelectedRow()" :key="'sidebar-set-' + (set.id || set.index)">
                                 <button type="button" @click="selectComlabSet(idx)" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition" :class="roomLayout.comlabSetCarouselIndex === idx ? 'bg-[#005EA6]/8 ring-1 ring-[#005EA6]/20' : 'hover:bg-slate-50'">
-                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600" x-text="set.label.replace(/^Computer Set\s+/i, '')"></span>
+                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600" x-text="String(idx + 1)"></span>
                                     <span class="min-w-0 flex-1">
                                         <span class="block text-sm font-semibold text-slate-900" x-text="set.label"></span>
-                                        <span class="block truncate text-[11px] text-slate-400" x-text="set.members.map(m => m.name).join(', ')"></span>
+                                        <span class="block truncate font-mono text-[10px] text-slate-500" x-show="set.tag" x-text="set.tag"></span>
+                                        <span class="block truncate text-[11px] text-slate-400" x-text="set.members.map(m => m.name).join(', ') || 'No members'"></span>
+                                        <span class="mt-0.5 block text-[10px] font-semibold text-rose-600" x-show="set.needs_replacement_count > 0" x-text="set.needs_replacement_count + ' need replacement'"></span>
                                     </span>
                                 </button>
                             </template>
+                            <p
+                                x-show="!comlabSetsInSelectedRow().length"
+                                class="px-3 py-2 text-[11px] text-slate-400"
+                            >
+                                No computer sets for this row yet.
+                            </p>
                         </div>
                     </template>
                     <template x-if="!isComputerLabLayout()">

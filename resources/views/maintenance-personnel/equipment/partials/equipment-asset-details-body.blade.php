@@ -16,12 +16,12 @@
             </button>
             <div
                 id="modal_layout_icon_wrap"
-                class="hidden h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-2 ring-white"
+                class="hidden h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-slate-50 ring-1 ring-slate-200/80"
+                title="No image yet"
             >
-                <span
-                    id="modal_layout_icon"
-                    class="inline-flex h-7 w-7 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                ></span>
+                <i data-lucide="image-off" class="h-4 w-4 text-slate-400"></i>
+                <span class="px-1 text-center text-[8px] font-semibold leading-tight text-slate-500">No image yet</span>
+                <span id="modal_layout_icon" class="hidden" aria-hidden="true"></span>
             </div>
 
             <div class="min-w-0 flex-1">
@@ -42,7 +42,18 @@
                 <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
                     <i data-lucide="tag" class="h-3.5 w-3.5"></i>
                 </span>
-                <span id="eqAssetModal_meta_tag" class="min-w-0 flex-1 truncate font-medium text-slate-800">—</span>
+                <div class="group/assettag relative min-w-0 flex-1">
+                    <span
+                        id="eqAssetModal_meta_tag"
+                        class="block cursor-default truncate font-medium text-slate-800"
+                        title=""
+                    >—</span>
+                    <div
+                        id="eqAssetModal_meta_tag_tip"
+                        role="tooltip"
+                        class="pointer-events-none absolute left-0 top-full z-[60] mt-1.5 hidden max-w-[min(22rem,calc(100vw-3rem))] whitespace-normal break-all rounded-lg bg-[#0f172a] px-3 py-2.5 text-[12px] font-medium leading-snug text-slate-100 shadow-[0_12px_28px_rgba(15,23,42,0.35)] group-hover/assettag:block"
+                    ></div>
+                </div>
                 <button
                     type="button"
                     id="eqAssetModal_copy_tag"

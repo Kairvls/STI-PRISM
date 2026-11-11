@@ -35,6 +35,9 @@ class RrLineIntake
             'lines.*.warranty' => 'nullable|date',
             'lines.*.useful_life_years' => 'nullable|integer|min:1|max:50',
             'lines.*.units.*.warranty' => 'nullable|date',
+            'lines.*.units.*.purchase_date' => 'nullable|date|before_or_equal:today',
+            'lines.*.units.*.cost' => 'nullable|numeric|min:0|max:'.InputLimits::COST,
+            'lines.*.units.*.useful_life_years' => 'nullable|integer|min:1|max:50',
             'lines.*.units.*.brand' => 'nullable|string|max:255',
             'lines.*.units.*.model' => 'nullable|string|max:255',
             'lines.*.asset_tag' => 'nullable|string|max:255',
@@ -147,7 +150,7 @@ class RrLineIntake
                 && EquipmentTrackingModes::requiresIndividualForCategory($categoryId)
             ) {
                 throw ValidationException::withMessages([
-                    "lines.$i.tracking" => $rrLine->article.' must be stocked as Individual units. Bulk is only for consumables/supplies.',
+                    "lines.$i.tracking" => $rrLine->article.' is Computer Equipment and must be stocked as Individual units (one identity per piece). Use quantity to add many.',
                 ]);
             }
 
@@ -174,6 +177,11 @@ class RrLineIntake
                     'warranty' => self::clean($unit['warranty'] ?? null)
                         ?? self::clean($line['warranty'] ?? null)
                         ?? self::clean($data['warranty'] ?? null),
+                    'purchase_date' => self::clean($unit['purchase_date'] ?? null),
+                    'cost' => self::clean($unit['cost'] ?? null),
+                    'useful_life_years' => filled($unit['useful_life_years'] ?? null)
+                        ? (int) $unit['useful_life_years']
+                        : null,
                     'room' => $roomId > 0 ? $deployRooms->get($roomId) : null,
                     'image' => $unit['image'] ?? null,
                 ];
@@ -216,11 +224,12 @@ class RrLineIntake
                         'equipment_tracking_mode' => $isBulk ? 'Bulk' : 'Individual',
                         'equipment_condition_status' => 'Good',
                         'equipment_inventory_status' => 'Active',
-                        'equipment_purchase_date' => $rr->purchase_date ? substr((string) $rr->purchase_date, 0, 10) : null,
+                        'equipment_purchase_date' => $unit['purchase_date']
+                            ?? ($rr->purchase_date ? substr((string) $rr->purchase_date, 0, 10) : null),
                         'equipment_acquired_date' => now()->toDateString(),
-                        'equipment_purchase_cost' => $rr->unit_cost,
+                        'equipment_purchase_cost' => $unit['cost'] ?? $rr->unit_cost,
                         'equipment_warranty_expiration' => $unit['warranty'],
-                        'equipment_useful_life_years' => $lineLife,
+                        'equipment_useful_life_years' => $unit['useful_life_years'] ?? $lineLife,
                         'equipment_is_borrowable' => (bool) ($line['borrowable'] ?? false),
                         'equipment_supplier_id' => $rr->supplier_id ? (int) $rr->supplier_id : null,
                         'equipment_stocked_by' => $userId,

@@ -1013,28 +1013,24 @@
                 if (equipmentCount > 0) {
 
                     Swal.fire({
-
                         icon: 'warning',
-
-                        title: 'Classification In Use',
-
+                        title: 'Classification in use',
                         text:
                             `"${categoryName}" cannot be deleted because ` +
                             `${equipmentCount} equipment record` +
                             `${equipmentCount === 1 ? ' is' : 's are'} still assigned to it.`,
-
-                        confirmButtonText:
-                            'Understood',
-
-                        background:
-                            '#ffffff',
-
-                        color:
-                            '#0f172a',
-
-                        confirmButtonColor:
-                            '#0f172a',
-
+                        confirmButtonText: 'Understood',
+                        buttonsStyling: false,
+                        background: '#ffffff',
+                        color: '#0f172a',
+                        customClass: {
+                            popup: 'prism-swal-dialog',
+                            icon: 'prism-swal-dialog__icon',
+                            title: 'prism-swal-dialog__title',
+                            htmlContainer: 'prism-swal-dialog__body',
+                            actions: 'prism-swal-dialog__actions',
+                            confirmButton: 'prism-swal-dialog__confirm',
+                        },
                     });
 
 
@@ -1048,58 +1044,28 @@
                 // =====================================================
 
                 Swal.fire({
-
-                    icon:
-                        'warning',
-
-                    title:
-                        'Delete Classification?',
-
+                    icon: 'warning',
+                    title: 'Delete classification?',
                     html:
                         `You are about to delete <strong>${this.escapeHtml(categoryName)}</strong>. ` +
                         `This action cannot be undone.`,
-
-                    showCancelButton:
-                        true,
-
-                    confirmButtonText:
-                        'Delete Classification',
-
-                    cancelButtonText:
-                        'Cancel',
-
-                    reverseButtons:
-                        true,
-
-                    focusCancel:
-                        true,
-
-                    background:
-                        '#ffffff',
-
-                    color:
-                        '#0f172a',
-
-                    confirmButtonColor:
-                        '#ffffff',
-
-                    cancelButtonColor:
-                        '#64748b',
-
+                    showCancelButton: true,
+                    confirmButtonText: 'Delete',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    buttonsStyling: false,
+                    background: '#ffffff',
+                    color: '#0f172a',
                     customClass: {
-                        confirmButton: 'swal-delete-confirm',
+                        popup: 'prism-swal-dialog',
+                        icon: 'prism-swal-dialog__icon',
+                        title: 'prism-swal-dialog__title',
+                        htmlContainer: 'prism-swal-dialog__body',
+                        actions: 'prism-swal-dialog__actions',
+                        confirmButton: 'prism-swal-dialog__confirm prism-swal-dialog__confirm--danger',
+                        cancelButton: 'prism-swal-dialog__cancel',
                     },
-
-                    didOpen: () => {
-                        const btn = document.querySelector('.swal-delete-confirm');
-                        if (btn) {
-                            btn.style.background = '#ffffff';
-                            btn.style.color = '#b91c1c';
-                            btn.style.border = '1px solid #e2e8f0';
-                            btn.style.boxShadow = 'none';
-                        }
-                    },
-
                 }).then((result) => {
 
                     if (!result.isConfirmed) {
@@ -1207,15 +1173,108 @@
 
 
 <style>
-
-    /* ===================================================== */
-    /* PREVENT ALPINE CONTENT FLASH */
-    /* ===================================================== */
-
     [x-cloak] {
         display: none !important;
     }
 
+    .prism-swal-dialog.swal2-popup {
+        width: min(22.5rem, calc(100vw - 2rem)) !important;
+        padding: 1.75rem 1.5rem 1.35rem !important;
+        border-radius: 1.25rem !important;
+        border: 1px solid #e2e8f0 !important;
+        background: #ffffff !important;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12) !important;
+        color: #0f172a !important;
+    }
+
+    .prism-swal-dialog .swal2-icon.prism-swal-dialog__icon {
+        width: 2.75rem !important;
+        height: 2.75rem !important;
+        margin: 0 auto 1rem !important;
+        border-width: 1.5px !important;
+    }
+
+    .prism-swal-dialog .swal2-icon.swal2-warning {
+        border-color: #fdba74 !important;
+        color: #ea580c !important;
+    }
+
+    .prism-swal-dialog .swal2-icon .swal2-icon-content {
+        font-size: 1.35rem !important;
+        font-weight: 600 !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__title {
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.02em !important;
+        line-height: 1.35 !important;
+        color: #0f172a !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__body,
+    .prism-swal-dialog .swal2-html-container,
+    .prism-swal-dialog .swal2-html-container.prism-swal-dialog__body {
+        margin: 0.55rem 0 0 !important;
+        padding: 0 !important;
+        font-size: 0.875rem !important;
+        font-weight: 400 !important;
+        line-height: 1.55 !important;
+        color: #64748b !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__actions {
+        width: 100% !important;
+        margin: 1.35rem 0 0 !important;
+        gap: 0.5rem !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__confirm,
+    .prism-swal-dialog .prism-swal-dialog__cancel {
+        margin: 0 !important;
+        flex: 1 1 0% !important;
+        border-radius: 0.75rem !important;
+        padding: 0.7rem 1rem !important;
+        font-size: 0.8125rem !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
+        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__confirm {
+        background: #0025cc !important;
+        color: #ffffff !important;
+        border: 1px solid #0025cc !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__confirm:hover {
+        background: #001fad !important;
+        border-color: #001fad !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__confirm--danger {
+        background: #ffffff !important;
+        color: #b91c1c !important;
+        border: 1px solid #fecaca !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__confirm--danger:hover {
+        background: #fff1f2 !important;
+        border-color: #fda4af !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__cancel {
+        background: #f8fafc !important;
+        color: #475569 !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+
+    .prism-swal-dialog .prism-swal-dialog__cancel:hover {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+    }
 </style>
 
 @endsection

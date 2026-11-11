@@ -57,7 +57,11 @@ class EquipmentLifecycle
 
     public static function suggestAction(int $yearsRemaining, ?string $inventoryStatus = null): array
     {
-        $alreadyMarked = strcasecmp((string) $inventoryStatus, 'For Replacement') === 0;
+        $alreadyMarked = in_array(
+            strtolower(trim((string) $inventoryStatus)),
+            ['for replacement', 'replaced'],
+            true
+        );
 
         if ($alreadyMarked) {
             return [

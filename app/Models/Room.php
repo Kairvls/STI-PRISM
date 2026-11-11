@@ -24,6 +24,7 @@ class Room extends Model
         'room_width',
         'room_height',
         'room_color',
+        'room_image',
         'room_type',
         'room_department_id',
         'room_metadata',

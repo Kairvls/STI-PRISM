@@ -1450,11 +1450,7 @@
             }
 
             function showRoomDetailsSkeleton() {
-                ["buildingRoomDetailsCritical", "buildingRoomDetailsHigh", "buildingRoomDetailsMedium", "buildingRoomDetailsLow"]
-                    .forEach((id) => {
-                        document.getElementById(id)?.classList.add("is-skeleton");
-                    });
-
+                // Keep severity counts visible from the room payload; only skeleton the report list.
                 if (roomDetailsReports) {
                     roomDetailsReports.innerHTML =
                         '<div class="building-room-skel" aria-hidden="true" aria-label="Loading reports">' +
@@ -1466,9 +1462,7 @@
             }
 
             function clearRoomDetailsSkeleton() {
-                document
-                    .querySelectorAll(".building-room-details-stat strong.is-skeleton")
-                    .forEach((el) => el.classList.remove("is-skeleton"));
+                // no-op kept for callers; list is replaced by applyRoomDetail / error UI
             }
 
             function applyRoomDetail(detail) {

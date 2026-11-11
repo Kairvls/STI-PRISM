@@ -65,6 +65,13 @@
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
+                <a
+                    href="{{ route('admin.reporters.export-pdf', array_filter(['search' => request('search') ?: null, 'status' => request('status') ?: null])) }}"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                    <i data-lucide="file-down" class="h-4 w-4"></i>
+                    Export PDF
+                </a>
                 @if (($pinsReady ?? false) && ($activeReportersWithoutPin ?? 0) > 0)
                     <button
                         type="button"
@@ -164,10 +171,19 @@
                 @endphp
 
                 <div class="space-y-6 p-0">
-                    <a href="{{ route('admin.reporters.index') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">
-                        <i data-lucide="arrow-left" class="h-4 w-4"></i>
-                        Back to directory
-                    </a>
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <a href="{{ route('admin.reporters.index') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">
+                            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                            Back to directory
+                        </a>
+                        <a
+                            href="{{ route('admin.reporters.audit-pack', (int) $historyReporter->reporter_id) }}"
+                            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        >
+                            <i data-lucide="file-down" class="h-4 w-4"></i>
+                            Audit pack
+                        </a>
+                    </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white p-5">
                         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

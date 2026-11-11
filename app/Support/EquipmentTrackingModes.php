@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Bulk vs Individual rules for inventory stocking.
- * Tracked equipment must be Individual; Bulk is only for true consumables / supplies.
+ * Computer Equipment must be Individual (one identity per unit).
+ * Other categories (furniture, consumables, etc.) may use Bulk quantity piles.
  */
 class EquipmentTrackingModes
 {
@@ -33,7 +34,7 @@ class EquipmentTrackingModes
         'chemical',
     ];
 
-    public static function isConsumableCategory(?int $categoryId = null, ?string $categoryName = null): bool
+    public static function categoryName(?int $categoryId = null, ?string $categoryName = null): string
     {
         $name = strtolower(trim((string) $categoryName));
         if ($name === '' && $categoryId && $categoryId > 0 && Schema::hasTable('equipment_categories_table')) {
@@ -42,6 +43,12 @@ class EquipmentTrackingModes
                 ->value('equipment_category_name')));
         }
 
+        return $name;
+    }
+
+    public static function isConsumableCategory(?int $categoryId = null, ?string $categoryName = null): bool
+    {
+        $name = self::categoryName($categoryId, $categoryName);
         if ($name === '') {
             return false;
         }
@@ -55,21 +62,29 @@ class EquipmentTrackingModes
         return false;
     }
 
-    /** RR-linked equipment (non-consumable) must stock as Individual units. */
+    /** Computer parts that belong in COMPSETs / unique asset tracking. */
+    public static function isComputerEquipmentCategory(?int $categoryId = null, ?string $categoryName = null): bool
+    {
+        $name = self::categoryName($categoryId, $categoryName);
+
+        return $name !== '' && str_contains($name, 'computer equipment');
+    }
+
+    /** Computer Equipment must stock as Individual units. */
     public static function requiresIndividualForCategory(?int $categoryId = null, ?string $categoryName = null): bool
     {
-        return ! self::isConsumableCategory($categoryId, $categoryName);
+        return self::isComputerEquipmentCategory($categoryId, $categoryName);
     }
 
     /**
-     * @return array{Bulk: bool, Individual: bool} allowed modes for an RR line given its category
+     * @return array{Bulk: bool, Individual: bool} allowed modes for a category
      */
     public static function allowedForRrCategory(?int $categoryId = null, ?string $categoryName = null): array
     {
-        if (self::isConsumableCategory($categoryId, $categoryName)) {
-            return [self::BULK => true, self::INDIVIDUAL => true];
+        if (self::requiresIndividualForCategory($categoryId, $categoryName)) {
+            return [self::BULK => false, self::INDIVIDUAL => true];
         }
 
-        return [self::BULK => false, self::INDIVIDUAL => true];
+        return [self::BULK => true, self::INDIVIDUAL => true];
     }
 }

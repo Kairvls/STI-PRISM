@@ -362,9 +362,10 @@
                                             <button
                                                 type="button"
                                                 @click="viewDept({{ (int) $dept->department_id }})"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50 active:scale-95"
-                                                data-tooltip="View equipment and people"
-                                                aria-label="View equipment and people"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                                data-tooltip="View"
+                                                aria-label="View"
+                                                title="View"
                                             >
                                                 <i data-lucide="eye" class="h-4 w-4"></i>
                                             </button>

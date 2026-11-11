@@ -49,16 +49,34 @@ class BuildingLayout3D
 
     /**
      * @param  array{preset?:string,from?:string,to?:string}|null  $period
+     * @param  list<int>|null  $onlyRoomIds  When set, hydrate only these rooms (faster for single-room panels).
      */
-    public static function rooms(?array $period = null): Collection
+    public static function rooms(?array $period = null, ?array $onlyRoomIds = null): Collection
     {
         [$from, $to, $preset] = self::resolvePeriod($period);
         $isLive = $preset === 'today' || ($from->isSameDay(today()) && $to->isSameDay(today()));
 
-        $rooms = DB::table('rooms_table')
+        $filteredIds = null;
+        if ($onlyRoomIds !== null) {
+            $filteredIds = array_values(array_unique(array_filter(
+                array_map('intval', $onlyRoomIds),
+                fn (int $id) => $id > 0,
+            )));
+            if ($filteredIds === []) {
+                return collect();
+            }
+        }
+
+        $roomsQuery = DB::table('rooms_table')
             ->leftJoin('floors_table', 'rooms_table.room_floor_id', '=', 'floors_table.floor_id')
             ->leftJoin('buildings_table', 'floors_table.floor_building_id', '=', 'buildings_table.building_id')
-            ->where('rooms_table.room_is_archived', false)
+            ->where('rooms_table.room_is_archived', false);
+
+        if ($filteredIds !== null) {
+            $roomsQuery->whereIn('rooms_table.room_id', $filteredIds);
+        }
+
+        $rooms = $roomsQuery
             ->select(
                 'rooms_table.*',
                 'floors_table.floor_id',
@@ -149,7 +167,7 @@ class BuildingLayout3D
         [$from, $to, $preset] = self::resolvePeriod($period);
         $cacheKey = 'building3d.room.'.$roomId.'.'.$preset.'.'.$from->toDateString().'.'.$to->toDateString();
 
-        return Cache::remember($cacheKey, now()->addSeconds(20), function () use ($roomId, $from, $to, $preset) {
+        return Cache::remember($cacheKey, now()->addSeconds(45), function () use ($roomId, $from, $to, $preset) {
             return self::buildRoomDetail($roomId, $from, $to, $preset);
         });
     }
@@ -161,26 +179,8 @@ class BuildingLayout3D
     {
         $isLive = $preset === 'today' || ($from->isSameDay(today()) && $to->isSameDay(today()));
         $hasSeverity = ReportSeverity::hasColumns();
-        $reportIds = self::reportIdsLocatedInRoom($roomId, $from, $to, $isLive);
-
-        $rows = $reportIds === []
-            ? collect()
-            : DB::table('reports_table')
-                ->whereIn('reports_table.report_id', $reportIds)
-                ->orderByRaw($hasSeverity
-                    ? ReportSeverity::orderSql('reports_table')
-                    : "CASE WHEN reports_table.report_urgency_level = 'Urgent' THEN 0 ELSE 1 END")
-                ->orderByDesc('reports_table.report_submitted_at')
-                ->limit(200)
-                ->get(array_values(array_filter([
-                    'reports_table.report_id',
-                    'reports_table.report_current_status',
-                    'reports_table.report_urgency_level',
-                    'reports_table.report_submitted_at',
-                    'reports_table.report_problem_description',
-                    'reports_table.report_suggested_issue',
-                    $hasSeverity ? 'reports_table.report_severity' : null,
-                ])));
+        // Panel only needs a short list — avoid scanning/plucking every matching id for long periods (year).
+        $rows = self::fetchRoomReportsForPanel($roomId, $from, $to, $isLive, 40);
 
         $counts = ['total' => 0, 'critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0];
         $reports = [];
@@ -408,69 +408,73 @@ class BuildingLayout3D
     }
 
     /**
-     * Report ids whose location resolves to this room.
-     * Separate indexed lookups stay faster than one joined COALESCE scan.
+     * Recent reports whose location resolves to this room (panel list).
+     * One limited query — faster than plucking every matching id then re-fetching.
      *
-     * @return list<int>
+     * @return \Illuminate\Support\Collection<int, object>
      */
-    private static function reportIdsLocatedInRoom(int $roomId, Carbon $from, Carbon $to, bool $isLive): array
-    {
-        $period = function () use ($from, $to, $isLive) {
-            $query = DB::table('reports_table')
-                ->where('reports_table.report_is_archived', false)
-                ->whereBetween('reports_table.report_submitted_at', [
-                    $from->copy()->startOfDay()->toDateTimeString(),
-                    $to->copy()->endOfDay()->toDateTimeString(),
-                ]);
+    private static function fetchRoomReportsForPanel(
+        int $roomId,
+        Carbon $from,
+        Carbon $to,
+        bool $isLive,
+        int $limit = 40
+    ): Collection {
+        $hasSeverity = ReportSeverity::hasColumns();
+        $hasItems = Schema::hasTable('report_items_table');
+        $hasItemRoom = $hasItems && Schema::hasColumn('report_items_table', 'report_item_room_id');
 
-            if ($isLive) {
-                $query->whereNotIn('reports_table.report_current_status', self::CLOSED_REPORT_STATUSES);
-            }
-
-            return $query;
+        $equipmentInRoom = function ($sub) use ($roomId) {
+            $sub->select('equipment_id')
+                ->from('equipment_table')
+                ->where('equipment_room_id', $roomId);
         };
 
-        $ids = $period()
-            ->where('reports_table.report_room_id', $roomId)
-            ->pluck('reports_table.report_id');
+        $query = DB::table('reports_table')
+            ->where('reports_table.report_is_archived', false)
+            ->whereBetween('reports_table.report_submitted_at', [
+                $from->copy()->startOfDay()->toDateTimeString(),
+                $to->copy()->endOfDay()->toDateTimeString(),
+            ])
+            ->where(function ($outer) use ($roomId, $hasItems, $hasItemRoom, $equipmentInRoom) {
+                $outer->where('reports_table.report_room_id', $roomId)
+                    ->orWhereIn('reports_table.report_equipment_id', $equipmentInRoom);
 
-        $ids = $ids->merge(
-            $period()
-                ->join('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
-                ->where('equipment_table.equipment_room_id', $roomId)
-                ->pluck('reports_table.report_id')
-        );
+                if ($hasItems) {
+                    $outer->orWhereIn('reports_table.report_id', function ($sub) use ($roomId, $hasItemRoom, $equipmentInRoom) {
+                        $sub->select('report_items_table.report_id')
+                            ->from('report_items_table')
+                            ->where(function ($item) use ($roomId, $hasItemRoom, $equipmentInRoom) {
+                                if ($hasItemRoom) {
+                                    $item->where('report_items_table.report_item_room_id', $roomId)
+                                        ->orWhereIn('report_items_table.report_item_equipment_id', $equipmentInRoom);
+                                } else {
+                                    $item->whereIn('report_items_table.report_item_equipment_id', $equipmentInRoom);
+                                }
+                            });
+                    });
+                }
+            });
 
-        if (Schema::hasTable('report_items_table')) {
-            $itemQuery = $period()
-                ->join('report_items_table', 'report_items_table.report_id', '=', 'reports_table.report_id');
-
-            if (Schema::hasColumn('report_items_table', 'report_item_room_id')) {
-                $itemQuery->where(function ($query) use ($roomId) {
-                    $query->where('report_items_table.report_item_room_id', $roomId)
-                        ->orWhereIn('report_items_table.report_item_equipment_id', function ($sub) use ($roomId) {
-                            $sub->select('equipment_id')
-                                ->from('equipment_table')
-                                ->where('equipment_room_id', $roomId);
-                        });
-                });
-            } else {
-                $itemQuery->whereIn('report_items_table.report_item_equipment_id', function ($sub) use ($roomId) {
-                    $sub->select('equipment_id')
-                        ->from('equipment_table')
-                        ->where('equipment_room_id', $roomId);
-                });
-            }
-
-            $ids = $ids->merge($itemQuery->pluck('reports_table.report_id'));
+        if ($isLive) {
+            $query->whereNotIn('reports_table.report_current_status', self::CLOSED_REPORT_STATUSES);
         }
 
-        return $ids
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values()
-            ->all();
+        return $query
+            ->orderByRaw($hasSeverity
+                ? ReportSeverity::orderSql('reports_table')
+                : "CASE WHEN reports_table.report_urgency_level = 'Urgent' THEN 0 ELSE 1 END")
+            ->orderByDesc('reports_table.report_submitted_at')
+            ->limit(max(1, $limit))
+            ->get(array_values(array_filter([
+                'reports_table.report_id',
+                'reports_table.report_current_status',
+                'reports_table.report_urgency_level',
+                'reports_table.report_submitted_at',
+                'reports_table.report_problem_description',
+                'reports_table.report_suggested_issue',
+                $hasSeverity ? 'reports_table.report_severity' : null,
+            ])));
     }
 
     /**

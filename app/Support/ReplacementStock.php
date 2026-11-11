@@ -20,6 +20,15 @@ class ReplacementStock
 
     public const PROCUREMENT = 'Procurement';
 
+    /** Marked Replaced with no successor unit (scrap / no swap). */
+    public const NO_SUCCESSOR = 'No Successor';
+
+    public const FULFILLMENT_TYPES = [
+        self::STOCK_SWAP,
+        self::PROCUREMENT,
+        self::NO_SUCCESSOR,
+    ];
+
     private const USABLE_STATUSES = ['active', 'available', 'in stock'];
 
     private const UNUSABLE_CONDITIONS = ['damaged', 'defective', 'poor', 'for repair', 'disposed'];
@@ -148,6 +157,60 @@ class ReplacementStock
             'replacement_log_performed_by' => Auth::id(),
             'replacement_log_performed_at' => now(),
         ], $data));
+    }
+
+    /**
+     * Stock unit swapped in for a replaced unit (report swap or computer-set swap).
+     *
+     * @param  array{from_room_id?: int|null, to_room_id?: int|null, notes?: string|null, report_id?: int|null, report_item_id?: int|null, performed_by?: int|null}  $extra
+     */
+    public static function logStockSwap(object $replaced, object $replacement, array $extra = []): void
+    {
+        self::log([
+            'replacement_log_replaced_equipment_id' => $replaced->equipment_id ?? null,
+            'replacement_log_replaced_label' => self::label($replaced),
+            'replacement_log_replaced_asset_tag' => $replaced->equipment_asset_tag ?? null,
+            'replacement_log_replacement_equipment_id' => $replacement->equipment_id ?? null,
+            'replacement_log_replacement_label' => self::label($replacement),
+            'replacement_log_replacement_asset_tag' => $replacement->equipment_asset_tag ?? null,
+            'replacement_log_fulfillment_type' => self::STOCK_SWAP,
+            'replacement_log_stock_was_available' => true,
+            'replacement_log_from_room_id' => $extra['from_room_id'] ?? ($replacement->equipment_room_id ?? null),
+            'replacement_log_to_room_id' => $extra['to_room_id'] ?? ($replaced->equipment_room_id ?? null),
+            'replacement_log_notes' => $extra['notes'] ?? null,
+            'replacement_log_report_id' => $extra['report_id'] ?? null,
+            'replacement_log_report_item_id' => $extra['report_item_id'] ?? null,
+            'replacement_log_performed_by' => $extra['performed_by'] ?? Auth::id(),
+        ]);
+    }
+
+    /**
+     * For Replacement → Replaced with no successor equipment.
+     *
+     * @param  array{performed_by?: int|null}  $extra
+     */
+    public static function logNoSuccessor(object $equipment, string $reason, array $extra = []): void
+    {
+        self::log([
+            'replacement_log_replaced_equipment_id' => $equipment->equipment_id ?? null,
+            'replacement_log_replaced_label' => self::label($equipment),
+            'replacement_log_replaced_asset_tag' => $equipment->equipment_asset_tag ?? null,
+            'replacement_log_fulfillment_type' => self::NO_SUCCESSOR,
+            'replacement_log_stock_was_available' => false,
+            'replacement_log_to_room_id' => $equipment->equipment_room_id ?? null,
+            'replacement_log_notes' => $reason !== '' ? $reason : null,
+            'replacement_log_performed_by' => $extra['performed_by'] ?? Auth::id(),
+        ]);
+    }
+
+    public static function fulfillmentLabel(string $type): string
+    {
+        return match ($type) {
+            self::STOCK_SWAP => 'Swapped from inventory stock',
+            self::PROCUREMENT => 'Procurement request',
+            self::NO_SUCCESSOR => 'Marked Replaced (no successor)',
+            default => $type,
+        };
     }
 
     public static function label(?object $equipment, ?string $fallback = null): ?string

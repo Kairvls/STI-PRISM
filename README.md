@@ -315,3 +315,5 @@ how do we make the chat system much more reliable/important should we make it li
 make it it will open the form shows not new tab of the system like on the second image
 
 when got new messages that hasn't read yet
+
+what about this i set 20 individual keyboard so maybe we just also set a indivisual purchase and warranty & lifespan section for those 20 individual keyboard right? cause theres still possibility that those 4 keyboard out of 20 is has different purchase or warranty or lifespan or those 20 keyboard has each different purchase or warranty or lifespan right? but still put a for all set purchase or warranty or lifespan right? also theres possibility that those 20 keyboard is the same

@@ -9,9 +9,9 @@ class EquipmentViewReturn
     public static function viewUrl(int $equipmentId, ?string $returnUrl = null): string
     {
         $url = url('/maintenance/equipment/view/'.$equipmentId);
-        $return = $returnUrl ?? (request()->fullUrl() ?: null);
+        $return = $returnUrl ?? self::preferredReturnUrl();
 
-        if (! self::isValidReturnUrl($return) || self::isEquipmentDetailUrl($return)) {
+        if (! self::isUsableReturnUrl($return)) {
             return $url;
         }
 
@@ -22,9 +22,9 @@ class EquipmentViewReturn
     public static function monitorShowUrl(int $equipmentId, ?string $returnUrl = null): string
     {
         $url = AdminPortal::route('operations.equipment.show', $equipmentId);
-        $return = $returnUrl ?? (request()->fullUrl() ?: null);
+        $return = $returnUrl ?? self::preferredReturnUrl();
 
-        if (! self::isValidReturnUrl($return) || self::isEquipmentDetailUrl($return)) {
+        if (! self::isUsableReturnUrl($return)) {
             return $url;
         }
 
@@ -38,7 +38,7 @@ class EquipmentViewReturn
     {
         $return = $request->query('return');
 
-        if (is_string($return) && self::isValidReturnUrl($return) && ! self::isEquipmentDetailUrl($return)) {
+        if (is_string($return) && self::isUsableReturnUrl($return)) {
             return [
                 'url' => $return,
                 'label' => self::labelForUrl($return),
@@ -47,7 +47,7 @@ class EquipmentViewReturn
 
         $previous = url()->previous();
 
-        if (self::isValidReturnUrl($previous) && ! self::isEquipmentDetailUrl($previous)) {
+        if (self::isUsableReturnUrl($previous)) {
             return [
                 'url' => $previous,
                 'label' => self::labelForUrl($previous),
@@ -69,7 +69,7 @@ class EquipmentViewReturn
     {
         $return = $request->query('return');
 
-        if (is_string($return) && self::isValidReturnUrl($return) && ! self::isEquipmentDetailUrl($return)) {
+        if (is_string($return) && self::isUsableReturnUrl($return)) {
             return [
                 'url' => $return,
                 'label' => self::labelForUrl($return),
@@ -78,7 +78,7 @@ class EquipmentViewReturn
 
         $previous = url()->previous();
 
-        if (self::isValidReturnUrl($previous) && ! self::isEquipmentDetailUrl($previous)) {
+        if (self::isUsableReturnUrl($previous)) {
             return [
                 'url' => $previous,
                 'label' => self::labelForUrl($previous),
@@ -115,6 +115,29 @@ class EquipmentViewReturn
         };
     }
 
+    private static function preferredReturnUrl(): ?string
+    {
+        $candidates = [
+            request()->fullUrl() ?: null,
+            request()->headers->get('referer'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (self::isUsableReturnUrl($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static function isUsableReturnUrl(?string $url): bool
+    {
+        return self::isValidReturnUrl($url)
+            && ! self::isEquipmentDetailUrl($url)
+            && ! self::isApiReturnUrl($url);
+    }
+
     private static function isValidReturnUrl(?string $url): bool
     {
         if (! filled($url)) {
@@ -134,6 +157,17 @@ class EquipmentViewReturn
 
         return str_contains($path, '/maintenance/equipment/view/')
             || (bool) preg_match('#/operations/equipment/\d+#', $path);
+    }
+
+    /** JSON/API endpoints must never become "Back to previous page" targets. */
+    private static function isApiReturnUrl(string $url): bool
+    {
+        $path = strtolower(parse_url($url, PHP_URL_PATH) ?? '');
+
+        return str_contains($path, '/equipment/timeline/')
+            || str_contains($path, '/equipment/lifecycle/')
+            || (bool) preg_match('#/equipment/transfers/\d+#', $path)
+            || (bool) preg_match('#/equipment/history/\d+#', $path);
     }
 
     /** @deprecated use isEquipmentDetailUrl */

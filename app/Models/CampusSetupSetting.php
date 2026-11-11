@@ -16,9 +16,11 @@ class CampusSetupSetting extends Model
         'campus_setup_pin_hash',
         'campus_setup_pin_updated_by',
         'campus_setup_pin_updated_at',
+        'default_floor_id',
     ];
 
     protected $casts = [
         'campus_setup_pin_updated_at' => 'datetime',
+        'default_floor_id' => 'integer',
     ];
 }

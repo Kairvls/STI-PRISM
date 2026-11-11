@@ -12,6 +12,8 @@ use App\Models\RoomActivityLog;
 use App\Models\CampusSetupSetting;
 use App\Support\RoomName;
 use App\Support\EquipmentQrCodes;
+use App\Support\ComputerSets;
+use App\Support\EquipmentTrackingModes;
 use App\Support\LayoutEquipmentPayload;
 use App\Support\PropertyAssignments;
 use App\Support\EquipmentAcquisition;
@@ -22,6 +24,7 @@ use App\Support\RoomStatusPalette;
 use App\Support\RoomStatuses;
 use App\Support\TransferLocks;
 use App\Support\EquipmentConditions;
+use App\Support\EquipmentIdentity;
 use App\Support\EquipmentInventoryStatuses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +35,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 
@@ -53,15 +57,15 @@ class InfrastructureController extends Controller
         $rooms = Room::query()->with([
                 'floor.building',
                 'equipment.category',
-                'equipment.supplier.physical',
-                'equipment.supplier.online',
             ])
             ->when($hasRoomArchive, fn ($query) => $query->where('room_is_archived', false))
             ->orderBy('room_floor_id')->orderBy('room_name')->get();
-        $roomIds = $rooms->pluck('room_id');
+        $roomIds = $rooms->pluck('room_id')->map(fn ($id) => (int) $id)->filter()->values();
         $reportMetrics = collect();
         $frequentProblems = collect();
         $schedules = collect();
+        $lastInspections = collect();
+        $nextMaintenances = collect();
 
         if ($roomIds->isNotEmpty() && Schema::hasTable('reports_table')) {
             $reportMetrics = DB::table('reports_table')->whereIn('report_room_id', $roomIds)
@@ -76,7 +80,7 @@ class InfrastructureController extends Controller
             $frequentProblems = DB::table('reports_table')->whereIn('report_room_id', $roomIds)
                 ->whereNotNull('report_problem_description')
                 ->groupBy('report_room_id', 'report_problem_description')
-                ->selectRaw('report_room_id, report_problem_description, COUNT(*) AS occurrences')
+                ->selectRaw('report_room_id, report_problem_description, COUNT(*) AS occurrences, MAX(report_submitted_at) AS last_reported_at')
                 ->orderByDesc('occurrences')->get()->groupBy('report_room_id')
                 ->map(fn ($items) => $items->take(3)->values());
         }
@@ -87,145 +91,58 @@ class InfrastructureController extends Controller
                 ->whereIn('equipment_room_id', $roomIds)
                 ->where('maintenance_schedule_status', '!=', 'Completed')
                 ->orderBy('maintenance_schedule_next_date')
-                ->select('equipment_room_id', 'equipment_name', 'maintenance_schedule_title',
-                    'maintenance_schedule_next_date', 'maintenance_schedule_status')
+                ->select(array_values(array_unique(array_merge([
+                    'equipment_room_id',
+                    'equipment_name',
+                    'maintenance_schedule_title',
+                    'maintenance_schedule_next_date',
+                    'maintenance_schedule_status',
+                ], EquipmentIdentity::columns('equipment_table')))))
                 ->get()->groupBy('equipment_room_id')->map(fn ($items) => $items->take(4)->values());
+
+            $nextMaintenances = DB::table('maintenance_schedules_table')
+                ->join('equipment_table', 'maintenance_schedules_table.maintenance_schedule_equipment_id', '=', 'equipment_table.equipment_id')
+                ->whereIn('equipment_table.equipment_room_id', $roomIds)
+                ->groupBy('equipment_table.equipment_room_id')
+                ->selectRaw('equipment_table.equipment_room_id as room_id, MIN(maintenance_schedule_next_date) as next_date')
+                ->pluck('next_date', 'room_id');
+        }
+
+        if ($roomIds->isNotEmpty() && Schema::hasTable('equipment_maintenance_history_table')) {
+            $lastInspections = DB::table('equipment_maintenance_history_table')
+                ->join(
+                    'equipment_table',
+                    'equipment_maintenance_history_table.equipment_maintenance_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
+                )
+                ->whereIn('equipment_table.equipment_room_id', $roomIds)
+                ->groupBy('equipment_table.equipment_room_id')
+                ->selectRaw('equipment_table.equipment_room_id as room_id, MAX(equipment_maintenance_completed_at) as last_at')
+                ->pluck('last_at', 'room_id');
         }
 
         // Same live status rules as 3D campus monitoring (Critical / Under Maintenance / Normal).
         $layoutStatusByRoom = BuildingLayout3D::rooms(['preset' => 'today'])->keyBy('room_id');
 
-        $rooms->each(function (Room $room) use ($reportMetrics, $frequentProblems, $schedules, $layoutStatusByRoom): void {
-            $metric = $reportMetrics->get($room->room_id);
-            $layout = $layoutStatusByRoom->get($room->room_id);
-            $layoutStatus = (string) ($layout->dashboard_status ?? BuildingLayout3D::STATUS_NORMAL);
-            $layoutLabel = (string) ($layout->dashboard_label ?? RoomStatuses::NORMAL);
-            $statusColor = (string) ($layout->status_color ?? RoomStatusPalette::colorForStatus(
-                $layoutStatus
-            ));
-
-            $room->layout_status = $layoutStatus;
-            $room->layout_label = $layoutLabel;
-            $room->status_color = $statusColor;
-            $room->departments = $layout->departments ?? [];
-            $room->report_count = (int) ($layout->report_count ?? 0);
-            $room->critical_report_count = (int) ($layout->critical_report_count ?? 0);
-            $room->high_report_count = (int) ($layout->high_report_count ?? 0);
-            $room->medium_report_count = (int) ($layout->medium_report_count ?? 0);
-            $room->low_report_count = (int) ($layout->low_report_count ?? 0);
-            $room->under_maintenance_scheduled = (bool) ($layout->under_maintenance_scheduled ?? false);
-            $room->maintenance_scopes = $layout->maintenance_scopes ?? [];
-            $room->maintenance_schedules = $layout->maintenance_schedules ?? [];
-            $room->room_inspection_next_date = $layout->room_inspection_next_date ?? null;
-
-            $room->monitoring = [
-
-                'equipment_count' => $room->equipment->count(),
-
-                'equipment_quantity' => $room->equipment->sum('equipment_quantity'),
-
-                'equipment_good' => $room->equipment
-                    ->where('equipment_condition_status', EquipmentConditions::GOOD)
-                    ->count(),
-
-                'equipment_damaged' => $room->equipment
-                    ->where('equipment_condition_status', EquipmentConditions::DAMAGED)
-                    ->count(),
-
-                'equipment_defective' => $room->equipment
-                    ->where('equipment_condition_status', EquipmentConditions::DEFECTIVE)
-                    ->count(),
-
-                'equipment_maintenance' => $room->equipment
-                    ->where('equipment_condition_status', EquipmentConditions::UNDER_MAINTENANCE)
-                    ->count(),
-
-                'equipment_disposed' => $room->equipment
-                    ->where('equipment_condition_status', EquipmentConditions::DISPOSED)
-                    ->count(),
-
-                'active_reports' => (int) ($layout->report_count ?? $metric->active_count ?? 0),
-
-                'today_reports' => (int) ($metric->today_count ?? 0),
-
-                'week_reports' => (int) ($metric->week_count ?? 0),
-
-                'month_reports' => (int) ($metric->month_count ?? 0),
-
-                'critical_reports' => (int) ($layout->critical_report_count ?? 0),
-
-                'high_reports' => (int) ($layout->high_report_count ?? 0),
-
-                'medium_reports' => (int) ($layout->medium_report_count ?? 0),
-
-                'low_reports' => (int) ($layout->low_report_count ?? 0),
-
-                'frequent_problems' => $frequentProblems
-                    ->get($room->room_id, collect())
-                    ->all(),
-
-                'schedules' => $schedules
-                    ->get($room->room_id, collect())
-                    ->all(),
-
-                'history'=>RoomActivityLog::where(
-
-                        'room_id',
-
-                        $room->room_id
-
-                    )
-
-                    ->latest('created_at')
-
-                    ->take(100)
-
-                    ->get(),
-
-                'room_information' => [
-
-                    'last_inspection' => DB::table('equipment_maintenance_history_table')
-                        ->join(
-                            'equipment_table',
-                            'equipment_maintenance_history_table.equipment_maintenance_equipment_id',
-                            '=',
-                            'equipment_table.equipment_id'
-                        )
-                        ->where(
-                            'equipment_table.equipment_room_id',
-                            $room->room_id
-                        )
-                        ->max('equipment_maintenance_completed_at'),
-
-                    'next_maintenance' => $layout->room_inspection_next_date
-                        ?? DB::table('maintenance_schedules_table')
-                            ->join(
-                                'equipment_table',
-                                'maintenance_schedules_table.maintenance_schedule_equipment_id',
-                                '=',
-                                'equipment_table.equipment_id'
-                            )
-                            ->where(
-                                'equipment_table.equipment_room_id',
-                                $room->room_id
-                            )
-                            ->min('maintenance_schedule_next_date'),
-
-                    'last_updated' => $room->room_updated_at,
-
-                    // Live derived status for monitoring (not only manual room_status).
-                    'status' => $layoutLabel,
-                    'layout_status' => $layoutStatus,
-                    'status_color' => $statusColor,
-                    'under_maintenance_scheduled' => (bool) ($layout->under_maintenance_scheduled ?? false),
-                    'maintenance_scopes' => $layout->maintenance_scopes ?? [],
-                    'maintenance_schedules' => $layout->maintenance_schedules ?? [],
-                    'room_inspection_next_date' => $layout->room_inspection_next_date ?? null,
-                    'critical_report_count' => (int) ($layout->critical_report_count ?? 0),
-
-                ],
-
-            ];
+        $rooms->each(function (Room $room) use (
+            $reportMetrics,
+            $frequentProblems,
+            $schedules,
+            $layoutStatusByRoom,
+            $lastInspections,
+            $nextMaintenances
+        ): void {
+            $this->hydrateRoomMonitorPayload(
+                $room,
+                $layoutStatusByRoom->get($room->room_id),
+                $reportMetrics->get($room->room_id),
+                $frequentProblems->get($room->room_id, collect()),
+                $schedules->get($room->room_id, collect()),
+                $lastInspections->get($room->room_id),
+                $nextMaintenances->get($room->room_id),
+                withHistory: false
+            );
         });
 
         $categories = Schema::hasTable('equipment_categories_table')
@@ -260,6 +177,11 @@ class InfrastructureController extends Controller
             $requestedFloorId = (int) ($rooms->firstWhere('room_id', $requestedRoomId)->room_floor_id ?? 0);
         }
 
+        $defaultFloorId = $this->campusDefaultFloorId($floors);
+        if ($requestedFloorId <= 0 && $defaultFloorId > 0) {
+            $requestedFloorId = $defaultFloorId;
+        }
+
         return view('admin.infrastructure.monitor', [
             'buildings' => Building::query()->orderBy('building_name')->get(),
             'floors' => $floors,
@@ -268,11 +190,51 @@ class InfrastructureController extends Controller
             'wizardCampus' => $wizardCampus,
             'canManageCampusSetup' => $canManageCampusSetup,
             'requestedFloorId' => $requestedFloorId,
+            'defaultFloorId' => $defaultFloorId,
+            'defaultFloorUrl' => route('admin.infrastructure.default-floor.update'),
             'usedAssetTags' => $usedAssetTags,
             'buildingStatusUrl' => route('admin.infrastructure.status'),
             'statusPaletteUrl' => route('admin.infrastructure.status-palette.update'),
             'statusPalette' => RoomStatusPalette::colors(),
             'statusPaletteDefaults' => RoomStatusPalette::defaults(),
+        ]);
+    }
+
+    public function updateDefaultFloor(Request $request): JsonResponse
+    {
+        abort_unless($this->canManageCampusSetup(), 403);
+
+        $validated = $request->validate([
+            'floor_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $floorId = (int) ($validated['floor_id'] ?? 0);
+        if ($floorId > 0 && ! Floor::query()->where('floor_id', $floorId)->exists()) {
+            return response()->json(['message' => 'That floor no longer exists.'], 422);
+        }
+
+        if (! Schema::hasTable('campus_setup_settings_table')) {
+            return response()->json(['message' => 'Campus settings are unavailable.'], 503);
+        }
+
+        if (! Schema::hasColumn('campus_setup_settings_table', 'default_floor_id')) {
+            return response()->json(['message' => 'Default floor setting is not installed yet. Run migrations.'], 503);
+        }
+
+        $setting = CampusSetupSetting::query()->first() ?? new CampusSetupSetting();
+        $setting->default_floor_id = $floorId > 0 ? $floorId : null;
+        $setting->save();
+
+        $floor = $floorId > 0
+            ? Floor::query()->with('building')->find($floorId)
+            : null;
+
+        return response()->json([
+            'message' => $floor
+                ? 'Default floor set to '.$floor->floor_level.'.'
+                : 'Default floor cleared.',
+            'default_floor_id' => $floorId > 0 ? $floorId : null,
+            'default_floor_label' => $floor?->floor_level,
         ]);
     }
 
@@ -366,16 +328,132 @@ class InfrastructureController extends Controller
         ]);
     }
 
-    public function roomEquipment(Room $room): JsonResponse
+    public function roomEquipment(Request $request, Room $room): JsonResponse
     {
         $equipment = $room->equipment()->with('category')->get();
         $custodians = PropertyAssignments::activeByEquipment($equipment->pluck('equipment_id')->all());
 
-        return response()->json(
-            $equipment
-                ->map(fn ($item) => LayoutEquipmentPayload::fromModel($item, $custodians[$item->equipment_id] ?? null))
-                ->values()
+        $equipmentPayload = $equipment
+            ->map(fn ($item) => LayoutEquipmentPayload::fromModel($item, $custodians[$item->equipment_id] ?? null))
+            ->values();
+
+        if (! $request->boolean('with_computer_sets')) {
+            return response()->json($equipmentPayload);
+        }
+
+        return response()->json([
+            'equipment' => $equipmentPayload,
+            'computer_sets' => ComputerSets::layoutPayloadForRoom((int) $room->room_id),
+        ]);
+    }
+
+    /**
+     * Lazy HTML for the Building Rooms Layout inspector (one room only).
+     */
+    public function roomInspector(Room $room): View
+    {
+        abort_if((bool) ($room->room_is_archived ?? false), 404);
+
+        $room->loadMissing(['floor.building', 'equipment.category']);
+
+        $hasRoomArchive = Schema::hasColumn('rooms_table', 'room_is_archived');
+        $roomId = (int) $room->room_id;
+        $layout = BuildingLayout3D::rooms(['preset' => 'today'], [$roomId])->first();
+        $metric = null;
+        $frequentProblems = collect();
+        $schedules = collect();
+        $lastInspection = null;
+        $nextMaintenance = null;
+
+        if (Schema::hasTable('reports_table')) {
+            $metric = DB::table('reports_table')->where('report_room_id', $roomId)
+                ->selectRaw("
+                    SUM(report_current_status NOT IN ('Resolved', 'Rejected')) AS active_count,
+                    SUM(DATE(report_submitted_at) = CURDATE()) AS today_count,
+                    SUM(report_submitted_at >= ?) AS week_count,
+                    SUM(report_submitted_at >= ?) AS month_count
+                ", [now()->startOfWeek(), now()->startOfMonth()])
+                ->first();
+
+            $frequentProblems = DB::table('reports_table')
+                ->where('report_room_id', $roomId)
+                ->whereNotNull('report_problem_description')
+                ->groupBy('report_problem_description')
+                ->selectRaw('report_problem_description, COUNT(*) AS occurrences, MAX(report_submitted_at) AS last_reported_at')
+                ->orderByDesc('occurrences')
+                ->limit(3)
+                ->get();
+        }
+
+        if (Schema::hasTable('maintenance_schedules_table')) {
+            $schedules = DB::table('maintenance_schedules_table')
+                ->join('equipment_table', 'maintenance_schedule_equipment_id', '=', 'equipment_id')
+                ->where('equipment_room_id', $roomId)
+                ->where('maintenance_schedule_status', '!=', 'Completed')
+                ->orderBy('maintenance_schedule_next_date')
+                ->select(array_values(array_unique(array_merge([
+                    'equipment_room_id',
+                    'equipment_name',
+                    'maintenance_schedule_title',
+                    'maintenance_schedule_next_date',
+                    'maintenance_schedule_status',
+                ], EquipmentIdentity::columns('equipment_table')))))
+                ->limit(4)
+                ->get();
+
+            $nextMaintenance = DB::table('maintenance_schedules_table')
+                ->join(
+                    'equipment_table',
+                    'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
+                )
+                ->where('equipment_table.equipment_room_id', $roomId)
+                ->min('maintenance_schedule_next_date');
+        }
+
+        if (Schema::hasTable('equipment_maintenance_history_table')) {
+            $lastInspection = DB::table('equipment_maintenance_history_table')
+                ->join(
+                    'equipment_table',
+                    'equipment_maintenance_history_table.equipment_maintenance_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
+                )
+                ->where('equipment_table.equipment_room_id', $roomId)
+                ->max('equipment_maintenance_completed_at');
+        }
+
+        $this->hydrateRoomMonitorPayload(
+            $room,
+            $layout,
+            $metric,
+            $frequentProblems,
+            $schedules,
+            $lastInspection,
+            $nextMaintenance,
+            withHistory: true
         );
+
+        // Keep destination list light: room names only (no campus-wide department hydrate).
+        $destinationRooms = Room::query()
+            ->when($hasRoomArchive, fn ($query) => $query->where('room_is_archived', false))
+            ->orderBy('room_name')
+            ->get(['room_id', 'room_name', 'room_type', 'room_is_archived']);
+
+        foreach ($destinationRooms as $destination) {
+            $destination->departments = [];
+        }
+
+        $categories = Schema::hasTable('equipment_categories_table')
+            ? DB::table('equipment_categories_table')->orderBy('equipment_category_name')->get()
+            : collect();
+
+        return view('admin.infrastructure.monitor-drawer-room', [
+            'room' => $room,
+            'categories' => $categories,
+            'transferDestinationRooms' => $this->mapTransferDestinationRooms($destinationRooms),
+        ]);
     }
 
     /**
@@ -1037,75 +1115,105 @@ class InfrastructureController extends Controller
             'comlab_row_layouts.*.height' => ['required', 'integer', 'min:32', 'max:160'],
 
             'comlab_row_layouts.*.rotation' => ['required', 'integer', 'min:0', 'max:360'],
+
+            'computer_sets' => ['nullable', 'array'],
+            'computer_sets.*.id' => ['nullable', 'integer', 'min:1'],
+            'computer_sets.*.name' => ['nullable', 'string', 'max:120'],
+            'computer_sets.*.placement_zone' => ['nullable', 'string', 'max:120'],
+            'computer_sets.*.members' => ['nullable', 'array'],
+            'computer_sets.*.members.*.id' => ['required', 'integer', 'min:1'],
+            'computer_sets.*.members.*.role' => ['nullable', 'string', 'max:40'],
         ]);
 
-        DB::transaction(function () use ($validated): void {
-            foreach ($validated['rooms'] as $room) {
-                $roomModel = Room::query()->whereKey($room['id'])->where('room_floor_id', $validated['floor_id'])->first();
+        $syncedComputerSets = [];
 
-                if (!$roomModel) {
-                    continue;
-                }
+        try {
+            DB::transaction(function () use ($validated, &$syncedComputerSets): void {
+                foreach ($validated['rooms'] as $room) {
+                    $roomModel = Room::query()->whereKey($room['id'])->where('room_floor_id', $validated['floor_id'])->first();
 
-                $metadata = $roomModel->room_metadata ?? [];
-                $metadata['rotation'] = $room['rotation'];
-
-                $roomModel->update([
-                    'room_x' => $room['x'],
-                    'room_y' => $room['y'],
-                    'room_width' => $room['width'],
-                    'room_height' => $room['height'],
-                    // room_color is unused for map fill (global status palette).
-                    'room_metadata' => $metadata,
-                ]);
-            }
-
-            foreach ($validated['equipment'] ?? [] as $equipment) {
-
-                Equipment::query()
-                    ->whereKey($equipment['id'])
-                    ->update([
-
-                        'equipment_position_x' => $equipment['x'],
-
-                        'equipment_position_y' => $equipment['y'],
-
-                        'equipment_width' => $equipment['width'],
-
-                        'equipment_height' => $equipment['height'],
-
-                        'equipment_rotation' => $equipment['rotation'],
-
-                        'equipment_current_location' => $equipment['zone'] ?? null,
-
-                        'equipment_placement_zone' => $equipment['zone'] ?? null,
-
-                    ]);
-
-            }
-
-            if (
-                !empty($validated['comlab_room_id'])
-                && (isset($validated['comlab_rows']) || isset($validated['comlab_row_layouts']))
-            ) {
-                $comlabRoom = Room::query()->find($validated['comlab_room_id']);
-
-                if ($comlabRoom) {
-                    $metadata = $comlabRoom->room_metadata ?? [];
-
-                    if (isset($validated['comlab_row_layouts'])) {
-                        $metadata['comlab_row_layouts'] = array_values($validated['comlab_row_layouts']);
-                        $metadata['comlab_rows'] = array_column($validated['comlab_row_layouts'], 'name');
-                    } elseif (isset($validated['comlab_rows'])) {
-                        $metadata['comlab_rows'] = array_values($validated['comlab_rows']);
+                    if (!$roomModel) {
+                        continue;
                     }
 
-                    $comlabRoom->update(['room_metadata' => $metadata]);
-                }
-            }
-        });
+                    $metadata = $roomModel->room_metadata ?? [];
+                    $metadata['rotation'] = $room['rotation'];
 
-        return response()->json(['message' => 'Layout saved successfully.']);
+                    $roomModel->update([
+                        'room_x' => $room['x'],
+                        'room_y' => $room['y'],
+                        'room_width' => $room['width'],
+                        'room_height' => $room['height'],
+                        // room_color is unused for map fill (global status palette).
+                        'room_metadata' => $metadata,
+                    ]);
+                }
+
+                foreach ($validated['equipment'] ?? [] as $equipment) {
+
+                    Equipment::query()
+                        ->whereKey($equipment['id'])
+                        ->update([
+
+                            'equipment_position_x' => $equipment['x'],
+
+                            'equipment_position_y' => $equipment['y'],
+
+                            'equipment_width' => $equipment['width'],
+
+                            'equipment_height' => $equipment['height'],
+
+                            'equipment_rotation' => $equipment['rotation'],
+
+                            'equipment_current_location' => $equipment['zone'] ?? null,
+
+                            'equipment_placement_zone' => $equipment['zone'] ?? null,
+
+                        ]);
+
+                }
+
+                if (
+                    !empty($validated['comlab_room_id'])
+                    && (isset($validated['comlab_rows']) || isset($validated['comlab_row_layouts']))
+                ) {
+                    $comlabRoom = Room::query()->find($validated['comlab_room_id']);
+
+                    if ($comlabRoom) {
+                        $metadata = $comlabRoom->room_metadata ?? [];
+
+                        if (isset($validated['comlab_row_layouts'])) {
+                            $metadata['comlab_row_layouts'] = array_values($validated['comlab_row_layouts']);
+                            $metadata['comlab_rows'] = array_column($validated['comlab_row_layouts'], 'name');
+                        } elseif (isset($validated['comlab_rows'])) {
+                            $metadata['comlab_rows'] = array_values($validated['comlab_rows']);
+                        }
+
+                        $comlabRoom->update(['room_metadata' => $metadata]);
+                    }
+                }
+
+                if (
+                    ! empty($validated['comlab_room_id'])
+                    && array_key_exists('computer_sets', $validated)
+                    && ComputerSets::tablesReady()
+                ) {
+                    $syncedComputerSets = ComputerSets::syncRoomFromLayout(
+                        (int) $validated['comlab_room_id'],
+                        $validated['computer_sets'] ?? []
+                    );
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Layout saved successfully.',
+            'computer_sets' => $syncedComputerSets,
+        ]);
     }
 
     public function updateRoom(Request $request, Room $room): JsonResponse
@@ -1164,6 +1272,102 @@ class InfrastructureController extends Controller
                 'id' => $room->room_id,
                 'name' => $room->room_name,
                 'type' => $room->room_type,
+                'image_url' => $this->roomImageUrl($room->room_image),
+            ],
+        ]);
+    }
+
+    /**
+     * Upload or replace the room photo shown in the Room Inspector.
+     */
+    public function uploadRoomImage(Request $request, Room $room): JsonResponse
+    {
+        abort_if((bool) ($room->room_is_archived ?? false), 404);
+
+        if (! Schema::hasColumn('rooms_table', 'room_image')) {
+            return response()->json([
+                'message' => 'Room images are not available yet. Run migrations first.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'room_image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
+        ]);
+
+        $previous = $room->room_image;
+        $path = $request->file('room_image')->store('room-images', 'public');
+
+        $room->update([
+            'room_image' => $path,
+        ]);
+
+        $this->deleteRoomImageIfUnused($previous);
+
+        RoomActivityLog::create([
+            'room_id' => $room->room_id,
+            'user_id' => Auth::check() ? Auth::id() : null,
+            'activity_type' => 'room_image_updated',
+            'activity_title' => 'Room Photo Updated',
+            'activity_description' => 'Updated the photo for '.$room->room_name.'.',
+            'created_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Room photo updated.',
+            'room' => [
+                'id' => $room->room_id,
+                'image' => $path,
+                'image_url' => $this->roomImageUrl($path),
+            ],
+        ]);
+    }
+
+    /**
+     * Remove the room photo from the Room Inspector.
+     */
+    public function deleteRoomImage(Room $room): JsonResponse
+    {
+        abort_if((bool) ($room->room_is_archived ?? false), 404);
+
+        if (! Schema::hasColumn('rooms_table', 'room_image')) {
+            return response()->json([
+                'message' => 'Room images are not available yet. Run migrations first.',
+            ], 422);
+        }
+
+        $previous = $room->room_image;
+        if (! filled($previous)) {
+            return response()->json([
+                'message' => 'This room has no photo.',
+                'room' => [
+                    'id' => $room->room_id,
+                    'image' => null,
+                    'image_url' => null,
+                ],
+            ]);
+        }
+
+        $room->update([
+            'room_image' => null,
+        ]);
+
+        $this->deleteRoomImageIfUnused($previous);
+
+        RoomActivityLog::create([
+            'room_id' => $room->room_id,
+            'user_id' => Auth::check() ? Auth::id() : null,
+            'activity_type' => 'room_image_removed',
+            'activity_title' => 'Room Photo Removed',
+            'activity_description' => 'Removed the photo for '.$room->room_name.'.',
+            'created_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Room photo removed.',
+            'room' => [
+                'id' => $room->room_id,
+                'image' => null,
+                'image_url' => null,
             ],
         ]);
     }
@@ -1660,6 +1864,17 @@ class InfrastructureController extends Controller
 
         $items = array_values($validated['items'] ?? []);
 
+        if (
+            ($validated['equipment_tracking_mode'] ?? '') === EquipmentTrackingModes::BULK
+            && EquipmentTrackingModes::requiresIndividualForCategory(
+                (int) ($validated['equipment_category_id'] ?? 0)
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'equipment_tracking_mode' => 'Computer Equipment must be stocked as Individual units (one identity per piece). Use quantity to add many.',
+            ]);
+        }
+
         $custodianId = (int) ($validated['custodian_id'] ?? 0);
         if ($custodianId > 0) {
             $targetRoomType = DB::table('rooms_table')
@@ -2070,6 +2285,34 @@ class InfrastructureController extends Controller
         return ['x' => 70 + (($index % 6) * 190), 'y' => 80 + ((int) floor($index / 6) * 190)];
     }
 
+    private function roomImageUrl(?string $path): ?string
+    {
+        if (! filled($path)) {
+            return null;
+        }
+
+        return asset('storage/'.$path);
+    }
+
+    private function deleteRoomImageIfUnused(?string $path): void
+    {
+        if (! filled($path) || ! Schema::hasColumn('rooms_table', 'room_image')) {
+            return;
+        }
+
+        $stillUsed = Room::query()
+            ->where('room_image', $path)
+            ->exists();
+
+        if ($stillUsed) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
     private function roomColor(string $type): string
     {
         return match ($type) {
@@ -2149,6 +2392,154 @@ class InfrastructureController extends Controller
                 'y' => 50,
             ],
         };
+    }
+
+    /**
+     * Attach layout fields + monitoring payload used by the map catalog / inspector.
+     */
+    private function hydrateRoomMonitorPayload(
+        Room $room,
+        mixed $layout,
+        mixed $metric,
+        mixed $frequentProblems,
+        mixed $schedules,
+        mixed $lastInspection,
+        mixed $nextMaintenance,
+        bool $withHistory = false
+    ): void {
+        $layoutStatus = (string) (data_get($layout, 'dashboard_status') ?? BuildingLayout3D::STATUS_NORMAL);
+        $layoutLabel = (string) (data_get($layout, 'dashboard_label') ?? RoomStatuses::NORMAL);
+        $statusColor = (string) (data_get($layout, 'status_color') ?? RoomStatusPalette::colorForStatus($layoutStatus));
+
+        $room->layout_status = $layoutStatus;
+        $room->layout_label = $layoutLabel;
+        $room->status_color = $statusColor;
+        $room->departments = data_get($layout, 'departments') ?? [];
+        $room->report_count = (int) (data_get($layout, 'report_count') ?? 0);
+        $room->critical_report_count = (int) (data_get($layout, 'critical_report_count') ?? 0);
+        $room->high_report_count = (int) (data_get($layout, 'high_report_count') ?? 0);
+        $room->medium_report_count = (int) (data_get($layout, 'medium_report_count') ?? 0);
+        $room->low_report_count = (int) (data_get($layout, 'low_report_count') ?? 0);
+        $room->under_maintenance_scheduled = (bool) (data_get($layout, 'under_maintenance_scheduled') ?? false);
+        $room->maintenance_scopes = data_get($layout, 'maintenance_scopes') ?? [];
+        $room->maintenance_schedules = data_get($layout, 'maintenance_schedules') ?? [];
+        $room->room_inspection_next_date = data_get($layout, 'room_inspection_next_date');
+
+        $equipment = $room->relationLoaded('equipment') ? $room->equipment : collect();
+
+        $monitoring = [
+            'equipment_count' => $equipment->count(),
+            'equipment_quantity' => $equipment->sum('equipment_quantity'),
+            'equipment_good' => $equipment->where('equipment_condition_status', EquipmentConditions::GOOD)->count(),
+            'equipment_damaged' => $equipment->where('equipment_condition_status', EquipmentConditions::DAMAGED)->count(),
+            'equipment_defective' => $equipment->where('equipment_condition_status', EquipmentConditions::DEFECTIVE)->count(),
+            'equipment_maintenance' => $equipment->where('equipment_condition_status', EquipmentConditions::UNDER_MAINTENANCE)->count(),
+            'equipment_disposed' => $equipment->where('equipment_condition_status', EquipmentConditions::DISPOSED)->count(),
+            'active_reports' => (int) (data_get($layout, 'report_count') ?? data_get($metric, 'active_count') ?? 0),
+            'today_reports' => (int) (data_get($metric, 'today_count') ?? 0),
+            'week_reports' => (int) (data_get($metric, 'week_count') ?? 0),
+            'month_reports' => (int) (data_get($metric, 'month_count') ?? 0),
+            'critical_reports' => (int) (data_get($layout, 'critical_report_count') ?? 0),
+            'high_reports' => (int) (data_get($layout, 'high_report_count') ?? 0),
+            'medium_reports' => (int) (data_get($layout, 'medium_report_count') ?? 0),
+            'low_reports' => (int) (data_get($layout, 'low_report_count') ?? 0),
+            'frequent_problems' => collect($frequentProblems)->values()->all(),
+            'schedules' => collect($schedules)->values()->all(),
+            'room_information' => [
+                'last_inspection' => $lastInspection,
+                'next_maintenance' => data_get($layout, 'room_inspection_next_date') ?? $nextMaintenance,
+                'last_updated' => $room->room_updated_at,
+                'status' => $layoutLabel,
+                'layout_status' => $layoutStatus,
+                'status_color' => $statusColor,
+                'under_maintenance_scheduled' => (bool) (data_get($layout, 'under_maintenance_scheduled') ?? false),
+                'maintenance_scopes' => data_get($layout, 'maintenance_scopes') ?? [],
+                'maintenance_schedules' => data_get($layout, 'maintenance_schedules') ?? [],
+                'room_inspection_next_date' => data_get($layout, 'room_inspection_next_date'),
+                'critical_report_count' => (int) (data_get($layout, 'critical_report_count') ?? 0),
+            ],
+        ];
+
+        if ($withHistory) {
+            $monitoring['history'] = RoomActivityLog::query()
+                ->where('room_id', $room->room_id)
+                ->latest('created_at')
+                ->take(20)
+                ->get();
+        } else {
+            $monitoring['history'] = [];
+        }
+
+        $room->monitoring = $monitoring;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \App\Models\Room>  $rooms
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function mapTransferDestinationRooms($rooms)
+    {
+        return collect($rooms)
+            ->filter(fn ($destination) => ! ($destination->room_is_archived ?? false))
+            ->map(function ($destination) {
+                $departments = collect($destination->departments ?? [])
+                    ->map(function ($dept) {
+                        if (is_array($dept)) {
+                            return [
+                                'id' => (int) ($dept['id'] ?? 0),
+                                'name' => (string) ($dept['name'] ?? ''),
+                                'equipment_count' => (int) ($dept['equipment_count'] ?? 0),
+                            ];
+                        }
+
+                        return [
+                            'id' => 0,
+                            'name' => (string) $dept,
+                            'equipment_count' => 0,
+                        ];
+                    })
+                    ->filter(fn ($dept) => $dept['id'] > 0 && $dept['name'] !== '')
+                    ->values()
+                    ->all();
+
+                array_unshift($departments, [
+                    'id' => 0,
+                    'name' => 'Entire room',
+                    'equipment_count' => 0,
+                ]);
+
+                return [
+                    'id' => (int) $destination->room_id,
+                    'name' => (string) $destination->room_name,
+                    'type' => (string) ($destination->room_type ?: 'Room'),
+                    'departments' => $departments,
+                ];
+            })
+            ->values();
+    }
+
+    /**
+     * Shared campus default floor for Rooms Layout (falls back to 0 if unset/invalid).
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\Floor>  $floors
+     */
+    private function campusDefaultFloorId($floors): int
+    {
+        if (
+            ! Schema::hasTable('campus_setup_settings_table')
+            || ! Schema::hasColumn('campus_setup_settings_table', 'default_floor_id')
+        ) {
+            return 0;
+        }
+
+        $savedId = (int) (CampusSetupSetting::query()->value('default_floor_id') ?? 0);
+        if ($savedId <= 0) {
+            return 0;
+        }
+
+        return $floors->contains(fn ($floor) => (int) $floor->floor_id === $savedId)
+            ? $savedId
+            : 0;
     }
 
     private function canManageCampusSetup(): bool

@@ -3,18 +3,14 @@
 <div class="flex h-full min-h-0 flex-1 flex-col rounded-[24px] border border-slate-200/80 bg-white p-5">
     <div class="flex items-center justify-between gap-3">
         <h3 class="text-[15px] font-bold text-[#1A1A1A]">Room health rate</h3>
-        <button
-            type="button"
-            class="flex h-7 w-7 items-center justify-center text-[#AAAAAA] transition hover:text-[#666666]"
-            aria-label="More options"
-        >
-            <i data-lucide="ellipsis-vertical" class="h-4 w-4"></i>
-        </button>
     </div>
 
     <div class="mt-4 space-y-4">
-        <template x-if="floorHealthRooms.length === 0">
+        <template x-if="floorRooms.length === 0">
             <p class="py-3 text-center text-xs text-[#999999]">No rooms on this floor yet.</p>
+        </template>
+        <template x-if="floorRooms.length > 0 && floorHealthRooms.length === 0">
+            <p class="py-3 text-center text-xs text-[#999999]">No rooms need attention right now.</p>
         </template>
 
         <template x-for="room in floorHealthRooms" :key="'health-' + room.id">
@@ -42,14 +38,10 @@
     </div>
 
     <div class="mt-auto">
-        <div class="mt-5 flex items-center gap-4 border-t border-[#E0E0E0] pt-4">
-            <p class="min-w-0 flex-1 text-[13px] font-bold text-[#1A1A1A]">
-                <span x-text="floorStats.equipment"></span> equipment tracked
-            </p>
-            <span class="h-4 w-px shrink-0 bg-[#DDDDDD]"></span>
-            <p class="shrink-0 text-[13px] font-normal text-[#888888]">
+        <div class="mt-5 border-t border-[#E0E0E0] pt-4">
+            <p class="text-[13px] font-normal text-[#888888]">
                 <span x-text="floorStats.todayReports"></span>
-                <span x-text="floorStats.todayReports === 1 ? ' issue today' : ' issues today'"></span>
+                <span x-text="floorStats.todayReports === 1 ? ' report today' : ' reports today'"></span>
             </p>
         </div>
 

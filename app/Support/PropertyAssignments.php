@@ -91,7 +91,17 @@ class PropertyAssignments
                 'pa.assignment_custodian_id',
                 DB::raw('COUNT(*) as active_count'),
                 DB::raw('MAX(pa.assignment_issued_at) as last_issued_at'),
-                DB::raw("GROUP_CONCAT(DISTINCT room.room_name ORDER BY room.room_name SEPARATOR ', ') as room_names")
+                DB::raw("GROUP_CONCAT(DISTINCT room.room_name ORDER BY room.room_name SEPARATOR ', ') as room_names"),
+                // id^^name^^asset^^serial — uniqueness + deep-link for multi-item hover tooltips
+                DB::raw("GROUP_CONCAT(CONCAT(
+                    e.equipment_id,
+                    '^^',
+                    COALESCE(e.equipment_name, ''),
+                    '^^',
+                    COALESCE(e.equipment_asset_tag, ''),
+                    '^^',
+                    COALESCE(e.equipment_serial_number, '')
+                ) ORDER BY e.equipment_name SEPARATOR '||') as equipment_names")
             );
 
         $query = Custodians::withDepartment(DB::table('custodians_table as person'))
@@ -127,7 +137,8 @@ class PropertyAssignments
                 'home.room_name as home_room_name',
                 DB::raw('COALESCE(a.active_count, 0) as active_count'),
                 'a.last_issued_at',
-                'a.room_names'
+                'a.room_names',
+                'a.equipment_names'
             )
             ->paginate($perPage)
             ->withQueryString();
@@ -189,12 +200,26 @@ class PropertyAssignments
             return collect();
         }
 
-        return self::itemQuery()
+        $items = self::itemQuery()
             ->where('pa.assignment_custodian_id', $custodianId)
             ->where('pa.assignment_status', PropertyAssignment::STATUS_ACTIVE)
             ->orderBy('current_room.room_name')
             ->orderBy('e.equipment_name')
             ->get();
+
+        $membership = ComputerSets::membershipMapForEquipmentIds(
+            $items->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        return $items->map(function ($row) use ($membership) {
+            $set = $membership[(int) $row->equipment_id] ?? null;
+            $row->computer_set_id = $set->computer_set_id ?? null;
+            $row->computer_set_tag = $set->computer_set_tag ?? null;
+            $row->computer_set_name = $set->computer_set_name ?? null;
+            $row->computer_set_member_role = $set->member_role ?? null;
+
+            return $row;
+        })->values();
     }
 
     public static function pastForCustodian(int $custodianId, int $limit = 50): Collection
@@ -844,6 +869,126 @@ class PropertyAssignments
 
             return $issued;
         });
+    }
+
+    /**
+     * Active computer sets that still have at least one member not held by this person.
+     */
+    public static function assignableComputerSets(int $custodianId, string $search = '', int $limit = 40): Collection
+    {
+        if (! self::tableReady() || ! ComputerSets::tablesReady()) {
+            return collect();
+        }
+
+        $query = DB::table('computer_sets_table as cs')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'cs.computer_set_room_id')
+            ->leftJoin('floors_table as f', 'f.floor_id', '=', 'r.room_floor_id')
+            ->join('computer_set_members_table as m', 'm.computer_set_id', '=', 'cs.computer_set_id')
+            ->leftJoin('property_assignments_table as held', function ($join) use ($custodianId) {
+                $join->on('held.assignment_equipment_id', '=', 'm.equipment_id')
+                    ->where('held.assignment_custodian_id', $custodianId)
+                    ->where('held.assignment_status', PropertyAssignment::STATUS_ACTIVE);
+            })
+            ->where('cs.computer_set_status', ComputerSets::STATUS_ACTIVE)
+            ->groupBy(
+                'cs.computer_set_id',
+                'cs.computer_set_tag',
+                'cs.computer_set_name',
+                'cs.computer_set_placement_zone',
+                'r.room_name',
+                'f.floor_level'
+            )
+            ->havingRaw('COUNT(m.computer_set_member_id) > SUM(CASE WHEN held.assignment_id IS NULL THEN 0 ELSE 1 END)')
+            ->select(
+                'cs.computer_set_id',
+                'cs.computer_set_tag',
+                'cs.computer_set_name',
+                'cs.computer_set_placement_zone',
+                'r.room_name',
+                'f.floor_level',
+                DB::raw('COUNT(m.computer_set_member_id) as member_count'),
+                DB::raw('SUM(CASE WHEN held.assignment_id IS NULL THEN 1 ELSE 0 END) as assignable_count')
+            );
+
+        $search = trim($search);
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('cs.computer_set_tag', 'like', $like)
+                    ->orWhere('cs.computer_set_name', 'like', $like)
+                    ->orWhere('cs.computer_set_placement_zone', 'like', $like)
+                    ->orWhere('r.room_name', 'like', $like);
+            });
+        }
+
+        // Natural name order so "Computer Set 10" follows 9, not 1.
+        return $query->get()
+            ->sort(function ($a, $b) {
+                $room = strnatcasecmp((string) ($a->room_name ?? ''), (string) ($b->room_name ?? ''));
+                if ($room !== 0) {
+                    return $room;
+                }
+
+                $nameA = (string) ($a->computer_set_name ?: $a->computer_set_tag);
+                $nameB = (string) ($b->computer_set_name ?: $b->computer_set_tag);
+                $name = strnatcasecmp($nameA, $nameB);
+                if ($name !== 0) {
+                    return $name;
+                }
+
+                return strnatcasecmp((string) $a->computer_set_tag, (string) $b->computer_set_tag);
+            })
+            ->values()
+            ->take($limit);
+    }
+
+    /**
+     * Issue every member of a computer set to one person (skips items they already hold).
+     * Reuses equipment-level assignments so audit / return stay per unit.
+     *
+     * @return Collection<int, PropertyAssignment>
+     */
+    public static function issueComputerSet(int $setId, int $custodianId, array $data = []): Collection
+    {
+        if (! ComputerSets::tablesReady()) {
+            throw new RuntimeException('Computer sets are not set up yet. Run the database migrations first.');
+        }
+
+        $set = ComputerSets::find($setId);
+        if (! $set || ($set->computer_set_status ?? null) !== ComputerSets::STATUS_ACTIVE) {
+            throw new RuntimeException('Choose an active computer set.');
+        }
+
+        $memberIds = ComputerSets::members($setId)
+            ->pluck('equipment_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($memberIds === []) {
+            throw new RuntimeException('This computer set has no equipment to assign.');
+        }
+
+        $alreadyHeld = DB::table('property_assignments_table')
+            ->where('assignment_custodian_id', $custodianId)
+            ->where('assignment_status', PropertyAssignment::STATUS_ACTIVE)
+            ->whereIn('assignment_equipment_id', $memberIds)
+            ->pluck('assignment_equipment_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $toIssue = array_values(array_diff($memberIds, $alreadyHeld));
+        if ($toIssue === []) {
+            throw new RuntimeException('This person already holds every item in that computer set.');
+        }
+
+        $label = trim((string) ($set->computer_set_name ?: $set->computer_set_tag));
+        if (blank($data['notes'] ?? null)) {
+            $data['notes'] = 'Assigned as computer set '.$label.($set->computer_set_tag && $label !== $set->computer_set_tag ? ' ('.$set->computer_set_tag.')' : '');
+        }
+
+        return self::issueMany($toIssue, $custodianId, $data);
     }
 
     /**

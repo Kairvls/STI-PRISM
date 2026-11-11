@@ -191,7 +191,14 @@
                 data-pur-confirm-kind="archive"
             >
                 @csrf
-                <button type="submit" class="h-10 rounded-lg border border-slate-200 bg-white px-5 text-sm font-medium text-[#007a3f] transition hover:bg-slate-50">Archive</button>
+                <button
+                    type="submit"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                    title="Archive"
+                    aria-label="Archive"
+                >
+                    <i data-lucide="archive" class="h-4 w-4"></i>
+                </button>
             </form>
         @elseif($atp->authority_purchase_is_archived)
             <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}" class="inline-block">

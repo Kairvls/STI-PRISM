@@ -145,6 +145,7 @@ class ReportGrouping
 
         if (
             str_contains($inventoryStatus, 'replacement')
+            || str_contains($inventoryStatus, 'replaced')
             || str_contains($inventoryStatus, 'disposed')
             || str_contains($conditionStatus, 'replacement')
         ) {
@@ -180,7 +181,7 @@ class ReportGrouping
     {
         $query = $query
             ->where('equipment_inventory_status', 'Active')
-            ->whereNotIn('equipment_inventory_status', ['Disposed', 'For Replacement'])
+            ->whereNotIn('equipment_inventory_status', ['Disposed', 'For Replacement', 'Replaced'])
             ->where('equipment_condition_status', 'Good')
             ->whereNotIn('equipment_id', function ($subQuery) {
                 $subQuery

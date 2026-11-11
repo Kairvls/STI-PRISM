@@ -477,7 +477,7 @@
                                     "Under Maintenance" => "bg-amber-50 text-amber-700",
                                     "Defective" => "bg-orange-50 text-orange-700",
                                     "Damaged" => "bg-rose-50 text-rose-700",
-                                    "Disposed" => "bg-slate-800 text-white",
+                                    "Disposed" => "bg-amber-900 text-amber-50",
                                     default => "bg-slate-100 text-slate-600",
                                 };
 
@@ -487,7 +487,7 @@
                                     "Under Maintenance" => "bg-amber-500",
                                     "Defective" => "bg-orange-500",
                                     "Damaged" => "bg-rose-500",
-                                    "Disposed" => "bg-slate-800",
+                                    "Disposed" => "bg-amber-900",
                                     default => "bg-slate-400",
                                 };
 
@@ -546,7 +546,7 @@
 
                                             <p
                                                 class="max-w-[210px] truncate
-                                                    text-sm font-semibold
+                                                    text-[15px] font-semibold
                                                     text-slate-800"
 
                                                 data-tooltip="{{ $record->equipment_name }}"
@@ -555,7 +555,7 @@
                                             </p>
 
                                             @if ($brandModel !== '')
-                                                <p class="mt-0.5 max-w-[260px] truncate text-xs text-slate-500" data-tooltip="{{ $brandModel }}">
+                                                <p class="mt-0.5 max-w-[260px] truncate text-sm text-slate-500" data-tooltip="{{ $brandModel }}">
                                                     {{ $brandModel }}
                                                 </p>
                                             @endif
@@ -565,7 +565,7 @@
                                                 $serial = filled($record->equipment_serial_number ?? null) ? $record->equipment_serial_number : '—';
                                             @endphp
                                             <p
-                                                class="mt-1 max-w-[260px] truncate font-mono text-[11px] text-slate-500"
+                                                class="mt-1 max-w-[260px] truncate font-mono text-xs text-slate-500"
                                                 data-tooltip="Asset tag: {{ $assetTag }} · Serial: {{ $serial }}"
                                             >
                                                 <span class="font-semibold text-slate-700">{{ $assetTag }}</span>
@@ -575,7 +575,7 @@
 
 
                                             <p
-                                                class="mt-0.5 text-[11px]
+                                                class="mt-0.5 text-xs
                                                     text-slate-400"
                                             >
                                                 @if ($isFinallyDisposed)
@@ -599,10 +599,10 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-                                    <p class="whitespace-nowrap text-xs font-medium text-slate-700">
+                                    <p class="whitespace-nowrap text-sm font-medium text-slate-700">
                                         {{ $purchaseDate !== '' ? $purchaseDate : ($acquiredDate !== '' ? 'Acquired '.$acquiredDate : '—') }}
                                     </p>
-                                    <p class="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">
+                                    <p class="mt-0.5 whitespace-nowrap text-xs text-slate-400">
                                         @if (isset($record->equipment_purchase_cost) && $record->equipment_purchase_cost !== null && $record->equipment_purchase_cost !== '')
                                             ₱{{ number_format((float) $record->equipment_purchase_cost, 2) }}
                                         @else
@@ -621,7 +621,7 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $conditionClass }}">
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium {{ $conditionClass }}">
                                         {{ $conditionStatus }}
                                     </span>
                                 </td>
@@ -667,7 +667,7 @@
 
                                         <span
                                             class="max-w-[180px] truncate
-                                                text-xs font-medium
+                                                text-sm font-medium
                                                 text-slate-600"
 
                                             data-tooltip="{{ $record->disposal_area_location }}"
@@ -703,7 +703,7 @@
 
                                             <p
                                                 class="whitespace-nowrap
-                                                    text-xs font-medium
+                                                    text-sm font-medium
                                                     text-slate-700"
                                             >
                                                 {{
@@ -715,7 +715,7 @@
 
 
                                             <p
-                                                class="mt-0.5 text-[10px]
+                                                class="mt-0.5 text-xs
                                                     text-slate-400"
                                             >
                                                 {{
@@ -751,32 +751,8 @@
                                                 ($record->equipment_condition_status ?? '') === 'Disposed';
                                         @endphp
 
-                                        @if ($canMaintain && empty($showArchive) && ! $isFinallyDisposed)
-                                            <button
-                                                type="button"
-                                                class="js-restore-disposal flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
-                                                data-disposal-id="{{ (int) $record->disposal_record_id }}"
-                                                data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
-                                                data-tooltip="Restore to Inventory"
-                                                aria-label="Restore to Inventory"
-                                            >
-                                                <i data-lucide="rotate-ccw" class="pointer-events-none h-3.5 w-3.5"></i>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                class="js-finalize-dispose flex h-9 w-9 items-center justify-center rounded-xl bg-red-600 text-white transition hover:bg-red-700"
-                                                data-disposal-id="{{ (int) $record->disposal_record_id }}"
-                                                data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
-                                                data-tooltip="Finalize disposal (cannot restore)"
-                                                aria-label="Finalize disposal"
-                                            >
-                                                <i data-lucide="archive-x" class="pointer-events-none h-3.5 w-3.5"></i>
-                                            </button>
-                                        @endif
-
                                         {{-- ================================= --}}
-                                        {{-- VIEW BUTTON --}}
+                                        {{-- VIEW BUTTON (always first) --}}
                                         {{-- ================================= --}}
 
                                         <button
@@ -820,22 +796,44 @@
                                                     : url('/maintenance/equipment/view/'.$record->disposal_equipment_id)),
                                                 'equipmentId' => (int) ($record->disposal_equipment_id ?? 0),
                                             ], JSON_UNESCAPED_UNICODE)) }}"
-                                            class="flex h-9 w-9 items-center
-                                                justify-center rounded-xl
-                                                bg-slate-100 text-slate-600
-                                                transition
-                                                hover:bg-slate-200
-                                                hover:text-slate-900"
-                                            data-tooltip="View disposal details"
-                                            aria-label="View disposal details"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg
+                                                border border-slate-200 bg-white text-slate-600
+                                                transition hover:bg-slate-50 hover:text-slate-900"
+                                            data-tooltip="View"
+                                            aria-label="View"
+                                            title="View"
                                         >
                                             <i
                                                 data-lucide="eye"
-                                                class="pointer-events-none h-3.5 w-3.5"
+                                                class="pointer-events-none h-4 w-4"
                                             ></i>
                                         </button>
 
+                                        @if ($canMaintain && empty($showArchive) && ! $isFinallyDisposed)
+                                            <button
+                                                type="button"
+                                                class="js-restore-disposal inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
+                                                data-disposal-id="{{ (int) $record->disposal_record_id }}"
+                                                data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
+                                                data-tooltip="Restore to Inventory"
+                                                aria-label="Restore to Inventory"
+                                                title="Restore"
+                                            >
+                                                <i data-lucide="rotate-ccw" class="pointer-events-none h-4 w-4"></i>
+                                            </button>
 
+                                            <button
+                                                type="button"
+                                                class="js-finalize-dispose inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
+                                                data-disposal-id="{{ (int) $record->disposal_record_id }}"
+                                                data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
+                                                data-tooltip="Finalize disposal"
+                                                aria-label="Finalize disposal"
+                                                title="Finalize disposal"
+                                            >
+                                                <i data-lucide="archive-x" class="pointer-events-none h-4 w-4"></i>
+                                            </button>
+                                        @endif
 
                                         {{-- ================================= --}}
                                         {{-- ARCHIVE / UNARCHIVE (finalized only) --}}
@@ -858,11 +856,12 @@
                                             <button
                                                 type="button"
                                                 onclick='openArchiveModal(@js($record->disposal_record_id))'
-                                                class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50 active:scale-95"
-                                                data-tooltip="Archive disposal record"
-                                                aria-label="Archive disposal record"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                                                data-tooltip="Archive"
+                                                aria-label="Archive"
+                                                title="Archive"
                                             >
-                                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                                <i data-lucide="archive" class="h-4 w-4"></i>
                                             </button>
                                         @endif
 
@@ -1713,6 +1712,7 @@
             var statusClasses = {
                 Disposed: "bg-rose-50 text-rose-700 ring-rose-100",
                 "For Replacement": "bg-orange-50 text-orange-700 ring-orange-100",
+                Replaced: "bg-blue-50 text-blue-700 ring-blue-100",
             };
 
             var conditionLabel = String(data.condition || "").trim() || "Unknown";
@@ -1822,6 +1822,13 @@
                 '<div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">' +
                     '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="user-round" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposed by</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.disposedBy) + "</p>" +
+                    "</div>" +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
                             '<i data-lucide="layers" class="h-3.5 w-3.5"></i>' +
                         "</div>" +
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Classification</p>' +
@@ -1854,13 +1861,6 @@
                         "</div>" +
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposed date</p>' +
                         '<p class="mt-1 text-sm font-semibold text-slate-900">' + formattedDate + "</p>" +
-                    "</div>" +
-                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
-                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
-                            '<i data-lucide="user-round" class="h-3.5 w-3.5"></i>' +
-                        "</div>" +
-                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposed by</p>' +
-                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.disposedBy) + "</p>" +
                     "</div>" +
                 "</div>" +
                 '<div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">' +

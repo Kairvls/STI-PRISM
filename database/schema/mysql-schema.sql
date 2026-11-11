@@ -520,7 +520,7 @@ CREATE TABLE `equipment_table` (
   `equipment_quantity` int DEFAULT '1',
   `equipment_tracking_mode` enum('Bulk','Individual') NOT NULL DEFAULT 'Bulk',
   `equipment_condition_status` enum('Good','Under Maintenance','Defective','Damaged','Disposed') DEFAULT 'Good',
-  `equipment_inventory_status` enum('Active','Borrowed','Under Maintenance','For Replacement','Disposed') DEFAULT 'Active',
+  `equipment_inventory_status` enum('Active','Borrowed','Under Maintenance','For Replacement','Replaced','Disposed') DEFAULT 'Active',
   `equipment_purchase_date` date DEFAULT NULL,
   `equipment_purchase_cost` decimal(12,2) DEFAULT NULL,
   `equipment_acquired_date` date DEFAULT NULL,

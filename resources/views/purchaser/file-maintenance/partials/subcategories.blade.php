@@ -115,7 +115,7 @@
                         >
                     </div>
                     <select name="category_id" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                        <option value="">All categories</option>
+                        <option value="">All classifications</option>
                         @foreach($parentCategories as $category)
                             <option value="{{ $category->item_category_id }}" @selected((string) request('category_id') === (string) $category->item_category_id)>
                                 {{ $category->item_category_name }}
@@ -160,7 +160,7 @@
                                     <p class="font-semibold text-gray-900">{{ $subcategory->item_subcategory_name }}</p>
                                 </div>
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $subcategory->item_category_name ?: '—' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $subcategory->item_category_name ?: 'ï¿½' }}</td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $subcategory->item_subcategory_status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $subcategory->item_subcategory_status }}

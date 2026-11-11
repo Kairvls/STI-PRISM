@@ -48,7 +48,7 @@
                 class="flex justify-start will-change-transform"
                 :style="'transform: translate3d(-' + (comlabSetCarouselPage() * 100) + '%, 0, 0); transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);'"
             >
-                <template x-for="(set, idx) in comlabSetsInSelectedRow()" :key="'carousel-' + set.index">
+                <template x-for="(set, idx) in comlabSetsInSelectedRow()" :key="'carousel-' + (set.id || set.index)">
                     <div class="w-1/3 shrink-0 px-1">
                         <button
                             type="button"
@@ -57,7 +57,10 @@
                             :class="roomLayout.comlabSetCarouselIndex === idx ? 'border-[#005EA6] bg-[#005EA6] text-white shadow-md' : 'border-slate-200 bg-slate-50 text-slate-600'"
                         >
                             <p class="truncate text-sm font-semibold sm:text-base" x-text="set.label"></p>
+                            <p class="mt-1 truncate font-mono text-[10px] opacity-80" x-show="set.tag" x-text="set.tag"></p>
                             <p class="mt-1 text-[11px] opacity-80" x-text="set.members.length + (set.members.length === 1 ? ' component' : ' components')"></p>
+                            <p class="mt-1 text-[10px] font-semibold text-rose-200" x-show="roomLayout.comlabSetCarouselIndex === idx && set.needs_replacement_count > 0" x-text="set.needs_replacement_count + ' need replacement'"></p>
+                            <p class="mt-1 text-[10px] font-semibold text-rose-600" x-show="roomLayout.comlabSetCarouselIndex !== idx && set.needs_replacement_count > 0" x-text="set.needs_replacement_count + ' need replacement'"></p>
                         </button>
                     </div>
                 </template>
@@ -74,7 +77,23 @@
             </template>
         </div>
     </div>
-    <p x-show="isComputerLabLayout() && comlabSetsInSelectedRow().length === 0" class="mt-3 text-xs text-slate-400">No computer sets in this row yet.</p>
+    <p x-show="isComputerLabLayout() && comlabSetsInSelectedRow().length === 0" class="mt-3 text-xs text-slate-400">
+        No computer sets for this row yet. Create them in Computer Sets and set the row / zone to this row.
+    </p>
+    <p
+        x-show="isComputerLabLayout() && activeComlabSet()?.from_module && activeComlabSet()?.manage_url"
+        class="mt-2"
+    >
+        <a
+            :href="activeComlabSet()?.manage_url"
+            class="inline-flex items-center gap-1 text-xs font-semibold text-[#005EA6] hover:underline"
+            target="_blank"
+            rel="noopener"
+        >
+            Open in Computer Sets
+            <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
+        </a>
+    </p>
 </div>
 
 <div class="min-h-0 flex-1 overflow-y-auto p-4">
@@ -87,7 +106,8 @@
                         <span class="inline-flex h-5 w-5 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(member.name)"></span>
                         <span class="min-w-0">
                             <p class="truncate text-sm font-semibold" x-text="member.name"></p>
-                            <p class="truncate text-[11px] text-slate-400" x-text="member.asset_tag || 'No tag'"></p>
+                            <p class="truncate text-[11px] text-slate-400" x-text="(member.role_label ? member.role_label + ' · ' : '') + (member.asset_tag || 'No tag')"></p>
+                            <p class="mt-0.5 text-[10px] font-semibold text-rose-600" x-show="member.needs_replacement">Needs replacement</p>
                         </span>
                     </button>
                     <button

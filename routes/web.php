@@ -544,6 +544,8 @@ Route::middleware(['auth', 'admin'])
         // ==========================================
 
         Route::get('/reporters', [MaintenanceController::class, 'reporters'])->name('reporters.index');
+        Route::get('/reporters/export-pdf', [MaintenanceController::class, 'exportReportersPdf'])->name('reporters.export-pdf');
+        Route::get('/reporters/{id}/audit-pack', [MaintenanceController::class, 'exportReporterAuditPack'])->whereNumber('id')->name('reporters.audit-pack');
         Route::post('/reporters/store', [MaintenanceController::class, 'storeReporter'])->name('reporters.store');
         Route::post('/reporters/update', [MaintenanceController::class, 'updateReporter'])->name('reporters.update');
         Route::post('/reporters/delete', [MaintenanceController::class, 'deleteReporter'])->name('reporters.delete');
@@ -562,6 +564,7 @@ Route::middleware(['auth', 'admin'])
         Route::get('/infrastructure', [InfrastructureController::class, 'index'])->name('infrastructure.index');
         Route::get('/infrastructure/status', [InfrastructureController::class, 'buildingStatus'])->name('infrastructure.status');
         Route::put('/infrastructure/status-palette', [InfrastructureController::class, 'updateStatusPalette'])->name('infrastructure.status-palette.update');
+        Route::put('/infrastructure/default-floor', [InfrastructureController::class, 'updateDefaultFloor'])->name('infrastructure.default-floor.update');
         Route::get('/infrastructure/campus', [InfrastructureController::class, 'loadCampus'])->name('infrastructure.campus.load');
         Route::post('/infrastructure/campus', [InfrastructureController::class, 'storeCampus'])->name('infrastructure.campus.store');
         Route::post('/infrastructure/campus/unlock-verify', [InfrastructureController::class, 'verifySetupUnlockCredential'])->name('infrastructure.campus.unlock-verify');
@@ -569,6 +572,9 @@ Route::middleware(['auth', 'admin'])
         Route::match(['put', 'patch'], '/infrastructure/rooms/{room}', [InfrastructureController::class, 'updateRoom'])->name('infrastructure.rooms.update');
         Route::delete('/infrastructure/rooms/{room}', [InfrastructureController::class, 'archiveRoom'])->name('infrastructure.rooms.archive');
         Route::get('/infrastructure/rooms/{room}/equipment', [InfrastructureController::class, 'roomEquipment'])->name('infrastructure.room-equipment');
+        Route::get('/infrastructure/rooms/{room}/inspector', [InfrastructureController::class, 'roomInspector'])->name('infrastructure.rooms.inspector');
+        Route::post('/infrastructure/rooms/{room}/image', [InfrastructureController::class, 'uploadRoomImage'])->name('infrastructure.rooms.image.upload');
+        Route::delete('/infrastructure/rooms/{room}/image', [InfrastructureController::class, 'deleteRoomImage'])->name('infrastructure.rooms.image.delete');
         Route::get('/infrastructure/rooms/{room}/placeable-stock', [InfrastructureController::class, 'placeableStock'])->name('infrastructure.rooms.placeable-stock');
         Route::post('/infrastructure/rooms/{room}/place-from-storage', [InfrastructureController::class, 'placeFromStorage'])->name('infrastructure.rooms.place-from-storage');
         Route::get('/infrastructure/rooms/{room}/layout', [InfrastructureController::class, 'getLayout'])->name('infrastructure.room-layout');
@@ -602,6 +608,7 @@ Route::middleware(['auth', 'admin'])
 
         // Campus Persons master (identity source for reporters / property / users)
         Route::get('/persons', [PersonController::class, 'index'])->name('persons.index');
+        Route::get('/persons/export-pdf', [PersonController::class, 'exportPdf'])->name('persons.export-pdf');
         Route::get('/persons/search', [PersonController::class, 'search'])->name('persons.search');
         Route::get('/persons/import/template', [PersonController::class, 'downloadImportTemplate'])->name('persons.import.template');
         Route::post('/persons/import/preview', [PersonController::class, 'previewImport'])->name('persons.import.preview');
@@ -612,6 +619,7 @@ Route::middleware(['auth', 'admin'])
 
         // Inventory: storage stock, adding equipment, editing, disposing and transfers
         Route::get('/inventory', [MaintenanceController::class, 'equipmentInventory'])->name('inventory.index');
+        Route::get('/inventory/export-pdf', [MaintenanceController::class, 'exportEquipmentInventoryPdf'])->name('inventory.export-pdf');
         Route::get('/inventory/create', [MaintenanceController::class, 'createEquipment'])->name('inventory.create');
         Route::get('/inventory/receivable-lines', [MaintenanceController::class, 'receivableStockLines'])->name('inventory.receivable-lines');
         Route::post('/inventory/stock-pending', [MaintenanceController::class, 'stockPendingReceivables'])->name('inventory.stock-pending');
@@ -624,10 +632,12 @@ Route::middleware(['auth', 'admin'])
         Route::post('/inventory/transfer', [MaintenanceController::class, 'transferEquipment'])->name('inventory.transfer');
         Route::post('/inventory/transfer-batch', [MaintenanceController::class, 'transferEquipmentBatch'])->name('inventory.transfer-batch');
         Route::post('/inventory/dispose', [MaintenanceController::class, 'storeDisposal'])->name('inventory.dispose');
+        Route::post('/inventory/mark-replaced', [MaintenanceController::class, 'markEquipmentReplacedNoSuccessor'])->name('inventory.mark-replaced');
         Route::get('/inventory/transfer-requests', [MaintenanceController::class, 'transferRequests'])->name('inventory.transfer-requests');
         Route::post('/inventory/transfer-requests/{id}/approve', [MaintenanceController::class, 'approveTransferRequest'])->whereNumber('id')->name('inventory.transfer-requests.approve');
         Route::post('/inventory/transfer-requests/{id}/reject', [MaintenanceController::class, 'rejectTransferRequest'])->whereNumber('id')->name('inventory.transfer-requests.reject');
         Route::get('/inventory/deployed', [MaintenanceController::class, 'deployedStocks'])->name('inventory.deployed');
+        Route::get('/inventory/deployed/export-pdf', [MaintenanceController::class, 'exportDeployedEquipmentPdf'])->name('inventory.deployed.export-pdf');
 
         // All equipment: full register (storage and deployed) with edit and dispose
         Route::get('/equipment/all', [MaintenanceController::class, 'equipmentInventory'])->name('equipment-all.index');
@@ -650,6 +660,8 @@ Route::middleware(['auth', 'admin'])
         Route::get('/borrowing', [MaintenanceController::class, 'borrowing'])->name('borrowing.index');
         Route::post('/borrowing/store', [MaintenanceController::class, 'storeBorrowing'])->name('borrowing.store');
         Route::post('/borrowing/return', [MaintenanceController::class, 'returnEquipment'])->name('borrowing.return');
+        Route::post('/borrowing/{id}/archive', [MaintenanceController::class, 'archiveBorrowing'])->name('borrowing.archive');
+        Route::post('/borrowing/{id}/unarchive', [MaintenanceController::class, 'unarchiveBorrowing'])->name('borrowing.unarchive');
 
         // QR tools: generate, print and download equipment QR labels
         Route::get('/qr-tools', [QRController::class, 'qrTools'])->name('qr-tools.index');
@@ -713,6 +725,7 @@ Route::middleware(['auth', 'admin'])
         Route::get('/property-assignments/rooms/{room}', [PropertyAssignmentController::class, 'room'])->whereNumber('room')->name('property-assignments.room');
         Route::post('/property-assignments/equipment/{equipment}', [PropertyAssignmentController::class, 'store'])->whereNumber('equipment')->name('property-assignments.store');
         Route::post('/property-assignments/batch', [PropertyAssignmentController::class, 'storeBatch'])->name('property-assignments.batch');
+        Route::post('/property-assignments/computer-sets', [PropertyAssignmentController::class, 'storeComputerSet'])->name('property-assignments.computer-set');
         Route::post('/property-assignments/{assignment}/return', [PropertyAssignmentController::class, 'returnAssignment'])->whereNumber('assignment')->name('property-assignments.return');
 
         // Computer sets (COMPSET tag + nested equipment membership)
@@ -725,6 +738,7 @@ Route::middleware(['auth', 'admin'])
         Route::post('/computer-sets/{id}/members', [ComputerSetController::class, 'syncMembers'])->whereNumber('id')->name('computer-sets.members.sync');
         Route::post('/computer-sets/{id}/members/add', [ComputerSetController::class, 'addMember'])->whereNumber('id')->name('computer-sets.members.add');
         Route::post('/computer-sets/{id}/members/remove', [ComputerSetController::class, 'removeMember'])->whereNumber('id')->name('computer-sets.members.remove');
+        Route::post('/computer-sets/{id}/members/replace', [ComputerSetController::class, 'replaceMember'])->whereNumber('id')->name('computer-sets.members.replace');
 
         // ==========================================
         // REPORTS
@@ -1570,6 +1584,16 @@ Route::get(
 );
 
 Route::get(
+    '/maintenance/equipment/inventory/export-pdf',
+    [MaintenanceController::class, 'exportEquipmentInventoryPdf']
+)->name('maintenance.equipment.inventory.export-pdf');
+
+Route::get(
+    '/maintenance/equipment/deployed/export-pdf',
+    [MaintenanceController::class, 'exportDeployedEquipmentPdf']
+)->name('maintenance.equipment.deployed.export-pdf');
+
+Route::get(
     '/maintenance/equipment/transfer',
     [MaintenanceController::class, 'equipmentTransferHistory']
 );
@@ -1859,6 +1883,11 @@ Route::post(
     [MaintenanceController::class, 'storeDisposal']
 );
 
+Route::post(
+    '/maintenance/disposal/mark-replaced',
+    [MaintenanceController::class, 'markEquipmentReplacedNoSuccessor']
+)->name('maintenance.disposal.mark-replaced');
+
 Route::get(
     '/maintenance/disposal/requests',
     [MaintenanceController::class, 'disposalRequests']
@@ -2043,6 +2072,11 @@ Route::middleware([
         '/property-assignments/batch',
         [PropertyAssignmentController::class, 'storeBatch']
     )->name('property-assignments.batch');
+
+    Route::post(
+        '/property-assignments/computer-sets',
+        [PropertyAssignmentController::class, 'storeComputerSet']
+    )->name('property-assignments.computer-set');
 
     Route::post(
         '/property-assignments/{assignment}/return',

@@ -8,6 +8,7 @@
         $tabs = [
             \App\Support\ReplacementStock::STOCK_SWAP => ['Swapped from stock', 'package-check'],
             \App\Support\ReplacementStock::PROCUREMENT => ['Procurement request', 'file-text'],
+            \App\Support\ReplacementStock::NO_SUCCESSOR => ['No successor', 'circle-slash'],
         ];
         $formatDate = fn ($value) => $value ? \Carbon\Carbon::parse($value)->format('M j, Y g:i A') : '—';
         $equipmentLink = fn ($id) => url('/maintenance/equipment/view/'.$id);
@@ -17,8 +18,8 @@
         <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
             <p>
-                Every item Maintenance sends "For Replacement" is listed here with how it was fulfilled:
-                a unit swapped in from inventory stock, or a procurement request to the Purchaser.
+                Tracks how each replacement was fulfilled: a stock swap (including computer-set part swaps),
+                a procurement request to the Purchaser, or marked Replaced with no successor so it can be disposed.
             </p>
         </div>
 
@@ -74,7 +75,14 @@
                     <tbody class="divide-y divide-slate-100">
                         @forelse ($logs as $row)
                             @php
-                                $isSwap = $row->replacement_log_fulfillment_type === \App\Support\ReplacementStock::STOCK_SWAP;
+                                $fulfillment = (string) $row->replacement_log_fulfillment_type;
+                                $isSwap = $fulfillment === \App\Support\ReplacementStock::STOCK_SWAP;
+                                $isNoSuccessor = $fulfillment === \App\Support\ReplacementStock::NO_SUCCESSOR;
+                                $badgeClass = match (true) {
+                                    $isSwap => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                                    $isNoSuccessor => 'bg-slate-100 text-slate-700 ring-slate-200',
+                                    default => 'bg-amber-50 text-amber-700 ring-amber-200',
+                                };
                             @endphp
                             <tr class="align-top">
                                 <td class="whitespace-nowrap px-5 py-4">
@@ -109,6 +117,8 @@
                                                 · from {{ $row->from_room_name }}
                                             @endif
                                         </p>
+                                    @elseif ($isNoSuccessor)
+                                        <p class="text-slate-500">No successor unit</p>
                                     @else
                                         <p class="text-slate-500">Waiting for purchase</p>
                                         @if ($row->replacement_log_procurement_request_id)
@@ -117,10 +127,10 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-4">
-                                    <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 {{ $isSwap ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200' }}">
-                                        {{ $isSwap ? 'Swapped from inventory stock' : 'Procurement request' }}
+                                    <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 {{ $badgeClass }}">
+                                        {{ \App\Support\ReplacementStock::fulfillmentLabel($fulfillment) }}
                                     </span>
-                                    @if (! $isSwap && $row->replacement_log_stock_was_available)
+                                    @if (! $isSwap && ! $isNoSuccessor && $row->replacement_log_stock_was_available)
                                         <p class="mt-1.5 max-w-[14rem] text-xs text-slate-500">Stock was available; procurement was chosen instead.</p>
                                     @endif
                                     @if ($row->replacement_log_notes)

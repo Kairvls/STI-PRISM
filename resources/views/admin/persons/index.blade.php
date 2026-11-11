@@ -21,6 +21,13 @@
         </div>
     @else
         <div class="flex flex-wrap items-center justify-end gap-2">
+            <a
+                href="{{ route('admin.persons.export-pdf', array_filter(['search' => $search ?: null, 'filter' => $filter !== 'active' ? $filter : null, 'department' => $departmentId ?: null])) }}"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+                <i data-lucide="file-down" class="h-4 w-4"></i>
+                Export PDF
+            </a>
             <button
                 type="button"
                 @click="importOpen = true"

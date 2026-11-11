@@ -426,7 +426,14 @@
                 returnButton.onclick = isOut
                     ? function () {
                         closeViewModal();
-                        openReturnModal(recordId, safeEquipment);
+                        openReturnModal({
+                            id: recordId,
+                            equipment: safeEquipment,
+                            assetTag: record.assetTag || '',
+                            tracking: record.tracking || '',
+                            quantity: quantity || 1,
+                            fromRoom: record.fromRoom || '',
+                        });
                     }
                     : null;
             }

@@ -427,8 +427,9 @@
                                             data-tooltip="Archive"
                                             aria-label="Archive"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                                            title="Archive"
                                         >
-                                            <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                            <i data-lucide="archive" class="h-4 w-4"></i>
                                         </button>
                                     @elseif($request->procurement_request_is_archived)
                                         <form

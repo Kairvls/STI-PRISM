@@ -85,7 +85,10 @@
                         <option value="{{ $option }}" @selected($frequency === $option)>{{ $option }}</option>
                     @endforeach
                 </select>
-                <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">Apply</button>
+                <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-[13px] font-medium text-white transition hover:bg-[#001fa8]">
+                    <i data-lucide="filter" class="h-4 w-4"></i>
+                    Apply
+                </button>
                 @if ($search !== '' || $status !== '' || $frequency !== '')
                     <a href="{{ $roomsUrl }}" class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl px-3 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100">Clear</a>
                 @endif

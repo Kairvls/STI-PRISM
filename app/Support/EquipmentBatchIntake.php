@@ -33,8 +33,13 @@ class EquipmentBatchIntake
             'source.supplier_name' => 'nullable|string|'.InputLimits::name(),
             'source.reference_number' => 'nullable|string|max:120',
             'source.notes' => 'nullable|string|'.InputLimits::notes(),
-            'source.purchase_date' => 'nullable|date',
-            'source.received_date' => 'nullable|date',
+            'source.purchase_date' => 'nullable|date|before_or_equal:today',
+            'source.received_date' => array_values(array_filter([
+                'nullable',
+                'date',
+                'before_or_equal:today',
+                filled($input['source']['purchase_date'] ?? null) ? 'after_or_equal:source.purchase_date' : null,
+            ])),
             'lines' => 'required|array|min:1|max:'.self::MAX_LINES,
             'lines.*.name' => 'required|string|'.InputLimits::name(),
             'lines.*.category_id' => 'required|integer|min:1',
@@ -56,6 +61,9 @@ class EquipmentBatchIntake
             'lines.*.units.*.serial' => 'nullable|string|max:'.InputLimits::SERIAL,
             'lines.*.units.*.room_id' => 'nullable|integer|min:0',
             'lines.*.units.*.warranty' => 'nullable|date',
+            'lines.*.units.*.purchase_date' => 'nullable|date|before_or_equal:today',
+            'lines.*.units.*.cost' => 'nullable|numeric|min:0|max:'.InputLimits::COST,
+            'lines.*.units.*.useful_life_years' => 'nullable|integer|min:1|max:50',
             'lines.*.units.*.custodian_id' => 'nullable|integer|min:0',
             'lines.*.units.*.brand' => 'nullable|string|'.InputLimits::name(),
             'lines.*.units.*.model' => 'nullable|string|'.InputLimits::name(),
@@ -71,6 +79,9 @@ class EquipmentBatchIntake
             'lines.*.warranty' => 'warranty expiration',
             'lines.*.useful_life_years' => 'useful lifespan',
             'lines.*.units.*.warranty' => 'unit warranty expiration',
+            'lines.*.units.*.purchase_date' => 'unit purchase date',
+            'lines.*.units.*.cost' => 'unit cost',
+            'lines.*.units.*.useful_life_years' => 'unit useful lifespan',
             'lines.*.units.*.image' => 'unit photo',
         ]);
 
@@ -120,6 +131,15 @@ class EquipmentBatchIntake
             $tracking = $line['tracking'];
             $quantity = (int) $line['quantity'];
             $lineRoom = $deployRoom((int) ($line['destination_room_id'] ?? 0), "lines.$i.destination_room_id");
+
+            if (
+                $tracking === EquipmentTrackingModes::BULK
+                && EquipmentTrackingModes::requiresIndividualForCategory((int) $line['category_id'])
+            ) {
+                throw ValidationException::withMessages([
+                    "lines.$i.tracking" => 'Computer Equipment must be stocked as Individual units (one identity per piece). Use quantity to add many.',
+                ]);
+            }
 
             if ($tracking === 'Bulk') {
                 $unit = array_values($line['units'] ?? [])[0] ?? [];
@@ -226,11 +246,11 @@ class EquipmentBatchIntake
                         'equipment_tracking_mode' => $isBulk ? 'Bulk' : 'Individual',
                         'equipment_condition_status' => $condition,
                         'equipment_inventory_status' => $inventoryStatus,
-                        'equipment_purchase_date' => $purchaseDate,
+                        'equipment_purchase_date' => $unit['purchase_date'] ?? $purchaseDate,
                         'equipment_acquired_date' => $acquiredDate,
-                        'equipment_purchase_cost' => ($line['cost'] ?? '') !== '' ? $line['cost'] : null,
+                        'equipment_purchase_cost' => $unit['cost'],
                         'equipment_warranty_expiration' => $unit['warranty'],
-                        'equipment_useful_life_years' => ($line['useful_life_years'] ?? '') !== '' ? (int) $line['useful_life_years'] : null,
+                        'equipment_useful_life_years' => $unit['useful_life_years'],
                         'equipment_is_borrowable' => (bool) ($line['borrowable'] ?? false),
                         'equipment_placement_zone' => 'Holding',
                         'equipment_current_location' => 'Holding',
@@ -331,6 +351,8 @@ class EquipmentBatchIntake
     private static function unitPlan(array $line, array $unit, ?object $room): array
     {
         $image = $unit['image'] ?? null;
+        $cost = self::clean($unit['cost'] ?? null) ?? self::clean($line['cost'] ?? null);
+        $life = self::clean($unit['useful_life_years'] ?? null) ?? self::clean($line['useful_life_years'] ?? null);
 
         return [
             'asset_tag' => $unit['asset_tag'] ?? null,
@@ -338,6 +360,9 @@ class EquipmentBatchIntake
             'brand' => self::clean($unit['brand'] ?? null) ?? self::clean($line['brand'] ?? null),
             'model' => self::clean($unit['model'] ?? null) ?? self::clean($line['model'] ?? null),
             'warranty' => self::clean($unit['warranty'] ?? null) ?? self::clean($line['warranty'] ?? null),
+            'purchase_date' => self::clean($unit['purchase_date'] ?? null),
+            'cost' => $cost !== null ? $cost : null,
+            'useful_life_years' => $life !== null ? (int) $life : null,
             'image' => $image instanceof \Illuminate\Http\UploadedFile ? $image : null,
             'room' => $room,
             'custodian_id' => (int) ($unit['custodian_id'] ?? 0),

@@ -259,9 +259,10 @@
                                             type="button"
                                             data-tooltip="View Report"
                                             onclick="openReportModal('view-modal-{{ $report->report_id }}'); switchReportViewTab({{ $report->report_id }}, 'details')"
-                                            class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-slate-800 transition hover:bg-slate-200"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                            title="View"
                                         >
-                                            <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                                            <i data-lucide="eye" class="h-4 w-4"></i>
                                             View
                                         </button>
                                     </div>
@@ -298,6 +299,11 @@
 
         @else
 
+        <div
+            class="contents"
+            x-data="roomsDirectoryView()"
+            x-init="init()"
+        >
         <div class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -311,12 +317,46 @@
                 </div>
             </div>
 
-            <div class="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
-                <i data-lucide="layout-grid" class="h-3.5 w-3.5"></i>
-                {{ $rooms->total() }} total
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+                    <button
+                        type="button"
+                        @click="setView('list')"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold transition"
+                        :class="viewMode === 'list' ? 'bg-slate-100 text-slate-800 ring-1 ring-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'"
+                        :aria-pressed="viewMode === 'list'"
+                    >
+                        <i data-lucide="list" class="h-3.5 w-3.5"></i>
+                        List
+                    </button>
+                    <button
+                        type="button"
+                        @click="setView('gallery')"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold transition"
+                        :class="viewMode === 'gallery' ? 'bg-slate-100 text-slate-800 ring-1 ring-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'"
+                        :aria-pressed="viewMode === 'gallery'"
+                    >
+                        <i data-lucide="layout-grid" class="h-3.5 w-3.5"></i>
+                        Gallery
+                    </button>
+                </div>
+
+                <div class="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+                    <span x-text="viewMode === 'gallery' ? 'Gallery' : 'List'"></span>
+                    <span class="text-slate-300">·</span>
+                    {{ $rooms->total() }} total
+                </div>
             </div>
         </div>
 
+        @php
+            $roomsHasFilters = request()->filled('search')
+                || request()->filled('room')
+                || request()->filled('type')
+                || request()->filled('status')
+                || request()->filled('floor');
+            $roomFilterSelectClass = 'h-9 min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-sm text-slate-600 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100';
+        @endphp
         <form method="GET" action="{{ url()->current() }}" data-auto-filter class="border-b border-slate-200 px-5 py-4">
             <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
                 <div class="relative min-w-0 flex-1">
@@ -335,36 +375,57 @@
                 </div>
 
                 <div class="relative">
-                    <select
-                        name="building"
-                        class="h-9 min-w-[175px] appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-sm text-slate-600 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                    >
-                        <option value="">All Buildings</option>
-                        @foreach ($buildings as $building)
-                            <option value="{{ $building->building_id }}" @selected(request('building') == $building->building_id)>
-                                {{ $building->building_name }}
+                    <select name="room" class="{{ $roomFilterSelectClass }}">
+                        <option value="">All rooms</option>
+                        @foreach (($roomNameOptions ?? collect()) as $roomOption)
+                            <option value="{{ $roomOption->room_id }}" @selected((string) request('room') === (string) $roomOption->room_id)>
+                                {{ $roomOption->room_name }}
                             </option>
                         @endforeach
                     </select>
+                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                </div>
 
-                    <i
-                        data-lucide="chevron-down"
-                        class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                    ></i>
+                <div class="relative">
+                    <select name="type" class="{{ $roomFilterSelectClass }}">
+                        <option value="">All types</option>
+                        @foreach (($roomTypes ?? []) as $typeValue => $typeLabel)
+                            <option value="{{ $typeValue }}" @selected(request('type') === $typeValue)>
+                                {{ $typeLabel }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                </div>
+
+                <div class="relative">
+                    <select name="status" class="{{ $roomFilterSelectClass }}">
+                        <option value="">All statuses</option>
+                        @foreach (($roomStatuses ?? []) as $statusOption)
+                            <option value="{{ $statusOption }}" @selected(request('status') === $statusOption)>
+                                {{ $statusOption }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                </div>
+
+                <div class="relative">
+                    <select name="floor" class="{{ $roomFilterSelectClass }}">
+                        <option value="">All floors</option>
+                        @foreach (($floors ?? collect()) as $floorOption)
+                            <option value="{{ $floorOption->floor_id }}" @selected((string) request('floor') === (string) $floorOption->floor_id)>
+                                {{ $floorOption->building_name ? $floorOption->building_name.' · ' : '' }}{{ $floorOption->floor_level }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                 </div>
 
                 <input type="hidden" name="sort" value="{{ $sort }}" />
                 <input type="hidden" name="dir" value="{{ $dir }}" />
 
-                <button
-                    type="submit"
-                    class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
-                >
-                    <i data-lucide="filter" class="h-4 w-4"></i>
-                    Apply
-                </button>
-
-                @if (request()->filled('search') || request()->filled('building'))
+                @if ($roomsHasFilters)
                     <a
                         href="{{ url()->current() }}"
                         class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
@@ -376,7 +437,7 @@
             </div>
         </form>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" x-show="viewMode === 'list'" x-cloak>
             <table class="w-full min-w-[1100px] text-left">
                 <thead class="border-b border-slate-200 bg-slate-50/70">
                     <tr class="text-[12px] font-semibold uppercase tracking-[0.08em] text-black">
@@ -500,8 +561,9 @@
                                     <button
                                         type="button"
                                         onclick="openRoomPeek({{ $room->room_id }}, {{ json_encode($room->room_name) }})"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
-                                        title="Peek"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                        title="View"
+                                        aria-label="View"
                                     >
                                         <i data-lucide="eye" class="h-4 w-4"></i>
                                     </button>
@@ -552,11 +614,159 @@
             </table>
         </div>
 
+        <div class="px-5 py-5" x-show="viewMode === 'gallery'" x-cloak>
+            @if ($rooms->isEmpty())
+                <div class="flex flex-col items-center py-16 text-center">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                        <i data-lucide="door-open" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-sm font-medium text-slate-700">No rooms found</p>
+                    <p class="mt-1 text-xs text-slate-400">Try adjusting your search or add a new room.</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($rooms as $room)
+                        @php
+                            $status = \App\Support\RoomStatuses::normalize($room->room_status ?? null);
+                            $statusClass = match ($status) {
+                                \App\Support\RoomStatuses::NORMAL => 'bg-emerald-50 text-emerald-700',
+                                \App\Support\RoomStatuses::UNDER_MAINTENANCE => 'bg-amber-50 text-amber-700',
+                                \App\Support\RoomStatuses::CRITICAL => 'bg-rose-50 text-rose-700',
+                                default => 'bg-slate-100 text-slate-600',
+                            };
+                            $statusDotClass = match ($status) {
+                                \App\Support\RoomStatuses::NORMAL => 'bg-emerald-500',
+                                \App\Support\RoomStatuses::UNDER_MAINTENANCE => 'bg-amber-500',
+                                \App\Support\RoomStatuses::CRITICAL => 'bg-rose-500',
+                                default => 'bg-slate-400',
+                            };
+                            $roomImage = filled($room->room_image ?? null)
+                                ? asset('storage/'.$room->room_image)
+                                : null;
+                            $roomDepts = collect($room->departments ?? []);
+                            $visibleDepts = $roomDepts->take(2);
+                            $extraDeptCount = max(0, $roomDepts->count() - 2);
+                            $roomTypeLabel = $roomTypes[$room->room_type] ?? ($room->room_type ?: 'Room');
+                        @endphp
+
+                        <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
+                            <button
+                                type="button"
+                                class="block w-full text-left"
+                                onclick="openRoomPeek({{ $room->room_id }}, {{ json_encode($room->room_name) }})"
+                            >
+                                <div class="relative aspect-[16/10] overflow-hidden bg-slate-100">
+                                    @if ($roomImage)
+                                        <img
+                                            src="{{ $roomImage }}"
+                                            alt="{{ $room->room_name }}"
+                                            class="h-full w-full object-cover"
+                                            loading="lazy"
+                                        >
+                                    @else
+                                        <div class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+                                            <i data-lucide="image" class="h-7 w-7"></i>
+                                            <span class="text-[11px] font-medium">No room photo</span>
+                                        </div>
+                                    @endif
+
+                                    <span class="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold shadow-sm {{ $statusClass }}">
+                                        <span class="h-1.5 w-1.5 rounded-full {{ $statusDotClass }}"></span>
+                                        {{ $status }}
+                                    </span>
+                                </div>
+                            </button>
+
+                            <div class="space-y-3 p-4">
+                                <div>
+                                    <button
+                                        type="button"
+                                        class="block w-full truncate text-left text-sm font-semibold text-slate-900 transition hover:text-[#0025cc]"
+                                        onclick="openRoomPeek({{ $room->room_id }}, {{ json_encode($room->room_name) }})"
+                                    >
+                                        {{ $room->room_name }}
+                                    </button>
+                                    <p class="mt-0.5 truncate text-xs text-slate-500">
+                                        {{ $roomTypeLabel }}
+                                        @if ($room->floor_level)
+                                            <span class="text-slate-300">·</span>
+                                            {{ $room->floor_level }}
+                                        @endif
+                                        @if ($room->building_name)
+                                            <span class="text-slate-300">·</span>
+                                            {{ $room->building_name }}
+                                        @endif
+                                    </p>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    @forelse ($visibleDepts as $dept)
+                                        <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                            {{ $dept['name'] ?? $dept }}
+                                        </span>
+                                    @empty
+                                        <span class="text-[11px] text-slate-400">No departments</span>
+                                    @endforelse
+                                    @if ($extraDeptCount > 0)
+                                        <span class="inline-flex rounded-md bg-[#0037C7]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#0037C7]">
+                                            +{{ $extraDeptCount }}
+                                        </span>
+                                    @endif
+                                </div>
+
+                                <div class="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+                                        <i data-lucide="package" class="h-3.5 w-3.5 text-slate-400"></i>
+                                        {{ number_format($room->equipment_count) }} equipments
+                                    </span>
+
+                                    <div class="flex items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onclick="openRoomPeek({{ $room->room_id }}, {{ json_encode($room->room_name) }})"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                                            title="Peek"
+                                        >
+                                            <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onclick='openEditRoomModal(@json($room))'
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                            title="Edit"
+                                        >
+                                            <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                                        </button>
+                                        <a
+                                            href="{{ url('/admin/equipment/all') }}?room={{ $room->room_id }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-blue-800"
+                                            title="View equipment"
+                                        >
+                                            <i data-lucide="package" class="h-3.5 w-3.5"></i>
+                                        </a>
+                                        <a
+                                            href="{{ url('/admin/rooms') }}?history={{ $room->room_id }}"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                                            title="History"
+                                        >
+                                            <i data-lucide="history" class="h-3.5 w-3.5"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
         @if ($rooms->hasPages())
             <div class="border-t border-slate-200 px-5 py-4">
                 {{ $rooms->links() }}
             </div>
         @endif
+
+        </div>
 
         @endif
     </section>
@@ -963,7 +1173,14 @@
                                                     <input type="hidden" name="restore" value="1">
                                                     <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Restore</button>
                                                 @else
-                                                    <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Archive</button>
+                                                    <button
+                                                        type="submit"
+                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                                                        title="Archive"
+                                                        aria-label="Archive"
+                                                    >
+                                                        <i data-lucide="archive" class="h-4 w-4"></i>
+                                                    </button>
                                                 @endif
                                             </form>
                                             <form action="{{ route('admin.rooms.types.destroy', $type->room_type_id) }}" method="POST" onsubmit="return confirm('Delete this room type? Only unused types can be deleted.')">
@@ -1053,6 +1270,37 @@
 </style>
 
 <script>
+    function roomsDirectoryView() {
+        return {
+            viewMode: 'list',
+            storageKey: 'paayo.rooms.directoryView',
+            init() {
+                try {
+                    const saved = window.localStorage.getItem(this.storageKey);
+                    if (saved === 'list' || saved === 'gallery') {
+                        this.viewMode = saved;
+                    }
+                } catch (error) {
+                    // Ignore storage access errors.
+                }
+                this.$nextTick(() => {
+                    if (window.lucide) window.lucide.createIcons();
+                });
+            },
+            setView(mode) {
+                this.viewMode = mode === 'gallery' ? 'gallery' : 'list';
+                try {
+                    window.localStorage.setItem(this.storageKey, this.viewMode);
+                } catch (error) {
+                    // Ignore storage access errors.
+                }
+                this.$nextTick(() => {
+                    if (window.lucide) window.lucide.createIcons();
+                });
+            },
+        };
+    }
+
     function positionRoomDeptMorePanel(wrap) {
         const panel = wrap.querySelector('.room-dept-more-panel');
         const btn = wrap.querySelector('[data-room-dept-more-btn]');

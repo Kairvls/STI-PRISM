@@ -1272,7 +1272,7 @@
             color: transparent;
             background: linear-gradient(90deg, rgba(148, 163, 184, 0.18) 25%, rgba(226, 232, 240, 0.45) 50%, rgba(148, 163, 184, 0.18) 75%);
             background-size: 200% 100%;
-            animation: building-room-skel 1s ease-in-out infinite;
+            animation: building-room-skel 0.55s linear infinite;
         }
 
         .building-room-skel {
@@ -1285,7 +1285,7 @@
             border-radius: 8px;
             background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
             background-size: 200% 100%;
-            animation: building-room-skel 1s ease-in-out infinite;
+            animation: building-room-skel 0.55s linear infinite;
         }
 
         .building-room-skel-row:nth-child(2) {

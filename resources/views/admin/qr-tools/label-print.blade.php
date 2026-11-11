@@ -113,11 +113,15 @@
             padding: 0 18px;
             border: 0;
             border-radius: 10px;
-            background: #0f172a;
+            background: #0025cc;
             color: #ffffff;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
+        }
+
+        .print-button:hover {
+            background: #001f99;
         }
 
         .preview-workspace {
@@ -248,43 +252,60 @@
 
         .label-information {
             min-width: 0;
+            height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            padding: 4mm;
+            gap: 1.5mm;
+            padding: 3mm 3.5mm;
+            overflow: hidden;
         }
 
         .system-name {
             margin: 0;
-            font-size: 7pt;
+            flex-shrink: 0;
+            font-size: 6.5pt;
             font-weight: 700;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
+            line-height: 1.2;
         }
 
         .equipment-name {
-            margin: 3mm 0 0;
+            margin: 0;
+            flex: 1 1 auto;
+            min-height: 0;
             overflow: hidden;
-            font-size: 13pt;
+            font-size: 11pt;
             font-weight: 700;
             line-height: 1.15;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
+            word-break: normal;
+            hyphens: auto;
+        }
+
+        .qr-meta {
+            flex-shrink: 0;
+            margin-top: auto;
+            min-width: 0;
         }
 
         .qr-id-label {
-            margin: auto 0 0;
-            font-size: 6.5pt;
+            margin: 0;
+            font-size: 6pt;
             color: #64748b;
             text-transform: uppercase;
+            line-height: 1.2;
         }
 
         .qr-id {
-            margin: 1mm 0 0;
+            margin: 0.6mm 0 0;
             font-family: "Courier New", monospace;
-            font-size: 8pt;
+            font-size: 7.5pt;
             font-weight: 700;
-            letter-spacing: 0.04em;
-            overflow-wrap: anywhere;
+            letter-spacing: 0.03em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .label-template {
@@ -450,11 +471,12 @@
                                 {{ $equipment->equipment_name }}
                             </h2>
 
-                            <p class="qr-id-label">QR ID</p>
-
-                            <p class="qr-id">
-                                {{ $equipment->equipment_qr_code }}
-                            </p>
+                            <div class="qr-meta">
+                                <p class="qr-id-label">QR ID</p>
+                                <p class="qr-id">
+                                    {{ $equipment->equipment_qr_code }}
+                                </p>
+                            </div>
                         </div>
                     </section>
                 @endforeach
@@ -642,6 +664,27 @@
                 fitSummary.textContent = text;
             }
 
+            function fitEquipmentNames(root) {
+                const names = Array.from((root || document).querySelectorAll('.equipment-name'));
+
+                names.forEach(function (el) {
+                    let size = 11;
+                    const min = 6;
+
+                    el.style.fontSize = size + 'pt';
+
+                    // Shrink until the name fits the reserved label text area.
+                    while (
+                        size > min &&
+                        (el.scrollHeight > el.clientHeight + 0.5 ||
+                            el.scrollWidth > el.clientWidth + 0.5)
+                    ) {
+                        size -= 0.25;
+                        el.style.fontSize = size + 'pt';
+                    }
+                });
+            }
+
             function buildSheets() {
                 const paper = getPaper();
                 const fit = getLabelsPerPage(paper);
@@ -680,6 +723,11 @@
 
                     sheetsEl.appendChild(sheet);
                 }
+
+                // Wait a frame so layout sizes are ready before measuring overflow.
+                requestAnimationFrame(function () {
+                    fitEquipmentNames(sheetsEl);
+                });
             }
 
             function onPaperChange(value) {
@@ -732,6 +780,7 @@
             // Re-apply right before print so @page matches the current selection.
             window.addEventListener('beforeprint', function () {
                 applyPaperStyles(getPaper());
+                fitEquipmentNames(sheetsEl);
             });
 
             window.addEventListener('load', function () {
