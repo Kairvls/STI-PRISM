@@ -4,6 +4,9 @@
 @section('page-subtitle', 'Everything this purchaser account has bought, requested, and received.')
 
 @section('content')
+<style>
+    [x-cloak] { display: none !important; }
+</style>
 @php
     use App\Support\PurchaserHistory;
     use Carbon\Carbon;
@@ -23,14 +26,20 @@
     // Account + period are carried across tabs; tab-specific filters are not.
     $baseQuery = array_filter([
         'purchaser' => $isAdmin && ! $isOwnHistory ? $subject->user_id : null,
-        'from' => $filters['from'],
-        'to' => $filters['to'],
-    ]);
+        'from' => empty($filters['year']) ? ($filters['from'] ?? null) : null,
+        'to' => empty($filters['year']) ? ($filters['to'] ?? null) : null,
+        'year' => $filters['year'] ?? null,
+        'month' => $filters['month'] ?? null,
+    ], fn ($value) => $value !== null && $value !== '');
     $tabUrl = fn (string $key) => route($pp.'.history.index', array_merge($baseQuery, ['tab' => $key]));
 
     $maxMonthly = max(1, collect($monthlySpend)->max('amount'));
-    $hasFilters = collect($filters)->filter()->isNotEmpty();
+    $hasFilters = collect($filters)->only(['search', 'from', 'to', 'status', 'type', 'delivery', 'year', 'month'])->filter(fn ($v) => $v !== null && $v !== '')->isNotEmpty();
     $firstName = \Illuminate\Support\Str::of($subject->name)->before(' ');
+    $spendYears = $availableYears ?? [];
+    $chartCaption = ! empty($filters['year'])
+        ? (! empty($filters['month']) ? 'Monthly approved spend · '.$spendPeriodLabel : 'Monthly approved spend · '.$filters['year'])
+        : 'Monthly approved spend · last 6 months';
 @endphp
 
 <div class="space-y-6">
@@ -41,31 +50,26 @@
 
     <div class="pur-card">
         <div class="flex flex-col gap-5 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex min-w-0 items-center gap-4">
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0025cc] text-xl font-bold text-white">
-                    {{ strtoupper(mb_substr($subject->name, 0, 1)) }}
-                </div>
-                <div class="min-w-0">
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                        {{ $isOwnHistory ? 'Your purchase history' : 'Purchase history of' }}
-                    </p>
-                    <h2 class="truncate text-xl font-bold tracking-tight text-slate-900">{{ $subject->name }}</h2>
-                    <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-semibold ring-1 {{ $subject->is_primary ? $toneClasses['blue'] : $toneClasses['slate'] }}">
-                            <i data-lucide="badge-check" class="h-3 w-3"></i>
-                            {{ $subject->role_label }}
-                        </span>
-                        @if($subject->employee_id)
-                            <span class="inline-flex items-center gap-1">
-                                <i data-lucide="id-card" class="h-3.5 w-3.5"></i>
-                                {{ $subject->employee_id }}
-                            </span>
-                        @endif
+            <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {{ $isOwnHistory ? 'Your purchase history' : 'Purchase history of' }}
+                </p>
+                <h2 class="truncate text-xl font-bold tracking-tight text-slate-900">{{ $subject->name }}</h2>
+                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-semibold ring-1 {{ $subject->is_primary ? $toneClasses['blue'] : $toneClasses['slate'] }}">
+                        <i data-lucide="badge-check" class="h-3 w-3"></i>
+                        {{ $subject->role_label }}
+                    </span>
+                    @if($subject->employee_id)
                         <span class="inline-flex items-center gap-1">
-                            <i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>
-                            Last purchase: {{ $summary['last_purchase'] ?? 'none yet' }}
+                            <i data-lucide="id-card" class="h-3.5 w-3.5"></i>
+                            {{ $subject->employee_id }}
                         </span>
-                    </div>
+                    @endif
+                    <span class="inline-flex items-center gap-1">
+                        <i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>
+                        Last purchase: {{ $summary['last_purchase'] ?? 'none yet' }}
+                    </span>
                 </div>
             </div>
 
@@ -108,44 +112,103 @@
 
         {{-- Spend + trend --}}
         <div class="pur-stat-card flex flex-col">
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="flex items-center gap-2.5">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0025cc] text-white">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-slate-200">
                         <i data-lucide="wallet" class="h-4 w-4"></i>
                     </span>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Approved spend</p>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Approved spend</p>
+                        <p class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $spendPeriodLabel ?? 'All time' }}</p>
+                    </div>
                 </div>
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
-                    {{ $filters['from'] || $filters['to'] ? 'Selected period' : 'All time' }}
-                </span>
+                <form
+                    method="GET"
+                    action="{{ route($pp.'.history.index') }}"
+                    class="flex flex-wrap items-center gap-1.5"
+                >
+                    <input type="hidden" name="tab" value="{{ $tab }}">
+                    @if($isAdmin && ! $isOwnHistory)
+                        <input type="hidden" name="purchaser" value="{{ $subject->user_id }}">
+                    @endif
+                    @if(!empty($filters['search']))
+                        <input type="hidden" name="search" value="{{ $filters['search'] }}">
+                    @endif
+                    @if(!empty($filters['status']))
+                        <input type="hidden" name="status" value="{{ $filters['status'] }}">
+                    @endif
+                    @if(!empty($filters['type']))
+                        <input type="hidden" name="type" value="{{ $filters['type'] }}">
+                    @endif
+                    @if(!empty($filters['delivery']))
+                        <input type="hidden" name="delivery" value="{{ $filters['delivery'] }}">
+                    @endif
+                    <select
+                        name="year"
+                        onchange="this.form.submit()"
+                        class="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-medium text-slate-600 outline-none transition hover:bg-white focus:border-slate-300 focus:bg-white"
+                        aria-label="Filter by year"
+                    >
+                        <option value="">All years</option>
+                        @foreach($spendYears as $yearOption)
+                            <option value="{{ $yearOption }}" @selected((int) ($filters['year'] ?? 0) === (int) $yearOption)>{{ $yearOption }}</option>
+                        @endforeach
+                    </select>
+                    <select
+                        name="month"
+                        onchange="this.form.submit()"
+                        @disabled(empty($filters['year']))
+                        class="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-medium text-slate-600 outline-none transition hover:bg-white focus:border-slate-300 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Filter by month"
+                    >
+                        <option value="">All months</option>
+                        @foreach([1=>'Jan',2=>'Feb',3=>'Mar',4=>'Apr',5=>'May',6=>'Jun',7=>'Jul',8=>'Aug',9=>'Sep',10=>'Oct',11=>'Nov',12=>'Dec'] as $monthNum => $monthLabel)
+                            <option value="{{ $monthNum }}" @selected((int) ($filters['month'] ?? 0) === $monthNum)>{{ $monthLabel }}</option>
+                        @endforeach
+                    </select>
+                </form>
             </div>
 
             <p class="mt-3 text-3xl font-bold tracking-tight text-slate-900">{{ $peso($summary['approved_spend']) }}</p>
-            <p class="mt-1 text-xs text-slate-500">
-                of {{ $peso($summary['requested_spend']) }} requested across {{ $summary['purchases'] }} {{ \Illuminate\Support\Str::plural('purchase', $summary['purchases']) }}
-            </p>
 
             <p class="mt-5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 <i data-lucide="trending-up" class="h-3.5 w-3.5"></i>
-                Monthly approved spend · last 6 months
+                {{ $chartCaption }}
             </p>
-            <div class="mt-2 flex min-h-[120px] flex-1 items-stretch gap-2 sm:gap-3">
+            <div class="mt-2 flex min-h-[120px] flex-1 items-stretch gap-2 overflow-visible sm:gap-3">
                 @foreach($monthlySpend as $month)
-                    @php $height = $month['amount'] > 0 ? max(8, round(($month['amount'] / $maxMonthly) * 100)) : 4; @endphp
-                    <div class="flex flex-1 flex-col items-center gap-1.5" title="{{ $month['label'] }}: {{ $peso($month['amount']) }}">
+                    @php
+                        $height = $month['amount'] > 0 ? max(8, round(($month['amount'] / $maxMonthly) * 100)) : 4;
+                        $isHighlight = !empty($month['highlight']);
+                    @endphp
+                    <div class="group/spend-bar relative flex flex-1 flex-col items-center gap-1.5">
                         <span class="h-4 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
                             {{ $month['amount'] > 0 ? $peso($month['amount']) : '' }}
                         </span>
                         <div class="relative w-full max-w-[56px] flex-1">
-                            <div class="absolute inset-x-0 bottom-0 rounded-md {{ $month['amount'] > 0 ? 'bg-[#0025cc]' : 'bg-slate-100' }}" style="height: {{ $height }}%"></div>
+                            <div
+                                class="absolute inset-x-0 bottom-0 rounded-md transition duration-200 {{ $month['amount'] > 0 ? ($isHighlight ? 'bg-[#001fa8] ring-2 ring-[#0025cc]/30' : 'bg-[#0025cc] group-hover/spend-bar:bg-[#001fa8]') : 'bg-slate-100 group-hover/spend-bar:bg-slate-200' }}"
+                                style="height: {{ $height }}%"
+                            ></div>
+                            <div
+                                class="pointer-events-none absolute left-1/2 top-0 z-20 w-max max-w-[12rem] -translate-x-1/2 -translate-y-[calc(100%+6px)] scale-95 opacity-0 transition duration-150 group-hover/spend-bar:scale-100 group-hover/spend-bar:opacity-100"
+                                role="tooltip"
+                            >
+                                <div class="rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-[0_12px_30px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ $month['label'] }}{{ !empty($filters['year']) ? ' '.$filters['year'] : '' }}</p>
+                                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ $peso($month['amount']) }}</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-500">Approved spend</p>
+                                </div>
+                                <span class="mx-auto -mt-px block h-2 w-2 rotate-45 border-b border-r border-slate-200/80 bg-white shadow-[1px_1px_0_rgba(15,23,42,0.04)]"></span>
+                            </div>
                         </div>
-                        <span class="text-[11px] font-medium text-slate-400">{{ $month['label'] }}</span>
+                        <span class="text-[11px] font-medium transition {{ $isHighlight ? 'text-[#0025cc]' : 'text-slate-400 group-hover/spend-bar:text-slate-700' }}">{{ $month['label'] }}</span>
                     </div>
                 @endforeach
             </div>
         </div>
 
-        {{-- Counts --}}
+        {{-- Counts (read-only summary) --}}
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-2">
             @foreach($statCards as $card)
                 <div class="pur-stat-card flex flex-col">
@@ -207,7 +270,25 @@
         </a>
     </nav>
 
-    <div class="pur-card overflow-visible">
+    <div
+        class="pur-card overflow-visible"
+        x-data="{
+            previewOpen: false,
+            preview: null,
+            openPreview(data) {
+                this.preview = data;
+                this.previewOpen = true;
+                this.$nextTick(() => {
+                    if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+                });
+            },
+            closePreview() {
+                this.previewOpen = false;
+                this.preview = null;
+            }
+        }"
+        @keydown.escape.window="if (previewOpen) closePreview()"
+    >
 
         {{-- ===================================================== --}}
         {{-- FILTER BAR --}}
@@ -218,6 +299,15 @@
                 <input type="hidden" name="tab" value="{{ $tab }}">
                 @if($isAdmin && ! $isOwnHistory)
                     <input type="hidden" name="purchaser" value="{{ $subject->user_id }}">
+                @endif
+                @if(!empty($filters['year']))
+                    <input type="hidden" name="year" value="{{ $filters['year'] }}">
+                @endif
+                @if(!empty($filters['month']))
+                    <input type="hidden" name="month" value="{{ $filters['month'] }}">
+                @endif
+                @if(!empty($filters['delivery']))
+                    <input type="hidden" name="delivery" value="{{ $filters['delivery'] }}">
                 @endif
 
                 @if($tab !== 'suppliers')
@@ -233,14 +323,20 @@
                     </div>
                 @endif
 
-                <label class="flex items-center gap-2 text-xs font-medium text-gray-500">
-                    From
-                    <input type="date" name="from" value="{{ $filters['from'] }}" class="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-gray-300 focus:bg-white">
-                </label>
-                <label class="flex items-center gap-2 text-xs font-medium text-gray-500">
-                    To
-                    <input type="date" name="to" value="{{ $filters['to'] }}" class="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-gray-300 focus:bg-white">
-                </label>
+                @if(empty($filters['year']))
+                    <label class="flex items-center gap-2 text-xs font-medium text-gray-500">
+                        From
+                        <input type="date" name="from" value="{{ $filters['from'] }}" class="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-gray-300 focus:bg-white">
+                    </label>
+                    <label class="flex items-center gap-2 text-xs font-medium text-gray-500">
+                        To
+                        <input type="date" name="to" value="{{ $filters['to'] }}" class="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-gray-300 focus:bg-white">
+                    </label>
+                @else
+                    <span class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-600">
+                        Period: {{ $spendPeriodLabel }}
+                    </span>
+                @endif
 
                 @if($tab === 'items')
                     <select name="status" class="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-600 outline-none focus:border-gray-300 focus:bg-white">
@@ -293,7 +389,35 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white">
                         @forelse($items as $item)
-                            <tr class="align-top transition hover:bg-gray-50/70">
+                            @php
+                                $itemPreview = [
+                                    'kind' => 'item',
+                                    'icon' => 'package',
+                                    'title' => $item->atp_description ?: 'Unnamed item',
+                                    'subtitle' => 'Purchased item',
+                                    'status' => $item->status['label'] ?? '—',
+                                    'tone' => $item->status['tone'] ?? 'slate',
+                                    'delivery' => $item->delivery['label'] ?? null,
+                                    'deliveryTone' => $item->delivery['tone'] ?? 'slate',
+                                    'archived' => (bool) ($item->authority_purchase_is_archived ?? false),
+                                    'fields' => [
+                                        ['label' => 'Quantity', 'value' => number_format((int) $item->atp_quantity).($item->atp_unit ? ' '.$item->atp_unit : '')],
+                                        ['label' => 'Unit price', 'value' => $peso($item->atp_unit_price)],
+                                        ['label' => 'Line amount', 'value' => $peso($item->line_amount)],
+                                        ['label' => 'ATP', 'value' => $item->authority_purchase_form_number ?: 'ATP #'.$item->authority_purchase_id],
+                                        ['label' => 'RIS', 'value' => $item->ris_form_number ?: '—'],
+                                        ['label' => 'Supplier', 'value' => $item->supplier_name ?: '—'],
+                                        ['label' => 'Date', 'value' => $shortDate($item->purchase_date)],
+                                    ],
+                                ];
+                            @endphp
+                            <tr
+                                class="align-top cursor-pointer transition hover:bg-blue-50/40"
+                                role="button"
+                                tabindex="0"
+                                @click="openPreview(@js($itemPreview))"
+                                @keydown.enter.prevent="openPreview(@js($itemPreview))"
+                            >
                                 <td class="max-w-[320px] px-5 py-4">
                                     <p class="line-clamp-2 font-medium text-gray-900">{{ $item->atp_description ?: 'Unnamed item' }}</p>
                                     @if($item->atp_unit)
@@ -304,14 +428,7 @@
                                 <td class="px-5 py-4 text-right tabular-nums text-gray-600">{{ $peso($item->atp_unit_price) }}</td>
                                 <td class="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">{{ $peso($item->line_amount) }}</td>
                                 <td class="px-5 py-4">
-                                    @if($isOwnHistory && $item->authority_purchase_form_number)
-                                        <a
-                                            href="{{ route($pp.'.atp.index', array_filter(['view_atp' => $item->authority_purchase_id, 'view' => $item->authority_purchase_is_archived ? 'archive' : null])) }}"
-                                            class="font-semibold text-[#0025cc] hover:underline"
-                                        >{{ $item->authority_purchase_form_number }}</a>
-                                    @else
-                                        <span class="font-semibold text-gray-800">{{ $item->authority_purchase_form_number ?: 'ATP #'.$item->authority_purchase_id }}</span>
-                                    @endif
+                                    <span class="font-semibold text-gray-800">{{ $item->authority_purchase_form_number ?: 'ATP #'.$item->authority_purchase_id }}</span>
                                     <p class="mt-0.5 text-xs text-gray-500">RIS {{ $item->ris_form_number ?: '—' }}</p>
                                 </td>
                                 <td class="px-5 py-4 text-gray-700">{{ $item->supplier_name ?: '—' }}</td>
@@ -367,9 +484,6 @@
                             <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
-                            @if($isOwnHistory)
-                                <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
-                            @endif
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white">
@@ -377,7 +491,32 @@
                             $docIcons = ['ris' => 'package-open', 'atp' => 'file-check-2', 'po' => 'shopping-bag', 'rfc' => 'wallet', 'rr' => 'package-check', 'liq' => 'receipt-text'];
                         @endphp
                         @forelse($documents as $doc)
-                            <tr class="transition hover:bg-gray-50/70">
+                            @php
+                                $docPreview = [
+                                    'kind' => 'document',
+                                    'icon' => $docIcons[$doc->type] ?? 'file',
+                                    'title' => $doc->number,
+                                    'subtitle' => $doc->type_label,
+                                    'status' => $doc->status ?: '—',
+                                    'tone' => $doc->tone ?? 'slate',
+                                    'delivery' => null,
+                                    'deliveryTone' => 'slate',
+                                    'archived' => (bool) ($doc->is_archived ?? false),
+                                    'fields' => [
+                                        ['label' => 'Document type', 'value' => $doc->type_label],
+                                        ['label' => 'Details', 'value' => $doc->title ?: '—'],
+                                        ['label' => 'Amount', 'value' => $peso($doc->amount)],
+                                        ['label' => 'Date', 'value' => $shortDate($doc->date)],
+                                    ],
+                                ];
+                            @endphp
+                            <tr
+                                class="cursor-pointer transition hover:bg-blue-50/40"
+                                role="button"
+                                tabindex="0"
+                                @click="openPreview(@js($docPreview))"
+                                @keydown.enter.prevent="openPreview(@js($docPreview))"
+                            >
                                 <td class="px-5 py-4">
                                     <div class="flex items-center gap-3">
                                         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
@@ -400,21 +539,10 @@
                                     @endif
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $shortDate($doc->date) }}</td>
-                                @if($isOwnHistory)
-                                    <td class="px-5 py-4 text-right">
-                                        <a
-                                            href="{{ route($pp.'.'.$doc->route, $doc->params) }}"
-                                            class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
-                                        >
-                                            Open
-                                            <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i>
-                                        </a>
-                                    </td>
-                                @endif
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ $isOwnHistory ? 6 : 5 }}">
+                                <td colspan="5">
                                     <div class="pur-empty">
                                         <i data-lucide="files" class="mx-auto mb-2 h-8 w-8 text-slate-300"></i>
                                         {{ $hasFilters ? 'No documents match these filters.' : 'No documents authored by this account yet.' }}
@@ -484,6 +612,102 @@
             </div>
         @endif
         </div>
+
+        {{-- Read-only history preview (stays on this page) --}}
+        <template x-teleport="body">
+            <div
+                x-show="previewOpen"
+                x-cloak
+                x-transition.opacity
+                class="fixed inset-0 z-[12000] flex items-center justify-center bg-[#0b1220]/70 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="historyPreviewTitle"
+                @click.self="closePreview()"
+            >
+                <div
+                    x-show="previewOpen"
+                    x-transition
+                    class="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                    @click.stop
+                >
+                    <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+                        <div class="flex min-w-0 items-start gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-600 ring-1 ring-slate-200">
+                                <i :data-lucide="preview?.icon || 'file'" class="h-5 w-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">View only · History</p>
+                                <h3 id="historyPreviewTitle" class="mt-0.5 truncate text-base font-semibold text-slate-950" x-text="preview?.title || ''"></h3>
+                                <p class="mt-0.5 text-sm text-slate-500" x-text="preview?.subtitle || ''"></p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                            @click="closePreview()"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 px-5 py-4" x-show="preview">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span
+                                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1"
+                                :class="{
+                                    'bg-emerald-50 text-emerald-700 ring-emerald-100': preview?.tone === 'green',
+                                    'bg-amber-50 text-amber-700 ring-amber-100': preview?.tone === 'amber',
+                                    'bg-orange-50 text-orange-700 ring-orange-100': preview?.tone === 'orange',
+                                    'bg-rose-50 text-rose-700 ring-rose-100': preview?.tone === 'red',
+                                    'bg-blue-50 text-blue-700 ring-blue-100': preview?.tone === 'blue',
+                                    'bg-slate-100 text-slate-600 ring-slate-200': !preview?.tone || preview?.tone === 'slate'
+                                }"
+                                x-text="preview?.status || '—'"
+                            ></span>
+                            <template x-if="preview?.delivery">
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1"
+                                    :class="{
+                                        'bg-emerald-50 text-emerald-700 ring-emerald-100': preview?.deliveryTone === 'green',
+                                        'bg-amber-50 text-amber-700 ring-amber-100': preview?.deliveryTone === 'amber',
+                                        'bg-orange-50 text-orange-700 ring-orange-100': preview?.deliveryTone === 'orange',
+                                        'bg-blue-50 text-blue-700 ring-blue-100': preview?.deliveryTone === 'blue',
+                                        'bg-slate-100 text-slate-600 ring-slate-200': !preview?.deliveryTone || preview?.deliveryTone === 'slate'
+                                    }"
+                                >
+                                    <i data-lucide="truck" class="h-3 w-3"></i>
+                                    <span x-text="preview.delivery"></span>
+                                </span>
+                            </template>
+                            <template x-if="preview?.archived">
+                                <span class="text-[11px] text-gray-400">Archived</span>
+                            </template>
+                        </div>
+
+                        <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <template x-for="(field, index) in (preview?.fields || [])" :key="index">
+                                <div class="rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                                    <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400" x-text="field.label"></dt>
+                                    <dd class="mt-1 text-sm font-medium text-slate-900 break-words" x-text="field.value"></dd>
+                                </div>
+                            </template>
+                        </dl>
+                    </div>
+
+                    <div class="flex justify-end border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+                        <button
+                            type="button"
+                            class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                            @click="closePreview()"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 </div>
 @endsection

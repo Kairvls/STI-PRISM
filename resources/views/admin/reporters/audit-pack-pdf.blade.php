@@ -2,64 +2,98 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Reporter Audit Pack #{{ $reporter['id'] }}</title>
+    <title>Reporter records · {{ $reporter['name'] }}</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #0f172a; }
-        h1 { font-size: 18px; margin: 0 0 4px; }
-        h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+        @page { margin: 28px 32px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #0f172a; }
+        .center { text-align: center; }
         .muted { color: #64748b; }
-        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-        th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; vertical-align: top; }
-        th { background: #f8fafc; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; }
-        .meta td { border: none; padding: 2px 0; }
-        .badge { display: inline-block; padding: 1px 6px; border-radius: 999px; background: #e2e8f0; font-size: 10px; }
+        .school { font-size: 13px; font-weight: bold; margin: 0; color: #0f172a; }
+        h1 { font-size: 15px; margin: 10px 0 2px; letter-spacing: .04em; text-transform: uppercase; color: #0f172a; }
+        table { width: 100%; border-collapse: collapse; }
+        .meta { margin-top: 16px; }
+        .meta td { padding: 5px 0; vertical-align: bottom; }
+        .meta .label { width: 9%; color: #475569; white-space: nowrap; padding-right: 8px; }
+        .meta .value { width: 41%; font-weight: bold; border-bottom: 1px solid #cbd5e1; padding-right: 18px; }
+        .meta .label-right { width: 11%; color: #475569; white-space: nowrap; padding-left: 16px; padding-right: 8px; }
+        .meta .value-right { width: 39%; font-weight: bold; border-bottom: 1px solid #cbd5e1; }
+        .items { margin-top: 14px; }
+        .items th, .items td { border: 1px solid #94a3b8; padding: 5px 6px; text-align: left; vertical-align: top; }
+        .items th { background: #e8eefc; font-size: 9px; text-transform: uppercase; letter-spacing: .03em; }
+        .items .num { width: 4%; text-align: center; }
+        .footer { margin-top: 18px; font-size: 8.5px; color: #94a3b8; }
     </style>
 </head>
 <body>
-    <h1>Reporter Audit Pack</h1>
-    <p class="muted">Generated {{ $generatedAt->format('Y-m-d H:i') }} · PaAyo</p>
+    <div class="center">
+        <p class="school">STI College Ormoc</p>
+        <p class="muted" style="margin: 2px 0 0;">Maintenance Office</p>
+        <h1>Reporter Report Records</h1>
+        <p class="muted" style="margin: 0;">Generated {{ $generatedAt->format('F d, Y h:i A') }}</p>
+    </div>
 
-    <h2>Reporter profile</h2>
     <table class="meta">
-        <tr><td width="28%"><strong>Name</strong></td><td>{{ $reporter['name'] }}</td></tr>
-        <tr><td><strong>Employee ID</strong></td><td>{{ $reporter['employee_id'] }}</td></tr>
-        <tr><td><strong>Type</strong></td><td>{{ $reporter['type'] }}</td></tr>
-        <tr><td><strong>Department</strong></td><td>{{ $reporter['department'] }}</td></tr>
-        <tr><td><strong>Email</strong></td><td>{{ $reporter['email'] }}</td></tr>
-        <tr><td><strong>Contact</strong></td><td>{{ $reporter['contact'] }}</td></tr>
-        <tr><td><strong>Status</strong></td><td><span class="badge">{{ $reporter['status'] }}</span></td></tr>
+        <tr>
+            <td class="label">Reporter</td>
+            <td class="value">{{ $reporter['name'] }}</td>
+            <td class="label-right">Employee ID</td>
+            <td class="value-right">{{ $reporter['employee_id'] }}</td>
+        </tr>
+        <tr>
+            <td class="label">Type</td>
+            <td class="value">{{ $reporter['type'] }}</td>
+            <td class="label-right">Department</td>
+            <td class="value-right">{{ $reporter['department'] }}</td>
+        </tr>
+        <tr>
+            <td class="label">Email</td>
+            <td class="value">{{ $reporter['email'] }}</td>
+            <td class="label-right">Contact</td>
+            <td class="value-right">{{ $reporter['contact'] }}</td>
+        </tr>
+        <tr>
+            <td class="label">Status</td>
+            <td class="value">{{ $reporter['status'] }}</td>
+            <td class="label-right">Reports listed</td>
+            <td class="value-right">{{ count($reports) }}</td>
+        </tr>
     </table>
 
-    <h2>Report records ({{ count($reports) }})</h2>
-    @if (empty($reports))
-        <p class="muted">No report records for this reporter.</p>
-    @else
-        <table>
-            <thead>
+    <table class="items">
+        <thead>
+            <tr>
+                <th class="num">#</th>
+                <th style="width: 13%;">Report</th>
+                <th style="width: 22%;">Issue</th>
+                <th style="width: 15%;">Equipment</th>
+                <th style="width: 13%;">Room</th>
+                <th style="width: 10%;">Priority</th>
+                <th style="width: 12%;">Status</th>
+                <th style="width: 11%;">Submitted</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($reports as $report)
                 <tr>
-                    <th width="14%">Report</th>
-                    <th width="24%">Issue</th>
-                    <th width="14%">Equipment</th>
-                    <th width="12%">Room</th>
-                    <th width="10%">Priority</th>
-                    <th width="12%">Status</th>
-                    <th width="14%">Submitted</th>
+                    <td class="num">{{ $loop->iteration }}</td>
+                    <td>{{ $report['ticket'] }}</td>
+                    <td>{{ \Illuminate\Support\Str::limit($report['issue'], 120) }}</td>
+                    <td>{{ $report['equipment'] }}</td>
+                    <td>{{ $report['room'] }}</td>
+                    <td>{{ $report['priority'] }}</td>
+                    <td>{{ $report['status'] }}</td>
+                    <td>{{ $report['submitted_at'] }}</td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach ($reports as $report)
-                    <tr>
-                        <td>{{ $report['ticket'] }}</td>
-                        <td>{{ $report['issue'] }}</td>
-                        <td>{{ $report['equipment'] }}</td>
-                        <td>{{ $report['room'] }}</td>
-                        <td>{{ $report['priority'] }}</td>
-                        <td>{{ $report['status'] }}</td>
-                        <td>{{ $report['submitted_at'] }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @endif
+            @empty
+                <tr>
+                    <td colspan="8" class="center muted" style="padding: 14px;">No report records for this reporter.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <p class="footer">
+        This export lists the reporter profile and matching report records at the time generated · PaAyo
+    </p>
 </body>
 </html>

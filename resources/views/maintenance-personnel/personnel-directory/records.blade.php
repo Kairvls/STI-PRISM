@@ -7,7 +7,7 @@
     $statusClass = [
         'Pending' => 'bg-amber-50 text-amber-700 ring-amber-200',
         'Processing' => 'bg-blue-50 text-blue-700 ring-blue-200',
-        'For Replacement' => 'bg-violet-50 text-violet-700 ring-violet-200',
+        'For Replacement' => 'bg-orange-100 text-orange-700 ring-orange-200',
         'Resolved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
         'Rejected' => 'bg-rose-50 text-rose-700 ring-rose-200',
         'Closed / Cancelled' => 'bg-slate-200 text-slate-700 ring-slate-300',
@@ -22,11 +22,26 @@
 @endphp
 
 <div class="space-y-6">
-    <a href="{{ route('maintenance.personnel-directory.index') }}"
-       class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">
-        <i data-lucide="arrow-left" class="h-4 w-4"></i>
-        Back to directory
-    </a>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <a href="{{ route('maintenance.personnel-directory.index') }}"
+           class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+            Back to directory
+        </a>
+        <a
+            href="{{ route('maintenance.personnel-directory.export-pdf', array_filter([
+                'reporter' => $reporter->reporter_id,
+                'record_status' => request('record_status') ?: null,
+                'record_search' => request('record_search') ?: null,
+            ])) }}"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+        >
+            <i data-lucide="file-down" class="h-4 w-4"></i>
+            Export PDF
+        </a>
+    </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-5">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

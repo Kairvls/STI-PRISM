@@ -68,6 +68,12 @@ class MicrosoftAuthController extends Controller
 
         }
 
+        if (! $user->isAccountActive()) {
+            return response()->json([
+                'message' => 'This account has been deactivated. Contact an administrator if you need access restored.',
+            ], 403);
+        }
+
         // =====================================================
         // ROLE CHECK (primary OR additional Maintenance)
         // =====================================================

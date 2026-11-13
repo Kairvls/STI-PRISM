@@ -1,7 +1,7 @@
 @extends('layouts.admin-layout')
 
 @section('title', 'Procurement Monitor')
-@section('page-subtitle', 'Track each Request No. (PR) through Canvas + RIS → ATP → RFC → RR → Liquidation.')
+@section('page-subtitle', 'Track each Request No. (PR) through Canvas + RIS → ATP → RFC → DV → RR → Liquidation.')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
@@ -13,6 +13,7 @@
         'awaiting_admin' => 'Waiting on Administrator',
         'atp' => 'At Authority to Purchase',
         'rfc' => 'At Request for Check',
+        'dv' => 'At Disbursement Voucher',
         'rr' => 'At Receiving Report',
         'liq' => 'At Liquidation Report',
     ];
@@ -25,8 +26,8 @@
     .pm-pipe {
         display: flex;
         align-items: center;
-        min-width: 168px;
-        max-width: 200px;
+        min-width: 200px;
+        max-width: 240px;
     }
 
     .pm-pipe-step {
@@ -71,7 +72,7 @@
     .pm-pipe-labels {
         display: flex;
         justify-content: space-between;
-        max-width: 200px;
+        max-width: 240px;
         margin-top: 0.35rem;
     }
 
@@ -203,7 +204,7 @@
                         @php
                             $pipeline = $row->pipeline ?? null;
                             $stages = $pipeline['stages'] ?? [];
-                            $stageKeys = ['ris', 'atp', 'rfc', 'rr', 'liq'];
+                            $stageKeys = \App\Support\AdminPipeline::STAGE_ORDER;
                             $current = $pipeline['current_stage'] ?? 'ris';
                             $currentIndex = array_search($current, $stageKeys, true);
                             if ($currentIndex === false) {
@@ -383,7 +384,7 @@
                     </div>
 
                     <div class="divide-y divide-gray-100 rounded-xl border border-gray-100">
-                        <template x-for="key in ['ris','atp','rfc','rr','liq']" :key="key">
+                        <template x-for="key in ['ris','atp','rfc','dv','rr','liq']" :key="key">
                             <div class="flex items-start justify-between gap-3 px-4 py-3">
                                 <div>
                                     <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key === 'ris' ? 'Canvas + RIS' : key"></p>
@@ -450,7 +451,7 @@ document.addEventListener('alpine:init', () => {
             this.docTitle = title || String(type).toUpperCase();
             this.docOpen = true;
             this.docLoading = true;
-            const url = @json(\App\Support\AdminPortal::url('operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?ts=' + Date.now();
+            const url = @json(\App\Support\AdminPortal::url('operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id);
             this.$nextTick(() => {
                 if (window.lucide && typeof window.lucide.createIcons === 'function') {
                     window.lucide.createIcons();

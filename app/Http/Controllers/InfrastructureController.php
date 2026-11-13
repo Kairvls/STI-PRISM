@@ -1623,6 +1623,7 @@ class InfrastructureController extends Controller
             $equipment->update($updates);
         }
 
+        $transferId = null;
         if (Schema::hasTable('equipment_transfer_history_table')) {
             $history = [
                 'equipment_id' => $equipment->equipment_id,
@@ -1637,10 +1638,12 @@ class InfrastructureController extends Controller
                 $history['to_department_id'] = $departmentId;
             }
 
-            DB::table('equipment_transfer_history_table')->insert($history);
+            $transferId = DB::table('equipment_transfer_history_table')->insertGetId($history);
         }
 
         if (! $sameRoom) {
+            $summary = ($equipment->equipment_name ?? 'Equipment').' was transferred via Building Layout.';
+
             RoomActivityLog::create([
                 'room_id' => $oldRoom,
                 'equipment_id' => $equipment->equipment_id,
@@ -1660,6 +1663,34 @@ class InfrastructureController extends Controller
                 'activity_description' => $equipment->equipment_name.' transferred into this room.',
                 'created_at' => now(),
             ]);
+
+            if (Schema::hasTable('notifications_table')) {
+                DB::table('notifications_table')->insertOrIgnore([
+                    'notification_user_id' => null,
+                    'notification_target_role' => 'Maintenance Personnel',
+                    'notification_title' => 'Equipment Transferred',
+                    'notification_message' => $summary,
+                    'notification_type' => 'equipment_transferred',
+                    'notification_category' => 'Equipment',
+                    'notification_reference_type' => 'equipment_transfer',
+                    'notification_reference_id' => $transferId,
+                    'notification_url' => '/maintenance/equipment/deployed',
+                    'notification_event_key' => 'equipment_transferred_layout_'.($transferId ?: $equipment->equipment_id.'_'.now()->timestamp),
+                    'notification_created_at' => now(),
+                ]);
+            }
+
+            if (Schema::hasTable('audit_logs_table')) {
+                DB::table('audit_logs_table')->insert([
+                    'audit_log_user_id' => Auth::id(),
+                    'audit_log_action' => 'Transferred equipment',
+                    'audit_log_module' => 'Equipment',
+                    'audit_log_table_name' => 'equipment_table',
+                    'audit_log_reference_id' => $equipment->equipment_id,
+                    'audit_log_description' => $summary,
+                    'audit_log_created_at' => now(),
+                ]);
+            }
         }
     }
 
@@ -1667,35 +1698,68 @@ class InfrastructureController extends Controller
         Equipment $equipment
     ): JsonResponse
     {
-        $equipment->update([
+        if ($locked = TransferLocks::reason($equipment)) {
+            throw ValidationException::withMessages(['equipment' => [$locked]]);
+        }
 
-            'equipment_condition_status'=>'Disposed',
+        DB::transaction(function () use ($equipment) {
+            $equipment->update([
+                'equipment_condition_status' => 'Disposed',
+                'equipment_inventory_status' => 'Disposed',
+            ]);
 
-            'equipment_inventory_status'=>'Disposed',
+            if (Schema::hasTable('disposal_records_table')) {
+                $exists = DB::table('disposal_records_table')
+                    ->where('disposal_equipment_id', $equipment->equipment_id)
+                    ->when(
+                        Schema::hasColumn('disposal_records_table', 'disposal_is_archived'),
+                        fn ($q) => $q->where(function ($inner) {
+                            $inner->whereNull('disposal_is_archived')->orWhere('disposal_is_archived', 0);
+                        })
+                    )
+                    ->exists();
 
-        ]);
+                if (! $exists) {
+                    $insert = [
+                        'disposal_equipment_id' => $equipment->equipment_id,
+                        'disposal_reason' => 'Archived via Building Layout',
+                        'disposal_approved_by' => Auth::id(),
+                        'disposal_disposed_at' => now(),
+                    ];
+                    if (Schema::hasColumn('disposal_records_table', 'disposal_method')) {
+                        $insert['disposal_method'] = 'Archive';
+                    }
+                    if (Schema::hasColumn('disposal_records_table', 'disposal_area_location')) {
+                        $insert['disposal_area_location'] = $equipment->equipment_current_location
+                            ?? $equipment->equipment_placement_zone
+                            ?? null;
+                    }
+                    DB::table('disposal_records_table')->insert($insert);
+                }
+            }
 
-        RoomActivityLog::create([
+            RoomActivityLog::create([
+                'room_id' => $equipment->equipment_room_id,
+                'equipment_id' => $equipment->equipment_id,
+                'user_id' => Auth::check() ? Auth::id() : null,
+                'activity_type' => 'equipment_archived',
+                'activity_title' => 'Equipment Archived',
+                'activity_description' => $equipment->equipment_name.' was archived.',
+                'created_at' => now(),
+            ]);
 
-            'room_id'=>$equipment->equipment_room_id,
-
-            'equipment_id'=>$equipment->equipment_id,
-
-            'user_id'=>Auth::check()
-                    ? Auth::id()
-                    : null,
-
-            'activity_type'=>'equipment_archived',
-
-            'activity_title'=>'Equipment Archived',
-
-            'activity_description'=>
-
-                $equipment->equipment_name.' was archived.',
-
-            'created_at'=>now()
-
-        ]);
+            if (Schema::hasTable('audit_logs_table')) {
+                DB::table('audit_logs_table')->insert([
+                    'audit_log_user_id' => Auth::id(),
+                    'audit_log_action' => 'Archived equipment',
+                    'audit_log_module' => 'Equipment',
+                    'audit_log_table_name' => 'equipment_table',
+                    'audit_log_reference_id' => $equipment->equipment_id,
+                    'audit_log_description' => ($equipment->equipment_name ?? 'Equipment').' was archived via Building Layout.',
+                    'audit_log_created_at' => now(),
+                ]);
+            }
+        });
 
         return response()->json([
             'success' => true

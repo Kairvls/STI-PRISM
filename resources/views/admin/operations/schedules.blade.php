@@ -1,18 +1,21 @@
 @extends('layouts.admin-layout')
 
-@section('title', 'Maintenance Schedules')
+@section('title', !empty($overdueOnly) ? 'Overdue Schedules' : 'Maintenance Schedules')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
 @php
-    $filters = [
-        'all' => 'All',
-        'overdue' => 'Overdue',
-        'upcoming' => 'Next 14 days',
-        'active' => 'Active',
-        'completed' => 'Completed',
-    ];
+    $overdueOnly = $overdueOnly ?? false;
+    $filters = $overdueOnly
+        ? ['overdue' => 'Overdue']
+        : [
+            'all' => 'All',
+            'overdue' => 'Overdue',
+            'upcoming' => 'Next 14 days',
+            'active' => 'Active',
+            'completed' => 'Completed',
+        ];
 
     $rowCount = method_exists($rows, 'total') ? $rows->total() : $rows->count();
 
@@ -41,9 +44,12 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Schedule records</h2>
+                        <h2 class="text-base font-semibold text-gray-950">{{ $overdueOnly ? 'Overdue schedules' : 'Schedule records' }}</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $rowCount }}</span>
                     </div>
+                    @if($overdueOnly)
+                        <p class="mt-1 text-xs text-gray-500">View-only list of schedules that are past due.</p>
+                    @endif
                 </div>
 
                 <form method="GET" data-auto-filter data-list-panel="#admin-ops-schedules-list-panel" class="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
@@ -72,6 +78,7 @@
                 </form>
             </div>
 
+            @unless($overdueOnly)
             <div class="mt-4 flex flex-wrap gap-2">
                 @foreach($filters as $key => $label)
                     <a
@@ -80,14 +87,15 @@
                     >{{ $label }}</a>
                 @endforeach
             </div>
+            @endunless
 
             @if(!empty($recordId))
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-2.5 text-xs text-gray-600">
                     <span>Showing only the schedule you selected.</span>
                     <a
-                        href="{{ \App\Support\AdminPortal::route('operations.schedules', ['filter' => $filter]) }}"
+                        href="{{ \App\Support\AdminPortal::route('operations.schedules', $overdueOnly ? ['filter' => 'overdue'] : ['filter' => $filter]) }}"
                         class="font-semibold text-[#0025cc] hover:underline"
-                    >Show all {{ strtolower($filters[$filter] ?? 'schedules') }} schedules</a>
+                    >Show all {{ $overdueOnly ? 'overdue' : strtolower($filters[$filter] ?? 'schedules') }} schedules</a>
                 </div>
             @endif
         </div>

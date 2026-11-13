@@ -245,10 +245,6 @@
         {{-- PROCUREMENT SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title" id="procurement-section">
-            PROCUREMENT REQUESTS
-        </div>
-
         @php
             $handoverInbox = \App\Support\DraftHandover::incomingCounts();
             $menuCounts = \App\Support\PurchaserSidebarCounts::counts();
@@ -256,53 +252,23 @@
         @endphp
 
         {{-- ===================================================== --}}
-        {{-- REPLACEMENT REQUESTS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="{{ route('purchaser.procurement.replacement-requests') }}"
-
-            class="
-                menu-item
-
-                {{
-                    request()->routeIs(
-                        'purchaser.procurement.replacement-requests'
-                    )
-                        ? 'active'
-                        : ''
-                }}
-            "
-        >
-
-            <i
-                data-lucide="inbox"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Replacement Requests
-            </span>
-
-            @if($menuCounts['replacement'] > 0)
-                <span class="{{ $navCount }}" title="{{ $menuCounts['replacement'] }} not viewed yet">{{ $menuCounts['replacement'] }}</span>
-            @endif
-
-        </a>
-
-
-
-        
-
-
-
-        {{-- ===================================================== --}}
         {{-- PURCHASING WORKFLOW SECTION --}}
         {{-- ===================================================== --}}
 
         <div class="menu-title" id="purchasing-workflow-section">
-            PROCUREMENT WORKFLOW
+            PROCUREMENT
         </div>
+
+        <a
+            href="{{ route('purchaser.procurement.replacement-requests') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.procurement.replacement-requests') ? 'active' : '' }}"
+        >
+            <i data-lucide="inbox" class="h-5 w-5"></i>
+            <span>Replacement Requests</span>
+            @if($menuCounts['replacement'] > 0)
+                <span class="{{ $navCount }}" title="{{ $menuCounts['replacement'] }} not viewed yet">{{ $menuCounts['replacement'] }}</span>
+            @endif
+        </a>
 
         {{-- ===================================================== --}}
         {{-- RIS --}}
@@ -525,10 +491,6 @@
             </span>
 
         </a>
-
-        <div class="menu-title" id="history-section">
-            HISTORY
-        </div>
 
         <a
             href="{{ route('purchaser.history.index') }}"

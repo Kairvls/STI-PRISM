@@ -154,6 +154,23 @@ class MicrosoftController extends Controller
                     );
             }
 
+            if (! $user->isAccountActive()) {
+                if ($adminIntent) {
+                    AdminLoginGate::recordLogin(
+                        (int) $user->user_id,
+                        'Failed',
+                        'Admin O365 login denied: account deactivated ('.$email.').'
+                    );
+                    AdminLoginGate::clearIntent();
+                }
+
+                return redirect($failRedirect)
+                    ->with(
+                        'error',
+                        'This account has been deactivated. Contact an administrator if you need access restored.'
+                    );
+            }
+
             if ($adminIntent) {
                 if (! RoleAccess::isAdmin($user)) {
                     AdminLoginGate::recordLogin(

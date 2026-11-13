@@ -70,6 +70,22 @@ class ProcurementPaymentPath
         return self::isValid($path) ? $path : null;
     }
 
+    /**
+     * Direct Payment, Cash Installment, or Cash Advance for an RFC.
+     * Falls back to the linked ATP when the check has no funding type yet.
+     */
+    public static function labelFromRfc(?object $rfc, ?object $atp = null): ?string
+    {
+        $path = $rfc->request_check_funding_type ?? null;
+        if (! $path) {
+            $path = $atp->authority_purchase_payment_path ?? null;
+        }
+
+        $normalized = self::normalize(is_string($path) ? $path : null);
+
+        return $normalized ? self::label($normalized) : null;
+    }
+
     public static function label(?string $path): string
     {
         if (! $path) {

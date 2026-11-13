@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\AccountingAttentionSummary;
+use App\Support\CachedFormPreview;
 use App\Support\AccountingDashboard;
 use App\Support\ProcurementReviewPortal;
 use Illuminate\Http\Request;
@@ -15,12 +16,14 @@ use App\Support\WorkflowNotifier;
 use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
+use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\RfcAtpLinks;
 use App\Support\DocumentRevisionNotes;
 use App\Support\DocumentUrgency;
 use App\Support\RisRevisionImages;
 use App\Exceptions\RevisionImageUploadException;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AccountingController extends Controller
 {
@@ -41,6 +44,7 @@ class AccountingController extends Controller
                 'months' => $fundsReleasedChart['months'],
                 'total' => $fundsReleasedChart['total'],
                 'releases' => $fundsReleasedChart['releases'],
+                'basis' => $fundsReleasedChart['basis'],
             ]);
         }
 
@@ -70,52 +74,11 @@ class AccountingController extends Controller
 
     public function authorityToPurchase(Request $request)
     {
-        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming', [
-            'all', 'incoming', 'revision', 'approved', 'rejected',
-        ]);
-        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'authority_to_purchase_table');
-        if ($attentionFocus) {
-            $filter = $attentionFocus['status'];
-            session([ProcurementReviewPortal::SESSION_ATP_STATUS => $filter]);
-        }
-        $query = $this->atpIndexQuery()->where(function ($q) {
-            $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
-                ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
-        });
-
-        if ($attentionFocus) {
-            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
-        } elseif ($filter === 'incoming') {
-            AccountingAttentionSummary::scopeAtpIncoming($query);
-        } elseif ($filter === 'revision') {
-            $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
-                ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')
-                ->whereNotNull('authority_to_purchase_table.authority_purchase_rejection_reason');
-        } elseif ($filter === 'approved') {
-            $query->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
-        } elseif ($filter === 'rejected') {
-            $query->where('authority_to_purchase_table.authority_purchase_status', 'Rejected');
-        }
-
-        $atpSearchCols = [
-            'authority_to_purchase_table.authority_purchase_form_number',
-            'requisition_issue_slip_table.ris_form_number',
-            'authority_to_purchase_table.authority_purchase_status',
-            'physical_suppliers_table.company_name',
-            'online_suppliers_table.shop_name',
-        ];
-        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
-            $atpSearchCols[] = 'authority_to_purchase_table.authority_purchase_request_no';
-        }
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
-            $atpSearchCols[] = 'requisition_issue_slip_table.ris_request_no';
-        }
-        $this->applySearch($query, $request, $atpSearchCols);
-
-        $submittedDate = $this->normalizeSubmittedDateQuery($request);
-        if ($submittedDate !== '' && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_submitted_at')) {
-            $query->whereDate('authority_to_purchase_table.authority_purchase_submitted_at', $submittedDate);
-        }
+        $listing = $this->atpReviewListing($request);
+        $query = $listing['query'];
+        $filter = $listing['filter'];
+        $submittedDate = $listing['submittedDate'];
+        $attentionFocus = $listing['attentionFocus'];
 
         if ($filter === 'incoming') {
             DocumentUrgency::orderUrgentFirst($query, 'ATP');
@@ -136,9 +99,12 @@ class AccountingController extends Controller
             'approved' => $this->countAtpApproved(),
         ];
 
+        $formPreviews = $this->atpFormPreviews($records);
+
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('accounting.authority-to-purchase._rows', compact('records', 'filter'))->render(),
+                'previews' => $formPreviews,
                 'counts' => $counts,
                 'focus' => $attentionFocus['key'] ?? null,
                 'total' => $records->total(),
@@ -152,7 +118,55 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.authority-to-purchase.index', compact('records', 'filter', 'counts', 'attentionFocus', 'submittedDate'));
+        return view('accounting.authority-to-purchase.index', compact('records', 'filter', 'counts', 'attentionFocus', 'submittedDate', 'formPreviews'));
+    }
+
+    public function exportAtpPdf(Request $request)
+    {
+        $listing = $this->atpReviewListing($request);
+        $query = $listing['query'];
+        $filter = $listing['filter'];
+
+        if ($filter === 'incoming') {
+            DocumentUrgency::orderUrgentFirst($query, 'ATP');
+            $query->orderBy('authority_to_purchase_table.authority_purchase_updated_at');
+        } else {
+            $query->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at');
+        }
+
+        $rows = $query->limit(1000)->get()->map(function ($row) {
+            $status = (string) ($row->authority_purchase_status ?? '');
+            if ($status === 'Pending' && empty($row->authority_purchase_submitted_at) && ! empty($row->authority_purchase_rejection_reason)) {
+                $status = 'Revision required';
+            }
+            $submitted = $row->authority_purchase_submitted_at ?? null;
+
+            return [
+                $row->authority_purchase_form_number ?: ('ATP-'.$row->authority_purchase_id),
+                $row->authority_purchase_request_no ?: '—',
+                $row->ris_form_number ?: '—',
+                $row->company_name ?: ($row->shop_name ?: '—'),
+                $row->atp_total !== null ? number_format((float) $row->atp_total, 2) : '—',
+                $submitted ? \Carbon\Carbon::parse($submitted)->format('M j, Y') : '—',
+                $status !== '' ? $status : '—',
+            ];
+        })->all();
+
+        $titles = [
+            'all' => 'Authority to Purchase — All',
+            'incoming' => 'Authority to Purchase — Needs review',
+            'revision' => 'Authority to Purchase — Revision',
+            'approved' => 'Authority to Purchase — Approved',
+            'rejected' => 'Authority to Purchase — Rejected',
+        ];
+
+        return $this->downloadTablePdf(
+            $titles[$filter] ?? 'Authority to Purchase',
+            ['ATP Number', 'Request No.', 'Related RIS', 'Supplier', 'Amount', 'Submitted', 'Status'],
+            $rows,
+            4,
+            'atp-'.$filter.'-'.now()->format('Ymd-His').'.pdf'
+        );
     }
 
     /**
@@ -160,7 +174,13 @@ class AccountingController extends Controller
      */
     public function previewAtpForm($id)
     {
-        return view('accounting.dashboard-preview', $this->dashboardPreviewAtp((int) $id));
+        $payload = $this->dashboardPreviewAtp((int) $id);
+        $stamp = (string) ($payload['atp']->authority_purchase_updated_at ?? $id);
+
+        return response($this->rememberFormPreview('atp:'.$id.':'.$stamp, function () use ($payload) {
+            return view('accounting.dashboard-preview', $payload)->render();
+        }))->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=120');
     }
 
     /**
@@ -168,7 +188,13 @@ class AccountingController extends Controller
      */
     public function previewRfcForm($id)
     {
-        return view('accounting.dashboard-preview', $this->dashboardPreviewRfc((int) $id));
+        $payload = $this->dashboardPreviewRfc((int) $id);
+        $stamp = (string) ($payload['rfc']->request_check_updated_at ?? $payload['rfc']->request_check_status ?? $id);
+
+        return response($this->rememberFormPreview('rfc:'.$id.':'.$stamp, function () use ($payload) {
+            return view('accounting.dashboard-preview', $payload)->render();
+        }))->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=120');
     }
 
     public function showAtp(Request $request, $id)
@@ -672,59 +698,11 @@ class AccountingController extends Controller
 
     public function requestCheck(Request $request)
     {
-        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_RFC_STATUS, 'incoming', [
-            'all', 'incoming', 'funds', 'released', 'revision', 'approved',
-        ]);
-        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'request_check_table');
-        if ($attentionFocus) {
-            $filter = $attentionFocus['status'];
-            session([ProcurementReviewPortal::SESSION_RFC_STATUS => $filter]);
-        }
-        $query = $this->rfcIndexQuery();
-        AccountingAttentionSummary::scopeRfcActive($query);
-
-        if ($attentionFocus) {
-            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
-        } elseif ($filter === 'incoming') {
-            AccountingAttentionSummary::scopeRfcIncoming($query);
-        } elseif ($filter === 'funds') {
-            AccountingAttentionSummary::scopeRfcFunds($query);
-        } elseif ($filter === 'released') {
-            if ($this->rfcHas('request_check_funds_released_at')) {
-                $query->whereNotNull('request_check_table.request_check_funds_released_at');
-            } else {
-                $query->whereRaw('0 = 1');
-            }
-        } elseif ($filter === 'revision') {
-            $query->whereIn('request_check_table.request_check_status', $this->rfcRevisionStatuses());
-        } elseif ($filter === 'approved') {
-            $query->where('request_check_table.request_check_status', 'Approved');
-        }
-
-        $searchCols = [
-            'request_check_table.request_check_payee',
-            'request_check_table.request_check_status',
-        ];
-        if ($this->rfcHas('request_check_form_number')) {
-            array_unshift($searchCols, 'request_check_table.request_check_form_number');
-        }
-        if ($this->rfcHas('request_check_request_no')) {
-            $searchCols[] = 'request_check_table.request_check_request_no';
-        }
-        $searchCols[] = 'authority_to_purchase_table.authority_purchase_form_number';
-        $searchCols[] = 'requisition_issue_slip_table.ris_form_number';
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
-            $searchCols[] = 'requisition_issue_slip_table.ris_request_no';
-        }
-        if ($this->rfcHas('request_check_amount_figures')) {
-            $searchCols[] = 'request_check_table.request_check_amount_figures';
-        }
-        $this->applySearch($query, $request, $searchCols);
-
-        $submittedDate = $this->normalizeSubmittedDateQuery($request);
-        if ($submittedDate !== '') {
-            $this->applyRfcSubmittedDateFilter($query, $submittedDate);
-        }
+        $listing = $this->rfcReviewListing($request);
+        $query = $listing['query'];
+        $filter = $listing['filter'];
+        $submittedDate = $listing['submittedDate'];
+        $attentionFocus = $listing['attentionFocus'];
 
         if (in_array($filter, ['incoming', 'funds'], true)) {
             DocumentUrgency::orderUrgentFirst($query, 'RFC');
@@ -742,9 +720,12 @@ class AccountingController extends Controller
             'approved' => $this->countRfcApproved(),
         ];
 
+        $formPreviews = $this->rfcFormPreviews($records);
+
         if ($request->ajax()) {
             return response()->json([
                 'table_html' => view('accounting.request-check._rows', compact('records', 'filter'))->render(),
+                'previews' => $formPreviews,
                 'counts' => $counts,
                 'focus' => $attentionFocus['key'] ?? null,
                 'total' => $records->total(),
@@ -758,7 +739,57 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.request-check.index', compact('records', 'filter', 'counts', 'attentionFocus', 'submittedDate'));
+        return view('accounting.request-check.index', compact('records', 'filter', 'counts', 'attentionFocus', 'submittedDate', 'formPreviews'));
+    }
+
+    public function exportRfcPdf(Request $request)
+    {
+        $listing = $this->rfcReviewListing($request);
+        $query = $listing['query'];
+        $filter = $listing['filter'];
+
+        if (in_array($filter, ['incoming', 'funds'], true)) {
+            DocumentUrgency::orderUrgentFirst($query, 'RFC');
+            $query->orderBy($this->rfcSortColumn());
+        } else {
+            $query->orderByDesc($this->rfcSortColumn());
+        }
+
+        $rows = $query->limit(1000)->get()->map(function ($row) {
+            $status = (string) ($row->request_check_status ?? '');
+            if (! empty($row->request_check_funds_released_at)) {
+                $status = 'Released';
+            }
+            $when = $row->request_check_submitted_at ?? $row->request_check_date ?? $row->request_check_created_at ?? null;
+
+            return [
+                $row->request_check_form_number ?: ('RFC-'.$row->request_check_id),
+                $row->request_check_request_no ?: '—',
+                $row->authority_purchase_form_number ?: '—',
+                $row->ris_form_number ?: '—',
+                $row->request_check_payee ?: '—',
+                $row->request_check_amount_figures !== null ? number_format((float) $row->request_check_amount_figures, 2) : '—',
+                $when ? \Carbon\Carbon::parse($when)->format('M j, Y') : '—',
+                $status !== '' ? $status : '—',
+            ];
+        })->all();
+
+        $titles = [
+            'all' => 'Request Checks — All',
+            'incoming' => 'Request Checks — Needs review',
+            'funds' => 'Request Checks — Funds',
+            'released' => 'Request Checks — Released',
+            'revision' => 'Request Checks — Revision',
+            'approved' => 'Request Checks — Approved',
+        ];
+
+        return $this->downloadTablePdf(
+            $titles[$filter] ?? 'Request Checks',
+            ['Check Number', 'Request No.', 'ATP', 'RIS', 'Payee', 'Amount', 'Date', 'Status'],
+            $rows,
+            5,
+            'rfc-'.$filter.'-'.now()->format('Ymd-His').'.pdf'
+        );
     }
 
     public function showRequestCheck(Request $request, $id)
@@ -1542,6 +1573,53 @@ class AccountingController extends Controller
         ]);
     }
 
+    /**
+     * @param  iterable<int, object>  $records
+     * @return array<string, string>
+     */
+    private function atpFormPreviews(iterable $records): array
+    {
+        $map = [];
+        foreach ($records as $row) {
+            $id = (int) ($row->authority_purchase_id ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $stamp = (string) ($row->authority_purchase_updated_at ?? $row->authority_purchase_status ?? $id);
+            $map[route('school-admin.atp.preview', $id)] = $this->rememberFormPreview('atp:'.$id.':'.$stamp, function () use ($id) {
+                return view('accounting.dashboard-preview', $this->dashboardPreviewAtp($id))->render();
+            });
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  iterable<int, object>  $records
+     * @return array<string, string>
+     */
+    private function rfcFormPreviews(iterable $records): array
+    {
+        $map = [];
+        foreach ($records as $row) {
+            $id = (int) ($row->request_check_id ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $stamp = (string) ($row->request_check_updated_at ?? $row->request_check_status ?? $id);
+            $map[route('school-admin.rfc.preview', $id)] = $this->rememberFormPreview('rfc:'.$id.':'.$stamp, function () use ($id) {
+                return view('accounting.dashboard-preview', $this->dashboardPreviewRfc($id))->render();
+            });
+        }
+
+        return $map;
+    }
+
+    private function rememberFormPreview(string $cacheKey, callable $render): string
+    {
+        return CachedFormPreview::html($cacheKey, $render);
+    }
+
     private function dashboardPreviewDv(int $id): array
     {
         abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
@@ -1649,12 +1727,103 @@ class AccountingController extends Controller
         }
 
         $remaining = $received - $released;
+        $paths = $this->approvedCheckPaths();
 
         return [
             'received' => $received,
             'released' => $released,
             'liquidated' => $liquidated,
             'remaining' => $remaining,
+            'paths' => $paths,
+        ];
+    }
+
+    /**
+     * Approved request checks split by payment path, and by whether the money was released.
+     *
+     * @return array{approved: list<array>, released: list<array>, waiting: list<array>}
+     */
+    private function approvedCheckPaths(): array
+    {
+        $blank = [
+            ProcurementPaymentPath::DIRECT_PAYMENT => ['label' => 'Direct Payment', 'amount' => 0.0, 'count' => 0],
+            ProcurementPaymentPath::CASH_INSTALLMENT => ['label' => 'Cash Installment', 'amount' => 0.0, 'count' => 0],
+            ProcurementPaymentPath::CASH_ADVANCE => ['label' => 'Cash Advance', 'amount' => 0.0, 'count' => 0],
+        ];
+        $approved = $blank;
+        $released = $blank;
+
+        if (! Schema::hasTable('request_check_table') || ! $this->rfcHas('request_check_amount_figures')) {
+            return [
+                'approved' => [],
+                'released' => [],
+                'waiting' => [],
+            ];
+        }
+
+        $select = ['request_check_id', 'request_check_amount_figures'];
+        if ($this->rfcHas('request_check_funding_type')) {
+            $select[] = 'request_check_funding_type';
+        }
+        if ($this->rfcHas('request_check_authority_purchase_id')) {
+            $select[] = 'request_check_authority_purchase_id';
+        }
+        if ($this->rfcHas('request_check_funds_released_at')) {
+            $select[] = 'request_check_funds_released_at';
+        }
+
+        $rows = DB::table('request_check_table')
+            ->where('request_check_status', 'Approved')
+            ->get($select);
+
+        $primary = [];
+        foreach ($rows as $row) {
+            $primary[(int) $row->request_check_id] = isset($row->request_check_authority_purchase_id)
+                ? (int) $row->request_check_authority_purchase_id
+                : null;
+        }
+        $atpMap = RfcAtpLinks::atpIdsForMany($primary);
+        $atpIds = collect($atpMap)->flatten()->unique()->filter()->values()->all();
+        $atpPaths = $atpIds === [] || ! Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            ? collect()
+            : DB::table('authority_to_purchase_table')
+                ->whereIn('authority_purchase_id', $atpIds)
+                ->pluck('authority_purchase_payment_path', 'authority_purchase_id');
+
+        foreach ($rows as $row) {
+            $path = ProcurementPaymentPath::normalize($row->request_check_funding_type ?? null);
+            if (! $path) {
+                $firstAtp = ($atpMap[(int) $row->request_check_id] ?? [])[0] ?? null;
+                $path = $firstAtp ? ProcurementPaymentPath::normalize($atpPaths[$firstAtp] ?? null) : null;
+            }
+            if (! $path || ! isset($approved[$path])) {
+                continue;
+            }
+            $amount = (float) ($row->request_check_amount_figures ?? 0);
+            $approved[$path]['amount'] += $amount;
+            $approved[$path]['count']++;
+            if (! empty($row->request_check_funds_released_at)) {
+                $released[$path]['amount'] += $amount;
+                $released[$path]['count']++;
+            }
+        }
+
+        $waiting = $blank;
+        foreach ($blank as $key => $bucket) {
+            $waiting[$key]['amount'] = max(0, round($approved[$key]['amount'] - $released[$key]['amount'], 2));
+            $waiting[$key]['count'] = max(0, $approved[$key]['count'] - $released[$key]['count']);
+            $approved[$key]['amount'] = round($approved[$key]['amount'], 2);
+            $released[$key]['amount'] = round($released[$key]['amount'], 2);
+        }
+
+        $filled = function (array $buckets): array {
+            return array_values(array_filter($buckets, fn ($bucket) => $bucket['count'] > 0 || $bucket['amount'] > 0));
+        };
+
+        return [
+            'approved' => $filled($approved),
+            'released' => $filled($released),
+            'waiting' => $filled($waiting),
         ];
     }
 
@@ -1739,7 +1908,75 @@ class AccountingController extends Controller
             'months' => $months,
             'total' => round($yearTotal, 2),
             'releases' => $yearReleases,
+            'basis' => $this->fundsReleasedBasis($year),
         ];
+    }
+
+    /**
+     * Released request-check amounts for the year, split by payment path.
+     *
+     * @return list<array{key: string, label: string, amount: float, count: int}>
+     */
+    private function fundsReleasedBasis(int $year): array
+    {
+        $buckets = [
+            ProcurementPaymentPath::DIRECT_PAYMENT => ['key' => ProcurementPaymentPath::DIRECT_PAYMENT, 'label' => 'Direct Payment', 'amount' => 0.0, 'count' => 0],
+            ProcurementPaymentPath::CASH_INSTALLMENT => ['key' => ProcurementPaymentPath::CASH_INSTALLMENT, 'label' => 'Cash Installment', 'amount' => 0.0, 'count' => 0],
+            ProcurementPaymentPath::CASH_ADVANCE => ['key' => ProcurementPaymentPath::CASH_ADVANCE, 'label' => 'Cash Advance', 'amount' => 0.0, 'count' => 0],
+        ];
+
+        if (! Schema::hasTable('request_check_table')
+            || ! $this->rfcHas('request_check_funds_released_at')
+            || ! $this->rfcHas('request_check_amount_figures')) {
+            return array_values($buckets);
+        }
+
+        $select = ['request_check_id', 'request_check_amount_figures'];
+        if ($this->rfcHas('request_check_funding_type')) {
+            $select[] = 'request_check_funding_type';
+        }
+        if ($this->rfcHas('request_check_authority_purchase_id')) {
+            $select[] = 'request_check_authority_purchase_id';
+        }
+
+        $rows = DB::table('request_check_table')
+            ->whereNotNull('request_check_funds_released_at')
+            ->whereYear('request_check_funds_released_at', $year)
+            ->get($select);
+
+        $primary = [];
+        foreach ($rows as $row) {
+            $primary[(int) $row->request_check_id] = isset($row->request_check_authority_purchase_id)
+                ? (int) $row->request_check_authority_purchase_id
+                : null;
+        }
+        $atpMap = RfcAtpLinks::atpIdsForMany($primary);
+        $atpIds = collect($atpMap)->flatten()->unique()->filter()->values()->all();
+        $paths = $atpIds === [] || ! Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            ? collect()
+            : DB::table('authority_to_purchase_table')
+                ->whereIn('authority_purchase_id', $atpIds)
+                ->pluck('authority_purchase_payment_path', 'authority_purchase_id');
+
+        foreach ($rows as $row) {
+            $path = ProcurementPaymentPath::normalize($row->request_check_funding_type ?? null);
+            if (! $path) {
+                $firstAtp = ($atpMap[(int) $row->request_check_id] ?? [])[0] ?? null;
+                $path = $firstAtp ? ProcurementPaymentPath::normalize($paths[$firstAtp] ?? null) : null;
+            }
+            if (! $path || ! isset($buckets[$path])) {
+                continue;
+            }
+            $buckets[$path]['amount'] += (float) ($row->request_check_amount_figures ?? 0);
+            $buckets[$path]['count']++;
+        }
+
+        foreach ($buckets as &$bucket) {
+            $bucket['amount'] = round($bucket['amount'], 2);
+        }
+        unset($bucket);
+
+        return array_values($buckets);
     }
 
     private function deadlines(): array
@@ -1974,6 +2211,136 @@ class AccountingController extends Controller
     /**
      * Slim ATP list query — skips signature/long-text columns unused by index rows.
      */
+    /**
+     * @return array{query: \Illuminate\Database\Query\Builder, filter: string, submittedDate: string, attentionFocus: ?array}
+     */
+    private function atpReviewListing(Request $request): array
+    {
+        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming', [
+            'all', 'incoming', 'revision', 'approved', 'rejected',
+        ]);
+        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'authority_to_purchase_table');
+        if ($attentionFocus) {
+            $filter = $attentionFocus['status'];
+            session([ProcurementReviewPortal::SESSION_ATP_STATUS => $filter]);
+        }
+        $query = $this->atpIndexQuery()->where(function ($q) {
+            $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
+                ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
+        });
+
+        if ($attentionFocus) {
+            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
+        } elseif ($filter === 'incoming') {
+            AccountingAttentionSummary::scopeAtpIncoming($query);
+        } elseif ($filter === 'revision') {
+            $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
+                ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')
+                ->whereNotNull('authority_to_purchase_table.authority_purchase_rejection_reason');
+        } elseif ($filter === 'approved') {
+            $query->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
+        } elseif ($filter === 'rejected') {
+            $query->where('authority_to_purchase_table.authority_purchase_status', 'Rejected');
+        }
+
+        $atpSearchCols = [
+            'authority_to_purchase_table.authority_purchase_form_number',
+            'requisition_issue_slip_table.ris_form_number',
+            'authority_to_purchase_table.authority_purchase_status',
+            'physical_suppliers_table.company_name',
+            'online_suppliers_table.shop_name',
+        ];
+        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')) {
+            $atpSearchCols[] = 'authority_to_purchase_table.authority_purchase_request_no';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $atpSearchCols[] = 'requisition_issue_slip_table.ris_request_no';
+        }
+        $this->applySearch($query, $request, $atpSearchCols);
+
+        $submittedDate = $this->normalizeSubmittedDateQuery($request);
+        if ($submittedDate !== '' && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_submitted_at')) {
+            $query->whereDate('authority_to_purchase_table.authority_purchase_submitted_at', $submittedDate);
+        }
+
+        return compact('query', 'filter', 'submittedDate', 'attentionFocus');
+    }
+
+    /**
+     * @return array{query: \Illuminate\Database\Query\Builder, filter: string, submittedDate: string, attentionFocus: ?array}
+     */
+    private function rfcReviewListing(Request $request): array
+    {
+        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_RFC_STATUS, 'incoming', [
+            'all', 'incoming', 'funds', 'released', 'revision', 'approved',
+        ]);
+        $attentionFocus = AccountingAttentionSummary::focusFor($request, 'request_check_table');
+        if ($attentionFocus) {
+            $filter = $attentionFocus['status'];
+            session([ProcurementReviewPortal::SESSION_RFC_STATUS => $filter]);
+        }
+        $query = $this->rfcIndexQuery();
+        AccountingAttentionSummary::scopeRfcActive($query);
+
+        if ($attentionFocus) {
+            AccountingAttentionSummary::applyFocus($query, $attentionFocus['key']);
+        } elseif ($filter === 'incoming') {
+            AccountingAttentionSummary::scopeRfcIncoming($query);
+        } elseif ($filter === 'funds') {
+            AccountingAttentionSummary::scopeRfcFunds($query);
+        } elseif ($filter === 'released') {
+            if ($this->rfcHas('request_check_funds_released_at')) {
+                $query->whereNotNull('request_check_table.request_check_funds_released_at');
+            } else {
+                $query->whereRaw('0 = 1');
+            }
+        } elseif ($filter === 'revision') {
+            $query->whereIn('request_check_table.request_check_status', $this->rfcRevisionStatuses());
+        } elseif ($filter === 'approved') {
+            $query->where('request_check_table.request_check_status', 'Approved');
+        }
+
+        $searchCols = [
+            'request_check_table.request_check_payee',
+            'request_check_table.request_check_status',
+        ];
+        if ($this->rfcHas('request_check_form_number')) {
+            array_unshift($searchCols, 'request_check_table.request_check_form_number');
+        }
+        if ($this->rfcHas('request_check_request_no')) {
+            $searchCols[] = 'request_check_table.request_check_request_no';
+        }
+        $searchCols[] = 'authority_to_purchase_table.authority_purchase_form_number';
+        $searchCols[] = 'requisition_issue_slip_table.ris_form_number';
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $searchCols[] = 'requisition_issue_slip_table.ris_request_no';
+        }
+        if ($this->rfcHas('request_check_amount_figures')) {
+            $searchCols[] = 'request_check_table.request_check_amount_figures';
+        }
+        $this->applySearch($query, $request, $searchCols);
+
+        $submittedDate = $this->normalizeSubmittedDateQuery($request);
+        if ($submittedDate !== '') {
+            $this->applyRfcSubmittedDateFilter($query, $submittedDate);
+        }
+
+        return compact('query', 'filter', 'submittedDate', 'attentionFocus');
+    }
+
+    private function downloadTablePdf(string $title, array $headers, array $rows, int $amountIndex, string $filename)
+    {
+        $pdf = Pdf::loadView('accounting.partials.table-export-pdf', [
+            'title' => $title,
+            'headers' => $headers,
+            'rows' => $rows,
+            'amountIndex' => $amountIndex,
+            'generatedAt' => now()->format('Y-m-d H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download($filename);
+    }
+
     private function atpIndexQuery()
     {
         $query = DB::table('authority_to_purchase_table')
@@ -2177,11 +2544,7 @@ class AccountingController extends Controller
                     'label' => $rfc->request_check_form_number ?: ('RFC #' . $rfc->request_check_id),
                     'url' => ProcurementReviewPortal::requestCheck((int) $rfc->request_check_id),
                     'status' => $rfc->request_check_status,
-                ];
-                $chain['funds'] = [
-                    'label' => !empty($rfc->request_check_funds_released_at) ? 'Released' : 'Not released',
-                    'url' => ProcurementReviewPortal::requestCheck((int) $rfc->request_check_id) . '?view=funds',
-                    'status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : 'Pending',
+                    'kind' => \App\Support\ProcurementPaymentPath::labelFromRfc($rfc, $atp ?? null),
                 ];
 
                 if (Schema::hasTable('receiving_reports_table')) {

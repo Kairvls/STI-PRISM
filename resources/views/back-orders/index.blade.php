@@ -168,7 +168,7 @@
                 @endforeach
             </nav>
             <form method="GET" action="{{ route($routePrefix.'.index') }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
-                @foreach(array_intersect_key($query, ['status' => true, 'rr' => true, 'payment' => true]) as $name => $value)
+                @foreach(array_intersect_key($query, ['status' => true, 'rr' => true]) as $name => $value)
                     <input type="hidden" name="{{ $name }}" value="{{ $value }}">
                 @endforeach
                 <div class="flex min-w-0 items-center gap-2 lg:flex-1">
@@ -184,13 +184,19 @@
                         <option value="{{ $value }}" @selected($typeFilter === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                <select name="payment" aria-label="Payment" class="{{ $boSelectClass }} {{ $paymentFilter ? 'bo-filter-active' : '' }}" onchange="this.form.submit()">
+                    <option value="">All payments</option>
+                    <option value="dp" @selected($paymentFilter === 'dp')>Direct Payment</option>
+                    <option value="ci" @selected($paymentFilter === 'ci')>Cash Installment</option>
+                    <option value="ca" @selected($paymentFilter === 'ca')>Cash Advance</option>
+                </select>
                 <select name="supplier" aria-label="Supplier" class="{{ $boSelectClass }} {{ $supplierFilter ? 'bo-filter-active' : '' }}" onchange="this.form.submit()">
                     <option value="">All suppliers</option>
                     <option value="original" @selected($supplierFilter === 'original')>Original supplier</option>
                     <option value="new" @selected($supplierFilter === 'new')>New supplier</option>
                 </select>
-                @if($typeFilter || $supplierFilter || filled(request('search')))
-                    <a href="{{ route($routePrefix.'.index', array_filter(['status' => $filter, 'rr' => $rootRrId, 'payment' => $paymentFilter])) }}" class="inline-flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900">Clear</a>
+                @if($typeFilter || $paymentFilter || $supplierFilter || filled(request('search')))
+                    <a href="{{ route($routePrefix.'.index', array_filter(['status' => $filter, 'rr' => $rootRrId])) }}" class="inline-flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-[13px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900">Clear</a>
                 @endif
             </form>
         </div>
@@ -208,6 +214,7 @@
                     <tr class="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                         <th class="px-5 py-3">Item</th>
                         <th class="px-5 py-3">Receiving Report</th>
+                        <th class="px-5 py-3">Payment</th>
                         <th class="px-5 py-3">Supplier</th>
                         <th class="px-5 py-3">Reason</th>
                         <th class="px-5 py-3">Expected delivery</th>
@@ -222,8 +229,8 @@
                                 <p class="font-semibold text-gray-900">{{ $bo->back_order_article }}</p>
                                 <p class="mt-0.5 text-xs text-gray-500">
                                     <span class="font-semibold {{ $bo->back_order_type === 'damaged' ? 'text-red-700' : 'text-amber-700' }}">{{ (int) $bo->back_order_quantity }} {{ $bo->back_order_unit ?: 'pcs' }} {{ strtolower(BackOrders::TYPES[$bo->back_order_type] ?? $bo->back_order_type) }}</span>
-                                    · ₱{{ number_format((float) $bo->back_order_unit_price, 2) }} each
                                 </p>
+                                <p class="mt-0.5 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) $bo->back_order_unit_price, 2) }} <span class="text-xs font-medium text-gray-500">each</span></p>
                                 <p class="mt-0.5 text-[11px] text-gray-400">
                                     <span class="font-mono font-medium text-gray-500">{{ \App\Support\BackOrderNumber::label($bo) }}</span>
                                     @if($bo->is_replacement_line)
@@ -237,15 +244,15 @@
                                 @else
                                     <p class="font-medium text-gray-800">{{ $bo->root_rr_number ?: 'RR #'.$bo->back_order_root_receiving_report_id }}</p>
                                 @endif
-                                <p class="mt-0.5 text-xs text-gray-500">
-                                    {{ $bo->payment_label ?: '—' }}
-                                    @if($bo->authority_purchase_form_number)
-                                        · {{ $bo->authority_purchase_form_number }}
-                                    @endif
-                                </p>
+                                @if($bo->authority_purchase_form_number)
+                                    <p class="mt-0.5 text-xs text-gray-500">{{ $bo->authority_purchase_form_number }}</p>
+                                @endif
                                 @if($bo->root_rr_status)
                                     <p class="mt-1">@include('accounting.partials.status-badge', ['status' => $bo->root_rr_status])</p>
                                 @endif
+                            </td>
+                            <td class="whitespace-nowrap px-5 py-4 text-gray-700">
+                                {{ $bo->payment_label ?: '—' }}
                             </td>
                             <td class="px-5 py-4 text-gray-600">
                                 <p>{{ $bo->back_order_supplier_name ?: '—' }}</p>
@@ -340,7 +347,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-5 py-14 text-center">
+                            <td colspan="8" class="px-5 py-14 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                                     <i data-lucide="package-check" class="h-6 w-6"></i>
                                 </div>

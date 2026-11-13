@@ -1,6 +1,6 @@
 <div id="sidebar">
 
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header px-5 pt-5 pb-2">
         <div class="logo-icon">
             <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="" />
         </div>
@@ -153,7 +153,7 @@
             <span>Maintenance Schedule</span>
         </a>
 
-        <div class="menu-title" id="manage-section">MONITORING</div>
+        <div class="menu-title" id="manage-section">EQUIPMENT</div>
         <a
             href="/maintenance/personnel-directory"
             class="menu-item {{ request()->is('maintenance/personnel-directory*') ? 'active' : '' }}"
@@ -181,7 +181,7 @@
                 aria-expanded="{{ $equipmentActive ? 'true' : 'false' }}"
             >
                 <i class="h-5 w-5" data-lucide="package"></i>
-                <span>Monitoring</span>
+                <span>Operations</span>
                 <span class="menu-group-trail">
                     <i data-lucide="chevron-down" class="menu-group-chevron"></i>
                 </span>
@@ -281,7 +281,7 @@
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 8px 20px 32px 20px;
+        padding: 0 20px 32px 20px;
         overscroll-behavior: contain;
     }
     

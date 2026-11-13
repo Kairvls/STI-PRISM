@@ -10,14 +10,20 @@ use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
- * People who can be accountable for property. Anyone can be added here;
- * linking to a faculty/staff reporter account is optional.
+ * People who can be accountable for property or borrow equipment.
+ * Campus faculty/staff linking is optional; External people (outside school) can be registered too.
  */
 class Custodians
 {
     public const STATUS_ACTIVE = 'Active';
 
     public const STATUSES = ['Active', 'Inactive'];
+
+    public const AFFILIATION_CAMPUS = 'Campus';
+
+    public const AFFILIATION_EXTERNAL = 'External';
+
+    public const AFFILIATIONS = ['Campus', 'External'];
 
     public static function tableReady(): bool
     {
@@ -52,18 +58,30 @@ class Custodians
             return collect();
         }
 
-        return self::withDepartment(DB::table('custodians_table as person'))
-            ->where('person.custodian_status', self::STATUS_ACTIVE)
-            ->orderBy('person.custodian_full_name')
-            ->get([
-                'person.custodian_id',
-                'person.custodian_employee_id',
-                'person.custodian_full_name',
-                'person.custodian_position',
-                'person.custodian_room_id',
-                'person.custodian_department_id',
-                self::departmentNameColumn(),
-            ]);
+        $columns = [
+            'person.custodian_id',
+            'person.custodian_employee_id',
+            'person.custodian_full_name',
+            'person.custodian_position',
+            'person.custodian_room_id',
+            'person.custodian_department_id',
+            self::departmentNameColumn(),
+        ];
+        if (Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+            $columns[] = 'person.custodian_affiliation';
+        }
+        if (Schema::hasColumn('custodians_table', 'custodian_organization')) {
+            $columns[] = 'person.custodian_organization';
+        }
+
+        $query = self::withDepartment(DB::table('custodians_table as person'))
+            ->where('person.custodian_status', self::STATUS_ACTIVE);
+
+        if (Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+            $query->orderByRaw("CASE WHEN COALESCE(person.custodian_affiliation, 'Campus') = 'External' THEN 1 ELSE 0 END");
+        }
+
+        return $query->orderBy('person.custodian_full_name')->get($columns);
     }
 
     /**
@@ -89,15 +107,31 @@ class Custodians
     }
 
     /**
-     * Label for dropdowns: "Maria Santos · Registrar Staff · OMC00128F".
+     * Label for dropdowns: "Maria Santos · Registrar Staff · OMC00128F"
+     * or "Juan Dela Cruz · External · Acme Corp".
      */
     public static function optionLabel(object $person): string
     {
+        $affiliation = (string) ($person->custodian_affiliation ?? self::AFFILIATION_CAMPUS);
+        if ($affiliation === self::AFFILIATION_EXTERNAL) {
+            return implode(' · ', array_filter([
+                $person->custodian_full_name,
+                'External',
+                $person->custodian_organization ?? null,
+                $person->custodian_position ?? null,
+            ]));
+        }
+
         return implode(' · ', array_filter([
             $person->custodian_full_name,
             $person->custodian_position ?? null,
             $person->custodian_employee_id ?? null,
         ]));
+    }
+
+    public static function isExternal(?object $person): bool
+    {
+        return (string) ($person->custodian_affiliation ?? self::AFFILIATION_CAMPUS) === self::AFFILIATION_EXTERNAL;
     }
 
     /**
@@ -336,6 +370,10 @@ class Custodians
             ];
         }
 
+        $affiliation = in_array($data['custodian_affiliation'] ?? null, self::AFFILIATIONS, true)
+            ? $data['custodian_affiliation']
+            : self::AFFILIATION_CAMPUS;
+
         $out = $name + [
             'custodian_employee_id' => $clean('custodian_employee_id'),
             'custodian_position' => $clean('custodian_position'),
@@ -348,6 +386,13 @@ class Custodians
             'custodian_status' => $status,
             'custodian_notes' => $clean('custodian_notes'),
         ];
+
+        if (Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+            $out['custodian_affiliation'] = $affiliation;
+        }
+        if (Schema::hasColumn('custodians_table', 'custodian_organization')) {
+            $out['custodian_organization'] = $clean('custodian_organization');
+        }
 
         if (Schema::hasColumn('custodians_table', 'person_id') && ! empty($data['person_id'])) {
             $out['person_id'] = (int) $data['person_id'];

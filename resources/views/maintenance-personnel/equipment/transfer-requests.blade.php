@@ -21,17 +21,7 @@
     @endphp
 
     <div class="space-y-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
-                <p>
-                    @if ($isAdminPortal)
-                        Transfers asked for by Maintenance wait here. The equipment only moves when you approve.
-                    @else
-                        Your transfers need the Administrator's approval. The equipment stays where it is until the request is approved.
-                    @endif
-                </p>
-            </div>
+        <div class="flex flex-wrap items-start justify-end gap-4">
             <a
                 href="{{ $isAdminPortal ? '/admin/inventory' : '/maintenance/equipment/inventory' }}"
                 class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"

@@ -96,6 +96,18 @@ class ReceivingDashboard
         return $normalized ? (ProcurementPaymentPath::labels()[$normalized] ?? '') : '';
     }
 
+    /**
+     * Line totals for a normal RR. Cash advance uses the Official Receipt amount when it is recorded.
+     */
+    private static function reportAmount(?string $path, float $itemTotal, mixed $orAmount): float
+    {
+        if (ProcurementPaymentPath::requiresLiquidation($path) && $orAmount !== null && $orAmount !== '') {
+            return round((float) $orAmount, 2);
+        }
+
+        return round($itemTotal, 2);
+    }
+
     private static function paymentPathExpr($query): string
     {
         $parts = [];
@@ -252,6 +264,7 @@ class ReceivingDashboard
             $hasItems ? 'rd_items.total_qty' : null,
             $hasItems ? 'rd_items.total_amount' : null,
             $hasItems ? 'rd_items.articles' : null,
+            self::rrColumn('receiving_report_or_amount') ? self::RR.'.receiving_report_or_amount' : null,
         ]));
         DocumentUrgency::select($query, 'RR', self::RR);
         DocumentUrgency::orderUrgentFirst($query, 'RR', self::RR);
@@ -281,7 +294,7 @@ class ReceivingDashboard
                     'kind' => self::kindLabel($row->payment_path ?? null),
                     'lines' => (int) ($row->line_count ?? 0),
                     'qty' => (int) ($row->total_qty ?? 0),
-                    'amount' => (float) ($row->total_amount ?? 0),
+                    'amount' => self::reportAmount($row->payment_path ?? null, (float) ($row->total_amount ?? 0), $row->receiving_report_or_amount ?? null),
                     'articles' => $articles,
                     'submitted_at' => !empty($row->submitted_at) ? Carbon::parse($row->submitted_at) : null,
                     'age' => $age,
@@ -321,6 +334,8 @@ class ReceivingDashboard
                 DB::raw($supplierExpr.' as supplier_name'),
                 DB::raw($submittedExpr.' as submitted_at'),
                 DB::raw($pathExpr.' as payment_path'),
+                Schema::hasTable(self::ITEMS) ? 'rd_items.total_amount' : DB::raw('0 as total_amount'),
+                self::rrColumn('receiving_report_or_amount') ? self::RR.'.receiving_report_or_amount' : DB::raw('NULL as receiving_report_or_amount'),
             ]))
             ->orderByDesc(self::RR.'.receiving_report_id')
             ->limit(5)
@@ -330,6 +345,7 @@ class ReceivingDashboard
                 'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
                 'supplier' => $row->supplier_name ?: 'Supplier not set',
                 'kind' => self::kindLabel($row->payment_path ?? null),
+                'amount' => self::reportAmount($row->payment_path ?? null, (float) ($row->total_amount ?? 0), $row->receiving_report_or_amount ?? null),
                 'at' => !empty($row->submitted_at) ? Carbon::parse($row->submitted_at) : null,
             ]);
 
@@ -366,6 +382,8 @@ class ReceivingDashboard
                 DB::raw($supplierExpr.' as supplier_name'),
                 DB::raw($when.' as counted_at'),
                 DB::raw($pathExpr.' as payment_path'),
+                Schema::hasTable(self::ITEMS) ? 'rd_items.total_amount' : DB::raw('0 as total_amount'),
+                self::rrColumn('receiving_report_or_amount') ? self::RR.'.receiving_report_or_amount' : DB::raw('NULL as receiving_report_or_amount'),
             ]))
             ->orderByRaw($when.' DESC')
             ->limit(5)
@@ -375,6 +393,7 @@ class ReceivingDashboard
                 'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
                 'supplier' => $row->supplier_name ?: 'Supplier not set',
                 'kind' => self::kindLabel($row->payment_path ?? null),
+                'amount' => self::reportAmount($row->payment_path ?? null, (float) ($row->total_amount ?? 0), $row->receiving_report_or_amount ?? null),
                 'at' => !empty($row->counted_at) ? Carbon::parse($row->counted_at) : null,
             ]);
 
@@ -456,6 +475,18 @@ class ReceivingDashboard
             $select[] = 'root.receiving_report_form_number as root_rr_number';
             $select[] = 'root.receiving_report_status as root_rr_status';
         }
+        if (Schema::hasTable(self::ITEMS)
+            && Schema::hasColumn(BackOrders::TABLE, 'back_order_receiving_report_item_id')
+            && Schema::hasColumn(self::ITEMS, 'receiving_report_item_equipment_id')
+            && Schema::hasTable('equipment_table')) {
+            $query->leftJoin(self::ITEMS.' as bo_item', 'bo_item.receiving_report_item_id', '=', 'bo.back_order_receiving_report_item_id');
+            $query->leftJoin('equipment_table as bo_eq', 'bo_eq.equipment_id', '=', 'bo_item.receiving_report_item_equipment_id');
+            foreach (['equipment_id', 'equipment_asset_tag', 'equipment_serial_number', 'equipment_qr_code', 'equipment_tracking_mode', 'equipment_quantity', 'equipment_name'] as $column) {
+                if (Schema::hasColumn('equipment_table', $column)) {
+                    $select[] = 'bo_eq.'.$column;
+                }
+            }
+        }
 
         return $query->select($select)->orderBy('bo.back_order_created_at')->orderBy('bo.back_order_id')->get();
     }
@@ -477,6 +508,7 @@ class ReceivingDashboard
                     'id' => (int) $bo->back_order_id,
                     'number' => BackOrderNumber::label($bo),
                     'article' => $bo->back_order_article ?: 'Item',
+                    'uniqueness' => EquipmentIdentity::label($bo),
                     'qty' => (int) $bo->back_order_quantity,
                     'unit' => $bo->back_order_unit ?: 'pcs',
                     'type' => $bo->back_order_type,
@@ -575,6 +607,8 @@ class ReceivingDashboard
                 DB::raw($supplierExpr.' as supplier_name'),
                 DB::raw($countedCol.' as counted_at'),
                 DB::raw($pathExpr.' as payment_path'),
+                Schema::hasTable(self::ITEMS) ? 'rd_items.total_amount' : DB::raw('0 as total_amount'),
+                self::rrColumn('receiving_report_or_amount') ? self::RR.'.receiving_report_or_amount' : DB::raw('NULL as receiving_report_or_amount'),
             ]))
             ->orderByRaw($countedCol.' ASC')
             ->limit(5)
@@ -592,6 +626,7 @@ class ReceivingDashboard
                 'number' => $row->receiving_report_form_number ?? ('RR #'.$row->receiving_report_id),
                 'supplier' => $row->supplier_name ?: 'Supplier not set',
                 'kind' => self::kindLabel($row->payment_path ?? null),
+                'amount' => self::reportAmount($row->payment_path ?? null, (float) ($row->total_amount ?? 0), $row->receiving_report_or_amount ?? null),
                 'counted_at' => !empty($row->counted_at) ? Carbon::parse($row->counted_at) : null,
                 'total' => $total,
                 'settled' => $total - $open->count(),

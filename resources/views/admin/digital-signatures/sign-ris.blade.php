@@ -514,7 +514,7 @@
         }
 
         iframe.src =
-            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print?ts=${Date.now()}`;
+            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print`;
 
         if (window.fillRisPreviewAttachments) {
             window.fillRisPreviewAttachments(risId);

@@ -20,6 +20,8 @@
                             data-preview-url="{{ route('school-admin.rfc.preview', $row->request_check_id) }}"
                             data-review-url="/school-admin/request-check/{{ $row->request_check_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                             data-preview-title="{{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}"
+                            data-rfc-id="{{ $row->request_check_id }}"
+                            data-can-approve="{{ in_array($row->request_check_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) && empty($row->request_check_funds_released_at) ? '1' : '0' }}"
                             title="View RFC form"
                         >
                             {{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}
@@ -63,6 +65,8 @@
                     data-preview-url="{{ route('school-admin.rfc.preview', $row->request_check_id) }}"
                     data-review-url="/school-admin/request-check/{{ $row->request_check_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                     data-preview-title="{{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}"
+                    data-rfc-id="{{ $row->request_check_id }}"
+                    data-can-approve="{{ in_array($row->request_check_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) && empty($row->request_check_funds_released_at) ? '1' : '0' }}"
                     title="View RFC form"
                     aria-label="View RFC form"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"

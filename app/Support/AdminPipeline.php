@@ -6,16 +6,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * RIS → ATP → RFC → RR → LIQ stage snapshot used by Procurement Monitoring and the School Administrator dashboard.
+ * RIS → ATP → RFC → DV → RR → LIQ stage snapshot used by Procurement Monitoring and the School Administrator dashboard.
  */
 class AdminPipeline
 {
-    public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'rr', 'liq'];
+    public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'];
 
     public const STAGE_NAMES = [
         'ris' => 'Canvas + RIS',
         'atp' => 'Authority to Purchase',
         'rfc' => 'Request for Check',
+        'dv' => 'Disbursement Voucher',
         'rr' => 'Receiving Report',
         'liq' => 'Liquidation Report',
     ];
@@ -60,6 +61,7 @@ class AdminPipeline
                     ],
                     'atp' => ['exists' => false, 'key' => 'atp', 'type' => 'ATP', 'id' => null, 'label' => 'ATP', 'hint' => null, 'view_url' => null],
                     'rfc' => ['exists' => false, 'key' => 'rfc', 'type' => 'RFC', 'id' => null, 'label' => 'RFC', 'hint' => null, 'view_url' => null],
+                    'dv' => ['exists' => false, 'key' => 'dv', 'type' => 'DV', 'id' => null, 'label' => 'DV', 'hint' => null, 'view_url' => null],
                     'rr' => ['exists' => false, 'key' => 'rr', 'type' => 'RR', 'id' => null, 'label' => 'RR', 'hint' => null, 'view_url' => null],
                     'liq' => ['exists' => false, 'key' => 'liq', 'type' => 'LIQ', 'id' => null, 'label' => 'LIQ', 'hint' => null, 'view_url' => null],
                 ],
@@ -172,6 +174,7 @@ class AdminPipeline
                         $aliases = match ($type) {
                             'ATP' => ['ATP', 'authority_to_purchase'],
                             'RFC' => ['RFC', 'request_check', 'Request for Check'],
+                            'DV' => ['DV', 'disbursement_voucher', 'Disbursement Voucher'],
                             'RR' => ['RR', 'receiving_report', 'Receiving Report'],
                             'LIQ' => ['LIQ', 'liquidation', 'Liquidation Report'],
                             default => [$type],

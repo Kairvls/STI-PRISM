@@ -4,7 +4,7 @@
 <div class="acc-panel">
     <h3 class="acc-panel-title">Related documents</h3>
     <ol class="mt-3 space-y-1.5">
-        @foreach (['ris' => 'RIS', 'atp' => 'ATP', 'rfc' => 'Request Check', 'funds' => 'Funds', 'dv' => 'Disbursement Voucher', 'rr' => 'Receiving Report', 'liq' => 'Liquidation'] as $key => $title)
+        @foreach (['ris' => 'RIS', 'atp' => 'ATP', 'rfc' => 'Request Check', 'dv' => 'Disbursement Voucher', 'rr' => 'Receiving Report', 'liq' => 'Liquidation'] as $key => $title)
             @php
                 $node = $chain[$key] ?? null;
                 $isCurrent = $current !== null && $current === $key;
@@ -12,7 +12,10 @@
             <li class="acc-chain-item {{ $isCurrent ? 'acc-chain-item--current' : '' }}">
                 <div class="min-w-0">
                     <p>{{ $title }}</p>
-                    <p title="{{ $node['label'] ?? '—' }}">{{ $node['label'] ?? '—' }}</p>
+                    <p class="acc-chain-value" title="{{ $node['label'] ?? '—' }}">{{ $node['label'] ?? '—' }}</p>
+                    @if (!empty($node['kind']))
+                        <span class="acc-chain-kind">{{ $node['kind'] }}</span>
+                    @endif
                 </div>
                 <div class="shrink-0 flex flex-col items-end gap-0.5">
                     @if ($isCurrent && !empty($node['url']))

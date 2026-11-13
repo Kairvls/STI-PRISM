@@ -27,11 +27,19 @@ class User extends Authenticatable
         'user_full_name',
         'user_email_address',
         'user_contact_number',
+        'user_status',
         'user_profile_picture',
         'user_password',
         'person_id',
 
     ];
+
+    public function isAccountActive(): bool
+    {
+        $status = trim((string) ($this->user_status ?? 'Active'));
+
+        return $status === '' || strcasecmp($status, 'Active') === 0;
+    }
 
     protected $casts = [
         'user_can_procurement' => 'boolean',

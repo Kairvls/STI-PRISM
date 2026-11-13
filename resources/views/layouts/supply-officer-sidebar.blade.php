@@ -1,5 +1,5 @@
 <div id="sidebar">
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header px-5 pt-5 pb-2">
         <div class="logo-icon">
             <img src="{{ asset('image/Paayo_Sidebar.png') }}" alt="PaAyo Logo">
         </div>

@@ -24,13 +24,17 @@ class PersonController extends Controller
             ? (string) $request->query('filter')
             : 'active';
         $departmentId = (int) $request->query('department', 0) ?: null;
+        $type = in_array((string) $request->query('type'), Persons::TYPES, true)
+            ? (string) $request->query('type')
+            : '';
 
         return view('admin.persons.index', [
             'tableReady' => Persons::tableReady(),
-            'people' => Persons::list($search, $filter, $departmentId),
+            'people' => Persons::paginate($search, $filter, $departmentId, $type ?: null, 15),
             'stats' => Persons::stats(),
             'search' => $search,
             'filter' => $filter,
+            'type' => $type,
             'departmentId' => $departmentId,
             'departments' => Departments::options($departmentId),
         ]);
@@ -45,8 +49,11 @@ class PersonController extends Controller
             ? (string) $request->query('filter')
             : 'active';
         $departmentId = (int) $request->query('department', 0) ?: null;
+        $type = in_array((string) $request->query('type'), Persons::TYPES, true)
+            ? (string) $request->query('type')
+            : '';
 
-        $rows = Persons::list($search, $filter, $departmentId)
+        $rows = Persons::list($search, $filter, $departmentId, $type ?: null)
             ->take(2000)
             ->map(fn ($person) => [
                 (string) ($person->person_full_name ?? '—'),
@@ -62,6 +69,7 @@ class PersonController extends Controller
         $filterBits = array_filter([
             $search !== '' ? 'search' : null,
             $departmentId ? 'department' : null,
+            $type !== '' ? $type : null,
             $filter !== 'all' ? Persons::FILTERS[$filter] : null,
         ]);
 

@@ -37,6 +37,13 @@
             ])
             @break
 
+        @case('dv')
+            @include('partials.disbursement-voucher-paper', [
+                'editable' => false,
+                'dv' => $dv,
+            ])
+            @break
+
         @case('rr')
             @include('partials.receiving-report-paper', [
                 'editable' => false,

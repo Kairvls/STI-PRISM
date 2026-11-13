@@ -271,6 +271,12 @@ class ProcurementRecordPackageController extends Controller
             ->select(
                 'procurement_record_packages_table.*',
                 'authority_to_purchase_table.authority_purchase_form_number',
+                Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')
+                    ? 'authority_to_purchase_table.authority_purchase_request_no'
+                    : DB::raw('NULL as authority_purchase_request_no'),
+                Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                    ? 'requisition_issue_slip_table.ris_request_no'
+                    : DB::raw('NULL as ris_request_no'),
                 'requisition_issue_slip_table.ris_form_number'
             )
             ->orderByDesc('procurement_record_packages_table.package_forwarded_to_president_at')
@@ -397,7 +403,7 @@ class ProcurementRecordPackageController extends Controller
 
     private function viewDocument(int $packageId, string $type, int $docId, string $audience)
     {
-        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'rr', 'liq'], true), 404);
+        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true), 404);
 
         $package = $this->findPackage($packageId);
         $this->assertPackageAudience($package, $audience);
@@ -417,10 +423,23 @@ class ProcurementRecordPackageController extends Controller
             'ris' => $this->loadRisViewPayload($docId),
             'atp' => $this->loadAtpViewPayload($docId),
             'rfc' => $this->loadRfcViewPayload($docId),
+            'dv' => $this->loadDvViewPayload($docId),
             'rr' => $this->loadRrViewPayload($docId, $package),
             'liq' => $this->loadLiqViewPayload($docId),
             default => abort(404),
         };
+    }
+
+    private function loadDvViewPayload(int $dvId): array
+    {
+        abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+        $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $dvId)->first();
+        abort_if(! $dv, 404);
+
+        return [
+            'title' => $dv->dv_form_number ?: ('DV #'.$dvId),
+            'dv' => $dv,
+        ];
     }
 
     private function loadRisViewPayload(int $risId): array

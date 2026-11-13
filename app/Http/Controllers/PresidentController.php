@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use App\Support\PresidentApprovalGuide;
 use App\Support\PresidentAttentionSummary;
 use App\Support\PresidentDashboardInsights;
 use App\Support\RisWorkflow;
@@ -21,7 +22,7 @@ class PresidentController extends Controller
     // DASHBOARD
     // =====================================================
 
-    public function dashboard(): View
+    public function dashboard(Request $request): View
     {
         $attention = PresidentAttentionSummary::counts();
         $pendingApprovalsCount = $attention['pendingApprovalsCount'];
@@ -67,8 +68,9 @@ class PresidentController extends Controller
             )
             ->orderByDesc('ris.ris_created_at')
             ->orderByDesc('ris.ris_id')
-            ->limit(5)
+            ->limit(3)
             ->get();
+        $recentRis = PresidentApprovalGuide::attach($recentRis);
 
         // ================================
         // Recently approved RIS (for dashboard panel)
@@ -80,6 +82,7 @@ class PresidentController extends Controller
                 'ris_status',
                 'ris_approved_by_date',
                 'ris_purpose_description',
+                DB::raw('(SELECT COALESCE(SUM(items.ris_total_amount), 0) FROM requisition_issue_slip_items_table items WHERE items.ris_id = requisition_issue_slip_table.ris_id) as total_amount'),
                 DB::raw($this->risSignaturePresenceSql('ris_approved_by_signature').' as ris_approved_by_signature'),
                 DB::raw($this->risSignaturePresenceSql('ris_issued_by_signature').' as ris_issued_by_signature')
             )
@@ -123,7 +126,7 @@ class PresidentController extends Controller
                 ->leftJoin('request_check_table', 'disbursement_vouchers_table.dv_request_check_id', '=', 'request_check_table.request_check_id')
                 ->orderBy('disbursement_vouchers_table.dv_president_submitted_at')
                 ->orderBy('disbursement_vouchers_table.dv_id')
-                ->limit(5)
+                ->limit(3)
                 ->get([
                     'disbursement_vouchers_table.dv_id',
                     'disbursement_vouchers_table.dv_form_number',
@@ -161,7 +164,18 @@ class PresidentController extends Controller
                     'procurement_record_packages_table.package_payment_path',
                     'procurement_record_packages_table.package_forwarded_to_president_at',
                     'authority_to_purchase_table.authority_purchase_form_number',
+                    Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')
+                        ? 'authority_to_purchase_table.authority_purchase_request_no'
+                        : DB::raw('NULL as authority_purchase_request_no'),
+                    Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                        ? 'requisition_issue_slip_table.ris_request_no'
+                        : DB::raw('NULL as ris_request_no'),
                     'requisition_issue_slip_table.ris_form_number',
+                    DB::raw(
+                        Schema::hasTable('authority_to_purchase_items_table')
+                            ? '(SELECT COALESCE(SUM(COALESCE(i.atp_amount, i.atp_quantity * i.atp_unit_price, 0)), 0) FROM authority_to_purchase_items_table i WHERE i.authority_purchase_id = authority_to_purchase_table.authority_purchase_id) as package_amount'
+                            : '0 as package_amount'
+                    ),
                 ]);
         }
 
@@ -176,6 +190,7 @@ class PresidentController extends Controller
             'toNotify' => $toNotify,
             'pendingDvs' => $pendingDvs,
             'pendingDvCount' => $pendingDvCount,
+            'approvedBudget' => $this->approvedBudgetSummary($request),
             'directApprovals' => PresidentDashboardInsights::directApprovals(),
             'directApprovalCount' => (int) DB::table('requisition_issue_slip_table')
                 ->where('ris_status', RisWorkflow::DIRECTLY_APPROVED)
@@ -1827,20 +1842,30 @@ class PresidentController extends Controller
 
         $risItems = $this->risItemsWithUom($ris->ris_id)->pad(8, null);
 
-        if ($request->boolean('preview')) {
-            return view('president.ris.viewer', [
+        $presidentName = Auth::user()->user_full_name ?? 'President';
+        $stamp = (string) ($ris->ris_updated_at ?? $ris->ris_status ?? $ris->ris_id);
+        $cacheKey = ($request->boolean('preview') ? 'president-ris-view:' : 'president-ris-print:')
+            .$ris->ris_id.':'.(int) Auth::id().':'.$stamp;
+        $html = \App\Support\CachedFormPreview::html($cacheKey, function () use ($request, $ris, $risItems, $presidentName) {
+            if ($request->boolean('preview')) {
+                return view('president.ris.viewer', [
+                    'ris' => $ris,
+                    'risItems' => $risItems,
+                    'presidentName' => $presidentName,
+                    'isScreenPreview' => true,
+                ])->render();
+            }
+
+            return view('admin.ris.print', [
                 'ris' => $ris,
                 'risItems' => $risItems,
-                'presidentName' => Auth::user()->user_full_name ?? 'President',
-                'isScreenPreview' => true,
-            ]);
-        }
+                'presidentName' => $presidentName,
+            ])->render();
+        });
 
-        return view('admin.ris.print', [
-            'ris' => $ris,
-            'risItems' => $risItems,
-            'presidentName' => Auth::user()->user_full_name ?? 'President',
-        ]);
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=300');
     }
 
     public function risDetails($ris)
@@ -2237,6 +2262,78 @@ class PresidentController extends Controller
                         });
                 });
         });
+    }
+
+    private function approvedBudgetSummary(Request $request): array
+    {
+        $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
+        $currentYear = (int) now()->year;
+        $years = [$currentYear];
+
+        try {
+            $fromDb = DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_approved_by_date')
+                ->selectRaw('DISTINCT YEAR(ris_approved_by_date) as y')
+                ->pluck('y')
+                ->map(fn ($y) => (int) $y)
+                ->filter(fn ($y) => $y > 2000)
+                ->all();
+            $years = array_values(array_unique(array_merge($fromDb, $years)));
+        } catch (\Throwable $e) {
+            // keep the current year
+        }
+        rsort($years, SORT_NUMERIC);
+
+        $year = (int) $request->query('budget_year', $currentYear);
+        if (! in_array($year, $years, true)) {
+            $year = $currentYear;
+        }
+        $month = (int) $request->query('budget_month', 0);
+        if ($month < 0 || $month > 12) {
+            $month = 0;
+        }
+
+        $base = DB::table('requisition_issue_slip_table as ris')
+            ->where(function ($q) {
+                $this->scopePresidentApproved($q, 'ris.');
+            })
+            ->whereYear('ris.ris_approved_by_date', $year);
+        if ($month >= 1) {
+            $base->whereMonth('ris.ris_approved_by_date', $month);
+        }
+
+        $rows = (clone $base)
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
+            ->select(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_approved_by_date',
+                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
+            )
+            ->groupBy('ris.ris_id', 'ris.ris_form_number', 'ris.ris_approved_by_date')
+            ->orderByDesc('ris.ris_approved_by_date')
+            ->orderByDesc('ris.ris_id')
+            ->get();
+
+        $totals = DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
+            ->where(function ($q) {
+                $this->scopePresidentApproved($q, 'ris.');
+            })
+            ->whereYear('ris.ris_approved_by_date', $year)
+            ->when($month >= 1, fn ($q) => $q->whereMonth('ris.ris_approved_by_date', $month))
+            ->selectRaw('COUNT(DISTINCT ris.ris_id) as decisions, COALESCE(SUM(items.ris_total_amount), 0) as amount')
+            ->first();
+
+        return [
+            'year' => $year,
+            'month' => $month,
+            'years' => $years,
+            'months' => $monthNames,
+            'amount' => (float) ($totals->amount ?? 0),
+            'count' => (int) ($totals->decisions ?? 0),
+            'rows' => $rows,
+        ];
     }
 
     private function scopePresidentApproved($query, string $prefix = '')

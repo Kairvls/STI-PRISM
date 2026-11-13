@@ -39,6 +39,11 @@
             'dateBtnId' => 'dvSubmittedDateBtn',
             'dateClearId' => 'dvSubmittedDateClear',
             'dateTitle' => 'Filter by submitted date',
+            'exportUrl' => route('school-admin.dv.export-pdf', array_filter([
+                'status' => $filter,
+                'search' => $search,
+                'submitted' => $submittedDate,
+            ])),
         ])
 
         <div id="sa-dv-list-panel" data-list-panel-root class="relative">
@@ -73,6 +78,8 @@
                                         data-preview-url="{{ $dvPreviewUrl }}"
                                         data-review-url="{{ $dvReviewUrl }}"
                                         data-preview-title="{{ $dvLabel }}"
+                                        data-dv-id="{{ $row->dv_id }}"
+                                        data-can-approve="{{ ($row->dv_status ?? '') === 'Pending' && ! empty($row->dv_submitted_at) ? '1' : '0' }}"
                                         title="View DV form"
                                     >
                                         {{ $dvLabel }}
@@ -108,6 +115,8 @@
                                             data-preview-url="{{ $dvPreviewUrl }}"
                                             data-review-url="{{ $dvReviewUrl }}"
                                             data-preview-title="{{ $dvLabel }}"
+                                            data-dv-id="{{ $row->dv_id }}"
+                                            data-can-approve="{{ ($row->dv_status ?? '') === 'Pending' && ! empty($row->dv_submitted_at) ? '1' : '0' }}"
                                             title="View DV form"
                                             aria-label="View DV form"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
@@ -140,6 +149,11 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+            <div id="dvPreviewStore" hidden>
+                @foreach (($formPreviews ?? []) as $url => $html)
+                    <template data-preview-store data-url="{{ $url }}">{!! $html !!}</template>
+                @endforeach
             </div>
             @if($records->hasPages())
                 <div class="border-t border-gray-100 px-5 py-3">{{ $records->links('pagination.president') }}</div>
@@ -178,6 +192,15 @@
                 </button>
                 <button
                     type="button"
+                    id="dvFormPreviewPrint"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    title="Print"
+                >
+                    <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                    Print
+                </button>
+                <button
+                    type="button"
                     id="dvFormPreviewClose"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                     aria-label="Close"
@@ -195,26 +218,132 @@
             >
                 Close
             </button>
-            <button
-                type="button"
-                id="dvFormPreviewPrint"
-                class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="printer" class="h-3.5 w-3.5"></i>
-                Print
-            </button>
             <a
                 id="dvFormPreviewReview"
                 href="#"
-                class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001db3]"
+                class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
                 Open review
             </a>
+            <button
+                type="button"
+                id="dvFormPreviewApprove"
+                class="hidden inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001db3]"
+            >
+                <i data-lucide="check" class="h-3.5 w-3.5"></i>
+                Approve
+            </button>
         </div>
     </div>
 </div>
 
+<div id="dvListDecisionModal" class="confirm-modal hidden" style="z-index: 12050;">
+    <div class="confirm-backdrop" onclick="closeDvListDecision()"></div>
+    <div class="confirm-card wide" onclick="event.stopPropagation()">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h3>Sign to approve</h3>
+                <p id="dvListDecisionSubtitle">Disbursement Voucher</p>
+            </div>
+            <button type="button" class="icon-close" onclick="closeDvListDecision()" aria-label="Close"><i data-lucide="x"></i></button>
+        </div>
+        <form id="dvListDecisionForm" method="POST" action="">
+            @csrf
+            <input type="hidden" name="signature_data" id="signatureData" value="">
+            <input type="hidden" name="signature_used" id="signatureUsed" value="0">
+            <div class="mt-4">
+                @include('accounting.partials.decision-signature-panel', [
+                    'savedSignatures' => \App\Support\UserSignatureLibrary::forUser((int) auth()->id()),
+                    'signTitle' => 'School Administrator signature',
+                    'signHint' => 'Pick a saved signature, draw one, or upload. It authorizes this Disbursement Voucher.',
+                    'padTitle' => 'Sign the DV',
+                    'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
+                ])
+            </div>
+            <div class="mt-4">
+                <label>Remarks</label>
+                <textarea name="remarks" rows="3" placeholder="Optional for approve."></textarea>
+            </div>
+            <div class="confirm-actions mt-5">
+                <button type="button" class="btn-ghost" onclick="closeDvListDecision()">Cancel</button>
+                <button type="button" class="btn-approve" onclick="submitDvListDecision()">Approve</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    let dvListDecideInFlight = false;
+
+    window.openDvListDecision = function (id, title) {
+        const form = document.getElementById('dvListDecisionForm');
+        const modal = document.getElementById('dvListDecisionModal');
+        if (!form || !modal || !id) return;
+        form.action = '/school-admin/disbursement-vouchers/' + id + '/approve';
+        const subtitle = document.getElementById('dvListDecisionSubtitle');
+        if (subtitle) subtitle.textContent = title || 'Disbursement Voucher';
+        const remarks = form.querySelector('textarea[name="remarks"]');
+        if (remarks) remarks.value = '';
+        if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
+        else {
+            const data = document.getElementById('signatureData');
+            const used = document.getElementById('signatureUsed');
+            if (data) data.value = '';
+            if (used) used.value = '0';
+        }
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    };
+
+    window.closeDvListDecision = function () {
+        document.getElementById('dvListDecisionModal')?.classList.add('hidden');
+        if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
+    };
+
+    window.submitDvListDecision = function () {
+        if (dvListDecideInFlight) return;
+        const form = document.getElementById('dvListDecisionForm');
+        if (!form) return;
+        const hasSig = window.accountingSignaturePanel
+            ? window.accountingSignaturePanel.hasSignature()
+            : String(document.getElementById('signatureData')?.value || '').indexOf('data:image/') === 0;
+        if (!hasSig) {
+            if (typeof window.showMpToast === 'function') {
+                showMpToast('Please add a signature before approving.', { title: 'Signature required', type: 'warning', timer: 3600 });
+            } else {
+                alert('Please add a signature before approving.');
+            }
+            return;
+        }
+        const used = document.getElementById('signatureUsed');
+        if (used) used.value = '1';
+        dvListDecideInFlight = true;
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
+            body: new FormData(form)
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to save decision.');
+            window.closeDvListDecision();
+            if (typeof window.showMpToast === 'function') {
+                showMpToast('Disbursement Voucher approved successfully.', { title: 'Approved', type: 'success' });
+            }
+            setTimeout(() => window.location.reload(), 900);
+        })
+        .catch(error => {
+            if (typeof window.showMpToast === 'function') {
+                showMpToast(error.message || 'Unable to save decision.', { title: 'Unable to complete', type: 'error', timer: 4200 });
+            } else {
+                alert(error.message);
+            }
+        })
+        .finally(() => { dvListDecideInFlight = false; });
+    };
+
     (function () {
         let searchTimer = null;
         document.addEventListener('input', function (event) {
@@ -252,13 +381,12 @@
         const previewTitle = document.getElementById('dvFormPreviewTitle');
         const previewBody = document.getElementById('dvFormPreviewBody');
         const previewReview = document.getElementById('dvFormPreviewReview');
+        const previewApprove = document.getElementById('dvFormPreviewApprove');
+        let previewDvId = '';
         if (!previewModal || !previewBody) return;
 
-        const previewSkeleton = '<div class="space-y-3 p-5" aria-hidden="true">'
-            + '<div class="h-8 w-1/3 animate-pulse rounded-md bg-slate-200"></div>'
-            + '<div class="h-48 animate-pulse rounded-lg bg-slate-200"></div>'
-            + '<div class="h-28 animate-pulse rounded-lg bg-slate-200"></div>'
-            + '</div>';
+        @include('accounting.partials.form-preview-loader')
+        const previewSkeleton = window.saFormPreview.skeleton;
 
         function setDvPreviewFullscreen(isFs) {
             previewModal.dataset.fullscreen = isFs ? '1' : '0';
@@ -284,6 +412,8 @@
             const previewUrl = trigger.getAttribute('data-preview-url') || '';
             const reviewUrl = trigger.getAttribute('data-review-url') || '#';
             const title = trigger.getAttribute('data-preview-title') || 'DV Form';
+            const canApprove = trigger.getAttribute('data-can-approve') === '1';
+            previewDvId = trigger.getAttribute('data-dv-id') || '';
 
             if (!previewUrl) {
                 if (reviewUrl && reviewUrl !== '#') window.location = reviewUrl;
@@ -299,22 +429,23 @@
                 previewReview.href = reviewUrl;
                 previewReview.classList.toggle('hidden', !reviewUrl || reviewUrl === '#');
             }
+            if (previewApprove) {
+                previewApprove.classList.toggle('hidden', !canApprove || !previewDvId);
+            }
             setDvPreviewFullscreen(false);
+            previewBody.dataset.previewUrl = previewUrl;
             previewBody.innerHTML = previewSkeleton;
             previewModal.classList.remove('hidden');
             previewModal.classList.add('flex');
             document.body.style.overflow = 'hidden';
-            if (window.lucide) lucide.createIcons();
 
             try {
-                const response = await fetch(previewUrl, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
-                    credentials: 'same-origin',
-                });
-                if (!response.ok) throw new Error('Preview failed');
-                previewBody.innerHTML = await response.text();
+                const html = await window.saFormPreview.load(previewUrl);
+                if (previewBody.dataset.previewUrl !== previewUrl) return;
+                previewBody.innerHTML = html;
                 if (window.lucide) lucide.createIcons();
             } catch (error) {
+                if (previewBody.dataset.previewUrl !== previewUrl) return;
                 previewBody.innerHTML = '<p class="px-5 py-10 text-center text-sm text-red-600">Could not load this DV form.</p>';
             }
         }
@@ -336,8 +467,18 @@
                 closeDvPreview();
             }
         });
+        document.getElementById('dvFormPreviewApprove')?.addEventListener('click', function () {
+            if (!previewDvId || typeof window.openDvListDecision !== 'function') return;
+            window.openDvListDecision(previewDvId, previewTitle ? previewTitle.textContent : 'Disbursement Voucher');
+        });
         document.addEventListener('keydown', function (event) {
-            if (event.key !== 'Escape' || previewModal.classList.contains('hidden')) return;
+            if (event.key !== 'Escape') return;
+            const decision = document.getElementById('dvListDecisionModal');
+            if (decision && !decision.classList.contains('hidden')) {
+                window.closeDvListDecision();
+                return;
+            }
+            if (previewModal.classList.contains('hidden')) return;
             if (previewModal.dataset.fullscreen === '1') {
                 setDvPreviewFullscreen(false);
                 return;

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\DocumentWorkflowService;
 use App\Support\AccountingHandoff;
+use App\Support\CachedFormPreview;
 use App\Support\DvFormNumber;
 use App\Support\ProcurementRequestNumber;
 use App\Support\ProcurementReviewPortal;
@@ -12,6 +13,7 @@ use App\Support\ReviewerAssignment;
 use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +50,9 @@ class DisbursementVoucherController extends Controller
                     : null,
                 Schema::hasColumn('request_check_table', 'request_check_request_no')
                     ? 'request_check_table.request_check_request_no'
+                    : null,
+                Schema::hasColumn('request_check_table', 'request_check_funding_type')
+                    ? 'request_check_table.request_check_funding_type'
                     : null,
                 'dv.dv_id',
                 'dv.dv_status',
@@ -468,6 +473,112 @@ class DisbursementVoucherController extends Controller
     {
         abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
 
+        $listing = $this->schoolAdminDvListing($request);
+        $query = $listing['query'];
+        $filter = $listing['filter'];
+        $search = $listing['search'];
+        $submittedDate = $listing['submittedDate'];
+
+        $records = $query->orderByDesc('dv_submitted_at')->orderByDesc('dv_id')->paginate(20)->withQueryString();
+
+        $base = DB::table('disbursement_vouchers_table')
+            ->where(function ($q) {
+                $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+            });
+        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_reviewer_id')) {
+            ReviewerAssignment::applyQueueFilter($base, 'dv_assigned_reviewer_id');
+        }
+
+        $counts = [
+            'all' => (clone $base)->count(),
+            'incoming' => (clone $base)->where('dv_status', 'Pending')->count(),
+            'revision' => (clone $base)->where('dv_status', 'Revision')->count(),
+            'approved' => (clone $base)->where('dv_status', 'Approved')->count(),
+        ];
+
+        return view('accounting.disbursement-vouchers.school-admin-index', [
+            'records' => $records,
+            'filter' => $filter,
+            'search' => $search,
+            'submittedDate' => $submittedDate,
+            'counts' => $counts,
+            'formPreviews' => $this->dvFormPreviews($records),
+        ]);
+    }
+
+    /**
+     * @param  iterable<int, object>  $records
+     * @return array<string, string>
+     */
+    private function dvFormPreviews(iterable $records): array
+    {
+        $map = [];
+        foreach ($records as $row) {
+            $id = (int) ($row->dv_id ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $stamp = (string) ($row->updated_at ?? $row->dv_status ?? $id);
+            $map[route('school-admin.dv.preview', $id)] = CachedFormPreview::html('dv:'.$id.':'.$stamp, function () use ($id) {
+                $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
+
+                return $dv
+                    ? view('accounting.dashboard-preview', ['kind' => 'dv', 'dv' => $dv])->render()
+                    : '';
+            });
+        }
+
+        return $map;
+    }
+
+    public function exportSchoolAdminPdf(Request $request)
+    {
+        abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+
+        $listing = $this->schoolAdminDvListing($request);
+        $filter = $listing['filter'];
+        $rows = $listing['query']
+            ->orderByDesc('dv_submitted_at')
+            ->orderByDesc('dv_id')
+            ->limit(1000)
+            ->get()
+            ->map(function ($row) {
+                $submitted = $row->dv_submitted_at ?? null;
+
+                return [
+                    $row->dv_form_number ?: ('DV-'.$row->dv_id),
+                    trim((string) ($row->dv_request_no ?? ($row->request_check_request_no ?? ''))) ?: '—',
+                    $row->request_check_form_number ?: 'Request for Check',
+                    $row->dv_amount !== null ? number_format((float) $row->dv_amount, 2) : '—',
+                    $submitted ? \Illuminate\Support\Carbon::parse($submitted)->format('M j, Y') : '—',
+                    $row->dv_status ?: '—',
+                ];
+            })
+            ->all();
+
+        $titles = [
+            'all' => 'Disbursement Vouchers — All',
+            'incoming' => 'Disbursement Vouchers — Needs review',
+            'revision' => 'Disbursement Vouchers — Returned',
+            'approved' => 'Disbursement Vouchers — Approved',
+        ];
+
+        $pdf = Pdf::loadView('accounting.partials.table-export-pdf', [
+            'title' => $titles[$filter] ?? 'Disbursement Vouchers',
+            'headers' => ['DV Number', 'Request No.', 'RFC', 'Amount', 'Submitted', 'Status'],
+            'rows' => $rows,
+            'amountIndex' => 3,
+            'generatedAt' => now()->format('Y-m-d H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('dv-'.$filter.'-'.now()->format('Ymd-His').'.pdf');
+    }
+
+    /**
+     * @return array{query: \Illuminate\Database\Query\Builder, filter: string, search: string, submittedDate: string}
+     */
+    private function schoolAdminDvListing(Request $request): array
+    {
         $filter = trim((string) $request->query('status', 'incoming'));
         $search = trim((string) $request->query('search', ''));
         $submittedDate = $this->normalizeSubmittedDateQuery($request);
@@ -495,7 +606,6 @@ class DisbursementVoucherController extends Controller
         } elseif ($filter === 'revision') {
             $query->where('dv_status', 'Revision');
         }
-        // status=all → no status filter
 
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -523,30 +633,7 @@ class DisbursementVoucherController extends Controller
             $query->whereDate('disbursement_vouchers_table.dv_submitted_at', $submittedDate);
         }
 
-        $records = $query->orderByDesc('dv_submitted_at')->orderByDesc('dv_id')->paginate(20)->withQueryString();
-
-        $base = DB::table('disbursement_vouchers_table')
-            ->where(function ($q) {
-                $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
-            });
-        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_reviewer_id')) {
-            ReviewerAssignment::applyQueueFilter($base, 'dv_assigned_reviewer_id');
-        }
-
-        $counts = [
-            'all' => (clone $base)->count(),
-            'incoming' => (clone $base)->where('dv_status', 'Pending')->count(),
-            'revision' => (clone $base)->where('dv_status', 'Revision')->count(),
-            'approved' => (clone $base)->where('dv_status', 'Approved')->count(),
-        ];
-
-        return view('accounting.disbursement-vouchers.school-admin-index', [
-            'records' => $records,
-            'filter' => $filter,
-            'search' => $search,
-            'submittedDate' => $submittedDate,
-            'counts' => $counts,
-        ]);
+        return compact('query', 'filter', 'search', 'submittedDate');
     }
 
     /**
@@ -557,11 +644,15 @@ class DisbursementVoucherController extends Controller
         abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
         $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
         abort_if(! $dv, 404);
+        $stamp = (string) ($dv->updated_at ?? $dv->dv_status ?? $id);
 
-        return view('accounting.dashboard-preview', [
-            'kind' => 'dv',
-            'dv' => $dv,
-        ]);
+        return response(CachedFormPreview::html('dv:'.$id.':'.$stamp, function () use ($dv) {
+            return view('accounting.dashboard-preview', [
+                'kind' => 'dv',
+                'dv' => $dv,
+            ])->render();
+        }))->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=120');
     }
 
     public function schoolAdminShow($id)
@@ -571,18 +662,33 @@ class DisbursementVoucherController extends Controller
 
         $package = $this->packageContext((int) $dv->dv_request_check_id);
         $reviewable = ($dv->dv_status ?? '') === 'Pending' && ! blank($dv->dv_submitted_at);
+        $history = collect();
+        if (Schema::hasTable('approval_logs_table')) {
+            try {
+                $history = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                    ->where('approval_log_reference_type', 'DV')
+                    ->where('approval_log_reference_id', (int) $dv->dv_id)
+                    ->orderByDesc('approval_log_approved_at')
+                    ->select('approval_logs_table.*', 'users_table.user_full_name')
+                    ->get();
+            } catch (\Throwable $e) {
+                $history = collect();
+            }
+        }
 
         return view('accounting.disbursement-vouchers.school-admin-show', [
             'dv' => $dv,
             'package' => $package,
             'reviewable' => $reviewable,
             'chain' => $this->relatedDocsChainFromPackage($package, $dv),
+            'history' => $history,
         ]);
     }
 
     public function approve(Request $request, $id)
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($request, $id) {
             $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->lockForUpdate()->first();
             abort_if(! $dv, 404);
 
@@ -592,9 +698,15 @@ class DisbursementVoucherController extends Controller
             );
 
             if (($dv->dv_status ?? '') !== 'Pending' || blank($dv->dv_submitted_at)) {
-                return back()->with('error', 'Only submitted Disbursement Vouchers can be approved.');
+                $message = 'Only submitted Disbursement Vouchers can be approved.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['ok' => false, 'message' => $message], 422);
+                }
+
+                return back()->with('error', $message);
             }
 
+            $signature = (string) $request->input('signature_data', '');
             $approvePayload = [
                 'dv_status' => 'Approved',
                 'dv_approved_by' => Auth::id(),
@@ -603,7 +715,10 @@ class DisbursementVoucherController extends Controller
                 'updated_at' => now(),
             ];
             if (Schema::hasColumn('disbursement_vouchers_table', 'dv_admin_signed_name')) {
-                $approvePayload['dv_admin_signed_name'] = Auth::user()->user_full_name ?? 'School Administrator';
+                $approvePayload['dv_admin_signed_name'] = \App\Support\AccountingSigner::nameFromRequest($request);
+            }
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_admin_signature') && RisWorkflow::isDrawnSignature($signature)) {
+                $approvePayload['dv_admin_signature'] = $signature;
             }
             DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update($approvePayload);
 
@@ -622,8 +737,13 @@ class DisbursementVoucherController extends Controller
                 'school-admin'
             );
 
+            $message = 'Disbursement Voucher approved. Accounting can now submit it to the President.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['ok' => true, 'message' => $message]);
+            }
+
             return redirect(ProcurementReviewPortal::disbursementVoucher((int) $id))
-                ->with('success', 'Disbursement Voucher approved. Accounting can now submit it to the President.');
+                ->with('success', $message);
         });
     }
 
@@ -955,7 +1075,7 @@ class DisbursementVoucherController extends Controller
     }
 
     /**
-     * SA-facing related-docs chain for DV show (RIS → ATP → RFC → Funds → DV).
+     * SA-facing related-docs chain for DV show (RIS → ATP → RFC → DV).
      *
      * @param  array{rfc:?object,atps:\Illuminate\Support\Collection,risList:\Illuminate\Support\Collection}  $package
      */
@@ -998,11 +1118,7 @@ class DisbursementVoucherController extends Controller
                 'label' => $rfc->request_check_form_number ?: ('RFC #'.$rfcId),
                 'url' => ProcurementReviewPortal::requestCheck($rfcId),
                 'status' => $rfc->request_check_status ?? null,
-            ];
-            $chain['funds'] = [
-                'label' => ! empty($rfc->request_check_funds_released_at) ? 'Released' : 'Not released',
-                'url' => ProcurementReviewPortal::requestCheck($rfcId).'?view=funds',
-                'status' => ! empty($rfc->request_check_funds_released_at) ? 'Released' : 'Pending',
+                'kind' => \App\Support\ProcurementPaymentPath::labelFromRfc($rfc, $atp ?? null),
             ];
         }
 
@@ -1068,7 +1184,9 @@ class DisbursementVoucherController extends Controller
                 ->map(fn ($id) => optional($atps->get($id))->authority_purchase_form_number ?: 'ATP')
                 ->implode(', ');
             $firstAtp = $ids[0] ?? null;
-            $row->ris_id = $firstAtp ? optional($atps->get($firstAtp))->authority_purchase_ris_id : null;
+            $firstAtpRow = $firstAtp ? $atps->get($firstAtp) : null;
+            $row->payment_kind = \App\Support\ProcurementPaymentPath::labelFromRfc($row, $firstAtpRow);
+            $row->ris_id = $firstAtpRow?->authority_purchase_ris_id;
             $risIds = collect($ids)
                 ->map(fn ($id) => optional($atps->get($id))->authority_purchase_ris_id)
                 ->filter()

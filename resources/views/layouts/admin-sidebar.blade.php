@@ -8,7 +8,7 @@
     {{-- HEADER --}}
     {{-- ====================================== --}}
 
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header px-5 pt-5 pb-2">
 
         <div class="logo-icon">
 
@@ -283,18 +283,32 @@
                 ],
             ];
 
-            $boGroupActive = request()->is('admin/operations/back-orders*');
-            $activeBoPayment = $boGroupActive ? request('payment') : null;
-            $boLinks = [
-                ['payment' => null, 'label' => 'All Back Orders', 'icon' => 'layers'],
-                ['payment' => 'rfc', 'label' => 'Request for Check', 'icon' => 'clipboard-check'],
-                ['payment' => 'ca', 'label' => 'Cash Advance', 'icon' => 'banknote'],
+            $recordsOverviewLinks = [
+                [
+                    'url' => route('admin.operations.procurement'),
+                    'label' => 'Procurement Monitoring',
+                    'icon' => 'git-branch',
+                    'active' => request()->is('admin/operations/procurement*', 'admin/operations/documents*'),
+                ],
+                [
+                    'url' => route('purchaser.history.index'),
+                    'label' => 'Purchase History',
+                    'icon' => 'history',
+                    'active' => request()->is('purchaser/history*'),
+                ],
+                [
+                    'url' => route('admin.back-orders.index'),
+                    'label' => 'Back Orders',
+                    'icon' => 'package-x',
+                    'active' => request()->is('admin/operations/back-orders*'),
+                ],
             ];
+            $recordsOverviewActive = collect($recordsOverviewLinks)->contains('active', true);
         @endphp
 
         <div class="menu-title" id="campus-section">
 
-            CAMPUS
+            SPACES
 
         </div>
 
@@ -306,7 +320,7 @@
                 aria-expanded="{{ $campusGroupActive ? 'true' : 'false' }}"
             >
                 <i data-lucide="building-2"></i>
-                <span>Location</span>
+                <span>Facilities</span>
                 <i data-lucide="chevron-down" class="menu-group-chevron"></i>
             </button>
             <div class="menu-sub" @if (! $campusGroupActive) hidden @endif>
@@ -368,45 +382,26 @@
 
         </div>
 
-        <a
-            href="{{ route('admin.operations.procurement') }}"
-            class="menu-item {{ request()->is('admin/operations/procurement*', 'admin/operations/documents*') ? 'active' : '' }}"
-        >
-            <i data-lucide="git-branch"></i>
-            <span>Monitor Procurement</span>
-        </a>
-
-        <div class="menu-group {{ $boGroupActive ? 'is-open' : '' }}" data-menu-group>
+        <div class="menu-group {{ $recordsOverviewActive ? 'is-open' : '' }}" data-menu-group>
             <button
                 type="button"
-                class="menu-item menu-group-toggle {{ $boGroupActive ? 'active-parent' : '' }}"
+                class="menu-item menu-group-toggle {{ $recordsOverviewActive ? 'active-parent' : '' }}"
                 data-menu-group-toggle
-                aria-expanded="{{ $boGroupActive ? 'true' : 'false' }}"
+                aria-expanded="{{ $recordsOverviewActive ? 'true' : 'false' }}"
             >
-                <i data-lucide="package-x"></i>
-                <span>Back Order Monitor</span>
+                <i data-lucide="folder-open"></i>
+                <span>Records</span>
                 <i data-lucide="chevron-down" class="menu-group-chevron"></i>
             </button>
-            <div class="menu-sub" @if(! $boGroupActive) hidden @endif>
-                @foreach($boLinks as $boLink)
-                    <a
-                        href="{{ route('admin.back-orders.index', array_filter(['payment' => $boLink['payment']])) }}"
-                        class="menu-sub-item {{ $boGroupActive && $activeBoPayment === $boLink['payment'] ? 'active' : '' }}"
-                    >
-                        <i data-lucide="{{ $boLink['icon'] }}"></i>
-                        <span>{{ $boLink['label'] }}</span>
+            <div class="menu-sub" @if(! $recordsOverviewActive) hidden @endif>
+                @foreach($recordsOverviewLinks as $link)
+                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
                     </a>
                 @endforeach
             </div>
         </div>
-
-        <a
-            href="{{ route('purchaser.history.index') }}"
-            class="menu-item {{ request()->is('purchaser/history*') ? 'active' : '' }}"
-        >
-            <i data-lucide="history"></i>
-            <span>Purchase History</span>
-        </a>
 
         {{-- ====================================== --}}
         {{-- PEOPLE --}}
@@ -438,7 +433,7 @@
 
         <div class="menu-title" id="users-section">
 
-            PERSONNEL
+            PERSONNEL &amp; REPORTS
 
         </div>
 
@@ -461,16 +456,6 @@
                     </a>
                 @endforeach
             </div>
-        </div>
-
-        {{-- ====================================== --}}
-        {{-- SETTINGS --}}
-        {{-- ====================================== --}}
-
-        <div class="menu-title" id="settings-section">
-
-            SETTINGS
-
         </div>
 
         <div class="menu-group {{ $reportsSectionActive ? 'is-open' : '' }}" data-menu-group>
@@ -496,28 +481,6 @@
                 @endforeach
             </div>
         </div>
-
-        <!--<a
-            href="{{ route('admin.profile') }}"
-            class="menu-item {{ request()->is('admin/profile*') || request()->is('admin/security*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="user-cog"></i>
-
-            <span>Account Settings</span>
-
-        </a>-->
-
-        <a
-            href="{{ url('/admin/settings/campus-setup-pin') }}"
-            class="menu-item {{ request()->is('admin/settings*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="settings"></i>
-
-            <span>Campus Setup</span>
-
-        </a>
 
     </div>
 

@@ -28,7 +28,7 @@
             scroll-behavior: smooth;
         }
 
-        #top, #product, #process, #features {
+        #top, #process, #features {
             scroll-margin-top: 96px;
         }
 
@@ -1587,7 +1587,6 @@
                 <a href="#top" class="nav-link active">Home</a>
                 <a href="#process" class="nav-link">Process</a>
                 <a href="#features" class="nav-link">Features</a>
-                <a href="#product" class="nav-link">System</a>
             </div>
 
             <div class="nav-actions">
@@ -1628,7 +1627,6 @@
         <a href="#top" class="mobile-nav-link active" data-mobile-nav>Home</a>
         <a href="#process" class="mobile-nav-link" data-mobile-nav>Process</a>
         <a href="#features" class="mobile-nav-link" data-mobile-nav>Features</a>
-        <a href="#product" class="mobile-nav-link" data-mobile-nav>System</a>
         @guest
             <div class="mobile-nav-actions">
                 <button type="button" onclick="closeMobileNav(); openReportModal();"
@@ -1940,82 +1938,6 @@
                         </button>-->
                     </article>
                 @endforeach
-            </div>
-        </div>
-    </section>
-
-    <!-- PRODUCT -->
-    <section id="product" class="stories-wrap pt-24 md:pt-32 pb-28 md:pb-36">
-        <div class="stories-v-fade" aria-hidden="true"></div>
-        <div class="max-w-[1180px] mx-auto px-5 lg:px-6">
-            <div class="text-center max-w-2xl mx-auto mb-12 md:mb-16 reveal product-head">
-                <p class="text-xs font-bold tracking-[0.16em] uppercase mb-3" style="color:var(--blue);">
-                    The platform
-                </p>
-                <h2 class="text-3xl md:text-[2.4rem] font-extrabold leading-tight" style="color:var(--ink);">
-                    Built around digital reporting
-                </h2>
-                <p class="text-sm md:text-[15px] leading-relaxed mt-4" style="color:var(--muted);">
-                    The report starts online, then continues through inspection, replacement decision, purchaser handling for urgent needs, approval coordination, receiving, liquidation, and inventory updating.
-                </p>
-            </div>
-
-            <div class="product-stage">
-                <div class="product-visual reveal-left">
-                    <div class="frame-photo">
-                        <div class="shape-blue" aria-hidden="true"></div>
-                        <div class="shape-yellow" aria-hidden="true"></div>
-                        <img src="{{ asset('image/report_issue_full_bleed.png') }}"
-                             alt="Faculty reporting a campus issue from a phone"
-                             class="photo">
-                    </div>
-                </div>
-
-                <div class="product-panel reveal-right" style="transition-delay:.1s;">
-                    <div class="flex items-start gap-3 mb-4">
-                        <div class="product-icon" aria-hidden="true">
-                            <i data-lucide="smartphone" class="w-5 h-5"></i>
-                        </div>
-                        <div class="min-w-0 pt-0.5">
-                            <div class="flex flex-wrap items-center gap-2 mb-2">
-                                <h3 class="font-extrabold text-lg m-0" style="color:var(--ink);">Mobile reporting</h3>
-                                <span class="product-kicker">Primary</span>
-                            </div>
-                            <p class="text-sm leading-relaxed m-0" style="color:var(--muted);">
-                                Reporters can file classroom, facility, AV, or computer concerns online so maintenance personnel receive the concern in the system instead of by walk-in or verbal reporting.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="product-status mb-6" aria-label="Report status flow">
-                        <span class="product-status-step">Submitted</span>
-                        <i data-lucide="chevron-right" class="product-status-arrow w-4 h-4"></i>
-                        <span class="product-status-step is-next">Inspected</span>
-                        <i data-lucide="chevron-right" class="product-status-arrow w-4 h-4"></i>
-                        <span class="product-status-step is-done">Resolved / Replaced</span>
-                    </div>
-
-                    <div class="product-split">
-                        <article class="product-mini">
-                            <div class="product-icon mb-3" aria-hidden="true">
-                                <i data-lucide="package" class="w-4 h-4"></i>
-                            </div>
-                            <h4 class="font-extrabold text-[14px] mb-1.5" style="color:var(--ink);">Purchaser workflow</h4>
-                            <p class="text-[12px] leading-relaxed m-0" style="color:var(--muted);">
-                                Urgent replacement cases can be passed by maintenance to the purchaser, then followed through approval, funding, receiving, and liquidation.
-                            </p>
-                        </article>
-                        <article class="product-mini">
-                            <div class="product-icon mb-3" aria-hidden="true">
-                                <i data-lucide="qr-code" class="w-4 h-4"></i>
-                            </div>
-                            <h4 class="font-extrabold text-[14px] mb-1.5" style="color:var(--ink);">QR equipment update</h4>
-                            <p class="text-[12px] leading-relaxed m-0" style="color:var(--muted);">
-                                Scanning a QR code opens the equipment record so maintenance personnel can edit details and update its current status.
-                            </p>
-                        </article>
-                    </div>
-                </div>
             </div>
         </div>
     </section>

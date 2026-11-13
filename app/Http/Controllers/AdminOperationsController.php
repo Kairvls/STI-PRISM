@@ -33,7 +33,7 @@ class AdminOperationsController extends Controller
 {
     private const DEFAULT_USEFUL_LIFE_YEARS = 5;
 
-    private const DOC_TYPES = ['ris', 'atp', 'rfc', 'rr', 'liq'];
+    private const DOC_TYPES = ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'];
 
     public function __construct(
         private readonly MaintenanceReportService $reportService
@@ -574,7 +574,8 @@ class AdminOperationsController extends Controller
 
     public function schedules(Request $request): View
     {
-        $filter = (string) $request->query('filter', 'all');
+        $overdueOnly = \App\Support\AdminPortal::isSchoolAdmin();
+        $filter = $overdueOnly ? 'overdue' : (string) $request->query('filter', 'all');
         $q = trim((string) $request->query('q', ''));
         $recordId = max(0, (int) $request->query('record', 0));
         $rows = $this->emptyPager($request);
@@ -599,6 +600,15 @@ class AdminOperationsController extends Controller
 
             if ($recordId > 0) {
                 $query->where('maintenance_schedules_table.maintenance_schedule_id', $recordId);
+                if ($overdueOnly) {
+                    $query->where(function ($builder) {
+                        $builder->where('maintenance_schedule_status', 'Overdue')
+                            ->orWhere(function ($q2) {
+                                $q2->where('maintenance_schedule_status', 'Active')
+                                    ->whereDate('maintenance_schedule_next_date', '<', now()->toDateString());
+                            });
+                    });
+                }
             } elseif ($filter === 'overdue') {
                 $query->where(function ($builder) {
                     $builder->where('maintenance_schedule_status', 'Overdue')
@@ -634,7 +644,7 @@ class AdminOperationsController extends Controller
                 ->withQueryString();
         }
 
-        return view('admin.operations.schedules', compact('rows', 'filter', 'q', 'recordId'));
+        return view('admin.operations.schedules', compact('rows', 'filter', 'q', 'recordId', 'overdueOnly'));
     }
 
     public function reports(Request $request): View
@@ -792,7 +802,7 @@ class AdminOperationsController extends Controller
                     $query->whereIn('ris.ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending']);
                 } elseif ($filter === 'open') {
                     $query->whereNotIn('ris.ris_status', ['Completed', 'Rejected', 'Cancelled', 'Archived']);
-                } elseif ($filter !== 'all' && in_array($filter, ['ris', 'atp', 'rfc', 'rr', 'liq'], true)) {
+                } elseif ($filter !== 'all' && in_array($filter, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true)) {
                     // Stage filter applied after pipeline enrichment
                 } elseif ($filter !== 'all' && Schema::hasColumn('requisition_issue_slip_table', 'ris_status')) {
                     $query->where('ris.ris_status', $filter);
@@ -811,7 +821,7 @@ class AdminOperationsController extends Controller
                     });
                 }
 
-                if (in_array($filter, ['atp', 'rfc', 'rr', 'liq'], true)) {
+                if (in_array($filter, ['atp', 'rfc', 'dv', 'rr', 'liq'], true)) {
                     // Load a larger set then filter by current stage (pipeline is per-row)
                     $candidates = $query->orderByDesc('ris.ris_id')->limit(200)->get();
                     $matched = $candidates->filter(function ($row) use ($filter) {
@@ -884,6 +894,7 @@ class AdminOperationsController extends Controller
             'awaiting_admin' => 0,
             'atp' => 0,
             'rfc' => 0,
+            'dv' => 0,
             'rr' => 0,
             'liq' => 0,
         ];
@@ -914,7 +925,7 @@ class AdminOperationsController extends Controller
 
             foreach ($risIds as $risId) {
                 $stage = $this->buildAdminPipeline((int) $risId)['current_stage'] ?? 'ris';
-                if (isset($counts[$stage]) && in_array($stage, ['atp', 'rfc', 'rr', 'liq'], true)) {
+                if (isset($counts[$stage]) && in_array($stage, ['atp', 'rfc', 'dv', 'rr', 'liq'], true)) {
                     $counts[$stage]++;
                 }
             }
@@ -934,15 +945,24 @@ class AdminOperationsController extends Controller
         return response()->json($this->buildAdminPipeline($risId, true));
     }
 
-    public function viewDocument(string $type, int $id): View
+    public function viewDocument(string $type, int $id)
     {
         $type = strtolower($type);
         abort_unless(in_array($type, self::DOC_TYPES, true), 404);
 
         $payload = $this->loadDocumentViewPayload($type, $id);
         $payload['type'] = $type;
+        $row = $payload['ris'] ?? $payload['atp'] ?? $payload['rfc'] ?? $payload['dv'] ?? $payload['rr'] ?? $payload['liq'] ?? null;
+        $stamp = is_object($row)
+            ? (string) ($row->updated_at ?? $row->ris_updated_at ?? $row->authority_purchase_updated_at ?? $row->request_check_updated_at ?? $row->dv_updated_at ?? $id)
+            : (string) $id;
+        $html = \App\Support\CachedFormPreview::html('ops-doc:'.$type.':'.$id.':'.$stamp, function () use ($payload) {
+            return view('procurement-records.document-view', $payload)->render();
+        });
 
-        return view('procurement-records.document-view', $payload);
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=300');
     }
 
     public function movements(Request $request): View|RedirectResponse
@@ -1173,10 +1193,23 @@ class AdminOperationsController extends Controller
             'ris' => $this->loadRisViewPayload($docId),
             'atp' => $this->loadAtpViewPayload($docId),
             'rfc' => $this->loadRfcViewPayload($docId),
+            'dv' => $this->loadDvViewPayload($docId),
             'rr' => $this->loadRrViewPayload($docId),
             'liq' => $this->loadLiqViewPayload($docId),
             default => abort(404),
         };
+    }
+
+    private function loadDvViewPayload(int $dvId): array
+    {
+        abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
+        $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $dvId)->first();
+        abort_if(! $dv, 404);
+
+        return [
+            'title' => $dv->dv_form_number ?: ('DV #'.$dvId),
+            'dv' => $dv,
+        ];
     }
 
     private function loadRisViewPayload(int $risId): array

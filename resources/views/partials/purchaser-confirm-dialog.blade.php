@@ -29,6 +29,9 @@
         if (kind === 'archive') {
             return '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>';
         }
+        if (kind === 'caution') {
+            return '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"></path></svg>';
+        }
         return '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>';
     }
 
@@ -78,10 +81,14 @@
 
             var iconWrap = danger
                 ? 'bg-rose-50 text-rose-600'
-                : 'bg-[#0025cc]/10 text-[#0025cc]';
+                : (kind === 'caution'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'bg-[#0025cc]/10 text-[#0025cc]');
             var confirmBtn = danger
                 ? 'bg-rose-600 text-white hover:bg-rose-700'
-                : 'bg-[#0025cc] text-white hover:bg-blue-800';
+                : (kind === 'caution'
+                    ? 'bg-amber-600 text-white hover:bg-amber-700'
+                    : 'bg-[#0025cc] text-white hover:bg-blue-800');
 
             var reviewerHtml = '';
             if (needsReviewer) {

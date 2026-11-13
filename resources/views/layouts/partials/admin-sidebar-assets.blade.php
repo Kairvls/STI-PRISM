@@ -22,7 +22,7 @@
     overflow-x: hidden;
 
     /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 8px 20px 20px 20px;
+    padding: 0 20px 20px 20px;
 }
     
 

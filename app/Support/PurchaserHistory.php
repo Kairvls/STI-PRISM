@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Per-account purchase history for Purchaser accounts (primary or additional role).
  *
- * Attribution is strict: a record belongs to the person who created it, or — for older rows
- * without a creator — to the person who submitted it. Unowned legacy rows are never shown,
- * so every purchaser's history is unique to them.
+ * Documents (RIS, PO, RFC, …) belong to the person who created them, or — for older rows
+ * without a creator — who submitted them. ATPs also count for the submitter, because Supply
+ * Officers often draft ATPs that the Purchaser then submits.
  */
 class PurchaserHistory
 {
@@ -31,6 +31,7 @@ class PurchaserHistory
         'review' => 'In review',
         'revision' => 'Returned for revision',
         'rejected' => 'Rejected',
+        'returned' => 'Returned',
     ];
 
     /**
@@ -100,6 +101,7 @@ class PurchaserHistory
         self::scopeNotDraftAtp($query);
         self::applyAtpPeriod($query, $filters);
         self::applyAtpStatus($query, $filters['status'] ?? null);
+        self::applyDeliveryFilter($query, $filters['delivery'] ?? null);
 
         $search = trim((string) ($filters['search'] ?? ''));
         if ($search !== '') {
@@ -245,21 +247,82 @@ class PurchaserHistory
     }
 
     /**
-     * Approved spend per month for the last $months months (for the mini trend chart).
+     * Calendar years that have at least one purchase for this account (newest first).
      *
-     * @return array<int, array{label: string, amount: float}>
+     * @return list<int>
      */
-    public static function monthlySpend(int $userId, int $months = 6): array
+    public static function availableYears(int $userId): array
     {
-        $start = now()->startOfMonth()->subMonths($months - 1);
-        $rows = self::purchaseRows($userId, ['from' => $start->toDateString()])
-            ->where('status_key', 'approved');
+        return self::purchaseRows($userId, [])
+            ->pluck('purchase_date')
+            ->filter()
+            ->map(fn ($date) => (int) Carbon::parse($date)->format('Y'))
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Resolve year/month selectors into from/to bounds.
+     *
+     * @return array{from: ?string, to: ?string, label: string}
+     */
+    public static function periodFromYearMonth(?int $year, ?int $month): array
+    {
+        if ($year === null || $year < 2000 || $year > 2100) {
+            return ['from' => null, 'to' => null, 'label' => 'All time'];
+        }
+
+        if ($month !== null && $month >= 1 && $month <= 12) {
+            $start = Carbon::create($year, $month, 1)->startOfDay();
+
+            return [
+                'from' => $start->toDateString(),
+                'to' => $start->copy()->endOfMonth()->toDateString(),
+                'label' => $start->format('M Y'),
+            ];
+        }
+
+        return [
+            'from' => Carbon::create($year, 1, 1)->toDateString(),
+            'to' => Carbon::create($year, 12, 31)->toDateString(),
+            'label' => (string) $year,
+        ];
+    }
+
+    /**
+     * Approved spend per month for the trend chart.
+     * Default: last 6 months. With $year: all 12 months of that year.
+     *
+     * @return array<int, array{label: string, amount: float, key: string}>
+     */
+    public static function monthlySpend(int $userId, ?int $year = null, ?int $month = null): array
+    {
+        if ($year !== null && $year >= 2000 && $year <= 2100) {
+            $start = Carbon::create($year, 1, 1)->startOfMonth();
+            $count = 12;
+            $rows = self::purchaseRows($userId, [
+                'from' => $start->toDateString(),
+                'to' => Carbon::create($year, 12, 31)->toDateString(),
+            ])->where('status_key', 'approved');
+        } else {
+            $count = 6;
+            $start = now()->startOfMonth()->subMonths($count - 1);
+            $rows = self::purchaseRows($userId, ['from' => $start->toDateString()])
+                ->where('status_key', 'approved');
+        }
 
         $series = [];
-        for ($i = 0; $i < $months; $i++) {
-            $month = $start->copy()->addMonths($i);
-            $key = $month->format('Y-m');
-            $series[$key] = ['label' => $month->format('M'), 'amount' => 0.0];
+        for ($i = 0; $i < $count; $i++) {
+            $bucket = $start->copy()->addMonths($i);
+            $key = $bucket->format('Y-m');
+            $series[$key] = [
+                'label' => $bucket->format('M'),
+                'amount' => 0.0,
+                'key' => $key,
+                'highlight' => $month !== null && (int) $bucket->format('n') === $month,
+            ];
         }
 
         foreach ($rows as $row) {
@@ -723,7 +786,11 @@ class PurchaserHistory
 
     private static function scopeOwnedAtp($query, int $userId): void
     {
-        self::scopeOwner($query, 'atp.authority_purchase_created_by', 'atp.authority_purchase_submitted_by', $userId);
+        // Creator or submitter — Purchasers often submit ATPs drafted by Supply Officers.
+        $query->where(function ($q) use ($userId) {
+            $q->where('atp.authority_purchase_created_by', $userId)
+                ->orWhere('atp.authority_purchase_submitted_by', $userId);
+        });
     }
 
     /**
@@ -762,7 +829,36 @@ class PurchaserHistory
                 ->whereNull('atp.authority_purchase_submitted_at')
                 ->whereNotNull('atp.authority_purchase_rejection_reason')
                 ->where('atp.authority_purchase_rejection_reason', '!=', ''),
+            'returned' => $query->where(function ($builder) {
+                $builder->where('atp.authority_purchase_status', 'Rejected')
+                    ->orWhere(function ($q) {
+                        $q->where('atp.authority_purchase_status', 'Pending')
+                            ->whereNull('atp.authority_purchase_submitted_at')
+                            ->whereNotNull('atp.authority_purchase_rejection_reason')
+                            ->where('atp.authority_purchase_rejection_reason', '!=', '');
+                    });
+            }),
             default => null,
         };
+    }
+
+    private static function applyDeliveryFilter($query, ?string $delivery): void
+    {
+        if ($delivery !== 'delivered' || ! Schema::hasTable('receiving_reports_table')) {
+            return;
+        }
+
+        $hasAtpColumn = Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id');
+        $atpKeySql = $hasAtpColumn
+            ? 'COALESCE(rr.receiving_report_atp_id, rfc.request_check_authority_purchase_id)'
+            : 'rfc.request_check_authority_purchase_id';
+
+        $query->whereExists(function ($exists) use ($atpKeySql) {
+            $exists->select(DB::raw(1))
+                ->from('receiving_reports_table as rr')
+                ->leftJoin('request_check_table as rfc', 'rfc.request_check_id', '=', 'rr.receiving_report_request_check_id')
+                ->whereRaw($atpKeySql.' = atp.authority_purchase_id')
+                ->where('rr.receiving_report_status', 'Completed');
+        });
     }
 }

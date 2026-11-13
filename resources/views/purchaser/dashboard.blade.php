@@ -4,24 +4,13 @@
 
 @section("content")
 @php
-    use App\Support\PurchaserAttentionSummary as Focus;
-
     $d = $dashboard;
-    $attention = $d['attention'];
 
     $peso = fn ($amount) => '₱'.number_format((float) $amount, 2);
     $docIcons = ['ris' => 'package-open', 'atp' => 'file-check-2', 'po' => 'shopping-bag', 'rfc' => 'wallet', 'rr' => 'package-check', 'liq' => 'receipt-text'];
 
-    $nextSteps = collect([
-        ['count' => $attention['pendingReplacementRequests'], 'label' => 'Replacement requests to review', 'hint' => 'Sent by Maintenance — approve or reject', 'icon' => 'inbox', 'scope' => 'Shared', 'url' => route('purchaser.procurement.replacement-requests', ['focus' => Focus::FOCUS_REPLACEMENT_PENDING])],
-        ['count' => $attention['availableUrgentReports'], 'label' => 'Unclaimed urgent reports', 'hint' => 'Nobody has taken these yet', 'icon' => 'siren', 'scope' => 'Shared', 'url' => route('purchaser.reports.urgent', ['focus' => Focus::FOCUS_URGENT_UNCLAIMED])],
-        ['count' => $d['handovers']['total'], 'label' => 'Drafts passed to you', 'hint' => 'A co-worker handed over a draft', 'icon' => 'hand-helping', 'scope' => 'Yours', 'url' => route($d['handovers']['atp'] > 0 ? 'purchaser.atp.index' : ($d['handovers']['po'] > 0 ? 'purchaser.purchase-orders.index' : 'purchaser.ris.index'))],
-        ['count' => $attention['risReadyForAtp'], 'label' => 'Approved RIS ready for ATP', 'hint' => 'Create the Authority to Purchase', 'icon' => 'file-plus-2', 'scope' => 'Yours', 'url' => route('purchaser.ris.index', ['focus' => Focus::FOCUS_RIS_READY_FOR_ATP])],
-        ['count' => $attention['atpReadyForRfc'], 'label' => 'Approved ATP ready for funding', 'hint' => 'Request for Check or Cash Advance', 'icon' => 'wallet', 'scope' => 'Yours', 'url' => route('purchaser.atp.index', ['focus' => Focus::FOCUS_ATP_READY_FOR_RFC])],
-        ['count' => $attention['rfcReadyForRr'], 'label' => 'Funds released — create Receiving Report', 'hint' => 'Collect funds, buy, then record delivery', 'icon' => 'banknote', 'scope' => 'Yours', 'url' => route('purchaser.rfc.index', ['focus' => Focus::FOCUS_RFC_READY_FOR_RR])],
-        ['count' => $d['openBackOrders'], 'label' => 'Open back orders', 'hint' => 'Short or damaged lines to replace or refund', 'icon' => 'package-x', 'scope' => 'Yours', 'url' => route('purchaser.bo.index')],
-        ['count' => $attention['rrReadyForLiq'], 'label' => 'Receiving Reports ready for liquidation', 'hint' => 'Liquidate your Cash Advance', 'icon' => 'receipt-text', 'scope' => 'Yours', 'url' => route('purchaser.rr.index', ['focus' => Focus::FOCUS_RR_READY_FOR_LIQ])],
-    ])->sortBy(fn ($step) => $step['count'] > 0 ? 0 : 1)->values();
+    $latestReplacements = collect($d['latestReplacementRequests'] ?? []);
+    $delayedFlows = collect($d['delayedUrgentFlows'] ?? []);
 
     $recentRows = collect($d['recent'] ?? [])->take(5);
     $recentTotal = (int) ($d['recentTotal'] ?? $recentRows->count());
@@ -53,54 +42,47 @@
 
     <section class="grid gap-6 xl:grid-cols-3">
         <div id="next-steps" class="pur-card scroll-mt-24 xl:col-span-2">
-            <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 md:divide-x md:divide-gray-100">
                 <div>
-                    <h2 class="text-base font-semibold tracking-tight text-gray-950">Next steps</h2>
-                </div>
-                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $nextSteps->sum('count') }} open</span>
-            </div>
-
-            <div class="grid grid-cols-1 divide-y divide-gray-100 md:grid-cols-2 md:divide-y-0">
-                @foreach($nextSteps as $i => $step)
-                    @php $active = $step['count'] > 0; @endphp
-                    <a
-                        href="{{ $step['url'] }}"
-                        class="group flex items-center gap-3.5 px-5 py-3.5 transition hover:bg-gray-50/80 md:border-b md:border-gray-100 {{ $i % 2 === 0 ? 'md:border-r' : '' }} {{ $active ? '' : 'opacity-60' }}"
-                    >
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 {{ $active ? 'bg-blue-50 text-blue-700 ring-blue-100' : 'bg-slate-50 text-slate-400 ring-slate-100' }}">
-                            <i data-lucide="{{ $step['icon'] }}" class="h-[18px] w-[18px]"></i>
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold leading-snug text-gray-900">
-                                {{ $step['label'] }}
-                                @if($step['scope'] === 'Shared')
-                                    <span class="ml-1 inline-block rounded bg-amber-50 px-1.5 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-700">Shared</span>
-                                @endif
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                        <h2 class="text-base font-semibold tracking-tight text-gray-950">3 latest replacement requests</h2>
+                        <a href="{{ route('purchaser.procurement.replacement-requests') }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
+                    </div>
+                    @forelse($latestReplacements as $request)
+                        <a href="{{ route('purchaser.procurement.replacement-requests') }}" class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3 transition last:border-b-0 hover:bg-gray-50/80">
+                            <span class="min-w-0">
+                                <span class="flex items-center gap-2">
+                                    <span class="truncate text-sm font-semibold text-gray-900">{{ $request->code }}</span>
+                                    @if($request->urgent)
+                                        <span class="shrink-0 rounded bg-amber-50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-700">Urgent</span>
+                                    @endif
+                                </span>
+                                <span class="mt-0.5 block truncate text-xs text-gray-500">{{ $request->equipment }}@if($request->room !== '') · {{ $request->room }}@endif · {{ $request->status }}</span>
                             </span>
-                            <span class="mt-0.5 block text-xs leading-snug text-gray-500">{{ $step['hint'] }}</span>
-                        </span>
-                        @if($active)
-                            <span class="flex h-7 min-w-[28px] items-center justify-center rounded-full bg-[#0025cc] px-2 text-xs font-bold text-white">{{ $step['count'] }}</span>
-                        @else
-                            <i data-lucide="check" class="h-4 w-4 text-slate-400"></i>
-                        @endif
-                    </a>
-                @endforeach
+                            <span class="shrink-0 text-xs font-medium text-gray-500">{{ $request->date }}</span>
+                        </a>
+                    @empty
+                        <p class="px-5 py-8 text-center text-xs font-medium text-gray-500">No replacement requests yet</p>
+                    @endforelse
+                </div>
+                <div class="border-t border-gray-100 md:border-t-0">
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+                        <h2 class="text-base font-semibold tracking-tight text-gray-950">3 latest delayed urgent processes</h2>
+                    </div>
+                    @forelse($delayedFlows as $flow)
+                        <button type="button" class="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-5 py-3 text-left transition last:border-b-0 hover:bg-gray-50/80" data-dashboard-preview data-preview-kind="pipeline" data-preview-url="{{ $flow->preview_url }}" data-continue-url="{{ $flow->continue_url }}" data-continue-label="Open" data-preview-title="Delayed urgent process">
+                            <span class="min-w-0">
+                                <span class="block truncate text-sm font-semibold text-blue-700">{{ $flow->request_no }}</span>
+                                <span class="mt-0.5 block truncate text-xs text-gray-700">{{ $flow->atp }} · {{ $flow->ris }}</span>
+                                <span class="mt-0.5 block truncate text-xs text-gray-500">Last stop: {{ $flow->stage }} · {{ $flow->detail }}</span>
+                            </span>
+                            <span class="shrink-0 text-right text-xs font-semibold text-amber-700">{{ $flow->days === 1 ? '1 day' : $flow->days.' days' }}</span>
+                        </button>
+                    @empty
+                        <p class="px-5 py-8 text-center text-xs font-medium text-gray-500">No delayed urgent process</p>
+                    @endforelse
+                </div>
             </div>
-
-            @php $rc = $d['replacementCounts']; @endphp
-            <a
-                href="{{ route('purchaser.procurement.replacement-requests') }}"
-                class="flex flex-wrap items-center justify-between gap-3 bg-gray-50/70 px-5 py-3 text-xs text-gray-500 transition hover:bg-gray-100/70"
-            >
-                <span class="font-semibold text-gray-700">Replacement requests from Maintenance</span>
-                <span class="flex items-center gap-4">
-                    <span><b class="text-gray-900">{{ $rc['pending'] }}</b> pending</span>
-                    <span><b class="text-gray-900">{{ $rc['approved'] }}</b> approved</span>
-                    <span><b class="text-gray-900">{{ $rc['completed'] }}</b> completed</span>
-                    <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
-                </span>
-            </a>
         </div>
 
         @php
@@ -215,10 +197,45 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
         </div>
-        <div class="relative h-[70vh] bg-slate-100">
-            <iframe id="purchaserDashboardPreviewFrame" title="Form preview" class="h-full w-full border-0 bg-slate-100" src="about:blank"></iframe>
+        <div id="purchaserDashboardPreviewStage" class="relative h-[70vh] bg-slate-100">
+            <iframe id="purchaserDashboardPreviewFrame" title="Form preview" class="h-full w-full border-0 bg-white" src="about:blank"></iframe>
             <div id="purchaserDashboardPreviewSkeleton" class="absolute inset-0 z-10 hidden overflow-auto bg-slate-100 py-6">
-                @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading form'])
+                <div data-preview-skeleton-document>
+                    @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading form'])
+                </div>
+                <div data-preview-skeleton-pipeline class="hidden bg-white p-5" role="status" aria-live="polite" aria-busy="true">
+                    <span class="sr-only">Loading procurement flow…</span>
+                    <div aria-hidden="true">
+                        <div class="prism-skel" style="width:72px;height:9px"></div>
+                        <div class="prism-skel mt-2" style="width:220px;height:22px"></div>
+                        <div class="mt-5 rounded-xl border border-gray-200 p-5">
+                            <div class="flex items-start justify-between gap-6">
+                                <div>
+                                    <div class="prism-skel" style="width:48px;height:9px"></div>
+                                    <div class="prism-skel mt-2" style="width:168px;height:16px"></div>
+                                    <div class="prism-skel mt-2" style="width:72px;height:10px"></div>
+                                </div>
+                                <div class="shrink-0">
+                                    <div class="prism-skel ml-auto" style="width:148px;height:10px"></div>
+                                    <div class="prism-skel ml-auto mt-2" style="width:112px;height:10px"></div>
+                                </div>
+                            </div>
+                            <div class="mt-8 flex items-start">
+                                @for ($step = 0; $step < 5; $step++)
+                                    <div class="flex flex-1 flex-col items-center">
+                                        <div class="flex w-full items-center">
+                                            <div class="h-0.5 flex-1 {{ $step === 0 ? 'bg-transparent' : 'bg-slate-200' }}"></div>
+                                            <div class="prism-skel prism-skel-round shrink-0" style="width:36px;height:36px"></div>
+                                            <div class="h-0.5 flex-1 {{ $step === 4 ? 'bg-transparent' : 'bg-slate-200' }}"></div>
+                                        </div>
+                                        <div class="prism-skel mt-2" style="width:64px;height:9px"></div>
+                                        <div class="prism-skel mt-1.5" style="width:92px;height:10px"></div>
+                                    </div>
+                                @endfor
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-4 py-3">
@@ -232,13 +249,25 @@
     (function () {
         const modal = document.getElementById('purchaserDashboardPreview');
         const frame = document.getElementById('purchaserDashboardPreviewFrame');
+        const stage = document.getElementById('purchaserDashboardPreviewStage');
         const skeleton = document.getElementById('purchaserDashboardPreviewSkeleton');
         const title = document.getElementById('purchaserDashboardPreviewTitle');
         const continueLink = document.getElementById('purchaserDashboardPreviewContinue');
         if (!modal || !frame || !skeleton || !title || !continueLink) return;
         document.body.appendChild(modal);
 
-        function showSkeleton() {
+        var previewCache = Object.create(null);
+
+        function showSkeleton(pipeline) {
+            var pipe = skeleton.querySelector('[data-preview-skeleton-pipeline]');
+            var documentSkeleton = skeleton.querySelector('[data-preview-skeleton-document]');
+            if (pipe) pipe.classList.toggle('hidden', !pipeline);
+            if (documentSkeleton) documentSkeleton.classList.toggle('hidden', pipeline);
+            skeleton.classList.toggle('bg-white', pipeline);
+            skeleton.classList.toggle('bg-slate-100', !pipeline);
+            skeleton.classList.toggle('py-6', !pipeline);
+            skeleton.classList.toggle('absolute', !pipeline);
+            skeleton.classList.toggle('inset-0', !pipeline);
             skeleton.classList.remove('hidden');
         }
 
@@ -246,16 +275,49 @@
             skeleton.classList.add('hidden');
         }
 
+        function fitPipelineFrame() {
+            if (!stage || !stage.classList.contains('h-auto')) return;
+            var doc;
+            try { doc = frame.contentDocument; } catch (e) { return; }
+            if (!doc || !doc.body) return;
+            frame.style.height = '40px';
+            var total = 0;
+            var children = doc.body.children || [];
+            for (var i = 0; i < children.length; i++) {
+                total += children[i].offsetHeight;
+            }
+            if (total < 40) total = doc.body.scrollHeight || 0;
+            if (total < 40) return;
+            frame.style.height = Math.ceil(total) + 'px';
+        }
+
+        function revealPreview() {
+            fitPipelineFrame();
+            if (!stage || !stage.classList.contains('h-auto') || (frame.style.height && frame.style.height !== '40px' && frame.style.height !== '0px')) {
+                hideSkeleton();
+            }
+        }
+
         frame.addEventListener('load', function () {
             const src = frame.getAttribute('src') || '';
-            if (!src || src === 'about:blank') return;
-            hideSkeleton();
+            const inline = frame.srcdoc || '';
+            if ((!src || src === 'about:blank') && !inline) return;
+            revealPreview();
+            setTimeout(revealPreview, 80);
         });
 
         function closePreview() {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             hideSkeleton();
+            if (stage) {
+                stage.classList.add('h-[70vh]');
+                stage.classList.remove('h-auto');
+            }
+            frame.classList.add('h-full');
+            frame.style.height = '';
+            skeleton.classList.add('absolute', 'inset-0');
+            frame.srcdoc = '';
             frame.src = 'about:blank';
             document.body.style.overflow = '';
         }
@@ -267,12 +329,26 @@
                 if (continueUrl) window.location = continueUrl;
                 return;
             }
+            var pipeline = trigger.getAttribute('data-preview-kind') === 'pipeline';
             title.textContent = trigger.getAttribute('data-preview-title') || 'Form';
             continueLink.href = continueUrl || '#';
             continueLink.textContent = trigger.getAttribute('data-continue-label') || 'Open';
-            showSkeleton();
-            const joiner = previewUrl.indexOf('?') === -1 ? '?' : '&';
-            frame.src = previewUrl + joiner + 'ts=' + Date.now();
+            if (stage) {
+                stage.classList.toggle('h-[70vh]', !pipeline);
+                stage.classList.toggle('h-auto', pipeline);
+            }
+            frame.classList.toggle('h-full', !pipeline);
+            frame.style.height = pipeline ? '0px' : '';
+            var cached = pipeline ? (previewCache[previewUrl] || '') : '';
+            showSkeleton(pipeline);
+            if (cached) {
+                frame.removeAttribute('src');
+                frame.srcdoc = cached;
+                requestAnimationFrame(revealPreview);
+            } else {
+                frame.srcdoc = '';
+                frame.src = previewUrl;
+            }
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -289,6 +365,24 @@
 
         modal.addEventListener('click', function (event) {
             if (event.target === modal || event.target.closest('[data-preview-close]')) closePreview();
+        });
+
+        function rememberPreview(url) {
+            if (!url || Object.prototype.hasOwnProperty.call(previewCache, url)) return;
+            previewCache[url] = '';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (response) { return response.ok ? response.text() : ''; })
+                .then(function (html) { previewCache[url] = html || ''; })
+                .catch(function () { delete previewCache[url]; });
+        }
+
+        var warmNodes = Array.prototype.slice.call(document.querySelectorAll('[data-preview-kind="pipeline"][data-preview-url]'));
+        document.querySelectorAll('[data-preview-url]').forEach(function (el) {
+            if (el.getAttribute('data-preview-kind') === 'pipeline') return;
+            warmNodes.push(el);
+        });
+        warmNodes.slice(0, 12).forEach(function (el) {
+            rememberPreview(el.getAttribute('data-preview-url'));
         });
 
         document.addEventListener('keydown', function (event) {

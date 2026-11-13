@@ -653,7 +653,7 @@
 
     window.printRisDocument = function (risId) {
         if (!risId) return;
-        var url = '/president/ris/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var url = '/president/ris/' + encodeURIComponent(risId) + '/print';
         var iframe = document.getElementById('presidentRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');

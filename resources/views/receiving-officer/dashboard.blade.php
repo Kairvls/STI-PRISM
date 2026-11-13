@@ -41,6 +41,7 @@
         return $rfcPreview((int) ($ticket->rfc_id ?? 0));
     };
     $line = fn (...$parts) => collect($parts)->filter(fn ($part) => $part !== null && $part !== '')->implode(' · ');
+    $peso = fn ($amount) => '₱'.number_format((float) $amount, 2);
     $showing = function (int $total, int $shown): string {
         if ($shown <= 0) {
             return '';
@@ -78,7 +79,10 @@
                             </span>
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->submitted_at ? $rr->submitted_at->format('M d, Y') : '—') }}</span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-semibold text-blue-600">Open</span>
+                        <span class="shrink-0 text-right">
+                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
+                            <span class="text-[11px] font-semibold text-blue-600">Open</span>
+                        </span>
                     </button>
                 @empty
                     <p class="py-8 text-center text-xs font-medium text-gray-500">Nothing to count</p>
@@ -101,6 +105,9 @@
                 @forelse ($replacementRows as $ticket)
                     <button type="button" class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60" data-dashboard-preview data-preview-url="{{ $ticketPreview($ticket) }}" data-continue-url="{{ route('receiving.back-orders.index', array_filter(['status' => 'receiving', 'rr' => $ticket->root_id ?: null])) }}" data-continue-label="Open" data-preview-title="{{ $ticket->article }}">
                         <p class="truncate text-xs font-semibold text-gray-900">{{ $ticket->article }}</p>
+                        @if (!empty($ticket->uniqueness))
+                            <p class="truncate text-[11px] font-medium text-gray-700">{{ $ticket->uniqueness }}</p>
+                        @endif
                         <p class="truncate text-[11px] text-gray-500">{{ $line($ticket->kind ?? '', $ticket->qty.' '.$ticket->unit, $ticket->number) }}</p>
                     </button>
                 @empty
@@ -129,7 +136,10 @@
                             <span class="block truncate text-xs font-semibold text-gray-900">{{ $rr->number }}</span>
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->total > 0 ? $rr->settled.'/'.$rr->total.' settled' : null) }}</span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-semibold text-blue-600">Open</span>
+                        <span class="shrink-0 text-right">
+                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
+                            <span class="text-[11px] font-semibold text-blue-600">Open</span>
+                        </span>
                     </button>
                 @empty
                     <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
@@ -152,6 +162,9 @@
                 @forelse ($backOrderRows as $ticket)
                     <button type="button" class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60" data-dashboard-preview data-preview-url="{{ $ticketPreview($ticket) }}" data-continue-url="{{ route('receiving.back-orders.index', ['status' => 'all']) }}" data-continue-label="Open" data-preview-title="{{ $ticket->article }}">
                         <p class="truncate text-xs font-semibold text-gray-900">{{ $ticket->article }}</p>
+                        @if (!empty($ticket->uniqueness))
+                            <p class="truncate text-[11px] font-medium text-gray-700">{{ $ticket->uniqueness }}</p>
+                        @endif
                         <p class="truncate text-[11px] text-gray-500">{{ $line($ticket->kind ?? '', $ticket->status_label, $ticket->qty.' '.$ticket->unit) }}</p>
                     </button>
                 @empty
@@ -180,7 +193,10 @@
                             <span class="block truncate text-xs font-semibold text-gray-900">{{ $rr->number }}</span>
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->at ? $rr->at->format('M d, Y') : '—') }}</span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-semibold text-blue-600">Open</span>
+                        <span class="shrink-0 text-right">
+                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
+                            <span class="text-[11px] font-semibold text-blue-600">Open</span>
+                        </span>
                     </button>
                 @empty
                     <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
@@ -206,7 +222,10 @@
                             <span class="block truncate text-xs font-semibold text-gray-900">{{ $rr->number }}</span>
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->at ? $rr->at->format('M d, Y') : '—') }}</span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-semibold text-blue-600">Open</span>
+                        <span class="shrink-0 text-right">
+                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
+                            <span class="text-[11px] font-semibold text-blue-600">Open</span>
+                        </span>
                     </button>
                 @empty
                     <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
@@ -278,8 +297,7 @@
             continueLink.href = continueUrl || '#';
             continueLink.textContent = trigger.getAttribute('data-continue-label') || 'Open';
             showSkeleton();
-            const joiner = previewUrl.indexOf('?') === -1 ? '?' : '&';
-            frame.src = previewUrl + joiner + 'ts=' + Date.now();
+            frame.src = previewUrl;
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -300,6 +318,15 @@
 
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && !modal.classList.contains('hidden')) closePreview();
+        });
+
+        var warmed = 0;
+        document.querySelectorAll('[data-preview-url]').forEach(function (el) {
+            if (warmed >= 12) return;
+            var url = el.getAttribute('data-preview-url');
+            if (!url) return;
+            warmed += 1;
+            fetch(url, { credentials: 'same-origin' }).catch(function () {});
         });
     })();
 </script>

@@ -498,7 +498,7 @@ class RequestExplorer
         return $draft;
     }
 
-    private static function viewUrlFor(string $key, int $id, ?string $portal = null): ?string
+    public static function viewUrlFor(string $key, int $id, ?string $portal = null): ?string
     {
         if ($id < 1) {
             return null;
@@ -507,7 +507,7 @@ class RequestExplorer
         $portal = $portal ?: self::viewerPortal();
 
         if (in_array($portal, ['admin', 'school-admin'], true)
-            && in_array($key, ['ris', 'atp', 'rfc', 'rr', 'liq'], true)
+            && in_array($key, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true)
             && Route::has($portal.'.operations.document')) {
             try {
                 return route($portal.'.operations.document', ['type' => $key, 'id' => $id]);

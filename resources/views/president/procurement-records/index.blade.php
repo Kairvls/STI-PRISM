@@ -20,8 +20,12 @@
                 @foreach($packages as $pkg)
                     <a href="{{ route('president.procurement-records.show', $pkg->package_id) }}" class="pr-list-row">
                         <div class="pr-list-main">
-                            <div class="pr-list-ref">{{ $pkg->authority_purchase_form_number ?? '—' }}</div>
+                            <div class="pr-list-ref" style="color:#1d4ed8;">{{ $pkg->authority_purchase_request_no ?? $pkg->ris_request_no ?? '—' }}</div>
                             <div class="pr-list-meta">
+                                <span>
+                                    <i data-lucide="file-text" class="h-3 w-3"></i>
+                                    {{ $pkg->authority_purchase_form_number ?? '—' }}
+                                </span>
                                 <span>
                                     <i data-lucide="clipboard-list" class="h-3 w-3"></i>
                                     RIS {{ $pkg->ris_form_number ?? '—' }}

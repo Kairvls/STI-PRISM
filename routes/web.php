@@ -173,7 +173,7 @@ $schoolAdminModuleRoutes = function () {
     Route::get(
         '/operations/documents/{type}/{id}',
         [\App\Http\Controllers\AdminOperationsController::class, 'viewDocument']
-    )->whereNumber('id')->where('type', 'ris|atp|rfc|rr|liq')->name('operations.document');
+    )->whereNumber('id')->where('type', 'ris|atp|rfc|dv|rr|liq')->name('operations.document');
 
     Route::get(
         '/procurement-review',
@@ -519,6 +519,16 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'updateUserProcurementAccess']
         )->whereNumber('userId')->name('users.procurement-access');
 
+        Route::patch(
+            '/users/{userId}/deactivate',
+            [AdminController::class, 'deactivateUser']
+        )->whereNumber('userId')->name('users.deactivate');
+
+        Route::patch(
+            '/users/{userId}/reactivate',
+            [AdminController::class, 'reactivateUser']
+        )->whereNumber('userId')->name('users.reactivate');
+
         Route::get(
             '/users/edit',
             [AdminController::class, 'editUser']
@@ -658,7 +668,20 @@ Route::middleware(['auth', 'admin'])
 
         // Borrowing: lending equipment out and recording returns
         Route::get('/borrowing', [MaintenanceController::class, 'borrowing'])->name('borrowing.index');
+        Route::get('/borrowing/borrowers', [MaintenanceController::class, 'borrowers'])->name('borrowing.borrowers');
+        Route::get('/borrowing/borrowers/records', [MaintenanceController::class, 'borrowerRecords'])->name('borrowing.borrowers.records');
+        Route::get('/borrowing/event-types', [MaintenanceController::class, 'eventTypes'])->name('borrowing.event-types');
+        Route::post('/borrowing/event-types', [MaintenanceController::class, 'storeEventType'])->name('borrowing.event-types.store');
+        Route::post('/borrowing/event-types/quick-add', [MaintenanceController::class, 'quickAddEventType'])->name('borrowing.event-types.quick-add');
+        Route::put('/borrowing/event-types/{id}', [MaintenanceController::class, 'updateEventType'])->whereNumber('id')->name('borrowing.event-types.update');
+        Route::post('/borrowing/event-types/{id}/archive', [MaintenanceController::class, 'archiveEventType'])->whereNumber('id')->name('borrowing.event-types.archive');
+        Route::post('/borrowing/event-types/{id}/restore', [MaintenanceController::class, 'restoreEventType'])->whereNumber('id')->name('borrowing.event-types.restore');
+        Route::post('/borrowing/event-names', [MaintenanceController::class, 'storeEventName'])->name('borrowing.event-names.store');
+        Route::post('/borrowing/event-names/quick-add', [MaintenanceController::class, 'quickAddEventName'])->name('borrowing.event-names.quick-add');
+        Route::post('/borrowing/event-names/{id}/archive', [MaintenanceController::class, 'archiveEventName'])->whereNumber('id')->name('borrowing.event-names.archive');
+        Route::post('/borrowing/event-names/{id}/restore', [MaintenanceController::class, 'restoreEventName'])->whereNumber('id')->name('borrowing.event-names.restore');
         Route::post('/borrowing/store', [MaintenanceController::class, 'storeBorrowing'])->name('borrowing.store');
+        Route::post('/borrowing/external-borrowers', [MaintenanceController::class, 'storeExternalBorrower'])->name('borrowing.external-borrowers.store');
         Route::post('/borrowing/return', [MaintenanceController::class, 'returnEquipment'])->name('borrowing.return');
         Route::post('/borrowing/{id}/archive', [MaintenanceController::class, 'archiveBorrowing'])->name('borrowing.archive');
         Route::post('/borrowing/{id}/unarchive', [MaintenanceController::class, 'unarchiveBorrowing'])->name('borrowing.unarchive');
@@ -952,6 +975,7 @@ Route::middleware(['auth', 'school_admin'])
         )->whereNumber('signature')->name('saved-signatures.destroy');
 
         Route::get('/authority-to-purchase', [AccountingController::class, 'authorityToPurchase'])->name('atp.index');
+        Route::get('/authority-to-purchase/export-pdf', [AccountingController::class, 'exportAtpPdf'])->name('atp.export-pdf');
         Route::get('/authority-to-purchase/{id}/preview', [AccountingController::class, 'previewAtpForm'])
             ->whereNumber('id')
             ->name('atp.preview');
@@ -971,6 +995,7 @@ Route::middleware(['auth', 'school_admin'])
             ->name('ris.attachment');
 
         Route::get('/request-check', [AccountingController::class, 'requestCheck'])->name('rfc.index');
+        Route::get('/request-check/export-pdf', [AccountingController::class, 'exportRfcPdf'])->name('rfc.export-pdf');
         Route::get('/request-check/{id}/preview', [AccountingController::class, 'previewRfcForm'])
             ->whereNumber('id')
             ->name('rfc.preview');
@@ -983,6 +1008,7 @@ Route::middleware(['auth', 'school_admin'])
             ->name('rfc.attachment');
 
         Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'schoolAdminIndex'])->name('dv.index');
+        Route::get('/disbursement-vouchers/export-pdf', [DisbursementVoucherController::class, 'exportSchoolAdminPdf'])->name('dv.export-pdf');
         Route::get('/disbursement-vouchers/{id}/preview', [DisbursementVoucherController::class, 'previewDvForm'])
             ->whereNumber('id')
             ->name('dv.preview');
@@ -2020,6 +2046,7 @@ Route::middleware([
     })->where('rest', '.*')->name('computer-sets.redirect');
 
     Route::get('/personnel-directory', [PersonnelDirectoryController::class, 'index'])->name('personnel-directory.index');
+    Route::get('/personnel-directory/export-pdf', [PersonnelDirectoryController::class, 'exportPdf'])->name('personnel-directory.export-pdf');
 
     Route::get('/persons/search', [PersonController::class, 'search'])->name('persons.search');
 

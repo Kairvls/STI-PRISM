@@ -86,11 +86,11 @@
 <script>
 window.openReceivingRisPreview = function (risId) {
     if (!risId) return;
-    openReceivingPreviewFrame('/receiving/ris/' + risId + '/print?ts=' + Date.now(), 'Report Preview');
+    openReceivingPreviewFrame('/receiving/ris/' + risId + '/print', 'Report Preview');
 };
 window.openReceivingReportPreview = function (reportId) {
     if (!reportId) return;
-    openReceivingPreviewFrame('/receiving/reports/' + reportId + '/print?ts=' + Date.now(), 'Receiving Report Preview');
+    openReceivingPreviewFrame('/receiving/reports/' + reportId + '/print', 'Receiving Report Preview');
 };
 function openReceivingPreviewFrame(url, title) {
     var modal = document.getElementById('risPreviewModal');
@@ -101,9 +101,17 @@ function openReceivingPreviewFrame(url, title) {
     if (printLink) printLink.href = url;
     if (!modal || !body) return;
     modal.style.display = 'flex';
-    body.innerHTML = '';
+    body.innerHTML = '<div data-ris-preview-skeleton style="min-height:62vh;background:#f1f5f9;padding:24px;"><div style="max-width:720px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;padding:28px;"><div class="prism-skel" style="height:14px;width:42%;background:#e5e7eb;border-radius:6px;margin-bottom:16px;"></div><div class="prism-skel" style="height:10px;width:100%;background:#e5e7eb;border-radius:6px;margin-bottom:8px;"></div><div class="prism-skel" style="height:10px;width:92%;background:#e5e7eb;border-radius:6px;margin-bottom:8px;"></div><div class="prism-skel" style="height:10px;width:80%;background:#e5e7eb;border-radius:6px;"></div></div></div>';
     var iframe = document.createElement('iframe');
     iframe.id = 'risPreviewFrame';
+    iframe.style.width = '100%';
+    iframe.style.minHeight = '70vh';
+    iframe.style.border = '0';
+    iframe.style.background = '#fff';
+    iframe.onload = function () {
+        var sk = body.querySelector('[data-ris-preview-skeleton]');
+        if (sk) sk.remove();
+    };
     iframe.src = url;
     body.appendChild(iframe);
     if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();

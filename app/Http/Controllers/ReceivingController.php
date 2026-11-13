@@ -771,11 +771,18 @@ class ReceivingController extends Controller
             $row->receiving_report_second_count_signature = $officerSig;
         }
 
-        return view('receiving-officer.receiving-reports.print', [
-            'rr' => $row,
-            'rows' => $items->values(),
-            'officerName' => $officerName,
-        ]);
+        $stamp = (string) ($row->updated_at ?? $row->receiving_report_status ?? $reportId);
+        $html = \App\Support\CachedFormPreview::html('rr-print:'.$reportId.':'.(int) Auth::id().':'.$stamp, function () use ($row, $items, $officerName) {
+            return view('receiving-officer.receiving-reports.print', [
+                'rr' => $row,
+                'rows' => $items->values(),
+                'officerName' => $officerName,
+            ])->render();
+        });
+
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=300');
     }
 
     public function printRis($risId)
@@ -789,11 +796,18 @@ class ReceivingController extends Controller
             ->get()
             ->pad(8, null);
 
-        return view('admin.ris.print', [
-            'ris' => $ris,
-            'risItems' => $risItems,
-            'presidentName' => null,
-        ]);
+        $stamp = (string) ($ris->ris_updated_at ?? $ris->ris_status ?? $risId);
+        $html = \App\Support\CachedFormPreview::html('receiving-ris-print:'.$risId.':'.$stamp, function () use ($ris, $risItems) {
+            return view('admin.ris.print', [
+                'ris' => $ris,
+                'risItems' => $risItems,
+                'presidentName' => null,
+            ])->render();
+        });
+
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=300');
     }
 
     public function exportTablePdf(Request $request)

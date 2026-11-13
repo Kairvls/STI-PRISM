@@ -103,6 +103,9 @@
                             <p class="mt-2 text-center text-[11px] font-medium {{ $isCurrent ? 'text-[#0025cc]' : 'text-slate-500' }}">
                                 {{ $stageLabels[$key] ?? strtoupper($key) }}
                             </p>
+                            @if($exists && ! empty($stage['label']))
+                                <p class="mt-0.5 max-w-[9.5rem] break-all text-center text-xs font-semibold tabular-nums text-slate-800" title="{{ $stage['label'] }}">{{ $stage['label'] }}</p>
+                            @endif
                         </div>
                     @endforeach
                 </div>

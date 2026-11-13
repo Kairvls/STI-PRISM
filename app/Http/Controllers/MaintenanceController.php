@@ -10595,6 +10595,27 @@ class MaintenanceController extends Controller
                     '%' . $request->search . '%'
                 );
 
+                if (Schema::hasColumn('borrowing_records_table', 'borrowing_transaction_no')) {
+                    $q->orWhere(
+                        'borrowing_records_table.borrowing_transaction_no',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    );
+                }
+
+                if (Schema::hasColumn('borrowing_records_table', 'borrowing_event_name')) {
+                    $q->orWhere(
+                        'borrowing_records_table.borrowing_event_name',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    )
+                    ->orWhere(
+                        'borrowing_records_table.borrowing_event_location',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    );
+                }
+
             });
 
         }
@@ -10622,6 +10643,17 @@ class MaintenanceController extends Controller
             $query->where(
                 'borrowing_records_table.borrowing_borrower_name',
                 $borrowerFilter
+            );
+        }
+
+        $slipFilter = trim((string) $request->query('slip', ''));
+        if (
+            $slipFilter !== ''
+            && Schema::hasColumn('borrowing_records_table', 'borrowing_transaction_no')
+        ) {
+            $query->where(
+                'borrowing_records_table.borrowing_transaction_no',
+                $slipFilter
             );
         }
 
@@ -10682,6 +10714,58 @@ class MaintenanceController extends Controller
             ->paginate(10)
 
             ->withQueryString();
+
+        // Attach sibling equipment for multi-item slips shown on this page.
+        if (
+            Schema::hasColumn('borrowing_records_table', 'borrowing_transaction_no')
+            && $recordId === 0
+        ) {
+            $pageSlipNos = collect($borrowings->items())
+                ->map(fn ($row) => trim((string) ($row->borrowing_transaction_no ?? '')))
+                ->filter()
+                ->unique()
+                ->values();
+
+            $slipItemsByNo = collect();
+            if ($pageSlipNos->isNotEmpty()) {
+                $slipItemsByNo = DB::table('borrowing_records_table')
+                    ->leftJoin(
+                        'equipment_table',
+                        'borrowing_records_table.borrowing_equipment_id',
+                        '=',
+                        'equipment_table.equipment_id'
+                    )
+                    ->leftJoin('rooms_table as borrow_from_room', 'borrow_from_room.room_id', '=', 'borrowing_records_table.borrowing_from_room_id')
+                    ->leftJoin('rooms_table as borrow_return_room', 'borrow_return_room.room_id', '=', 'borrowing_records_table.borrowing_returned_to_room_id')
+                    ->leftJoin('users_table as borrow_returned_by', 'borrow_returned_by.user_id', '=', 'borrowing_records_table.borrowing_returned_by')
+                    ->whereIn('borrowing_records_table.borrowing_transaction_no', $pageSlipNos->all())
+                    ->orderBy('borrowing_records_table.borrowing_record_id')
+                    ->get([
+                        'borrowing_records_table.*',
+                        'equipment_table.equipment_name',
+                        'equipment_table.equipment_asset_tag',
+                        'equipment_table.equipment_brand_name',
+                        'equipment_table.equipment_model',
+                        'equipment_table.equipment_tracking_mode',
+                        'borrow_from_room.room_name as borrowed_from_room_name',
+                        'borrow_return_room.room_name as returned_to_room_name',
+                        'borrow_returned_by.user_full_name as returned_by_name',
+                    ])
+                    ->groupBy(fn ($row) => trim((string) ($row->borrowing_transaction_no ?? '')));
+            }
+
+            foreach ($borrowings as $row) {
+                $slipNo = trim((string) ($row->borrowing_transaction_no ?? ''));
+                $siblings = $slipNo !== ''
+                    ? ($slipItemsByNo->get($slipNo) ?? collect([$row]))
+                    : collect([$row]);
+                $row->slip_items = $siblings->values();
+            }
+        } else {
+            foreach ($borrowings as $row) {
+                $row->slip_items = collect([$row]);
+            }
+        }
 
 
         // =====================================================
@@ -11006,6 +11090,11 @@ class MaintenanceController extends Controller
         // RETURN BORROWING PAGE
         // =====================================================
 
+        // Registered picker = External borrower registry only (not campus faculty/staff directory).
+        $registeredBorrowers = \App\Support\Borrowers::registeredOptions();
+        $eventTypes = \App\Support\EventTypes::options();
+        $eventNames = \App\Support\EventNames::options();
+
         return view(
             'admin.borrowing.index',
 
@@ -11016,6 +11105,10 @@ class MaintenanceController extends Controller
                 'borrowers',
                 'borrowerFilter',
                 'borrowerCautions',
+                'registeredBorrowers',
+                'eventTypes',
+                'eventNames',
+                'slipFilter',
                 'dateFrom',
                 'dateTo',
                 'showArchived',
@@ -11054,11 +11147,313 @@ class MaintenanceController extends Controller
         );
     }
 
+    /**
+     * Borrowers directory from External registry + real borrow history (not campus staff list).
+     */
+    public function borrowers(Request $request)
+    {
+        $filter = (string) $request->query('filter', 'all');
+        if (! in_array($filter, ['all', 'registered', 'history'], true)) {
+            $filter = 'all';
+        }
+        $q = trim((string) $request->query('q', ''));
+
+        $all = \App\Support\Borrowers::directory($q !== '' ? $q : null, $filter);
+        $stats = \App\Support\Borrowers::stats();
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 20;
+        $borrowers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $all->forPage($page, $perPage)->values(),
+            $all->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
+        return view('admin.borrowing.borrowers', compact('borrowers', 'filter', 'q', 'stats'));
+    }
+
+    /**
+     * JSON list of borrow records for one borrower (Borrowers page Records modal).
+     */
+    public function borrowerRecords(Request $request)
+    {
+        $name = trim((string) $request->query('name', ''));
+        abort_if($name === '', 422, 'Borrower name is required.');
+
+        $records = \App\Support\Borrowers::recordsForName($name);
+
+        return response()->json([
+            'name' => $name,
+            'count' => $records->count(),
+            'records' => $records->values(),
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EVENT TYPES (borrow event / activity registry)
+    |--------------------------------------------------------------------------
+    */
+
+    public function eventTypes(Request $request)
+    {
+        abort_unless(
+            \App\Support\EventTypes::tableReady() || \App\Support\EventNames::tableReady(),
+            404
+        );
+
+        $tab = (string) $request->query('tab', 'names');
+        if (! in_array($tab, ['names', 'types'], true)) {
+            $tab = 'names';
+        }
+        $q = trim((string) $request->query('q', ''));
+        $names = \App\Support\EventNames::manageList($q !== '' ? $q : null);
+        $types = \App\Support\EventTypes::manageList($q !== '' ? $q : null);
+
+        return view('admin.borrowing.event-types', compact('names', 'types', 'q', 'tab'));
+    }
+
+    public function storeEventType(Request $request)
+    {
+        abort_unless(\App\Support\EventTypes::tableReady(), 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EventTypes::MAX_NAME],
+        ], [
+            'name.required' => 'Enter the event type name.',
+            'name.max' => 'Event type may not be longer than '.\App\Support\EventTypes::MAX_NAME.' characters.',
+        ]);
+
+        \App\Support\EventTypes::create($validated['name']);
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'types'])
+            ->with('success', 'Event type saved.');
+    }
+
+    public function updateEventType(Request $request, int $id)
+    {
+        abort_unless(\App\Support\EventTypes::tableReady(), 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EventTypes::MAX_NAME],
+            'is_active' => ['nullable', 'boolean'],
+        ], [
+            'name.required' => 'Enter the event type name.',
+            'name.max' => 'Event type may not be longer than '.\App\Support\EventTypes::MAX_NAME.' characters.',
+        ]);
+
+        \App\Support\EventTypes::update(
+            $id,
+            $validated['name'],
+            $request->boolean('is_active', true)
+        );
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'types'])
+            ->with('success', 'Event type updated.');
+    }
+
+    public function archiveEventType(int $id)
+    {
+        abort_unless(\App\Support\EventTypes::tableReady(), 404);
+        \App\Support\EventTypes::archive($id);
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'types'])
+            ->with('success', 'Event type archived.');
+    }
+
+    public function restoreEventType(int $id)
+    {
+        abort_unless(\App\Support\EventTypes::tableReady(), 404);
+        \App\Support\EventTypes::restore($id);
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'types'])
+            ->with('success', 'Event type restored.');
+    }
+
+    public function quickAddEventType(Request $request)
+    {
+        abort_unless(\App\Support\EventTypes::tableReady(), 404);
+
+        $request->validate(
+            ['name' => ['required', 'string', 'max:'.\App\Support\EventTypes::MAX_NAME]],
+            [],
+            ['name' => 'event type']
+        );
+
+        $type = \App\Support\EventTypes::quickAdd((string) $request->input('name'));
+
+        // id = name so the borrow form stores the label in borrowing_event_type.
+        return response()->json([
+            'id' => $type->event_type_name,
+            'name' => $type->event_type_name,
+            'existing' => $type->existing,
+        ]);
+    }
+
+    public function storeEventName(Request $request)
+    {
+        abort_unless(\App\Support\EventNames::tableReady(), 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EventNames::MAX_NAME],
+        ], [
+            'name.required' => 'Enter the event name.',
+            'name.max' => 'Event name may not be longer than '.\App\Support\EventNames::MAX_NAME.' characters.',
+        ]);
+
+        \App\Support\EventNames::create($validated['name']);
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'names'])
+            ->with('success', 'Event name saved.');
+    }
+
+    public function archiveEventName(int $id)
+    {
+        abort_unless(\App\Support\EventNames::tableReady(), 404);
+        \App\Support\EventNames::archive($id);
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'names'])
+            ->with('success', 'Event name archived.');
+    }
+
+    public function restoreEventName(int $id)
+    {
+        abort_unless(\App\Support\EventNames::tableReady(), 404);
+        \App\Support\EventNames::restore($id);
+
+        return redirect()
+            ->route('admin.borrowing.event-types', ['tab' => 'names'])
+            ->with('success', 'Event name restored.');
+    }
+
+    public function quickAddEventName(Request $request)
+    {
+        abort_unless(\App\Support\EventNames::tableReady(), 404);
+
+        $request->validate(
+            ['name' => ['required', 'string', 'max:'.\App\Support\EventNames::MAX_NAME]],
+            [],
+            ['name' => 'event name']
+        );
+
+        $row = \App\Support\EventNames::quickAdd((string) $request->input('name'));
+
+        return response()->json([
+            'id' => $row->event_name_label,
+            'name' => $row->event_name_label,
+            'existing' => $row->existing,
+        ]);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | STORE BORROWING
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * Register an outside-school borrower into the shared people directory (custodians).
+     */
+    public function storeExternalBorrower(Request $request)
+    {
+        abort_unless(\App\Support\Custodians::tableReady(), 404);
+
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:50'],
+            'organization' => ['required', 'string', 'max:50'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'contact_number' => \App\Support\PhoneNumber::rules(false),
+            'email' => ['nullable', 'string', 'max:150', 'email:filter'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'full_name.required' => 'Enter the borrower full name.',
+            'full_name.max' => 'Full name may not be longer than 50 characters.',
+            'organization.required' => 'Enter the organization or company.',
+            'organization.max' => 'Organization may not be longer than 50 characters.',
+            'position.max' => 'Role / title may not be longer than 120 characters.',
+            'email.email' => 'Enter a valid email address.',
+            'email.max' => 'Email may not be longer than 150 characters.',
+        ]);
+
+        $id = \App\Support\Custodians::create([
+            'custodian_full_name' => $validated['full_name'],
+            'custodian_organization' => $validated['organization'],
+            'custodian_position' => $validated['position'] ?? null,
+            'custodian_contact_number' => \App\Support\PhoneNumber::normalizeForStorage($validated['contact_number'] ?? null),
+            'custodian_email_address' => $validated['email'] ?? null,
+            'custodian_notes' => $validated['notes'] ?? null,
+            'custodian_affiliation' => \App\Support\Custodians::AFFILIATION_EXTERNAL,
+            'custodian_status' => \App\Support\Custodians::STATUS_ACTIVE,
+        ]);
+
+        // Link existing borrow history rows with the same borrower name.
+        if (
+            Schema::hasTable('borrowing_records_table')
+            && Schema::hasColumn('borrowing_records_table', 'borrowing_borrower_custodian_id')
+        ) {
+            $name = trim($validated['full_name']);
+            DB::table('borrowing_records_table')
+                ->whereRaw('TRIM(borrowing_borrower_name) = ?', [$name])
+                ->where(function ($q) {
+                    $q->whereNull('borrowing_borrower_custodian_id')
+                        ->orWhere('borrowing_borrower_custodian_id', 0);
+                })
+                ->update(['borrowing_borrower_custodian_id' => $id]);
+
+            DB::table('borrowing_records_table')
+                ->whereRaw('TRIM(borrowing_borrower_name) = ?', [$name])
+                ->where(function ($q) {
+                    $q->whereNull('borrowing_borrower_department')
+                        ->orWhere('borrowing_borrower_department', '');
+                })
+                ->update(['borrowing_borrower_department' => $validated['organization']]);
+        }
+
+        $person = \App\Support\Custodians::find($id);
+
+        $payload = [
+            'id' => $id,
+            'name' => (string) ($person->custodian_full_name ?? $validated['full_name']),
+            'department' => (string) ($person->custodian_department ?? ''),
+            'organization' => (string) ($person->custodian_organization ?? $validated['organization']),
+            'affiliation' => \App\Support\Custodians::AFFILIATION_EXTERNAL,
+            'position' => (string) ($person->custodian_position ?? ($validated['position'] ?? '')),
+            'employee_id' => '',
+            'label' => \App\Support\Custodians::optionLabel($person ?: (object) [
+                'custodian_full_name' => $validated['full_name'],
+                'custodian_affiliation' => \App\Support\Custodians::AFFILIATION_EXTERNAL,
+                'custodian_organization' => $validated['organization'],
+                'custodian_position' => $validated['position'] ?? null,
+            ]),
+        ];
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'borrower' => $payload,
+                'message' => 'External borrower registered.',
+            ]);
+        }
+
+        if ($request->input('redirect_to') === 'borrowers' || str_contains((string) $request->headers->get('referer'), '/borrowing/borrowers')) {
+            return redirect()
+                ->route('admin.borrowing.borrowers', ['affiliation' => 'External'])
+                ->with('success', 'External borrower registered: '.$payload['name'].'.');
+        }
+
+        return back()->with('success', 'External borrower registered.');
+    }
 
     public function storeBorrowing(Request $request)
     {
@@ -11068,12 +11463,34 @@ class MaintenanceController extends Controller
         $validated = $request->validate([
             'borrowing_borrower_name' => 'required|string|max:255',
             'borrowing_borrower_department' => 'nullable|string|max:255',
+            'borrowing_borrower_custodian_id' => 'nullable|integer|min:1',
             'borrowing_authorized_by' => 'nullable|string|max:255',
             'borrowing_date' => 'required|date',
             'borrowing_expected_return_date' => 'required|date|after_or_equal:borrowing_date',
-            'borrowing_purpose' => 'nullable|string',
+            'borrowing_purpose' => 'nullable|string|max:2000',
+            'borrowing_event_name' => [
+                'required',
+                'string',
+                'max:50',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (! \App\Support\EventNames::isActiveName(is_string($value) ? $value : null)) {
+                        $fail('Select a valid event name.');
+                    }
+                },
+            ],
+            'borrowing_event_type' => [
+                'required',
+                'string',
+                'max:50',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (! \App\Support\EventTypes::isActiveName(is_string($value) ? $value : null)) {
+                        $fail('Select a valid event type.');
+                    }
+                },
+            ],
+            'borrowing_event_location' => 'required|string|max:50',
             'borrowing_destination_location' => 'nullable|string|max:255',
-            'borrowing_remarks' => 'nullable|string',
+            'borrowing_remarks' => 'nullable|string|max:2000',
             'borrowing_equipment_condition' => 'nullable|string|max:255',
             'borrowing_equipment_id' => $legacySingle ? 'required|integer' : 'nullable|integer',
             'borrowing_quantity' => $legacySingle ? 'required|integer|min:1|max:5000' : 'nullable|integer|min:1|max:5000',
@@ -11081,7 +11498,27 @@ class MaintenanceController extends Controller
             'items.*.equipment_id' => 'required_with:items|integer',
             'items.*.quantity' => 'required_with:items|integer|min:1|max:5000',
             'items.*.condition' => 'nullable|string|max:255',
+        ], [
+            'borrowing_event_name.required' => 'Select an event name.',
+            'borrowing_event_name.max' => 'Event name may not be longer than 50 characters.',
+            'borrowing_event_type.required' => 'Select an event type.',
+            'borrowing_event_location.required' => 'Enter the event venue / location.',
+            'borrowing_event_location.max' => 'Event venue / location may not be longer than 50 characters.',
         ]);
+
+        $borrowerCustodianId = (int) ($validated['borrowing_borrower_custodian_id'] ?? 0);
+        if (
+            $borrowerCustodianId < 1
+            && Schema::hasTable('custodians_table')
+            && filled($validated['borrowing_borrower_name'] ?? null)
+        ) {
+            $borrowerCustodianId = (int) DB::table('custodians_table')
+                ->where('custodian_full_name', trim((string) $validated['borrowing_borrower_name']))
+                ->value('custodian_id');
+        }
+        if ($borrowerCustodianId > 0 && ! DB::table('custodians_table')->where('custodian_id', $borrowerCustodianId)->exists()) {
+            $borrowerCustodianId = 0;
+        }
 
         $lines = $legacySingle
             ? [[
@@ -11110,9 +11547,27 @@ class MaintenanceController extends Controller
         $lines = array_values($merged);
 
         try {
-            DB::transaction(function () use ($request, $validated, $lines) {
+            DB::transaction(function () use ($request, $validated, $lines, $borrowerCustodianId) {
                 $createdIds = [];
                 $names = [];
+                $slipNo = Schema::hasColumn('borrowing_records_table', 'borrowing_transaction_no')
+                    ? \App\Support\BorrowingSlipNumber::allocate()
+                    : null;
+
+                if ($borrowerCustodianId > 0 && \App\Support\Custodians::tableReady()) {
+                    $custodian = \App\Support\Custodians::find($borrowerCustodianId);
+                    if ($custodian) {
+                        $validated['borrowing_borrower_name'] = (string) ($custodian->custodian_full_name
+                            ?? $validated['borrowing_borrower_name']);
+                        if (blank($validated['borrowing_borrower_department'] ?? null)) {
+                            if (filled($custodian->custodian_department ?? null)) {
+                                $validated['borrowing_borrower_department'] = (string) $custodian->custodian_department;
+                            } elseif (filled($custodian->custodian_organization ?? null)) {
+                                $validated['borrowing_borrower_department'] = (string) $custodian->custodian_organization;
+                            }
+                        }
+                    }
+                }
 
                 foreach ($lines as $line) {
                     $equipment = DB::table('equipment_table')
@@ -11142,7 +11597,7 @@ class MaintenanceController extends Controller
                         );
                     }
 
-                    $borrowingId = DB::table('borrowing_records_table')->insertGetId([
+                    $borrowInsert = [
                         'borrowing_equipment_id' => $equipment->equipment_id,
                         'borrowing_from_room_id' => $equipment->equipment_room_id,
                         'borrowing_borrower_name' => $validated['borrowing_borrower_name'],
@@ -11158,7 +11613,33 @@ class MaintenanceController extends Controller
                         'borrowing_remarks' => $validated['borrowing_remarks'] ?? null,
                         'borrowing_status' => 'Borrowed',
                         'borrowing_created_at' => now(),
-                    ]);
+                    ];
+                    if ($slipNo && Schema::hasColumn('borrowing_records_table', 'borrowing_transaction_no')) {
+                        $borrowInsert['borrowing_transaction_no'] = $slipNo;
+                    }
+                    if (
+                        $borrowerCustodianId > 0
+                        && Schema::hasColumn('borrowing_records_table', 'borrowing_borrower_custodian_id')
+                    ) {
+                        $borrowInsert['borrowing_borrower_custodian_id'] = $borrowerCustodianId;
+                    }
+                    if (Schema::hasColumn('borrowing_records_table', 'borrowing_event_name')) {
+                        $borrowInsert['borrowing_event_name'] = filled($validated['borrowing_event_name'] ?? null)
+                            ? trim((string) $validated['borrowing_event_name'])
+                            : null;
+                    }
+                    if (Schema::hasColumn('borrowing_records_table', 'borrowing_event_type')) {
+                        $borrowInsert['borrowing_event_type'] = filled($validated['borrowing_event_type'] ?? null)
+                            ? (string) $validated['borrowing_event_type']
+                            : null;
+                    }
+                    if (Schema::hasColumn('borrowing_records_table', 'borrowing_event_location')) {
+                        $borrowInsert['borrowing_event_location'] = filled($validated['borrowing_event_location'] ?? null)
+                            ? trim((string) $validated['borrowing_event_location'])
+                            : null;
+                    }
+
+                    $borrowingId = DB::table('borrowing_records_table')->insertGetId($borrowInsert);
 
                     $remaining = $available - (int) $line['quantity'];
                     $isBulk = ($equipment->equipment_tracking_mode ?? 'Individual') === 'Bulk';
@@ -14879,6 +15360,32 @@ class MaintenanceController extends Controller
 
 
             // =====================================================
+            // TYPE FILTER (Faculty / Staff)
+            // =====================================================
+
+            if (
+                ReporterImport::hasTypeColumn()
+                && $request->filled('type')
+                && in_array((string) $request->type, ['Faculty', 'Staff'], true)
+            ) {
+                $query->where('reporter_employment_type', $request->type);
+            }
+
+
+            // =====================================================
+            // DEPARTMENT FILTER
+            // =====================================================
+
+            if (
+                ReporterImport::hasDepartmentColumn()
+                && $request->filled('department')
+                && (int) $request->department > 0
+            ) {
+                $query->where('reporters_table.reporter_department_id', (int) $request->department);
+            }
+
+
+            // =====================================================
             // PAGINATE REPORTERS
             // =====================================================
 
@@ -14887,10 +15394,25 @@ class MaintenanceController extends Controller
                 ->selectRaw('COUNT(*)')
                 ->whereColumn('reports_table.report_reporter_employee_id', 'reporters_table.reporter_employee_id');
 
-            $query->selectSub($reportCountSub, 'report_count');
+            // Unresolved = Pending/Processing only (For Replacement is already actioned)
+            $openReportCountSub = DB::table('reports_table')
+                ->selectRaw('COUNT(*)')
+                ->whereColumn('reports_table.report_reporter_employee_id', 'reporters_table.reporter_employee_id')
+                ->whereIn('report_current_status', ['Pending', 'Processing']);
 
+            if (Schema::hasColumn('reports_table', 'report_is_archived')) {
+                $openReportCountSub->where('report_is_archived', false);
+            }
+
+            $query->selectSub($reportCountSub, 'report_count');
+            $query->selectSub($openReportCountSub, 'open_report_count');
+
+            // Reporters with unresolved reports first, then any reports, then newest (LIFO)
             $reporters = $query
-                ->orderBy('reporter_id', 'desc')
+                ->orderByDesc('open_report_count')
+                ->orderByDesc('report_count')
+                ->orderByDesc('reporters_table.reporter_created_at')
+                ->orderByDesc('reporters_table.reporter_id')
                 ->paginate(
                     10,
                     ['*'],
@@ -14955,6 +15477,22 @@ class MaintenanceController extends Controller
             $query->where('reporter_status', $request->status);
         }
 
+        if (
+            ReporterImport::hasTypeColumn()
+            && $request->filled('type')
+            && in_array((string) $request->type, ['Faculty', 'Staff'], true)
+        ) {
+            $query->where('reporter_employment_type', $request->type);
+        }
+
+        if (
+            ReporterImport::hasDepartmentColumn()
+            && $request->filled('department')
+            && (int) $request->department > 0
+        ) {
+            $query->where('reporters_table.reporter_department_id', (int) $request->department);
+        }
+
         $rows = $query
             ->orderBy('reporter_full_name')
             ->limit(2000)
@@ -14973,17 +15511,20 @@ class MaintenanceController extends Controller
         $filterBits = array_filter([
             $request->filled('search') ? 'search' : null,
             $request->filled('status') ? 'status '.$request->status : null,
+            $request->filled('type') ? (string) $request->type : null,
+            $request->filled('department') ? 'department' : null,
         ]);
 
         $pdf = Pdf::loadView('maintenance-personnel.equipment.table-export-pdf', [
-            'title' => 'Equipment Reporters Directory',
+            'title' => 'Reporters Directory',
             'headers' => ['Name', 'Employee ID', 'Type', 'Department', 'Email', 'Contact', 'Status'],
             'rows' => $rows,
             'generatedAt' => now()->format('Y-m-d H:i'),
             'filterNote' => $filterBits === [] ? 'All reporters' : 'Filtered by '.implode(', ', $filterBits),
         ])->setPaper('a4', 'landscape');
 
-        return $pdf->download('reporters-directory-'.now()->format('Ymd-His').'.pdf');
+        // Stream inline so Chrome opens from http://localhost (avoids file:// ERR_FAILED)
+        return $pdf->stream('reporters-directory-'.now()->format('Ymd-His').'.pdf');
     }
 
     public function exportReporterAuditPack(int $id)

@@ -48,6 +48,11 @@ class SupplyOfficerController extends Controller
                         'requisition_issue_slip_table.ris_sent_to_supply_at',
                         'senders.user_full_name as sent_by_name'
                     );
+                if (Schema::hasTable('requisition_issue_slip_items_table')) {
+                    $incomingQuery->addSelect(DB::raw(
+                        '(SELECT COALESCE(SUM(items.ris_total_amount), 0) FROM requisition_issue_slip_items_table items WHERE items.ris_id = requisition_issue_slip_table.ris_id) as total_amount'
+                    ));
+                }
 
                 SupplyHandoff::scopeIncomingRisForSupply($incomingQuery);
 
@@ -91,7 +96,10 @@ class SupplyOfficerController extends Controller
                         'authority_to_purchase_table.authority_purchase_updated_at',
                         'authority_to_purchase_table.authority_purchase_created_at',
                         'requisition_issue_slip_table.ris_form_number',
-                        'requisition_issue_slip_table.ris_request_no'
+                        'requisition_issue_slip_table.ris_request_no',
+                        Schema::hasTable('authority_to_purchase_items_table')
+                            ? DB::raw('(SELECT COALESCE(SUM(COALESCE(i.atp_amount, i.atp_quantity * i.atp_unit_price, 0)), 0) FROM authority_to_purchase_items_table i WHERE i.authority_purchase_id = authority_to_purchase_table.authority_purchase_id) as total_amount')
+                            : DB::raw('0 as total_amount')
                     )
                     ->where(function ($q) {
                         $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')

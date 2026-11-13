@@ -57,6 +57,14 @@ class ModuleImportanceNotice
             return null;
         }
 
+        // Deep-links from Purchase History / document Open should open the record,
+        // not get covered by the module attention popup.
+        if (self::hasDocumentDeepLink()) {
+            self::$cached = [];
+
+            return null;
+        }
+
         $module = self::detectModule();
         if ($module === null) {
             self::$cached = [];
@@ -135,6 +143,29 @@ class ModuleImportanceNotice
             'maintenance.reports' => 'Reports',
             'maintenance.schedules' => 'Maintenance Schedule',
         ];
+    }
+
+    /**
+     * True when the request is opening a specific document (Open from history, etc.).
+     */
+    private static function hasDocumentDeepLink(): bool
+    {
+        foreach ([
+            'view_rr', 'edit_rr',
+            'view_rfc', 'edit_rfc',
+            'view_atp', 'edit_atp',
+            'view_liq', 'edit_liq',
+            'view_ris', 'edit_ris',
+            'view_po', 'edit_po',
+            'view_dv', 'edit_dv',
+        ] as $key) {
+            $value = request()->query($key);
+            if ($value !== null && $value !== '' && (int) $value > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

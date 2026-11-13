@@ -19,6 +19,12 @@
         today: '{{ now()->toDateString() }}',
 
         init() {
+            this.$watch('viewOpen', (open) => {
+                if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_rfc', 'edit_rfc']);
+            });
+            this.$watch('editOpen', (open) => {
+                if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_rfc', 'edit_rfc']);
+            });
             if (this.editOpen && this.selectedRfc) {
                 this.bindDocSig('rfc-' + this.selectedRfc, 'Requested by signature');
             } else if (this.createOpen) {

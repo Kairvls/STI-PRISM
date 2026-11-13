@@ -33,6 +33,15 @@
         risSplit: false,
         risChoiceTick: 0,
 
+        init() {
+            this.$watch('viewOpen', (open) => {
+                if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_atp', 'edit_atp']);
+            });
+            this.$watch('editOpen', (open) => {
+                if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_atp', 'edit_atp']);
+            });
+        },
+
         openView(id) {
             this.selectedAtp = id;
             this.viewOpen = true;

@@ -43,20 +43,43 @@ class PurchaserHistoryController extends Controller
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'status' => ['nullable', 'in:'.implode(',', array_keys(PurchaserHistory::STATUS_FILTERS))],
             'type' => ['nullable', 'in:'.implode(',', array_keys(PurchaserHistory::DOCUMENT_TYPES))],
+            'delivery' => ['nullable', 'in:delivered'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'month' => ['nullable', 'integer', 'min:1', 'max:12'],
         ]);
+
+        $spendYear = isset($validated['year']) ? (int) $validated['year'] : null;
+        $spendMonth = isset($validated['month']) ? (int) $validated['month'] : null;
+        if ($spendMonth !== null && $spendYear === null) {
+            $spendMonth = null;
+        }
+
+        $yearMonthPeriod = PurchaserHistory::periodFromYearMonth($spendYear, $spendMonth);
 
         $filters = [
             'search' => $validated['search'] ?? null,
-            'from' => $validated['from'] ?? null,
-            'to' => $validated['to'] ?? null,
+            'from' => $yearMonthPeriod['from'] ?? ($validated['from'] ?? null),
+            'to' => $yearMonthPeriod['to'] ?? ($validated['to'] ?? null),
             'status' => $validated['status'] ?? null,
             'type' => $validated['type'] ?? null,
+            'delivery' => $validated['delivery'] ?? null,
+            'year' => $spendYear,
+            'month' => $spendMonth,
         ];
         $periodFilters = ['from' => $filters['from'], 'to' => $filters['to']];
 
         $summary = PurchaserHistory::summary($subjectId, $periodFilters);
-        $monthlySpend = PurchaserHistory::monthlySpend($subjectId);
+        $monthlySpend = PurchaserHistory::monthlySpend($subjectId, $spendYear, $spendMonth);
+        $availableYears = PurchaserHistory::availableYears($subjectId);
         $documentCounts = PurchaserHistory::documentCounts($subjectId);
+
+        // Always offer the current year, plus any selected year, even with no purchases yet.
+        $availableYears = array_values(array_unique(array_filter([
+            ...$availableYears,
+            (int) now()->format('Y'),
+            $spendYear,
+        ])));
+        rsort($availableYears);
 
         $items = $tab === 'items' ? PurchaserHistory::purchasedItems($subjectId, $filters) : null;
         $documents = $tab === 'documents' ? PurchaserHistory::documents($subjectId, $filters) : null;
@@ -71,6 +94,8 @@ class PurchaserHistoryController extends Controller
             'filters' => $filters,
             'summary' => $summary,
             'monthlySpend' => $monthlySpend,
+            'availableYears' => $availableYears,
+            'spendPeriodLabel' => $yearMonthPeriod['label'],
             'documentCounts' => $documentCounts,
             'items' => $items,
             'documents' => $documents,

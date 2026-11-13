@@ -22,7 +22,7 @@
     @else
         <div class="flex flex-wrap items-center justify-end gap-2">
             <a
-                href="{{ route('admin.persons.export-pdf', array_filter(['search' => $search ?: null, 'filter' => $filter !== 'active' ? $filter : null, 'department' => $departmentId ?: null])) }}"
+                href="{{ route('admin.persons.export-pdf', array_filter(['search' => $search ?: null, 'filter' => $filter !== 'active' ? $filter : null, 'department' => $departmentId ?: null, 'type' => $type ?: null])) }}"
                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
             >
                 <i data-lucide="file-down" class="h-4 w-4"></i>
@@ -53,12 +53,17 @@
                     <p class="mt-1 text-sm text-slate-500">Campus faculty and staff — identity source for other modules.</p>
                 </div>
 
-                <form data-auto-filter method="GET" action="{{ route('admin.persons.index') }}" class="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                    <div class="relative min-w-[220px] flex-1 sm:max-w-md">
-                        <div class="flex gap-2">
-                            <input type="search" name="search" value="{{ $search }}" placeholder="Name, employee ID, email…" aria-label="Search" class="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
-                            <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white">Search</button>
-                        </div>
+                <form data-auto-filter method="GET" action="{{ route('admin.persons.index') }}" class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    <div class="w-full sm:w-52">
+                        <input type="search" name="search" value="{{ $search }}" placeholder="Name, ID, email…" aria-label="Search" class="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                    </div>
+                    <div>
+                        <select name="type" aria-label="Faculty or Staff" class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
+                            <option value="">Faculty &amp; staff</option>
+                            @foreach (\App\Support\Persons::TYPES as $employmentType)
+                                <option value="{{ $employmentType }}" @selected(($type ?? '') === $employmentType)>{{ $employmentType }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div>
                         <select name="department" aria-label="Department" class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100">
@@ -82,8 +87,8 @@
                 <table class="min-w-full text-left text-sm">
                     <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th class="px-5 py-3">Name</th>
                             <th class="px-5 py-3">Employee ID</th>
+                            <th class="px-5 py-3">Name</th>
                             <th class="px-5 py-3">Type</th>
                             <th class="px-5 py-3">Department</th>
                             <th class="px-5 py-3">Status</th>
@@ -93,13 +98,15 @@
                     <tbody class="divide-y divide-slate-100">
                         @forelse ($people as $person)
                             <tr class="hover:bg-slate-50/80">
+                                <td class="px-5 py-3 font-mono text-sm font-semibold tracking-wide text-slate-800">
+                                    {{ $person->person_employee_id }}
+                                </td>
                                 <td class="px-5 py-3">
-                                    <div class="font-medium text-slate-900">{{ $person->person_full_name }}</div>
+                                    <div class="text-base font-semibold text-slate-900">{{ $person->person_full_name }}</div>
                                     @if ($person->person_email_address)
-                                        <div class="text-xs text-slate-500">{{ $person->person_email_address }}</div>
+                                        <div class="mt-0.5 text-sm text-slate-500">{{ $person->person_email_address }}</div>
                                     @endif
                                 </td>
-                                <td class="px-5 py-3 font-mono text-xs text-slate-700">{{ $person->person_employee_id }}</td>
                                 <td class="px-5 py-3 text-slate-700">
                                     {{ $person->person_employment_type ?: '—' }}
                                     @if ($person->person_employment_basis)
@@ -124,6 +131,23 @@
                     </tbody>
                 </table>
             </div>
+
+            @if ($people instanceof \Illuminate\Contracts\Pagination\Paginator && $people->hasPages())
+                <div class="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-xs text-slate-500">
+                        Showing
+                        <span class="font-semibold text-slate-700">{{ $people->firstItem() }}</span>
+                        to
+                        <span class="font-semibold text-slate-700">{{ $people->lastItem() }}</span>
+                        of
+                        <span class="font-semibold text-slate-700">{{ $people->total() }}</span>
+                        people
+                    </p>
+                    <div>
+                        {{ $people->links() }}
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 

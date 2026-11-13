@@ -264,6 +264,8 @@ class AdminController extends Controller
             // ignore
         }
 
+        $lists = \App\Support\AdminDashboardLists::build();
+
         return view('admin.dashboard', compact(
             'budgetProposalYear',
             'budgetProposalTotal',
@@ -271,6 +273,7 @@ class AdminController extends Controller
             'budgetUsage',
             'overview',
             'system',
+            'lists',
         ));
     }
 
@@ -717,6 +720,84 @@ class AdminController extends Controller
         )
     );
 }
+
+    public function exportProcurementRisPdf(Request $request)
+    {
+        $filter = strtolower((string) $request->query('filter', 'pending'));
+        $search = trim((string) $request->query('search', ''));
+        $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
+
+        if (! in_array($filter, ['pending', 'accepted', 'revision', 'all'], true)) {
+            $filter = 'pending';
+        }
+
+        $query = $this->procurementReviewIndexQuery();
+        $this->applyProcurementReviewStatusFilter($query, $filter);
+
+        if ($search !== '') {
+            $nameIds = RisWorkflow::userIdsMatchingName($search);
+            $query->where(function ($searchQuery) use ($search, $nameIds) {
+                $searchQuery
+                    ->where('requisition_issue_slip_table.ris_form_number', 'like', '%'.$search.'%')
+                    ->orWhereIn('requisition_issue_slip_table.ris_created_by', $nameIds)
+                    ->orWhereIn('requisition_issue_slip_table.ris_submitted_by', $nameIds)
+                    ->orWhere('equipment_table.equipment_name', 'like', '%'.$search.'%')
+                    ->orWhere('reports_table.report_unlisted_equipment_name', 'like', '%'.$search.'%')
+                    ->orWhere('requisition_issue_slip_table.ris_status', 'like', '%'.$search.'%')
+                    ->orWhere('requisition_issue_slip_table.ris_manual_title', 'like', '%'.$search.'%');
+
+                if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+                    $searchQuery->orWhere('requisition_issue_slip_table.ris_request_no', 'like', '%'.$search.'%');
+                }
+            });
+        }
+
+        $this->applyRisSubmittedDateFilter($query, $submittedDate);
+
+        $query = RisWorkflow::orderUrgentFirst($query);
+        $query = $filter === 'pending'
+            ? $this->applyRisOldestWaitingOrder($query)
+            : $this->applyRisLatestActivityOrder($query);
+
+        $rows = $query->limit(1000)->get()->map(function ($ris) {
+            $purpose = trim((string) ($ris->ris_purpose_description ?? ''));
+            if ($purpose === '') {
+                $purpose = trim((string) ($ris->ris_manual_description ?? ''));
+            }
+            if ($purpose === '') {
+                $purpose = RisWorkflow::requestTypeLabel($ris);
+            }
+
+            $rawDate = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? null;
+            $status = (string) ($ris->ris_status ?? '');
+            if (in_array($status, RisWorkflow::incomingStatuses(), true)) {
+                $status = 'Pending';
+            }
+
+            return [
+                'reference' => RisWorkflow::formNumber($ris),
+                'purpose' => $purpose,
+                'equipment' => RisWorkflow::sourceLabel($ris),
+                'requested_by' => RisWorkflow::requesterName($ris),
+                'date' => $rawDate ? \Carbon\Carbon::parse($rawDate)->format('M j, Y') : '—',
+                'status' => $status !== '' ? $status : '—',
+                'amount' => number_format((float) ($ris->ris_calculated_total ?? 0), 2),
+            ];
+        })->all();
+
+        $title = match ($filter) {
+            'all' => 'RIS — All',
+            'accepted' => 'RIS — Accepted',
+            'revision' => 'RIS — Returned for Revision',
+            default => 'RIS — Pending Accept',
+        };
+
+        return $this->downloadAdminRisTablePdf(
+            $title,
+            $rows,
+            'ris-'.$filter.'-'.now()->format('Ymd-His').'.pdf'
+        );
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -1780,6 +1861,10 @@ class AdminController extends Controller
             $query->addSelect('users_table.user_can_procurement');
         }
 
+        if (Schema::hasColumn('users_table', 'user_status')) {
+            $query->addSelect('users_table.user_status');
+        }
+
         if (Schema::hasColumn('users_table', 'last_active_at')) {
             $query->addSelect('users_table.last_active_at');
         }
@@ -1883,80 +1968,381 @@ class AdminController extends Controller
     {
         $perPage = 20;
         $page = max(1, (int) $request->query('page', 1));
-        $entries = collect();
+        $userId = max(0, (int) $request->query('user', 0));
+        $filterUser = null;
 
+        if ($userId > 0) {
+            $filterUser = DB::table('users_table')
+                ->where('user_id', $userId)
+                ->first([
+                    'user_id',
+                    'user_full_name',
+                    'user_employee_id',
+                    'user_username',
+                ]);
+            if (! $filterUser) {
+                $userId = 0;
+            }
+        }
+
+        $entries = collect();
+        $push = function ($rows) use (&$entries) {
+            $entries = $entries->concat($rows);
+        };
+
+        // Approvals (President / Accounting / procurement workflow)
         try {
             if (Schema::hasTable('approval_logs_table')) {
-                $approvals = DB::table('approval_logs_table')
+                $approvalRows = DB::table('approval_logs_table')
                     ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
-                    ->select(
+                    ->when($userId > 0, fn ($q) => $q->where('approval_logs_table.approval_log_approved_by', $userId))
+                    ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                    ->limit(200)
+                    ->get([
                         'users_table.user_full_name as who',
                         'approval_logs_table.approval_log_approval_status as action',
                         'approval_logs_table.approval_log_approved_at as happened_at',
                         'approval_logs_table.approval_log_approval_remarks as details',
                         'approval_logs_table.approval_log_reference_type as ref_type',
                         'approval_logs_table.approval_log_reference_id as ref_id',
-                        DB::raw("'approval' as source")
-                    )
-                    ->orderByDesc('approval_logs_table.approval_log_approved_at')
-                    ->limit(200)
-                    ->get()
-                    ->map(function ($row) {
-                        $ref = trim(($row->ref_type ?? '') . ' #' . ($row->ref_id ?? ''));
-                        $details = trim((string) ($row->details ?? ''));
-                        if ($ref !== '#') {
-                            $details = $details !== '' ? ($ref . ' — ' . $details) : $ref;
-                        }
-                        $row->who = $row->who ?: 'System';
-                        $row->action = $row->action ?: 'Approval update';
-                        $row->details = $details !== '' ? $details : 'No extra details';
-                        return $row;
-                    });
-                $entries = $entries->concat($approvals);
+                        'approval_logs_table.approval_log_level as level',
+                    ]);
+
+                $risById = collect();
+                $risIds = $approvalRows
+                    ->filter(fn ($row) => strcasecmp((string) ($row->ref_type ?? ''), 'RIS') === 0)
+                    ->pluck('ref_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values();
+
+                if ($risIds->isNotEmpty() && Schema::hasTable('requisition_issue_slip_table')) {
+                    $risSelect = ['ris_id'];
+                    if (Schema::hasColumn('requisition_issue_slip_table', 'ris_form_number')) {
+                        $risSelect[] = 'ris_form_number';
+                    }
+                    if (Schema::hasColumn('requisition_issue_slip_table', 'ris_created_at')) {
+                        $risSelect[] = 'ris_created_at';
+                    }
+                    if (Schema::hasColumn('requisition_issue_slip_table', 'ris_status')) {
+                        $risSelect[] = 'ris_status';
+                    }
+                    $risById = DB::table('requisition_issue_slip_table')
+                        ->whereIn('ris_id', $risIds->all())
+                        ->get($risSelect)
+                        ->keyBy('ris_id');
+                }
+
+                $rows = $approvalRows->map(function ($row) use ($risById) {
+                    $refLabel = '-';
+                    $type = strtoupper(trim((string) ($row->ref_type ?? '')));
+                    $refId = (int) ($row->ref_id ?? 0);
+
+                    if ($type === 'RIS' && $refId > 0) {
+                        $ris = $risById->get($refId);
+                        $formNumber = \App\Support\RisWorkflow::formNumber(
+                            $ris,
+                            $refId,
+                            $ris->ris_created_at ?? null
+                        );
+                        $refLabel = $formNumber !== '' ? $formNumber : '-';
+                    } elseif ($type !== '' && $refId > 0) {
+                        // Prefer human codes only; never show raw "#id"
+                        $refLabel = '-';
+                    }
+
+                    $details = trim((string) ($row->details ?? ''));
+                    if ($refLabel !== '-') {
+                        $details = $details !== '' ? ($refLabel.' — '.$details) : $refLabel;
+                    }
+                    if (! empty($row->level)) {
+                        $details = trim(($details !== '' ? $details.' ' : '').'('.$row->level.')');
+                    }
+
+                    return (object) [
+                        'who' => $row->who ?: 'System',
+                        'action' => $row->action ?: 'Approval update',
+                        'module' => 'Approvals',
+                        'happened_at' => $row->happened_at,
+                        'details' => $details !== '' ? $details : '-',
+                        'source' => 'approval',
+                    ];
+                });
+                $push($rows);
             }
         } catch (\Throwable $e) {
             // ignore
         }
 
+        // Role-based audit trail (maintenance / purchaser / admin actions)
+        try {
+            if (Schema::hasTable('audit_logs_table')) {
+                $rows = DB::table('audit_logs_table')
+                    ->leftJoin('users_table', 'audit_logs_table.audit_log_user_id', '=', 'users_table.user_id')
+                    ->when($userId > 0, fn ($q) => $q->where('audit_logs_table.audit_log_user_id', $userId))
+                    ->orderByDesc('audit_logs_table.audit_log_created_at')
+                    ->limit(300)
+                    ->get([
+                        'users_table.user_full_name as who',
+                        'audit_logs_table.audit_log_action',
+                        'audit_logs_table.audit_log_module',
+                        'audit_logs_table.audit_log_description',
+                        'audit_logs_table.audit_log_table_name',
+                        'audit_logs_table.audit_log_reference_id',
+                        'audit_logs_table.audit_log_created_at',
+                    ])
+                    ->map(function ($row) {
+                        $module = trim((string) ($row->audit_log_module ?: 'System'));
+                        $details = trim((string) ($row->audit_log_description ?? ''));
+
+                        return (object) [
+                            'who' => $row->who ?: 'System',
+                            'action' => $row->audit_log_action ?: 'Activity',
+                            'module' => $module !== '' ? $module : 'System',
+                            'happened_at' => $row->audit_log_created_at,
+                            'details' => $details !== '' ? $details : '-',
+                            'source' => 'audit',
+                        ];
+                    });
+                $push($rows);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Receiving officer actions
+        try {
+            if (Schema::hasTable('receiving_logs_table')) {
+                $rows = DB::table('receiving_logs_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'receiving_logs_table.receiving_log_officer_id')
+                    ->when($userId > 0, fn ($q) => $q->where('receiving_logs_table.receiving_log_officer_id', $userId))
+                    ->orderByDesc('receiving_logs_table.receiving_log_created_at')
+                    ->limit(200)
+                    ->get([
+                        'users_table.user_full_name as who',
+                        'receiving_logs_table.receiving_log_action',
+                        'receiving_logs_table.receiving_log_status',
+                        'receiving_logs_table.receiving_log_remarks',
+                        'receiving_logs_table.receiving_report_id',
+                        'receiving_logs_table.receiving_log_atp_id',
+                        'receiving_logs_table.receiving_log_created_at',
+                    ])
+                    ->map(function ($row) {
+                        $details = trim((string) ($row->receiving_log_remarks ?? ''));
+                        if (! empty($row->receiving_log_status)) {
+                            $statusBit = 'Status: '.$row->receiving_log_status;
+                            $details = $details !== '' ? ($statusBit.' — '.$details) : $statusBit;
+                        }
+
+                        return (object) [
+                            'who' => $row->who ?: 'Receiving officer',
+                            'action' => $row->receiving_log_action ?: 'Receiving update',
+                            'module' => 'Receiving',
+                            'happened_at' => $row->receiving_log_created_at,
+                            'details' => $details !== '' ? $details : '-',
+                            'source' => 'receiving',
+                        ];
+                    });
+                $push($rows);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Room / campus monitoring activity
+        try {
+            if (Schema::hasTable('room_activity_logs_table')) {
+                $rows = DB::table('room_activity_logs_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'room_activity_logs_table.user_id')
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'room_activity_logs_table.room_id')
+                    ->when($userId > 0, fn ($q) => $q->where('room_activity_logs_table.user_id', $userId))
+                    ->orderByDesc('room_activity_logs_table.created_at')
+                    ->limit(200)
+                    ->get([
+                        'users_table.user_full_name as who',
+                        'room_activity_logs_table.activity_type',
+                        'room_activity_logs_table.activity_title',
+                        'room_activity_logs_table.activity_description',
+                        'rooms_table.room_name',
+                        'room_activity_logs_table.created_at',
+                    ])
+                    ->map(function ($row) {
+                        $action = trim((string) ($row->activity_title ?: $row->activity_type ?: 'Room activity'));
+                        $details = trim((string) ($row->activity_description ?? ''));
+                        if (! empty($row->room_name)) {
+                            $details = $details !== ''
+                                ? ($row->room_name.' — '.$details)
+                                : (string) $row->room_name;
+                        }
+
+                        return (object) [
+                            'who' => $row->who ?: 'System',
+                            'action' => $action,
+                            'module' => 'Campus / Rooms',
+                            'happened_at' => $row->created_at,
+                            'details' => $details !== '' ? $details : '-',
+                            'source' => 'room',
+                        ];
+                    });
+                $push($rows);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Equipment replacements (maintenance / procurement fulfillment)
+        try {
+            if (Schema::hasTable('equipment_replacement_logs_table')) {
+                $replacementRows = DB::table('equipment_replacement_logs_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'equipment_replacement_logs_table.replacement_log_performed_by')
+                    ->when($userId > 0, fn ($q) => $q->where('equipment_replacement_logs_table.replacement_log_performed_by', $userId))
+                    ->orderByDesc('equipment_replacement_logs_table.replacement_log_performed_at')
+                    ->limit(200)
+                    ->get([
+                        'users_table.user_full_name as who',
+                        'equipment_replacement_logs_table.replacement_log_fulfillment_type',
+                        'equipment_replacement_logs_table.replacement_log_replaced_label',
+                        'equipment_replacement_logs_table.replacement_log_replacement_label',
+                        'equipment_replacement_logs_table.replacement_log_notes',
+                        'equipment_replacement_logs_table.replacement_log_report_id',
+                        'equipment_replacement_logs_table.replacement_log_performed_at',
+                    ]);
+
+                $reportIds = $replacementRows
+                    ->pluck('replacement_log_report_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values();
+                $reportsById = collect();
+                if ($reportIds->isNotEmpty() && Schema::hasTable('reports_table')) {
+                    $reportsById = DB::table('reports_table')
+                        ->whereIn('report_id', $reportIds->all())
+                        ->get(['report_id', 'report_submitted_at'])
+                        ->keyBy('report_id');
+                }
+
+                $rows = $replacementRows->map(function ($row) use ($reportsById) {
+                    $from = trim((string) ($row->replacement_log_replaced_label ?? ''));
+                    $to = trim((string) ($row->replacement_log_replacement_label ?? ''));
+                    $parts = [];
+                    if ($from !== '' || $to !== '') {
+                        $parts[] = ($from !== '' ? $from : '-').' → '.($to !== '' ? $to : '-');
+                    }
+                    $reportId = (int) ($row->replacement_log_report_id ?? 0);
+                    if ($reportId > 0) {
+                        $report = $reportsById->get($reportId);
+                        $ticket = $report
+                            ? \App\Support\ReportGrouping::ticketCode($report)
+                            : \App\Support\ReportGrouping::ticketCode($reportId);
+                        $parts[] = $ticket !== '' ? $ticket : '-';
+                    }
+                    $notes = trim((string) ($row->replacement_log_notes ?? ''));
+                    if ($notes !== '') {
+                        $parts[] = $notes;
+                    }
+
+                    return (object) [
+                        'who' => $row->who ?: 'System',
+                        'action' => $row->replacement_log_fulfillment_type
+                            ? 'Replacement ('.$row->replacement_log_fulfillment_type.')'
+                            : 'Equipment replacement',
+                        'module' => 'Equipment',
+                        'happened_at' => $row->replacement_log_performed_at,
+                        'details' => $parts !== [] ? implode(' · ', $parts) : '-',
+                        'source' => 'replacement',
+                    ];
+                });
+                $push($rows);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Room inspections
+        try {
+            if (Schema::hasTable('room_inspection_logs_table')) {
+                $rows = DB::table('room_inspection_logs_table')
+                    ->leftJoin('users_table', 'users_table.user_id', '=', 'room_inspection_logs_table.room_inspection_log_inspected_by')
+                    ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'room_inspection_logs_table.room_inspection_log_room_id')
+                    ->when($userId > 0, fn ($q) => $q->where('room_inspection_logs_table.room_inspection_log_inspected_by', $userId))
+                    ->orderByDesc('room_inspection_logs_table.room_inspection_log_inspected_at')
+                    ->limit(200)
+                    ->get([
+                        'users_table.user_full_name as who',
+                        'room_inspection_logs_table.room_inspection_log_title',
+                        'room_inspection_logs_table.room_inspection_log_result',
+                        'room_inspection_logs_table.room_inspection_log_findings',
+                        'room_inspection_logs_table.room_inspection_log_action_taken',
+                        'rooms_table.room_name',
+                        'room_inspection_logs_table.room_inspection_log_inspected_at',
+                    ])
+                    ->map(function ($row) {
+                        $action = trim((string) ($row->room_inspection_log_title ?: 'Room inspection'));
+                        if (! empty($row->room_inspection_log_result)) {
+                            $action .= ' · '.$row->room_inspection_log_result;
+                        }
+                        $details = trim(implode(' — ', array_filter([
+                            $row->room_name ?: null,
+                            $row->room_inspection_log_findings ?: null,
+                            $row->room_inspection_log_action_taken ? 'Action: '.$row->room_inspection_log_action_taken : null,
+                        ])));
+
+                        return (object) [
+                            'who' => $row->who ?: 'System',
+                            'action' => $action,
+                            'module' => 'Inspections',
+                            'happened_at' => $row->room_inspection_log_inspected_at,
+                            'details' => $details !== '' ? $details : '-',
+                            'source' => 'inspection',
+                        ];
+                    });
+                $push($rows);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Sign-ins
         try {
             if (Schema::hasTable('sessions')) {
-                $logins = DB::table('sessions')
+                $rows = DB::table('sessions')
                     ->leftJoin('users_table', 'sessions.user_id', '=', 'users_table.user_id')
                     ->whereNotNull('sessions.user_id')
-                    ->select(
-                        'users_table.user_full_name as who',
-                        DB::raw("'Signed in' as action"),
-                        DB::raw('FROM_UNIXTIME(sessions.last_activity) as happened_at'),
-                        DB::raw("CONCAT('Session from ', COALESCE(sessions.ip_address, 'unknown IP')) as details"),
-                        DB::raw("NULL as ref_type"),
-                        DB::raw("NULL as ref_id"),
-                        DB::raw("'login' as source")
-                    )
+                    ->when($userId > 0, fn ($q) => $q->where('sessions.user_id', $userId))
                     ->orderByDesc('sessions.last_activity')
                     ->limit(100)
-                    ->get()
+                    ->get([
+                        'users_table.user_full_name as who',
+                        'sessions.ip_address',
+                        'sessions.last_activity',
+                    ])
                     ->map(function ($row) {
-                        $row->who = $row->who ?: 'Unknown user';
-                        return $row;
+                        return (object) [
+                            'who' => $row->who ?: 'Unknown user',
+                            'action' => 'Signed in',
+                            'module' => 'Login',
+                            'happened_at' => ! empty($row->last_activity)
+                                ? date('Y-m-d H:i:s', (int) $row->last_activity)
+                                : null,
+                            'details' => 'Session from '.($row->ip_address ?: 'unknown IP'),
+                            'source' => 'login',
+                        ];
                     });
-                $entries = $entries->concat($logins);
+                $push($rows);
             }
         } catch (\Throwable $e) {
             // ignore
         }
 
         $sorted = $entries
-            ->sortByDesc(function ($row) {
-                return (string) ($row->happened_at ?? '');
-            })
+            ->sortByDesc(fn ($row) => (string) ($row->happened_at ?? ''))
             ->values();
 
-        $total = $sorted->count();
-        $slice = $sorted->forPage($page, $perPage)->values();
-
         $logs = new LengthAwarePaginator(
-            $slice,
-            $total,
+            $sorted->forPage($page, $perPage)->values(),
+            $sorted->count(),
             $perPage,
             $page,
             [
@@ -1965,7 +2351,10 @@ class AdminController extends Controller
             ]
         );
 
-        return view('admin.users.activity-logs', compact('logs'));
+        return view('admin.users.activity-logs', [
+            'logs' => $logs,
+            'filterUser' => $filterUser,
+        ]);
     }
 
     /*
@@ -2069,6 +2458,10 @@ class AdminController extends Controller
 
         if (Schema::hasColumn('users_table', 'user_can_procurement')) {
             $payload['user_can_procurement'] = $hasPurchaser;
+        }
+
+        if (Schema::hasColumn('users_table', 'user_status')) {
+            $payload['user_status'] = 'Active';
         }
 
         if (Schema::hasColumn('users_table', 'person_id') && \App\Support\Persons::tableReady()) {
@@ -2237,6 +2630,62 @@ class AdminController extends Controller
             $enabled
                 ? 'Procurement access enabled for '.$user->user_full_name.'. Use the portal switcher to open Purchaser.'
                 : 'Procurement access disabled for '.$user->user_full_name.'.'
+        );
+    }
+
+    public function deactivateUser(int $userId)
+    {
+        if (! Schema::hasColumn('users_table', 'user_status')) {
+            return redirect('/admin/users')->with('error', 'User status is not set up yet. Run migrations first.');
+        }
+
+        $user = User::query()->find($userId);
+        if (! $user) {
+            return redirect('/admin/users')->with('error', 'User account not found.');
+        }
+
+        if ((int) Auth::id() === (int) $user->user_id) {
+            return redirect('/admin/users')->with('error', 'You cannot deactivate your own account.');
+        }
+
+        if (! $user->isAccountActive()) {
+            return redirect('/admin/users')->with('error', 'Account is already inactive.');
+        }
+
+        $user->user_status = 'Inactive';
+        $user->save();
+
+        if (Schema::hasTable('sessions')) {
+            DB::table('sessions')->where('user_id', $user->user_id)->delete();
+        }
+
+        return redirect('/admin/users')->with(
+            'success',
+            $user->user_full_name.' has been deactivated and can no longer sign in.'
+        );
+    }
+
+    public function reactivateUser(int $userId)
+    {
+        if (! Schema::hasColumn('users_table', 'user_status')) {
+            return redirect('/admin/users')->with('error', 'User status is not set up yet. Run migrations first.');
+        }
+
+        $user = User::query()->find($userId);
+        if (! $user) {
+            return redirect('/admin/users')->with('error', 'User account not found.');
+        }
+
+        if ($user->isAccountActive()) {
+            return redirect('/admin/users')->with('error', 'Account is already active.');
+        }
+
+        $user->user_status = 'Active';
+        $user->save();
+
+        return redirect('/admin/users')->with(
+            'success',
+            $user->user_full_name.' has been reactivated and can sign in again.'
         );
     }
 
@@ -2940,11 +3389,18 @@ class AdminController extends Controller
             }
         }
 
-        return view('admin.ris.print', [
-            'ris' => $ris,
-            'risItems' => $risItems,
-            'presidentName' => $presidentName,
-        ]);
+        $stamp = (string) ($ris->ris_updated_at ?? $ris->ris_status ?? $risId);
+        $html = \App\Support\CachedFormPreview::html('ris-print:'.$risId.':'.$stamp, function () use ($ris, $risItems, $presidentName) {
+            return view('admin.ris.print', [
+                'ris' => $ris,
+                'risItems' => $risItems,
+                'presidentName' => $presidentName,
+            ])->render();
+        });
+
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Cache-Control', 'private, max-age=300');
     }
 
     public function risDetails($risId)

@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -90,10 +93,14 @@ class Persons
         ];
     }
 
-    public static function list(?string $search = null, string $filter = 'active', ?int $departmentId = null): Collection
-    {
+    public static function listQuery(
+        ?string $search = null,
+        string $filter = 'active',
+        ?int $departmentId = null,
+        ?string $type = null
+    ): ?Builder {
         if (! self::tableReady()) {
-            return collect();
+            return null;
         }
 
         $query = DB::table('persons_table as p')
@@ -111,6 +118,10 @@ class Persons
             $query->where('p.person_department_id', $departmentId);
         }
 
+        if ($type !== null && $type !== '' && in_array($type, self::TYPES, true)) {
+            $query->where('p.person_employment_type', $type);
+        }
+
         $search = trim((string) $search);
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -123,7 +134,35 @@ class Persons
             });
         }
 
-        return $query->get();
+        return $query;
+    }
+
+    public static function list(
+        ?string $search = null,
+        string $filter = 'active',
+        ?int $departmentId = null,
+        ?string $type = null
+    ): Collection {
+        return self::listQuery($search, $filter, $departmentId, $type)?->get() ?? collect();
+    }
+
+    public static function paginate(
+        ?string $search = null,
+        string $filter = 'active',
+        ?int $departmentId = null,
+        ?string $type = null,
+        int $perPage = 15
+    ): LengthAwarePaginator {
+        $query = self::listQuery($search, $filter, $departmentId, $type);
+
+        if (! $query) {
+            return new Paginator([], 0, max(1, $perPage), 1, [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]);
+        }
+
+        return $query->paginate(max(1, $perPage))->withQueryString();
     }
 
     public static function search(

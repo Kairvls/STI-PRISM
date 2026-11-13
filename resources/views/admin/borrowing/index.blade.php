@@ -49,13 +49,29 @@
                 @endif
             @endif
 
+            <a
+                href="{{ route('admin.borrowing.borrowers') }}"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+                <i data-lucide="users" class="h-4 w-4"></i>
+                Borrowers list
+            </a>
+
+            <a
+                href="{{ route('admin.borrowing.event-types') }}"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+                <i data-lucide="tags" class="h-4 w-4"></i>
+                Event Name - Types
+            </a>
+
             <button
                 type="button"
                 onclick="openBorrowModal()"
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
             >
                 <i data-lucide="plus" class="h-4 w-4"></i>
-                Borrow Equipment
+                Borrow for event/use
             </button>
         @endif
     </div>
@@ -183,7 +199,7 @@
 
                             value="{{ request('search') }}"
 
-                            placeholder="Search equipment, borrower, department, or authorized person..."
+                            placeholder="Search slip no., event, equipment, borrower, or authorized person..."
 
                             class="h-9 w-full rounded-lg
                                 border border-slate-200
@@ -449,7 +465,7 @@
                     <thead class="border-b border-slate-200 bg-slate-50/70">
 
                         <tr
-                            class="text-[10px] font-semibold uppercase
+                            class="text-[11px] font-semibold uppercase
                                 tracking-[0.08em] text-slate-400"
                         >
 
@@ -459,10 +475,6 @@
 
                             <th class="px-5 py-3">
                                 Borrower
-                            </th>
-
-                            <th class="px-5 py-3">
-                                Department
                             </th>
 
                             <th class="px-5 py-3">
@@ -497,18 +509,46 @@
 
                     <tbody class="divide-y divide-slate-100">
 
+                        @php
+                            $renderedBorrowSlips = [];
+                        @endphp
+
                         @forelse ($borrowings as $record)
 
                             @php
-                                /*
-                                |--------------------------------------------------------------------------
-                                | BORROWING STATUS DESIGN
-                                |--------------------------------------------------------------------------
-                                */
+                                $slipItems = collect($record->slip_items ?? [$record])->values();
+                                $slipNo = trim((string) ($record->borrowing_transaction_no ?? ''));
+                                $collapseSlip = $slipNo !== ''
+                                    && $slipItems->count() > 1
+                                    && empty($slipFilter)
+                                    && ! request()->filled('record');
+                                $isMultiSlip = $slipNo !== '' && $slipItems->count() > 1;
 
-                                $borrowingStatus =
-                                    $record->borrowing_status ?? "Unknown";
+                                // One visual row per multi-item slip (siblings on this page are skipped).
+                                if ($collapseSlip && isset($renderedBorrowSlips[$slipNo])) {
+                                    continue;
+                                }
+                                if ($collapseSlip) {
+                                    $renderedBorrowSlips[$slipNo] = true;
+                                    // Prefer the earliest line on the slip as the primary display row.
+                                    $record = $slipItems->first() ?? $record;
+                                } elseif (! $collapseSlip && $isMultiSlip) {
+                                    // Expanded slip/record view: tooltip still lists siblings, primary is this row.
+                                    $slipItems = collect([$record])->concat(
+                                        $slipItems->reject(fn ($item) => (int) $item->borrowing_record_id === (int) $record->borrowing_record_id)
+                                    )->values();
+                                }
 
+                                $statuses = $slipItems->pluck('borrowing_status')->filter()->values();
+                                if ($statuses->contains('Overdue')) {
+                                    $borrowingStatus = 'Overdue';
+                                } elseif ($statuses->contains('Borrowed')) {
+                                    $borrowingStatus = 'Borrowed';
+                                } elseif ($statuses->contains('Returned')) {
+                                    $borrowingStatus = 'Returned';
+                                } else {
+                                    $borrowingStatus = $record->borrowing_status ?? 'Unknown';
+                                }
 
                                 $statusClass = match ($borrowingStatus) {
                                     "Borrowed" => "bg-sky-50 text-sky-700",
@@ -517,20 +557,13 @@
                                     default => "bg-slate-100 text-slate-600",
                                 };
 
-
-                                $statusDotClass = match ($borrowingStatus) {
-                                    "Borrowed" =>
-                                        "bg-blue-500",
-
-                                    "Returned" =>
-                                        "bg-emerald-500",
-
-                                    "Overdue" =>
-                                        "bg-red-500",
-
-                                    default =>
-                                        "bg-slate-400",
-                                };
+                                $openSlipItem = $slipItems->first(fn ($item) => in_array($item->borrowing_status, ['Borrowed', 'Overdue'], true));
+                                $allReturned = $slipItems->every(fn ($item) => ($item->borrowing_status ?? '') === 'Returned');
+                                $anyReturnedDate = $slipItems
+                                    ->map(fn ($item) => $item->borrowing_actual_return_date ?? null)
+                                    ->filter()
+                                    ->sort()
+                                    ->last();
                             @endphp
 
 
@@ -541,53 +574,13 @@
                             >
 
                                 {{-- ===================================== --}}
-                                {{-- EQUIPMENT --}}
+                                {{-- EQUIPMENT (slip under name) --}}
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-
-                                    <div class="flex items-center gap-3">
-
-                                        <div
-                                            class="flex h-9 w-9 shrink-0
-                                                items-center justify-center
-                                                rounded-lg border border-slate-200
-                                                bg-white text-slate-400"
-                                        >
-                                            <i
-                                                data-lucide="package"
-                                                class="h-4 w-4"
-                                            ></i>
-                                        </div>
-
-
-                                        <div class="min-w-0">
-
-                                            <p
-                                                class="max-w-[200px] truncate
-                                                    text-sm font-semibold
-                                                    text-slate-800"
-
-                                                data-tooltip="{{ $record->equipment_name }}"
-                                            >
-                                                {{ $record->equipment_name }}
-                                            </p>
-
-
-                                            <p
-                                                class="mt-0.5 max-w-[200px] truncate text-[11px]
-                                                    text-slate-400"
-                                            >
-                                                {{ $record->equipment_asset_tag ?: 'No asset tag' }}
-                                                @if ($record->borrowed_from_room_name)
-                                                    · from {{ $record->borrowed_from_room_name }}
-                                                @endif
-                                            </p>
-
-                                        </div>
-
-                                    </div>
-
+                                    @include('admin.borrowing.partials.slip-equipment-popover', [
+                                        'items' => $slipItems,
+                                    ])
                                 </td>
 
 
@@ -602,15 +595,16 @@
                                         $borrowerCaution = ($borrowerCautions ?? [])[$borrowerName] ?? null;
                                         $borrowerOverdue = (int) ($borrowerCaution['overdue'] ?? 0);
                                         $borrowerOpen = (int) ($borrowerCaution['open'] ?? 0);
+                                        $borrowerDept = trim((string) ($record->borrowing_borrower_department ?? ''));
                                     @endphp
 
                                     <div class="flex items-center gap-2">
 
                                         <div
-                                            class="flex h-7 w-7 shrink-0
+                                            class="flex h-8 w-8 shrink-0
                                                 items-center justify-center
                                                 rounded-full bg-slate-100
-                                                text-[10px] font-semibold
+                                                text-xs font-semibold
                                                 text-slate-500"
                                         >
                                             {{
@@ -628,14 +622,14 @@
                                             <div class="flex items-center gap-1.5">
                                                 <span
                                                     class="max-w-[160px] truncate
-                                                        text-xs font-medium
+                                                        text-[13px] font-medium
                                                         text-slate-700"
                                                 >
                                                     {{ $borrowerName !== '' ? $borrowerName : '—' }}
                                                 </span>
                                                 @if ($borrowerOverdue > 0)
                                                     <span
-                                                        class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-100"
+                                                        class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-100"
                                                         title="{{ $borrowerOverdue }} overdue · {{ $borrowerOpen }} still out. Do not lend more until returns are cleared."
                                                         data-pur-tip-title="Borrower caution"
                                                         data-pur-tip="{{ $borrowerOverdue }} overdue {{ \Illuminate\Support\Str::plural('item', $borrowerOverdue) }} · {{ $borrowerOpen }} still out. Clear returns before lending more."
@@ -646,7 +640,7 @@
                                                     </span>
                                                 @elseif ($borrowerOpen > 1)
                                                     <span
-                                                        class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-100"
+                                                        class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-100"
                                                         title="{{ $borrowerOpen }} items still borrowed."
                                                         data-pur-tip-title="Open borrows"
                                                         data-pur-tip="{{ $borrowerOpen }} items still out for this borrower."
@@ -657,31 +651,12 @@
                                                     </span>
                                                 @endif
                                             </div>
+                                            @if ($borrowerDept !== '')
+                                                <p class="mt-0.5 max-w-[180px] truncate text-xs text-slate-400">{{ $borrowerDept }}</p>
+                                            @endif
                                         </div>
 
                                     </div>
-
-                                </td>
-
-
-
-                                {{-- ===================================== --}}
-                                {{-- DEPARTMENT --}}
-                                {{-- ===================================== --}}
-
-                                <td class="px-5 py-4">
-
-                                    <span
-                                        class="inline-flex rounded-md
-                                            bg-slate-100 px-2 py-1
-                                            text-[11px] font-medium
-                                            text-slate-600"
-                                    >
-                                        {{
-                                            $record->borrowing_borrower_department
-                                                ?? "No department"
-                                        }}
-                                    </span>
 
                                 </td>
 
@@ -692,7 +667,7 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusClass }}">
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[12px] font-semibold {{ $statusClass }}">
                                         {{ $borrowingStatus }}
                                     </span>
                                 </td>
@@ -707,7 +682,7 @@
 
                                     <span
                                         class="whitespace-nowrap
-                                            text-xs text-slate-600"
+                                            text-[13px] text-slate-600"
                                     >
                                         {{
                                             $record->borrowing_date
@@ -730,7 +705,7 @@
 
                                     <span
                                         class="whitespace-nowrap
-                                            text-xs font-medium
+                                            text-[13px] font-medium
                                             text-slate-700"
                                     >
                                         {{
@@ -752,7 +727,7 @@
 
                                 <td class="px-5 py-4">
 
-                                    @if ($record->borrowing_actual_return_date)
+                                    @if ($allReturned && $anyReturnedDate)
 
                                         <div class="flex items-center gap-1.5">
 
@@ -764,29 +739,35 @@
 
                                             <span
                                                 class="whitespace-nowrap
-                                                    text-xs text-slate-600"
+                                                    text-[13px] text-slate-600"
                                             >
                                                 {{
                                                     Carbon::parse(
-                                                        $record->borrowing_actual_return_date
+                                                        $anyReturnedDate
                                                     )->format("M d, Y")
                                                 }}
                                             </span>
 
                                         </div>
 
+                                    @elseif ($isMultiSlip && ! $allReturned && $anyReturnedDate)
+
+                                        <span class="whitespace-nowrap text-[13px] font-medium text-amber-700">
+                                            Partially returned
+                                        </span>
+
                                     @elseif ($borrowingStatus === 'Overdue' && $record->borrowing_expected_return_date)
 
                                         @php
                                             $daysLate = (int) Carbon::parse($record->borrowing_expected_return_date)->startOfDay()->diffInDays(today());
                                         @endphp
-                                        <span class="whitespace-nowrap text-xs font-semibold text-rose-600">
+                                        <span class="whitespace-nowrap text-[13px] font-semibold text-rose-600">
                                             Not returned · {{ $daysLate }} day{{ $daysLate === 1 ? '' : 's' }} late
                                         </span>
 
                                     @else
 
-                                        <span class="text-xs text-slate-400">
+                                        <span class="text-[13px] text-slate-400">
                                             Not returned yet
                                         </span>
 
@@ -801,33 +782,39 @@
                                 {{-- ===================================== --}}
 
                                 @php
-                                    $isArchivedRecord = !empty($record->borrowing_is_archived);
-                                    $canReturn = in_array($record->borrowing_status, ['Borrowed', 'Overdue'], true) && ! $isArchivedRecord;
-                                    $canArchive = ($record->borrowing_status === 'Returned') && ! $isArchivedRecord;
+                                    $actionRecord = $openSlipItem ?: $record;
+                                    $isArchivedRecord = !empty($actionRecord->borrowing_is_archived);
+                                    $canReturn = $openSlipItem && ! $isArchivedRecord;
+                                    $canArchive = $allReturned && ! $isArchivedRecord;
                                     $canUnarchive = $isArchivedRecord;
                                     $viewPayload = [
-                                        'id' => $record->borrowing_record_id,
-                                        'equipmentId' => $record->borrowing_equipment_id,
-                                        'equipment' => $record->equipment_name,
-                                        'assetTag' => $record->equipment_asset_tag,
-                                        'tracking' => $record->equipment_tracking_mode,
-                                        'borrower' => $record->borrowing_borrower_name,
-                                        'department' => $record->borrowing_borrower_department,
-                                        'quantity' => $record->borrowing_quantity,
-                                        'borrowDate' => $record->borrowing_date,
-                                        'expectedReturn' => $record->borrowing_expected_return_date,
-                                        'actualReturn' => $record->borrowing_actual_return_date,
-                                        'purpose' => $record->borrowing_purpose,
-                                        'destination' => $record->borrowing_destination_location,
-                                        'authorized' => $record->borrowing_authorized_by,
-                                        'remarks' => $record->borrowing_remarks,
-                                        'status' => $record->borrowing_status,
-                                        'conditionOut' => $record->borrowing_equipment_condition,
-                                        'fromRoom' => $record->borrowed_from_room_name,
-                                        'returnedTo' => $record->returned_to_room_name,
-                                        'returnCondition' => $record->borrowing_return_condition,
-                                        'returnRemarks' => $record->borrowing_return_remarks,
-                                        'returnedBy' => $record->returned_by_name,
+                                        'id' => $actionRecord->borrowing_record_id,
+                                        'slipNo' => $actionRecord->borrowing_transaction_no ?? null,
+                                        'eventName' => $actionRecord->borrowing_event_name ?? null,
+                                        'eventType' => $actionRecord->borrowing_event_type ?? null,
+                                        'eventLocation' => $actionRecord->borrowing_event_location ?? null,
+                                        'equipmentId' => $actionRecord->borrowing_equipment_id,
+                                        'equipment' => $actionRecord->equipment_name,
+                                        'assetTag' => $actionRecord->equipment_asset_tag,
+                                        'tracking' => $actionRecord->equipment_tracking_mode,
+                                        'borrower' => $actionRecord->borrowing_borrower_name,
+                                        'department' => $actionRecord->borrowing_borrower_department,
+                                        'quantity' => $actionRecord->borrowing_quantity,
+                                        'borrowDate' => $actionRecord->borrowing_date,
+                                        'expectedReturn' => $actionRecord->borrowing_expected_return_date,
+                                        'actualReturn' => $actionRecord->borrowing_actual_return_date,
+                                        'purpose' => $actionRecord->borrowing_purpose,
+                                        'destination' => $actionRecord->borrowing_destination_location,
+                                        'authorized' => $actionRecord->borrowing_authorized_by,
+                                        'remarks' => $actionRecord->borrowing_remarks,
+                                        'status' => $actionRecord->borrowing_status,
+                                        'conditionOut' => $actionRecord->borrowing_equipment_condition,
+                                        'fromRoom' => $actionRecord->borrowed_from_room_name,
+                                        'returnedTo' => $actionRecord->returned_to_room_name,
+                                        'returnCondition' => $actionRecord->borrowing_return_condition,
+                                        'returnRemarks' => $actionRecord->borrowing_return_remarks,
+                                        'returnedBy' => $actionRecord->returned_by_name,
+                                        'slipItemCount' => $slipItems->count(),
                                     ];
                                 @endphp
 
@@ -847,61 +834,29 @@
                                         </button>
 
                                         @if ($canReturn)
-                                            <div
-                                                class="relative inline-block"
-                                                x-data="borrowingActionMenu()"
+                                            <button
+                                                type="button"
+                                                onclick="openReturnModal({
+                                                    id: {{ (int) $actionRecord->borrowing_record_id }},
+                                                    equipment: @js($actionRecord->equipment_name),
+                                                    assetTag: @js($actionRecord->equipment_asset_tag),
+                                                    tracking: @js($actionRecord->equipment_tracking_mode),
+                                                    quantity: {{ (int) ($actionRecord->borrowing_quantity ?? 1) }},
+                                                    fromRoom: @js($actionRecord->borrowed_from_room_name),
+                                                })"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#0025cc]/25 bg-[#0025cc]/5 text-[#0025cc] transition hover:bg-[#0025cc]/10 hover:text-[#001fa8]"
+                                                data-tooltip="{{ $isMultiSlip ? 'Return next open item' : 'Return' }}"
+                                                aria-label="Return equipment"
+                                                title="{{ $isMultiSlip ? 'Return next open item' : 'Return' }}"
                                             >
-                                                <button
-                                                    type="button"
-                                                    x-ref="trigger"
-                                                    @click="toggle()"
-                                                    @click.outside="open = false"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg
-                                                        border border-slate-200 bg-white text-slate-500 transition
-                                                        hover:bg-slate-50 hover:text-slate-800"
-                                                    data-tooltip="Actions"
-                                                    aria-label="Borrowing actions"
-                                                    aria-haspopup="menu"
-                                                    :aria-expanded="open.toString()"
-                                                >
-                                                    <i data-lucide="ellipsis" class="h-4 w-4"></i>
-                                                </button>
-
-                                                <div
-                                                    x-ref="menu"
-                                                    x-cloak
-                                                    x-show="open"
-                                                    x-transition
-                                                    class="fixed z-[200] w-48 overflow-hidden rounded-xl
-                                                        border border-slate-200 bg-white p-1.5 text-left
-                                                        shadow-lg shadow-slate-900/10"
-                                                    role="menu"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        role="menuitem"
-                                                        @click="open = false; openReturnModal({
-                                                            id: {{ (int) $record->borrowing_record_id }},
-                                                            equipment: @js($record->equipment_name),
-                                                            assetTag: @js($record->equipment_asset_tag),
-                                                            tracking: @js($record->equipment_tracking_mode),
-                                                            quantity: {{ (int) ($record->borrowing_quantity ?? 1) }},
-                                                            fromRoom: @js($record->borrowed_from_room_name),
-                                                        })"
-                                                        class="flex w-full items-center gap-2 rounded-lg px-3 py-2
-                                                            text-sm text-slate-700 transition hover:bg-slate-50"
-                                                    >
-                                                        <i data-lucide="archive-restore" class="h-4 w-4 text-slate-500"></i>
-                                                        Return equipment
-                                                    </button>
-                                                </div>
-                                            </div>
+                                                <i data-lucide="archive-restore" class="h-4 w-4"></i>
+                                            </button>
                                         @endif
 
                                         @if ($canArchive)
                                             <form
                                                 method="POST"
-                                                action="{{ route('admin.borrowing.archive', $record->borrowing_record_id) }}"
+                                                action="{{ route('admin.borrowing.archive', $actionRecord->borrowing_record_id) }}"
                                                 data-pur-confirm="This returned record will be hidden from the active list. You can restore it anytime from Show archived."
                                                 data-pur-confirm-title="Archive borrowing record?"
                                                 data-pur-confirm-ok="Archive"
@@ -924,7 +879,7 @@
                                         @if ($canUnarchive)
                                             <form
                                                 method="POST"
-                                                action="{{ route('admin.borrowing.unarchive', $record->borrowing_record_id) }}"
+                                                action="{{ route('admin.borrowing.unarchive', $actionRecord->borrowing_record_id) }}"
                                                 data-pur-confirm="This record will return to the active borrowing list."
                                                 data-pur-confirm-title="Restore from archive?"
                                                 data-pur-confirm-ok="Unarchive"
@@ -957,7 +912,7 @@
                             <tr>
 
                                 <td
-                                    colspan="8"
+                                    colspan="7"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -1110,6 +1065,7 @@
                 method="POST"
                 action="{{ route('admin.borrowing.store') }}"
                 class="flex min-h-0 flex-1 flex-col"
+                novalidate
                 @submit="prepareSubmit($event)"
             >
                 @csrf
@@ -1119,7 +1075,7 @@
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart <span class="text-red-500">*</span></p>
-                                <p class="mt-1 text-sm text-slate-500">Type to search, then add quantity for each equipment line.</p>
+                                
                             </div>
                             <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>
                         </div>
@@ -1241,18 +1197,145 @@
                         <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
                     </div>
 
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                    <div
+                        class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
+                        x-data="borrowerPicker(@js(($registeredBorrowers ?? collect())->values()))"
+                    >
                         <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
-                            <p class="mt-1 text-sm text-slate-500">Shared across every item in this borrow.</p>
+                            <p class="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
+                            
                         </div>
                         <div
                             id="borrowerCautionBanner"
                             class="hidden rounded-xl border px-3.5 py-3 text-sm"
                             role="alert"
                         ></div>
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                @click="setMode('registered')"
+                                :class="mode === 'registered' ? 'bg-[#0025cc] text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'"
+                                class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold transition"
+                            >Registered</button>
+                            <button
+                                type="button"
+                                @click="setMode('guest')"
+                                :class="mode === 'guest' ? 'bg-[#0025cc] text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'"
+                                class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold transition"
+                            >Guest / walk-in</button>
+                        </div>
+                        <input type="hidden" name="borrowing_borrower_custodian_id" :value="custodianId || ''">
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <div>
+                            <div class="sm:col-span-2" x-show="mode === 'registered'" x-cloak>
+                                <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                                    <label for="borrowerRegistered" class="block text-sm text-slate-600">
+                                        Registered borrower <span class="text-red-500">*</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        @click="toggleRegister()"
+                                        class="text-xs font-semibold text-[#0025cc] hover:underline"
+                                        x-text="showRegister ? 'Hide registration' : '+ Register external borrower'"
+                                    ></button>
+                                </div>
+                                <select
+                                    id="borrowerRegistered"
+                                    x-model="custodianId"
+                                    @change="onRegisteredChange()"
+                                    :required="mode === 'registered' && !showRegister"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                >
+                                    <option value="">Select a registered person…</option>
+                                    <template x-for="person in people" :key="person.id">
+                                        <option :value="String(person.id)" x-text="person.label"></option>
+                                    </template>
+                                </select>
+                                
+                                <p x-show="people.length === 0" class="mt-1.5 text-xs text-amber-700">No registered external borrowers yet. Register one below, open Borrowers list, or use Guest / walk-in.</p>
+
+                                <div
+                                    x-show="showRegister"
+                                    x-cloak
+                                    class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3.5"
+                                >
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Register external borrower</p>
+                                    <p class="text-xs text-slate-500">For outside-school people who borrow often — not one-time guests.</p>
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <div class="sm:col-span-2">
+                                            <label for="externalBorrowerName" class="mb-1 block text-xs text-slate-600">Full name <span class="text-red-500">*</span></label>
+                                            <input
+                                                id="externalBorrowerName"
+                                                type="text"
+                                                x-model="reg.name"
+                                                maxlength="50"
+                                                required
+                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                                                placeholder="Borrower full name"
+                                            >
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label for="externalBorrowerOrg" class="mb-1 block text-xs text-slate-600">Organization / company <span class="text-red-500">*</span></label>
+                                            <input
+                                                id="externalBorrowerOrg"
+                                                type="text"
+                                                x-model="reg.organization"
+                                                maxlength="50"
+                                                required
+                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                                                placeholder="Outside school / company name"
+                                            >
+                                        </div>
+                                        <div>
+                                            <label for="externalBorrowerPosition" class="mb-1 block text-xs text-slate-600">Role / title</label>
+                                            <input
+                                                id="externalBorrowerPosition"
+                                                type="text"
+                                                x-model="reg.position"
+                                                maxlength="120"
+                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                                                placeholder="Optional"
+                                            >
+                                        </div>
+                                        <div>
+                                            <label for="external-borrower-contact" class="mb-1 block text-xs text-slate-600">Contact number</label>
+                                            @include('partials.phone-input', [
+                                                'name' => 'external_borrower_contact_number',
+                                                'value' => '',
+                                                'id' => 'external-borrower-contact',
+                                                'inputClass' => 'h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-slate-900/10',
+                                            ])
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label for="externalBorrowerEmail" class="mb-1 block text-xs text-slate-600">Email</label>
+                                            <input
+                                                id="externalBorrowerEmail"
+                                                type="email"
+                                                x-model="reg.email"
+                                                maxlength="150"
+                                                inputmode="email"
+                                                autocomplete="email"
+                                                pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
+                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
+                                                placeholder="name@example.com"
+                                            >
+                                        </div>
+                                    </div>
+                                    <p x-show="regError" x-cloak class="text-xs font-medium text-rose-600" x-text="regError"></p>
+                                    <p x-show="regSuccess" x-cloak class="text-xs font-medium text-emerald-700" x-text="regSuccess"></p>
+                                    <div class="flex justify-end">
+                                        <button
+                                            type="button"
+                                            @click="registerExternal()"
+                                            :disabled="regSaving"
+                                            class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-[#001fa8] disabled:opacity-60"
+                                        >
+                                            <span x-show="!regSaving">Save & select</span>
+                                            <span x-show="regSaving" x-cloak>Saving…</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div x-show="mode === 'guest'" x-cloak>
                                 <label for="borrowerName" class="mb-1.5 block text-sm text-slate-600">
                                     Borrower name <span class="text-red-500">*</span>
                                 </label>
@@ -1260,30 +1343,39 @@
                                     id="borrowerName"
                                     type="text"
                                     name="borrowing_borrower_name"
-                                    placeholder="Enter borrower name"
-                                    required
-                                    list="knownBorrowersList"
+                                    x-model="guestName"
+                                    @input="updateBorrowerCaution(guestName)"
+                                    :required="mode === 'guest'"
+                                    :disabled="mode !== 'guest'"
+                                    placeholder="Enter guest borrower name"
+                                    maxlength="150"
                                     autocomplete="off"
-                                    oninput="updateBorrowerCaution(this.value)"
-                                    onchange="updateBorrowerCaution(this.value)"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-100"
                                 />
-                                <datalist id="knownBorrowersList">
-                                    @foreach (($borrowers ?? collect()) as $borrowerName)
-                                        <option value="{{ $borrowerName }}"></option>
-                                    @endforeach
-                                </datalist>
+                            </div>
+                            <div x-show="mode === 'registered'" x-cloak>
+                                <label class="mb-1.5 block text-sm text-slate-600">Borrower name</label>
+                                <input
+                                    type="text"
+                                    name="borrowing_borrower_name"
+                                    x-model="registeredName"
+                                    readonly
+                                    :disabled="mode !== 'registered'"
+                                    class="h-11 w-full rounded-xl border-0 bg-slate-100 px-3.5 text-sm text-slate-700 outline-none ring-1 ring-slate-200/80"
+                                />
                             </div>
                             <div>
                                 <label for="borrowDepartment" class="mb-1.5 block text-sm text-slate-600">
-                                    Department <span class="text-slate-400">(optional)</span>
+                                    Department / organization <span class="text-slate-400">(optional)</span>
                                 </label>
                                 <input
                                     id="borrowDepartment"
                                     type="text"
                                     name="borrowing_borrower_department"
-                                    placeholder="Enter department"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                    x-model="department"
+                                    :readonly="mode === 'registered' && !!custodianId"
+                                    placeholder="Department or outside organization"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10 read-only:bg-slate-100"
                                 />
                             </div>
                             <div class="sm:col-span-2">
@@ -1316,6 +1408,8 @@
                                     type="date"
                                     name="borrowing_date"
                                     required
+                                    onchange="syncBorrowScheduleDates()"
+                                    oninput="syncBorrowScheduleDates()"
                                     class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
@@ -1329,6 +1423,71 @@
                                     name="borrowing_expected_return_date"
                                     required
                                     class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 rounded-2xl bg-indigo-50/50 p-4 ring-1 ring-indigo-100">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-500">Event / activity</p>
+                            <p class="mt-1 text-sm text-slate-600">For big school or city events where STI College Ormoc equipment is borrowed outside campus.</p>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <label for="borrowEventName" class="mb-1.5 block text-sm text-slate-600">
+                                    Event name <span class="text-red-500">*</span>
+                                </label>
+                                <select
+                                    id="borrowEventName"
+                                    name="borrowing_event_name"
+                                    required
+                                    data-searchable="1"
+                                    data-search-placeholder="Search event names…"
+                                    data-add-url="{{ route('admin.borrowing.event-names.quick-add') }}"
+                                    data-add-label="Add new event name"
+                                    data-add-placeholder="New event name"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                >
+                                    <option value="" disabled selected>Select event name</option>
+                                    @foreach (($eventNames ?? collect()) as $eventName)
+                                        <option value="{{ $eventName->event_name_label }}">{{ $eventName->event_name_label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="borrowEventType" class="mb-1.5 block text-sm text-slate-600">
+                                    Event type <span class="text-red-500">*</span>
+                                </label>
+                                <select
+                                    id="borrowEventType"
+                                    name="borrowing_event_type"
+                                    required
+                                    data-searchable="1"
+                                    data-search-placeholder="Search event types…"
+                                    data-add-url="{{ route('admin.borrowing.event-types.quick-add') }}"
+                                    data-add-label="Add new event type"
+                                    data-add-placeholder="New event type name"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                >
+                                    <option value="" disabled selected>Select event type</option>
+                                    @foreach (($eventTypes ?? collect()) as $eventType)
+                                        <option value="{{ $eventType->event_type_name }}">{{ $eventType->event_type_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="borrowEventLocation" class="mb-1.5 block text-sm text-slate-600">
+                                    Event venue / location <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    id="borrowEventLocation"
+                                    type="text"
+                                    name="borrowing_event_location"
+                                    required
+                                    maxlength="50"
+                                    placeholder="e.g. Ormoc City Plaza, Partner campus"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
                         </div>
@@ -1380,19 +1539,22 @@
                     </div>
                 </div>
 
-                <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
-                    <button
-                        type="button"
-                        onclick="closeBorrowModal()"
-                        class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
-                        x-text="cart.length ? ('Create borrow · ' + cart.length + ' line' + (cart.length === 1 ? '' : 's')) : 'Create borrowing record'"
-                    ></button>
+                <div class="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600 sm:max-w-sm" x-text="cartError"></p>
+                    <div class="flex items-center justify-end gap-2 sm:ml-auto">
+                        <button
+                            type="button"
+                            onclick="closeBorrowModal()"
+                            class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
+                            x-text="cart.length ? ('Create borrow · ' + cart.length + ' line' + (cart.length === 1 ? '' : 's')) : 'Create borrowing record'"
+                        ></button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1625,6 +1787,177 @@
 </div>
 
     <script>
+        function borrowerPicker(people) {
+            const list = Array.isArray(people) ? people : [];
+            return {
+                people: list,
+                mode: list.length ? 'registered' : 'guest',
+                custodianId: '',
+                registeredName: '',
+                guestName: '',
+                department: '',
+                showRegister: false,
+                regSaving: false,
+                regError: '',
+                regSuccess: '',
+                reg: { name: '', organization: '', position: '', email: '' },
+                setMode(next) {
+                    this.mode = next;
+                    this.showRegister = false;
+                    this.regError = '';
+                    this.regSuccess = '';
+                    if (next === 'registered') {
+                        this.guestName = '';
+                        this.onRegisteredChange();
+                    } else {
+                        this.custodianId = '';
+                        this.registeredName = '';
+                        this.department = '';
+                        if (typeof updateBorrowerCaution === 'function') {
+                            updateBorrowerCaution('');
+                        }
+                    }
+                },
+                toggleRegister() {
+                    this.showRegister = !this.showRegister;
+                    this.regError = '';
+                    this.regSuccess = '';
+                    if (this.showRegister) {
+                        this.$nextTick(() => this.initExternalPhone());
+                    }
+                },
+                initExternalPhone() {
+                    const input = document.getElementById('external-borrower-contact');
+                    if (!input) return;
+                    if (typeof window.initPrismPhoneInput === 'function') {
+                        window.initPrismPhoneInput(input);
+                    }
+                },
+                readExternalPhone() {
+                    const input = document.getElementById('external-borrower-contact');
+                    const storage = document.getElementById('external-borrower-contact-storage');
+                    if (input && typeof window.writePrismPhoneStorage === 'function') {
+                        window.writePrismPhoneStorage(input, input.value || '');
+                    }
+                    const raw = String(storage?.value || input?.value || '').trim();
+                    return raw;
+                },
+                clearExternalPhone() {
+                    const input = document.getElementById('external-borrower-contact');
+                    const storage = document.getElementById('external-borrower-contact-storage');
+                    if (storage) storage.value = '';
+                    if (!input) return;
+                    if (typeof window.writePrismPhoneStorage === 'function') {
+                        window.writePrismPhoneStorage(input, '');
+                    }
+                    const iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
+                    if (iti && typeof iti.setNumber === 'function') {
+                        try { iti.setNumber(''); } catch (e) { /* ignore */ }
+                    }
+                    input.value = '';
+                },
+                isValidEmail(value) {
+                    if (!value) return true;
+                    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+                },
+                onRegisteredChange() {
+                    const id = Number(this.custodianId || 0);
+                    const person = this.people.find((row) => Number(row.id) === id);
+                    this.registeredName = person ? String(person.name || '') : '';
+                    this.department = person
+                        ? String(person.department || person.organization || '')
+                        : '';
+                    if (typeof updateBorrowerCaution === 'function') {
+                        updateBorrowerCaution(this.registeredName);
+                    }
+                },
+                async registerExternal() {
+                    this.regError = '';
+                    this.regSuccess = '';
+                    const name = String(this.reg.name || '').trim();
+                    const organization = String(this.reg.organization || '').trim();
+                    const position = String(this.reg.position || '').trim();
+                    const email = String(this.reg.email || '').trim();
+                    const contact = this.readExternalPhone();
+
+                    if (!name) {
+                        this.regError = 'Enter the borrower full name.';
+                        return;
+                    }
+                    if (name.length > 50) {
+                        this.regError = 'Full name may not be longer than 50 characters.';
+                        return;
+                    }
+                    if (!organization) {
+                        this.regError = 'Enter the organization or company.';
+                        return;
+                    }
+                    if (organization.length > 50) {
+                        this.regError = 'Organization may not be longer than 50 characters.';
+                        return;
+                    }
+                    if (position.length > 120) {
+                        this.regError = 'Role / title may not be longer than 120 characters.';
+                        return;
+                    }
+                    if (email && !this.isValidEmail(email)) {
+                        this.regError = 'Enter a valid email address.';
+                        return;
+                    }
+                    if (email.length > 150) {
+                        this.regError = 'Email may not be longer than 150 characters.';
+                        return;
+                    }
+
+                    this.regSaving = true;
+                    try {
+                        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                            || document.querySelector('#borrowModal input[name="_token"]')?.value
+                            || '';
+                        const response = await fetch(@js(route('admin.borrowing.external-borrowers.store')), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({
+                                full_name: name,
+                                organization,
+                                position: position || null,
+                                contact_number: contact || null,
+                                email: email || null,
+                            }),
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            const firstError = data?.errors
+                                ? Object.values(data.errors).flat()[0]
+                                : null;
+                            throw new Error(firstError || data.message || 'Could not register borrower.');
+                        }
+                        const borrower = data.borrower;
+                        if (!borrower?.id) {
+                            throw new Error('Registration succeeded but no borrower was returned.');
+                        }
+                        this.people = [borrower, ...this.people.filter((row) => Number(row.id) !== Number(borrower.id))];
+                        this.custodianId = String(borrower.id);
+                        this.onRegisteredChange();
+                        this.showRegister = false;
+                        this.reg = { name: '', organization: '', position: '', email: '' };
+                        this.clearExternalPhone();
+                        this.regSuccess = 'External borrower registered and selected.';
+                    } catch (error) {
+                        this.regError = error?.message || 'Could not register borrower.';
+                    } finally {
+                        this.regSaving = false;
+                    }
+                },
+            };
+        }
+        window.borrowerPicker = borrowerPicker;
+
         function borrowEquipmentCart(catalog) {
             return {
                 catalog: Array.isArray(catalog) ? catalog : [],
@@ -1733,6 +2066,19 @@
                     this.cart.splice(index, 1);
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
+                focusInvalidField(el, message) {
+                    this.cartError = message || 'Please complete the required fields.';
+                    if (!el) return;
+                    try {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } catch (e) { /* ignore */ }
+                    this.$nextTick(() => {
+                        try { el.focus({ preventScroll: false }); } catch (err) { el.focus?.(); }
+                        if (typeof el.reportValidity === 'function') {
+                            el.reportValidity();
+                        }
+                    });
+                },
                 prepareSubmit(event) {
                     this.cartError = '';
                     if (!this.cart.length) {
@@ -1749,19 +2095,96 @@
                         }
                     }
 
-                    const borrowerInput = document.getElementById('borrowerName');
+                    const borrowerInput = document.querySelector('#borrowModal [name="borrowing_borrower_name"]:not([disabled])')
+                        || document.getElementById('borrowerName');
+                    const borrowerName = String(borrowerInput?.value || '').trim();
+                    if (!borrowerName) {
+                        event.preventDefault();
+                        const target = this.mode === 'registered'
+                            ? document.getElementById('borrowerRegistered')
+                            : document.getElementById('borrowerName');
+                        this.focusInvalidField(target, 'Select or enter a borrower name.');
+                        return;
+                    }
+
+                    if (this.mode === 'registered' && !this.custodianId) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowerRegistered'),
+                            'Select a registered borrower, or switch to Guest / walk-in.'
+                        );
+                        return;
+                    }
+
+                    const requiredFields = [
+                        { id: 'borrowDate', message: 'Enter the borrow date.' },
+                        { id: 'borrowExpectedReturn', message: 'Enter the expected return date.' },
+                        { id: 'borrowEventName', message: 'Select an event name.' },
+                        { id: 'borrowEventType', message: 'Select an event type.' },
+                        { id: 'borrowEventLocation', message: 'Enter the event venue / location.' },
+                    ];
+                    for (const field of requiredFields) {
+                        const el = document.getElementById(field.id);
+                        const value = String(el?.value || '').trim();
+                        if (!el || !value) {
+                            event.preventDefault();
+                            this.focusInvalidField(el, field.message);
+                            return;
+                        }
+                    }
+
+                    const borrowDate = document.getElementById('borrowDate')?.value || '';
+                    const expectedReturn = document.getElementById('borrowExpectedReturn')?.value || '';
+                    if (borrowDate && expectedReturn && expectedReturn < borrowDate) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowExpectedReturn'),
+                            'Expected return cannot be earlier than the borrow date.'
+                        );
+                        return;
+                    }
+
+                    const form = event.target;
+                    if (form?.dataset?.borrowCautionAccepted === '1') {
+                        delete form.dataset.borrowCautionAccepted;
+                        return;
+                    }
+
                     const caution = typeof findBorrowerCaution === 'function'
-                        ? findBorrowerCaution(borrowerInput?.value || '')
+                        ? findBorrowerCaution(borrowerName)
                         : null;
                     const overdue = Number(caution?.overdue || 0);
+                    const open = Number(caution?.open || 0);
                     if (overdue > 0) {
-                        const ok = window.confirm(
-                            'Preventive caution: this borrower has ' + overdue +
-                            ' overdue item(s) still out. Continue lending anyway?'
-                        );
-                        if (!ok) {
-                            event.preventDefault();
-                        }
+                        event.preventDefault();
+                        const ask = typeof window.purConfirm === 'function'
+                            ? window.purConfirm({
+                                title: 'Preventive caution',
+                                text: 'This borrower has ' + overdue + ' overdue '
+                                    + (overdue === 1 ? 'item' : 'items')
+                                    + (open > 0 ? (' and ' + open + ' still out') : '')
+                                    + '. Clear returns first, or continue lending anyway?',
+                                confirmText: 'Continue lending',
+                                cancelText: 'Go back',
+                                kind: 'caution',
+                            })
+                            : Promise.resolve(window.confirm(
+                                'Preventive caution: this borrower has ' + overdue +
+                                ' overdue item(s) still out. Continue lending anyway?'
+                            ));
+
+                        ask.then((ok) => {
+                            if (!ok) {
+                                this.cartError = 'Borrow cancelled — clear overdue returns first, or continue lending.';
+                                return;
+                            }
+                            form.dataset.borrowCautionAccepted = '1';
+                            if (typeof form.requestSubmit === 'function') {
+                                form.requestSubmit();
+                            } else {
+                                form.submit();
+                            }
+                        });
                     }
                 },
             };
@@ -1813,6 +2236,24 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
+        function syncBorrowScheduleDates() {
+            const borrow = document.getElementById('borrowDate');
+            const expected = document.getElementById('borrowExpectedReturn');
+            if (!borrow || !expected) return;
+
+            const borrowValue = String(borrow.value || '').trim();
+            if (!borrowValue) {
+                expected.removeAttribute('min');
+                return;
+            }
+
+            // Lock expected-return calendar days before the borrow date (same day still allowed).
+            expected.min = borrowValue;
+            if (expected.value && expected.value < borrowValue) {
+                expected.value = '';
+            }
+        }
+
         function openBorrowModal() {
             const modal = document.getElementById("borrowModal");
             if (!modal) return;
@@ -1824,6 +2265,7 @@
             modal.classList.remove("hidden");
             modal.classList.add("flex");
             document.body.style.overflow = 'hidden';
+            syncBorrowScheduleDates();
             if (window.lucide) window.lucide.createIcons();
         }
 
@@ -1897,6 +2339,12 @@
                 },
             };
         }
+
+        @if (request()->boolean('open_borrow'))
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof openBorrowModal === 'function') openBorrowModal();
+            });
+        @endif
 
     </script>
 

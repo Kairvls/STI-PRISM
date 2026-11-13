@@ -380,7 +380,7 @@
 
     window.printRisDocument = function (risId) {
         if (!risId) return;
-        var url = '/president/ris/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var url = '/president/ris/' + encodeURIComponent(risId) + '/print';
         var iframe = document.getElementById('presidentRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');
@@ -431,7 +431,7 @@
             adminText.classList.add('hidden');
         }
 
-        iframe.src = '/president/ris/' + encodeURIComponent(risId) + '/view?preview=1&ts=' + Date.now();
+        iframe.src = '/president/ris/' + encodeURIComponent(risId) + '/view?preview=1';
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         var refit = function () {
@@ -517,4 +517,15 @@
         if (attachBox) attachBox.classList.add('hidden');
         if (adminBox) adminBox.classList.add('hidden');
     };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var warmed = 0;
+        document.querySelectorAll('[data-ris-id]').forEach(function (el) {
+            if (warmed >= 12) return;
+            var id = el.getAttribute('data-ris-id');
+            if (!id) return;
+            warmed += 1;
+            fetch('/president/ris/' + encodeURIComponent(id) + '/view?preview=1', { credentials: 'same-origin' }).catch(function () {});
+        });
+    });
 </script>

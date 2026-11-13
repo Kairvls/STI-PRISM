@@ -49,62 +49,61 @@
         @if ($isStockPage)
             <div class="flex flex-wrap items-center justify-end gap-2">
                 @if ($canTransfer)
-                <a
-                    href="{{ $transferRequestsUrl }}"
-                    class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-                    title="Transfer requests"
-                    data-tooltip="Transfer requests"
-                    aria-label="Transfer requests"
-                >
-                    <i data-lucide="shield-check" class="h-4 w-4"></i>
-                    @if ($pendingTransferCount > 0)
-                        <span class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-amber-500 px-1 py-0.5 text-[10px] font-bold leading-none text-white">{{ $pendingTransferCount }}</span>
+                <div class="flex flex-wrap items-center justify-end gap-2 {{ $inAdminPortal ? 'group/eq-toolbar pt-1 pr-1' : '' }}">
+                    <a
+                        href="{{ $transferRequestsUrl }}"
+                        class="relative inline-flex h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 {{ $inAdminPortal ? 'gap-0 px-2.5 group-hover/eq-toolbar:gap-1.5 group-hover/eq-toolbar:px-3' : 'gap-1.5 px-3' }}"
+                        title="Transfer requests"
+                        aria-label="Transfer requests"
+                    >
+                        <i data-lucide="shield-check" class="h-4 w-4 shrink-0"></i>
+                        <span class="{{ $inAdminPortal ? 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/eq-toolbar:max-w-[10rem] group-hover/eq-toolbar:opacity-100' : '' }}">Transfer requests</span>
+                        @if ($pendingTransferCount > 0)
+                            <span class="absolute -right-1 -top-1 z-10 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-amber-500 px-1 py-0.5 text-[10px] font-bold leading-none text-white">{{ $pendingTransferCount }}</span>
+                        @endif
+                    </a>
+                    @if (! $showHistory && ! $showReplacementArrived)
+                    <button
+                        type="button"
+                        id="inventoryTransferSelectedBtn"
+                        onclick="openInventoryTransferSelectedModal()"
+                        class="relative inline-flex h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 {{ $inAdminPortal ? 'gap-0 px-2.5 group-hover/eq-toolbar:gap-1.5 group-hover/eq-toolbar:px-3' : 'gap-1.5 px-3' }}"
+                        disabled
+                        title="Transfer selected"
+                        aria-label="Transfer selected"
+                    >
+                        <i data-lucide="check-square" class="h-4 w-4 shrink-0"></i>
+                        <span class="{{ $inAdminPortal ? 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/eq-toolbar:max-w-[10rem] group-hover/eq-toolbar:opacity-100' : '' }}">Transfer selected</span>
+                        <span id="inventoryTransferSelectedCount" class="absolute -right-1 -top-1 z-10 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-slate-700 px-1 py-0.5 text-[10px] font-bold leading-none text-white">0</span>
+                    </button>
+                    @if ($canManage)
+                    <button
+                        type="button"
+                        id="inventoryDisposeSelectedBtn"
+                        onclick="openInventoryDisposeSelectedModal()"
+                        class="relative inline-flex h-10 min-w-10 items-center justify-center rounded-lg bg-[#e32626] text-xs font-semibold text-white transition-all duration-200 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 {{ $inAdminPortal ? 'gap-0 px-2.5 group-hover/eq-toolbar:gap-1.5 group-hover/eq-toolbar:px-3' : 'gap-1.5 px-3' }}"
+                        disabled
+                        aria-label="Dispose selected"
+                        title="Dispose selected"
+                    >
+                        <i data-lucide="archive-x" class="h-4 w-4 shrink-0"></i>
+                        <span class="{{ $inAdminPortal ? 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/eq-toolbar:max-w-[10rem] group-hover/eq-toolbar:opacity-100' : '' }}">Dispose selected</span>
+                        <span id="inventoryDisposeSelectedCount" class="absolute -right-1 -top-1 z-10 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-white px-1 py-0.5 text-[10px] font-bold leading-none text-[#e32626]">0</span>
+                    </button>
                     @endif
-                </a>
-                @endif
-                @if ($canTransfer && ! $showHistory && ! $showReplacementArrived)
-                <button
-                    type="button"
-                    id="inventoryTransferSelectedBtn"
-                    onclick="openInventoryTransferSelectedModal()"
-                    class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled
-                    title="Transfer selected"
-                    data-tooltip="Transfer selected"
-                    aria-label="Transfer selected"
-                >
-                    <i data-lucide="check-square" class="h-4 w-4"></i>
-                    <span id="inventoryTransferSelectedCount" class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-slate-700 px-1 py-0.5 text-[10px] font-bold leading-none text-white">0</span>
-                </button>
-                @if ($canManage)
-                <button
-                    type="button"
-                    id="inventoryDisposeSelectedBtn"
-                    onclick="openInventoryDisposeSelectedModal()"
-                    class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled
-                    data-pur-tip-title="Dispose selected"
-                    data-pur-tip="Move selected Replaced storage units into Disposal"
-                    data-pur-tip-accent="#e32626"
-                    aria-label="Dispose selected"
-                    title="Dispose selected"
-                >
-                    <i data-lucide="archive-x" class="h-4 w-4"></i>
-                    <span id="inventoryDisposeSelectedCount" class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-white px-1 py-0.5 text-[10px] font-bold leading-none text-[#e32626]">0</span>
-                </button>
-                @endif
-                <button
-                    type="button"
-                    onclick="openInventoryTransferAllModal()"
-                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    @if (empty($stockTransferIds ?? [])) disabled @endif
-                    data-pur-tip-title="Transfer all"
-                    data-pur-tip="Move every storage unit shown by the current filters"
-                    data-pur-tip-accent="#38bdf8"
-                    aria-label="Transfer all"
-                >
-                    <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
-                </button>
+                    <button
+                        type="button"
+                        onclick="openInventoryTransferAllModal()"
+                        class="relative inline-flex h-10 min-w-10 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-xs font-semibold text-sky-800 transition-all duration-200 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 {{ $inAdminPortal ? 'gap-0 px-2.5 group-hover/eq-toolbar:gap-1.5 group-hover/eq-toolbar:px-3' : 'gap-1.5 px-3' }}"
+                        @if (empty($stockTransferIds ?? [])) disabled @endif
+                        aria-label="Transfer all"
+                        title="Transfer all"
+                    >
+                        <i data-lucide="arrow-right-left" class="h-4 w-4 shrink-0"></i>
+                        <span class="{{ $inAdminPortal ? 'max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/eq-toolbar:max-w-[9rem] group-hover/eq-toolbar:opacity-100' : '' }}">Transfer all</span>
+                    </button>
+                    @endif
+                </div>
                 @endif
                 @if ($canManage)
                 @php
@@ -167,11 +166,6 @@
                     Create a storage room (room type <span class="font-semibold">Storage / Stockroom</span>) before adding equipment to inventory.
                 </div>
             @endif
-        @elseif (! $canManage)
-            <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
-                <p>View only. Editing and disposing equipment is done by the Administrator.</p>
-            </div>
         @endif
 
         <!-- DASHBOARD CARDS -->
@@ -1013,17 +1007,17 @@
                                 </td>
 
                                 <td class="px-4 py-4">
-                                    <div class="flex justify-center gap-2">
+                                    <div class="flex justify-start gap-2">
 
                                         <button
                                             type="button"
                                             onclick='openEquipmentModal(@json(\App\Support\LayoutEquipmentPayload::fromRow($item, $eqImageUrl($item->equipment_image))))'
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                            data-tooltip="View"
+                                            class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-slate-200 bg-white px-2 text-slate-600 transition-all duration-200 hover:gap-1.5 hover:bg-slate-50 hover:px-2.5 hover:text-slate-900"
                                             aria-label="View"
                                             title="View"
                                         >
-                                            <i data-lucide="eye" class="h-4 w-4"></i>
+                                            <i data-lucide="eye" class="h-4 w-4 shrink-0"></i>
+                                            <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[4rem] group-hover/action:opacity-100">View</span>
                                         </button>
 
                                         @if ($canTransfer && isset($pendingTransferIds[(int) $item->equipment_id]))
@@ -1046,13 +1040,12 @@
                                                     {{ json_encode($item->equipment_tracking_mode ?? 'Individual') }},
                                                     {{ (int) ($item->equipment_quantity ?? 1) }}
                                                 )"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
-                                                data-pur-tip-title="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
-                                                data-pur-tip="Move this storage unit to a room, person, or department"
-                                                data-pur-tip-accent="#38bdf8"
-                                                aria-label="Transfer"
+                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-sky-200 bg-sky-50 px-2 text-sky-800 transition-all duration-200 hover:gap-1.5 hover:bg-sky-100 hover:px-2.5"
+                                                aria-label="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
+                                                title="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
                                             >
-                                                <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
+                                                <i data-lucide="arrow-right-left" class="h-3.5 w-3.5 shrink-0"></i>
+                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[9rem] group-hover/action:opacity-100">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}</span>
                                             </button>
                                         @endif
 
@@ -1100,11 +1093,12 @@
                                                 {{ json_encode(\App\Support\EquipmentAcquisition::formPayload($item)) }}
 
                                             )"
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                            data-tooltip="Edit equipment"
-                                            aria-label="Edit equipment"
+                                            class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg bg-[#0025cc] px-2 text-white transition-all duration-200 hover:gap-1.5 hover:bg-[#001db3] hover:px-2.5"
+                                            aria-label="Edit"
+                                            title="Edit"
                                         >
-                                            <i data-lucide="edit-3" class="h-4 w-4"></i>
+                                            <i data-lucide="edit-3" class="h-4 w-4 shrink-0"></i>
+                                            <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[4rem] group-hover/action:opacity-100">Edit</span>
                                         </button>
 
                                         @if (($item->equipment_inventory_status ?? '') === 'For Replacement')
@@ -1114,13 +1108,12 @@
                                                     {{ (int) $item->equipment_id }},
                                                     {{ json_encode($item->equipment_name) }}
                                                 )"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
-                                                data-pur-tip-title="Mark as Replaced"
-                                                data-pur-tip="No successor will be installed. Closes For Replacement so this unit can be disposed."
-                                                data-pur-tip-accent="#60a5fa"
+                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-blue-200 bg-blue-50 px-2 text-blue-700 transition-all duration-200 hover:gap-1.5 hover:bg-blue-100 hover:px-2.5"
                                                 aria-label="Mark as Replaced"
+                                                title="Mark as Replaced"
                                             >
-                                                <i data-lucide="replace" class="h-3.5 w-3.5"></i>
+                                                <i data-lucide="replace" class="h-3.5 w-3.5 shrink-0"></i>
+                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[8rem] group-hover/action:opacity-100">Mark replaced</span>
                                             </button>
                                         @elseif (($item->equipment_inventory_status ?? '') === 'Replaced')
                                             <button
@@ -1130,14 +1123,12 @@
                                                     {{ json_encode($item->equipment_name) }},
                                                     {{ json_encode($item->room_name ?? '') }}
                                                 )"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
-                                                data-pur-tip-title="Dispose equipment"
-                                                data-pur-tip="Move this replaced storage unit into Disposal"
-                                                data-pur-tip-accent="#e32626"
-                                                aria-label="Dispose equipment"
+                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg bg-[#e32626] px-2 text-white transition-all duration-200 hover:gap-1.5 hover:bg-red-700 hover:px-2.5"
+                                                aria-label="Dispose"
                                                 title="Dispose"
                                             >
-                                                <i data-lucide="archive-x" class="h-4 w-4"></i>
+                                                <i data-lucide="archive-x" class="h-4 w-4 shrink-0"></i>
+                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[5rem] group-hover/action:opacity-100">Dispose</span>
                                             </button>
                                         @endif
                                         @endif
@@ -1466,12 +1457,12 @@
                                             <button
                                                 type="button"
                                                 onclick='openEquipmentModal(@json($movePayload))'
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                                data-tooltip="View"
+                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-slate-200 bg-white px-2 text-slate-600 transition-all duration-200 hover:gap-1.5 hover:bg-slate-50 hover:px-2.5 hover:text-slate-900"
                                                 aria-label="View"
                                                 title="View"
                                             >
-                                                <i data-lucide="eye" class="h-4 w-4"></i>
+                                                <i data-lucide="eye" class="h-4 w-4 shrink-0"></i>
+                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[4rem] group-hover/action:opacity-100">View</span>
                                             </button>
                                         </div>
                                     </td>

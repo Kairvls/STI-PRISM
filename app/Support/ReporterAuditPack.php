@@ -39,21 +39,18 @@ class ReporterAuditPack
             ->limit(500)
             ->get()
             ->map(function ($report) {
+                $issue = trim((string) ($report->report_suggested_issue ?: $report->report_problem_description ?: ''));
+
                 return [
                     'ticket' => ReportGrouping::ticketCode($report),
-                    'issue' => trim((string) (
-                        ($report->report_suggested_issue ?? 'Unspecified issue')
-                        .(filled($report->report_problem_description ?? null)
-                            ? ' — '.$report->report_problem_description
-                            : '')
-                    )),
+                    'issue' => $issue !== '' ? $issue : '—',
                     'equipment' => (string) ($report->equipment_name
                         ?: ($report->report_unlisted_equipment_name ?? '—')),
                     'room' => (string) ($report->room_name ?: '—'),
-                    'priority' => (string) ($report->report_urgency_level ?? '—'),
+                    'priority' => ReportSeverity::forReport($report),
                     'status' => (string) ($report->report_current_status ?? '—'),
                     'submitted_at' => ! empty($report->report_submitted_at)
-                        ? \Carbon\Carbon::parse($report->report_submitted_at)->format('Y-m-d H:i')
+                        ? \Carbon\Carbon::parse($report->report_submitted_at)->format('M j, Y g:i A')
                         : '—',
                 ];
             })
@@ -76,10 +73,10 @@ class ReporterAuditPack
             'reporter' => $profile,
             'reports' => $reports,
             'generatedAt' => now(),
-        ])->setPaper('a4', 'portrait');
+        ])->setPaper('a4', 'landscape');
 
         $safeName = preg_replace('/[^A-Za-z0-9\-_]+/', '-', $profile['name']);
-        $filename = 'reporter-audit-'.$reporterId.'-'.trim((string) $safeName, '-').'.pdf';
+        $filename = 'reporter-records-'.$reporterId.'-'.trim((string) $safeName, '-').'.pdf';
 
         return $pdf->download($filename);
     }

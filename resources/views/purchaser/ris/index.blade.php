@@ -5338,7 +5338,7 @@
 <script>
     window.printPurchaserRis = function (risId) {
         if (!risId) return;
-        var url = @json(url('/'.($pp ?? 'purchaser').'/ris')) + '/' + encodeURIComponent(String(risId)) + '/print?ts=' + Date.now();
+        var url = @json(url('/'.($pp ?? 'purchaser').'/ris')) + '/' + encodeURIComponent(String(risId)) + '/print';
         var iframe = document.getElementById('purchaserRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');

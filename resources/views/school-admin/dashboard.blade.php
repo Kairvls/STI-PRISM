@@ -6,13 +6,7 @@
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
 
 @php
-    $pipelineStageNames = [
-        'ris' => 'Requisition and Issue Slip',
-        'atp' => 'Authority to Purchase',
-        'rfc' => 'Request for Check',
-        'rr' => 'Receiving Report',
-        'liq' => 'Liquidation',
-    ];
+    $pipelineStageNames = \App\Support\AdminPipeline::STAGE_NAMES;
 
     $pendingRisTotal = (int) ($stats['pending_ris'] ?? 0);
     $signRisTotal = (int) ($stats['awaiting_issued_by'] ?? 0);
@@ -75,12 +69,17 @@
                             $badge = 'Ready to sign';
                             $badgeClass = 'border-blue-200 bg-blue-50 text-blue-700';
                         } else {
+                            $reviewerName = trim((string) ($row->assigned_reviewer_name ?? ''));
+                            $currentName = trim((string) (auth()->user()->user_full_name ?? ''));
                             $who = \App\Support\RoleHolderLabel::who(
                                 \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-                                $row->assigned_reviewer_name ?? null,
-                                ''
+                                $reviewerName !== '' ? $reviewerName : null,
+                                'the School Administrator'
                             );
-                            $statusText = $who !== '' ? 'Under review by '.$who : 'Under review by the School Administrator';
+                            $isYou = strcasecmp($who, 'the School Administrator') === 0
+                                || ($currentName !== '' && strcasecmp($who, $currentName) === 0)
+                                || ($reviewerName !== '' && $currentName !== '' && strcasecmp($reviewerName, $currentName) === 0);
+                            $statusText = 'Under review by '.($isYou ? 'you' : ($who !== '' ? $who : 'the School Administrator'));
                             $badge = 'Pending accept';
                             $badgeClass = 'border-amber-200 bg-amber-50 text-amber-700';
                         }
@@ -142,11 +141,30 @@
                         @php
                             $since = ! empty($row->date) ? \Carbon\Carbon::parse($row->date)->startOfDay() : null;
                             $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
+                            $docType = (string) ($row->type ?? '');
+                            $docId = (int) ($row->id ?? 0);
+                            $canPreview = $docType !== '' && $docId > 0;
                         @endphp
                         <li>
-                            <div class="flex w-full items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70">
+                            <div
+                                @if($canPreview)
+                                    role="button"
+                                    tabindex="0"
+                                    onclick="if (event.target.closest('a')) return; window.dispatchEvent(new CustomEvent('open-procurement-document', { detail: { type: this.dataset.docType, id: Number(this.dataset.docId), label: this.dataset.docLabel, continueUrl: this.dataset.continueUrl, continueLabel: this.dataset.continueLabel } }))"
+                                    onkeydown="if (event.key === 'Enter' && !event.target.closest('a')) { event.preventDefault(); this.click(); }"
+                                    data-doc-type="{{ $docType }}"
+                                    data-doc-id="{{ $docId }}"
+                                    data-doc-label="{{ $row->label }}"
+                                    data-continue-url="{{ $row->url }}"
+                                    data-continue-label="{{ $row->continue_label ?? 'Open Pending Approval' }}"
+                                    title="Preview this form"
+                                    class="flex w-full cursor-pointer items-start justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-gray-50/70"
+                                @else
+                                    class="flex w-full items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-gray-50/70"
+                                @endif
+                            >
                                 <div class="min-w-0">
-                                    <a href="{{ $row->url }}" class="text-sm font-semibold text-gray-900 hover:text-[#0025cc]">{{ $row->label }}</a>
+                                    <p class="text-sm font-semibold text-gray-900">{{ $row->label }}</p>
                                     @if(!blank($row->request_no))
                                         <p class="mt-0.5">
                                             @include('partials.procurement-request-no', ['requestNo' => $row->request_no, 'inline' => true, 'showLabel' => false])
@@ -198,13 +216,15 @@
                     $displayLabel = $requestNo !== '' ? $requestNo : $formNumber;
                 @endphp
                 <li>
-                    <button
-                        type="button"
+                    <div
+                        role="button"
+                        tabindex="0"
                         data-ris-id="{{ (int) $row->ris_id }}"
                         data-ris-label="{{ $displayLabel }}"
                         onclick="window.dispatchEvent(new CustomEvent('open-procurement-pipeline', { detail: { id: Number(this.dataset.risId), label: this.dataset.risLabel } }))"
+                        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
                         title="Show where this request is in the procurement process"
-                        class="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-gray-50/70 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-center md:gap-6"
+                        class="grid w-full cursor-pointer gap-3 px-5 py-4 text-left transition hover:bg-gray-50/70 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-center md:gap-6"
                     >
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-gray-900">{{ $displayLabel ?: 'Request' }}</p>
@@ -217,13 +237,31 @@
                             <div class="flex items-center">
                                 @foreach($stageKeys as $i => $key)
                                     @php
-                                        $exists = !empty(($stages[$key] ?? [])['exists']);
+                                        $stage = $stages[$key] ?? [];
+                                        $exists = !empty($stage['exists']) && !empty($stage['id']);
                                         $isCurrent = $key === $current;
+                                        $stageTitle = $pipelineStageNames[$key] ?? strtoupper($key);
+                                        $docLabel = $exists ? ($stage['label'] ?? $stageTitle) : $stageTitle;
                                     @endphp
-                                    <div class="flex flex-col items-center" title="{{ $pipelineStageNames[$key] }}{{ $exists ? '' : ' (not started)' }}">
-                                        <span class="h-2.5 w-2.5 rounded-full {{ $isCurrent ? 'bg-[#0025cc] ring-4 ring-blue-100' : ($exists ? 'bg-slate-400' : 'bg-gray-200') }}"></span>
-                                        <span class="mt-1.5 text-[10px] font-semibold {{ $isCurrent ? 'text-[#0025cc]' : ($exists ? 'text-gray-500' : 'text-gray-300') }}">{{ strtoupper($key) }}</span>
-                                    </div>
+                                    @if($exists)
+                                        <button
+                                            type="button"
+                                            class="flex flex-col items-center rounded-md px-0.5 transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                            title="Open {{ $docLabel }}"
+                                            data-doc-type="{{ $key }}"
+                                            data-doc-id="{{ (int) $stage['id'] }}"
+                                            data-doc-label="{{ $docLabel }}"
+                                            onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-procurement-document', { detail: { type: this.dataset.docType, id: Number(this.dataset.docId), label: this.dataset.docLabel } }))"
+                                        >
+                                            <span class="h-2.5 w-2.5 rounded-full {{ $isCurrent ? 'bg-[#0025cc] ring-4 ring-blue-100' : 'bg-slate-400' }}"></span>
+                                            <span class="mt-1.5 text-[10px] font-semibold underline-offset-2 hover:underline {{ $isCurrent ? 'text-[#0025cc]' : 'text-gray-500' }}">{{ strtoupper($key) }}</span>
+                                        </button>
+                                    @else
+                                        <div class="flex flex-col items-center" title="{{ $stageTitle }} (not started)">
+                                            <span class="h-2.5 w-2.5 rounded-full {{ $isCurrent ? 'bg-[#0025cc] ring-4 ring-blue-100' : 'bg-gray-200' }}"></span>
+                                            <span class="mt-1.5 text-[10px] font-semibold {{ $isCurrent ? 'text-[#0025cc]' : 'text-gray-300' }}">{{ strtoupper($key) }}</span>
+                                        </div>
+                                    @endif
                                     @if(!$loop->last)
                                         <span class="mx-1 mb-4 h-px flex-1 {{ $i < $currentIndex ? 'bg-slate-400' : 'bg-gray-200' }}"></span>
                                     @endif
@@ -233,7 +271,7 @@
                                 Now at <span class="font-semibold text-gray-700">{{ $pipelineStageNames[$current] ?? strtoupper($current) }}</span>@if($whereNow) · {{ $whereNow }}@endif
                             </p>
                         </div>
-                    </button>
+                    </div>
                 </li>
             @empty
                 <li class="px-5 py-8 text-sm text-gray-400">No procurement in progress right now.</li>
@@ -265,7 +303,7 @@
                                     {{ $row->equipment_name ?: 'Equipment' }}
                                     <span class="ml-1 text-xs font-normal text-gray-400">{{ $row->equipment_asset_tag ?: 'No asset tag' }}</span>
                                 </p>
-                                <p class="mt-0.5 text-xs text-gray-400">{{ ($row->borrowing_borrower_name ?: 'Unknown borrower').' · Due '.$expected->format('M j') }}</p>
+                                <p class="mt-0.5 text-xs text-gray-400">{{ ($row->borrowing_borrower_name ?: 'Unknown borrower').' · Due '.$expected->format('M j, Y') }}</p>
                             </div>
                             <span class="shrink-0 text-[11px] font-semibold sa-alert">{{ $days }}d overdue</span>
                         </a>
@@ -298,7 +336,7 @@
                                         <span class="ml-1 text-xs font-normal text-gray-400">{{ $row->equipment_asset_tag ?: 'No asset tag' }}</span>
                                     @endif
                                 </p>
-                                <p class="mt-0.5 text-xs text-gray-400">{{ ($row->room_name ?: 'No room').' · Due '.$due->format('M j') }}</p>
+                                <p class="mt-0.5 text-xs text-gray-400">{{ ($row->room_name ?: 'No room').' · Due '.$due->format('M j, Y') }}</p>
                             </div>
                             <span class="shrink-0 text-[11px] font-semibold sa-alert">{{ $days }}d overdue</span>
                         </a>
@@ -390,7 +428,7 @@
             setTimeout(rescale, 60);
             setTimeout(rescale, 250);
         };
-        iframe.src = risBaseUrl + '/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        iframe.src = risBaseUrl + '/' + encodeURIComponent(risId) + '/print';
 
         if (typeof window.fillRisPreviewAttachments === 'function') {
             window.fillRisPreviewAttachments(risId, modalId);

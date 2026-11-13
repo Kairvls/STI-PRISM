@@ -558,7 +558,7 @@
                         $statusMap = [
                             "Pending" => "bg-orange-50 text-orange-700",
                             "Processing" => "bg-sky-50 text-sky-700",
-                            "For Replacement" => "bg-violet-50 text-violet-700",
+                            "For Replacement" => "bg-orange-100 text-orange-700",
                             "Resolved" => "bg-emerald-50 text-emerald-700",
                             "Rejected" => "bg-rose-50 text-rose-700",
                             "Closed / Cancelled" => "bg-slate-200 text-slate-700",
@@ -1028,7 +1028,7 @@
         $statusDotClasses = match ($report->report_current_status) {
             'Pending' => 'bg-amber-500',
             'Processing' => 'bg-blue-500',
-            'For Replacement' => 'bg-violet-500',
+            'For Replacement' => 'bg-orange-500',
             'Resolved' => 'bg-emerald-500',
             'Rejected' => 'bg-red-500',
             'Closed / Cancelled' => 'bg-slate-500',

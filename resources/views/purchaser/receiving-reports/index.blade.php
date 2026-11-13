@@ -23,6 +23,14 @@
             return data && data.payment_path === this.cashAdvancePath;
         },
 
+        init() {
+            this.$watch('viewOpen', (open) => {
+                if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_rr', 'edit_rr']);
+            });
+            this.$watch('editOpen', (open) => {
+                if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_rr', 'edit_rr']);
+            });
+        },
         openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; this.modalFullscreen = false; },
         openEdit(id) {
             this.selectedRr = id;

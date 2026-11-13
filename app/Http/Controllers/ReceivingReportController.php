@@ -1767,6 +1767,18 @@ class ReceivingReportController extends Controller
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id') && !empty($risId)) {
             $payload['receiving_report_ris_id'] = $risId;
         }
+        if (
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_procurement_request_id')
+            && ! empty($risId)
+            && Schema::hasColumn('requisition_issue_slip_table', 'ris_procurement_request_id')
+        ) {
+            $procurementId = (int) DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->value('ris_procurement_request_id');
+            if ($procurementId > 0) {
+                $payload['receiving_report_procurement_request_id'] = $procurementId;
+            }
+        }
 
         if ($payload !== []) {
             DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->update($payload);

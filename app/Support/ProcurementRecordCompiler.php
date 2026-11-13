@@ -48,7 +48,7 @@ class ProcurementRecordCompiler
         $items = [
             self::item(
                 'supporting_docs',
-                'Supporting Documents',
+                'Canvassing documents',
                 self::hasSupportingDocsForRis($risId),
                 $risId ?: null,
                 'RIS'
@@ -62,14 +62,28 @@ class ProcurementRecordCompiler
                 $rfc ? (int) $rfc->request_check_id : null,
                 'RFC'
             ),
-            self::item(
-                'rr',
-                'Receiving Report',
-                self::isRrComplete($rr),
-                $rr ? (int) $rr->receiving_report_id : null,
-                'RR'
-            ),
         ];
+
+        $dv = self::findDvForRfcs($rfcs);
+        if (Schema::hasTable('disbursement_vouchers_table')) {
+            // Legacy packages may reach RR without a DV row; treat those as satisfied.
+            $dvReady = self::isDvComplete($dv) || ($dv === null && self::isRrComplete($rr));
+            $items[] = self::item(
+                'dv',
+                'Disbursement Voucher',
+                $dvReady,
+                $dv ? (int) $dv->dv_id : null,
+                'DV'
+            );
+        }
+
+        $items[] = self::item(
+            'rr',
+            'Receiving Report',
+            self::isRrComplete($rr),
+            $rr ? (int) $rr->receiving_report_id : null,
+            'RR'
+        );
 
         if (ProcurementPaymentPath::requiresLiquidation($path)) {
             $items[] = self::item(
@@ -160,6 +174,41 @@ class ProcurementRecordCompiler
     private static function hasApprovedFunding($rfcs): bool
     {
         return $rfcs->contains(fn ($row) => ($row->request_check_status ?? '') === 'Approved');
+    }
+
+    private static function findDvForRfcs($rfcs): ?object
+    {
+        if (! Schema::hasTable('disbursement_vouchers_table') || $rfcs->isEmpty()) {
+            return null;
+        }
+
+        $rfcIds = $rfcs->pluck('request_check_id')->map(fn ($id) => (int) $id)->all();
+
+        return DB::table('disbursement_vouchers_table')
+            ->whereIn('dv_request_check_id', $rfcIds)
+            ->when(
+                Schema::hasColumn('disbursement_vouchers_table', 'dv_is_archived'),
+                fn ($q) => $q->where(function ($inner) {
+                    $inner->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+                })
+            )
+            ->orderByDesc('dv_id')
+            ->first();
+    }
+
+    private static function isDvComplete(?object $dv): bool
+    {
+        if (! $dv) {
+            return false;
+        }
+
+        return in_array((string) ($dv->dv_status ?? ''), [
+            'Approved',
+            'President Approved',
+            'Completed',
+            'Check Released',
+            'Released',
+        ], true);
     }
 
     private static function findReceivingReportForAtp(int $atpId, $rfcs): ?object
@@ -261,6 +310,7 @@ class ProcurementRecordCompiler
             'RIS' => route('purchaser.ris.index', ['view_ris' => $item['ref_id']]),
             'ATP' => route('purchaser.atp.index', ['view_atp' => $item['ref_id']]),
             'RFC' => route('purchaser.rfc.index', ['view_rfc' => $item['ref_id']]),
+            'DV' => RequestExplorer::viewUrlFor('dv', (int) $item['ref_id']),
             'RR' => route('purchaser.rr.index', ['view_rr' => $item['ref_id']]),
             'LIQ' => route('purchaser.liq.index', ['view_liq' => $item['ref_id']]),
             default => null,
@@ -274,6 +324,7 @@ class ProcurementRecordCompiler
      *     atp_id:int,
      *     ris_id:?int,
      *     rfc_id:?int,
+     *     dv_id:?int,
      *     rr_id:?int,
      *     liq_id:?int,
      *     rfc_ids:int[],
@@ -285,6 +336,7 @@ class ProcurementRecordCompiler
         $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->first();
         $rfcs = self::activeRfcsForAtp($atpId);
         $rfc = self::primaryRfc($rfcs);
+        $dv = self::findDvForRfcs($rfcs);
         $rr = self::findReceivingReportForAtp($atpId, $rfcs);
         $path = $atp->authority_purchase_payment_path ?? null;
 
@@ -319,6 +371,7 @@ class ProcurementRecordCompiler
             'atp_id' => $atpId,
             'ris_id' => $risId,
             'rfc_id' => $rfc ? (int) $rfc->request_check_id : null,
+            'dv_id' => $dv ? (int) $dv->dv_id : null,
             'rr_id' => $rr ? (int) $rr->receiving_report_id : null,
             'liq_id' => $liq ? (int) $liq->liquidation_report_id : null,
             'rfc_ids' => $rfcs->pluck('request_check_id')->map(fn ($id) => (int) $id)->all(),
@@ -328,6 +381,7 @@ class ProcurementRecordCompiler
                 : null,
             'atp_form_number' => $atp->authority_purchase_form_number ?? null,
             'rfc_form_number' => $rfc?->request_check_form_number ?? null,
+            'dv_form_number' => $dv?->dv_form_number ?? null,
             'rr_form_number' => $rr?->receiving_report_form_number ?? null,
             'liq_form_number' => $liq?->liquidation_report_form_number ?? null,
             'payment_path' => $path,
@@ -342,6 +396,7 @@ class ProcurementRecordCompiler
             'ris' => $resolved['ris_id'],
             'atp' => $resolved['atp_id'],
             'rfc' => in_array($docId, $resolved['rfc_ids'], true) ? $docId : null,
+            'dv' => $resolved['dv_id'],
             'rr' => $resolved['rr_id'],
             'liq' => $resolved['liq_id'],
             default => null,
@@ -391,6 +446,7 @@ class ProcurementRecordCompiler
             'ris' => $resolved['ris_form_number'] ?? null,
             'atp' => $resolved['atp_form_number'] ?? null,
             'funding' => $resolved['rfc_form_number'] ?? null,
+            'dv' => $resolved['dv_form_number'] ?? null,
             'rr' => $resolved['rr_form_number'] ?? null,
             'liq' => $resolved['liq_form_number'] ?? null,
             default => null,
@@ -433,6 +489,10 @@ class ProcurementRecordCompiler
                 $links[] = ['label' => 'View', 'url' => $view('rfc', $resolved['rfc_id'])];
                 $links[] = ['label' => 'Excel', 'url' => $export('rfc', $resolved['rfc_id'], 'xlsx')];
                 $links[] = ['label' => 'Word', 'url' => $export('rfc', $resolved['rfc_id'], 'docx')];
+            }
+
+            if ($key === 'dv' && ! empty($resolved['dv_id'])) {
+                $links[] = ['label' => 'View', 'url' => $view('dv', (int) $resolved['dv_id'])];
             }
 
             if ($key === 'rr' && $resolved['rr_id']) {

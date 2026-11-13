@@ -8,7 +8,7 @@
             $moduleHeading = match (true) {
                 request()->is('school-admin/dashboard') => ['Dashboard', ''],
                 request()->is('school-admin/operations/equipment*') => ['All Equipment', ''],
-                request()->is('school-admin/operations/schedules*') => ['Schedules Monitor', ''],
+                request()->is('school-admin/operations/schedules*') => ['Overdue Schedules', 'Past-due maintenance schedules only.'],
                 request()->is('school-admin/operations/borrowing*') => ['Borrowed Equipment', ''],
                 request()->is('school-admin/operations/movements*') && request('tab') === 'disposal' => ['Disposal', ''],
                 request()->is('school-admin/operations/movements*') => ['Equipment Movements', ''],
@@ -39,7 +39,9 @@
                 request()->is('admin/operations/back-orders*') && request('payment') === 'rfc' => ['Back Order Monitor · Request for Check', 'Items delivered short or damaged.'],
                 request()->is('admin/operations/back-orders*') && request('payment') === 'ca' => ['Back Order Monitor · Cash Advance', 'Items delivered short or damaged.'],
                 request()->is('admin/operations/back-orders*') => ['Back Order Monitor', 'Items delivered short or damaged.'],
-                request()->is('admin/borrowing*') => ['Borrowing', 'Lend equipment and record returns.'],
+                request()->is('admin/borrowing/borrowers*') => ['Borrowers', 'People from borrow history and the external borrower registry — not the faculty/staff directory.'],
+                request()->is('admin/borrowing/event-types*') => ['Event Name - Types', 'Maintain event names and types used when borrowing equipment.'],
+                request()->is('admin/borrowing*') => ['Borrowing', 'Lend equipment and record returns — including school and city events.'],
                 request()->is('admin/qr-tools*') => ['Property Tagging', 'Generate, print and download equipment QR code & labels.'],
                 request()->is('admin/equipment/categories*') => ['Classification', 'Equipment classification used across inventory and reports.'],
                 request()->is('admin/equipment/suggested-issues/*/checks*') => ['Quick Checks', 'Steps reporters try before sending a report.'],
@@ -56,7 +58,7 @@
                 request()->is('admin/liquidation-reports*') => ['Liquidation Reports', ''],
                 request()->is('admin/digital-signatures/history*') => ['Signature History', ''],
                 request()->is('admin/users*') => ['User Management', 'Assign primary and additional roles.'],
-                request()->is('admin/reporters*') => ['Equipment Reporters', 'Faculty and staff who can report equipment issues.'],
+                request()->is('admin/reporters*') => ['Reporters Directory', 'Faculty and staff who can report equipment issues.'],
                 request()->is('admin/infrastructure*') => ['Building Rooms Layout', ''],
                 request()->is('admin/rooms*') => ['Rooms', ''],
                 request()->is('admin/departments*') => ['Departments', 'Offices that own equipment and group people.'],
@@ -424,6 +426,13 @@
                     >
                         <i data-lucide="shield" class="h-4 w-4 text-slate-400"></i>
                         Security settings
+                    </a>
+                    <a
+                        href="{{ url('/admin/settings/campus-setup-pin') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i data-lucide="settings" class="h-4 w-4 text-slate-400"></i>
+                        Campus Setup
                     </a>
                 </div>
 

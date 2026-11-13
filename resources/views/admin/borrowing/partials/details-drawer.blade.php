@@ -319,10 +319,17 @@
             const safeStatus = record.status || "Unknown";
             const safePurpose = record.purpose || "—";
             const safeRemarks = record.remarks || "—";
+            const safeSlip = record.slipNo || "";
+            const safeEvent = record.eventName || "";
+            const safeEventType = record.eventType || "";
+            const safeEventLocation = record.eventLocation || "";
             const isOut = safeStatus === "Borrowed" || safeStatus === "Overdue";
 
-            document.getElementById("viewSubtitle").textContent =
-                "Review " + safeBorrower + "'s borrowing record.";
+            document.getElementById("viewSubtitle").textContent = safeEvent
+                ? (safeEvent + (safeSlip ? " · Slip " + safeSlip : ""))
+                : (safeSlip
+                    ? ("Slip " + safeSlip + " · " + safeBorrower)
+                    : ("Review " + safeBorrower + "'s borrowing record."));
             document.getElementById("viewBorrowerName").textContent = safeBorrower;
             document.getElementById("viewAvatar").textContent =
                 getBorrowerInitials(safeBorrower);
@@ -342,6 +349,14 @@
                 safeDepartment;
 
             document.getElementById("viewOverviewRows").innerHTML = [
+                detailRow(
+                    "Slip No.",
+                    safeSlip
+                        ? '<span class="font-mono text-sm font-semibold tracking-wide text-slate-800">' + escapeHtml(safeSlip) + '</span>'
+                        : "—"
+                ),
+                detailRow("Event", safeEvent ? escapeHtml(safeEvent) + (safeEventType ? '<span class="block text-xs font-normal text-slate-500">' + escapeHtml(safeEventType) + "</span>" : "") : "—"),
+                detailRow("Event venue", escapeHtml(safeEventLocation || "—")),
                 detailRow("Equipment", escapeHtml(safeEquipment) + (record.assetTag ? '<span class="block text-xs font-normal text-slate-500">' + escapeHtml(record.assetTag) + "</span>" : "")),
                 detailRow("Taken from", escapeHtml(record.fromRoom || "—")),
                 detailRow(

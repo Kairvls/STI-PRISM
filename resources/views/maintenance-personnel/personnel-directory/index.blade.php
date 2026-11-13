@@ -40,7 +40,7 @@
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-            <h2 class="text-base font-semibold text-slate-900">Faculty & Staff</h2>
+            <h2 class="text-base font-semibold text-slate-900">Reporters List</h2>
             <form method="GET" action="{{ route('maintenance.personnel-directory.index') }}" class="flex flex-col gap-2 sm:flex-row">
                 @foreach (['status' => $status, 'type' => $type] as $key => $value)
                     @if ($value !== '')
@@ -127,7 +127,7 @@
                                     <p class="font-semibold text-slate-900">{{ number_format($person->reports_total) }}</p>
                                     <p class="mt-0.5 text-xs text-slate-500">
                                         @if ($person->reports_total > 0)
-                                            {{ number_format($person->reports_open) }} open · {{ number_format($person->reports_resolved) }} resolved
+                                            {{ number_format($person->reports_open) }} unresolved
                                         @else
                                             No reports yet
                                         @endif
@@ -150,8 +150,19 @@
                 </table>
             </div>
             @if ($people->hasPages())
-                <div class="border-t border-slate-100 px-5 py-4">
-                    {{ $people->links() }}
+                <div class="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-xs text-slate-500">
+                        Showing
+                        <span class="font-semibold text-slate-700">{{ $people->firstItem() }}</span>
+                        to
+                        <span class="font-semibold text-slate-700">{{ $people->lastItem() }}</span>
+                        of
+                        <span class="font-semibold text-slate-700">{{ $people->total() }}</span>
+                        reporters
+                    </p>
+                    <div>
+                        {{ $people->links() }}
+                    </div>
                 </div>
             @endif
         @else

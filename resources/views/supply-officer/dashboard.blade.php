@@ -7,6 +7,8 @@
     use App\Support\RisWorkflow;
     use Carbon\Carbon;
 
+    $peso = fn ($amount) => '₱'.number_format((float) $amount, 2);
+
     $formatDate = function ($value) {
         if (blank($value)) {
             return '—';
@@ -57,6 +59,7 @@
             'rows' => $latestIncomingRis->map(function ($ris) use ($formatDate, $supplierNote) {
                 return [
                     'title' => RisWorkflow::formNumber($ris),
+                    'amount' => (float) ($ris->total_amount ?? 0),
                     'note' => $supplierNote($ris),
                     'meta' => trim(($ris->sent_by_name ?: 'Purchaser').' · '.$formatDate($ris->ris_sent_to_supply_at)),
                     'preview' => route('supply-officer.dashboard.preview-ris', $ris->ris_id),
@@ -73,6 +76,7 @@
             'rows' => $latestAtpDrafts->map(function ($atp) use ($formatDate, $atpLabel, $revisionNote) {
                 return [
                     'title' => $atpLabel($atp),
+                    'amount' => (float) ($atp->total_amount ?? 0),
                     'note' => $revisionNote($atp),
                     'meta' => trim((blank($atp->authority_purchase_form_number ?? null) ? 'Draft · ' : '').$formatDate($atp->authority_purchase_updated_at ?: $atp->authority_purchase_created_at)),
                     'preview' => route('supply-officer.dashboard.preview-atp', $atp->authority_purchase_id),
@@ -89,6 +93,7 @@
             'rows' => $latestAtpPending->map(function ($atp) use ($formatDate, $atpLabel) {
                 return [
                     'title' => $atpLabel($atp),
+                    'amount' => (float) ($atp->total_amount ?? 0),
                     'meta' => 'Sent '.$formatDate($atp->authority_purchase_submitted_at),
                     'preview' => route('supply-officer.dashboard.preview-atp', $atp->authority_purchase_id),
                     'url' => route('supply-officer.atp.index', ['view_atp' => $atp->authority_purchase_id]),
@@ -104,6 +109,7 @@
             'rows' => $latestAtpToRelease->map(function ($atp) use ($formatDate, $atpLabel) {
                 return [
                     'title' => $atpLabel($atp),
+                    'amount' => (float) ($atp->total_amount ?? 0),
                     'meta' => 'Approved '.$formatDate($atp->authority_purchase_updated_at),
                     'preview' => route('supply-officer.dashboard.preview-atp', $atp->authority_purchase_id),
                     'url' => route('supply-officer.atp.index', ['view_atp' => $atp->authority_purchase_id]),
@@ -154,7 +160,10 @@
                                     @endif
                                     <p class="mt-0.5 truncate text-xs text-slate-500">{{ $row['meta'] }}</p>
                                 </div>
-                                <span class="shrink-0 text-xs font-semibold text-slate-500">{{ $row['action'] }}</span>
+                                <span class="shrink-0 text-right">
+                                    <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount'] ?? 0) }}</span>
+                                    <span class="text-[11px] font-semibold text-slate-500">{{ $row['action'] }}</span>
+                                </span>
                             </button>
                         </li>
                     @empty

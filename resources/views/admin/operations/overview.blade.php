@@ -245,6 +245,7 @@
                         'ris' => 'RIS',
                         'atp' => 'ATP',
                         'rfc' => 'RFC/CA',
+                        'dv' => 'DV',
                         'rr' => 'Receiving',
                         'liq' => 'Liquidation',
                     ];
@@ -477,7 +478,7 @@
                     </div>
 
                     <div class="divide-y divide-gray-100 rounded-xl border border-gray-100">
-                        <template x-for="key in ['ris','atp','rfc','rr','liq']" :key="key">
+                        <template x-for="key in ['ris','atp','rfc','dv','rr','liq']" :key="key">
                             <div class="flex items-start justify-between gap-3 px-4 py-3">
                                 <div>
                                     <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key"></p>
@@ -519,7 +520,7 @@ document.addEventListener('alpine:init', () => {
             this.docTitle = title || String(type).toUpperCase();
             this.docOpen = true;
             this.docLoading = true;
-            const url = @json(url('/admin/operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?ts=' + Date.now();
+            const url = @json(url('/admin/operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id);
             this.$nextTick(() => {
                 if (window.lucide && typeof window.lucide.createIcons === 'function') {
                     window.lucide.createIcons();

@@ -197,6 +197,9 @@
                                     </div>
                                     <div class="min-w-0">
                                         <p class="font-semibold text-gray-900">{{ $row->request_check_form_number ?: 'Request for Check' }}</p>
+                                        @if(filled($row->payment_kind ?? null))
+                                            <p class="mt-0.5 text-[11px] font-semibold leading-4 text-[#15803d]">{{ $row->payment_kind }}</p>
+                                        @endif
                                         <p class="mt-0.5 text-xs text-gray-400">
                                             Sent {{ $row->request_check_sent_to_accounting_at ? \Carbon\Carbon::parse($row->request_check_sent_to_accounting_at)->diffForHumans() : '—' }}
                                             @if($row->request_check_payee) · {{ $row->request_check_payee }}@endif

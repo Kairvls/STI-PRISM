@@ -22,6 +22,7 @@
         'school-admin/authority-to-purchase*',
         'school-admin/purchase-orders*',
         'school-admin/request-check*',
+        'school-admin/disbursement-vouchers*',
         'school-admin/ris/*'
     ))
         <link rel="stylesheet" href="{{ asset('css/president-modern.css') }}">
@@ -39,6 +40,7 @@
         'school-admin/authority-to-purchase*',
         'school-admin/purchase-orders*',
         'school-admin/request-check*',
+        'school-admin/disbursement-vouchers*',
         'school-admin/ris/*'
     ))
         @include('layouts.partials.page-carousel-script')

@@ -179,9 +179,142 @@
             </section>
         </div>
     </div>
+
+    @php
+        $switchCards = [
+            ['key' => 'borrows', 'switch' => 'Borrows', 'title' => '3 latest overdue borrows', 'href' => route('admin.borrowing.index', ['status' => 'Overdue']), 'empty' => 'No overdue borrows'],
+            ['key' => 'schedules', 'switch' => 'Schedules', 'title' => 'Overdue schedules', 'href' => route('admin.operations.schedules', ['filter' => 'overdue']), 'empty' => 'No overdue schedules'],
+            ['key' => 'disposed', 'switch' => 'Disposed', 'title' => '3 latest disposed equipment', 'href' => route('admin.disposal.index'), 'empty' => 'No disposed equipment'],
+        ];
+        $requestCards = [
+            ['key' => 'rooms', 'switch' => 'Rooms', 'title' => 'Rooms reported today', 'href' => route('admin.operations.reports'), 'empty' => 'No reports today'],
+            ['key' => 'transfers', 'switch' => 'Transfers', 'title' => 'Transfer requests', 'href' => route('admin.inventory.transfer-requests'), 'empty' => 'No transfer requests'],
+            ['key' => 'disposals', 'switch' => 'Disposals', 'title' => 'Disposal requests', 'href' => route('admin.disposal.requests'), 'empty' => 'No disposal requests'],
+        ];
+        $cards = [
+            ['key' => 'prs', 'title' => '3 latest procurement', 'href' => route('admin.procurement-review'), 'empty' => 'No procurement requests'],
+        ];
+        $switchGroups = [$switchCards, $requestCards];
+    @endphp
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        @foreach ($switchGroups as $group)
+            <section class="ad-panel p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="admin-list-switch inline-flex rounded-full bg-slate-100 p-0.5" role="group" aria-label="Dashboard lists">
+                        @foreach ($group as $index => $card)
+                            <button type="button" class="ad-switch {{ $index === 0 ? 'is-on' : '' }}" data-admin-list="{{ $card['key'] }}" aria-pressed="{{ $index === 0 ? 'true' : 'false' }}">{{ $card['switch'] }}</button>
+                        @endforeach
+                    </div>
+                </div>
+                @foreach ($group as $index => $card)
+                    @php
+                        $block = $lists[$card['key']] ?? ['total' => 0, 'rows' => []];
+                        $rows = collect($block['rows'] ?? []);
+                        $total = (int) ($block['total'] ?? 0);
+                    @endphp
+                    <div data-admin-panel="{{ $card['key'] }}" class="{{ $index === 0 ? '' : 'hidden' }}">
+                        <div class="mt-4 flex items-center justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-2">
+                                <h2 class="truncate text-sm font-semibold text-slate-950">{{ $card['title'] }}</h2>
+                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($total) }}</span>
+                            </div>
+                            <a href="{{ $card['href'] }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
+                        </div>
+                        <div class="mt-3 divide-y divide-slate-100">
+                            @forelse ($rows as $row)
+                                <a href="{{ $row['href'] }}" class="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50">
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-sm font-semibold text-slate-900">{{ $row['title'] }}</span>
+                                        @if (!empty($row['meta']))
+                                            <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
+                                        @endif
+                                    </span>
+                                </a>
+                            @empty
+                                <p class="py-8 text-center text-xs font-medium text-slate-400">{{ $card['empty'] }}</p>
+                            @endforelse
+                        </div>
+                        @if ($total > $rows->count())
+                            <p class="mt-2 text-xs text-slate-500">{{ $rows->count() }} latest of {{ number_format($total) }}</p>
+                        @endif
+                    </div>
+                @endforeach
+            </section>
+        @endforeach
+        @foreach ($cards as $card)
+            @php
+                $block = $lists[$card['key']] ?? ['total' => 0, 'rows' => []];
+                $rows = collect($block['rows'] ?? []);
+                $total = (int) ($block['total'] ?? 0);
+            @endphp
+            <section class="ad-panel p-5">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex min-w-0 items-center gap-2">
+                        <h2 class="truncate text-sm font-semibold text-slate-950">{{ $card['title'] }}</h2>
+                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($total) }}</span>
+                    </div>
+                    <a href="{{ $card['href'] }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
+                </div>
+                <div class="mt-3 divide-y divide-slate-100">
+                    @forelse ($rows as $row)
+                        <a href="{{ $row['href'] }}" class="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50">
+                            <span class="min-w-0">
+                                <span class="block truncate text-sm font-semibold text-slate-900">{{ $row['title'] }}</span>
+                                @if (!empty($row['meta']))
+                                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
+                                @endif
+                            </span>
+                            @if (array_key_exists('amount', $row))
+                                <span class="shrink-0 text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount']) }}</span>
+                            @endif
+                        </a>
+                    @empty
+                        <p class="py-8 text-center text-xs font-medium text-slate-400">{{ $card['empty'] }}</p>
+                    @endforelse
+                </div>
+                @if ($total > $rows->count())
+                    <p class="mt-2 text-xs text-slate-500">{{ $rows->count() }} latest of {{ number_format($total) }}</p>
+                @endif
+            </section>
+        @endforeach
+    </div>
 </div>
 
 <style>
 .ad-panel { border-radius: 1rem; border: 1px solid #e2e8f0; background: #fff; }
+.ad-switch {
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+.ad-switch.is-on {
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
 </style>
+<script>
+    document.querySelectorAll('.admin-list-switch').forEach(function (switcher) {
+        var card = switcher.closest('section');
+        switcher.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-admin-list]');
+            if (!button || !card) return;
+            var key = button.getAttribute('data-admin-list');
+            switcher.querySelectorAll('[data-admin-list]').forEach(function (item) {
+                var on = item === button;
+                item.classList.toggle('is-on', on);
+                item.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            card.querySelectorAll('[data-admin-panel]').forEach(function (panel) {
+                panel.classList.toggle('hidden', panel.getAttribute('data-admin-panel') !== key);
+            });
+        });
+    });
+</script>
 @endsection

@@ -299,6 +299,8 @@ class SchoolAdminController extends Controller
                     $supplier = trim((string) ($row->company_name ?: $row->shop_name ?: ''));
 
                     return (object) [
+                        'type' => 'atp',
+                        'id' => (int) $row->authority_purchase_id,
                         'label' => $row->authority_purchase_form_number ?: 'ATP #'.$row->authority_purchase_id,
                         'request_no' => $row->authority_purchase_request_no ?? null,
                         'detail' => $supplier !== '' ? $supplier : 'Authority to Purchase',
@@ -306,6 +308,7 @@ class SchoolAdminController extends Controller
                         'date' => $row->authority_purchase_submitted_at,
                         'status' => $this->pendingApprovalLabel($row->assigned_reviewer_name ?? null),
                         'url' => route('school-admin.atp.show', $row->authority_purchase_id),
+                        'continue_label' => 'Open Pending Approval',
                     ];
                 });
         } catch (\Throwable $e) {
@@ -367,6 +370,8 @@ class SchoolAdminController extends Controller
                 ->get()
                 ->map(function ($row) {
                     return (object) [
+                        'type' => 'rfc',
+                        'id' => (int) $row->request_check_id,
                         'label' => $row->request_check_form_number ?: 'RFC #'.$row->request_check_id,
                         'request_no' => $row->request_check_request_no ?? null,
                         'detail' => trim((string) ($row->request_check_payee ?? '')) ?: 'Request for Check',
@@ -377,6 +382,7 @@ class SchoolAdminController extends Controller
                             trim((string) ($row->request_check_status ?: 'Pending approval'))
                         ),
                         'url' => route('school-admin.rfc.show', $row->request_check_id),
+                        'continue_label' => 'Open Pending Approval',
                     ];
                 });
         } catch (\Throwable $e) {
@@ -432,6 +438,8 @@ class SchoolAdminController extends Controller
                 ->get()
                 ->map(function ($row) {
                     return (object) [
+                        'type' => 'dv',
+                        'id' => (int) $row->dv_id,
                         'label' => $row->dv_form_number ?: 'DV #'.$row->dv_id,
                         'request_no' => $row->dv_request_no ?? null,
                         'detail' => trim((string) ($row->dv_payee ?? '')) ?: 'Disbursement Voucher',
@@ -439,6 +447,7 @@ class SchoolAdminController extends Controller
                         'date' => $row->dv_submitted_at ?? null,
                         'status' => $this->pendingApprovalLabel($row->assigned_reviewer_name ?? null),
                         'url' => route('school-admin.dv.show', $row->dv_id),
+                        'continue_label' => 'Open Pending Approval',
                     ];
                 });
         } catch (\Throwable $e) {
@@ -474,12 +483,22 @@ class SchoolAdminController extends Controller
             return $fallback;
         }
 
-        return RoleHolderLabel::line(
+        $line = RoleHolderLabel::line(
             WorkflowNotifier::ROLE_SCHOOL_ADMIN,
             $reviewerName,
             $fallback !== '' ? $fallback : 'Pending approval',
             'Pending approval by %s'
         );
+
+        $currentName = trim((string) (Auth::user()->user_full_name ?? ''));
+        $namedReviewer = trim((string) $reviewerName);
+        $isYou = ($currentName !== '' && $namedReviewer !== '' && strcasecmp($namedReviewer, $currentName) === 0)
+            || ($namedReviewer === '' && ! RoleHolderLabel::multiple(WorkflowNotifier::ROLE_SCHOOL_ADMIN));
+        if ($isYou) {
+            return 'Under review by you';
+        }
+
+        return $line;
     }
 
     private function applyReviewerQueue($query): void

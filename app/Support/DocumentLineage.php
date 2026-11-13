@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Builds RIS → ATP → RFC/CA → RR → LIQ (cash advance only) lineage for purchaser view surfaces.
+ * Builds RIS → ATP → RFC/CA → DV → RR → LIQ (cash advance only) lineage for view surfaces.
  */
 class DocumentLineage
 {
@@ -201,7 +201,7 @@ class DocumentLineage
     /**
      * Human-readable post-submit / review-stage message for a document status.
      *
-     * @param  string|null  $docType  ris|atp|rfc|rr|liq
+     * @param  string|null  $docType  ris|atp|rfc|dv|rr|liq
      */
     public static function reviewHint(?string $status, ?string $stage = null, ?string $docType = null): ?string
     {
@@ -211,7 +211,7 @@ class DocumentLineage
         if (in_array($status, ['Draft', ''], true)) {
             return 'Draft — not submitted yet';
         }
-        if ($status === 'Minor Revision') {
+        if ($status === 'Minor Revision' || $status === 'Revision') {
             return 'Revision required — update and resubmit';
         }
         if ($status === 'Completed') {
@@ -220,8 +220,11 @@ class DocumentLineage
         if ($status === 'Directly Approved') {
             return 'Directly approved by the Administrator';
         }
-        if ($status === 'Approved') {
+        if ($status === 'Approved' || $status === 'President Approved') {
             return 'Approved';
+        }
+        if ($status === 'With President') {
+            return 'Submitted — waiting on President';
         }
         if ($status === 'Under Review') {
             return 'Under review';
@@ -250,6 +253,9 @@ class DocumentLineage
             }
             if ($docType === 'ris') {
                 return 'Submitted — waiting on Administrator';
+            }
+            if ($docType === 'dv') {
+                return 'Submitted — waiting on School Administrator / President';
             }
 
             return 'Submitted — waiting on Accounting';
@@ -300,9 +306,32 @@ class DocumentLineage
             'ris' => null,
             'atp' => null,
             'rfc' => null,
+            'dv' => null,
             'rr' => null,
             'liq' => null,
         ];
+    }
+
+    private static function dvUrl(int $dvId): string
+    {
+        if (class_exists(RequestExplorer::class)) {
+            $url = RequestExplorer::viewUrlFor('dv', $dvId);
+            if (is_string($url) && $url !== '') {
+                return $url;
+            }
+        }
+
+        foreach ([
+            ['accounting.dv.show', ['id' => $dvId]],
+            ['school-admin.dv.show', ['id' => $dvId]],
+            ['president.dv.show', ['id' => $dvId]],
+        ] as [$name, $params]) {
+            if (\Illuminate\Support\Facades\Route::has($name)) {
+                return route($name, $params);
+            }
+        }
+
+        return '#';
     }
 
     private static function node(string $type, int $id, string $label, string $url, ?string $hint = null): array
@@ -338,6 +367,32 @@ class DocumentLineage
             route('purchaser.rfc.index', ['view_rfc' => $rfc->request_check_id]),
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
+
+        if (
+            Schema::hasTable('disbursement_vouchers_table')
+            && Schema::hasColumn('disbursement_vouchers_table', 'dv_request_check_id')
+        ) {
+            $dv = DB::table('disbursement_vouchers_table')
+                ->where('dv_request_check_id', $rfc->request_check_id)
+                ->when(
+                    Schema::hasColumn('disbursement_vouchers_table', 'dv_is_archived'),
+                    fn ($q) => $q->where(function ($inner) {
+                        $inner->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+                    })
+                )
+                ->orderByDesc('dv_id')
+                ->first();
+
+            if ($dv) {
+                $chain['dv'] = self::node(
+                    'DV',
+                    (int) $dv->dv_id,
+                    $dv->dv_form_number ?? ('DV #'.$dv->dv_id),
+                    self::dvUrl((int) $dv->dv_id),
+                    self::reviewHint($dv->dv_status ?? null, null, 'dv')
+                );
+            }
+        }
 
         $rrQuery = DB::table('receiving_reports_table');
         if (Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')) {

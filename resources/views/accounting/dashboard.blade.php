@@ -123,7 +123,7 @@
 
         <div class="acx-card flex flex-col">
             <div class="px-6 pt-6">
-                <h2 class="acx-h text-base font-semibold">Due dates</h2>
+                <h2 class="acx-h text-base font-semibold">Liquidation deadlines</h2>
             </div>
 
             <div class="mt-4 grid grid-cols-3 divide-x divide-slate-100 border-y border-slate-100">
@@ -151,7 +151,7 @@
                     </button>
                 @empty
                     <div class="flex h-full flex-col items-center justify-center px-6 py-10 text-center">
-                        <p class="text-sm font-medium text-slate-700">Nothing due</p>
+                        <p class="text-sm font-medium text-slate-700">No liquidation report is due</p>
                     </div>
                 @endforelse
             </div>
@@ -161,7 +161,20 @@
     <section class="grid gap-6 xl:grid-cols-3">
         <div class="acx-card p-6 xl:col-span-2">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <h2 class="acx-h text-base font-semibold">Money released</h2>
+                <div>
+                    <h2 class="acx-h text-base font-semibold">Money released</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">From released request checks</p>
+                    <div id="fundsChartBasis" class="mt-2 flex flex-wrap gap-1.5">
+                        @foreach(($fundsReleasedChart['basis'] ?? []) as $part)
+                            @if((int) ($part['count'] ?? 0) > 0)
+                                <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#15803d]">
+                                    {{ $part['label'] }}
+                                    <span class="font-medium tabular-nums">{{ $peso($part['amount']) }}</span>
+                                </span>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
                 <div class="flex items-center gap-4">
                     <div class="text-right">
                         <p class="text-lg font-semibold tabular-nums text-slate-900" id="fundsChartTotal">{{ $peso($fundsReleasedChart['total'] ?? 0) }}</p>
@@ -180,48 +193,63 @@
         </div>
 
         <div class="acx-card flex flex-col p-6">
-            <h2 class="acx-h text-base font-semibold">Totals</h2>
-            <p class="mt-0.5 text-xs text-slate-500">Approved money, what already went out, and cash still not settled.</p>
+            <h2 class="acx-h text-base font-semibold">Where the money stands</h2>
 
-            <dl class="mt-5 space-y-3 text-sm">
-                <div class="flex items-baseline gap-2">
-                    <dt class="text-slate-600">Approved</dt>
-                    <span class="acx-leader"></span>
-                    <dd class="tabular-nums text-slate-900">{{ $peso($received) }}</dd>
-                </div>
-                <div class="flex items-baseline gap-2">
-                    <dt class="text-slate-600">Released</dt>
-                    <span class="acx-leader"></span>
-                    <dd class="tabular-nums text-slate-900">{{ $peso($releasedTotal) }}</dd>
-                </div>
-                <div class="flex items-baseline gap-2 border-t border-slate-900/80 pt-3">
-                    <dt class="font-medium text-slate-900">Not released yet</dt>
-                    <span class="acx-leader"></span>
-                    <dd class="font-semibold tabular-nums text-[#0025cc]">{{ $peso($awaiting) }}</dd>
-                </div>
-            </dl>
+            @php
+                $fundPaths = $financialSummary['paths'] ?? ['approved' => [], 'released' => [], 'waiting' => []];
+                $paidShare = $received > 0 ? min(100, (int) round(($releasedTotal / $received) * 100)) : 0;
+                $paidBar = $paidShare >= 100 ? '#0025cc' : ($paidShare >= 50 ? '#eab308' : '#dc2626');
+            @endphp
 
-            <div class="mt-3">
-                <div class="flex h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    @if($received > 0)
-                        <span class="bg-[#0025cc]" style="width: {{ min(100, round(($releasedTotal / $received) * 100)) }}%"></span>
-                    @endif
+            <div class="mt-5 space-y-4 text-sm">
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <p class="font-medium text-slate-900">Approved checks</p>
+                        <span class="acx-leader"></span>
+                        <p class="tabular-nums text-slate-900">{{ $peso($received) }}</p>
+                    </div>
+                    @include('accounting.partials.fund-path-pills', ['parts' => $fundPaths['approved'] ?? []])
+                </div>
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <p class="font-medium text-slate-900">Already paid out</p>
+                        <span class="acx-leader"></span>
+                        <p class="tabular-nums text-slate-900">{{ $peso($releasedTotal) }}</p>
+                    </div>
+                    @include('accounting.partials.fund-path-pills', ['parts' => $fundPaths['released'] ?? []])
+                </div>
+                <div class="border-t border-slate-200 pt-3">
+                    <div class="flex items-baseline gap-2">
+                        <p class="font-medium text-slate-900">Waiting to be paid</p>
+                        <span class="acx-leader"></span>
+                        <p class="font-semibold tabular-nums text-[#0025cc]">{{ $peso($awaiting) }}</p>
+                    </div>
+                    <div class="mt-3">
+                        <div class="flex h-1.5 overflow-hidden rounded-full bg-slate-100">
+                            <span style="width: {{ $paidShare }}%; background: {{ $paidBar }};"></span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">{{ $paidShare }}% of approved checks have been paid out.</p>
+                    </div>
                 </div>
             </div>
 
-            <p class="acx-label mt-6">Cash given out</p>
-            <dl class="mt-3 space-y-3 text-sm">
-                <div class="flex items-baseline gap-2">
-                    <dt class="text-slate-600">Settled</dt>
-                    <span class="acx-leader"></span>
-                    <dd class="tabular-nums text-slate-900">{{ $peso($liquidated) }}</dd>
+            <p class="mt-6 text-sm font-semibold text-slate-900">Cash Advance still out</p>
+            <div class="mt-3 space-y-4 text-sm">
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-slate-700">Reported and approved</p>
+                        <span class="acx-leader"></span>
+                        <p class="tabular-nums text-slate-900">{{ $peso($liquidated) }}</p>
+                    </div>
                 </div>
-                <div class="flex items-baseline gap-2">
-                    <dt class="text-slate-600">Still out</dt>
-                    <span class="acx-leader"></span>
-                    <dd class="tabular-nums {{ $d['cashAdvanceAmount'] > 0 ? 'text-amber-600' : 'text-slate-900' }}">{{ $peso($d['cashAdvanceAmount']) }}</dd>
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-slate-700">Still with the purchaser</p>
+                        <span class="acx-leader"></span>
+                        <p class="tabular-nums {{ $d['cashAdvanceAmount'] > 0 ? 'font-semibold text-amber-600' : 'text-slate-900' }}">{{ $peso($d['cashAdvanceAmount']) }}</p>
+                    </div>
                 </div>
-            </dl>
+            </div>
         </div>
     </section>
 
@@ -326,7 +354,7 @@
         if (!canvas || typeof Chart === 'undefined') return;
 
         const ACCENT = '#0025cc';
-        const MUTED = '#dfe4f5';
+        const REST = '#93c5fd';
         let months = @json($chartMonths);
         let year = Number(@json((int) $chartYear));
         let chart = null;
@@ -335,10 +363,23 @@
             return '₱' + Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function renderBasis(parts) {
+            const el = document.getElementById('fundsChartBasis');
+            if (!el) return;
+            el.innerHTML = (parts || []).filter(function (part) { return Number(part.count || 0) > 0; }).map(function (part) {
+                const label = document.createElement('span');
+                label.className = 'inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#15803d]';
+                label.textContent = part.label + ' ';
+                const amount = document.createElement('span');
+                amount.className = 'font-medium tabular-nums';
+                amount.textContent = peso(part.amount);
+                label.appendChild(amount);
+                return label.outerHTML;
+            }).join('');
+        }
+
         function barColors() {
-            const now = new Date();
-            const current = year === now.getFullYear() ? now.getMonth() : -1;
-            return months.map((m, i) => i === current ? ACCENT : MUTED);
+            return months.map(function () { return REST; });
         }
 
         function build() {
@@ -410,6 +451,7 @@
                     const releases = data.releases || 0;
                     document.getElementById('fundsChartTotal').textContent = peso(data.total);
                     document.getElementById('fundsChartReleases').textContent = releases + (releases === 1 ? ' release' : ' releases');
+                    renderBasis(data.basis);
                     build();
                     url.searchParams.delete('partial');
                     window.history.replaceState({}, '', url.pathname + url.search);

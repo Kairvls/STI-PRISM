@@ -14,6 +14,8 @@
                             data-preview-url="{{ route('school-admin.atp.preview', $row->authority_purchase_id) }}"
                             data-review-url="/school-admin/authority-to-purchase/{{ $row->authority_purchase_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                             data-preview-title="{{ $row->authority_purchase_form_number ?? ('ATP-'.$row->authority_purchase_id) }}"
+                            data-atp-id="{{ $row->authority_purchase_id }}"
+                            data-can-approve="{{ ($row->authority_purchase_status ?? '') === 'Pending' && ! empty($row->authority_purchase_submitted_at) ? '1' : '0' }}"
                             title="View ATP form"
                         >
                             {{ $row->authority_purchase_form_number ?? 'ATP-' . $row->authority_purchase_id }}
@@ -64,6 +66,8 @@
                     data-preview-url="{{ route('school-admin.atp.preview', $row->authority_purchase_id) }}"
                     data-review-url="/school-admin/authority-to-purchase/{{ $row->authority_purchase_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                     data-preview-title="{{ $row->authority_purchase_form_number ?? ('ATP-'.$row->authority_purchase_id) }}"
+                    data-atp-id="{{ $row->authority_purchase_id }}"
+                    data-can-approve="{{ ($row->authority_purchase_status ?? '') === 'Pending' && ! empty($row->authority_purchase_submitted_at) ? '1' : '0' }}"
                     title="View ATP form"
                     aria-label="View ATP form"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"

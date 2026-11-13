@@ -720,12 +720,19 @@
     .acc-viewer-fit .rr-print-sheet,
     .acc-viewer-fit .liq-print-sheet,
     .acc-viewer-fit .ris-document,
-    .acc-viewer-fit .acc-paper {
+    .acc-viewer-fit .acc-paper,
+    .acc-viewer-fit .dv-print-sheet {
         margin: 0 auto;
         max-width: none !important;
         min-height: 0 !important;
         height: auto !important;
         box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+    }
+
+    .acc-viewer-fit .dv-print-sheet {
+        width: 210mm !important;
+        max-width: 210mm !important;
+        background: #fff;
     }
 
     /* Compact ATP paper inside viewer */
@@ -1097,7 +1104,8 @@
         color: #94a3b8;
     }
 
-    .acc-chain-item p:last-child {
+    .acc-chain-item p:last-child,
+    .acc-chain-item p.acc-chain-value {
         font-size: 0.75rem;
         font-weight: 500;
         color: var(--acc-ink);
@@ -1105,6 +1113,14 @@
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 9rem;
+    }
+
+    .acc-chain-kind {
+        display: block;
+        margin-top: 0.125rem;
+        font-size: 11px;
+        font-weight: 600;
+        color: #15803d;
     }
 
     .acc-timeline-dot {

@@ -112,11 +112,35 @@
         }
     }
 
+    /**
+     * Drop document deep-link query params (view_rr, view_rfc, …) after the modal closes
+     * so refreshing does not reopen a closed record, and the URL matches the list view.
+     */
+    function clearDeepLink(keys) {
+        try {
+            var url = new URL(window.location.href);
+            var list = Array.isArray(keys) ? keys : [];
+            var changed = false;
+            list.forEach(function (key) {
+                if (url.searchParams.has(key)) {
+                    url.searchParams.delete(key);
+                    changed = true;
+                }
+            });
+            if (!changed) {
+                return;
+            }
+            var next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+            window.history.replaceState({}, '', next);
+        } catch (e) {}
+    }
+
     window.purDialog = {
         activate: activate,
         deactivate: deactivate,
         trap: trap,
         sync: sync,
+        clearDeepLink: clearDeepLink,
         focusables: focusables
     };
 })();

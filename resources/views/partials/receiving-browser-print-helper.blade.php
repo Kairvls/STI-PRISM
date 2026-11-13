@@ -16,7 +16,7 @@
         iframe.id = 'receiving-browser-print-frame';
         iframe.setAttribute('aria-hidden', 'true');
         iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
-        iframe.src = '/receiving/reports/' + reportId + '/print?embed=1&ts=' + Date.now();
+        iframe.src = '/receiving/reports/' + reportId + '/print?embed=1';
 
         var cleaned = false;
         var cleanup = function () {

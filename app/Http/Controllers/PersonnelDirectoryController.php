@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Support\Departments;
 use App\Support\ReporterImport;
 use App\Support\RoleAccess;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,7 +20,8 @@ class PersonnelDirectoryController extends Controller
 
     public const TYPES = ['Faculty', 'Staff'];
 
-    public const OPEN_REPORT_STATUSES = ['Pending', 'Processing', 'For Replacement'];
+    // Unresolved = not finished actioning yet (For Replacement already decided / actioned)
+    public const OPEN_REPORT_STATUSES = ['Pending', 'Processing'];
 
     public const REPORT_STATUSES = [
         'Pending',
@@ -60,11 +63,13 @@ class PersonnelDirectoryController extends Controller
             ->when($type !== '', fn ($q) => $q->where('r.reporter_employment_type', $type))
             ->when($departmentId > 0, fn ($q) => $q->where('r.reporter_department_id', $departmentId));
 
+        // Unresolved reports first, then any reports, then newest (LIFO)
         $people = $query
-            ->orderByRaw(ReporterImport::hasNameColumns()
-                ? 'COALESCE(r.reporter_last_name, r.reporter_full_name), r.reporter_first_name'
-                : 'r.reporter_full_name')
-            ->paginate(15)
+            ->orderByDesc(DB::raw('COALESCE(rc.reports_open, 0)'))
+            ->orderByDesc(DB::raw('COALESCE(rc.reports_total, 0)'))
+            ->orderByDesc('r.reporter_created_at')
+            ->orderByDesc('r.reporter_id')
+            ->paginate(10)
             ->withQueryString();
 
         if ($hasDepartment) {
@@ -134,6 +139,80 @@ class PersonnelDirectoryController extends Controller
             'recordStatus' => $recordStatus,
             'canOpenReports' => RoleAccess::hasRole(RoleAccess::MAINTENANCE, $request->user()),
         ]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $hasDepartment = ReporterImport::hasDepartmentColumn() && Departments::tableReady();
+        $reporterId = (int) $request->query('reporter', 0);
+        if ($reporterId <= 0) {
+            return redirect()
+                ->route('maintenance.personnel-directory.index')
+                ->with('error', 'Choose a reporter to export.');
+        }
+
+        $reporter = $this->reportersQuery($hasDepartment)->where('r.reporter_id', $reporterId)->first();
+        if ($reporter && $hasDepartment && empty($reporter->department_name)) {
+            $reporter->department_name = $this->resolveReporterDepartmentName($reporter);
+        }
+
+        if (! $reporter) {
+            return redirect()
+                ->route('maintenance.personnel-directory.index')
+                ->with('error', 'Reporter not found.');
+        }
+
+        $recordStatus = in_array($request->query('record_status'), self::REPORT_STATUSES, true)
+            ? (string) $request->query('record_status')
+            : '';
+        $recordSearch = trim((string) $request->query('record_search', ''));
+
+        $records = DB::table('reports_table')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+            ->where('reports_table.report_reporter_employee_id', $reporter->reporter_employee_id)
+            ->when($recordStatus !== '', fn ($q) => $q->where('reports_table.report_current_status', $recordStatus))
+            ->when($recordSearch !== '', function ($q) use ($recordSearch) {
+                $like = '%'.$recordSearch.'%';
+                $q->where(function ($inner) use ($like) {
+                    $inner->where('reports_table.report_suggested_issue', 'like', $like)
+                        ->orWhere('reports_table.report_problem_description', 'like', $like)
+                        ->orWhere('reports_table.report_unlisted_equipment_name', 'like', $like)
+                        ->orWhere('equipment_table.equipment_name', 'like', $like)
+                        ->orWhere('rooms_table.room_name', 'like', $like);
+                });
+            })
+            ->select(
+                'reports_table.report_id',
+                'reports_table.report_submitted_at',
+                'reports_table.report_current_status',
+                'reports_table.report_urgency_level',
+                'reports_table.report_suggested_issue',
+                'reports_table.report_problem_description',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'rooms_table.room_name'
+            )
+            ->orderByDesc('reports_table.report_submitted_at')
+            ->limit(2000)
+            ->get();
+
+        $filterBits = array_filter([
+            $recordStatus !== '' ? 'status '.$recordStatus : null,
+            $recordSearch !== '' ? 'search "'.$recordSearch.'"' : null,
+        ]);
+
+        $safeId = preg_replace('/[^A-Za-z0-9\-_]+/', '-', (string) ($reporter->reporter_employee_id ?: 'reporter-'.$reporter->reporter_id));
+
+        $pdf = Pdf::loadView('maintenance-personnel.personnel-directory.records-export-pdf', [
+            'reporter' => $reporter,
+            'records' => $records,
+            'filterNote' => $filterBits === [] ? null : implode(' · ', $filterBits),
+            'preparedBy' => Auth::user()?->user_full_name,
+            'generatedAt' => now(),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('reporter-records-'.trim($safeId, '-').'-'.now()->format('Ymd-His').'.pdf');
     }
 
     private function reportersQuery(bool $hasDepartment)

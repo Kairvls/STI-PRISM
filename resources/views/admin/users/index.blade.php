@@ -202,7 +202,7 @@
 
         #viewUserModal .view-user-name {
             margin: 0;
-            font-size: 1.05rem;
+            font-size: 1.15rem;
             font-weight: 700;
             color: #0f172a;
             letter-spacing: -0.02em;
@@ -211,7 +211,7 @@
 
         #viewUserModal .view-user-meta {
             margin-top: 0.2rem;
-            font-size: 0.75rem;
+            font-size: 0.875rem;
             color: #94a3b8;
             font-weight: 500;
         }
@@ -221,9 +221,9 @@
             align-items: center;
             gap: 0.35rem;
             margin-top: 0.65rem;
-            padding: 0.2rem 0.55rem;
+            padding: 0.25rem 0.65rem;
             border-radius: 999px;
-            font-size: 0.68rem;
+            font-size: 0.8rem;
             font-weight: 600;
             letter-spacing: 0.02em;
             background: #f1f5f9;
@@ -248,7 +248,7 @@
 
         #viewUserModal .view-user-section-label {
             margin: 0 0 0.55rem;
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             font-weight: 650;
             letter-spacing: 0.08em;
             text-transform: uppercase;
@@ -271,15 +271,15 @@
 
         #viewUserModal .view-user-label {
             display: block;
-            margin-bottom: 0.2rem;
-            font-size: 0.68rem;
+            margin-bottom: 0.25rem;
+            font-size: 0.8rem;
             font-weight: 500;
             color: #94a3b8;
         }
 
         #viewUserModal .view-user-value {
             display: block;
-            font-size: 0.875rem;
+            font-size: 0.95rem;
             font-weight: 600;
             color: #0f172a;
             line-height: 1.35;
@@ -367,11 +367,11 @@
             display: inline-flex;
             align-items: center;
             max-width: 100%;
-            padding: 0.2rem 0.55rem;
+            padding: 0.25rem 0.65rem;
             border-radius: 999px;
             background: #eff6ff;
             color: #1d4ed8;
-            font-size: 0.75rem;
+            font-size: 0.875rem;
             font-weight: 600;
             line-height: 1.3;
         }
@@ -379,14 +379,14 @@
         #viewUserModal .view-user-extra-list {
             display: flex;
             flex-direction: column;
-            gap: 0.2rem;
+            gap: 0.25rem;
             min-width: 0;
         }
 
         #viewUserModal .view-user-extra-item {
             display: block;
             color: #0025cc;
-            font-size: 0.8125rem;
+            font-size: 0.9rem;
             font-weight: 600;
             line-height: 1.35;
             white-space: nowrap;
@@ -400,7 +400,29 @@
         #viewUserModal .view-user-footer {
             display: flex;
             justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
             padding: 0.85rem 1.35rem 1.15rem;
+        }
+
+        #viewUserModal .view-user-logs-btn {
+            appearance: none;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            padding: 0.55rem 1.15rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        #viewUserModal .view-user-logs-btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #0f172a;
         }
 
         #viewUserModal .view-user-close-btn {
@@ -410,7 +432,7 @@
             color: #fff;
             border-radius: 999px;
             padding: 0.55rem 1.15rem;
-            font-size: 0.8rem;
+            font-size: 0.875rem;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.15s ease;
@@ -450,7 +472,7 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">User accounts</h2>
+                        <h2 class="text-base font-semibold text-gray-950">System user accounts</h2>
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $totalUsers }}</span>
                     </div>
                 </div>
@@ -462,28 +484,49 @@
             </div>
 
             <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div class="relative w-full lg:max-w-sm">
-                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-                    <input
-                        type="text"
-                        id="userSearchInput"
-                        placeholder="Search by name, employee ID, or role…"
-                        class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
-                    >
-                </div>
-
                 <div
                     id="userFilterSlider"
-                    class="relative inline-flex max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    class="relative inline-flex max-w-full shrink-0 items-center overflow-x-auto rounded-lg bg-slate-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     <span
                         class="user-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-8 rounded-md bg-white shadow-sm will-change-transform"
                         style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
                         aria-hidden="true"
                     ></span>
-                    <button type="button" data-filter="all" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-xs font-semibold text-slate-950">All</button>
-                    <button type="button" data-filter="active" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-xs font-semibold text-slate-500 hover:text-slate-900">Active</button>
-                    <button type="button" data-filter="inactive" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-xs font-semibold text-slate-500 hover:text-slate-900">Inactive</button>
+                    <button type="button" data-filter="all" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-sm font-semibold text-slate-950">All</button>
+                    <button type="button" data-filter="active" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-sm font-semibold text-slate-500 hover:text-slate-900">Active</button>
+                    <button type="button" data-filter="inactive" class="user-filter-btn relative z-10 flex h-8 shrink-0 items-center rounded-md px-3.5 text-sm font-semibold text-slate-500 hover:text-slate-900">Inactive</button>
+                </div>
+
+                <div class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
+                    <div class="relative w-full sm:w-72">
+                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+                        <input
+                            type="text"
+                            id="userSearchInput"
+                            placeholder="Search name or ID…"
+                            class="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-[15px] text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                        >
+                    </div>
+                    <select
+                        id="userPrimaryRoleFilter"
+                        aria-label="Primary role"
+                        class="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-300"
+                    >
+                        <option value="">All primary roles</option>
+                        @foreach ($roles as $role)
+                            <option value="{{ (int) $role->role_id }}">{{ $role->role_name }}</option>
+                        @endforeach
+                    </select>
+                    <select
+                        id="userTypeFilter"
+                        aria-label="Faculty or Staff"
+                        class="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-gray-300"
+                    >
+                        <option value="">Faculty &amp; staff</option>
+                        <option value="Faculty">Faculty</option>
+                        <option value="Staff">Staff</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -505,8 +548,11 @@
                 <tbody id="usersTableBody">
                     @forelse($users as $user)
                         @php
-                            $isActive = !empty($user->last_active_at)
-                                && \Carbon\Carbon::parse($user->last_active_at)->gte(now()->subDays(30));
+                            $accountStatus = trim((string) ($user->user_status ?? 'Active'));
+                            if ($accountStatus === '') {
+                                $accountStatus = 'Active';
+                            }
+                            $isActive = strcasecmp($accountStatus, 'Active') === 0;
                             $roleMeta = $extraRolesByUser[$user->user_id] ?? ['extra' => collect(), 'all_ids' => [(int) $user->user_role_id], 'extra_names' => []];
                             $allRoleIds = $roleMeta['all_ids'] ?? [(int) $user->user_role_id];
                             $isMaintenance = in_array(2, $allRoleIds, true);
@@ -515,7 +561,15 @@
                             $canProcurement = (bool) ($user->user_can_procurement ?? false) || $isPurchaser;
                             $extraNames = $roleMeta['extra_names'] ?? [];
                             $extraLabel = count($extraNames) ? implode(', ', $extraNames) : '—';
-                            $isStaffUser = \App\Support\RoleAccess::isStaffEmploymentType((string) ($user->person_employment_type ?? ''))
+                            $employmentType = trim((string) ($user->person_employment_type ?? ''));
+                            if ($employmentType === '' && ! empty($user->user_employee_id)) {
+                                if (\App\Support\RoleAccess::isStaffEmployeeId((string) $user->user_employee_id)) {
+                                    $employmentType = 'Staff';
+                                } elseif (preg_match('/F$/i', (string) $user->user_employee_id)) {
+                                    $employmentType = 'Faculty';
+                                }
+                            }
+                            $isStaffUser = \App\Support\RoleAccess::isStaffEmploymentType($employmentType)
                                 || (
                                     empty($user->person_employment_type)
                                     && \App\Support\RoleAccess::isStaffEmployeeId((string) ($user->user_employee_id ?? ''))
@@ -532,56 +586,61 @@
                                 }
                             }
                         @endphp
-                        <tr class="user-row transition hover:bg-gray-50/70" data-account-status="{{ $isActive ? 'active' : 'inactive' }}">
-                            <td class="text-sm font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
-                            <td class="text-sm text-gray-700">{{ $user->user_full_name }}</td>
+                        <tr
+                            class="user-row transition hover:bg-gray-50/70"
+                            data-account-status="{{ $isActive ? 'active' : 'inactive' }}"
+                            data-primary-role="{{ (int) $user->user_role_id }}"
+                            data-employment-type="{{ $employmentType }}"
+                        >
+                            <td class="text-[15px] font-semibold text-gray-900">{{ $user->user_employee_id ?: '-' }}</td>
+                            <td class="text-[15px] text-gray-700">{{ $user->user_full_name }}</td>
                             <td>
-                                <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">{{ $user->role_name ?: '-' }}</span>
+                                <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm font-medium text-slate-700">{{ $user->role_name ?: '-' }}</span>
                             </td>
                             <td>
                                 @if(count($extraNames))
                                     <div class="flex flex-col gap-0.5">
                                         @foreach($extraNames as $extraName)
-                                            <span class="whitespace-nowrap text-xs font-medium text-[#0025cc]">• {{ $extraName }}</span>
+                                            <span class="whitespace-nowrap text-sm font-medium text-[#0025cc]">• {{ $extraName }}</span>
                                         @endforeach
                                     </div>
                                 @else
-                                    <span class="text-xs text-gray-400">—</span>
+                                    <span class="text-sm text-gray-400">—</span>
                                 @endif
                             </td>
                             <td>
                                 @if($isPurchaser && (int) $user->user_role_id === 3)
-                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Always on</span>
+                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-700">Always on</span>
                                 @elseif($isPurchaser)
-                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Enabled</span>
+                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-700">Enabled</span>
                                 @elseif($isMaintenance || $isAdminUser)
                                     <form method="POST" action="{{ route('admin.users.procurement-access', $user->user_id) }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="user_can_procurement" value="{{ $canProcurement ? 0 : 1 }}">
                                         <button type="submit"
-                                            class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition {{ $canProcurement ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
+                                            class="inline-flex items-center rounded-full border px-2.5 py-1 text-sm font-medium transition {{ $canProcurement ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
                                             title="{{ $canProcurement ? 'Click to disable procurement' : 'Click to enable Purchaser portal (Decision A)' }}">
                                             {{ $canProcurement ? 'Enabled' : 'Disabled' }}
                                         </button>
                                     </form>
                                 @else
-                                    <span class="text-xs text-gray-400">—</span>
+                                    <span class="text-sm text-gray-400">—</span>
                                 @endif
                             </td>
                             <td>
                                 @if($isActive)
-                                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                                    <span class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-700">
                                         <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                                         Active
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                                    <span class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500">
                                         <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                                         Inactive
                                     </span>
                                 @endif
                             </td>
-                            <td class="whitespace-nowrap text-sm text-gray-500">
+                            <td class="whitespace-nowrap text-[15px] text-gray-500">
                                 @if(!empty($user->last_active_at))
                                     {{ \Carbon\Carbon::parse($user->last_active_at)->diffForHumans() }}
                                 @else
@@ -591,34 +650,10 @@
                             <td class="text-center">
                                 <div class="inline-flex items-center justify-center gap-1">
                                     <button type="button"
-                                        onclick="openEditRolesModal(this)"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
-                                        title="Edit roles"
-                                        data-user-id="{{ $user->user_id }}"
-                                        data-full-name="{{ $user->user_full_name }}"
-                                        data-primary-role="{{ (int) $user->user_role_id }}"
-                                        data-role-ids="{{ implode(',', $allRoleIds) }}"
-                                        data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
-                                        data-is-admin="{{ $isAdminUser ? '1' : '0' }}"
-                                        data-is-staff="{{ $isStaffUser ? '1' : '0' }}"
-                                        data-is-it-department="{{ $isItDepartmentUser ? '1' : '0' }}"
-                                    >
-                                        <i data-lucide="shield" class="h-4 w-4 pointer-events-none"></i>
-                                    </button>
-                                    <button type="button"
-                                        onclick="openEditEmailModal(this)"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
-                                        title="Edit Office 365 email"
-                                        data-user-id="{{ $user->user_id }}"
-                                        data-full-name="{{ $user->user_full_name }}"
-                                        data-email="{{ $user->user_email_address ?: '' }}"
-                                    >
-                                        <i data-lucide="mail" class="h-4 w-4 pointer-events-none"></i>
-                                    </button>
-                                    <button type="button"
                                         onclick="openViewUserModal(this)"
                                         class="view-user-btn inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
                                         title="View user details"
+                                        data-user-id="{{ $user->user_id }}"
                                         data-employee-id="{{ $user->user_employee_id ?: '-' }}"
                                         data-full-name="{{ $user->user_full_name }}"
                                         data-role="{{ $user->role_name ?: '-' }}"
@@ -632,6 +667,58 @@
                                     >
                                         <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
+                                    <button type="button"
+                                        onclick="openEditRolesModal(this)"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
+                                        title="Edit roles"
+                                        data-user-id="{{ $user->user_id }}"
+                                        data-full-name="{{ $user->user_full_name }}"
+                                        data-primary-role="{{ (int) $user->user_role_id }}"
+                                        data-role-ids="{{ implode(',', $allRoleIds) }}"
+                                        data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
+                                        data-is-admin="{{ $isAdminUser ? '1' : '0' }}"
+                                        data-is-staff="{{ $isStaffUser ? '1' : '0' }}"
+                                        data-is-it-department="{{ $isItDepartmentUser ? '1' : '0' }}"
+                                    >
+                                        <i data-lucide="pencil" class="h-4 w-4 pointer-events-none"></i>
+                                    </button>
+                                    <button type="button"
+                                        onclick="openEditEmailModal(this)"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
+                                        title="Edit Office 365 email"
+                                        data-user-id="{{ $user->user_id }}"
+                                        data-full-name="{{ $user->user_full_name }}"
+                                        data-email="{{ $user->user_email_address ?: '' }}"
+                                    >
+                                        <i data-lucide="mail" class="h-4 w-4 pointer-events-none"></i>
+                                    </button>
+                                    @if ((int) auth()->id() !== (int) $user->user_id)
+                                        @if ($isActive)
+                                            <button
+                                                type="button"
+                                                onclick="openUserStatusModal(this)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
+                                                title="Deactivate account"
+                                                data-user-id="{{ $user->user_id }}"
+                                                data-full-name="{{ $user->user_full_name }}"
+                                                data-action="deactivate"
+                                            >
+                                                <i data-lucide="user-x" class="h-4 w-4 pointer-events-none"></i>
+                                            </button>
+                                        @else
+                                            <button
+                                                type="button"
+                                                onclick="openUserStatusModal(this)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                                                title="Reactivate account"
+                                                data-user-id="{{ $user->user_id }}"
+                                                data-full-name="{{ $user->user_full_name }}"
+                                                data-action="reactivate"
+                                            >
+                                                <i data-lucide="user-check" class="h-4 w-4 pointer-events-none"></i>
+                                            </button>
+                                        @endif
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -769,6 +856,13 @@
                 </div>
 
                 <div class="view-user-footer">
+                    <a
+                        id="viewUserLogsLink"
+                        href="{{ route('admin.users.activity-logs') }}"
+                        class="view-user-logs-btn"
+                    >
+                        View activity logs
+                    </a>
                     <button type="button" class="view-user-close-btn" onclick="closeViewUserModal()">Done</button>
                 </div>
             </div>
@@ -1039,6 +1133,57 @@
     </div>
 </div>
 
+<div id="userStatusModal" class="fixed inset-0 z-[12000] hidden">
+    <div class="pur-modal !z-[12000]" onclick="closeUserStatusModal()">
+        <div class="pur-modal-panel relative max-w-md !overflow-hidden !p-0" onclick="event.stopPropagation()">
+            <button
+                type="button"
+                onclick="closeUserStatusModal()"
+                class="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close"
+            >
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+
+            <div class="px-6 pb-5 pt-6">
+                <div id="userStatusIconContainer" class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                    <i id="userStatusIcon" data-lucide="user-x" class="h-5 w-5"></i>
+                </div>
+                <h3 id="userStatusTitle" class="mt-4 text-base font-semibold text-slate-900">Deactivate account?</h3>
+                <p id="userStatusDescription" class="mt-2 text-sm leading-6 text-slate-500">
+                    They will no longer be able to sign in.
+                </p>
+                <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-400">User</p>
+                    <p id="userStatusName" class="mt-1 text-sm font-semibold text-slate-800"></p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/70 px-6 py-4">
+                <button
+                    type="button"
+                    onclick="closeUserStatusModal()"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    Cancel
+                </button>
+                <form id="userStatusForm" method="POST" action="#">
+                    @csrf
+                    @method('PATCH')
+                    <button
+                        id="userStatusSubmitButton"
+                        type="submit"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700"
+                    >
+                        <i id="userStatusSubmitIcon" data-lucide="user-x" class="h-4 w-4"></i>
+                        <span id="userStatusSubmitText">Deactivate account</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
     function mountUserModal(modal) {
@@ -1272,6 +1417,13 @@
             statusPill.classList.toggle('is-active', String(status).toLowerCase() === 'active');
         }
 
+        var logsLink = document.getElementById('viewUserLogsLink');
+        if (logsLink) {
+            var userId = String(btn.getAttribute('data-user-id') || '').trim();
+            var logsUrl = @json(route('admin.users.activity-logs'));
+            logsLink.href = userId ? (logsUrl + (logsUrl.indexOf('?') >= 0 ? '&' : '?') + 'user=' + encodeURIComponent(userId)) : logsUrl;
+        }
+
         var modal = mountUserModal(document.getElementById('viewUserModal'));
         if (modal) modal.classList.remove('hidden');
     };
@@ -1394,6 +1546,56 @@
     window.closeEditEmailModal = function() {
         var modal = document.getElementById('editEmailModal');
         if (modal) modal.classList.add('hidden');
+    };
+
+    window.closeUserStatusModal = function() {
+        var modal = document.getElementById('userStatusModal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.openUserStatusModal = function(btn) {
+        if (!btn) return;
+        var userId = btn.getAttribute('data-user-id');
+        var fullName = btn.getAttribute('data-full-name') || 'this user';
+        var action = btn.getAttribute('data-action') === 'reactivate' ? 'reactivate' : 'deactivate';
+        var form = document.getElementById('userStatusForm');
+        var title = document.getElementById('userStatusTitle');
+        var description = document.getElementById('userStatusDescription');
+        var name = document.getElementById('userStatusName');
+        var iconContainer = document.getElementById('userStatusIconContainer');
+        var icon = document.getElementById('userStatusIcon');
+        var submitButton = document.getElementById('userStatusSubmitButton');
+        var submitIcon = document.getElementById('userStatusSubmitIcon');
+        var submitText = document.getElementById('userStatusSubmitText');
+        if (!form || !title || !description || !name || !iconContainer || !icon || !submitButton || !submitIcon || !submitText) return;
+
+        if (name) name.textContent = fullName;
+        form.action = '/admin/users/' + userId + '/' + action;
+
+        if (action === 'reactivate') {
+            title.textContent = 'Reactivate account?';
+            description.textContent = 'They will be able to sign in again.';
+            iconContainer.className = 'flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700';
+            icon.setAttribute('data-lucide', 'user-check');
+            submitButton.className = 'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700';
+            submitIcon.setAttribute('data-lucide', 'user-check');
+            submitText.textContent = 'Reactivate account';
+        } else {
+            title.textContent = 'Deactivate account?';
+            description.textContent = 'They will no longer be able to sign in.';
+            iconContainer.className = 'flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-700';
+            icon.setAttribute('data-lucide', 'user-x');
+            submitButton.className = 'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700';
+            submitIcon.setAttribute('data-lucide', 'user-x');
+            submitText.textContent = 'Deactivate account';
+        }
+
+        var modal = mountUserModal(document.getElementById('userStatusModal'));
+        if (modal) modal.classList.remove('hidden');
+        syncAdminUsersCsrf(form);
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     };
 
     window.openEditEmailModal = function(btn) {
@@ -1528,6 +1730,8 @@
         closeViewUserModal();
         closeCreateUserModal();
         closeEditRolesModal();
+        closeEditEmailModal();
+        closeUserStatusModal();
     });
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -1585,16 +1789,23 @@
             renderCarouselWindow(pageCount);
         }
 
+        var primaryRoleFilter = document.getElementById('userPrimaryRoleFilter');
+        var typeFilter = document.getElementById('userTypeFilter');
+
         function applyUserFilters() {
             var query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+            var roleValue = primaryRoleFilter ? String(primaryRoleFilter.value || '') : '';
+            var typeValue = typeFilter ? String(typeFilter.value || '') : '';
             var matched = [];
 
             rows.forEach(function (row) {
                 var matchesSearch = !query || row.textContent.toLowerCase().includes(query);
                 var status = row.getAttribute('data-account-status') || 'inactive';
                 var matchesStatus = currentFilter === 'all' || status === currentFilter;
+                var matchesRole = !roleValue || String(row.getAttribute('data-primary-role') || '') === roleValue;
+                var matchesType = !typeValue || String(row.getAttribute('data-employment-type') || '') === typeValue;
                 row.style.display = 'none';
-                if (matchesSearch && matchesStatus) matched.push(row);
+                if (matchesSearch && matchesStatus && matchesRole && matchesType) matched.push(row);
             });
 
             var shown = matched.length;
@@ -1624,6 +1835,14 @@
         });
 
         if (searchInput) searchInput.addEventListener('input', function () {
+            currentPage = 1;
+            applyUserFilters();
+        });
+        if (primaryRoleFilter) primaryRoleFilter.addEventListener('change', function () {
+            currentPage = 1;
+            applyUserFilters();
+        });
+        if (typeFilter) typeFilter.addEventListener('change', function () {
             currentPage = 1;
             applyUserFilters();
         });
@@ -1677,6 +1896,7 @@
 
         bindAdminUsersCsrfForm('editEmailForm');
         bindAdminUsersCsrfForm('editRolesForm');
+        bindAdminUsersCsrfForm('userStatusForm');
         var createForm = document.querySelector('#createUserModal form');
         if (createForm) {
             if (!createForm.id) {

@@ -12,7 +12,7 @@
                 fit.style.margin = '0';
 
                 var sheet = fit.querySelector(
-                    '.rfc-print-sheet, .liq-print-sheet, .atp-print-sheet, .rr-print-sheet, .ris-document, .acc-paper'
+                    '.rfc-print-sheet, .liq-print-sheet, .atp-print-sheet, .rr-print-sheet, .dv-print-sheet, .ris-document, .acc-paper'
                 ) || fit.firstElementChild;
                 if (!sheet) return;
 

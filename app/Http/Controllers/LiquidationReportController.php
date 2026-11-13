@@ -411,11 +411,12 @@ class LiquidationReportController extends Controller
                 : LrFormNumber::allocateOnSubmit($existing?->liquidation_report_form_number ?? null);
         }
 
+        $rrId = (int) ($row['liquidation_report_receiving_report_id'] ?? 0);
+
         if (!$existing) {
             $row['liquidation_report_created_by'] = auth()->id();
             $row['liquidation_report_created_at'] = $now;
             if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_request_no')) {
-                $rrId = (int) ($row['liquidation_report_receiving_report_id'] ?? 0);
                 $rfcId = $rrId > 0
                     ? (int) DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->value('receiving_report_request_check_id')
                     : 0;
@@ -425,6 +426,36 @@ class LiquidationReportController extends Controller
                 if ($requestNo) {
                     $row['liquidation_report_request_no'] = $requestNo;
                 }
+            }
+        }
+
+        if (
+            Schema::hasColumn('liquidation_reports_table', 'liquidation_report_procurement_request_id')
+            && $rrId > 0
+            && empty($row['liquidation_report_procurement_request_id'] ?? null)
+        ) {
+            $procurementId = 0;
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_procurement_request_id')) {
+                $procurementId = (int) DB::table('receiving_reports_table')
+                    ->where('receiving_report_id', $rrId)
+                    ->value('receiving_report_procurement_request_id');
+            }
+            if (
+                $procurementId < 1
+                && Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id')
+                && Schema::hasColumn('requisition_issue_slip_table', 'ris_procurement_request_id')
+            ) {
+                $risId = (int) DB::table('receiving_reports_table')
+                    ->where('receiving_report_id', $rrId)
+                    ->value('receiving_report_ris_id');
+                if ($risId > 0) {
+                    $procurementId = (int) DB::table('requisition_issue_slip_table')
+                        ->where('ris_id', $risId)
+                        ->value('ris_procurement_request_id');
+                }
+            }
+            if ($procurementId > 0) {
+                $row['liquidation_report_procurement_request_id'] = $procurementId;
             }
         }
 

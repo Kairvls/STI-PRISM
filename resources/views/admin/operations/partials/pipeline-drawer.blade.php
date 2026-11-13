@@ -14,6 +14,7 @@
 <div
     x-data="procurementPipelineDrawer"
     @open-procurement-pipeline.window="openPipeline($event.detail.id, $event.detail.label)"
+    @open-procurement-document.window="openDoc($event.detail.type, $event.detail.id, $event.detail.label, $event.detail.continueUrl || null, $event.detail.continueLabel || null)"
 >
     <template x-teleport="body">
         <div
@@ -32,7 +33,7 @@
                 <div x-ref="docHeader" class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
                     <div>
                         <p class="text-sm font-semibold text-gray-950" x-text="docTitle">Document</p>
-                        <p class="mt-0.5 text-xs text-gray-400">View only</p>
+                        <p class="mt-0.5 text-xs text-gray-400" x-text="docContinueUrl ? 'Preview before opening' : 'View only'"></p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="button" class="pur-btn-secondary inline-flex h-9 items-center gap-1.5 px-3 text-xs" @click="printDoc()">
@@ -74,6 +75,23 @@
                         title="Document preview"
                     ></iframe>
                 </div>
+                <div
+                    x-ref="docFooter"
+                    x-show="docContinueUrl"
+                    x-cloak
+                    class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-gray-100 bg-white px-5 py-3"
+                >
+                    <button
+                        type="button"
+                        class="px-3 py-2 text-sm font-medium text-gray-500 transition hover:text-gray-950"
+                        @click="closeDoc()"
+                    >Close</button>
+                    <a
+                        :href="docContinueUrl"
+                        class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                        x-text="docContinueLabel || 'Open'"
+                    >Open</a>
+                </div>
             </div>
         </div>
     </template>
@@ -113,7 +131,7 @@
                     </div>
 
                     <div class="divide-y divide-gray-100 rounded-xl border border-gray-100">
-                        <template x-for="key in ['ris','atp','rfc','rr','liq']" :key="key">
+                        <template x-for="key in ['ris','atp','rfc','dv','rr','liq']" :key="key">
                             <div class="flex items-start justify-between gap-3 px-4 py-3">
                                 <div>
                                     <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key === 'ris' ? 'Canvas + RIS' : key"></p>
@@ -177,6 +195,8 @@ document.addEventListener('alpine:init', () => {
         docOpen: false,
         docLoading: false,
         docTitle: '',
+        docContinueUrl: null,
+        docContinueLabel: null,
         docFrameHeight: null,
         docResizeObserver: null,
         docFullscreen: false,
@@ -233,8 +253,10 @@ document.addEventListener('alpine:init', () => {
         // The viewer body has min-height: 100vh, so measure the paper shell rather than the document.
         fitDocFrame() {
             const headerHeight = this.$refs.docHeader?.offsetHeight || 64;
+            const footerHeight = this.docContinueUrl ? (this.$refs.docFooter?.offsetHeight || 56) : 0;
+            const chrome = headerHeight + footerHeight;
             if (this.docFullscreen) {
-                this.docFrameHeight = window.innerHeight - headerHeight;
+                this.docFrameHeight = window.innerHeight - chrome;
                 return;
             }
 
@@ -255,7 +277,7 @@ document.addEventListener('alpine:init', () => {
                 + parseFloat(bodyStyle.paddingTop || 0)
                 + parseFloat(bodyStyle.paddingBottom || 0)
             );
-            const maxHeight = Math.floor(window.innerHeight * 0.9) - headerHeight;
+            const maxHeight = Math.floor(window.innerHeight * 0.9) - chrome;
 
             this.docFrameHeight = Math.max(240, Math.min(contentHeight, maxHeight));
         },
@@ -284,13 +306,15 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
-        openDoc(type, id, title) {
+        openDoc(type, id, title, continueUrl = null, continueLabel = null) {
             if (!type || !id) return;
             this.docTitle = title || (String(type).toUpperCase() + ' #' + id);
+            this.docContinueUrl = continueUrl || null;
+            this.docContinueLabel = continueLabel || 'Open Pending Approval';
             this.docOpen = true;
             this.docLoading = true;
             this.docFrameHeight = null;
-            const url = @json(\App\Support\AdminPortal::url('operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '?ts=' + Date.now();
+            const url = @json(\App\Support\AdminPortal::url('operations/documents')) + '/' + encodeURIComponent(type) + '/' + encodeURIComponent(id);
             this.refreshIcons();
             this.$nextTick(() => {
                 const frame = this.$refs.docFrame;
@@ -309,6 +333,8 @@ document.addEventListener('alpine:init', () => {
         closeDoc() {
             this.docOpen = false;
             this.docLoading = false;
+            this.docContinueUrl = null;
+            this.docContinueLabel = null;
             this.docResizeObserver?.disconnect();
             this.docResizeObserver = null;
             this.docFrameHeight = null;

@@ -69,23 +69,23 @@
             <div
                 class="ris-preview-stage relative overflow-hidden bg-slate-100"
                 data-iframe-id="{{ $iframeId }}"
-                style="min-height: 280px;"
+                style="min-height: 0; width: min(880px, 92vw);"
             >
                 <div
                     class="ris-preview-scale-wrap"
                     data-scale-wrap-for="{{ $iframeId }}"
-                    style="overflow: hidden; line-height: 0; min-height: 280px;"
+                    style="overflow: hidden; line-height: 0; height: 0; min-height: 0;"
                 >
                     <iframe
                         id="{{ $iframeId }}"
                         class="block bg-white"
                         scrolling="no"
-                        style="width: 11in; height: 8.5in; border: 0; overflow: hidden; transform-origin: top left;"
+                        style="width: 11in; height: 0; border: 0; overflow: hidden; transform-origin: top left;"
                         src="about:blank"
                         title="RIS Form Preview"
                     ></iframe>
                 </div>
-                <div class="absolute inset-0 z-10 hidden overflow-hidden bg-slate-100 py-6" data-ris-preview-skeleton>
+                <div class="overflow-hidden bg-slate-100 py-6" data-ris-preview-skeleton>
                     @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading RIS form'])
                 </div>
             </div>
@@ -117,6 +117,28 @@
         }
     }
 
+    function collapsePreviewFrame(iframe) {
+        var stage = iframe.closest('.ris-preview-stage');
+        var wrap = document.querySelector('[data-scale-wrap-for="' + iframe.id + '"]');
+        var panel = stage ? stage.closest('[data-ris-preview-panel]') : null;
+        var modal = panel ? panel.closest('[data-ris-preview-root]') : null;
+        iframe.style.height = '0px';
+        if (wrap) {
+            wrap.style.height = '0px';
+            wrap.style.minHeight = '0';
+        }
+        if (stage) {
+            stage.style.height = 'auto';
+            stage.style.minHeight = '0';
+            stage.style.width = 'min(880px, 92vw)';
+            stage.style.background = '#f1f5f9';
+        }
+        if (panel && !(modal && modal.dataset.fullscreen === '1')) {
+            panel.style.width = 'min(880px, 92vw)';
+            panel.style.height = 'auto';
+        }
+    }
+
     function watchRisPreviewSkeleton(iframe) {
         var stage = iframe.closest('.ris-preview-stage');
         var skeleton = stage ? stage.querySelector('[data-ris-preview-skeleton]') : null;
@@ -129,17 +151,51 @@
         };
 
         new MutationObserver(function () {
-            skeleton.classList.toggle('hidden', isBlank());
+            if (isBlank()) {
+                skeleton.classList.add('hidden');
+                return;
+            }
+            var doc = iframe.contentDocument;
+            if (doc && doc.readyState === 'complete' && doc.URL && doc.URL.indexOf('about:blank') === -1) {
+                skeleton.classList.add('hidden');
+                window.scaleRisPreviewIframe(iframe.id);
+                return;
+            }
+            collapsePreviewFrame(iframe);
+            skeleton.classList.remove('hidden');
         }).observe(iframe, { attributes: true, attributeFilter: ['src'] });
 
         iframe.addEventListener('load', function () {
-            if (!isBlank()) skeleton.classList.add('hidden');
+            if (isBlank()) return;
+            skeleton.classList.add('hidden');
+            window.scaleRisPreviewIframe(iframe.id);
+            setTimeout(function () { window.scaleRisPreviewIframe(iframe.id); }, 80);
+        });
+    }
+
+    function warmVisibleRisForms() {
+        var base = @js(\App\Support\AdminPortal::url('procurement-review/ris'));
+        var seen = {};
+        var warmed = 0;
+        function warm(id) {
+            if (!id || seen[id] || warmed >= 15) return;
+            seen[id] = true;
+            warmed += 1;
+            fetch(base + '/' + id + '/print', { credentials: 'same-origin' }).catch(function () {});
+        }
+        document.querySelectorAll('[data-ris-id]').forEach(function (el) {
+            warm(el.getAttribute('data-ris-id'));
+        });
+        document.querySelectorAll('[onclick*="openRisPreviewModal"]').forEach(function (el) {
+            var match = (el.getAttribute('onclick') || '').match(/openRisPreviewModal\('(\d+)'\)/);
+            if (match) warm(match[1]);
         });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('[data-ris-preview-root] .ris-preview-stage iframe').forEach(watchRisPreviewSkeleton);
         document.querySelectorAll('[id$="PreviewModal"], #risPreviewModal').forEach(mountRisPreviewModal);
+        warmVisibleRisForms();
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
         }
@@ -225,21 +281,36 @@
         if (!stage || !wrap || !panel) return;
 
         var docW = 11 * 96;
-        var docH = 8.5 * 96;
+        var docH = 520;
 
         try {
             var idoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
-            if (idoc && idoc.body && idoc.readyState === 'complete') {
-                var root = idoc.querySelector('.ris-document') || idoc.body;
-                // Force layout, then measure content box only.
-                var measuredH = Math.ceil(Math.max(
-                    root.scrollHeight || 0,
-                    root.offsetHeight || 0,
-                    root.getBoundingClientRect().height || 0
-                ));
-                if (measuredH >= 240 && measuredH <= 2000) {
-                    docH = measuredH;
+            if (idoc && idoc.body) {
+                iframe.style.width = docW + 'px';
+                iframe.style.height = '2400px';
+                var root = idoc.querySelector('.ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet') || idoc.body;
+                var prevMin = root.style.minHeight;
+                var prevHeight = root.style.height;
+                root.style.minHeight = '0px';
+                root.style.height = 'auto';
+                var view = idoc.defaultView || window;
+                var top = root.getBoundingClientRect().top;
+                var bottom = top;
+                Array.prototype.forEach.call(root.children, function (child) {
+                    var cs = view.getComputedStyle(child);
+                    if (cs.display === 'none' || cs.position === 'absolute' || cs.position === 'fixed') return;
+                    bottom = Math.max(bottom, child.getBoundingClientRect().bottom + (parseFloat(cs.marginBottom) || 0));
+                });
+                var sheetStyle = view.getComputedStyle(root);
+                var measuredH = Math.ceil(bottom - top + (parseFloat(sheetStyle.paddingBottom) || 0) + (parseFloat(sheetStyle.borderBottomWidth) || 0));
+                if (measuredH < 80) {
+                    measuredH = Math.ceil(root.scrollHeight || 0);
                 }
+                var measuredW = Math.ceil(root.getBoundingClientRect().width || root.scrollWidth || 0);
+                root.style.minHeight = prevMin;
+                root.style.height = prevHeight;
+                if (measuredW >= 280 && measuredW <= 1600) docW = measuredW;
+                if (measuredH >= 80 && measuredH <= 2400) docH = measuredH;
             }
         } catch (e) { /* ignore */ }
 
@@ -382,7 +453,7 @@
 
     window.printAdminRis = function (risId) {
         if (!risId) return;
-        var url = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var url = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + encodeURIComponent(risId) + '/print';
         var iframe = document.getElementById('adminRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');

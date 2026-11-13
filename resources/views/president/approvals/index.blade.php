@@ -495,7 +495,7 @@
 
     window.printRisDocument = function (risId) {
         if (!risId) return;
-        var url = '/president/ris/' + encodeURIComponent(risId) + '/print?ts=' + Date.now();
+        var url = '/president/ris/' + encodeURIComponent(risId) + '/print';
         var iframe = document.getElementById('presidentRisPrintFrame');
         if (!iframe) {
             iframe = document.createElement('iframe');
@@ -528,7 +528,7 @@
         const iframe = document.getElementById('risReviewIframe');
         window.currentRisId = risId;
         window.setDocFullscreen('risReviewModal', false);
-        iframe.src = '/president/ris/' + risId + '/view?preview=1&ts=' + Date.now();
+        iframe.src = '/president/ris/' + risId + '/view?preview=1';
         modal.classList.remove('hidden');
         requestAnimationFrame(() => window.fitRisDocument('risReviewIframe', 'reviewStage', 'reviewFit'));
         iframe.onload = () => window.fitRisDocument('risReviewIframe', 'reviewStage', 'reviewFit');
@@ -681,7 +681,7 @@
         if (attachList) {
             attachList.innerHTML = '<span class="text-xs text-slate-400">Loading…</span>';
         }
-        iframe.src = '/president/ris/' + encodeURIComponent(risId) + '/view?preview=1&ts=' + Date.now();
+        iframe.src = '/president/ris/' + encodeURIComponent(risId) + '/view?preview=1';
         document.getElementById('previewPresidentName').textContent = presidentDisplayName;
         document.getElementById('previewApprovedDate').textContent = options.approvedDate
             || new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });

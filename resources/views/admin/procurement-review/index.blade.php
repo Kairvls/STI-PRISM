@@ -192,6 +192,7 @@
             restoreRisSearch(searchSnap, requestedSearch);
             syncRisDateFilterUi();
             bindRisEventListeners();
+            if (typeof window.warmRisFormPreviews === 'function') window.warmRisFormPreviews();
             if (typeof window.bindPageCarousels === 'function') {
                 window.bindPageCarousels();
             }
@@ -599,6 +600,23 @@
     // OPEN RIS PREVIEW
     // =====================================================
 
+    window.warmRisFormPreviews = function () {
+        const base = @json(\App\Support\AdminPortal::url('procurement-review/ris'));
+        window.warmRisFormPreviews.seen = window.warmRisFormPreviews.seen || {};
+        document.querySelectorAll('[onclick*="openRisPreviewModal"]').forEach(function (el) {
+            const match = (el.getAttribute('onclick') || '').match(/openRisPreviewModal\('(\d+)'\)/);
+            if (!match) return;
+            const url = base + '/' + match[1] + '/print';
+            if (window.warmRisFormPreviews.seen[url]) return;
+            window.warmRisFormPreviews.seen[url] = true;
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = url;
+            document.head.appendChild(link);
+            fetch(url, { credentials: 'same-origin' }).catch(function () {});
+        });
+    };
+
     window.openRisPreviewModal = function (risId) {
 
         const modal =
@@ -627,8 +645,10 @@
         // cached version of the RIS form.
         // =====================================================
 
-        iframe.src =
-            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print?ts=${Date.now()}`;
+        const previewUrl = `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print`;
+        const skeleton = modal.querySelector('[data-ris-preview-skeleton]');
+        if (skeleton) skeleton.classList.remove('hidden');
+        iframe.src = previewUrl;
 
         if (window.fillRisPreviewAttachments) {
             window.fillRisPreviewAttachments(risId);
@@ -889,6 +909,7 @@
         function () {
 
             bindRisEventListeners();
+            if (typeof window.warmRisFormPreviews === 'function') window.warmRisFormPreviews();
 
             if (window.lucide && typeof window.lucide.createIcons === 'function') {
                 window.lucide.createIcons();

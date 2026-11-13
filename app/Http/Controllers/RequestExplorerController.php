@@ -22,6 +22,14 @@ class RequestExplorerController extends Controller
             }
         }
 
+        if ($request->boolean('preview')) {
+            return view('requests.preview', [
+                'requestNo' => $normalized,
+                'explorer' => $explorer,
+                'stageLabels' => RequestExplorer::STAGE_LABELS,
+            ]);
+        }
+
         return view('requests.show', [
             'requestNo' => $normalized,
             'explorer' => $explorer,

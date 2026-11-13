@@ -66,7 +66,9 @@
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
                 <a
-                    href="{{ route('admin.reporters.export-pdf', array_filter(['search' => request('search') ?: null, 'status' => request('status') ?: null])) }}"
+                    href="{{ route('admin.reporters.export-pdf', array_filter(['search' => request('search') ?: null, 'status' => request('status') ?: null, 'type' => request('type') ?: null, 'department' => request('department') ?: null])) }}"
+                    target="_blank"
+                    rel="noopener"
                     class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                     <i data-lucide="file-down" class="h-4 w-4"></i>
@@ -127,32 +129,19 @@
 
         
 
-    <div class="rounded-3xl bg-white shadow-sm">
-
-        
-
-        <!--<div
-            class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
-        >
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight text-slate-900">
-                    Reporters
-                </h1>
-            </div>
-            <button
-                onclick="openCreateModal()"
-                class="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700 active:bg-blue-800"
-            >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                Add Reporter
-            </button>
-        </div>-->
+    <div @class([
+        'space-y-6' => (bool) $historyReporter,
+        'rounded-3xl bg-white shadow-sm' => ! $historyReporter,
+    ])>
 
         {{-- ========================================================= --}}
         {{-- REPORTER DIRECTORY --}}
         {{-- ========================================================= --}}
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section @class([
+            'contents' => (bool) $historyReporter,
+            'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' => ! $historyReporter,
+        ])>
 
             @if ($historyReporter)
 
@@ -170,7 +159,7 @@
                         : 'bg-slate-100 text-slate-600 ring-slate-200';
                 @endphp
 
-                <div class="space-y-6 p-0">
+                <div class="space-y-6">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <a href="{{ route('admin.reporters.index') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900">
                             <i data-lucide="arrow-left" class="h-4 w-4"></i>
@@ -181,7 +170,7 @@
                             class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
                             <i data-lucide="file-down" class="h-4 w-4"></i>
-                            Audit pack
+                            Export PDF
                         </a>
                     </div>
 
@@ -339,21 +328,11 @@
                                     $historyStatusClass = match ($report->report_current_status) {
                                         'Pending' => 'bg-amber-50 text-amber-700 ring-amber-200',
                                         'Processing' => 'bg-blue-50 text-blue-700 ring-blue-200',
-                                        'For Replacement' => 'bg-violet-50 text-violet-700 ring-violet-200',
+                                        'For Replacement' => 'bg-orange-100 text-orange-700 ring-orange-200',
                                         'Resolved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
                                         'Rejected' => 'bg-rose-50 text-rose-700 ring-rose-200',
                                         'Closed / Cancelled' => 'bg-slate-200 text-slate-700 ring-slate-300',
                                         default => 'bg-slate-100 text-slate-600 ring-slate-200',
-                                    };
-
-                                    $historyStatusDotClass = match ($report->report_current_status) {
-                                        'Pending' => 'bg-amber-500',
-                                        'Processing' => 'bg-blue-500',
-                                        'For Replacement' => 'bg-violet-500',
-                                        'Resolved' => 'bg-emerald-500',
-                                        'Rejected' => 'bg-rose-500',
-                                        'Closed / Cancelled' => 'bg-slate-500',
-                                        default => 'bg-slate-400',
                                     };
 
                                     $historyPriority = \App\Support\ReportSeverity::forReport($report);
@@ -373,13 +352,14 @@
 
                                     <td class="px-5 py-4">
 
-                                        <span
+                                        <a
+                                            href="{{ \App\Support\ReportDetailsReturn::detailsUrl((int) $report->report_id) }}"
                                             class="font-mono text-sm
                                                 font-medium tracking-wider
-                                                text-slate-700"
+                                                text-[#0025cc] hover:underline"
                                         >
                                             {{ \App\Support\ReportGrouping::ticketCode($report) }}
-                                        </span>
+                                        </a>
 
                                     </td>
 
@@ -502,22 +482,14 @@
                                     <td class="px-5 py-4">
 
                                         <span
-                                            class="inline-flex items-center gap-1.5
-                                                whitespace-nowrap rounded-full
+                                            class="inline-flex items-center
+                                                whitespace-nowrap rounded-md
                                                 px-2.5 py-1
                                                 text-[11px] font-medium
                                                 ring-1 ring-inset
                                                 {{ $historyStatusClass }}"
                                         >
-
-                                            <span
-                                                class="h-1.5 w-1.5 rounded-full
-                                                    {{ $historyStatusDotClass }}"
-                                            ></span>
-
-
                                             {{ $report->report_current_status }}
-
                                         </span>
 
                                     </td>
@@ -740,6 +712,9 @@
 
                 @endif
 
+                    </div>{{-- report records card --}}
+                </div>{{-- history stack --}}
+
             @else
 
             {{-- ===================================================== --}}
@@ -885,115 +860,74 @@
                 {{-- RIGHT SIDE: SEARCH --}}
                 {{-- ================================================= --}}
 
-                <form method="GET" action="{{ url()->current() }}"
-
-                    class="flex w-full shrink-0 items-center gap-2
-                        sm:w-auto"
+                <form
+                    data-auto-filter
+                    method="GET"
+                    action="{{ url()->current() }}"
+                    class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"
                 >
 
-                    {{-- ================================================= --}}
-                    {{-- PRESERVE SELECTED STATUS TAB --}}
-                    {{-- ================================================= --}}
-
                     @if (request()->filled('status'))
-
-                        <input
-                            type="hidden"
-                            name="status"
-                            value="{{ request('status') }}"
-                        >
-
+                        <input type="hidden" name="status" value="{{ request('status') }}">
                     @endif
 
-
-                    {{-- ================================================= --}}
-                    {{-- SEARCH INPUT --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">
-
+                    <div class="relative w-full sm:w-44">
                         <i
                             data-lucide="search"
-                            class="pointer-events-none absolute
-                                left-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
+                            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                         ></i>
-
-
                         <input
                             type="search"
                             name="search"
                             value="{{ request('search') }}"
-                            placeholder="Search reporters..."
-
-                            class="h-9 w-full rounded-lg
-                                border border-slate-200
-                                bg-white pl-9 pr-3
-                                text-xs font-medium text-slate-700
-                                outline-none transition
-                                placeholder:text-slate-400
-                                focus:border-slate-400"
+                            placeholder="Search…"
+                            class="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                         >
-
                     </div>
 
+                    @if (\App\Support\ReporterImport::hasTypeColumn())
+                        <select
+                            name="type"
+                            aria-label="Faculty or Staff"
+                            class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400"
+                        >
+                            <option value="">Faculty &amp; staff</option>
+                            <option value="Faculty" @selected(request('type') === 'Faculty')>Faculty</option>
+                            <option value="Staff" @selected(request('type') === 'Staff')>Staff</option>
+                        </select>
+                    @endif
 
-                    {{-- ================================================= --}}
-                    {{-- SEARCH BUTTON --}}
-                    {{-- ================================================= --}}
+                    @if (\App\Support\ReporterImport::hasDepartmentColumn() && isset($departments) && $departments->isNotEmpty())
+                        <select
+                            name="department"
+                            aria-label="Department"
+                            class="h-9 max-w-[180px] rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400"
+                            data-searchable="1"
+                            data-search-placeholder="Search department"
+                        >
+                            <option value="">All departments</option>
+                            @foreach ($departments as $department)
+                                <option value="{{ $department->department_id }}" @selected((int) request('department') === (int) $department->department_id)>
+                                    {{ $department->department_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
 
-                    <button
-                        type="submit"
-
-                        class="inline-flex h-9 shrink-0
-                            items-center justify-center gap-2
-                            rounded-lg bg-[#0025cc] px-4
-                            text-sm font-semibold text-white
-                            transition hover:bg-blue-800"
-                    >
-
-                        <i
-                            data-lucide="search"
-                            class="h-4 w-4"
-                        ></i>
-
-                        Search
-
-                    </button>
-
-
-                    {{-- ================================================= --}}
-                    {{-- CLEAR SEARCH --}}
-                    {{-- KEEPS CURRENT STATUS TAB --}}
-                    {{-- ================================================= --}}
-
-                    @if (request()->filled('search'))
-
+                    @if (request()->filled('search') || request()->filled('type') || request()->filled('department'))
                         <a
                             href="{{ request()->fullUrlWithQuery([
                                 'search' => null,
+                                'type' => null,
+                                'department' => null,
                                 'page' => null,
                             ]) }}"
-
-                            class="inline-flex h-9 w-9 shrink-0
-                                items-center justify-center
-                                rounded-lg border border-slate-200
-                                bg-white text-slate-500
-                                transition
-                                hover:bg-slate-50
-                                hover:text-slate-900"
-
-                            data-tooltip="Clear search"
-                            aria-label="Clear search"
+                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                            data-tooltip="Clear filters"
+                            aria-label="Clear filters"
                         >
-
-                            <i
-                                data-lucide="x"
-                                class="h-4 w-4"
-                            ></i>
-
+                            <i data-lucide="x" class="h-4 w-4"></i>
                         </a>
-
                     @endif
 
                 </form>
@@ -1020,19 +954,23 @@
                             class="text-[12px] font-bold uppercase
                                 tracking-wider text-black"
                         >
-                            <th class="w-[13%] px-5 py-3 text-left">
+                            <th class="w-[12%] px-5 py-3 text-left">
                                 Employee ID
                             </th>
 
-                            <th class="w-[27%] px-5 py-3 text-left">
+                            <th class="w-[22%] px-5 py-3 text-left">
                                 Reporter
                             </th>
 
-                            <th class="w-[12%] px-5 py-3 text-left">
+                            <th class="w-[10%] px-5 py-3 text-left">
                                 Type
                             </th>
 
-                            <th class="w-[14%] px-5 py-3 text-left">
+                            <th class="w-[12%] px-5 py-3 text-left">
+                                Department
+                            </th>
+
+                            <th class="w-[12%] px-5 py-3 text-left">
                                 Contact
                             </th>
 
@@ -1040,7 +978,7 @@
                                 Status
                             </th>
 
-                            <th class="w-[24%] px-5 py-3 text-center">
+                            <th class="w-[22%] px-5 py-3 text-center">
                                 Actions
                             </th>
                         </tr>
@@ -1099,8 +1037,8 @@
                                 <td class="px-5 py-4">
 
                                     <span
-                                        class="block truncate font-mono text-sm font-semibold
-                                            tracking-wide text-gray-500"
+                                        class="block truncate font-mono text-base font-semibold
+                                            tracking-wide text-slate-800"
                                         title="{{ $reporter->reporter_employee_id }}"
                                     >
                                         {{ $reporter->reporter_employee_id }}
@@ -1147,9 +1085,16 @@
                                                 title="{{ $reporter->reporter_full_name }}"
                                             >
                                                 {{ $reporter->reporter_full_name }}
-                                                @if (!empty($reporter->report_count) && (int) $reporter->report_count > 0)
-                                                    @php $reporterReportCount = (int) $reporter->report_count; @endphp
+                                                @php
+                                                    $reporterReportCount = (int) ($reporter->report_count ?? 0);
+                                                    $reporterOpenCount = (int) ($reporter->open_report_count ?? 0);
+                                                @endphp
+                                                @if ($reporterOpenCount > 0)
                                                     <span class="ml-1 text-xs font-normal text-red-600">
+                                                        {{ number_format($reporterOpenCount) }} unresolved {{ $reporterOpenCount === 1 ? 'report' : 'reports' }}
+                                                    </span>
+                                                @elseif ($reporterReportCount > 0)
+                                                    <span class="ml-1 text-xs font-normal text-slate-500">
                                                         {{ number_format($reporterReportCount) }} - {{ $reporterReportCount === 1 ? 'Report' : 'All Reports' }}
                                                     </span>
                                                 @endif
@@ -1187,10 +1132,21 @@
                                     @else
                                         <span class="text-sm text-slate-400">—</span>
                                     @endif
+                                </td>
+
+
+
+                                {{-- ===================================== --}}
+                                {{-- DEPARTMENT --}}
+                                {{-- ===================================== --}}
+
+                                <td class="px-5 py-4">
                                     @if (!empty($reporter->reporter_department_name))
-                                        <p class="mt-1 truncate text-xs text-slate-400" title="{{ $reporter->reporter_department_name }}">
+                                        <span class="truncate text-sm text-slate-700" title="{{ $reporter->reporter_department_name }}">
                                             {{ $reporter->reporter_department_name }}
-                                        </p>
+                                        </span>
+                                    @else
+                                        <span class="text-sm text-slate-400">—</span>
                                     @endif
                                 </td>
 
@@ -1437,7 +1393,7 @@
                             <tr>
 
                                 <td
-                                    colspan="6"
+                                    colspan="7"
                                     class="px-6 py-16 text-center"
                                 >
 

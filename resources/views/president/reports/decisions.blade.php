@@ -208,7 +208,7 @@
         const modal = document.getElementById('risViewModal');
         const iframe = document.getElementById('risViewIframe');
         if (!modal || !iframe) return;
-        iframe.src = `/president/ris/${risId}/print?ts=${Date.now()}`;
+        iframe.src = `/president/ris/${risId}/print`;
         modal.classList.remove('hidden');
     }
 

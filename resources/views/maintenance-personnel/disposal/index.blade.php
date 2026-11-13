@@ -13,17 +13,6 @@
     </div>
     @endunless
 
-    @unless ($canMaintain)
-    <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        <i data-lucide="eye" class="h-4 w-4 shrink-0 text-slate-400"></i>
-        @if ($disposedOnly)
-            View only. Equipment that has been permanently disposed.
-        @else
-            View only. Disposals you request from Deployed Equipment wait for the Administrator's approval under My requests.
-        @endif
-    </div>
-    @endunless
-
     @if ($canMaintain)
     <div
         class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end"

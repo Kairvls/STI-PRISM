@@ -258,6 +258,8 @@
         font-style: italic;
         font-size: 11px;
         line-height: 1.15;
+        position: relative;
+        overflow: visible;
     }
     .dv-print-sheet .dv-sig-role {
         font-style: italic;
@@ -572,12 +574,14 @@
                             >
                             <div class="dv-sig-role">School Accountant</div>
                         @else
-                            <div class="dv-sig-space">
-                                @if(\App\Support\RisWorkflow::isDrawnSignature((string) $accountantSignature))
-                                    <img src="{{ $accountantSignature }}" alt="" style="max-height: 36px; object-fit: contain;">
-                                @endif
+                            <div class="dv-sig-space"></div>
+                            <div class="dv-sig-name">
+                                @include('partials.drawn-signature', [
+                                    'value' => $accountantSignature,
+                                    'printedName' => $accountantName,
+                                    'empty' => '',
+                                ])
                             </div>
-                            <div class="dv-sig-name">{!! $accountantName !== '' ? e($accountantName) : '&nbsp;' !!}</div>
                             <div class="dv-sig-role">School Accountant</div>
                         @endif
                     </div>
