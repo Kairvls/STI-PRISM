@@ -44,6 +44,10 @@
         $risStatusLabel = 'Amend';
         $risStatusClass = 'border-amber-300 bg-amber-50 text-amber-800';
         $risStatusTitle = 'Returned to Purchaser for amendment';
+    } elseif (\App\Support\ProcurementDraftLabel::isDraftStatus($risStatus)) {
+        $risStatusLabel = \App\Support\ProcurementDraftLabel::STATUS;
+        $risStatusClass = 'border-gray-200 bg-gray-50 text-gray-600';
+        $risStatusTitle = \App\Support\ProcurementDraftLabel::STATUS_LONG;
     } else {
         $risStatusLabel = $risStatus !== '' ? $risStatus : 'N/A';
         $risStatusClass = 'border-gray-200 bg-gray-50 text-gray-600';

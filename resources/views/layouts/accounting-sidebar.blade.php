@@ -16,16 +16,23 @@
             class="menu-item {{ request()->is('accounting/dashboard') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="layout-dashboard"></i>
-            <span>Dashboard</span>
+            <span>Overview</span>
         </a>
 
         <div class="menu-title" id="transactions-section">TRANSACTIONS</div>
+        @php
+            $accCounts = \App\Support\AccountingSidebarCounts::counts();
+            $navCount = 'menu-count';
+        @endphp
         <a
-            href="{{ route('accounting.dv.index', ['status' => 'incoming']) }}"
+            href="{{ route('accounting.dv.index', ['status' => 'all']) }}"
             class="menu-item {{ request()->is('accounting/disbursement-vouchers*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="file-spreadsheet"></i>
             <span>Disbursement Vouchers</span>
+            @if($accCounts['dv'] > 0)
+                <span class="{{ $navCount }}" title="{{ $accCounts['dv'] }} not viewed yet">{{ $accCounts['dv'] }}</span>
+            @endif
         </a>
         <a
             href="/accounting/liquidation-reports?status=incoming"
@@ -33,6 +40,9 @@
         >
             <i class="h-5 w-5" data-lucide="receipt"></i>
             <span>Liquidation Reports</span>
+            @if($accCounts['liq'] > 0)
+                <span class="{{ $navCount }}" title="{{ $accCounts['liq'] }} not viewed yet">{{ $accCounts['liq'] }}</span>
+            @endif
         </a>
         <a
             href="/accounting/procurement-records"
@@ -150,6 +160,21 @@
         transition: color 0.2s ease;
     }
     .menu-item span { color: inherit; }
+    .menu-item .menu-count {
+        margin-left: auto;
+        display: inline-flex;
+        height: 18px;
+        min-width: 18px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #0025cc;
+        padding: 0 6px;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        color: #ffffff !important;
+    }
     .menu-item:hover { color: #ffffff; background: transparent; }
     .menu-item:hover svg { color: #ffffff; stroke: #ffffff; }
     .menu-item.active {

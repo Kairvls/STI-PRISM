@@ -468,10 +468,14 @@
 
                     <div>
                         <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to School Administrator <span class="text-red-500">*</span></label>
+                        @php
+                            $atpSaReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN);
+                            $atpSaAutoId = \App\Support\ReviewerAssignment::preferredId($atpSaReviewers);
+                        @endphp
                         <select name="assigned_reviewer_id" required class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300">
                             <option value="">Select School Administrator…</option>
-                            @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN) as $reviewer)
-                                <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
+                            @foreach($atpSaReviewers as $reviewer)
+                                <option value="{{ $reviewer['id'] }}" @selected($atpSaAutoId !== null && (int) $reviewer['id'] === (int) $atpSaAutoId)>{{ $reviewer['name'] }}</option>
                             @endforeach
                         </select>
                         <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this ATP for review.</p>

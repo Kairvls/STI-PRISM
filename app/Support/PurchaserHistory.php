@@ -459,7 +459,7 @@ class PurchaserHistory
             ->map(fn ($row) => self::documentObject('ris', $row, [
                 'route' => 'ris.index',
                 'params' => ['view_ris' => $row->id],
-                'fallback' => 'Draft RIS',
+                'fallback' => ProcurementDraftLabel::untitled('ris'),
             ]));
     }
 
@@ -497,7 +497,7 @@ class PurchaserHistory
                 return self::documentObject('atp', $row, [
                     'route' => 'atp.index',
                     'params' => ['view_atp' => $row->id],
-                    'fallback' => 'Draft ATP',
+                    'fallback' => ProcurementDraftLabel::untitled('atp'),
                     'tone' => $status['tone'],
                 ]);
             });
@@ -577,7 +577,7 @@ class PurchaserHistory
                 return self::documentObject('rfc', $row, [
                     'route' => 'rfc.index',
                     'params' => ['view_rfc' => $row->id, 'fund' => $row->request_check_funding_type],
-                    'fallback' => 'Draft request',
+                    'fallback' => ProcurementDraftLabel::untitled('rfc'),
                     'type_label' => ProcurementPaymentPath::label($row->request_check_funding_type),
                 ]);
             });
@@ -613,7 +613,7 @@ class PurchaserHistory
             ->map(fn ($row) => self::documentObject('rr', $row, [
                 'route' => 'rr.index',
                 'params' => ['view_rr' => $row->id],
-                'fallback' => 'Draft RR',
+                'fallback' => ProcurementDraftLabel::untitled('rr'),
             ]));
     }
 
@@ -641,7 +641,7 @@ class PurchaserHistory
             ->map(fn ($row) => self::documentObject('liq', $row, [
                 'route' => 'liq.index',
                 'params' => ['view_liq' => $row->id],
-                'fallback' => 'Draft liquidation',
+                'fallback' => ProcurementDraftLabel::untitled('liq'),
             ]));
     }
 
@@ -690,7 +690,7 @@ class PurchaserHistory
             $status === 'Rejected' => ['key' => 'rejected', 'label' => 'Rejected', 'tone' => 'red'],
             $submitted => ['key' => 'review', 'label' => 'In review', 'tone' => 'amber'],
             $hasReason => ['key' => 'revision', 'label' => 'Minor Revision', 'tone' => 'orange'],
-            default => ['key' => 'draft', 'label' => 'Draft', 'tone' => 'slate'],
+            default => ['key' => 'draft', 'label' => ProcurementDraftLabel::STATUS, 'tone' => 'slate'],
         };
     }
 
@@ -703,7 +703,7 @@ class PurchaserHistory
             str_contains($s, 'reject') || $s === 'returned' || $s === 'cancelled' => 'red',
             str_contains($s, 'revision') || $s === 'incomplete' => 'orange',
             str_contains($s, 'approved') || in_array($s, ['completed', 'accepted'], true) => 'green',
-            $s === 'draft' || $s === 'archived' => 'slate',
+            $s === 'draft' || str_contains($s, 'preparation') || $s === 'archived' => 'slate',
             default => 'amber',
         };
     }

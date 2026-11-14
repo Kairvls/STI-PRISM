@@ -49,8 +49,8 @@
             <div id="recentList" class="recent-list">
                 @include('president.approvals._recent-list', ['recentRis' => $recentRis])
             </div>
-            <div id="recentPagination" class="recent-pagination {{ $recentRis->hasPages() ? '' : 'hidden' }}">
-                @if ($recentRis->hasPages())
+            <div id="recentPagination" class="recent-pagination {{ ($recentRis->total() ?? 0) > 0 ? '' : 'hidden' }}">
+                @if (($recentRis->total() ?? 0) > 0)
                     {{ $recentRis->links('pagination.president') }}
                 @endif
             </div>
@@ -231,7 +231,7 @@
     </div>
 </div>
 
-<div id="decisionModal" class="confirm-modal hidden">
+<div id="decisionModal" class="confirm-modal hidden" style="z-index:12050;">
     <div class="confirm-backdrop" onclick="closeDecisionModal()"></div>
     <div class="confirm-card wide" onclick="event.stopPropagation()">
         <div class="flex items-start justify-between gap-3">
@@ -248,7 +248,28 @@
             <input type="hidden" name="decision" id="targetDecision" value="" />
             <div class="mt-4">
                 <label>Rejection remarks <span class="text-red-500">*</span></label>
-                <textarea name="remarks" rows="3" placeholder="Required for reject."></textarea>
+                <textarea name="remarks" rows="3" placeholder="What should be fixed / why this RIS is rejected."></textarea>
+            </div>
+            <div class="mt-4" id="rejectRouteBox">
+                <label>Send rejection to <span class="text-red-500">*</span></label>
+                <p class="hint" style="margin:4px 0 8px;font-size:0.75rem;color:#64748b;">Choose School Administrator (default), or fast-route straight to the Purchaser.</p>
+                <div class="space-y-2">
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-700">
+                        <input type="checkbox" name="return_to[]" value="school_admin" id="rejectToSchoolAdmin" class="mt-0.5" checked>
+                        <span>
+                            <span class="font-medium text-slate-900">School Administrator</span>
+                            <span class="mt-0.5 block text-xs text-slate-500">They review the rejection, then return it to the Purchaser.</span>
+                        </span>
+                    </label>
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
+                        <input type="checkbox" name="return_to[]" value="purchaser" id="rejectToPurchaser" class="mt-0.5">
+                        <span>
+                            <span class="font-medium text-slate-900">Purchaser <span class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">Fast route</span></span>
+                            <span class="mt-0.5 block text-xs text-slate-500">Notify the Purchaser directly that the President rejected this RIS (opens for revision).</span>
+                        </span>
+                    </label>
+                </div>
+                <p id="rejectRouteError" class="mt-2 hidden text-xs text-rose-600">Select at least one destination.</p>
             </div>
             <div class="confirm-actions mt-5">
                 <button type="button" class="btn-ghost" data-tip="Cancel decision" onclick="closeDecisionModal()">Cancel</button>
@@ -445,7 +466,7 @@
                 recentList.classList.remove('updating');
             }
             if (pagination) {
-                if (data.last_page > 1) {
+                if (Number(data.total) > 0) {
                     pagination.innerHTML = buildPagination(data, 'goToRecentPage');
                     pagination.classList.remove('hidden');
                     if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
@@ -471,17 +492,20 @@
 
     (function initRecentPagination() {
         const recentPagination = document.getElementById('recentPagination');
-        @if ($recentRis->hasPages())
+        @if (($recentRis->total() ?? 0) > 0)
         if (recentPagination) {
-            recentPagination.innerHTML = buildPagination({
+            const html = buildPagination({
                 from: {{ $recentRis->firstItem() ?? 0 }},
                 to: {{ $recentRis->lastItem() ?? 0 }},
                 total: {{ $recentRis->total() }},
                 current_page: {{ $recentRis->currentPage() }},
                 last_page: {{ $recentRis->lastPage() }},
             }, 'goToRecentPage');
-            recentPagination.classList.remove('hidden');
-            if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
+            if (html) {
+                recentPagination.innerHTML = html;
+                recentPagination.classList.remove('hidden');
+                if (typeof window.bindPageCarousels === 'function') window.bindPageCarousels();
+            }
         }
         @endif
     })();
@@ -808,19 +832,31 @@
             }
         }
         const form = document.getElementById('decisionForm');
+        const modal = document.getElementById('decisionModal');
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
         document.getElementById('targetType').value = type;
         document.getElementById('targetId').value = id;
         document.getElementById('targetDecision').value = presetDecision || 'Rejected';
         const remarks = form.querySelector('textarea[name="remarks"]');
         if (remarks) remarks.value = '';
+        const toAdmin = document.getElementById('rejectToSchoolAdmin');
+        const toPurchaser = document.getElementById('rejectToPurchaser');
+        if (toAdmin) toAdmin.checked = true;
+        if (toPurchaser) toPurchaser.checked = false;
+        const routeError = document.getElementById('rejectRouteError');
+        if (routeError) routeError.classList.add('hidden');
         document.getElementById('decisionModalSubtitle').textContent = window.risFormNumberLabel(id);
         form.action = '/president/approvals/ris/decide';
         document.getElementById('decisionModalTitle').textContent = 'Reject RIS';
-        document.getElementById('decisionModal').classList.remove('hidden');
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
         if (window.lucide) lucide.createIcons();
     }
     function closeDecisionModal() {
-        document.getElementById('decisionModal').classList.add('hidden');
+        document.getElementById('decisionModal')?.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
     }
     function submitDecision(decision) {
         if (decideInFlight) return;
@@ -840,8 +876,19 @@
             } else {
                 alert('Please provide a rejection reason.');
             }
+            remarksField?.focus();
             return;
         }
+        const selectedRoutes = Array.from(form.querySelectorAll('input[name="return_to[]"]:checked'));
+        const routeError = document.getElementById('rejectRouteError');
+        if (selectedRoutes.length === 0) {
+            if (routeError) routeError.classList.remove('hidden');
+            if (typeof window.showMpToast === 'function') {
+                showMpToast('Select School Administrator and/or Purchaser.', { title: 'Destination required', type: 'warning', timer: 3600 });
+            }
+            return;
+        }
+        if (routeError) routeError.classList.add('hidden');
         decideInFlight = true;
         fetch(form.action, {
             method: 'POST',
@@ -852,7 +899,7 @@
             const data = await response.json().catch(() => ({}));
             if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to save decision.');
             closeDecisionModal();
-            showToast('RIS rejected successfully.', { title: 'Rejected', type: 'success' });
+            showToast(data.message || 'RIS rejected successfully.', { title: 'Rejected', type: 'success' });
             setTimeout(() => window.location.reload(), 900);
         })
         .catch(error => {

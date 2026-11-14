@@ -402,7 +402,7 @@
                     >
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'Submitted to SA' : $status }}</option>
+                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'Submitted to SA' : \App\Support\ProcurementDraftLabel::status($status) }}</option>
                         @endforeach
                     </select>
 
@@ -523,47 +523,25 @@
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <div
-                                            class="relative"
-                                            x-data="{ openActions: false }"
-                                            @keydown.escape.window="openActions = false"
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
+                                            class="inline"
+                                            data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to the School Administrator?' : 'Submit this Request for Check to the School Administrator?' }}"
+                                            data-pur-confirm-title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit RFC' : 'Submit RFC' }}"
+                                            data-pur-confirm-ok="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
+                                            data-pur-confirm-reviewer-role="School Administrator"
                                         >
+                                            @csrf
                                             <button
-                                                type="button"
-                                                x-on:click="openActions = !openActions"
+                                                type="submit"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                                title="More actions"
-                                                aria-label="More actions"
-                                                :aria-expanded="openActions.toString()"
+                                                title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}"
+                                                aria-label="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}"
                                             >
-                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                                <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
-                                            <div
-                                                x-show="openActions"
-                                                x-cloak
-                                                x-transition
-                                                @click.outside="openActions = false"
-                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
-                                            >
-                                                <form
-                                                    method="POST"
-                                                    action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
-                                                    data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to the School Administrator?' : 'Submit this Request for Check to the School Administrator?' }}"
-                                                    data-pur-confirm-title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit RFC' : 'Submit RFC' }}"
-                                                    data-pur-confirm-ok="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
-                                                    data-pur-confirm-reviewer-role="School Administrator"
-                                                >
-                                                    @csrf
-                                                    <button
-                                                        type="submit"
-                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                    >
-                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        {{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
+                                        </form>
                                     @endif
                                     @if(
                                         !$archiveView
@@ -577,13 +555,18 @@
                                     @endif
                                     @if(!$archiveView && $rfc->request_check_status === 'Approved')
                                         @if(!empty($rfc->can_send_to_accounting))
-                                            <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}" class="inline">
+                                            <form
+                                                method="POST"
+                                                action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}"
+                                                class="inline"
+                                                data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
+                                                data-pur-confirm-title="Submit to Accounting"
+                                                data-pur-confirm-ok="Submit"
+                                                data-pur-confirm-reviewer-role="Accounting"
+                                            >
                                                 @csrf
                                                 <button
                                                     type="submit"
-                                                    data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
-                                                    data-pur-confirm-title="Submit to Accounting"
-                                                    data-pur-confirm-ok="Submit"
                                                     class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                                     title="Submit to Accounting"
                                                     aria-label="Submit to Accounting"
@@ -715,11 +698,11 @@
                         @endphp
                         @if($eligibleAtps->isEmpty() && empty($fundingGroups))
                             <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                No approved ATP is currently available. You can still save this {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }} as a draft, but you must link an approved ATP before submitting. Use <strong>Print Empty RFC</strong> for a blank paper form.
+                                No approved ATP is currently available. You can still save this {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }} for later (in preparation), but you must link an approved ATP before submitting. Use <strong>Print Empty RFC</strong> for a blank paper form.
                             </div>
                         @else
                             <div class="mb-4">
-                                <label class="text-xs font-medium text-gray-500">Fund <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional for draft · required to submit)</span></label>
+                                <label class="text-xs font-medium text-gray-500">Fund <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional while in preparation · required to submit)</span></label>
                                 <select name="request_check_funding_source" x-on:change="applyAtpPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm">
                                     <option value="">Select an approved ATP or Purchase Order</option>
                                     @if(!empty($fundingGroups))
@@ -769,7 +752,7 @@
                         </button>
                         <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                             <i data-lucide="check" class="h-4 w-4"></i>
-                            Save Draft
+                            {{ \App\Support\ProcurementDraftLabel::SAVE }}
                         </button>
                     </div>
                 </form>
@@ -921,13 +904,17 @@
                         </button>
                         @if(!$archiveView && $rfc->request_check_status === 'Approved')
                             @if(!empty($rfc->can_send_to_accounting))
-                                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}">
+                                <form
+                                    method="POST"
+                                    action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}"
+                                    data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
+                                    data-pur-confirm-title="Submit to Accounting"
+                                    data-pur-confirm-ok="Submit"
+                                    data-pur-confirm-reviewer-role="Accounting"
+                                >
                                     @csrf
                                     <button
                                         type="submit"
-                                        data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
-                                        data-pur-confirm-title="Submit to Accounting"
-                                        data-pur-confirm-ok="Submit"
                                         class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                                     >Submit to Accounting</button>
                                 </form>
@@ -1049,7 +1036,7 @@
                                     @if($rfc->request_check_status === 'Minor Revision')
                                         Save your corrections here, then use <strong>⋮ → Resubmit to School Administrator</strong> in the list.
                                     @else
-                                        Save your changes here (including signature), then use <strong>⋮ → Submit to School Administrator</strong> in the list.
+                                        Save your changes here (including signature), then use the <strong>Submit</strong> (send) button in the list.
                                     @endif
                                 </p>
                                 <button
@@ -1099,7 +1086,7 @@
                 <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
                         <h3 id="rfc-empty-title" class="text-lg font-semibold text-gray-900">Print Empty RFC</h3>
-                        <p class="mt-0.5 text-xs text-gray-500">Blank paper only. System RFCs need a linked ATP before submit (draft may omit it).</p>
+                        <p class="mt-0.5 text-xs text-gray-500">Blank paper only. System RFCs need a linked ATP before submit (in-preparation records may omit it).</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         @include('purchaser.partials.modal-fullscreen-button')

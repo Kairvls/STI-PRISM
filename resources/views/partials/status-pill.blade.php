@@ -16,7 +16,8 @@
             || str_contains($statusKey, 'awaiting') || str_contains($statusKey, 'fair') || str_contains($statusKey, 'partial')
             || str_contains($statusKey, 'maintenance') => 'bg-amber-50 text-amber-700 ring-amber-200',
         str_contains($statusKey, 'process') || str_contains($statusKey, 'progress') || str_contains($statusKey, 'forward')
-            || str_contains($statusKey, 'borrow') || str_contains($statusKey, 'draft') => 'bg-sky-50 text-sky-700 ring-sky-200',
+            || str_contains($statusKey, 'borrow') || str_contains($statusKey, 'draft')
+            || str_contains($statusKey, 'preparation') => 'bg-sky-50 text-sky-700 ring-sky-200',
         str_contains($statusKey, 'resolv') || str_contains($statusKey, 'approv') || str_contains($statusKey, 'accept')
             || str_contains($statusKey, 'deliver') || str_contains($statusKey, 'complet') || str_contains($statusKey, 'receiv')
             || str_contains($statusKey, 'signed') || str_contains($statusKey, 'paid') || str_contains($statusKey, 'released')

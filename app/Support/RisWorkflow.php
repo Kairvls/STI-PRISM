@@ -412,7 +412,7 @@ class RisWorkflow
         }
 
         if ($status === 'Draft' || $status === '') {
-            return 'Draft — not submitted yet';
+            return ProcurementDraftLabel::STATUS_LONG;
         }
 
         return $status !== '' ? $status : 'N/A';
@@ -481,7 +481,9 @@ class RisWorkflow
         $status = (string) ($atp->authority_purchase_status ?? '');
 
         if ($status === 'Pending') {
-            return filled($atp->authority_purchase_submitted_at ?? null) ? 'Under Review' : 'Draft';
+            return filled($atp->authority_purchase_submitted_at ?? null)
+                ? 'Under Review'
+                : ProcurementDraftLabel::STATUS;
         }
 
         if ($status === 'Directly Approved') {

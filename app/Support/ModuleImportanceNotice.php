@@ -106,12 +106,12 @@ class ModuleImportanceNotice
         return match (true) {
             str_starts_with($moduleKey, 'school-admin.') => 'Items waiting for your review or signature in this module.',
             str_starts_with($moduleKey, 'president.') => 'Items waiting for your approval or next step in this module.',
-            str_starts_with($moduleKey, 'accounting.') => 'Drafts to finish or items waiting for your action in this module.',
+            str_starts_with($moduleKey, 'accounting.') => 'Records in preparation to finish, or items waiting for your action in this module.',
             str_starts_with($moduleKey, 'receiving.') => 'Receiving reports waiting for your verification in this module.',
-            str_starts_with($moduleKey, 'supply.') => 'Incoming work or drafts waiting for you in this module.',
+            str_starts_with($moduleKey, 'supply.') => 'Incoming work or records in preparation waiting for you in this module.',
             $moduleKey === 'maintenance.schedules' => 'Overdue equipment maintenance that still needs to be completed.',
             str_starts_with($moduleKey, 'maintenance.') => 'Reports that still need your attention in this module.',
-            default => 'Drafts, unsubmitted work, or next steps waiting on you in this module.',
+            default => 'Records in preparation, unsubmitted work, or next steps waiting on you in this module.',
         };
     }
 
@@ -306,7 +306,7 @@ class ModuleImportanceNotice
             self::item(
                 'drafts',
                 $drafts,
-                $drafts.' draft '.Str::plural('RIS', $drafts),
+                $drafts.' '.Str::plural('RIS', $drafts).' in preparation',
                 'Finish and submit these slips to the School Administrator.',
                 self::portalRoute('ris.index', ['status' => 'Draft']),
                 'file-pen',
@@ -371,7 +371,7 @@ class ModuleImportanceNotice
             self::item(
                 'drafts',
                 $drafts,
-                $drafts.' draft '.Str::plural('purchase order', $drafts),
+                $drafts.' '.Str::plural('purchase order', $drafts).' in preparation',
                 'Complete the basket and submit for approval.',
                 self::safeRoute('purchaser.purchase-orders.index', ['status' => 'Draft']),
                 'file-pen',
@@ -409,7 +409,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' unsubmitted funding '.Str::plural('request', $drafts),
-                'Draft or revision requests still need to be submitted.',
+                'In-preparation or revision requests still need to be submitted.',
                 self::portalRoute('rfc.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -464,7 +464,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' unsubmitted '.Str::plural('Receiving Report', $drafts),
-                'Finish drafts / revisions and submit to the Receiving Officer.',
+                'Finish in-preparation / revision reports and submit to the Receiving Officer.',
                 self::portalRoute('rr.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -557,7 +557,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' unsubmitted '.Str::plural('ATP', $drafts),
-                'Finish drafts and submit to the School Administrator.',
+                'Finish records in preparation and submit to the School Administrator.',
                 self::safeRoute('supply-officer.atp.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -743,7 +743,7 @@ class ModuleImportanceNotice
             self::item(
                 'drafts',
                 $drafts,
-                $drafts.' DV draft'.($drafts === 1 ? '' : 's').' to finish',
+                $drafts.' DV'.($drafts === 1 ? '' : 's').' in preparation to finish',
                 'Complete and submit vouchers to the School Administrator.',
                 self::safeRoute('accounting.dv.index', ['status' => 'incoming']),
                 'file-pen',

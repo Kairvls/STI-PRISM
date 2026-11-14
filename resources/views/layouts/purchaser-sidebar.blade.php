@@ -102,6 +102,12 @@
             </a>
         </div>-->
 
+        @php
+            $handoverInbox = \App\Support\DraftHandover::incomingCounts();
+            $menuCounts = \App\Support\PurchaserSidebarCounts::counts();
+            $navCount = 'menu-count ml-auto mr-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
+        @endphp
+
         <div class="menu-title" id="dashboard-section">
             DASHBOARD
         </div>
@@ -127,9 +133,20 @@
             ></i>
 
             <span>
-                Dashboard
+                Overview
             </span>
 
+        </a>
+
+        <a
+            href="{{ route('purchaser.procurement.replacement-requests') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.procurement.replacement-requests') ? 'active' : '' }}"
+        >
+            <i data-lucide="inbox" class="h-5 w-5"></i>
+            <span>Replacement Requests</span>
+            @if($menuCounts['replacement'] > 0)
+                <span class="{{ $navCount }}" title="{{ $menuCounts['replacement'] }} not viewed yet">{{ $menuCounts['replacement'] }}</span>
+            @endif
         </a>
 
 
@@ -175,12 +192,6 @@
         {{-- PROCUREMENT SECTION --}}
         {{-- ===================================================== --}}
 
-        @php
-            $handoverInbox = \App\Support\DraftHandover::incomingCounts();
-            $menuCounts = \App\Support\PurchaserSidebarCounts::counts();
-            $navCount = 'menu-count ml-auto mr-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
-        @endphp
-
         {{-- ===================================================== --}}
         {{-- PURCHASING WORKFLOW SECTION --}}
         {{-- ===================================================== --}}
@@ -188,17 +199,6 @@
         <div class="menu-title" id="purchasing-workflow-section">
             PROCUREMENT
         </div>
-
-        <a
-            href="{{ route('purchaser.procurement.replacement-requests') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.procurement.replacement-requests') ? 'active' : '' }}"
-        >
-            <i data-lucide="inbox" class="h-5 w-5"></i>
-            <span>Replacement Requests</span>
-            @if($menuCounts['replacement'] > 0)
-                <span class="{{ $navCount }}" title="{{ $menuCounts['replacement'] }} not viewed yet">{{ $menuCounts['replacement'] }}</span>
-            @endif
-        </a>
 
         {{-- ===================================================== --}}
         {{-- RIS --}}
@@ -227,7 +227,7 @@
             </span>
 
             @if($handoverInbox['ris'] > 0)
-                <span class="{{ $navCount }}" title="{{ $handoverInbox['ris'] }} RIS draft(s) passed to you">{{ $handoverInbox['ris'] }}</span>
+                <span class="{{ $navCount }}" title="{{ \App\Support\ProcurementDraftLabel::handoverCountTitle('RIS', (int) $handoverInbox['ris']) }}">{{ $handoverInbox['ris'] }}</span>
             @endif
 
         </a>
@@ -406,29 +406,39 @@
 
         </a>
 
-        <a
-            href="{{ route('purchaser.procurement-records.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.procurement-records*') ? 'active' : '' }}"
-        >
+        @php
+            $recordsGroupActive = request()->routeIs('purchaser.procurement-records*')
+                || request()->routeIs('purchaser.history*');
+        @endphp
 
-            <i
-                data-lucide="folder-archive"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Compiled Records
-            </span>
-
-        </a>
-
-        <a
-            href="{{ route('purchaser.history.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.history*') ? 'active' : '' }}"
-        >
-            <i data-lucide="history" class="h-5 w-5"></i>
-            <span>Purchase History</span>
-        </a>
+        <div class="menu-group {{ $recordsGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle mt-1 {{ $recordsGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $recordsGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="folder-archive" class="h-5 w-5"></i>
+                <span>Records</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+            </button>
+            <div class="menu-sub" @if(! $recordsGroupActive) hidden @endif>
+                <a
+                    href="{{ route('purchaser.procurement-records.index') }}"
+                    class="menu-sub-item {{ request()->routeIs('purchaser.procurement-records*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="folder-search" class="h-4 w-4"></i>
+                    <span>Compiled Records</span>
+                </a>
+                <a
+                    href="{{ route('purchaser.history.index') }}"
+                    class="menu-sub-item {{ request()->routeIs('purchaser.history*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="history" class="h-4 w-4"></i>
+                    <span>Purchase History</span>
+                </a>
+            </div>
+        </div>
 
         {{-- ===================================================== --}}
         {{-- FILE MAINTENANCE SECTION --}}
@@ -452,9 +462,12 @@
                 || request()->routeIs('purchaser.items.*')
                 || request()->routeIs('purchaser.uom.*')
                 || request()->routeIs('purchaser.categories.*')
-                || request()->routeIs('purchaser.subcategories.*');
+                || request()->routeIs('purchaser.subcategories.*')
+                || request()->routeIs('purchaser.brand-insights*');
             $fmTab = request('tab', 'brands');
-            if (request()->routeIs('purchaser.brands.*')) {
+            if (request()->routeIs('purchaser.brand-insights*')) {
+                $fmTab = 'brand-insights';
+            } elseif (request()->routeIs('purchaser.brands.*')) {
                 $fmTab = 'brands';
             } elseif (request()->routeIs('purchaser.items.*')) {
                 $fmTab = 'items';
@@ -466,6 +479,12 @@
                 $fmTab = 'subcategories';
             }
             $fmLinks = [
+                'brand-insights' => [
+                    'title' => 'Brand Insights',
+                    'icon' => 'trending-down',
+                    'route' => 'purchaser.brand-insights.index',
+                    'params' => [],
+                ],
                 'brands' => ['title' => 'Brands', 'icon' => 'tag'],
                 'items' => ['title' => 'Items', 'icon' => 'package'],
                 'uom' => ['title' => 'UOM', 'icon' => 'ruler'],
@@ -488,7 +507,7 @@
             <div class="menu-sub" @if(! $fmActive) hidden @endif>
                 @foreach($fmLinks as $key => $meta)
                     <a
-                        href="{{ route('purchaser.file-maintenance.index', ['tab' => $key]) }}"
+                        href="{{ isset($meta['route']) ? route($meta['route'], $meta['params'] ?? []) : route('purchaser.file-maintenance.index', ['tab' => $key]) }}"
                         class="menu-sub-item {{ $fmActive && $fmTab === $key ? 'active' : '' }}"
                     >
                         <i data-lucide="{{ $meta['icon'] }}" class="h-4 w-4"></i>

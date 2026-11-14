@@ -108,9 +108,13 @@
             return \App\Support\ReplacementRequestBasket::toRisBootArray($request);
         })->values(),
         'brandOptions' => collect($brands ?? [])->map(function ($brand) {
+            $avoid = (int) ($brand->brand_avoid_ordering ?? 0) === 1;
+            $name = (string) $brand->brand_name;
+
             return [
                 'id' => (string) $brand->brand_id,
-                'label' => (string) $brand->brand_name,
+                'label' => $avoid ? $name.' (avoid â€” often defective)' : $name,
+                'caution' => $avoid,
             ];
         })->values()->all(),
         'itemOptions' => collect($itemCatalog ?? [])->map(function ($catalogItem) use ($itemHints) {
@@ -1337,7 +1341,7 @@
                         href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Draft']) }}"
                         class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] font-medium text-amber-900 hover:bg-amber-100"
                     >
-                        View drafts
+                        {{ \App\Support\ProcurementDraftLabel::viewList() }}
                         <span class="rounded-full bg-amber-200/80 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">
                             {{ number_format($risSummary['draft']) }}
                         </span>
@@ -2393,9 +2397,9 @@
                                     <p class="mt-0.5 truncate text-sm font-semibold text-slate-950">
                                         Request #<span x-text="selectedReplacement"></span>
                                         <span class="font-normal text-slate-500" x-show="selectedReplacementData()">
-                                            · <span x-text="selectedReplacementData()?.equipment"></span>
-                                            <span x-show="selectedReplacementData()?.room"> · <span x-text="selectedReplacementData()?.room"></span></span>
-                                            <span x-show="(selectedReplacementData()?.item_count || 0) > 1"> · <span x-text="selectedReplacementData()?.item_count"></span> items</span>
+                                            Â· <span x-text="selectedReplacementData()?.equipment"></span>
+                                            <span x-show="selectedReplacementData()?.room"> Â· <span x-text="selectedReplacementData()?.room"></span></span>
+                                            <span x-show="(selectedReplacementData()?.item_count || 0) > 1"> Â· <span x-text="selectedReplacementData()?.item_count"></span> items</span>
                                         </span>
                                     </p>
                                 </div>
@@ -2437,9 +2441,9 @@
                                                 <p class="truncate font-medium text-slate-900" x-text="line.name"></p>
                                                 <p class="mt-0.5 truncate text-[11px] leading-4 text-slate-400">
                                                     <span x-show="line.brand" x-text="line.brand"></span>
-                                                    <span x-show="line.brand && line.model"> · </span>
+                                                    <span x-show="line.brand && line.model"> Â· </span>
                                                     <span x-show="line.model" x-text="line.model"></span>
-                                                    <span x-show="(line.brand || line.model) && line.room"> · </span>
+                                                    <span x-show="(line.brand || line.model) && line.room"> Â· </span>
                                                     <span x-show="line.room" x-text="line.room"></span>
                                                     <span x-show="!line.brand && !line.model && !line.room" class="text-slate-300">No brand / model on record</span>
                                                 </p>
@@ -2521,12 +2525,12 @@
                                     {{ (string) old('ris_procurement_request_id', request('replacement_request')) === (string) $replacementRequest->procurement_request_id ? 'selected' : '' }}
                                 >
                                     Request #{{ $replacementRequest->procurement_request_id }}
-                                    • {{ $replacementEquipment }}
+                                    * {{ $replacementEquipment }}
                                     @if($replacementItemCount > 1)
-                                        • {{ $replacementItemCount }} items
+                                        * {{ $replacementItemCount }} items
                                     @endif
                                     @if($replacementRoom)
-                                        • {{ $replacementRoom }}
+                                        * {{ $replacementRoom }}
                                     @endif
                                 </option>
                             @endforeach
@@ -2571,9 +2575,9 @@
                                                 <p class="truncate font-medium text-slate-900" x-text="line.name"></p>
                                                 <p class="mt-0.5 truncate text-[11px] leading-4 text-slate-400">
                                                     <span x-show="line.brand" x-text="line.brand"></span>
-                                                    <span x-show="line.brand && line.model"> · </span>
+                                                    <span x-show="line.brand && line.model"> Â· </span>
                                                     <span x-show="line.model" x-text="line.model"></span>
-                                                    <span x-show="(line.brand || line.model) && line.room"> · </span>
+                                                    <span x-show="(line.brand || line.model) && line.room"> Â· </span>
                                                     <span x-show="line.room" x-text="line.room"></span>
                                                     <span x-show="!line.brand && !line.model && !line.room" class="text-slate-300">No brand / model on record</span>
                                                 </p>
@@ -2870,7 +2874,7 @@
                                 </span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
-                                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or similar · can be saved to your list</span>
+                                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional Â· PNG, JPG, or similar Â· can be saved to your list</span>
                                     <span x-show="createSigUploadName" x-cloak class="mt-1 block truncate text-[11px] font-medium text-slate-600" x-text="createSigUploadName"></span>
                                 </span>
                                 <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
@@ -2903,7 +2907,7 @@
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
-                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word, Excel, or PDF</p>
+                                    <p class="truncate text-[11px] text-slate-500">Required to submit Â· 1 file Â· Word, Excel, or PDF</p>
                                 </div>
                             </div>
 
@@ -2943,7 +2947,7 @@
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-medium text-slate-800">Upload file</p>
-                                        <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
+                                        <p class="truncate text-[10px] text-slate-500">One file only Â· Word, Excel, or PDF</p>
                                     </div>
                                 </label>
                             </div>
@@ -2961,7 +2965,7 @@
                             x-bind:disabled="risHasOverflow(createItems) || createSignSubmitting"
                             class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            Save Draft
+                            {{ \App\Support\ProcurementDraftLabel::SAVE }}
                         </button>
                         <button
                             type="button"
@@ -3166,7 +3170,7 @@
                     @php
                         $risStatusOptions = [
                             '' => 'All statuses',
-                            'Draft' => 'Draft',
+                            'Draft' => \App\Support\ProcurementDraftLabel::filterOption(),
                             'In Review' => 'In Review',
                             'Submitted' => 'Submitted',
                             'Under Review' => 'Under Review',
@@ -3306,7 +3310,7 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <p class="whitespace-nowrap font-semibold text-gray-900">{{ $ris->ris_form_number ?: 'Draft RIS' }}</p>
+                                        <p class="whitespace-nowrap font-semibold text-gray-900">{{ $ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris') }}</p>
                                         @if(!empty($ris->ris_request_no))
                                             <p class="mt-0.5 text-[11px] font-semibold tabular-nums text-indigo-700">{{ $ris->ris_request_no }}</p>
                                         @else
@@ -3547,11 +3551,11 @@
                                                         class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="copy" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        Copy draft
+                                                        {{ \App\Support\ProcurementDraftLabel::copyAction() }}
                                                     </a>
                                                     <button
                                                         type="button"
-                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($risSubmitSignature))"
+                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris')), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($risSubmitSignature))"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
@@ -3568,7 +3572,7 @@
                                                     @else
                                                         <button
                                                             type="button"
-                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'ris', id: {{ (int) $ris->ris_id }}, label: @js(($ris->ris_form_number ?: 'Draft RIS').' · Record #'.$ris->ris_id) } }))"
+                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'ris', id: {{ (int) $ris->ris_id }}, label: @js(($ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris')).' Â· Record #'.$ris->ris_id) } }))"
                                                             class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                         >
                                                             <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
@@ -3578,8 +3582,8 @@
                                                     <form
                                                         method="POST"
                                                         action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
-                                                        data-pur-confirm="Delete this draft RIS? This cannot be undone."
-                                                        data-pur-confirm-title="Delete draft"
+                                                        data-pur-confirm="{{ \App\Support\ProcurementDraftLabel::deleteConfirm('RIS') }}"
+                                                        data-pur-confirm-title="{{ \App\Support\ProcurementDraftLabel::deleteAction('RIS') }}"
                                                         data-pur-confirm-ok="Delete"
                                                         data-pur-confirm-danger="1"
                                                         data-pur-confirm-kind="danger"
@@ -3591,7 +3595,7 @@
                                                             class="flex w-full items-center gap-2.5 border-t border-slate-100 px-3 py-2 text-left text-sm text-red-700 transition hover:bg-slate-50"
                                                         >
                                                             <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                                            Delete draft
+                                                            {{ \App\Support\ProcurementDraftLabel::deleteAction() }}
                                                         </button>
                                                     </form>
                                                 @endif
@@ -3715,7 +3719,7 @@
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-3">
                             <h3 id="ris-view-title-{{ $ris->ris_id }}" class="text-xl font-semibold text-gray-900">
-                                {{ $ris->ris_form_number ?: 'Draft RIS' }}
+                                {{ $ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris') }}
                             </h3>
 
                             @include('admin.partials.ris-status-badge', ['ris' => $ris])
@@ -3830,7 +3834,7 @@
                                             >
                                                 <i data-lucide="file-check" class="h-3.5 w-3.5"></i>
                                                 {{ $group['atp']->authority_purchase_form_number ?: 'ATP #'.$group['atp']->authority_purchase_id }}
-                                                <span class="font-normal text-green-600">· {{ \App\Support\RisWorkflow::atpStatusLabel($group['atp']) }}</span>
+                                                <span class="font-normal text-green-600">Â· {{ \App\Support\RisWorkflow::atpStatusLabel($group['atp']) }}</span>
                                             </a>
                                         @elseif(!empty($ris->can_create_atp))
                                             <a
@@ -4482,7 +4486,7 @@
                             </button>
                             <div class="min-w-0">
                                 <h3 id="ris-edit-title-{{ $ris->ris_id }}" class="text-lg font-semibold text-gray-900">Edit RIS</h3>
-                                <p class="mt-1 text-sm text-gray-500">{{ $ris->ris_form_number ?: 'Draft RIS' }}</p>
+                                <p class="mt-1 text-sm text-gray-500">{{ $ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris') }}</p>
                             </div>
                         </div>
                         <div class="flex shrink-0 items-center gap-1">
@@ -4918,9 +4922,9 @@
                                         <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
                                         <p class="truncate text-[11px] text-slate-500">
                                             @if($ris->risAttachments->isNotEmpty())
-                                                Current file on file · replace by uploading a new one
+                                                Current file on file Â· replace by uploading a new one
                                             @else
-                                                Required to submit · 1 file · Word, Excel, or PDF
+                                                Required to submit Â· 1 file Â· Word, Excel, or PDF
                                             @endif
                                         </p>
                                     </div>
@@ -5001,7 +5005,7 @@
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-xs font-medium text-slate-800">{{ $ris->risAttachments->isNotEmpty() ? 'Replace file' : 'Upload file' }}</p>
-                                            <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
+                                            <p class="truncate text-[10px] text-slate-500">One file only Â· Word, Excel, or PDF</p>
                                         </div>
                                     </label>
                                 </div>
@@ -5039,7 +5043,7 @@
                             @if($ris->ris_status === 'Draft')
                                 <button
                                     type="button"
-                                    x-on:click="openSubmitFromEdit($event.currentTarget, {{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'Draft RIS'), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($editSubmitSignature))"
+                                    x-on:click="openSubmitFromEdit($event.currentTarget, {{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris')), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($editSubmitSignature))"
                                     class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
                                 >
                                     Submit to School Administrator
@@ -5243,14 +5247,18 @@
 
                         <div>
                             <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to School Administrator <span class="text-red-500">*</span></label>
+                            @php
+                                $risSaReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN);
+                                $risSaAutoId = \App\Support\ReviewerAssignment::preferredId($risSaReviewers);
+                            @endphp
                             <select
                                 name="assigned_reviewer_id"
                                 required
                                 class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
                             >
-                                <option value="">Select School Administrator…</option>
-                                @foreach(\App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN) as $reviewer)
-                                    <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
+                                <option value="">Select School Administrator...</option>
+                                @foreach($risSaReviewers as $reviewer)
+                                    <option value="{{ $reviewer['id'] }}" @selected($risSaAutoId !== null && (int) $reviewer['id'] === (int) $risSaAutoId)>{{ $reviewer['name'] }}</option>
                                 @endforeach
                             </select>
                             <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this RIS for review.</p>

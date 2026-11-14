@@ -3,9 +3,19 @@
     $allowMultiSupplier = $allowMultiSupplier ?? false;
     $suppliers = $suppliers ?? collect();
     $signSecondCount = $signSecondCount ?? false;
-    $showOrCard = $showOrCard ?? true;
     $showItemPhotos = $showItemPhotos ?? true;
     $rr = $rr ?? null;
+    $paymentPath = $paymentPath
+        ?? ($rr->authority_purchase_payment_path ?? null)
+        ?? ($rr->request_check_funding_type ?? null);
+    $paymentPath = \App\Support\ProcurementPaymentPath::normalize(is_string($paymentPath) ? $paymentPath : null);
+    $isCashAdvanceRr = \App\Support\ProcurementPaymentPath::requiresLiquidation($paymentPath);
+    $fundingTypeLabel = $fundingTypeLabel
+        ?? ($paymentPath ? \App\Support\ProcurementPaymentPath::label($paymentPath) : null);
+    $showOrCardExplicit = $showOrCard ?? null;
+    $showOrCard = $showOrCardExplicit !== null ? (bool) $showOrCardExplicit : $isCashAdvanceRr;
+    $orCardAlpine = $orCardAlpine ?? null;
+    $fundingBadgeAlpine = $fundingBadgeAlpine ?? null;
     $rows = $rows ?? collect();
     $todayDate = now()->format('Y-m-d');
     $dateValue = old(
@@ -103,6 +113,27 @@
             <div class="text-lg font-bold">STI-College - ORMOC, INC.</div>
             <div class="text-sm">Ormoc City</div>
             <div class="mt-2 text-xl font-bold underline">RECEIVING REPORT</div>
+            @if($fundingBadgeAlpine)
+                <div
+                    class="print-hidden mt-2"
+                    x-show="{{ $fundingBadgeAlpine }}"
+                    x-cloak
+                >
+                    <span
+                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset"
+                        :class="isCashAdvance(selectedFundingKey)
+                            ? 'bg-violet-50 text-violet-800 ring-violet-200'
+                            : 'bg-slate-100 text-slate-700 ring-slate-200'"
+                        x-text="fundingLabel(selectedFundingKey)"
+                    ></span>
+                </div>
+            @elseif(filled($fundingTypeLabel) && $fundingTypeLabel !== 'Not chosen')
+                <div class="print-hidden mt-2">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $isCashAdvanceRr ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">
+                        {{ $fundingTypeLabel }} RR
+                    </span>
+                </div>
+            @endif
         </div>
         <div class="absolute right-0 top-0 flex items-end gap-1 text-sm">
             <span>Date: @if($editable)<span class="text-red-500">*</span>@endif</span>
@@ -168,8 +199,14 @@
         </div>
     </div>
 
-    {{-- Official Receipt amount vs check — change returned to cashier; OR amount settles the DV (screen only; omitted from print) --}}
+    {{-- Official Receipt (Cash Advance only) — Check vs OR; change returned to cashier (screen only; omitted from print) --}}
     @if($showOrCard)
+    <div
+        @if($orCardAlpine)
+            x-show="{{ $orCardAlpine }}"
+            x-cloak
+        @endif
+    >
     <div
         class="rr-or-card print-hidden mt-5 rounded border border-black/20 bg-slate-50/80 p-3 text-[12px]"
         @if($editable)
@@ -359,6 +396,7 @@
                 <p class="border-t border-slate-100 px-3.5 py-2.5 text-sm text-slate-400">No OR attachment</p>
             @endif
         </div>
+    </div>
     </div>
     @endif
 

@@ -12,6 +12,7 @@ use App\Support\AtpFormNumber;
 use App\Support\AtpRisSuppliers;
 use App\Support\DocumentLineage;
 use App\Support\DocumentRevisionNotes;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
@@ -452,7 +453,7 @@ class AuthorityToPurchaseController extends Controller
             }
 
             $message = $isDraft
-                ? 'Authority to Purchase draft created successfully.'
+                ? ProcurementDraftLabel::flashCreated('Authority to Purchase')
                 : 'Authority to Purchase submitted successfully.';
 
             return $this->redirectAfterSplitAtp($risId, $supplierSplit, $message);
@@ -503,7 +504,7 @@ class AuthorityToPurchaseController extends Controller
 
         if (!$this->isSoftDraft($atp)) {
             return ProcurementPortal::redirect('atp.index', ['view_atp' => $id])
-                ->with('error', 'Only draft ATP records can be edited.');
+                ->with('error', ProcurementDraftLabel::onlyEditableError('ATP records'));
         }
 
         return ProcurementPortal::redirect('atp.index', ['edit_atp' => $id]);
@@ -574,7 +575,7 @@ class AuthorityToPurchaseController extends Controller
         PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
         if (!$this->isSoftDraft($atp)) {
-            return back()->with('error', 'Only draft ATP records can be updated.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('ATP records'));
         }
 
         $saveAction = $request->input('save_action', 'save');
@@ -700,7 +701,7 @@ class AuthorityToPurchaseController extends Controller
             }
 
             $message = $isDraft
-                ? 'Authority to Purchase draft updated successfully.'
+                ? ProcurementDraftLabel::flashUpdated('Authority to Purchase')
                 : 'Authority to Purchase submitted successfully.';
 
             if ($isDraft) {
@@ -736,7 +737,7 @@ class AuthorityToPurchaseController extends Controller
             PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
             if (!$this->isSoftDraft($atp)) {
-                return back()->with('error', 'Only draft ATP records can be submitted.');
+                return back()->with('error', 'Only ATP records in preparation can be submitted.');
             }
 
             if (blank($atp->authority_purchase_ris_id)) {

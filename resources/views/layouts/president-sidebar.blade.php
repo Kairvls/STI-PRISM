@@ -16,16 +16,23 @@
             class="menu-item {{ request()->is('president/dashboard') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="layout-dashboard"></i>
-            <span>Dashboard</span>
+            <span>Overview</span>
         </a>
 
         <div class="menu-title" id="approvals-section">APPROVALS</div>
+        @php
+            $presCounts = \App\Support\PresidentSidebarCounts::counts();
+            $navCount = 'menu-count';
+        @endphp
         <a
             href="/president/approvals"
             class="menu-item {{ request()->is('president/approvals') && !request()->is('president/approvals/history*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="clipboard-check"></i>
             <span>RIS Approvals</span>
+            @if($presCounts['ris'] > 0)
+                <span class="{{ $navCount }}" title="{{ $presCounts['ris'] }} not viewed yet">{{ $presCounts['ris'] }}</span>
+            @endif
         </a>
         
         <a
@@ -35,6 +42,9 @@
         >
             <i class="h-5 w-5" data-lucide="shield-check"></i>
             <span>School Administrator Direct Approvals</span>
+            @if($presCounts['direct'] > 0)
+                <span class="{{ $navCount }}" title="{{ $presCounts['direct'] }} not viewed yet">{{ $presCounts['direct'] }}</span>
+            @endif
         </a>
 
         <a
@@ -44,6 +54,9 @@
         >
             <i class="h-5 w-5" data-lucide="file-text"></i>
             <span>Disbursement Vouchers</span>
+            @if($presCounts['dv'] > 0)
+                <span class="{{ $navCount }}" title="{{ $presCounts['dv'] }} not viewed yet">{{ $presCounts['dv'] }}</span>
+            @endif
         </a>
 
         <div class="menu-title" id="records-section">RECORDS & ARCHIVES</div>
@@ -296,6 +309,22 @@
 
     .menu-item span {
         color: inherit;
+    }
+
+    .menu-item .menu-count {
+        margin-left: auto;
+        display: inline-flex;
+        height: 18px;
+        min-width: 18px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #0025cc;
+        padding: 0 6px;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        color: #ffffff !important;
     }
 
     .menu-item:hover {

@@ -24,7 +24,7 @@
                             <p class="text-sm text-slate-800">
                                 <span class="font-semibold text-slate-900">{{ $declined->to_name ?: 'Your co-worker' }}</span>
                                 declined <span class="font-semibold text-slate-900">{{ $declined->document_label }}</span>.
-                                It stays in your drafts.
+                                It stays in your list (in preparation).
                             </p>
                             <p class="mt-0.5 text-xs text-slate-500">{{ \Carbon\Carbon::parse($declined->handover_responded_at)->diffForHumans() }}</p>
                             @if(filled($declined->handover_response_note))
@@ -58,7 +58,7 @@
                 class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-[13px] font-semibold text-[#0025cc] transition hover:bg-blue-100"
             >
                 <i data-lucide="inbox" class="h-4 w-4"></i>
-                {{ $handoverTypeLabel }} drafts passed to you
+                {{ $handoverTypeLabel }} in preparation passed to you
                 <span class="rounded-full bg-[#0025cc] px-1.5 py-0.5 text-[11px] font-semibold text-white">{{ $handoverIncoming->count() }}</span>
             </button>
 
@@ -75,14 +75,14 @@
                         class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
                         role="dialog"
                         aria-modal="true"
-                        aria-label="{{ $handoverTypeLabel }} drafts passed to you"
+                        aria-label="{{ $handoverTypeLabel }} in preparation passed to you"
                     >
                         <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
                             <div class="flex min-w-0 items-center gap-2">
                                 <i data-lucide="inbox" class="h-4 w-4 shrink-0 text-[#0025cc]"></i>
                                 <div class="min-w-0">
                                     <p class="text-base font-semibold text-gray-950">
-                                        {{ $handoverTypeLabel }} drafts passed to you
+                                        {{ $handoverTypeLabel }} in preparation passed to you
                                     </p>
                                     <p class="text-xs text-gray-500">{{ $handoverIncoming->count() }} waiting for Accept or Decline</p>
                                 </div>
@@ -121,7 +121,7 @@
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                                             >
                                                 <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-                                                View draft
+                                                View
                                             </button>
                                             <details class="group relative">
                                                 <summary class="inline-flex cursor-pointer list-none items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
@@ -135,7 +135,7 @@
                                                     @csrf
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-600">Reason (optional)</label>
                                                     <textarea name="reason" rows="2" maxlength="500" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-300" placeholder="e.g. I'm on leave this week"></textarea>
-                                                    <button type="submit" class="mt-2 w-full rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700">Decline draft</button>
+                                                    <button type="submit" class="mt-2 w-full rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-700">Decline</button>
                                                 </form>
                                             </details>
                                             <form method="POST" action="{{ route($handoverPortal.'.handovers.accept', $handover->handover_id) }}">
@@ -167,20 +167,20 @@
                         <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
                             <div class="min-w-0">
                                 <p class="truncate text-base font-semibold text-gray-950" x-text="previewTitle"></p>
-                                <p class="text-xs text-gray-500">Read-only preview of the draft passed to you</p>
+                                <p class="text-xs text-gray-500">Read-only preview of the record passed to you</p>
                             </div>
                             <button type="button" x-on:click="previewUrl = null" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
-                        <iframe x-bind:src="previewUrl || 'about:blank'" class="min-h-0 w-full flex-1 bg-slate-200" title="Draft preview"></iframe>
+                        <iframe x-bind:src="previewUrl || 'about:blank'" class="min-h-0 w-full flex-1 bg-slate-200" title="Record preview"></iframe>
                         <div class="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-3">
                             <button type="button" x-on:click="previewUrl = null" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">Close</button>
                             <form method="POST" x-bind:action="previewAccept">
                                 @csrf
                                 <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-blue-800">
                                     <i data-lucide="check" class="h-4 w-4"></i>
-                                    Accept draft
+                                    Accept
                                 </button>
                             </form>
                         </div>
@@ -227,7 +227,7 @@
                     <div class="space-y-4 px-5 py-5">
                         @if($handoverCoworkers === [])
                             <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                                There are no other users with the Purchaser role to pass this draft to.
+                                There are no other users with the Purchaser role to pass this record to.
                             </p>
                         @else
                             <div>
@@ -237,18 +237,19 @@
                                     @php
                                         $handoverPrimaryCoworkers = array_filter($handoverCoworkers, fn ($c) => $c['is_primary']);
                                         $handoverAdditionalCoworkers = array_filter($handoverCoworkers, fn ($c) => ! $c['is_primary']);
+                                        $handoverAutoSelect = count($handoverCoworkers) === 1;
                                     @endphp
                                     @if($handoverPrimaryCoworkers !== [])
                                         <optgroup label="Primary Purchaser">
                                             @foreach($handoverPrimaryCoworkers as $coworker)
-                                                <option value="{{ $coworker['id'] }}">★ {{ $coworker['name'] }} (Primary)</option>
+                                                <option value="{{ $coworker['id'] }}" @selected($handoverAutoSelect)>★ {{ $coworker['name'] }} (Primary)</option>
                                             @endforeach
                                         </optgroup>
                                     @endif
                                     @if($handoverAdditionalCoworkers !== [])
                                         <optgroup label="Purchaser as additional role">
                                             @foreach($handoverAdditionalCoworkers as $coworker)
-                                                <option value="{{ $coworker['id'] }}">{{ $coworker['name'] }} (Primary: {{ $coworker['primary_role_label'] }})</option>
+                                                <option value="{{ $coworker['id'] }}" @selected($handoverAutoSelect)>{{ $coworker['name'] }} (Primary: {{ $coworker['primary_role_label'] }})</option>
                                             @endforeach
                                         </optgroup>
                                     @endif
@@ -261,7 +262,7 @@
                             </div>
                         @endif
                         <p class="text-xs leading-5 text-gray-500">
-                            The draft stays yours until they accept it. Once accepted it moves to their drafts, and they sign it themselves before submitting.
+                            The record stays yours until they accept it. Once accepted it moves to their list (in preparation), and they sign it themselves before submitting.
                         </p>
                     </div>
 

@@ -177,7 +177,7 @@
                                     <p class="px-3 py-4 text-xs text-amber-700">No completed receiving lines yet. Finish second count on an RR first.</p>
                                 </template>
                                 <ul class="divide-y divide-slate-100" x-show="!rrLoading && rrGuide.length > 0">
-                                    <template x-for="group in rrGroups" :key="group.key">
+                                    <template x-for="group in rrGroupsPending" :key="group.key">
                                         <li>
                                             <div class="flex items-center">
                                             <label class="flex shrink-0 items-center self-stretch pl-3" :class="group.ready > 0 ? 'cursor-pointer' : ''" :title="group.ready > 0 ? 'Select all ready lines on this RR' : ''">
@@ -207,14 +207,28 @@
                                                     </p>
                                                     <p class="mt-0.5 truncate text-[11px] text-slate-600" x-text="rrGroupMeta(group)"></p>
                                                     <p x-show="rrGroupPaperwork(group)" class="mt-0.5 truncate text-[11px] text-slate-600" x-text="rrGroupPaperwork(group)"></p>
+                                                    <p
+                                                        x-show="(group.backorder || 0) > 0"
+                                                        x-cloak
+                                                        class="mt-1 text-[11px] font-medium text-rose-700"
+                                                        x-text="(group.backorder || 0) + ' still pending on back order (ordered but not yet received)'"
+                                                    ></p>
                                                 </div>
-                                                <span
-                                                    class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                                                    :class="group.remaining > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
-                                                    x-text="group.remaining > 0
-                                                        ? (group.remaining + ' equipment quantity available')
-                                                        : 'All equipment in this RR already added'"
-                                                ></span>
+                                                <div class="flex shrink-0 flex-col items-end gap-1">
+                                                    <span
+                                                        class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                                        :class="group.remaining > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                                                        x-text="group.remaining > 0
+                                                            ? (group.remaining + ' equipment quantity available')
+                                                            : 'All equipment in this RR already added'"
+                                                    ></span>
+                                                    <span
+                                                        x-show="(group.backorder || 0) > 0"
+                                                        x-cloak
+                                                        class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 ring-1 ring-rose-200/80"
+                                                        x-text="(group.backorder || 0) + ' back order'"
+                                                    ></span>
+                                                </div>
                                             </button>
                                             </div>
                                             <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-white">
@@ -253,14 +267,146 @@
                                                                     · In inventory <span x-text="line.stocked_qty || 0"></span>
                                                                     · Left <span class="font-semibold" :class="(line.remaining_qty || 0) > 0 ? 'text-amber-700' : 'text-slate-600'" x-text="line.remaining_qty || 0"></span>
                                                                 </p>
+                                                                <p
+                                                                    x-show="(line.backorder_qty || 0) > 0"
+                                                                    x-cloak
+                                                                    class="mt-0.5 text-[11px] font-medium text-rose-700"
+                                                                    x-text="'Still pending on back order: ' + (line.backorder_qty || 0) + ' (this RR line only covers what was received)'"
+                                                                ></p>
                                                             </div>
-                                                            <span
-                                                                x-show="group.remaining > 0"
-                                                                class="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                                                                :class="line.is_selectable ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
-                                                                x-text="line.status_label || (line.is_selectable ? 'Ready' : 'Done')"
-                                                            ></span>
+                                                            <div class="mt-0.5 flex shrink-0 flex-col items-end gap-1">
+                                                                <span
+                                                                    x-show="group.remaining > 0"
+                                                                    class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                                                    :class="line.is_selectable ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                                                                    x-text="line.status_label || (line.is_selectable ? 'Ready' : 'Done')"
+                                                                ></span>
+                                                                <span
+                                                                    x-show="(line.backorder_qty || 0) > 0"
+                                                                    x-cloak
+                                                                    class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 ring-1 ring-rose-200/80"
+                                                                    x-text="(line.backorder_qty || 0) + ' back order'"
+                                                                ></span>
+                                                            </div>
                                                         </label>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </li>
+                                    </template>
+                                    <template x-if="rrGroupsCompleted.length > 0">
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                                @click="showCompletedRr = !showCompletedRr; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
+                                                :aria-expanded="showCompletedRr ? 'true' : 'false'"
+                                            >
+                                                <span class="flex min-w-0 items-center gap-2.5">
+                                                    <span class="inline-flex h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="showCompletedRr ? 'rotate-90' : ''">
+                                                        <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                                                    </span>
+                                                    <span class="min-w-0">
+                                                        <span class="block text-sm font-semibold text-slate-800" x-text="showCompletedRr ? 'Hide previous completed RRs' : 'Show previous completed RRs'"></span>
+                                                        <span class="mt-0.5 block text-[11px] text-slate-500" x-text="rrGroupsCompleted.length + ' receiving report' + (rrGroupsCompleted.length === 1 ? '' : 's') + ' already in inventory'"></span>
+                                                    </span>
+                                                </span>
+                                                <span class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700" x-text="rrGroupsCompleted.length + ' done'"></span>
+                                            </button>
+                                            <ul x-show="showCompletedRr" x-cloak class="divide-y divide-slate-100 border-t border-slate-100">
+                                                <template x-for="group in rrGroupsCompleted" :key="'done-' + group.key">
+                                                    <li>
+                                                        <div class="flex items-center">
+                                                            <label class="flex shrink-0 items-center self-stretch pl-3 opacity-60" title="Already in inventory">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30 disabled:opacity-40"
+                                                                    disabled
+                                                                    :aria-label="'Already completed ' + group.rr_number"
+                                                                >
+                                                            </label>
+                                                            <button
+                                                                type="button"
+                                                                class="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                                                :aria-expanded="isRrGroupOpen(group) ? 'true' : 'false'"
+                                                                @click="toggleRrGroup(group)"
+                                                            >
+                                                                <span class="inline-flex h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="isRrGroupOpen(group) ? 'rotate-90' : ''">
+                                                                    <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                                                                </span>
+                                                                <div class="min-w-0 flex-1">
+                                                                    <p class="truncate text-sm font-semibold text-slate-900">
+                                                                        <span x-text="group.rr_number"></span>
+                                                                        <span class="ml-1 text-xs font-normal text-slate-500" x-text="group.lines.length + (group.lines.length === 1 ? ' equipment' : ' equipments')"></span>
+                                                                    </p>
+                                                                    <p class="mt-0.5 truncate text-[11px] text-slate-600" x-text="rrGroupMeta(group)"></p>
+                                                                    <p x-show="rrGroupPaperwork(group)" class="mt-0.5 truncate text-[11px] text-slate-600" x-text="rrGroupPaperwork(group)"></p>
+                                                                    <p
+                                                                        x-show="(group.backorder || 0) > 0"
+                                                                        x-cloak
+                                                                        class="mt-1 text-[11px] font-medium text-rose-700"
+                                                                        x-text="(group.backorder || 0) + ' still pending on back order (ordered but not yet received)'"
+                                                                    ></p>
+                                                                </div>
+                                                                <div class="flex shrink-0 flex-col items-end gap-1">
+                                                                    <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">All equipment in this RR already added</span>
+                                                                    <span
+                                                                        x-show="(group.backorder || 0) > 0"
+                                                                        x-cloak
+                                                                        class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 ring-1 ring-rose-200/80"
+                                                                        x-text="(group.backorder || 0) + ' back order'"
+                                                                    ></span>
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                        <ul x-show="isRrGroupOpen(group)" x-cloak class="border-t border-slate-100 bg-white">
+                                                            <template x-for="(line, lineIndex) in group.lines" :key="line.id">
+                                                                <li class="relative border-b border-slate-100 last:border-b-0">
+                                                                    <span class="pointer-events-none absolute left-[2.75rem] top-0 bottom-0 w-5" aria-hidden="true">
+                                                                        <span
+                                                                            class="absolute left-0 w-px bg-slate-300"
+                                                                            :class="lineIndex === group.lines.length - 1 ? 'top-0 h-1/2' : 'inset-y-0'"
+                                                                        ></span>
+                                                                        <span class="absolute left-0 top-1/2 h-px w-full -translate-y-px bg-slate-300"></span>
+                                                                    </span>
+                                                                    <label class="flex w-full items-start gap-3 bg-white py-2 pl-14 pr-3 text-left">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30 disabled:opacity-40"
+                                                                            disabled
+                                                                            :aria-label="line.article"
+                                                                        >
+                                                                        <div class="min-w-0 flex-1">
+                                                                            <p class="truncate text-sm font-medium text-slate-900" x-text="line.article"></p>
+                                                                            <p x-show="rrLineCost(line)" class="mt-0.5 truncate text-[13px] font-medium text-slate-700" x-text="rrLineCost(line)"></p>
+                                                                            <p class="mt-0.5 text-xs text-slate-600">
+                                                                                <template x-if="line.ordered_qty != null">
+                                                                                    <span>Ordered <span x-text="line.ordered_qty"></span> · </span>
+                                                                                </template>
+                                                                                Received <span x-text="line.received_qty || 0"></span>
+                                                                                · In inventory <span x-text="line.stocked_qty || 0"></span>
+                                                                                · Left <span class="font-semibold text-slate-600" x-text="line.remaining_qty || 0"></span>
+                                                                            </p>
+                                                                            <p
+                                                                                x-show="(line.backorder_qty || 0) > 0"
+                                                                                x-cloak
+                                                                                class="mt-0.5 text-[11px] font-medium text-rose-700"
+                                                                                x-text="'Still pending on back order: ' + (line.backorder_qty || 0) + ' (this RR line only covers what was received)'"
+                                                                            ></p>
+                                                                        </div>
+                                                                        <div class="mt-0.5 flex shrink-0 flex-col items-end gap-1">
+                                                                            <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700" x-text="line.status_label || 'Done'"></span>
+                                                                            <span
+                                                                                x-show="(line.backorder_qty || 0) > 0"
+                                                                                x-cloak
+                                                                                class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-800 ring-1 ring-rose-200/80"
+                                                                                x-text="(line.backorder_qty || 0) + ' back order'"
+                                                                            ></span>
+                                                                        </div>
+                                                                    </label>
+                                                                </li>
+                                                            </template>
+                                                        </ul>
                                                     </li>
                                                 </template>
                                             </ul>
@@ -1693,6 +1839,7 @@
                 rrLoading: false,
                 rrExpanded: {},
                 rrSelected: [],
+                showCompletedRr: false,
                 rrMultiLines: [],
                 manualLines: [],
                 manualSeq: 0,
@@ -1716,6 +1863,7 @@
                                 invoice_no: line.invoice_no || null,
                                 dr_no: line.dr_no || null,
                                 remaining: 0,
+                                backorder: 0,
                                 ready: 0,
                                 lines: [],
                             };
@@ -1725,10 +1873,17 @@
                         group.po_number = group.po_number || line.po_number || null;
                         group.supplier_name = group.supplier_name || line.supplier_name || null;
                         group.remaining += Number(line.remaining_qty) || 0;
+                        group.backorder += Number(line.backorder_qty) || 0;
                         if (line.is_selectable) group.ready += 1;
                         group.lines.push(line);
                     });
                     return groups;
+                },
+                get rrGroupsPending() {
+                    return this.rrGroups.filter((group) => (Number(group.remaining) || 0) > 0);
+                },
+                get rrGroupsCompleted() {
+                    return this.rrGroups.filter((group) => (Number(group.remaining) || 0) <= 0);
                 },
                 rrGroupMeta(group) {
                     let date = '';
@@ -1791,9 +1946,11 @@
                         const data = await res.json();
                         this.rrGuide = Array.isArray(data.guide) ? data.guide : (Array.isArray(data.lines) ? data.lines : []);
                         this.rrLines = Array.isArray(data.lines) ? data.lines : this.rrGuide.filter((line) => line.is_selectable);
+                        this.showCompletedRr = this.rrGroupsPending.length === 0 && this.rrGroupsCompleted.length > 0;
                     } catch (e) {
                         this.rrLines = [];
                         this.rrGuide = [];
+                        this.showCompletedRr = false;
                     } finally {
                         this.rrLoading = false;
                         this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });

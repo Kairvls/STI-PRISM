@@ -1145,6 +1145,28 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     border-color: #93C5FD;
     color: #1D4ED8;
 }
+.icon-btn.approve-btn {
+    background: #EFF6FF;
+    color: #0025cc;
+}
+.icon-btn.approve-btn:hover {
+    background: #DBEAFE;
+    color: #001db0;
+}
+.icon-btn.reject-btn {
+    background: #FEF2F2;
+    color: #DC2626;
+}
+.icon-btn.reject-btn:hover {
+    background: #FEE2E2;
+    color: #B91C1C;
+}
+.row-action-menu-item.approve-btn {
+    color: #0025cc;
+}
+.row-action-menu-item.reject-btn {
+    color: #DC2626;
+}
 .status-pill {
     display: inline-flex;
     align-items: center;

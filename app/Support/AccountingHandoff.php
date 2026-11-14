@@ -43,7 +43,7 @@ class AccountingHandoff
         return ! self::rfcIsSentToAccounting($rfc);
     }
 
-    public static function sendRfcToAccounting(object $rfc, int $fromUserId): void
+    public static function sendRfcToAccounting(object $rfc, int $fromUserId, ?int $accountingUserId = null): void
     {
         if (! self::rfcHandoffColumnsReady()) {
             throw new \RuntimeException('Accounting package handoff is not available yet. Please run migrations.');
@@ -55,24 +55,53 @@ class AccountingHandoff
 
         $rfcId = (int) $rfc->request_check_id;
 
+        $payload = [
+            'request_check_sent_to_accounting_at' => now(),
+            'request_check_sent_to_accounting_by' => $fromUserId,
+            'request_check_updated_at' => now(),
+        ];
+
+        if (
+            $accountingUserId
+            && $accountingUserId > 0
+            && Schema::hasColumn('request_check_table', 'request_check_assigned_reviewer_id')
+        ) {
+            $payload['request_check_assigned_reviewer_id'] = $accountingUserId;
+        }
+
         DB::table('request_check_table')
             ->where('request_check_id', $rfcId)
-            ->update([
-                'request_check_sent_to_accounting_at' => now(),
-                'request_check_sent_to_accounting_by' => $fromUserId,
-                'request_check_updated_at' => now(),
-            ]);
+            ->update($payload);
 
         $label = $rfc->request_check_form_number ?: ('RFC #'.$rfcId);
+        $title = 'Package ready for DV';
+        $message = $label.' (Canvas + RIS + ATP + RFC) was submitted by the Purchaser. Create a Disbursement Voucher.';
+        $url = '/accounting/disbursement-vouchers?rfc='.$rfcId;
+
+        if ($accountingUserId && $accountingUserId > 0) {
+            WorkflowNotifier::toUser(
+                $accountingUserId,
+                WorkflowNotifier::ROLE_ACCOUNTING,
+                $title,
+                $message,
+                'rfc_sent_to_accounting',
+                'RFC',
+                $rfcId,
+                $url,
+                'purchaser'
+            );
+
+            return;
+        }
 
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_ACCOUNTING,
-            'Package ready for DV',
-            $label.' (Canvas + RIS + ATP + RFC) was submitted by the Purchaser. Create a Disbursement Voucher.',
+            $title,
+            $message,
             'rfc_sent_to_accounting',
             'RFC',
             $rfcId,
-            '/accounting/disbursement-vouchers?rfc='.$rfcId,
+            $url,
             'purchaser'
         );
     }

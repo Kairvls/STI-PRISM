@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Purchase Orders')
-@section('page-subtitle', 'Group draft ATPs and submit to the School Administrator.')
+@section('page-subtitle', 'Group ATPs in preparation and submit to the School Administrator.')
 
 @section('content')
 
@@ -62,7 +62,7 @@
                         <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">{{ $orders->total() }}</span>
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
-                        {{ $archiveView ? 'Restore orders when you need them again.' : 'Draft ATPs pack here — review, then submit to the School Administrator.' }}
+                        {{ $archiveView ? 'Restore orders when you need them again.' : 'ATPs in preparation pack here — review, then submit to the School Administrator.' }}
                     </p>
                 </div>
                 <form data-auto-filter data-list-panel="#purchaser-po-list-panel" method="GET" class="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -75,7 +75,7 @@
                     >
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Approved','Rejected','Cancelled'] as $opt)
-                            <option value="{{ $opt }}" @selected(($statusFilter ?? '') === $opt)>{{ $opt }}</option>
+                            <option value="{{ $opt }}" @selected(($statusFilter ?? '') === $opt)>{{ \App\Support\ProcurementDraftLabel::status($opt) }}</option>
                         @endforeach
                     </select>
                     <button
@@ -195,7 +195,7 @@
                                     {{ $st === 'Approved' ? 'bg-emerald-50 text-emerald-700' : '' }}
                                     {{ $st === 'Rejected' ? 'bg-rose-50 text-rose-700' : '' }}
                                     {{ $st === 'Cancelled' ? 'bg-stone-100 text-stone-700' : '' }}
-                                ">{{ $st }}</span>
+                                ">{{ \App\Support\ProcurementDraftLabel::status($st) }}</span>
                                 @if(!empty($order->purchase_order_revision_reason) && in_array($st, ['Draft', 'Cancelled'], true))
                                     <p class="mt-1 max-w-[14rem] text-xs leading-4 text-amber-700">{{ \Illuminate\Support\Str::limit($order->purchase_order_revision_reason, 72) }}</p>
                                 @endif
@@ -335,7 +335,7 @@
                                     <i data-lucide="shopping-bag" class="h-5 w-5"></i>
                                 </div>
                                 <p class="mt-4 font-medium text-gray-700">No purchase orders yet</p>
-                                <p class="mt-1 text-sm text-gray-400">Create draft ATPs and they will pack into a draft PO automatically.</p>
+                                <p class="mt-1 text-sm text-gray-400">Create ATPs in preparation and they will pack into a PO in preparation automatically.</p>
                             </td>
                         </tr>
                     @endforelse
@@ -497,7 +497,7 @@
                                 <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
                                     <div class="min-w-0">
                                         <p class="text-sm font-medium text-gray-900">
-                                            {{ $fr->form_number ?: 'Draft' }}
+                                            {{ $fr->form_number ?: \App\Support\ProcurementDraftLabel::STATUS }}
                                             <span class="font-normal text-gray-500">· {{ \App\Support\ProcurementPaymentPath::label($fr->funding_type) }}</span>
                                         </p>
                                         <p class="mt-0.5 text-xs text-gray-500">
@@ -582,7 +582,7 @@
 
                         @if(($order->open_slots ?? 0) > 0 && $availableAtps->isNotEmpty())
                             <div>
-                                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Available draft ATPs</p>
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Available ATPs in preparation</p>
                                 <div class="space-y-2">
                                     @foreach($availableAtps as $atp)
                                         <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-gray-200 px-4 py-3">
@@ -661,14 +661,18 @@
                     </p>
                     <div>
                         <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to the School Administrator <span class="text-red-500">*</span></label>
+                        @php
+                            $poSaReviewers = \App\Support\ReviewerAssignment::options(\App\Support\ProcurementReviewPortal::ROLE);
+                            $poSaAutoId = \App\Support\ReviewerAssignment::preferredId($poSaReviewers);
+                        @endphp
                         <select
                             name="assigned_reviewer_id"
                             required
                             class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
                         >
                             <option value="">Select School Administrator…</option>
-                            @foreach(\App\Support\ReviewerAssignment::options(\App\Support\ProcurementReviewPortal::ROLE) as $reviewer)
-                                <option value="{{ $reviewer['id'] }}">{{ $reviewer['name'] }}</option>
+                            @foreach($poSaReviewers as $reviewer)
+                                <option value="{{ $reviewer['id'] }}" @selected($poSaAutoId !== null && (int) $reviewer['id'] === (int) $poSaAutoId)>{{ $reviewer['name'] }}</option>
                             @endforeach
                         </select>
                         <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this PO for review.</p>

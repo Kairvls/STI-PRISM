@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class EquipmentOpenBalance
 {
-    private const COUNT_KEYS = ['ordered', 'received', 'stocked', 'in_storage', 'deployed', 'disposed', 'pending_stock'];
+    private const COUNT_KEYS = ['ordered', 'received', 'stocked', 'in_storage', 'deployed', 'disposed', 'pending_stock', 'backorder'];
 
     /**
      * Latest $limit receiving reports with their lines and stocked units.
@@ -152,6 +152,7 @@ class EquipmentOpenBalance
             }
 
             $pendingStock = max(0, $received - $stocked);
+            $backorder = max(0, $ordered - $received);
             $boId = (int) ($row->receiving_report_item_back_order_id ?? 0);
             $meta = $replacementMetaByRr[$reportId] ?? ['request_id' => 0, 'replaces_label' => ''];
             $requestId = (int) ($meta['request_id'] ?? 0);
@@ -177,6 +178,7 @@ class EquipmentOpenBalance
                 'deployed' => $deployed,
                 'disposed' => $disposed,
                 'pending_stock' => $pendingStock,
+                'backorder' => $backorder,
                 'is_replacement' => $isReplacement,
                 'is_back_order_replacement' => $isBackOrderReplacement,
                 'replaces_label' => $replacesLabel,

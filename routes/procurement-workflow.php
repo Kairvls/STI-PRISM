@@ -225,6 +225,10 @@ Route::post(
 
 Route::get('/procurement-records', [ProcurementRecordPackageController::class, 'index'])->name('procurement-records.index');
 Route::post('/procurement-records', [ProcurementRecordPackageController::class, 'store'])->name('procurement-records.store');
+Route::get('/procurement-records/preview/{atp}/{type}/{docId}', [ProcurementRecordPackageController::class, 'purchaserPreviewDocument'])
+    ->whereNumber(['atp', 'docId'])
+    ->where('type', 'ris|atp|rfc|dv|rr|liq')
+    ->name('procurement-records.preview');
 
 
 // =====================================================

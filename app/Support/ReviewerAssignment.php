@@ -140,7 +140,10 @@ class ReviewerAssignment
     }
 
     /**
-     * @return array<int, array{id:int,name:string}>
+     * People who can act in $role for Assign-to dropdowns.
+     * Primary-role holders (users_table.user_role_id) are labeled and sorted first.
+     *
+     * @return array<int, array{id:int,name:string,primary:bool}>
      */
     public static function options(string $role): array
     {
@@ -149,23 +152,84 @@ class ReviewerAssignment
             return [];
         }
 
+        $roleId = self::roleIdFor($role);
+
         try {
+            $columns = ['user_id', 'user_full_name', 'user_username'];
+            if (Schema::hasColumn('users_table', 'user_role_id')) {
+                $columns[] = 'user_role_id';
+            }
+
             $rows = DB::table('users_table')
                 ->whereIn('user_id', $ids)
-                ->orderBy('user_full_name')
-                ->get(['user_id', 'user_full_name', 'user_username']);
+                ->get($columns);
         } catch (\Throwable $e) {
             return [];
         }
 
-        return $rows->map(function ($row) {
-            $name = trim((string) ($row->user_full_name ?: $row->user_username ?: ('User #'.$row->user_id)));
+        return $rows
+            ->map(function ($row) use ($roleId) {
+                $baseName = trim((string) ($row->user_full_name ?: $row->user_username ?: ('User #'.$row->user_id)));
+                $isPrimary = $roleId !== null
+                    && isset($row->user_role_id)
+                    && (int) $row->user_role_id === $roleId;
 
-            return [
-                'id' => (int) $row->user_id,
-                'name' => $name,
-            ];
-        })->values()->all();
+                return [
+                    'id' => (int) $row->user_id,
+                    'name' => $isPrimary ? $baseName.' - Primary role' : $baseName,
+                    'primary' => $isPrimary,
+                    'sort_name' => mb_strtolower($baseName),
+                ];
+            })
+            ->sort(function (array $a, array $b) {
+                if ($a['primary'] !== $b['primary']) {
+                    return $a['primary'] ? -1 : 1;
+                }
+
+                return $a['sort_name'] <=> $b['sort_name'];
+            })
+            ->map(fn (array $row) => [
+                'id' => $row['id'],
+                'name' => $row['name'],
+                'primary' => $row['primary'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Preferred default selection: sole option, otherwise the primary-role holder.
+     *
+     * @param  array<int, array{id:int,name?:string,primary?:bool}>  $options
+     */
+    public static function preferredId(array $options): ?int
+    {
+        if (count($options) === 1) {
+            return (int) ($options[0]['id'] ?? 0) ?: null;
+        }
+
+        foreach ($options as $option) {
+            if (! empty($option['primary'])) {
+                return (int) ($option['id'] ?? 0) ?: null;
+            }
+        }
+
+        return null;
+    }
+
+    private static function roleIdFor(string $role): ?int
+    {
+        return match ($role) {
+            WorkflowNotifier::ROLE_ADMIN => 1,
+            WorkflowNotifier::ROLE_MAINTENANCE => 2,
+            WorkflowNotifier::ROLE_PURCHASER => 3,
+            WorkflowNotifier::ROLE_PRESIDENT => 4,
+            WorkflowNotifier::ROLE_ACCOUNTING => 5,
+            WorkflowNotifier::ROLE_RECEIVING => 6,
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN => 7,
+            WorkflowNotifier::ROLE_SUPPLY_OFFICER => 8,
+            default => null,
+        };
     }
 
     public static function resolve(Request $request, string $role, string $input = 'assigned_reviewer_id'): int
@@ -181,6 +245,7 @@ class ReviewerAssignment
                 WorkflowNotifier::ROLE_ACCOUNTING => 'Accounting',
                 WorkflowNotifier::ROLE_RECEIVING => 'Receiving Officer',
                 WorkflowNotifier::ROLE_SUPPLY_OFFICER => 'School Supply / Material Officer',
+                WorkflowNotifier::ROLE_PRESIDENT => 'President',
                 default => 'reviewer',
             };
 

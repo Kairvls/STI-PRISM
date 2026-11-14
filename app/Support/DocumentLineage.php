@@ -209,7 +209,7 @@ class DocumentLineage
         $docType = $docType ? strtolower($docType) : null;
 
         if (in_array($status, ['Draft', ''], true)) {
-            return 'Draft — not submitted yet';
+            return ProcurementDraftLabel::STATUS_LONG;
         }
         if ($status === 'Minor Revision' || $status === 'Revision') {
             return 'Revision required — update and resubmit';
@@ -272,7 +272,7 @@ class DocumentLineage
         $status = (string) ($ris->ris_status ?? '');
 
         if (in_array($status, ['Draft', ''], true)) {
-            return 'Draft — not submitted yet';
+            return ProcurementDraftLabel::STATUS_LONG;
         }
         if ($status === 'Minor Revision') {
             return 'Revision required — update and resubmit';

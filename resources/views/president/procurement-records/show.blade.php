@@ -5,6 +5,12 @@
 @section('content')
 @php
     use App\Support\ProcurementPaymentPath;
+    use App\Support\ProcurementRecordCompiler;
+    $prHeading = ProcurementRecordCompiler::prDisplayNumber($atp)
+        ?: (($atp->authority_purchase_request_no ?? null)
+            ?: \App\Support\ProcurementRequestNumber::resolveFromAtp((int) ($atp->authority_purchase_id ?? 0))
+            ?: 'Procurement Record');
+    $atpForm = trim((string) ($atp->authority_purchase_form_number ?? ''));
 @endphp
 
 @include('partials.procurement-records-ui')
@@ -17,8 +23,10 @@
             </a>
             <div>
                 <p class="pr-hero-kicker">Compiled Record</p>
-                <h1 class="pr-hero-title" style="color:#1d4ed8;">{{ ($atp->authority_purchase_request_no ?? null) ?: \App\Support\ProcurementRequestNumber::resolveFromAtp((int) ($atp->authority_purchase_id ?? 0)) ?: 'Procurement Record' }}</h1>
-                <p class="mt-1 text-sm font-medium text-slate-700">{{ $atp->authority_purchase_form_number ?? '—' }}</p>
+                <h1 class="pr-hero-title" style="color:#1d4ed8;">{{ $prHeading }}</h1>
+                @if($atpForm !== '')
+                    <p class="mt-1 text-sm font-medium text-slate-700">{{ $atpForm }}</p>
+                @endif
                 <div class="mt-2 flex flex-wrap items-center gap-2">
                     <span class="pr-badge pr-badge--blue">{{ ProcurementPaymentPath::label($package->package_payment_path) }}</span>
                     <span class="pr-badge pr-badge--green">Archived</span>

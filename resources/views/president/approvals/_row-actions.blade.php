@@ -1,7 +1,14 @@
 @php
     $actions = array_values($actions ?? []);
-    $pinActions = array_values(array_filter($actions, fn ($action) => ($action['class'] ?? '') === 'pin-btn'));
-    $menuActions = array_values(array_filter($actions, fn ($action) => ($action['class'] ?? '') !== 'pin-btn'));
+    $keepOutClasses = ['pin-btn', 'approve-btn', 'reject-btn'];
+    $pinActions = array_values(array_filter(
+        $actions,
+        fn ($action) => in_array(($action['class'] ?? ''), $keepOutClasses, true)
+    ));
+    $menuActions = array_values(array_filter(
+        $actions,
+        fn ($action) => ! in_array(($action['class'] ?? ''), $keepOutClasses, true)
+    ));
     $asMenu = count($actions) >= 4 && count($menuActions) > 0;
 @endphp
 <div class="row-actions">

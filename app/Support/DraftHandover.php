@@ -95,10 +95,12 @@ class DraftHandover
     public static function label(string $type, object $doc): string
     {
         return match ($type) {
-            'ris' => filled($doc->ris_form_number ?? null) ? (string) $doc->ris_form_number : 'Draft RIS #'.$doc->ris_id,
+            'ris' => filled($doc->ris_form_number ?? null)
+                ? (string) $doc->ris_form_number
+                : ProcurementDraftLabel::untitledWithId('ris', $doc->ris_id),
             'atp' => filled($doc->authority_purchase_form_number ?? null)
                 ? (string) $doc->authority_purchase_form_number
-                : 'Draft ATP #'.$doc->authority_purchase_id,
+                : ProcurementDraftLabel::untitledWithId('atp', $doc->authority_purchase_id),
             'po' => PurchaseOrderBasket::displayNumber($doc),
             default => '',
         };
@@ -110,17 +112,17 @@ class DraftHandover
     public static function blockReason(string $type, ?object $doc, int $ownerId): ?string
     {
         if (! $doc) {
-            return 'This draft no longer exists.';
+            return 'This record no longer exists.';
         }
 
         if (PurchaserDocumentAccess::ownerId($doc, $type) !== $ownerId) {
-            return 'Only the owner of this draft can pass it to a co-worker.';
+            return 'Only the owner of this record can pass it to a co-worker.';
         }
 
         switch ($type) {
             case 'ris':
                 if ((string) ($doc->ris_status ?? '') !== 'Draft') {
-                    return 'Only Draft RIS records can be passed to a co-worker.';
+                    return 'Only RIS records in preparation can be passed to a co-worker.';
                 }
                 if ((int) ($doc->ris_is_archived ?? 0) === 1) {
                     return 'Restore this RIS before passing it on.';
@@ -129,7 +131,7 @@ class DraftHandover
 
             case 'atp':
                 if ((string) ($doc->authority_purchase_status ?? '') !== 'Pending' || $doc->authority_purchase_submitted_at !== null) {
-                    return 'Only draft ATPs can be passed to a co-worker.';
+                    return 'Only ATPs in preparation can be passed to a co-worker.';
                 }
                 if ((int) ($doc->authority_purchase_is_archived ?? 0) === 1) {
                     return 'Restore this ATP before passing it on.';
@@ -144,7 +146,7 @@ class DraftHandover
 
             case 'po':
                 if ((string) ($doc->purchase_order_status ?? '') !== PurchaseOrderBasket::STATUS_DRAFT) {
-                    return 'Only draft Purchase Orders can be passed to a co-worker.';
+                    return 'Only Purchase Orders in preparation can be passed to a co-worker.';
                 }
                 if ((int) ($doc->purchase_order_is_archived ?? 0) === 1) {
                     return 'Restore this Purchase Order before passing it on.';
@@ -177,7 +179,7 @@ class DraftHandover
         $fromUserId = (int) Auth::id();
 
         if (! self::enabled() || ! in_array($type, self::TYPES, true)) {
-            throw new RuntimeException('Passing drafts is not available.');
+            throw new RuntimeException('Passing in-preparation records is not available.');
         }
 
         if ($toUserId === $fromUserId) {
@@ -196,7 +198,7 @@ class DraftHandover
             }
 
             if ($pending = self::pendingFor($type, $docId)) {
-                throw new RuntimeException('This draft is already waiting for '.self::userName((int) $pending->handover_to_user_id).' to accept it.');
+                throw new RuntimeException('This record is already waiting for '.self::userName((int) $pending->handover_to_user_id).' to accept it.');
             }
 
             $handoverId = (int) DB::table(self::TABLE)->insertGetId([
@@ -214,7 +216,7 @@ class DraftHandover
                 $toUserId,
                 WorkflowNotifier::ROLE_PURCHASER,
                 self::typeLabel($type).' passed to you',
-                self::userName($fromUserId).' wants to pass you '.$label.'. Accept it to take over the draft.',
+                self::userName($fromUserId).' wants to pass you '.$label.'. Accept it to take over the record.',
                 'draft_handover',
                 strtoupper($type),
                 $docId,
@@ -233,7 +235,7 @@ class DraftHandover
             $handover = self::lockPending($handoverId);
 
             if ((int) $handover->handover_to_user_id !== $userId) {
-                throw new RuntimeException('This draft was not passed to you.');
+                throw new RuntimeException('This record was not passed to you.');
             }
 
             $type = (string) $handover->handover_document_type;
@@ -255,7 +257,7 @@ class DraftHandover
                 $fromUserId,
                 WorkflowNotifier::ROLE_PURCHASER,
                 self::typeLabel($type).' handover accepted',
-                self::userName($userId).' accepted '.$label.'. It is now in their drafts.',
+                self::userName($userId).' accepted '.$label.'. It is now in their list (in preparation).',
                 'draft_handover_accepted',
                 strtoupper($type),
                 $docId,
@@ -266,7 +268,7 @@ class DraftHandover
         });
 
         if ($result === null) {
-            throw new RuntimeException('This draft changed after it was passed to you (it may have been submitted or deleted), so it can no longer be accepted.');
+            throw new RuntimeException('This record changed after it was passed to you (it may have been submitted or deleted), so it can no longer be accepted.');
         }
 
         return $result;
@@ -280,7 +282,7 @@ class DraftHandover
             $handover = self::lockPending($handoverId);
 
             if ((int) $handover->handover_to_user_id !== $userId) {
-                throw new RuntimeException('This draft was not passed to you.');
+                throw new RuntimeException('This record was not passed to you.');
             }
 
             self::close($handoverId, self::STATUS_DECLINED, $reason);
@@ -294,7 +296,7 @@ class DraftHandover
                 (int) $handover->handover_from_user_id,
                 WorkflowNotifier::ROLE_PURCHASER,
                 self::typeLabel($type).' handover declined',
-                self::userName($userId).' declined '.$label.'.'.(filled($reason) ? ' Reason: '.trim((string) $reason) : '').' The draft stays with you.',
+                self::userName($userId).' declined '.$label.'.'.(filled($reason) ? ' Reason: '.trim((string) $reason) : '').' It stays with you.',
                 'draft_handover_declined',
                 strtoupper($type),
                 $docId,

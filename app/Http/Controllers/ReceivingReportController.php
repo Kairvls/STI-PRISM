@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\BackOrders;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaserAttentionSummary;
 use App\Support\PurchaserDocumentAccess;
@@ -136,8 +137,12 @@ class ReceivingReportController extends Controller
         $unresolvedBackOrders = BackOrders::unresolvedCounts($rrIds->all());
         foreach ($reports as $rr) {
             $rr->has_liq = in_array((int) $rr->receiving_report_id, $rrHasLiq, true);
-            $path = $rr->authority_purchase_payment_path
-                ?? ($rr->request_check_funding_type ?? null);
+            $path = ProcurementPaymentPath::normalize(
+                $rr->authority_purchase_payment_path
+                    ?? ($rr->request_check_funding_type ?? null)
+            );
+            $rr->payment_path = $path;
+            $rr->funding_type_label = $path ? ProcurementPaymentPath::label($path) : null;
             $rr->requires_liquidation = ProcurementPaymentPath::requiresLiquidation($path);
             $rr->open_back_orders = (int) ($unresolvedBackOrders[(int) $rr->receiving_report_id] ?? 0);
             $rrRows = $items->get($rr->receiving_report_id, collect());
@@ -193,11 +198,7 @@ class ReceivingReportController extends Controller
 
         $orMoney = $this->resolveOrMoneyFields($validated, $rfcId);
         $orFile = $this->storeOrAttachment($request);
-        if (! $isDraft && empty($orFile['path'])) {
-            throw ValidationException::withMessages([
-                'or_attachment' => 'Upload a photo or PDF of the Official Receipt before submitting.',
-            ]);
-        }
+        $this->assertOfficialReceiptForCashAdvance($isDraft, $rfcId, $atpId, $validated, $orFile);
 
         return DB::transaction(function () use ($request, $validated, $isDraft, $receivedName, $receivedSig, $rfcId, $atpId, $orMoney, $orFile) {
             $now = now();
@@ -277,7 +278,7 @@ class ReceivingReportController extends Controller
 
             return ProcurementPortal::redirect('rr.index')->with(
                 'success',
-                $isDraft ? 'Receiving Report draft saved.' : $this->submittedMessage($backOrders)
+                $isDraft ? ProcurementDraftLabel::flashSaved('Receiving Report') : $this->submittedMessage($backOrders)
             );
         });
     }
@@ -286,7 +287,7 @@ class ReceivingReportController extends Controller
     {
         $rr = $this->findRr($id);
         if (!$rr || !$this->isEditable($rr)) {
-            return back()->with('error', 'Only draft or revision Receiving Reports can be edited.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('Receiving Reports'));
         }
 
         $isDraft = $request->input('save_action', 'draft') === 'draft';
@@ -317,11 +318,7 @@ class ReceivingReportController extends Controller
 
         $orMoney = $this->resolveOrMoneyFields($validated, $rfcId);
         $orFile = $this->storeOrAttachment($request, $rr);
-        if (! $isDraft && empty($orFile['path'])) {
-            throw ValidationException::withMessages([
-                'or_attachment' => 'Upload a photo or PDF of the Official Receipt before submitting.',
-            ]);
-        }
+        $this->assertOfficialReceiptForCashAdvance($isDraft, $rfcId, $atpId, $validated, $orFile, $rr);
 
         return DB::transaction(function () use ($request, $validated, $rr, $isDraft, $id, $rfcId, $atpId, $receivedName, $receivedSig, $orMoney, $orFile) {
             $now = now();
@@ -437,23 +434,27 @@ class ReceivingReportController extends Controller
                 return back()->with('error', 'Date is required before submitting.');
             }
 
-            if (
-                Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')
-                && blank($rr->receiving_report_or_number ?? null)
-            ) {
-                return back()->with('error', 'Official Receipt (OR) number is required before submitting. Open Edit and enter the OR details.');
-            }
-            if (
-                Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')
-                && ($rr->receiving_report_or_amount === null || $rr->receiving_report_or_amount === '')
-            ) {
-                return back()->with('error', 'OR amount is required before submitting. Open Edit and enter the amount from the Official Receipt.');
-            }
-            if (
-                Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')
-                && blank($rr->receiving_report_or_attachment_path ?? null)
-            ) {
-                return back()->with('error', 'Upload a photo or PDF of the Official Receipt before submitting. Open Edit to attach it.');
+            $rfcIdForOr = (int) ($rr->receiving_report_request_check_id ?? $rfcId ?? 0) ?: null;
+            $atpIdForOr = (int) ($rr->receiving_report_atp_id ?? $atpId ?? 0) ?: null;
+            if ($this->requiresOfficialReceipt($rfcIdForOr, $atpIdForOr)) {
+                if (
+                    Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')
+                    && blank($rr->receiving_report_or_number ?? null)
+                ) {
+                    return back()->with('error', 'Official Receipt (OR) number is required for Cash Advance Receiving Reports. Open Edit and enter the OR details.');
+                }
+                if (
+                    Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')
+                    && ($rr->receiving_report_or_amount === null || $rr->receiving_report_or_amount === '')
+                ) {
+                    return back()->with('error', 'OR amount is required for Cash Advance Receiving Reports. Open Edit and enter the amount from the Official Receipt.');
+                }
+                if (
+                    Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')
+                    && blank($rr->receiving_report_or_attachment_path ?? null)
+                ) {
+                    return back()->with('error', 'Upload a photo or PDF of the Official Receipt for Cash Advance Receiving Reports. Open Edit to attach it.');
+                }
             }
 
             $wasRevision = $rr->receiving_report_status === 'Minor Revision';
@@ -586,11 +587,12 @@ class ReceivingReportController extends Controller
             'receiving_report_supplier_address_override' => ['nullable', 'string', 'max:2000'],
             'receiving_report_invoice_no' => \App\Support\InputLimits::docRefRules(false),
             'receiving_report_dr_no' => \App\Support\InputLimits::docRefRules(false),
+            // Official Receipt fields are required only for Cash Advance (enforced after funding resolve).
             'receiving_report_or_number' => Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')
-                ? \App\Support\InputLimits::docRefRules(! $isDraft)
+                ? \App\Support\InputLimits::docRefRules(false)
                 : ['nullable', 'string', 'max:'.\App\Support\InputLimits::DOC_REF_NO],
             'receiving_report_or_amount' => [
-                $isDraft ? 'nullable' : 'required',
+                'nullable',
                 'numeric',
                 'min:0',
                 'max:9999999999.99',
@@ -709,6 +711,74 @@ class ReceivingReportController extends Controller
         }
 
         return $kept;
+    }
+
+    private function fundingPathForTarget(?int $rfcId, ?int $atpId = null): ?string
+    {
+        $path = null;
+        if ($rfcId && Schema::hasTable('request_check_table')) {
+            $path = DB::table('request_check_table')
+                ->where('request_check_id', $rfcId)
+                ->value('request_check_funding_type');
+        }
+        if ((! $path || $path === '') && $atpId && Schema::hasTable('authority_to_purchase_table')) {
+            $path = DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_id', $atpId)
+                ->value('authority_purchase_payment_path');
+        }
+        if ((! $path || $path === '') && $rfcId && Schema::hasTable('authority_to_purchase_table')) {
+            $atpFromRfc = (int) (DB::table('request_check_table')
+                ->where('request_check_id', $rfcId)
+                ->value('request_check_authority_purchase_id') ?? 0);
+            if ($atpFromRfc > 0) {
+                $path = DB::table('authority_to_purchase_table')
+                    ->where('authority_purchase_id', $atpFromRfc)
+                    ->value('authority_purchase_payment_path');
+            }
+        }
+
+        return ProcurementPaymentPath::normalize(is_string($path) ? $path : null);
+    }
+
+    private function requiresOfficialReceipt(?int $rfcId, ?int $atpId = null): bool
+    {
+        return ProcurementPaymentPath::requiresLiquidation($this->fundingPathForTarget($rfcId, $atpId));
+    }
+
+    private function assertOfficialReceiptForCashAdvance(
+        bool $isDraft,
+        ?int $rfcId,
+        ?int $atpId,
+        array $validated,
+        array $orFile,
+        ?object $existingRr = null
+    ): void {
+        if ($isDraft || ! $this->requiresOfficialReceipt($rfcId, $atpId)) {
+            return;
+        }
+
+        $messages = [];
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_number')
+            && blank($validated['receiving_report_or_number'] ?? null)
+            && blank($existingRr->receiving_report_or_number ?? null)
+        ) {
+            $messages['receiving_report_or_number'] = 'Official Receipt (OR) number is required for Cash Advance Receiving Reports.';
+        }
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_amount')
+            && (! isset($validated['receiving_report_or_amount']) || $validated['receiving_report_or_amount'] === '')
+            && ($existingRr === null || $existingRr->receiving_report_or_amount === null || $existingRr->receiving_report_or_amount === '')
+        ) {
+            $messages['receiving_report_or_amount'] = 'OR amount from the Official Receipt is required for Cash Advance Receiving Reports.';
+        }
+        $hasAttachment = ! empty($orFile['path'])
+            || filled($existingRr->receiving_report_or_attachment_path ?? null);
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path') && ! $hasAttachment) {
+            $messages['or_attachment'] = 'Upload a photo or PDF of the Official Receipt for Cash Advance Receiving Reports.';
+        }
+
+        if ($messages !== []) {
+            throw ValidationException::withMessages($messages);
+        }
     }
 
     private function resolveOrMoneyFields(array $validated, ?int $rfcId): array
@@ -1463,6 +1533,7 @@ class ReceivingReportController extends Controller
                 'received_from' => $from,
                 'address' => $rfc->company_address ?? '',
                 'payment_path' => $path,
+                'payment_label' => ProcurementPaymentPath::label($path),
                 'check_amount' => isset($rfc->request_check_amount_figures)
                     ? (float) $rfc->request_check_amount_figures
                     : null,

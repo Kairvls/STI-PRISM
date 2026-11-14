@@ -51,11 +51,17 @@ class PresidentAttentionSummary
      */
     public static function scopePendingApproval($query, string $prefix = '')
     {
-        return $query->whereNotNull($prefix.'ris_requested_by_date')
+        $query->whereNotNull($prefix.'ris_requested_by_date')
             ->where($prefix.'ris_status', '!=', RisWorkflow::DIRECTLY_APPROVED)
             ->where(function ($q) use ($prefix) {
                 self::scopeAwaitingPresident($q, $prefix);
             });
+
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_president_id')) {
+            ReviewerAssignment::applyQueueFilter($query, $prefix.'ris_assigned_president_id');
+        }
+
+        return $query;
     }
 
     /**

@@ -247,7 +247,7 @@
 
                 placementZoneLabel(zone) {
                     return window.infrastructure?.placementZoneLabel?.(zone)
-                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || 'â€”'));
+                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || '-'));
                 },
 
                 // =====================================

@@ -121,6 +121,9 @@ class PresidentController extends Controller
                 ->where(function ($q) {
                     $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
                 });
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_president_id')) {
+                \App\Support\ReviewerAssignment::applyQueueFilter($dvBase, 'dv_assigned_president_id');
+            }
             $pendingDvCount = (clone $dvBase)->count();
             $pendingDvs = (clone $dvBase)
                 ->leftJoin('request_check_table', 'disbursement_vouchers_table.dv_request_check_id', '=', 'request_check_table.request_check_id')
@@ -475,7 +478,7 @@ class PresidentController extends Controller
             ->orderBy('ris.ris_approved_by_date')
             ->orderBy('ris.ris_created_at')
             ->orderBy('ris.ris_id')
-            ->paginate(10, ['*'], 'recent_page')
+            ->paginate(5, ['*'], 'recent_page')
             ->withQueryString();
 
         $recentNotifiedIds = $this->presidentNotifiedAdminIds(
@@ -916,9 +919,46 @@ class PresidentController extends Controller
             return $fail('Please provide a rejection reason.');
         }
 
+        $rejectReturnTo = [];
+        if ($decision === 'Rejected') {
+            $rejectReturnTo = array_values(array_intersect(
+                (array) $request->input('return_to', []),
+                ['school_admin', 'purchaser']
+            ));
+            if ($rejectReturnTo === []) {
+                $rejectReturnTo = ['school_admin'];
+            }
+
+            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+            if (in_array('purchaser', $rejectReturnTo, true) && $purchaserId <= 0) {
+                return $fail('This RIS has no purchaser to return it to.');
+            }
+        }
+
+        $fastToPurchaserOnly = $decision === 'Rejected'
+            && in_array('purchaser', $rejectReturnTo, true)
+            && ! in_array('school_admin', $rejectReturnTo, true);
+
         $updateValues = [
-            'ris_status' => $decision === 'Approved' ? 'Approved by the President' : 'Rejected by the President',
+            'ris_status' => $decision === 'Approved'
+                ? 'Approved by the President'
+                : ($fastToPurchaserOnly ? 'Minor Revision' : 'Rejected by the President'),
         ];
+
+        if ($decision === 'Rejected' && Schema::hasColumn('requisition_issue_slip_table', 'ris_rejection_reason')) {
+            $updateValues['ris_rejection_reason'] = trim((string) $remarks);
+        }
+        if ($fastToPurchaserOnly) {
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_revision_type')) {
+                $updateValues['ris_revision_type'] = 'Minor Revision';
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_approved_by_signature')) {
+                $updateValues['ris_approved_by_signature'] = null;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_approved_by_date')) {
+                $updateValues['ris_approved_by_date'] = null;
+            }
+        }
 
         if ($decision === 'Approved') {
             $presidentName = trim((string) $request->input('ris_approved_by', ''));
@@ -1048,15 +1088,66 @@ class PresidentController extends Controller
 
         if ($decision === 'Rejected') {
             $form = RisWorkflow::formNumber($target);
-            WorkflowNotifier::toRole(
-                WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-                'President rejected an RIS',
-                $form . (trim((string) $remarks) !== '' ? (': ' . $remarks) : ''),
-                'ris_president_rejected',
-                'RIS',
-                (int) $targetId,
-                '/school-admin/digital-signatures/sign-ris'
-            );
+            $rejectNote = trim((string) $remarks);
+            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+            $rejectReturnTo = array_values(array_intersect(
+                (array) $request->input('return_to', []),
+                ['school_admin', 'purchaser']
+            ));
+            if ($rejectReturnTo === []) {
+                $rejectReturnTo = ['school_admin'];
+            }
+
+            if (in_array('school_admin', $rejectReturnTo, true)) {
+                WorkflowNotifier::toRole(
+                    WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                    'President rejected an RIS',
+                    $form.($rejectNote !== '' ? (': '.$rejectNote) : ''),
+                    'ris_president_rejected',
+                    'RIS',
+                    (int) $targetId,
+                    '/school-admin/digital-signatures/sign-ris'
+                );
+                $passedTo[] = 'School Administrator';
+                $adminNotified = true;
+            }
+
+            if (in_array('purchaser', $rejectReturnTo, true) && $purchaserId > 0) {
+                $fastOnly = ! in_array('school_admin', $rejectReturnTo, true);
+                WorkflowNotifier::toUser(
+                    $purchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    $fastOnly
+                        ? 'President rejected your RIS — revise and resubmit'
+                        : 'President rejected your RIS',
+                    $form.($rejectNote !== '' ? (': '.$rejectNote) : '').($fastOnly
+                        ? ' Returned for revision (fast route from the President).'
+                        : ' School Administrator was also notified.'),
+                    'ris_president_rejected',
+                    'RIS',
+                    (int) $targetId,
+                    '/purchaser/ris'
+                );
+                $passedTo[] = WorkflowNotifier::recipientName($purchaserId, 'the Purchaser');
+            }
+
+            if ($fastToPurchaserOnly && Schema::hasTable('ris_revision_notes_table')) {
+                try {
+                    $note = [
+                        'ris_id' => (int) $targetId,
+                        'ris_revision_requested_by' => Auth::id(),
+                        'ris_revision_type' => 'Minor Revision',
+                        'ris_revision_note' => $rejectNote !== '' ? $rejectNote : 'Rejected by the President.',
+                        'ris_revision_created_at' => now(),
+                    ];
+                    if (Schema::hasColumn('ris_revision_notes_table', 'ris_revision_updated_at')) {
+                        $note['ris_revision_updated_at'] = now();
+                    }
+                    DB::table('ris_revision_notes_table')->insert($note);
+                } catch (\Throwable $e) {
+                    // ignore revision-note failures
+                }
+            }
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -1070,7 +1161,7 @@ class PresidentController extends Controller
                 'admin_notified' => $adminNotified,
                 'message' => $decision === 'Approved'
                     ? ('RIS approved and passed to ' . implode(' and ', $passedTo) . '.')
-                    : 'RIS rejected successfully.',
+                    : ('RIS rejected'.($passedTo !== [] ? (' and sent to '.implode(' and ', $passedTo)) : '').'.'),
             ]);
         }
 

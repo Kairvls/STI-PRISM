@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\DocumentWorkflowService;
 use App\Support\AccountingHandoff;
+use App\Support\AccountingSigner;
 use App\Support\CachedFormPreview;
 use App\Support\DvFormNumber;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementRequestNumber;
 use App\Support\ProcurementReviewPortal;
 use App\Support\RfcAtpLinks;
@@ -26,7 +28,11 @@ class DisbursementVoucherController extends Controller
     {
         abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
 
-        $filter = trim((string) $request->query('status', 'incoming'));
+        $allowedFilters = ['all', 'incoming', 'submitted', 'approved', 'with_president', 'ready_release', 'released', 'collected'];
+        $filter = trim((string) $request->query('status', 'all'));
+        if ($filter === '' || ! in_array($filter, $allowedFilters, true)) {
+            $filter = 'all';
+        }
         $focusRfc = (int) $request->query('rfc', 0);
         $search = trim((string) $request->query('search', ''));
 
@@ -121,6 +127,7 @@ class DisbursementVoucherController extends Controller
         });
 
         $counts = [
+            'all' => (clone $base)->count(),
             'incoming' => (clone $base)->where(function ($q) {
                 $q->whereNull('dv.dv_id')->orWhereIn('dv.dv_status', ['Draft', 'Revision']);
             })->count(),
@@ -166,7 +173,7 @@ class DisbursementVoucherController extends Controller
 
         return view('accounting.disbursement-vouchers.index', [
             'packages' => $packages,
-            'filter' => $filter,
+            'filter' => $filter !== '' ? $filter : 'all',
             'search' => $search,
             'counts' => $counts,
             'focusRfc' => $focusRfc ?: null,
@@ -178,17 +185,43 @@ class DisbursementVoucherController extends Controller
         ]);
     }
 
+    /**
+     * Accounting list filter key for a DV status (keeps the row visible after updates).
+     */
+    private function accountingStatusFilterForDv(?string $status): string
+    {
+        return match ((string) $status) {
+            'Draft', 'Revision' => 'incoming',
+            'Pending' => 'submitted',
+            'Approved' => 'approved',
+            'With President' => 'with_president',
+            'President Approved' => 'ready_release',
+            'Check Released' => 'released',
+            'Check Collected' => 'collected',
+            default => 'all',
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function redirectAccountingDvIndex(int $id, ?string $status, array $extra = [])
+    {
+        $editable = in_array((string) $status, ['Draft', 'Revision'], true);
+        $params = array_merge([
+            'status' => $this->accountingStatusFilterForDv($status),
+            $editable ? 'edit_dv' : 'view_dv' => $id,
+        ], $extra);
+
+        return redirect()->route('accounting.dv.index', $params);
+    }
+
     public function show($id)
     {
         $dv = $this->findDv($id);
         abort_if(! $dv, 404);
 
-        $editable = in_array((string) ($dv->dv_status ?? ''), ['Draft', 'Revision'], true);
-
-        return redirect()->route('accounting.dv.index', [
-            $editable ? 'edit_dv' : 'view_dv' => (int) $id,
-            'status' => $editable ? 'incoming' : 'all',
-        ]);
+        return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? null);
     }
 
     public function createFromPackage(Request $request)
@@ -207,11 +240,7 @@ class DisbursementVoucherController extends Controller
 
         $existing = AccountingHandoff::dvForRfc($rfcId);
         if ($existing) {
-            return redirect()
-                ->route('accounting.dv.index', [
-                    'edit_dv' => $existing->dv_id,
-                    'status' => 'incoming',
-                ])
+            return $this->redirectAccountingDvIndex((int) $existing->dv_id, $existing->dv_status ?? 'Draft')
                 ->with('success', 'A Disbursement Voucher already exists for this request.');
         }
 
@@ -271,12 +300,8 @@ class DisbursementVoucherController extends Controller
 
         $dvId = DB::table('disbursement_vouchers_table')->insertGetId($payload);
 
-        return redirect()
-            ->route('accounting.dv.index', [
-                'edit_dv' => $dvId,
-                'status' => 'incoming',
-            ])
-            ->with('success', 'Disbursement Voucher draft created. Complete the form in the modal and submit to the School Administrator.');
+        return $this->redirectAccountingDvIndex((int) $dvId, 'Draft')
+            ->with('success', ProcurementDraftLabel::flashCreated('Disbursement Voucher').' Complete the form in the modal and submit to the School Administrator.');
     }
 
     public function update(Request $request, $id)
@@ -285,7 +310,7 @@ class DisbursementVoucherController extends Controller
         abort_if(! $dv, 404);
 
         if (! in_array((string) $dv->dv_status, ['Draft', 'Revision'], true)) {
-            return back()->with('error', 'Only draft or revision Disbursement Vouchers can be edited.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('Disbursement Vouchers'));
         }
 
         $request->merge([
@@ -334,8 +359,7 @@ class DisbursementVoucherController extends Controller
                 'save_action' => ['nullable', 'in:draft,submit'],
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return redirect()
-                ->route('accounting.dv.index', ['edit_dv' => $id, 'status' => 'incoming'])
+            return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? 'Draft')
                 ->withInput(array_merge($request->all(), ['_dv_id' => $id]))
                 ->withErrors($e->errors());
         }
@@ -402,23 +426,33 @@ class DisbursementVoucherController extends Controller
 
         if ($isSubmit) {
             if (blank($payload['dv_payee']) || $payload['dv_amount'] === null || blank($payload['dv_particulars'] ?? null)) {
-                return redirect()
-                    ->route('accounting.dv.index', ['edit_dv' => $id, 'status' => 'incoming'])
+                return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? 'Draft')
                     ->withInput(array_merge($request->all(), ['_dv_id' => $id]))
                     ->with('error', 'Payee, date, particulars, and amount are required before submitting.');
             }
             if (Schema::hasColumn('disbursement_vouchers_table', 'dv_date') && blank($payload['dv_date'] ?? null)) {
-                return redirect()
-                    ->route('accounting.dv.index', ['edit_dv' => $id, 'status' => 'incoming'])
+                return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? 'Draft')
                     ->withInput(array_merge($request->all(), ['_dv_id' => $id]))
                     ->with('error', 'Date is required before submitting.');
+            }
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_check_number') && blank($payload['dv_check_number'] ?? null)) {
+                return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? 'Draft')
+                    ->withInput(array_merge($request->all(), ['_dv_id' => $id]))
+                    ->with('error', 'Check number is required before submitting.');
+            }
+            if (
+                Schema::hasColumn('disbursement_vouchers_table', 'dv_accountant_signature')
+                && blank($payload['dv_accountant_signature'] ?? null)
+            ) {
+                return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? 'Draft')
+                    ->withInput(array_merge($request->all(), ['_dv_id' => $id]))
+                    ->with('error', 'School Accountant signature is required before submitting.');
             }
 
             try {
                 $reviewerId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_SCHOOL_ADMIN);
             } catch (\Illuminate\Validation\ValidationException $e) {
-                return redirect()
-                    ->route('accounting.dv.index', ['edit_dv' => $id, 'status' => 'incoming'])
+                return $this->redirectAccountingDvIndex((int) $id, $dv->dv_status ?? 'Draft')
                     ->withInput(array_merge($request->all(), ['_dv_id' => $id]))
                     ->withErrors($e->errors());
             }
@@ -452,16 +486,17 @@ class DisbursementVoucherController extends Controller
                 $reviewerId
             );
 
-            return redirect()
-                ->route('accounting.dv.index', ['status' => 'submitted'])
+            // Follow the DV into With School Admin so it does not vanish from Ready for DV.
+            return $this->redirectAccountingDvIndex((int) $id, 'Pending')
                 ->with('success', $formNumber.' submitted to the School Administrator.');
         }
 
         DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update($payload);
 
-        return redirect()
-            ->route('accounting.dv.index', ['edit_dv' => $id, 'status' => 'incoming'])
-            ->with('success', 'Disbursement Voucher draft saved.');
+        $savedStatus = $dv->dv_status ?? 'Draft';
+
+        return $this->redirectAccountingDvIndex((int) $id, $savedStatus)
+            ->with('success', ProcurementDraftLabel::flashSaved('Disbursement Voucher'));
     }
 
     public function submit(Request $request, $id)
@@ -582,7 +617,11 @@ class DisbursementVoucherController extends Controller
      */
     private function schoolAdminDvListing(Request $request): array
     {
+        $statusProvided = $request->query->has('status');
         $filter = trim((string) $request->query('status', 'incoming'));
+        if ($filter === '') {
+            $filter = 'incoming';
+        }
         $search = trim((string) $request->query('search', ''));
         $submittedDate = $this->normalizeSubmittedDateQuery($request);
 
@@ -600,6 +639,14 @@ class DisbursementVoucherController extends Controller
 
         if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_reviewer_id')) {
             ReviewerAssignment::applyQueueFilter($query, 'disbursement_vouchers_table.dv_assigned_reviewer_id');
+        }
+
+        // Default landing is Needs review; if that queue is empty, open All instead.
+        if (! $statusProvided && $filter === 'incoming') {
+            $incomingCount = (clone $query)->where('dv_status', 'Pending')->count();
+            if ($incomingCount === 0) {
+                $filter = 'all';
+            }
         }
 
         if ($filter === 'incoming') {
@@ -725,7 +772,7 @@ class DisbursementVoucherController extends Controller
             }
             DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update($approvePayload);
 
-            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? 'Draft DV' : 'Disbursement Voucher');
+            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? ProcurementDraftLabel::untitled('dv') : 'Disbursement Voucher');
             $creatorId = $dv->dv_submitted_by ?: $dv->dv_created_by;
 
             WorkflowNotifier::toUser(
@@ -753,7 +800,9 @@ class DisbursementVoucherController extends Controller
     /** Accounting → President */
     public function submitToPresident(Request $request, $id)
     {
-        return DB::transaction(function () use ($id) {
+        $presidentId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_PRESIDENT);
+
+        return DB::transaction(function () use ($id, $presidentId) {
             $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->lockForUpdate()->first();
             abort_if(! $dv, 404);
 
@@ -761,20 +810,26 @@ class DisbursementVoucherController extends Controller
                 return back()->with('error', 'Only School Administrator–approved Disbursement Vouchers can be sent to the President.');
             }
 
-            DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update([
+            $payload = [
                 'dv_status' => 'With President',
                 'dv_president_submitted_at' => now(),
                 'dv_president_submitted_by' => Auth::id(),
                 'dv_president_revision_reason' => null,
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_president_id')) {
+                $payload['dv_assigned_president_id'] = $presidentId;
+            }
 
-            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? 'Draft DV' : 'Disbursement Voucher');
+            DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update($payload);
+
+            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? ProcurementDraftLabel::untitled('dv') : 'Disbursement Voucher');
             $requestNo = $dv->dv_request_no ?? null;
             $msg = $label.' is waiting for President signature.'
                 .($requestNo ? ' Request No. '.$requestNo.'.' : '');
 
-            WorkflowNotifier::toRole(
+            WorkflowNotifier::toUser(
+                $presidentId,
                 WorkflowNotifier::ROLE_PRESIDENT,
                 'DV awaiting President approval',
                 $msg,
@@ -785,9 +840,11 @@ class DisbursementVoucherController extends Controller
                 'accounting'
             );
 
+            $presidentName = WorkflowNotifier::recipientName($presidentId, 'President');
+
             return redirect()
                 ->route('accounting.dv.index', ['status' => 'with_president', 'view_dv' => $id])
-                ->with('success', $label.' submitted to the President.');
+                ->with('success', $label.' submitted to '.$presidentName.'.');
         });
     }
 
@@ -823,7 +880,7 @@ class DisbursementVoucherController extends Controller
                 }
             }
 
-            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? 'Draft DV' : 'Disbursement Voucher');
+            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? ProcurementDraftLabel::untitled('dv') : 'Disbursement Voucher');
             $requestNo = $dv->dv_request_no ?? null;
             $purchaserId = null;
             $rfc = null;
@@ -976,6 +1033,10 @@ class DisbursementVoucherController extends Controller
             ->orderByDesc('disbursement_vouchers_table.dv_president_submitted_at')
             ->orderByDesc('disbursement_vouchers_table.dv_id');
 
+        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_president_id')) {
+            ReviewerAssignment::applyQueueFilter($query, 'disbursement_vouchers_table.dv_assigned_president_id');
+        }
+
         if ($filter === 'incoming') {
             $query->where('disbursement_vouchers_table.dv_status', 'With President');
         } elseif ($filter === 'approved') {
@@ -991,6 +1052,9 @@ class DisbursementVoucherController extends Controller
             ->where(function ($q) {
                 $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
             });
+        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_president_id')) {
+            ReviewerAssignment::applyQueueFilter($base, 'dv_assigned_president_id');
+        }
 
         $counts = [
             'incoming' => (clone $base)->where('dv_status', 'With President')->count(),
@@ -998,10 +1062,38 @@ class DisbursementVoucherController extends Controller
             'revision' => (clone $base)->where('dv_status', 'Approved')->whereNotNull('dv_president_revision_reason')->count(),
         ];
 
+        $viewDvId = (int) $request->query('view_dv', 0);
+        $modalDvIds = $rows->getCollection()
+            ->pluck('dv_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
+        if ($viewDvId > 0) {
+            $modalDvIds[] = $viewDvId;
+        }
+        $modalDvIds = array_values(array_unique(array_filter($modalDvIds)));
+
+        $modalDvs = collect();
+        $modalPackages = [];
+        if ($modalDvIds !== [] && Schema::hasTable('disbursement_vouchers_table')) {
+            $modalDvs = DB::table('disbursement_vouchers_table')
+                ->whereIn('dv_id', $modalDvIds)
+                ->get()
+                ->keyBy('dv_id');
+            foreach ($modalDvs as $dv) {
+                $modalPackages[(int) $dv->dv_id] = $this->packageContext((int) $dv->dv_request_check_id);
+            }
+        }
+
         return view('president.disbursement-vouchers.index', [
             'rows' => $rows,
             'filter' => $filter,
             'counts' => $counts,
+            'viewDvId' => $viewDvId ?: null,
+            'modalDvs' => $modalDvs,
+            'modalPackages' => $modalPackages,
+            'savedSignatures' => UserSignatureLibrary::forUser((int) Auth::id()),
         ]);
     }
 
@@ -1012,6 +1104,13 @@ class DisbursementVoucherController extends Controller
         abort_unless(in_array((string) ($dv->dv_status ?? ''), [
             'With President', 'President Approved', 'Check Released', 'Check Collected', 'Approved',
         ], true), 404);
+
+        if (($dv->dv_status ?? '') === 'With President') {
+            ReviewerAssignment::assertCanAct(
+                isset($dv->dv_assigned_president_id) ? (int) $dv->dv_assigned_president_id : null,
+                'Disbursement Voucher'
+            );
+        }
 
         $package = $this->packageContext((int) $dv->dv_request_check_id);
         $reviewable = ($dv->dv_status ?? '') === 'With President';
@@ -1025,12 +1124,32 @@ class DisbursementVoucherController extends Controller
 
     public function presidentApprove(Request $request, $id)
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($request, $id) {
             $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->lockForUpdate()->first();
             abort_if(! $dv, 404);
 
+            ReviewerAssignment::assertCanAct(
+                isset($dv->dv_assigned_president_id) ? (int) $dv->dv_assigned_president_id : null,
+                'Disbursement Voucher'
+            );
+
             if (($dv->dv_status ?? '') !== 'With President') {
-                return back()->with('error', 'Only Disbursement Vouchers with the President can be approved here.');
+                $message = 'Only Disbursement Vouchers with the President can be approved here.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['ok' => false, 'message' => $message], 422);
+                }
+
+                return back()->with('error', $message);
+            }
+
+            $signature = (string) $request->input('signature_data', '');
+            if (! RisWorkflow::isDrawnSignature($signature)) {
+                $message = 'Please add a President signature before approving.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['ok' => false, 'message' => $message], 422);
+                }
+
+                return back()->with('error', $message)->withInput();
             }
 
             $payload = [
@@ -1041,12 +1160,15 @@ class DisbursementVoucherController extends Controller
                 'updated_at' => now(),
             ];
             if (Schema::hasColumn('disbursement_vouchers_table', 'dv_president_signed_name')) {
-                $payload['dv_president_signed_name'] = Auth::user()->user_full_name ?? 'President';
+                $payload['dv_president_signed_name'] = AccountingSigner::nameFromRequest($request) ?: (Auth::user()->user_full_name ?? 'President');
+            }
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_president_signature')) {
+                $payload['dv_president_signature'] = $signature;
             }
 
             DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update($payload);
 
-            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? 'Draft DV' : 'Disbursement Voucher');
+            $label = $dv->dv_form_number ?: ((($dv->dv_status ?? '') === 'Draft') ? ProcurementDraftLabel::untitled('dv') : 'Disbursement Voucher');
             $creatorId = $dv->dv_president_submitted_by ?: $dv->dv_submitted_by ?: $dv->dv_created_by;
 
             WorkflowNotifier::toUser(
@@ -1061,20 +1183,34 @@ class DisbursementVoucherController extends Controller
                 'president'
             );
 
+            $message = 'Disbursement Voucher approved. Accounting has been notified to release the check.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['ok' => true, 'message' => $message]);
+            }
+
             return redirect()
-                ->route('president.dv.show', $id)
-                ->with('success', 'Disbursement Voucher approved. Accounting has been notified to release the check.');
+                ->route('president.dv.index', ['status' => 'approved', 'view_dv' => $id])
+                ->with('success', $message);
         });
     }
 
     public function presidentRevise(Request $request, $id)
     {
         $validated = $request->validate([
-            'remarks' => ['required', 'string', 'max:2000'],
+            'remarks' => ['nullable', 'string', 'max:2000'],
         ]);
+        $remarks = trim((string) ($validated['remarks'] ?? ''));
+        if ($remarks === '') {
+            $remarks = 'Returned by President for Accounting revision.';
+        }
 
         $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
         abort_if(! $dv, 404);
+
+        ReviewerAssignment::assertCanAct(
+            isset($dv->dv_assigned_president_id) ? (int) $dv->dv_assigned_president_id : null,
+            'Disbursement Voucher'
+        );
 
         if (($dv->dv_status ?? '') !== 'With President') {
             return back()->with('error', 'Only Disbursement Vouchers with the President can be sent back.');
@@ -1083,7 +1219,7 @@ class DisbursementVoucherController extends Controller
         DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update([
             'dv_status' => 'Approved',
             'dv_president_submitted_at' => null,
-            'dv_president_revision_reason' => $validated['remarks'],
+            'dv_president_revision_reason' => $remarks,
             'updated_at' => now(),
         ]);
 
@@ -1094,7 +1230,7 @@ class DisbursementVoucherController extends Controller
             $creatorId,
             WorkflowNotifier::ROLE_ACCOUNTING,
             'DV returned by President',
-            $label.': '.$validated['remarks'],
+            $label.': '.$remarks,
             'dv_president_revision',
             'DV',
             (int) $id,

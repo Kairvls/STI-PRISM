@@ -163,6 +163,15 @@
         outline: none;
     }
     .president-ris-form .ris-issued-input:focus { background: #ffedd5; }
+    .president-ris-form tr.ris-issued-over td {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+    .president-ris-form tr.ris-issued-over .ris-issued-input,
+    .president-ris-form tr.ris-issued-over .ris-issued-input:focus {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
 </style>
 @include('partials.ris-signature-overlay-styles')
 
@@ -239,7 +248,7 @@
                                             type="number"
                                             name="issued[{{ (int) $item->ris_item_id }}]"
                                             min="1"
-                                            max="{{ min(9999999, max(1, (int) $groupAsked)) }}"
+                                            max="9999999"
                                             required
                                             inputmode="numeric"
                                             data-issued-input
@@ -1154,55 +1163,79 @@
         });
     }
 
+    function clampIssuedInput(input) {
+        var digits = String(input.value || '').replace(/\D/g, '').slice(0, 7);
+        if (input.value !== digits) input.value = digits;
+    }
+
+    function formatIssuedMoney(amount) {
+        return Number(amount || 0).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function issuedQuantityError(scope) {
+        var inputs = scope.querySelectorAll('[data-issued-input]');
+        if (!inputs.length) return 'Fill Issued for each item.';
+        var groups = {};
+        var message = '';
+        for (var i = 0; i < inputs.length; i++) {
+            var input = inputs[i];
+            clampIssuedInput(input);
+            var row = input.closest('tr');
+            if (row) row.classList.remove('ris-issued-over');
+            var label = input.getAttribute('data-item-label') || 'Item';
+            var value = String(input.value || '').trim();
+            input.classList.remove('text-red-700');
+            var amountCell = scope.querySelector('[data-issued-amount="' + String(input.name || '').replace(/\D/g, '') + '"]');
+            if (!/^\d{1,7}$/.test(value) || Number(value) < 1) {
+                input.classList.add('text-red-700');
+                if (amountCell) amountCell.textContent = amountCell.getAttribute('data-purchaser-amount') || '';
+                if (!message) message = '"' + label + '" needs an Issued quantity of at least 1, up to 7 digits.';
+                continue;
+            }
+            if (value.length > 7 || Number(value) > 9999999) {
+                input.classList.add('text-red-700');
+                if (!message) message = '"' + label + '" Issued quantity can be up to 7 digits only.';
+            }
+            var key = input.getAttribute('data-item-key') || label;
+            var asked = Number(input.getAttribute('data-group-asked') || 0);
+            if (!groups[key]) groups[key] = { asked: asked, allocated: 0, label: label, inputs: [] };
+            if (asked > groups[key].asked) groups[key].asked = asked;
+            groups[key].allocated += Number(value);
+            groups[key].inputs.push(input);
+            if (amountCell) {
+                amountCell.textContent = formatIssuedMoney(Number(value) * Number(input.getAttribute('data-unit-cost') || 0));
+            }
+        }
+        var keys = Object.keys(groups);
+        for (var k = 0; k < keys.length; k++) {
+            var group = groups[keys[k]];
+            if (group.asked > 0 && group.allocated > group.asked) {
+                group.inputs.forEach(function (overInput) {
+                    var overRow = overInput.closest('tr');
+                    if (overRow) overRow.classList.add('ris-issued-over');
+                });
+                if (!message) {
+                    message = '"' + group.label + '" is over the requested amount (' + group.allocated + ' issued of ' + group.asked + ' requested).';
+                }
+            }
+        }
+        return message;
+    }
+
     if (form) {
         form.addEventListener('input', function (event) {
-            var input = event.target;
-            if (!input || !input.matches || !input.matches('[data-issued-input]')) return;
-            var digits = String(input.value || '').replace(/\D/g, '').slice(0, 7);
-            if (input.value !== digits) input.value = digits;
-            var amountCell = form.querySelector('[data-issued-amount="' + String(input.name || '').replace(/\D/g, '') + '"]');
-            if (!amountCell) return;
-            var value = String(input.value || '').trim();
-            amountCell.textContent = /^\d+$/.test(value) && Number(value) > 0
-                ? Number(Number(value) * Number(input.getAttribute('data-unit-cost') || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                : (amountCell.getAttribute('data-purchaser-amount') || '');
+            if (event.target && event.target.matches('[data-issued-input]')) {
+                issuedQuantityError(form);
+            }
         });
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             if (submitInFlight) return;
 
-            var issuedError = (function () {
-                var inputs = form.querySelectorAll('[data-issued-input]');
-                if (!inputs.length) return 'Fill Issued for each item.';
-                var groups = {};
-                for (var i = 0; i < inputs.length; i++) {
-                    var input = inputs[i];
-                    var label = input.getAttribute('data-item-label') || 'Item';
-                    var digits = String(input.value || '').replace(/\D/g, '').slice(0, 7);
-                    if (input.value !== digits) input.value = digits;
-                    var value = String(input.value || '').trim();
-                    if (!/^\d{1,7}$/.test(value) || Number(value) < 1 || Number(value) > 9999999) {
-                        return '"' + label + '" needs an Issued quantity of at least 1, up to 7 digits.';
-                    }
-                    var key = input.getAttribute('data-item-key') || label;
-                    var asked = Number(input.getAttribute('data-group-asked') || 0);
-                    if (!groups[key]) groups[key] = { asked: asked, allocated: 0, label: label };
-                    if (asked > groups[key].asked) groups[key].asked = asked;
-                    groups[key].allocated += Number(value);
-                    var amountCell = form.querySelector('[data-issued-amount="' + String(input.name || '').replace(/\D/g, '') + '"]');
-                    if (amountCell) {
-                        amountCell.textContent = Number(Number(value) * Number(input.getAttribute('data-unit-cost') || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    }
-                }
-                var keys = Object.keys(groups);
-                for (var k = 0; k < keys.length; k++) {
-                    var group = groups[keys[k]];
-                    if (group.asked > 0 && group.allocated > group.asked) {
-                        return '"' + group.label + '" is over the requested amount (' + group.allocated + ' issued of ' + group.asked + ' requested).';
-                    }
-                }
-                return '';
-            })();
+            var issuedError = issuedQuantityError(form);
             if (issuedError) {
                 showNotice(issuedError);
                 return;

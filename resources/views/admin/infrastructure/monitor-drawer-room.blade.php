@@ -172,7 +172,7 @@
 
                 placementZoneLabel(zone){
                     return window.infrastructure?.placementZoneLabel?.(zone)
-                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || 'â€”'));
+                        || (String(zone || '').trim() === 'Holding' ? 'Holding Area' : (zone || '-'));
                 },
 
                 closePlacementDropdown(){
@@ -1935,7 +1935,7 @@
                         </div>
                     </section>
 
-                    {{-- Quick actions (History lives in the History tab above â€” avoids leaving this page) --}}
+                    {{-- Quick actions (History lives in the History tab above - avoids leaving this page) --}}
                     <section>
                         <p class="mb-3 text-[11px] font-medium tracking-[0.18em] text-slate-400 uppercase">Quick actions</p>
                         <div class="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200">
@@ -2627,7 +2627,7 @@
                                         :disabled="roomSaving || !transferSourceEquipment().length"
                                         class="min-w-[145px] rounded-lg bg-[#005EA6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#004a85] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        <span x-text="roomSaving ? 'Transferringâ€¦' : (transferMode === 'single' ? 'Transfer Asset' : 'Transfer selected')"></span>
+                                        <span x-text="roomSaving ? 'Transferring...' : (transferMode === 'single' ? 'Transfer Asset' : 'Transfer selected')"></span>
                                     </button>
                                 </div>
                             </div>
@@ -3292,7 +3292,7 @@
 
                                     <div class="space-y-5 p-5">
                                         @php
-                                            $detailNa = static function ($value, string $fallback = 'â€”') {
+                                            $detailNa = static function ($value, string $fallback = '-') {
                                                 if ($value === null || $value === '') {
                                                     return $fallback;
                                                 }
@@ -3390,7 +3390,7 @@
                                                 </div>
                                                 <div class="min-w-0">
                                                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Current location</p>
-                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_current_location, 'â€”') }}</p>
+                                                    <p class="mt-1 truncate text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_current_location, '-') }}</p>
                                                 </div>
                                                 <div class="min-w-0">
                                                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Layout position</p>
@@ -3398,7 +3398,7 @@
                                                         @if ($item->equipment_position_x !== null || $item->equipment_position_y !== null)
                                                             X {{ (int) ($item->equipment_position_x ?? 0) }}% · Y {{ (int) ($item->equipment_position_y ?? 0) }}%
                                                         @else
-                                                            â€”
+                                                            -
                                                         @endif
                                                     </p>
                                                 </div>
@@ -3427,7 +3427,7 @@
                                                         @if ($item->equipment_purchase_cost !== null && $item->equipment_purchase_cost !== '')
                                                             â‚±{{ number_format((float) $item->equipment_purchase_cost, 2) }}
                                                         @else
-                                                            â€”
+                                                            -
                                                         @endif
                                                     </p>
                                                 </div>
@@ -3441,7 +3441,7 @@
                                                         @if (!empty($item->equipment_useful_life_years))
                                                             {{ (int) $item->equipment_useful_life_years }} years
                                                         @else
-                                                            â€” <span class="text-[10px] font-normal text-slate-400">(default 5)</span>
+                                                            - <span class="text-[10px] font-normal text-slate-400">(default 5)</span>
                                                         @endif
                                                     </p>
                                                 </div>
@@ -4955,7 +4955,7 @@
                                                 {{ \Carbon\Carbon::parse($inspDate)->format('M') }}
                                             </span>
                                         @else
-                                            <span class="text-[10px] font-medium text-slate-500">â€”</span>
+                                            <span class="text-[10px] font-medium text-slate-500">-</span>
                                         @endif
                                     </div>
                                     <div class="min-w-0 flex-1">

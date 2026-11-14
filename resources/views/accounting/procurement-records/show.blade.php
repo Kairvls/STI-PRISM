@@ -5,12 +5,15 @@
 @section('content')
 @php
     use App\Support\ProcurementPaymentPath;
+    use App\Support\ProcurementRecordCompiler;
     $status = str_replace('_', ' ', ucfirst($package->package_status));
     $statusClass = match ($package->package_status) {
         'submitted_to_accounting' => 'pr-badge--amber',
         'forwarded_to_president' => 'pr-badge--green',
         default => '',
     };
+    $prHeading = ProcurementRecordCompiler::prDisplayNumber($atp) ?: 'Compiled Record';
+    $atpForm = trim((string) ($atp->authority_purchase_form_number ?? ''));
 @endphp
 
 @include('partials.procurement-records-ui')
@@ -23,7 +26,10 @@
             </a>
             <div>
                 <p class="pr-hero-kicker">Compiled Record</p>
-                <h1 class="pr-hero-title">{{ $atp->authority_purchase_form_number ?? 'Compiled Record' }}</h1>
+                <h1 class="pr-hero-title">{{ $prHeading }}</h1>
+                @if($atpForm !== '')
+                    <p class="mt-1 text-sm font-medium text-slate-700">{{ $atpForm }}</p>
+                @endif
                 <div class="mt-2 flex flex-wrap items-center gap-2">
                     <span class="pr-badge pr-badge--blue">{{ ProcurementPaymentPath::label($package->package_payment_path) }}</span>
                     <span class="pr-badge {{ $statusClass }}">{{ $status }}</span>

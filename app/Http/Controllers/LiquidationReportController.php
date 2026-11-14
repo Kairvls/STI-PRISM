@@ -16,6 +16,7 @@ use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
 use App\Support\RfcAtpLinks;
 use App\Support\WorkflowNotifier;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPortal;
 
 class LiquidationReportController extends Controller
@@ -130,7 +131,7 @@ class LiquidationReportController extends Controller
 
             return ProcurementPortal::redirect('liq.index')->with(
                 'success',
-                $isDraft ? 'Liquidation Report draft saved.' : 'Liquidation Report submitted to Accounting.'
+                $isDraft ? ProcurementDraftLabel::flashSaved('Liquidation Report') : 'Liquidation Report submitted to Accounting.'
             );
         });
     }
@@ -139,7 +140,7 @@ class LiquidationReportController extends Controller
     {
         $liq = $this->find($id);
         if (!$liq || !$this->isEditable($liq)) {
-            return back()->with('error', 'Only draft or revision Liquidation Reports can be edited.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('Liquidation Reports'));
         }
 
         $isDraft = $request->input('save_action', 'draft') === 'draft';

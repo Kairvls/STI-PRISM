@@ -16,16 +16,23 @@
             class="menu-item {{ request()->routeIs('supply-officer.dashboard') ? 'active' : '' }}"
         >
             <i data-lucide="layout-dashboard"></i>
-            <span>Dashboard</span>
+            <span>Overviwe</span>
         </a>
 
         <div class="menu-title" id="procurement-section">PROCUREMENT</div>
+        @php
+            $soCounts = \App\Support\SupplyOfficerSidebarCounts::counts();
+            $navCount = 'menu-count';
+        @endphp
         <a
             href="{{ route('supply-officer.incoming-ris') }}"
             class="menu-item {{ request()->routeIs('supply-officer.incoming-ris*') ? 'active' : '' }}"
         >
             <i data-lucide="inbox"></i>
             <span>Incoming RIS</span>
+            @if($soCounts['ris'] > 0)
+                <span class="{{ $navCount }}" title="{{ $soCounts['ris'] }} not viewed yet">{{ $soCounts['ris'] }}</span>
+            @endif
         </a>
         <a
             href="{{ route('supply-officer.atp.index') }}"
@@ -33,6 +40,9 @@
         >
             <i data-lucide="file-check-2"></i>
             <span>Authority to Purchase</span>
+            @if($soCounts['atp'] > 0)
+                <span class="{{ $navCount }}" title="{{ $soCounts['atp'] }} not viewed yet">{{ $soCounts['atp'] }}</span>
+            @endif
         </a>
 
         <div class="menu-title" id="account-section">ACCOUNT</div>

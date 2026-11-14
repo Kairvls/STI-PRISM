@@ -146,7 +146,7 @@
 
     <div class="flex flex-wrap gap-2">
         @if(!$atp->authority_purchase_submitted_at && $atp->authority_purchase_status === 'Pending')
-            <a href="{{ route(($pp ?? 'purchaser').'.atp.edit', $atp->authority_purchase_id) }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">Edit draft</a>
+            <a href="{{ route(($pp ?? 'purchaser').'.atp.edit', $atp->authority_purchase_id) }}" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">{{ \App\Support\ProcurementDraftLabel::editTitle('atp') }}</a>
             <form
                 method="POST"
                 action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"

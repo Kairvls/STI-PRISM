@@ -257,10 +257,36 @@ class ReceivingController extends Controller
             );
 
             $select = ['receiving_reports_table.*'];
-            foreach (['request_check_form_number', 'request_check_payee', 'request_check_request_no'] as $column) {
+            foreach ([
+                'request_check_form_number',
+                'request_check_payee',
+                'request_check_request_no',
+                'request_check_funding_type',
+            ] as $column) {
                 if (Schema::hasColumn('request_check_table', $column)) {
                     $select[] = 'request_check_table.'.$column;
                 }
+            }
+            if (
+                Schema::hasTable('authority_to_purchase_table')
+                && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            ) {
+                $query->leftJoin('authority_to_purchase_table', function ($join) {
+                    if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
+                        $join->on(
+                            'authority_to_purchase_table.authority_purchase_id',
+                            '=',
+                            DB::raw('COALESCE(receiving_reports_table.receiving_report_atp_id, request_check_table.request_check_authority_purchase_id)')
+                        );
+                    } else {
+                        $join->on(
+                            'authority_to_purchase_table.authority_purchase_id',
+                            '=',
+                            'request_check_table.request_check_authority_purchase_id'
+                        );
+                    }
+                });
+                $select[] = 'authority_to_purchase_table.authority_purchase_payment_path';
             }
             $query->select($select);
         }

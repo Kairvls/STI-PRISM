@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PresidentMenuSeen;
 use App\Support\RoleAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class PresidentMiddleware
         }
 
         RoleAccess::enterPortal('president');
+        PresidentMenuSeen::capture($request);
 
         return $next($request);
     }

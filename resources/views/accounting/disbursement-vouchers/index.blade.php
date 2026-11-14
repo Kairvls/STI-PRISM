@@ -12,6 +12,7 @@
 
 @php
     $filters = [
+        'all' => 'All requests',
         'incoming' => 'Ready for DV',
         'submitted' => 'With School Admin',
         'approved' => 'Send to President',
@@ -19,7 +20,6 @@
         'ready_release' => 'Release check',
         'released' => 'Check released',
         'collected' => 'Check collected',
-        'all' => 'All requests',
     ];
     $editDvId = (int) ($editDvId ?? 0);
     $viewDvId = (int) ($viewDvId ?? 0);
@@ -160,9 +160,9 @@
                         Search
                     </button>
 
-                    @if(filled($search) || $filter !== 'incoming')
+                    @if(filled($search) || $filter !== 'all')
                         <a
-                            href="{{ route('accounting.dv.index', array_filter(['status' => 'incoming', 'rfc' => $focusRfc ?: null])) }}"
+                            href="{{ route('accounting.dv.index', array_filter(['status' => 'all', 'rfc' => $focusRfc ?: null])) }}"
                             class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
                         >
                             Clear
@@ -241,7 +241,7 @@
                                             default => 'border-gray-200 bg-gray-50 text-gray-700',
                                         };
                                     @endphp
-                                    <span class="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium {{ $dvBadgeClass }}">{{ $dvStatus }}{{ $row->dv_form_number ? ' · '.$row->dv_form_number : '' }}</span>
+                                    <span class="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium {{ $dvBadgeClass }}">{{ \App\Support\ProcurementDraftLabel::status($dvStatus) }}{{ $row->dv_form_number ? ' · '.$row->dv_form_number : '' }}</span>
                                 @else
                                     <span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">No DV yet</span>
                                 @endif
@@ -269,7 +269,15 @@
                                             >Open DV</button>
                                         @endif
                                         @if(($row->dv_status ?? '') === 'Approved')
-                                            <form method="POST" action="{{ route('accounting.dv.submit-president', $rowDvId) }}" class="inline">
+                                            <form
+                                                method="POST"
+                                                action="{{ route('accounting.dv.submit-president', $rowDvId) }}"
+                                                class="inline"
+                                                data-pur-confirm="Choose which President should review and sign this Disbursement Voucher."
+                                                data-pur-confirm-title="Submit to President"
+                                                data-pur-confirm-ok="Submit"
+                                                data-pur-confirm-reviewer-role="{{ \App\Support\WorkflowNotifier::ROLE_PRESIDENT }}"
+                                            >
                                                 @csrf
                                                 <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white transition hover:bg-indigo-700">Submit to President</button>
                                             </form>
@@ -283,14 +291,14 @@
                                         @if(($row->dv_status ?? '') === 'Check Released')
                                             <form method="POST" action="{{ route('accounting.dv.collect-check', $rowDvId) }}" class="inline" onsubmit="return confirm('Confirm the check was handed over / collected by the Purchaser?');">
                                                 @csrf
-                                                <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-600 px-3 text-xs font-semibold text-white transition hover:bg-teal-700">Mark collected</button>
+                                                <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-600 px-3 text-xs font-semibold text-white transition hover:bg-teal-700">Mark Check Received</button>
                                             </form>
                                         @endif
                                     @else
                                         <form method="POST" action="{{ route('accounting.dv.from-package') }}" class="inline">
                                             @csrf
                                             <input type="hidden" name="request_check_id" value="{{ $row->request_check_id }}">
-                                            <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001db3]">Create DV draft</button>
+                                            <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001db3]">{{ \App\Support\ProcurementDraftLabel::createAction('DV') }}</button>
                                         </form>
                                     @endif
                                 </div>
@@ -346,13 +354,15 @@
                         >
                             <div class="print-hidden flex items-start justify-between border-b border-gray-200 px-5 py-4">
                                 <div>
-                                    <h3 class="text-lg font-semibold text-slate-900">{{ $dv->dv_form_number ?: 'Draft DV' }}</h3>
+                                    <h3 class="text-lg font-semibold text-slate-900">{{ $dv->dv_form_number ?: \App\Support\ProcurementDraftLabel::untitled('dv') }}</h3>
                                     <p class="mt-0.5 text-xs text-slate-500">
-                                        Status: {{ $dv->dv_status }}
+                                        Status: {{ \App\Support\ProcurementDraftLabel::status($dv->dv_status) }}
                                         @if(filled(optional($rfc)->request_check_form_number))
                                             · {{ $rfc->request_check_form_number }}
                                         @endif
-                                        @if(!empty($dv->dv_revision_reason))
+                                        @if(!empty($dv->dv_president_revision_reason))
+                                            <span class="text-amber-700"> · President return: {{ $dv->dv_president_revision_reason }}</span>
+                                        @elseif(!empty($dv->dv_revision_reason))
                                             <span class="text-amber-700"> · {{ $dv->dv_revision_reason }}</span>
                                         @endif
                                     </p>
@@ -414,11 +424,40 @@
                                         type="submit"
                                         class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                         onclick="var f=this.form; f.querySelector('[data-dv-save-action]').value='draft'; f.removeAttribute('data-pur-confirm'); f.removeAttribute('data-pur-confirm-reviewer-role');"
-                                    >Save draft</button>
+                                    >{{ \App\Support\ProcurementDraftLabel::SAVE }}</button>
                                     <button
                                         type="submit"
                                         class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-[#001ea3]"
-                                        onclick="var f=this.form; f.querySelector('[data-dv-save-action]').value='submit'; f.setAttribute('data-pur-confirm','Submit this Disbursement Voucher to the School Administrator?'); f.setAttribute('data-pur-confirm-reviewer-role','School Administrator');"
+                                        onclick="
+                                            var f=this.form;
+                                            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                                                window.purchaserDocumentSignature.flush();
+                                            }
+                                            var checkNo = String((f.querySelector('[data-dv-check-no]') || {}).value || '').trim();
+                                            if (!/^\d{1,16}$/.test(checkNo)) {
+                                                if (typeof window.showMpToast === 'function') {
+                                                    showMpToast('Enter the Check No. (digits only) before submitting.', { title: 'Check No. required', type: 'warning', timer: 3600 });
+                                                } else {
+                                                    alert('Enter the Check No. before submitting.');
+                                                }
+                                                (f.querySelector('[data-dv-check-no]') || {}).focus?.();
+                                                event.preventDefault();
+                                                return false;
+                                            }
+                                            var sig = String((f.querySelector('[name=dv_accountant_signature]') || {}).value || '');
+                                            if (sig.indexOf('data:image/') !== 0) {
+                                                if (typeof window.showMpToast === 'function') {
+                                                    showMpToast('Add the School Accountant signature before submitting.', { title: 'Signature required', type: 'warning', timer: 3600 });
+                                                } else {
+                                                    alert('Add the School Accountant signature before submitting.');
+                                                }
+                                                event.preventDefault();
+                                                return false;
+                                            }
+                                            f.querySelector('[data-dv-save-action]').value='submit';
+                                            f.setAttribute('data-pur-confirm','Submit this Disbursement Voucher to the School Administrator?');
+                                            f.setAttribute('data-pur-confirm-reviewer-role','School Administrator');
+                                        "
                                     >Submit to School Administrator</button>
                                 </div>
                             </form>
@@ -449,9 +488,14 @@
                                 <div>
                                     <h3 class="text-lg font-semibold text-slate-900">{{ $dv->dv_form_number ?: 'Disbursement Voucher' }}</h3>
                                     <p class="mt-0.5 text-xs text-slate-500">
-                                        Status: {{ $dv->dv_status }}
+                                        Status: {{ \App\Support\ProcurementDraftLabel::status($dv->dv_status) }}
                                         @if(filled(optional($rfc)->request_check_form_number))
                                             · {{ $rfc->request_check_form_number }}
+                                        @endif
+                                        @if(!empty($dv->dv_president_revision_reason))
+                                            <span class="text-amber-700"> · President return: {{ $dv->dv_president_revision_reason }}</span>
+                                        @elseif(!empty($dv->dv_revision_reason))
+                                            <span class="text-amber-700"> · {{ $dv->dv_revision_reason }}</span>
                                         @endif
                                     </p>
                                     @php
@@ -490,7 +534,7 @@
                                 @if(($dv->dv_status ?? '') === 'Check Released')
                                     <form method="POST" action="{{ route('accounting.dv.collect-check', $dvId) }}" onsubmit="return confirm('Confirm the check was handed over / collected by the Purchaser?');">
                                         @csrf
-                                        <button type="submit" class="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">Mark collected</button>
+                                        <button type="submit" class="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">Mark Check Received</button>
                                     </form>
                                 @endif
                                 <button type="button" @click="closeModal()" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-900">Close</button>

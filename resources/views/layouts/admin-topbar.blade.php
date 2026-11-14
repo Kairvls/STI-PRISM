@@ -75,7 +75,7 @@
                 request()->is('purchaser/procurement/replacement-requests*') => ['Replacement Requests', ''],
                 request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slips.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', ''],
-                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to the School Administrator.'],
+                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group ATPs in preparation and submit to the School Administrator.'],
                 request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', ''],
                 request()->is('purchaser/request-check*') && request('fund') === 'request_for_check' => ['Request for Check', ''],
                 request()->is('purchaser/request-check*') => ['Request Fund', ''],

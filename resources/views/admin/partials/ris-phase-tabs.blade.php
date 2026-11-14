@@ -20,7 +20,7 @@
         title="{{ $pendingAcceptCount }} RIS waiting to be accepted"
     >
         <i data-lucide="inbox" class="h-3.5 w-3.5"></i>
-        Pending Accept
+        Accept Pending
         @if ($pendingAcceptCount > 0)
             <span class="min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none {{ $phase === 'accept' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' }}">{{ $pendingAcceptCount }}</span>
         @endif
@@ -31,7 +31,7 @@
         title="{{ $readyToSignCount }} RIS awaiting Ready to Sign action"
     >
         <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
-        Ready to Sign
+        Accepted RIS
         @if ($readyToSignCount > 0)
             <span class="min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none {{ $phase === 'sign' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' }}">{{ $readyToSignCount }}</span>
         @endif

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\RoleAccess;
+use App\Support\SupplyOfficerMenuSeen;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,7 @@ class SupplyOfficerMiddleware
         }
 
         RoleAccess::enterPortal('supply-officer');
+        SupplyOfficerMenuSeen::capture($request);
 
         return $next($request);
     }

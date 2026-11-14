@@ -18,14 +18,21 @@
         @if($packages instanceof \Illuminate\Pagination\LengthAwarePaginator ? $packages->count() : count($packages))
             <div class="pr-list">
                 @foreach($packages as $pkg)
+                    @php
+                        $pkgRef = \App\Support\ProcurementRecordCompiler::prDisplayNumber($pkg)
+                            ?: trim((string) ($pkg->authority_purchase_request_no ?? $pkg->ris_request_no ?? ''))
+                            ?: '—';
+                    @endphp
                     <a href="{{ route('president.procurement-records.show', $pkg->package_id) }}" class="pr-list-row">
                         <div class="pr-list-main">
-                            <div class="pr-list-ref" style="color:#1d4ed8;">{{ $pkg->authority_purchase_request_no ?? $pkg->ris_request_no ?? '—' }}</div>
+                            <div class="pr-list-ref" style="color:#1d4ed8;">{{ $pkgRef }}</div>
                             <div class="pr-list-meta">
-                                <span>
-                                    <i data-lucide="file-text" class="h-3 w-3"></i>
-                                    {{ $pkg->authority_purchase_form_number ?? '—' }}
-                                </span>
+                                @if(!empty($pkg->authority_purchase_form_number))
+                                    <span>
+                                        <i data-lucide="file-text" class="h-3 w-3"></i>
+                                        {{ $pkg->authority_purchase_form_number }}
+                                    </span>
+                                @endif
                                 <span>
                                     <i data-lucide="clipboard-list" class="h-3 w-3"></i>
                                     RIS {{ $pkg->ris_form_number ?? '—' }}

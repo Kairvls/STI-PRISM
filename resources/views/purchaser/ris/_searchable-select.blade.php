@@ -81,10 +81,15 @@
                     <button
                         type="button"
                         x-on:click="item.{{ $field }} = String(opt.id); closeRisSelect()"
-                        class="flex w-full px-2.5 py-1.5 text-left text-[11px] text-gray-800 hover:bg-gray-50"
+                        class="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[11px] text-gray-800 hover:bg-gray-50"
                         x-bind:class="String(item.{{ $field }}) === String(opt.id) ? 'bg-slate-50 font-medium' : ''"
-                        x-text="opt.label"
-                    ></button>
+                    >
+                        <span class="min-w-0 truncate" x-text="opt.label"></span>
+                        <span
+                            x-show="!!opt.caution"
+                            class="shrink-0 rounded bg-rose-50 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-rose-700"
+                        >Avoid</span>
+                    </button>
                 </li>
             </template>
             <li

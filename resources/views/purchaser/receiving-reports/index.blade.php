@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Receiving Reports')
-@section('page-subtitle', 'Create receiving reports after check pickup — attach the Official Receipt (OR); OR amount settles the Disbursement Voucher.')
+@section('page-subtitle', 'Create receiving reports after check pickup. Official Receipt (OR) applies to Cash Advance RFCs only.')
 
 @section('content')
 
@@ -15,12 +15,22 @@
         emptyOpen: false,
         modalFullscreen: false,
         selectedRr: {{ !empty($viewRrId) ? (int) $viewRrId : 'null' }},
+        selectedFundingKey: @js((string) old('receiving_report_funding_key', $selectedFundingKey ?? '')),
         rfcPrefill: JSON.parse(document.getElementById('rr-rfc-prefill').textContent || '{}'),
         cashAdvancePath: 'cash_advance',
 
         isCashAdvance(fundingKey) {
-            const data = this.rfcPrefill[String(fundingKey)];
-            return data && data.payment_path === this.cashAdvancePath;
+            const data = this.rfcPrefill[String(fundingKey || '')];
+            return !!(data && data.payment_path === this.cashAdvancePath);
+        },
+
+        fundingLabel(fundingKey) {
+            const data = this.rfcPrefill[String(fundingKey || '')];
+            if (!data) return '';
+            if (data.payment_path === this.cashAdvancePath) return 'Cash Advance RR';
+            if (data.payment_path === 'cash_installment') return 'Cash Installment RR';
+            if (data.payment_path === 'direct_payment' || data.payment_path === 'request_for_check') return 'Direct Payment RR';
+            return data.payment_label ? (data.payment_label + ' RR') : 'Receiving Report';
         },
 
         init() {
@@ -30,6 +40,9 @@
             this.$watch('editOpen', (open) => {
                 if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_rr', 'edit_rr']);
             });
+            if (this.selectedFundingKey) {
+                this.$nextTick(() => this.applyRfcPrefill(this.selectedFundingKey));
+            }
         },
         openView(id) { this.selectedRr = id; this.viewOpen = true; this.editOpen = false; this.modalFullscreen = false; },
         openEdit(id) {
@@ -63,6 +76,7 @@
         closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.modalFullscreen = false; this.selectedRr = null; },
 
         applyRfcPrefill(fundingKey) {
+            this.selectedFundingKey = String(fundingKey || '');
             const data = this.rfcPrefill[String(fundingKey)];
             if (data && data.check_amount != null) {
                 window.dispatchEvent(new CustomEvent('rr-check-amount', { detail: { amount: Number(data.check_amount) } }));
@@ -249,7 +263,7 @@
                     <select id="rr-status" name="status" aria-label="Filter by status" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Incomplete','Completed','Returned'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : $status }}</option>
+                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : \App\Support\ProcurementDraftLabel::status($status) }}</option>
                         @endforeach
                     </select>
 
@@ -297,7 +311,16 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse($reports as $rr)
-                        @php $editable = in_array($rr->receiving_report_status, ['Draft','Minor Revision'], true) && !$archiveView; @endphp
+                        @php
+                            $editable = in_array($rr->receiving_report_status, ['Draft','Minor Revision'], true) && !$archiveView;
+                            $rrFundLabel = $rr->funding_type_label ?? \App\Support\ProcurementPaymentPath::label(
+                                $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null)
+                            );
+                            $rrIsCashAdvance = !empty($rr->requires_liquidation)
+                                || \App\Support\ProcurementPaymentPath::requiresLiquidation(
+                                    $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null)
+                                );
+                        @endphp
                         <tr class="transition hover:bg-gray-50/70">
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-3">
@@ -309,6 +332,9 @@
                                             <p class="font-semibold text-gray-900">{{ $rr->receiving_report_form_number ?: '—' }}</p>
                                             @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
                                                 @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
+                                            @endif
+                                            @if($rrFundLabel && $rrFundLabel !== 'Not chosen')
+                                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset {{ $rrIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $rrFundLabel }}</span>
                                             @endif
                                         </div>
                                         <p class="mt-0.5 text-xs text-gray-400">
@@ -508,12 +534,25 @@
                                 <select name="receiving_report_funding_key" required x-on:change="applyRfcPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select funding request and ATP</option>
                                     @foreach($eligibleRfcs as $rfc)
+                                        @php
+                                            $rfcFundLabel = \App\Support\ProcurementPaymentPath::label(
+                                                $rfc->authority_purchase_payment_path
+                                                    ?? ($rfc->request_check_funding_type ?? null)
+                                            );
+                                        @endphp
                                         <option value="{{ $rfc->funding_key }}" {{ $createFundingKey === $rfc->funding_key ? 'selected' : '' }}>
                                             {{ $rfc->request_check_form_number }} @if($rfc->authority_purchase_form_number)· {{ $rfc->authority_purchase_form_number }}@endif
+                                            @if($rfcFundLabel && $rfcFundLabel !== 'Not chosen') · {{ $rfcFundLabel }}@endif
                                             @if(!empty($rfc->is_multi_atp)) (one RR per ATP) @endif
                                         </option>
                                     @endforeach
                                 </select>
+                                <p class="mt-1.5 text-xs text-slate-500" x-show="selectedFundingKey && isCashAdvance(selectedFundingKey)" x-cloak>
+                                    Cash Advance RR — Official Receipt (OR) details are required.
+                                </p>
+                                <p class="mt-1.5 text-xs text-slate-500" x-show="selectedFundingKey && !isCashAdvance(selectedFundingKey)" x-cloak>
+                                    Official Receipt section is only for Cash Advance RFCs.
+                                </p>
                             </div>
                             @include('partials.receiving-report-paper', [
                                 'editable' => true,
@@ -523,6 +562,9 @@
                                 'suppliers' => $suppliers ?? collect(),
                                 'signKey' => 'rr-create',
                                 'suggestedRrFormNumber' => $suggestedRrFormNumber ?? \App\Support\RrFormNumber::next(),
+                                'showOrCard' => true,
+                                'orCardAlpine' => 'isCashAdvance(selectedFundingKey)',
+                                'fundingBadgeAlpine' => '!!selectedFundingKey',
                             ])
                             <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                         </div>
@@ -532,7 +574,7 @@
                             </button>
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                                 <i data-lucide="check" class="h-4 w-4"></i>
-                                Save Draft
+                                {{ \App\Support\ProcurementDraftLabel::SAVE }}
                             </button>
                         </div>
                     </form>
@@ -576,10 +618,22 @@
                                     <i data-lucide="package-check" class="h-5 w-5"></i>
                                 </div>
                                 <div>
+                                    @php
+                                        $viewFundLabel = $rr->funding_type_label ?? \App\Support\ProcurementPaymentPath::label(
+                                            $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null)
+                                        );
+                                        $viewIsCashAdvance = !empty($rr->requires_liquidation)
+                                            || \App\Support\ProcurementPaymentPath::requiresLiquidation(
+                                                $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null)
+                                            );
+                                    @endphp
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 id="rr-view-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $rr->receiving_report_form_number }}</h3>
                                         @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
                                             @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
+                                        @endif
+                                        @if($viewFundLabel && $viewFundLabel !== 'Not chosen')
+                                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $viewIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $viewFundLabel }} RR</span>
                                         @endif
                                     </div>
                                     <p class="mt-0.5 text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
@@ -711,7 +765,26 @@
                                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
                                     <i data-lucide="file-pen-line" class="h-5 w-5"></i>
                                 </div>
-                                <h3 id="rr-edit-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">Edit {{ $rr->receiving_report_form_number }}</h3>
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 id="rr-edit-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">Edit {{ $rr->receiving_report_form_number }}</h3>
+                                        @php
+                                            $editFundLabel = $rr->funding_type_label ?? \App\Support\ProcurementPaymentPath::label(
+                                                $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null)
+                                            );
+                                            $editIsCashAdvance = !empty($rr->requires_liquidation)
+                                                || \App\Support\ProcurementPaymentPath::requiresLiquidation(
+                                                    $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null)
+                                                );
+                                        @endphp
+                                        @if($editFundLabel && $editFundLabel !== 'Not chosen')
+                                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $editIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $editFundLabel }} RR</span>
+                                        @endif
+                                    </div>
+                                    @if($editIsCashAdvance)
+                                        <p class="mt-0.5 text-xs text-slate-500">Cash Advance — Official Receipt section is required.</p>
+                                    @endif
+                                </div>
                             </div>
                             <div class="flex shrink-0 items-center gap-1">
                                 @include('purchaser.partials.modal-fullscreen-button')

@@ -6,6 +6,7 @@ use App\Services\DocumentWorkflowService;
 use App\Support\DocumentUrgency;
 use App\Support\AtpFormNumber;
 use App\Support\ProcurementPaymentPath;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPortal;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
@@ -103,7 +104,7 @@ class PurchaseOrderController extends Controller
 
         if ((string) $order->purchase_order_status !== PurchaseOrderBasket::STATUS_DRAFT) {
             return ProcurementPortal::redirect('purchase-orders.index', ['view_po' => $id])
-                ->with('error', 'Only draft Purchase Orders can be edited.');
+                ->with('error', ProcurementDraftLabel::onlyEditableError('Purchase Orders'));
         }
 
         return ProcurementPortal::redirect('purchase-orders.index', [
@@ -122,7 +123,7 @@ class PurchaseOrderController extends Controller
         abort_if(! $order, 404);
 
         if ((string) $order->purchase_order_status !== PurchaseOrderBasket::STATUS_DRAFT) {
-            return back()->with('error', 'Only draft Purchase Orders can be updated.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('Purchase Orders'));
         }
 
         $validated = $request->validate([
@@ -171,7 +172,7 @@ class PurchaseOrderController extends Controller
         abort_if(! $order, 404);
 
         if ((string) $order->purchase_order_status !== PurchaseOrderBasket::STATUS_DRAFT) {
-            return back()->with('error', 'Only draft Purchase Orders can be updated.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('Purchase Orders'));
         }
 
         $validated = $request->validate([
@@ -220,7 +221,7 @@ class PurchaseOrderController extends Controller
             $this->assertOwnsOrder($order);
 
             if ((string) $order->purchase_order_status !== PurchaseOrderBasket::STATUS_DRAFT) {
-                return back()->with('error', 'Only draft Purchase Orders can be submitted.');
+                return back()->with('error', 'Only Purchase Orders in preparation can be submitted.');
             }
 
             $atpIds = PurchaseOrderBasket::atpIdsForPo((int) $id);
@@ -473,10 +474,10 @@ class PurchaseOrderController extends Controller
 
         $label = filled($atp->authority_purchase_form_number)
             ? (string) $atp->authority_purchase_form_number
-            : 'Draft ATP (Record #'.$atpId.')';
+            : ProcurementDraftLabel::untitledWithId('atp', $atpId);
 
         if ((string) ($atp->authority_purchase_status ?? '') !== 'Pending' || filled($atp->authority_purchase_submitted_at ?? null)) {
-            return "{$label} is not a draft and cannot be submitted with this Purchase Order.";
+            return "{$label} is not in preparation and cannot be submitted with this Purchase Order.";
         }
 
         if (blank($atp->authority_purchase_supplier_id)) {

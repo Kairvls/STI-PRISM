@@ -21,6 +21,7 @@ use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\DocumentWorkflowService;
 use App\Services\RisFormExporter;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPortal;
 use App\Support\SupplyHandoff;
 
@@ -997,11 +998,11 @@ class RisController extends Controller
             }
 
             $success = $isDraft
-                ? 'RIS saved as draft.'
+                ? ProcurementDraftLabel::flashSaved('RIS')
                 : 'RIS submitted to Administrator successfully.';
             if ($procurementRequestId) {
                 $success = $isDraft
-                    ? 'RIS draft created from replacement request #' . $procurementRequestId . '.'
+                    ? 'RIS created (in preparation) from replacement request #' . $procurementRequestId . '.'
                     : 'RIS from replacement request #' . $procurementRequestId . ' was submitted to Administrator.';
             }
 
@@ -1388,7 +1389,7 @@ public function update(Request $request, $risId)
     ) {
         return back()->with(
             'error',
-            'Only a Draft RIS can be submitted.'
+            'Only an RIS in preparation can be submitted.'
         );
     }
 
@@ -1652,7 +1653,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         } elseif ($ris->ris_status !== 'Draft') {
             return back()->with(
                 'error',
-                'Only Draft RIS records can be submitted.'
+                'Only RIS records in preparation can be submitted.'
             );
         }
 
@@ -1865,7 +1866,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         PurchaserDocumentAccess::assertOwns($ris, 'ris');
 
         if ((string) ($ris->ris_status ?? '') !== 'Draft') {
-            return back()->with('error', 'Only Draft RIS records can be deleted.');
+            return back()->with('error', 'Only RIS records in preparation can be deleted.');
         }
 
         DB::transaction(function () use ($risId) {
@@ -1874,7 +1875,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
         return redirect()
             ->route(ProcurementPortal::routeName('ris.index'))
-            ->with('success', 'Draft RIS deleted.');
+            ->with('success', ProcurementDraftLabel::flashDeleted('RIS'));
     }
 
     public function sendToSupply(Request $request, $risId)
@@ -2398,8 +2399,8 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         WorkflowNotifier::toUser(
             Auth::id(),
             WorkflowNotifier::ROLE_PURCHASER,
-            'Draft RIS saved',
-            'You have a draft RIS waiting to be completed and submitted to Administrator.',
+            ProcurementDraftLabel::flashSaved('RIS'),
+            'You have an RIS in preparation waiting to be completed and submitted to Administrator.',
             'ris_draft',
             'RIS',
             $risId,

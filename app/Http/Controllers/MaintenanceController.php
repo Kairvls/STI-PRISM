@@ -8225,37 +8225,44 @@ class MaintenanceController extends Controller
     */
     public function receivableStockLines()
     {
-        $mapLine = static fn ($line) => [
-            'id' => $line->receiving_report_item_id,
-            'receiving_report_item_id' => $line->receiving_report_item_id,
-            'receiving_report_id' => $line->receiving_report_id,
-            'rr_number' => $line->rr_number,
-            'po_number' => $line->po_number,
-            'atp_number' => $line->atp_number,
-            'article' => $line->article,
-            'quantity' => $line->quantity,
-            'received_qty' => (int) ($line->received_qty ?? $line->quantity),
-            'ordered_qty' => $line->ordered_qty,
-            'stocked_qty' => (int) ($line->stocked_qty ?? 0),
-            'remaining_qty' => (int) ($line->remaining_qty ?? 0),
-            'is_selectable' => (bool) ($line->is_selectable ?? false),
-            'status_label' => $line->status_label ?? null,
-            'unit' => $line->unit,
-            'unit_cost' => $line->unit_cost,
-            'amount' => $line->amount,
-            'supplier_id' => $line->supplier_id,
-            'supplier_name' => $line->supplier_name,
-            'purchase_date' => $line->purchase_date,
-            'rr_date' => $line->rr_date,
-            'invoice_no' => $line->invoice_no,
-            'dr_no' => $line->dr_no,
-            'label' => $line->label,
-            'is_replacement' => (bool) ($line->is_replacement ?? false),
-            'is_back_order_replacement' => (bool) ($line->is_back_order_replacement ?? false),
-            'replaces_label' => $line->replaces_label ?? null,
-            'replaces_equipment_id' => $line->replaces_equipment_id ?? null,
-            'replacement_request_id' => $line->replacement_request_id ?? null,
-        ];
+        $mapLine = static function ($line) {
+            $ordered = $line->ordered_qty !== null ? (int) $line->ordered_qty : null;
+            $received = (int) ($line->received_qty ?? $line->quantity ?? 0);
+            $backorder = ($ordered !== null) ? max(0, $ordered - $received) : 0;
+
+            return [
+                'id' => $line->receiving_report_item_id,
+                'receiving_report_item_id' => $line->receiving_report_item_id,
+                'receiving_report_id' => $line->receiving_report_id,
+                'rr_number' => $line->rr_number,
+                'po_number' => $line->po_number,
+                'atp_number' => $line->atp_number,
+                'article' => $line->article,
+                'quantity' => $line->quantity,
+                'received_qty' => $received,
+                'ordered_qty' => $ordered,
+                'backorder_qty' => $backorder,
+                'stocked_qty' => (int) ($line->stocked_qty ?? 0),
+                'remaining_qty' => (int) ($line->remaining_qty ?? 0),
+                'is_selectable' => (bool) ($line->is_selectable ?? false),
+                'status_label' => $line->status_label ?? null,
+                'unit' => $line->unit,
+                'unit_cost' => $line->unit_cost,
+                'amount' => $line->amount,
+                'supplier_id' => $line->supplier_id,
+                'supplier_name' => $line->supplier_name,
+                'purchase_date' => $line->purchase_date,
+                'rr_date' => $line->rr_date,
+                'invoice_no' => $line->invoice_no,
+                'dr_no' => $line->dr_no,
+                'label' => $line->label,
+                'is_replacement' => (bool) ($line->is_replacement ?? false),
+                'is_back_order_replacement' => (bool) ($line->is_back_order_replacement ?? false),
+                'replaces_label' => $line->replaces_label ?? null,
+                'replaces_equipment_id' => $line->replaces_equipment_id ?? null,
+                'replacement_request_id' => $line->replacement_request_id ?? null,
+            ];
+        };
 
         $guide = ReceivableStockLines::guideLines()->map($mapLine)->values();
         $pending = $guide->filter(fn ($line) => ! empty($line['is_selectable']))->values();

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
 class PurchaserDashboard
 {
     public const STAGES = [
-        'draft' => 'Draft',
+        'draft' => ProcurementDraftLabel::STATUS,
         'review' => 'In review',
         'attention' => 'Needs action',
         'done' => 'Completed',
@@ -38,6 +38,7 @@ class PurchaserDashboard
             'replacementCounts' => self::replacementCounts($attention),
             'latestReplacementRequests' => self::latestReplacementRequests(),
             'delayedUrgentFlows' => self::delayedUrgentFlows(),
+            'defectiveBrands' => BrandDefectInsights::notice(5),
         ];
     }
 
@@ -252,7 +253,7 @@ class PurchaserDashboard
                     : route('purchaser.ris.index', ['view_ris' => (int) $row->ris_id]);
 
                 return (object) [
-                    'request_no' => $hasPr ? $requestNo : ($risNumber !== '' ? $risNumber : 'Draft RIS'),
+                    'request_no' => $hasPr ? $requestNo : ($risNumber !== '' ? $risNumber : ProcurementDraftLabel::untitled('ris')),
                     'ris' => $risNumber,
                     'atp' => $atpNumber,
                     'stage' => $stageName,

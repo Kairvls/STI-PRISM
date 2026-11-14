@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Support\DocumentLineage;
 use App\Support\DocumentRevisionNotes;
+use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
 use App\Support\PurchaseOrderFunding;
@@ -297,7 +298,7 @@ class RequestForCheckController extends Controller
             return ProcurementPortal::redirect('rfc.index')->with(
                 'success',
                 $isDraft
-                    ? "{$fundLabel} draft saved."
+                    ? ProcurementDraftLabel::flashSaved($fundLabel)
                     : "{$fundLabel} submitted to the School Administrator."
             );
         });
@@ -311,7 +312,7 @@ class RequestForCheckController extends Controller
         }
 
         if (!$this->isEditable($rfc)) {
-            return back()->with('error', 'Only draft or revision Request for Check records can be edited.');
+            return back()->with('error', ProcurementDraftLabel::onlyEditableError('Request for Check records'));
         }
 
         $saveAction = $request->input('save_action', 'draft');
@@ -400,7 +401,7 @@ class RequestForCheckController extends Controller
             return ProcurementPortal::redirect('rfc.index')->with(
                 'success',
                 $isDraft
-                    ? "{$fundLabel} draft updated."
+                    ? ProcurementDraftLabel::flashUpdated($fundLabel)
                     : "{$fundLabel} submitted to the School Administrator."
             );
         });
@@ -485,16 +486,20 @@ class RequestForCheckController extends Controller
         PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
 
         try {
-            AccountingHandoff::sendRfcToAccounting($rfc, (int) Auth::id());
+            $accountingUserId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING);
+            AccountingHandoff::sendRfcToAccounting($rfc, (int) Auth::id(), $accountingUserId);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }
 
         $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+        $toName = WorkflowNotifier::recipientName($accountingUserId, 'Accounting');
 
         return back()->with(
             'success',
-            $label.' (Canvas + RIS + ATP + RFC) was submitted to Accounting for Disbursement Voucher.'
+            $label.' (Canvas + RIS + ATP + RFC) was submitted to '.$toName.' for Disbursement Voucher.'
         );
     }
 

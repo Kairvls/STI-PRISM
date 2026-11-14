@@ -3465,6 +3465,8 @@ class AdminController extends Controller
                 'forward_attachment' => 'attachment',
             ]);
 
+            $presidentId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_PRESIDENT);
+
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -3495,6 +3497,9 @@ class AdminController extends Controller
                 'ris_issued_by_date' => null,
             ];
 
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_assigned_president_id')) {
+                $forwardPayload['ris_assigned_president_id'] = $presidentId;
+            }
             if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
                 $forwardPayload['ris_forward_details'] = $forwardDetails !== '' ? $forwardDetails : null;
             }
@@ -3521,7 +3526,8 @@ class AdminController extends Controller
                 throw new \RuntimeException('Could not save the forward attachment. Please try again.');
             }
 
-            $logRemarks = 'RIS forwarded to President by ' . $adminName . '.';
+            $presidentName = WorkflowNotifier::recipientName($presidentId, 'the President');
+            $logRemarks = 'RIS forwarded to '.$presidentName.' by ' . $adminName . '.';
             if ($forwardDetails !== '') {
                 $logRemarks .= ' Details: ' . $forwardDetails;
             }
@@ -3548,7 +3554,8 @@ class AdminController extends Controller
                 $notifyMessage .= ' ' . \Illuminate\Support\Str::limit($forwardDetails, 100);
             }
 
-            WorkflowNotifier::toRole(
+            WorkflowNotifier::toUser(
+                $presidentId,
                 WorkflowNotifier::ROLE_PRESIDENT,
                 'RIS ready for presidential review',
                 $notifyMessage,
@@ -3559,8 +3566,8 @@ class AdminController extends Controller
             );
 
             return redirect()
-                ->to(AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'pending']))
-                ->with('success', 'Successfully sent to President.');
+                ->to(AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'for_decision']))
+                ->with('success', 'Successfully sent to '.$presidentName.'.');
         });
     }
 
@@ -4004,14 +4011,14 @@ class AdminController extends Controller
             }
 
             return redirect()
-                ->to(AdminPortal::route('digital-signatures.history', [
-                    'filter' => 'direct_approved',
+                ->to(AdminPortal::route('digital-signatures.sign-ris', [
+                    'filter' => 'for_decision',
                 ]))
                 ->with(
                     'success',
                     'Directly approved and sent to '
                         . WorkflowNotifier::recipientName($ris->ris_submitted_by, 'the Purchaser')
-                        . '. Kept in Signature History (Administrator Approved) and recorded for President.'
+                        . '. A copy stays in Signature History and is recorded for the President.'
                 );
         });
     }

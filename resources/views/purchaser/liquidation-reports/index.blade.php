@@ -197,7 +197,7 @@
                     <select id="liq-status" name="status" aria-label="Filter by status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $s)
-                            <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s === 'Submitted' ? 'In Review' : $s }}</option>
+                            <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s === 'Submitted' ? 'In Review' : \App\Support\ProcurementDraftLabel::status($s) }}</option>
                         @endforeach
                     </select>
 
@@ -248,7 +248,7 @@
                                     </div>
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: '—' }}</p>
+                                            <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: '-' }}</p>
                                             @if(\App\Support\DocumentUrgency::isUrgent('LIQ', $liq))
                                                 @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
                                             @endif
@@ -260,12 +260,12 @@
                             <td class="px-5 py-4">
                                 @include('partials.procurement-request-no', ['requestNo' => $liq->liquidation_report_request_no ?? null, 'inline' => true, 'showLabel' => false])
                                 @if(blank($liq->liquidation_report_request_no ?? null))
-                                    <span class="text-xs text-gray-400">—</span>
+                                    <span class="text-xs text-gray-400">-</span>
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
-                            <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
-                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? '?'.number_format((float) $liq->liquidation_report_amount_advance, 2) : '—' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '-' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '-' }}</td>
+                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? '?'.number_format((float) $liq->liquidation_report_amount_advance, 2) : '-' }}</td>
                             <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])</td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
@@ -284,47 +284,25 @@
                                     <button type="button" @click="printLiq({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <div
-                                            class="relative"
-                                            x-data="{ openActions: false }"
-                                            @keydown.escape.window="openActions = false"
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.liq.submit', $liq->liquidation_report_id) }}"
+                                            class="inline"
+                                            data-pur-confirm="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit this Liquidation Report to Accounting?' : 'Submit this Liquidation Report to Accounting?' }}"
+                                            data-pur-confirm-title="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit Liquidation' : 'Submit Liquidation' }}"
+                                            data-pur-confirm-ok="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
+                                            data-pur-confirm-reviewer-role="Accounting"
                                         >
+                                            @csrf
                                             <button
-                                                type="button"
-                                                x-on:click="openActions = !openActions"
+                                                type="submit"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                                title="More actions"
-                                                aria-label="More actions"
-                                                :aria-expanded="openActions.toString()"
+                                                title="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}"
+                                                aria-label="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}"
                                             >
-                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
+                                                <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
-                                            <div
-                                                x-show="openActions"
-                                                x-cloak
-                                                x-transition
-                                                @click.outside="openActions = false"
-                                                class="absolute right-0 z-30 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
-                                            >
-                                                <form
-                                                    method="POST"
-                                                    action="{{ route(($pp ?? 'purchaser').'.liq.submit', $liq->liquidation_report_id) }}"
-                                                    data-pur-confirm="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit this Liquidation Report to Accounting?' : 'Submit this Liquidation Report to Accounting?' }}"
-                                                    data-pur-confirm-title="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit Liquidation' : 'Submit Liquidation' }}"
-                                                    data-pur-confirm-ok="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
-                                                    data-pur-confirm-reviewer-role="Accounting"
-                                                >
-                                                    @csrf
-                                                    <button
-                                                        type="submit"
-                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                    >
-                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        {{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
+                                        </form>
                                     @endif
                                     @if(
                                         !$archiveView
@@ -524,16 +502,16 @@
                     <div class="bg-slate-100 p-3 md:p-5">
                         @if($eligibleRrs->isEmpty())
                             <div class="mx-auto mb-4 w-full max-w-[1095px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                No completed Receiving Report is available. You can still fill out and save this Liquidation as a draft, then link a completed RR later before submitting.
+                                No completed Receiving Report is available. You can still fill out and save this Liquidation for later (in preparation), then link a completed RR later before submitting.
                             </div>
                         @else
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
-                                <label class="text-xs text-gray-500">Completed Receiving Report <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional for draft)</span></label>
+                                <label class="text-xs text-gray-500">Completed Receiving Report <span class="text-red-500">*</span> <span class="font-normal text-gray-400">(optional while in preparation)</span></label>
                                 <select name="liquidation_report_receiving_report_id" x-on:change="applyRrPrefill($event.target.value)" class="mt-1 h-10 w-full rounded-lg border px-3 text-sm">
                                     <option value="">Select RR</option>
                                     @foreach($eligibleRrs as $rr)
                                         <option value="{{ $rr->receiving_report_id }}" {{ old('liquidation_report_receiving_report_id', $selectedRrId ?? '') == $rr->receiving_report_id ? 'selected' : '' }}>
-                                            {{ $rr->receiving_report_form_number }} @if($rr->request_check_form_number)· {{ $rr->request_check_form_number }}@endif
+                                            {{ $rr->receiving_report_form_number }} @if($rr->request_check_form_number)Â· {{ $rr->request_check_form_number }}@endif
                                         </option>
                                     @endforeach
                                 </select>
@@ -546,9 +524,9 @@
                             'refKey' => 'createLiqAttachment',
                             'class' => 'mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white',
                             'title' => 'Supporting Document',
-                            'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
+                            'hint' => 'Optional Â· 1 file Â· PDF, JPG, PNG Â· max 5MB',
                             'uploadLabel' => 'Upload file',
-                            'helpLine' => 'One file only · PDF, JPG, or PNG',
+                            'helpLine' => 'One file only Â· PDF, JPG, or PNG',
                         ])
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
@@ -557,7 +535,7 @@
                         </button>
                         <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                             <i data-lucide="check" class="h-4 w-4"></i>
-                            Save Draft
+                            {{ \App\Support\ProcurementDraftLabel::SAVE }}
                         </button>
                     </div>
                 </form>
@@ -607,7 +585,7 @@
                                             @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                                         @endif
                                     </div>
-                                    <p class="mt-0.5 text-sm text-gray-500">RR: {{ $liq->receiving_report_form_number ?? '—' }}</p>
+                                    <p class="mt-0.5 text-sm text-gray-500">RR: {{ $liq->receiving_report_form_number ?? '-' }}</p>
                                 </div>
                             </div>
                         </div>
@@ -749,9 +727,9 @@
                                     'refKey' => 'editLiqAttachment'.$liq->liquidation_report_id,
                                     'class' => 'mx-auto mt-4 w-full max-w-[1095px] overflow-hidden rounded-xl border border-slate-200 bg-white',
                                     'title' => 'Supporting Document',
-                                    'hint' => 'Optional · 1 file · PDF, JPG, PNG · max 5MB',
+                                    'hint' => 'Optional Â· 1 file Â· PDF, JPG, PNG Â· max 5MB',
                                     'uploadLabel' => 'Upload file',
-                                    'helpLine' => 'One file only · remove the current file first to replace',
+                                    'helpLine' => 'One file only Â· remove the current file first to replace',
                                     'existing' => $liqFiles->map(fn ($file) => [
                                         'id' => $file->liquidation_attachment_id,
                                         'name' => $file->liquidation_attachment_original_name,

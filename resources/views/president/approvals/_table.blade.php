@@ -141,6 +141,18 @@
                                     'onclick' => 'openRisReviewModal('.(int) $ris->ris_id.')',
                                 ];
                                 $rowActions[] = [
+                                    'icon' => 'check',
+                                    'label' => 'Approve',
+                                    'class' => 'approve-btn',
+                                    'onclick' => 'openDecisionModal(\'ris\', '.(int) $ris->ris_id.', \'Approved\')',
+                                ];
+                                $rowActions[] = [
+                                    'icon' => 'x',
+                                    'label' => 'Reject',
+                                    'class' => 'reject-btn',
+                                    'onclick' => 'openDecisionModal(\'ris\', '.(int) $ris->ris_id.', \'Rejected\')',
+                                ];
+                                $rowActions[] = [
                                     'icon' => 'printer',
                                     'label' => 'Print RIS',
                                     'onclick' => 'printRisDocument('.(int) $ris->ris_id.')',

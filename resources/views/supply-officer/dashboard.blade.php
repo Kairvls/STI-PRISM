@@ -28,7 +28,7 @@
             $ris = trim((string) ($atp->ris_request_no ?? ''));
         }
 
-        return $ris !== '' ? $ris : 'Draft';
+        return $ris !== '' ? $ris : \App\Support\ProcurementDraftLabel::STATUS;
     };
 
     $supplierNote = function ($ris) {
@@ -69,16 +69,16 @@
             }),
         ],
         [
-            'title' => 'ATP drafts',
+            'title' => 'ATPs in preparation',
             'count' => $atpDraftCount,
             'url' => route('supply-officer.atp.index', ['status' => 'Draft']),
-            'empty' => 'No drafts',
+            'empty' => 'None in preparation',
             'rows' => $latestAtpDrafts->map(function ($atp) use ($formatDate, $atpLabel, $revisionNote) {
                 return [
                     'title' => $atpLabel($atp),
                     'amount' => (float) ($atp->total_amount ?? 0),
                     'note' => $revisionNote($atp),
-                    'meta' => trim((blank($atp->authority_purchase_form_number ?? null) ? 'Draft · ' : '').$formatDate($atp->authority_purchase_updated_at ?: $atp->authority_purchase_created_at)),
+                    'meta' => trim((blank($atp->authority_purchase_form_number ?? null) ? \App\Support\ProcurementDraftLabel::STATUS.' · ' : '').$formatDate($atp->authority_purchase_updated_at ?: $atp->authority_purchase_created_at)),
                     'preview' => route('supply-officer.dashboard.preview-atp', $atp->authority_purchase_id),
                     'url' => route('supply-officer.atp.index', ['edit_atp' => $atp->authority_purchase_id]),
                     'action' => 'Open',

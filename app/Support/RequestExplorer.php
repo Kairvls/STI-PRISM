@@ -407,40 +407,40 @@ class RequestExplorer
             'ris' => [
                 (string) (data_get($row, 'ris_form_number') ?? ''),
                 (string) (data_get($row, 'ris_status') ?? ''),
-                'Draft RIS',
+                ProcurementDraftLabel::untitled('ris'),
                 (string) (data_get($row, 'ris_request_no') ?? ''),
             ],
             'atp' => [
                 (string) (data_get($row, 'authority_purchase_form_number') ?? ''),
                 (string) (data_get($row, 'authority_purchase_status') ?? ''),
-                'Draft ATP',
+                ProcurementDraftLabel::untitled('atp'),
                 '',
             ],
             'rfc' => [
                 (string) (data_get($row, 'request_check_form_number') ?? ''),
                 (string) (data_get($row, 'request_check_status') ?? ''),
-                'Draft RFC',
+                ProcurementDraftLabel::untitled('rfc'),
                 '',
             ],
             'dv' => [
                 (string) (data_get($row, 'dv_form_number') ?? ''),
                 (string) (data_get($row, 'dv_status') ?? ''),
-                'Draft DV',
+                ProcurementDraftLabel::untitled('dv'),
                 '',
             ],
             'rr' => [
                 (string) (data_get($row, 'receiving_report_form_number') ?? ''),
                 (string) (data_get($row, 'receiving_report_status') ?? ''),
-                'Draft RR',
+                ProcurementDraftLabel::untitled('rr'),
                 '',
             ],
             'liq' => [
                 (string) (data_get($row, 'liquidation_report_form_number') ?? ''),
                 (string) (data_get($row, 'liquidation_report_status') ?? ''),
-                'Draft LR',
+                ProcurementDraftLabel::untitled('liq'),
                 '',
             ],
-            default => ['', '', 'Draft document', ''],
+            default => ['', '', ProcurementDraftLabel::untitled('document'), ''],
         };
 
         $formNumber = trim($formNumber);
@@ -465,7 +465,7 @@ class RequestExplorer
     }
 
     /**
-     * Human label for Share UI (modal subtitle). Form number when present; otherwise Draft …
+     * Human label for Share UI (modal subtitle). Form number when present; otherwise in-preparation label.
      * Never uses internal DB ids (#13).
      */
     public static function shareUiLabel(string $key, ?string $formNumber, ?string $requestNo = null): string
@@ -476,13 +476,13 @@ class RequestExplorer
         }
 
         $draft = match ($key) {
-            'ris' => 'Draft RIS',
-            'atp' => 'Draft ATP',
-            'rfc' => 'Draft RFC',
-            'dv' => 'Draft DV',
-            'rr' => 'Draft RR',
-            'liq' => 'Draft LR',
-            default => 'Draft document',
+            'ris' => ProcurementDraftLabel::untitled('ris'),
+            'atp' => ProcurementDraftLabel::untitled('atp'),
+            'rfc' => ProcurementDraftLabel::untitled('rfc'),
+            'dv' => ProcurementDraftLabel::untitled('dv'),
+            'rr' => ProcurementDraftLabel::untitled('rr'),
+            'liq' => ProcurementDraftLabel::untitled('liq'),
+            default => ProcurementDraftLabel::untitled('document'),
         };
 
         $formNumber = trim((string) $formNumber);

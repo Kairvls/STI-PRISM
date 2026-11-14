@@ -45,12 +45,18 @@ class ProcurementRecordPackageController extends Controller
                     ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
             })
             ->whereNotNull('authority_to_purchase_table.authority_purchase_payment_path')
-            ->select(
+            ->select(array_values(array_filter([
                 'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
                 'authority_to_purchase_table.authority_purchase_payment_path',
-                'requisition_issue_slip_table.ris_form_number'
-            )
+                Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')
+                    ? 'authority_to_purchase_table.authority_purchase_request_no'
+                    : null,
+                'requisition_issue_slip_table.ris_form_number',
+                Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                    ? 'requisition_issue_slip_table.ris_request_no'
+                    : null,
+            ])))
             ->orderByDesc('authority_to_purchase_table.authority_purchase_id');
 
         PurchaserDocumentAccess::scopeOwned($atpQuery, 'atp', 'authority_to_purchase_table');
@@ -58,6 +64,7 @@ class ProcurementRecordPackageController extends Controller
         $eligibleAtps = $atpQuery->limit(100)->get();
 
         $packages = collect();
+        $existingAtpIds = [];
         if (Schema::hasTable('procurement_record_packages_table')) {
             $packageQuery = DB::table('procurement_record_packages_table')
                 ->leftJoin(
@@ -72,11 +79,17 @@ class ProcurementRecordPackageController extends Controller
                     '=',
                     'requisition_issue_slip_table.ris_id'
                 )
-                ->select(
+                ->select(array_values(array_filter([
                     'procurement_record_packages_table.*',
                     'authority_to_purchase_table.authority_purchase_form_number',
-                    'requisition_issue_slip_table.ris_form_number'
-                );
+                    Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')
+                        ? 'authority_to_purchase_table.authority_purchase_request_no'
+                        : null,
+                    'requisition_issue_slip_table.ris_form_number',
+                    Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                        ? 'requisition_issue_slip_table.ris_request_no'
+                        : null,
+                ])));
 
             if (Schema::hasColumn('procurement_record_packages_table', 'package_is_archived')) {
                 $packageQuery->where('procurement_record_packages_table.package_is_archived', $archiveView ? 1 : 0);
@@ -86,18 +99,21 @@ class ProcurementRecordPackageController extends Controller
 
             $packages = $packageQuery
                 ->orderByDesc('procurement_record_packages_table.package_id')
-                ->paginate(10)
-                ->withQueryString();
+                ->limit(200)
+                ->get();
+
+            $existingAtpIds = $packages
+                ->pluck('package_authority_purchase_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
         }
 
         $checklists = [];
         foreach ($eligibleAtps as $atp) {
             $checklists[(int) $atp->authority_purchase_id] = ProcurementRecordCompiler::checklistForAtp((int) $atp->authority_purchase_id);
         }
-
-        $existingAtpIds = $packages instanceof \Illuminate\Pagination\LengthAwarePaginator
-            ? $packages->getCollection()->pluck('package_authority_purchase_id')->map(fn ($id) => (int) $id)->all()
-            : [];
 
         return view('purchaser.procurement-records.index', [
             'packages' => $packages,
@@ -189,11 +205,19 @@ class ProcurementRecordPackageController extends Controller
                 'requisition_issue_slip_table.ris_id'
             )
             ->where('procurement_record_packages_table.package_is_archived', 0)
-            ->select(
+            ->select(array_values(array_filter([
                 'procurement_record_packages_table.*',
+                'authority_to_purchase_table.authority_purchase_id',
                 'authority_to_purchase_table.authority_purchase_form_number',
-                'requisition_issue_slip_table.ris_form_number'
-            )
+                'authority_to_purchase_table.authority_purchase_ris_id',
+                Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no')
+                    ? 'authority_to_purchase_table.authority_purchase_request_no'
+                    : null,
+                'requisition_issue_slip_table.ris_form_number',
+                Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                    ? 'requisition_issue_slip_table.ris_request_no'
+                    : null,
+            ])))
             ->orderByDesc('procurement_record_packages_table.package_id')
             ->paginate(15);
 
@@ -324,6 +348,33 @@ class ProcurementRecordPackageController extends Controller
     public function presidentDownloadAttachment($packageId, $attachmentId)
     {
         return $this->downloadAttachment((int) $packageId, (int) $attachmentId, 'president');
+    }
+
+    /**
+     * Purchaser form preview for Ready-to-compile checklist (no package required yet).
+     * Opens the same paper view used by Accounting/President compiled records.
+     */
+    public function purchaserPreviewDocument(int $atp, string $type, int $docId)
+    {
+        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true), 404);
+
+        $atpRow = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_id', $atp)
+            ->first();
+        abort_if(! $atpRow, 404);
+
+        PurchaserDocumentAccess::assertOwns($atpRow, 'atp');
+        ProcurementRecordCompiler::assertDocumentBelongsToPackage($atp, $type, $docId);
+
+        $package = (object) [
+            'package_authority_purchase_id' => $atp,
+            'package_payment_path' => $atpRow->authority_purchase_payment_path ?? null,
+        ];
+
+        $payload = $this->loadDocumentViewPayload($type, $docId, $package);
+        $payload['type'] = $type;
+
+        return view('procurement-records.document-view', $payload);
     }
 
     public function accountingViewDocument($packageId, $type, $docId)

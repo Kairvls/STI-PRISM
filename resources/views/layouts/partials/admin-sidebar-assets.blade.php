@@ -284,6 +284,22 @@
     color: inherit;
 }
 
+.menu-item .menu-count {
+    margin-left: auto;
+    display: inline-flex;
+    height: 18px;
+    min-width: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #0025cc;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: #ffffff !important;
+}
+
 
 /* ======================================
    MENU HOVER

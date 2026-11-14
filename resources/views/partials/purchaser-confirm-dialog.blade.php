@@ -8,6 +8,7 @@
         WorkflowNotifier::ROLE_SUPPLY_OFFICER => ReviewerAssignment::options(WorkflowNotifier::ROLE_SUPPLY_OFFICER),
         WorkflowNotifier::ROLE_ACCOUNTING => ReviewerAssignment::options(WorkflowNotifier::ROLE_ACCOUNTING),
         WorkflowNotifier::ROLE_RECEIVING => ReviewerAssignment::options(WorkflowNotifier::ROLE_RECEIVING),
+        WorkflowNotifier::ROLE_PRESIDENT => ReviewerAssignment::options(WorkflowNotifier::ROLE_PRESIDENT),
     ];
 @endphp
 <script>
@@ -41,6 +42,7 @@
         if (role === 'School Supply / Material Officer') return 'School Supply / Material Officer';
         if (role === 'Receiving Officer') return 'Receiving Officer';
         if (role === 'Accounting') return 'Accounting';
+        if (role === 'President') return 'President';
         return 'reviewer';
     }
 
@@ -97,9 +99,14 @@
 
             var reviewerHtml = '';
             if (needsReviewer) {
+                var primaryReviewer = reviewers.find(function (row) { return !!row.primary; }) || null;
+                var autoSelectId = reviewers.length === 1
+                    ? reviewers[0].id
+                    : (primaryReviewer ? primaryReviewer.id : null);
                 var opts = '<option value=\"\">Select ' + escapeHtml(reviewerRoleLabel(reviewerRole)) + '…</option>';
                 reviewers.forEach(function (row) {
-                    opts += '<option value=\"' + escapeHtml(row.id) + '\">' + escapeHtml(row.name) + '</option>';
+                    var selected = autoSelectId !== null && String(row.id) === String(autoSelectId);
+                    opts += '<option value=\"' + escapeHtml(row.id) + '\"' + (selected ? ' selected' : '') + '>' + escapeHtml(row.name) + '</option>';
                 });
                 reviewerHtml =
                     '<div class=\"mt-4 block w-full\">'
@@ -109,7 +116,9 @@
                     +   '</select>'
                     +   (reviewers.length === 0
                         ? '<p class=\"mt-1.5 text-xs text-rose-600\">No ' + escapeHtml(reviewerRoleLabel(reviewerRole)) + ' users are available.</p>'
-                        : '<p class=\"mt-1.5 text-xs text-slate-400\">Only the selected person will receive this for review.</p>')
+                        : '<p class=\"mt-1.5 text-xs text-slate-400\">Only the selected person will receive this for review.'
+                            + (primaryReviewer ? ' Primary-role holders appear first.' : '')
+                            + '</p>')
                     + '</div>';
             }
 
@@ -188,7 +197,10 @@
             document.addEventListener('keydown', onKey);
 
             document.body.appendChild(overlay);
-            var focusEl = overlay.querySelector('[data-pur-reviewer]') || overlay.querySelector('[data-pur-ok]');
+            var reviewerSelect = overlay.querySelector('[data-pur-reviewer]');
+            var focusEl = (reviewerSelect && !String(reviewerSelect.value || '').trim())
+                ? reviewerSelect
+                : (overlay.querySelector('[data-pur-ok]') || reviewerSelect);
             if (focusEl) focusEl.focus();
         });
     };

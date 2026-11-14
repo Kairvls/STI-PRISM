@@ -22,7 +22,7 @@
                 },
                 request()->is('purchaser/ris*') => ['RIS', 'Requisition and Issue Slips.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', ''],
-                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group draft ATPs and submit to the School Administrator.'],
+                request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group ATPs in preparation and submit to the School Administrator.'],
                 request()->is('purchaser/request-check*') && in_array(request('fund'), ['direct_payment', 'request_for_check'], true) => ['Direct Payment', ''],
                 request()->is('purchaser/request-check*') && request('fund') === 'cash_installment' => ['Cash Installment', ''],
                 request()->is('purchaser/request-check*') && request('fund') === 'cash_advance' => ['Cash Advance', ''],
@@ -32,6 +32,8 @@
                 request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Items delivered short or damaged.'],
                 request()->is('purchaser/back-orders*') => ['Back Orders', 'Items delivered short or damaged.'],
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', ''],
+                request()->is('purchaser/brand-insights*') => ['Brand Insights', 'Brands most often reported defective — avoid high-failure brands when ordering.'],
+                request()->is('purchaser/history*') => ['Purchase History', ''],
                 default => [View::yieldContent('title', 'PaAyo'), ''],
             };
 

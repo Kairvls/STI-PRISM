@@ -51,7 +51,7 @@
                         </span>
                         <div class="min-w-0">
                             <span class="pr-doc-label">{{ $row['label'] }}</span>
-                            @if(!empty($row['form_number']))
+                            @if($isReady && !empty($row['form_number']))
                                 <span class="pr-doc-number">{{ $row['form_number'] }}</span>
                             @endif
                         </div>

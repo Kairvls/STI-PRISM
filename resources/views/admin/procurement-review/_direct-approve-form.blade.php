@@ -293,7 +293,38 @@
                     </div>
                 </div>
 
-                <label for="forward_details" class="mt-3 block text-xs font-medium text-slate-700">
+                @php
+                    $presidentReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_PRESIDENT);
+                    $presidentAutoId = \App\Support\ReviewerAssignment::preferredId($presidentReviewers);
+                @endphp
+                <label for="assigned_reviewer_id" class="mt-3 block text-xs font-medium text-slate-700">
+                    Assign to President <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="assigned_reviewer_id"
+                    name="assigned_reviewer_id"
+                    required
+                    class="mt-1.5 block h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                >
+                    <option value="">Select President…</option>
+                    @foreach($presidentReviewers as $reviewer)
+                        <option
+                            value="{{ $reviewer['id'] }}"
+                            @selected(old('assigned_reviewer_id', $presidentAutoId) == $reviewer['id'])
+                        >{{ $reviewer['name'] }}</option>
+                    @endforeach
+                </select>
+                <p class="mt-1.5 text-xs text-slate-400">
+                    Only the selected President will receive this RIS for review.
+                    @if(collect($presidentReviewers)->contains(fn ($r) => !empty($r['primary'])))
+                        Primary-role holders appear first.
+                    @endif
+                </p>
+                @error('assigned_reviewer_id')
+                    <p class="mt-1.5 text-xs text-rose-600">{{ $message }}</p>
+                @enderror
+
+                <label for="forward_details" class="mt-4 block text-xs font-medium text-slate-700">
                     Supporting details
                 </label>
                 <textarea

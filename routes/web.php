@@ -2239,6 +2239,26 @@ Route::middleware([
 
 
         // =====================================================
+        // BRAND DEFECT INSIGHTS (procurement forecasting)
+        // =====================================================
+
+        Route::get(
+            '/brand-insights',
+            [\App\Http\Controllers\BrandDefectInsightsController::class, 'index']
+        )->name('brand-insights.index');
+
+        Route::post(
+            '/brand-insights/{brand}/avoid',
+            [\App\Http\Controllers\BrandDefectInsightsController::class, 'toggleAvoid']
+        )->whereNumber('brand')->name('brand-insights.avoid');
+
+        Route::post(
+            '/brand-insights/flag',
+            [\App\Http\Controllers\BrandDefectInsightsController::class, 'flagByName']
+        )->name('brand-insights.flag');
+
+
+        // =====================================================
         // PURCHASER URGENT REPORTS
         // =====================================================
 

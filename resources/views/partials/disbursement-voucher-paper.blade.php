@@ -94,8 +94,19 @@
         ->implode("\n");
 
     $inp = 'dv-field';
-    $dateDisplay = $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d-M-y') : '';
+    $dateDisplay = $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d-m-y') : '';
     $adminName = trim((string) ($dv?->dv_admin_signed_name ?? ''));
+    $presidentName = trim((string) ($dv?->dv_president_signed_name ?? ''));
+    $presidentSignature = trim((string) ($dv?->dv_president_signature ?? ''));
+    if ($presidentName === '') {
+        $presidentName = \App\Support\AccountingSigner::fromUserId((int) ($dv?->dv_assigned_president_id ?? 0));
+    }
+    if ($presidentName === '') {
+        $presidentName = \App\Support\AccountingSigner::fromUserId((int) ($dv?->dv_president_approved_by ?? 0));
+    }
+    if ($presidentName === '') {
+        $presidentName = trim((string) ($presidentNamePreview ?? ''));
+    }
     $accountantDefault = trim((string) ($dv?->dv_accountant_signed_name ?? ''));
     if ($accountantDefault === '' && $editable) {
         $accountantDefault = preg_replace('/[^A-Za-z0-9 ]/', '', trim((string) (auth()->user()->user_full_name ?? ''))) ?? '';
@@ -238,6 +249,7 @@
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
+        overflow: visible;
     }
     .dv-print-sheet .dv-sig-label {
         font-weight: 700;
@@ -252,6 +264,7 @@
         align-items: flex-end;
         justify-content: center;
         padding-bottom: 2px;
+        overflow: visible;
     }
     .dv-print-sheet .dv-sig-name {
         font-weight: 700;
@@ -260,6 +273,11 @@
         line-height: 1.15;
         position: relative;
         overflow: visible;
+    }
+    .dv-print-sheet .dv-sig-name .signature-name {
+        font-weight: 700;
+        font-style: italic;
+        font-size: 11px;
     }
     .dv-print-sheet .dv-sig-role {
         font-style: italic;
@@ -523,20 +541,56 @@
             </td>
             <td style="padding: 0;">
                 <div style="border-bottom: 1px solid #000;">
-                    <div class="dv-sig-box" style="min-height: 72px;">
+                    <div class="dv-sig-box">
                         <div class="dv-sig-label">APPROVED FOR PAYMENT</div>
-                        <div class="dv-sig-space"></div>
+                        @if(!empty($presidentNameEditable) && !\App\Support\RisWorkflow::isDrawnSignature($presidentSignature))
+                            @php $presidentPaperInputId = $presidentPaperNameId ?? 'accPaperSigPrintedName'; @endphp
+                            <div class="dv-sig-space relative">
+                                <span class="signature-name-stack relative mx-auto block w-full max-w-[92%]">
+                                    <img
+                                        id="accPaperSigOverlay"
+                                        alt=""
+                                        class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[36px] w-auto max-w-full -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                        style="display:none;"
+                                    >
+                                    <input
+                                        type="text"
+                                        id="{{ $presidentPaperInputId }}"
+                                        value="{{ $presidentName }}"
+                                        maxlength="120"
+                                        autocomplete="off"
+                                        class="relative z-[1] dv-field text-center text-[11px] font-bold italic"
+                                        placeholder="Type President name"
+                                        title="Click to edit printed name"
+                                        aria-label="President printed name under Approved for Payment"
+                                        data-president-paper-name
+                                    >
+                                </span>
+                            </div>
+                        @else
+                            <div class="dv-sig-space"></div>
+                            <div class="dv-sig-name">
+                                @include('partials.drawn-signature', [
+                                    'value' => $presidentSignature,
+                                    'printedName' => $presidentName,
+                                    'empty' => $presidentName !== '' ? $presidentName : ' ',
+                                ])
+                            </div>
+                        @endif
+                        <div class="dv-sig-role">President</div>
                     </div>
                 </div>
                 <div style="border-bottom: 1px solid #000;">
                     <div class="dv-sig-box">
                         <div class="dv-sig-label">AUTHORIZED SIGNATURE</div>
-                        <div class="dv-sig-space">
-                            @if(!empty($dv?->dv_admin_signature) && str_starts_with((string) $dv->dv_admin_signature, 'data:image'))
-                                <img src="{{ $dv->dv_admin_signature }}" alt="" style="max-height: 36px; object-fit: contain;">
-                            @endif
+                        <div class="dv-sig-space"></div>
+                        <div class="dv-sig-name">
+                            @include('partials.drawn-signature', [
+                                'value' => $dv?->dv_admin_signature ?? '',
+                                'printedName' => $adminName,
+                                'empty' => $adminName !== '' ? $adminName : ' ',
+                            ])
                         </div>
-                        <div class="dv-sig-name">{!! $adminName !== '' ? e($adminName) : '&nbsp;' !!}</div>
                         <div class="dv-sig-role">School Administrator</div>
                     </div>
                 </div>
@@ -579,7 +633,7 @@
                                 @include('partials.drawn-signature', [
                                     'value' => $accountantSignature,
                                     'printedName' => $accountantName,
-                                    'empty' => '',
+                                    'empty' => $accountantName !== '' ? $accountantName : ' ',
                                 ])
                             </div>
                             <div class="dv-sig-role">School Accountant</div>
@@ -595,7 +649,9 @@
                 <div class="mx-auto w-fit text-left">
                     <div class="text-[12px]">Received from STI COLLEGE-ORMOC, INC</div>
                     <div class="mt-3 flex items-end gap-2">
-                        <span class="shrink-0 text-[12px]">CHECK NO.</span>
+                        <span class="shrink-0 text-[12px]">
+                            CHECK NO.@if($editable)<span class="text-red-500">*</span>@endif
+                        </span>
                         @if($editable)
                             <input
                                 type="text"
@@ -605,10 +661,11 @@
                                 style="width: 280px;"
                                 maxlength="16"
                                 inputmode="numeric"
-                                pattern="[0-9]{0,16}"
+                                pattern="[0-9]{1,16}"
                                 autocomplete="off"
-                                title="Up to 16 digits"
+                                title="Required · up to 16 digits"
                                 data-dv-check-no
+                                aria-required="true"
                             >
                         @else
                             <span class="dv-line-input" style="display: inline-block; width: 280px;">{!! $checkNo !== '' ? e($checkNo) : '&nbsp;' !!}</span>
@@ -616,21 +673,8 @@
                     </div>
                     <div class="mt-2 text-[12px]">in full/partial payment of particulars described above.</div>
 
-                    @if($hasOrSettlement)
-                        <div class="mt-4 rounded border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] leading-relaxed text-slate-700">
-                            <div class="font-semibold uppercase tracking-wide text-slate-500">Final from Official Receipt</div>
-                            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                                <span>OR amount: <strong class="tabular-nums">₱{{ number_format((float) $orAmountRaw, 2) }}</strong></span>
-                                @if($changeAmountRaw !== null && $changeAmountRaw !== '' && (float) $changeAmountRaw > 0)
-                                    <span>Change returned: <strong class="tabular-nums text-amber-800">₱{{ number_format((float) $changeAmountRaw, 2) }}</strong></span>
-                                @endif
-                            </div>
-                            <div class="mt-0.5 text-[10px] text-slate-400">Synced from Receiving Report after OR upload — this is the final settled amount.</div>
-                        </div>
-                    @endif
-
                     <div class="mt-8 flex gap-2">
-                        <span class="invisible shrink-0 select-none text-[12px]" aria-hidden="true">CHECK NO.</span>
+                        <span class="invisible shrink-0 select-none text-[12px]" aria-hidden="true">CHECK NO.@if($editable)*@endif</span>
                         <div class="flex flex-col items-center" style="width: 280px;">
                             @if($editable)
                                 <input

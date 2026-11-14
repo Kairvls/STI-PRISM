@@ -145,7 +145,7 @@
 
             <i data-lucide="layout-dashboard"></i>
 
-            <span>Dashboard</span>
+            <span>Overview</span>
 
         </a>
 

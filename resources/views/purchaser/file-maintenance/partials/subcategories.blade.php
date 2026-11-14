@@ -160,7 +160,7 @@
                                     <p class="font-semibold text-gray-900">{{ $subcategory->item_subcategory_name }}</p>
                                 </div>
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $subcategory->item_category_name ?: '�' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $subcategory->item_category_name ?: '-' }}</td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $subcategory->item_subcategory_status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $subcategory->item_subcategory_status }}

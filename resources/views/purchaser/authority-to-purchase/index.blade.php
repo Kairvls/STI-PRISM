@@ -390,7 +390,7 @@
 
                     <select name="status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>Draft</option>
+                        <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>{{ \App\Support\ProcurementDraftLabel::filterOption() }}</option>
                         <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>Submitted</option>
                         <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>Minor Revision</option>
                         <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
@@ -581,8 +581,9 @@
                                             $atpHasHandoverAction = empty($atp->purchase_order_id);
                                             $atpSubmitsViaPo = !empty($atp->submits_via_po)
                                                 && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index');
+                                            $atpMenuCount = 1 + ($atpHasHandoverAction ? 1 : 0);
                                         @endphp
-                                        @if($atpHasHandoverAction || $atpSubmitsViaPo)
+                                        @if($atpMenuCount > 1)
                                         <div
                                             class="relative"
                                             x-data="{ openActions: false, actionsTrigger: null }"
@@ -622,7 +623,7 @@
                                                         type="button"
                                                         data-atp-submit
                                                         data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                                        data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                                        data-atp-number="{{ $atp->authority_purchase_form_number ?: (\App\Support\ProcurementDraftLabel::untitledWithId('atp', $atp->authority_purchase_id)) }}"
                                                         data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
                                                         x-on:click="openActions = false"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
@@ -642,7 +643,7 @@
                                                 @elseif($atpHasHandoverAction)
                                                     <button
                                                         type="button"
-                                                        x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'atp', id: {{ (int) $atp->authority_purchase_id }}, label: @js(($atp->authority_purchase_form_number ?: 'Draft ATP').' · Record #'.$atp->authority_purchase_id) } }))"
+                                                        x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'atp', id: {{ (int) $atp->authority_purchase_id }}, label: @js(($atp->authority_purchase_form_number ?: \App\Support\ProcurementDraftLabel::untitled('atp')).' · Record #'.$atp->authority_purchase_id) } }))"
                                                         class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
                                                     >
                                                         <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
@@ -652,12 +653,21 @@
                                             </div>
                                             </template>
                                         </div>
+                                        @elseif($atpSubmitsViaPo)
+                                            <a
+                                                href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                title="Submit via Purchase Order"
+                                                aria-label="Submit via Purchase Order"
+                                            >
+                                                <i data-lucide="file-text" class="h-4 w-4"></i>
+                                            </a>
                                         @else
                                             <button
                                                 type="button"
                                                 data-atp-submit
                                                 data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                                data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                                data-atp-number="{{ $atp->authority_purchase_form_number ?: (\App\Support\ProcurementDraftLabel::untitledWithId('atp', $atp->authority_purchase_id)) }}"
                                                 data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                                                 title="Submit to School Administrator"
@@ -1038,7 +1048,7 @@
                             onclick="this.form.querySelector('input[name=save_action]').value='draft'"
                             class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                         >
-                            Save Draft
+                            {{ \App\Support\ProcurementDraftLabel::SAVE }}
                         </button>
                         @if($atpIsSupplyPortal)
                             <button
@@ -1233,7 +1243,7 @@
                                 type="button"
                                 data-atp-submit
                                 data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                data-atp-number="{{ $atp->authority_purchase_form_number ?: (\App\Support\ProcurementDraftLabel::untitledWithId('atp', $atp->authority_purchase_id)) }}"
                                 data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
@@ -1479,7 +1489,7 @@
                     >
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
                             <div>
-                                <h3 id="atp-edit-title-{{ $atp->authority_purchase_id }}" class="text-xl font-semibold text-slate-900">Edit ATP Draft</h3>
+                                <h3 id="atp-edit-title-{{ $atp->authority_purchase_id }}" class="text-xl font-semibold text-slate-900">{{ \App\Support\ProcurementDraftLabel::editTitle('atp') }}</h3>
                                 <p class="mt-1 text-sm text-gray-500">
                                     {{ $atp->authority_purchase_form_number ?: '—' }}
                                 </p>
@@ -1519,7 +1529,7 @@
                             <div data-atp-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <!--<p class="mr-auto max-w-md text-xs text-gray-500">
                                     @if($atpIsSupplyPortal)
-                                        Save the draft, or choose a School Administrator and submit this ATP.
+                                        {{ \App\Support\ProcurementDraftLabel::SAVE }}, or choose a School Administrator and submit this ATP.
                                     @else
                                         Save your changes here (including signature), then use <strong>⋮ → Submit to School Administrator</strong> in the list.
                                     @endif
@@ -1544,7 +1554,7 @@
                                         data-atp-submit
                                         data-atp-edit-form="atp-edit-form-{{ $atp->authority_purchase_id }}"
                                         data-atp-action="{{ route('supply-officer.atp.submit', $atp->authority_purchase_id) }}"
-                                        data-atp-number="{{ $atp->authority_purchase_form_number ?: ('Draft ATP #'.$atp->authority_purchase_id) }}"
+                                        data-atp-number="{{ $atp->authority_purchase_form_number ?: (\App\Support\ProcurementDraftLabel::untitledWithId('atp', $atp->authority_purchase_id)) }}"
                                         data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
                                         class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
                                     >

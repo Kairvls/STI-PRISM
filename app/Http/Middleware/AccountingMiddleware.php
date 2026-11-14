@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\AccountingMenuSeen;
 use App\Support\RoleAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class AccountingMiddleware
         }
 
         RoleAccess::enterPortal('accounting');
+        AccountingMenuSeen::capture($request);
 
         return $next($request);
     }

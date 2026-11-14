@@ -20,7 +20,7 @@ class DraftHandoverController extends Controller
             'to_user_id' => ['required', 'integer', 'min:1'],
             'note' => ['nullable', 'string', 'max:500'],
         ], [
-            'to_user_id.required' => 'Choose the co-worker who should take over this draft.',
+            'to_user_id.required' => 'Choose the co-worker who should take over this record.',
         ]);
 
         try {
@@ -36,7 +36,7 @@ class DraftHandoverController extends Controller
 
         return back()->with(
             'success',
-            'Draft sent to '.DraftHandover::userName((int) $validated['to_user_id']).'. It stays with you until they accept it.'
+            'Record sent to '.DraftHandover::userName((int) $validated['to_user_id']).'. It stays with you until they accept it.'
         );
     }
 
@@ -75,7 +75,7 @@ class DraftHandoverController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Handover of '.$result->label.' cancelled. The draft stays with you.');
+        return back()->with('success', 'Handover of '.$result->label.' cancelled. It stays with you.');
     }
 
     public function dismiss(int $handoverId): RedirectResponse

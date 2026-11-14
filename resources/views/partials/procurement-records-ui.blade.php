@@ -1,5 +1,6 @@
 @once
 <style>
+    [x-cloak] { display: none !important; }
     .pr-module { width: 100%; max-width: 100%; }
     .pr-hero { margin-bottom: 1.5rem; }
     .pr-hero-kicker {
@@ -322,65 +323,136 @@
 
     .pr-compile-list { display: flex; flex-direction: column; }
     .pr-compile-card {
-        padding: 1.15rem 1.25rem;
+        padding: 0.65rem 1rem;
         border-bottom: 1px solid #f1f5f9;
     }
     .pr-compile-card:last-child { border-bottom: 0; }
-    .pr-compile-head {
+    .pr-compile-row {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem 1rem;
+        align-items: center;
+        gap: 0.55rem 0.75rem;
+    }
+    .pr-compile-toggle {
+        flex: 1 1 16rem;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        border: 0;
+        background: transparent;
+        padding: 0.15rem 0;
+        text-align: left;
+        cursor: pointer;
+        color: inherit;
+    }
+    .pr-compile-toggle:hover .pr-compile-ref { color: #2563eb; }
+    .pr-compile-chevron {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+        color: #94a3b8;
+        transition: transform 0.15s ease;
+    }
+    .pr-compile-chevron.is-open { transform: rotate(180deg); color: #64748b; }
+    .pr-compile-toggle-main {
+        min-width: 0;
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+    .pr-compile-toggle-aside {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-shrink: 0;
+    }
+    .pr-compile-mini-progress {
+        width: 4.5rem;
+        height: 0.35rem;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+    .pr-compile-mini-progress .pr-progress-bar {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: #2563eb;
+    }
+    .pr-compile-actions {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+    .pr-compile-body {
+        margin-top: 0.65rem;
+        padding: 0.65rem 0.15rem 0.25rem 1.55rem;
+        border-top: 1px solid #f8fafc;
     }
     .pr-compile-ref {
-        font-size: 0.9375rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: #0f172a;
         letter-spacing: -0.01em;
+        line-height: 1.25;
     }
     .pr-compile-meta {
-        margin-top: 0.2rem;
-        font-size: 0.75rem;
+        font-size: 0.6875rem;
         color: #64748b;
+        line-height: 1.3;
     }
     .pr-submit-btn {
         display: inline-flex;
         align-items: center;
-        gap: 0.4rem;
-        padding: 0.5rem 0.9rem;
-        border-radius: 0.65rem;
+        gap: 0.35rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 0.55rem;
         border: 0;
         background: #2563eb;
         color: #fff;
-        font-size: 0.75rem;
+        font-size: 0.6875rem;
         font-weight: 600;
         cursor: pointer;
         transition: background 0.15s ease, transform 0.15s ease;
     }
     .pr-submit-btn:hover { background: #1d4ed8; }
     .pr-submit-btn:active { transform: scale(0.98); }
-    .pr-submit-btn svg { width: 0.9rem; height: 0.9rem; }
+    .pr-submit-btn svg { width: 0.8rem; height: 0.8rem; }
 
     .pr-inline-checklist {
-        margin-top: 0.85rem;
         display: flex;
         flex-direction: column;
         gap: 0.45rem;
     }
+    .pr-inline-check-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    .pr-inline-check-files {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        padding-left: 1.45rem;
+    }
     .pr-inline-check {
         display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        font-size: 0.8125rem;
+        align-items: flex-start;
+        gap: 0.45rem;
+        font-size: 0.75rem;
         color: #475569;
         text-decoration: none;
+        min-width: 0;
     }
     a.pr-inline-check:hover { color: #2563eb; }
+    a.pr-inline-check:hover .pr-inline-check-id { color: #60a5fa; }
     .pr-inline-check .pr-check-dot {
         flex-shrink: 0;
-        width: 1.1rem;
-        height: 1.1rem;
+        width: 1rem;
+        height: 1rem;
+        margin-top: 0.05rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -392,7 +464,128 @@
         background: #ecfdf5;
         color: #059669;
     }
-    .pr-inline-check .pr-check-dot svg { width: 0.7rem; height: 0.7rem; }
+    .pr-inline-check .pr-check-dot svg { width: 0.65rem; height: 0.65rem; }
+    .pr-inline-check-text {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 0.05rem;
+    }
+    .pr-inline-check-label {
+        font-weight: 500;
+        color: inherit;
+        line-height: 1.2;
+    }
+    .pr-inline-check-id {
+        font-size: 0.625rem;
+        font-weight: 500;
+        color: #94a3b8;
+        line-height: 1.2;
+        word-break: break-all;
+    }
+    .pr-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.65rem 0.85rem;
+        padding: 0 1.15rem 0.9rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .pr-search {
+        position: relative;
+        flex: 1 1 14rem;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+    }
+    .pr-search svg {
+        position: absolute;
+        left: 0.7rem;
+        width: 0.9rem;
+        height: 0.9rem;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+    .pr-search input {
+        width: 100%;
+        height: 2.25rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.65rem;
+        background: #f8fafc;
+        padding: 0 0.75rem 0 2.1rem;
+        font-size: 0.8125rem;
+        color: #0f172a;
+        outline: none;
+        transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .pr-search input:focus {
+        background: #fff;
+        border-color: #bfdbfe;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+    .pr-filter-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+    .pr-filter-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        height: 2.1rem;
+        padding: 0 0.7rem;
+        border-radius: 999px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .pr-filter-pill:hover {
+        border-color: #cbd5e1;
+        color: #334155;
+    }
+    .pr-filter-pill.is-active {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1d4ed8;
+    }
+    .pr-filter-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.2rem;
+        height: 1.15rem;
+        padding: 0 0.3rem;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 0.625rem;
+        font-weight: 700;
+    }
+    .pr-filter-pill.is-active .pr-filter-count {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+    .pr-log-row {
+        padding-left: 1.15rem;
+        padding-right: 1.15rem;
+    }
+    .pr-log-tag {
+        flex-shrink: 0;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #94a3b8;
+    }
+    .pr-empty--inline {
+        border-top: 1px solid #f1f5f9;
+        padding-top: 2.5rem;
+        padding-bottom: 2.5rem;
+    }
 
     .pr-list-row--static {
         cursor: default;
@@ -403,6 +596,8 @@
         .pr-list-row { align-items: flex-start; flex-direction: column; }
         .pr-doc-row { align-items: flex-start; }
         .pr-doc-actions { width: 100%; }
+        .pr-compile-body { padding-left: 0.25rem; }
+        .pr-compile-mini-progress { width: 3.25rem; }
     }
 </style>
 @endonce

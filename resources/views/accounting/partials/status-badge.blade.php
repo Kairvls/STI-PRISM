@@ -6,7 +6,7 @@
     if (in_array($raw, ['Submitted', 'Resubmitted'], true) && !empty($toSa)) {
         $raw = 'Submitted to SA';
     }
-    $label = $raw;
+    $label = \App\Support\ProcurementDraftLabel::status($raw);
     $cls = 'bg-slate-100 text-slate-700 ring-slate-200';
     if (in_array($raw, ['Pending', 'Submitted', 'Submitted to SA', 'Under Review', 'Resubmitted', 'Waiting for funds', 'Waiting for Accounting'], true) || !empty($submitted)) {
         if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released', 'Checks released', 'Check collected', 'Checks collected'], true)) {

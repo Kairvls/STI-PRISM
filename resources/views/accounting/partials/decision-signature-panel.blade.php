@@ -20,7 +20,10 @@
     </div>
 
     @php
-        $accDefaultPrintedName = \App\Support\AccountingSigner::currentUserName() ?: 'Accountant';
+        $accDefaultPrintedName = trim((string) ($printedNameDefault ?? ''));
+        if ($accDefaultPrintedName === '') {
+            $accDefaultPrintedName = \App\Support\AccountingSigner::currentUserName() ?: 'Accountant';
+        }
     @endphp
     <div class="mt-10">
         <div id="accSigPreviewWrap" class="relative mx-auto flex min-h-0 w-full max-w-sm items-end justify-center border-b border-slate-800 px-2 pb-0.5">
@@ -288,13 +291,25 @@
         return String(printedNameInput.getAttribute('data-default-name') || printedNameInput.defaultValue || 'Accountant').trim() || 'Accountant';
     }
 
+    function resolvePaperPrintedNameEl() {
+        var exact = document.getElementById('accPaperSigPrintedName');
+        if (exact) return exact;
+        var nodes = document.querySelectorAll('[data-president-paper-name]');
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].offsetParent !== null || nodes[i].getClientRects().length > 0) {
+                return nodes[i];
+            }
+        }
+        return nodes.length ? nodes[0] : null;
+    }
+
     function syncPrintedName(value, source) {
         var next = String(value == null ? '' : value);
         syncingPrintedName = true;
         if (printedNameInput && source !== 'modal') {
             printedNameInput.value = next;
         }
-        var paperName = document.getElementById('accPaperSigPrintedName');
+        var paperName = resolvePaperPrintedNameEl();
         if (paperName && source !== 'paper') {
             if (paperName.tagName === 'INPUT' || paperName.tagName === 'TEXTAREA') {
                 paperName.value = next;
@@ -615,7 +630,8 @@
     }
     document.addEventListener('input', function (event) {
         if (syncingPrintedName) return;
-        if (!event.target || event.target.id !== 'accPaperSigPrintedName') return;
+        if (!event.target) return;
+        if (event.target.id !== 'accPaperSigPrintedName' && !event.target.hasAttribute('data-president-paper-name')) return;
         syncPrintedName(event.target.value, 'paper');
     });
     syncPrintedName(printedNameInput ? printedNameInput.value : defaultPrintedName(), null);

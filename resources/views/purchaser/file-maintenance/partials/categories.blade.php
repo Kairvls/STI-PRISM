@@ -152,7 +152,7 @@
                                     <p class="font-semibold text-gray-900">{{ $category->item_category_name }}</p>
                                 </div>
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ $category->item_category_description ?: '—' }}</td>
+                            <td class="px-5 py-4 text-gray-600">{{ $category->item_category_description ?: '-' }}</td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $category->item_category_status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $category->item_category_status }}

@@ -53,14 +53,22 @@ class ProcurementRecordCompiler
                 $risId ?: null,
                 'RIS'
             ),
-            self::item('ris', 'RIS', (bool) $ris, $risId ?: null, 'RIS'),
-            self::item('atp', 'ATP', $atp->authority_purchase_status === 'Approved', $atpId, 'ATP'),
+            self::item('ris', 'RIS', (bool) $ris, $risId ?: null, 'RIS', $ris->ris_form_number ?? null),
+            self::item(
+                'atp',
+                'ATP',
+                $atp->authority_purchase_status === 'Approved',
+                $atpId,
+                'ATP',
+                $atp->authority_purchase_form_number ?? null
+            ),
             self::item(
                 'funding',
                 $fundingDocLabel,
                 self::hasApprovedFunding($rfcs),
                 $rfc ? (int) $rfc->request_check_id : null,
-                'RFC'
+                'RFC',
+                $rfc->request_check_form_number ?? null
             ),
         ];
 
@@ -73,7 +81,8 @@ class ProcurementRecordCompiler
                 'Disbursement Voucher',
                 $dvReady,
                 $dv ? (int) $dv->dv_id : null,
-                'DV'
+                'DV',
+                $dv->dv_form_number ?? null
             );
         }
 
@@ -82,7 +91,8 @@ class ProcurementRecordCompiler
             'Receiving Report',
             self::isRrComplete($rr),
             $rr ? (int) $rr->receiving_report_id : null,
-            'RR'
+            'RR',
+            $rr->receiving_report_form_number ?? null
         );
 
         if (ProcurementPaymentPath::requiresLiquidation($path)) {
@@ -91,7 +101,8 @@ class ProcurementRecordCompiler
                 'Liquidation Report',
                 $liq && $liq->liquidation_report_status === 'Approved',
                 $liq ? (int) $liq->liquidation_report_id : null,
-                'LIQ'
+                'LIQ',
+                $liq->liquidation_report_form_number ?? null
             );
         }
 
@@ -131,15 +142,50 @@ class ProcurementRecordCompiler
         return in_array($rr->receiving_report_status ?? '', ['Completed', 'Accepted'], true);
     }
 
-    private static function item(string $key, string $label, bool $ready, ?int $refId, string $refType): array
+    private static function item(string $key, string $label, bool $ready, ?int $refId, string $refType, ?string $valueId = null): array
     {
+        $valueId = $valueId !== null ? trim($valueId) : '';
+
         return [
             'key' => $key,
             'label' => $label,
             'ready' => $ready,
             'ref_id' => $refId,
             'ref_type' => $refType,
+            'value_id' => $valueId !== '' ? $valueId : null,
         ];
+    }
+
+    /**
+     * Display PR value id (request no preferred; otherwise ATP form number rewritten as PR).
+     */
+    public static function prDisplayNumber(?object $atp): ?string
+    {
+        if (! $atp) {
+            return null;
+        }
+
+        foreach (['authority_purchase_request_no'] as $column) {
+            $value = trim((string) ($atp->{$column} ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        $risId = (int) ($atp->authority_purchase_ris_id ?? 0);
+        if ($risId > 0 && Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')) {
+            $requestNo = trim((string) (DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->value('ris_request_no') ?? ''));
+            if ($requestNo !== '') {
+                return $requestNo;
+            }
+        }
+
+        $form = trim((string) ($atp->authority_purchase_form_number ?? ''));
+        if ($form === '') {
+            return null;
+        }
+
+        return preg_replace('/^ATP\b/i', 'PR', $form) ?: $form;
     }
 
     /**
@@ -301,19 +347,39 @@ class ProcurementRecordCompiler
             ->exists();
     }
 
-    public static function purchaserUrlForItem(array $item): ?string
+    public static function purchaserUrlForItem(array $item, ?int $atpId = null): ?string
     {
         if (empty($item['ref_id'])) {
             return null;
         }
 
+        $docId = (int) $item['ref_id'];
+        $type = match ($item['ref_type'] ?? '') {
+            'RIS' => 'ris',
+            'ATP' => 'atp',
+            'RFC' => 'rfc',
+            'DV' => 'dv',
+            'RR' => 'rr',
+            'LIQ' => 'liq',
+            default => null,
+        };
+
+        // Prefer paper-form preview in a new tab (same as Accounting compiled records).
+        if ($atpId && $atpId > 0 && $type !== null && \Illuminate\Support\Facades\Route::has('purchaser.procurement-records.preview')) {
+            return route('purchaser.procurement-records.preview', [
+                'atp' => $atpId,
+                'type' => $type,
+                'docId' => $docId,
+            ]);
+        }
+
         return match ($item['ref_type'] ?? '') {
-            'RIS' => route('purchaser.ris.index', ['view_ris' => $item['ref_id']]),
-            'ATP' => route('purchaser.atp.index', ['view_atp' => $item['ref_id']]),
-            'RFC' => route('purchaser.rfc.index', ['view_rfc' => $item['ref_id']]),
-            'DV' => RequestExplorer::viewUrlFor('dv', (int) $item['ref_id']),
-            'RR' => route('purchaser.rr.index', ['view_rr' => $item['ref_id']]),
-            'LIQ' => route('purchaser.liq.index', ['view_liq' => $item['ref_id']]),
+            'RIS' => route('purchaser.ris.index', ['view_ris' => $docId]),
+            'ATP' => route('purchaser.atp.index', ['view_atp' => $docId]),
+            'RFC' => route('purchaser.rfc.index', ['view_rfc' => $docId]),
+            'DV' => RequestExplorer::viewUrlFor('dv', $docId),
+            'RR' => route('purchaser.rr.index', ['view_rr' => $docId]),
+            'LIQ' => route('purchaser.liq.index', ['view_liq' => $docId]),
             default => null,
         };
     }
@@ -443,9 +509,12 @@ class ProcurementRecordCompiler
             "{$routePrefix}.procurement-records.view",
             ['package' => $packageId, 'type' => $type, 'docId' => $id]
         );
+        $itemValueIds = collect($checklist['items'] ?? [])
+            ->mapWithKeys(fn ($row) => [($row['key'] ?? '') => $row['value_id'] ?? null])
+            ->all();
         $formNumberFor = fn (string $key) => match ($key) {
             'ris' => $resolved['ris_form_number'] ?? null,
-            'atp' => $resolved['atp_form_number'] ?? null,
+            'atp' => $itemValueIds['atp'] ?? $resolved['atp_form_number'] ?? null,
             'funding' => $resolved['rfc_form_number'] ?? null,
             'dv' => $resolved['dv_form_number'] ?? null,
             'rr' => $resolved['rr_form_number'] ?? null,
@@ -508,10 +577,18 @@ class ProcurementRecordCompiler
                 $links[] = ['label' => 'Word', 'url' => $export('liq', $resolved['liq_id'], 'docx')];
             }
 
+            $label = $item['label'] ?? ucfirst($key);
+            $formNumber = $formNumberFor($key);
+            // Always keep the ATP document row as ATP (heading elsewhere uses PR).
+            if ($key === 'atp') {
+                $label = 'ATP';
+                $formNumber = $resolved['atp_form_number'] ?? $formNumber;
+            }
+
             $rows[] = [
                 'key' => $key,
-                'label' => $item['label'] ?? ucfirst($key),
-                'form_number' => $formNumberFor($key),
+                'label' => $label,
+                'form_number' => $formNumber,
                 'ready' => (bool) ($item['ready'] ?? false),
                 'links' => $links,
             ];

@@ -3,7 +3,10 @@
 @section('title', 'Compiled Procurement Records')
 
 @section('content')
-@php use App\Support\ProcurementPaymentPath; @endphp
+@php
+    use App\Support\ProcurementPaymentPath;
+    use App\Support\ProcurementRecordCompiler;
+@endphp
 
 @include('partials.procurement-records-ui')
 
@@ -25,11 +28,12 @@
                             'forwarded_to_president' => 'pr-badge--green',
                             default => '',
                         };
+                        $pkgRef = ProcurementRecordCompiler::prDisplayNumber($pkg) ?: ($pkg->authority_purchase_form_number ?? '—');
                     @endphp
                     <a href="{{ route('accounting.procurement-records.show', $pkg->package_id) }}" class="pr-list-row">
                         <div class="pr-list-main">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="pr-list-ref">{{ $pkg->authority_purchase_form_number ?? '—' }}</span>
+                                <span class="pr-list-ref">{{ $pkgRef }}</span>
                                 <span class="pr-badge {{ $statusClass }}">{{ $status }}</span>
                             </div>
                             <div class="pr-list-meta">
