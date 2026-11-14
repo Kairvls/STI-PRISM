@@ -19,7 +19,14 @@ class SupplierRequest extends FormRequest
         $companyName = $this->filled('company_name') ? trim((string) $this->company_name) : $supplierName;
         $shopName = $this->filled('shop_name') ? trim((string) $this->shop_name) : $supplierName;
 
+        // Modal binds type via Alpine; keep a safe default so a blank hidden field
+        // does not fall through into Online-only rules (app_used required).
+        $storeType = $this->filled('supplier_store_type')
+            ? trim((string) $this->input('supplier_store_type'))
+            : 'Physical Store';
+
         $this->merge([
+            'supplier_store_type' => $storeType,
             'company_name' => $companyName,
             'contact_person' => $this->filled('contact_person') ? trim($this->contact_person) : null,
             'email_address' => $this->filled('email_address') ? trim($this->email_address) : null,

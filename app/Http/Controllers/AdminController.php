@@ -1554,7 +1554,7 @@ class AdminController extends Controller
         }
 
         $query = DB::table('disbursement_vouchers_table')
-            ->whereIn('dv_status', ['Approved', 'With President', 'President Approved', 'Check Released', 'Revision']);
+            ->whereIn('dv_status', ['Approved', 'With President', 'President Approved', 'Check Released', 'Check Collected', 'Revision']);
 
         if ($search !== '') {
             $like = '%'.$search.'%';

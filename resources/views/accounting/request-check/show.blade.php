@@ -13,7 +13,7 @@
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}</h1>
-                @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status])
+                @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_collected_at) ? 'Check collected' : (!empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status)])
                 @if (\App\Support\DocumentUrgency::isUrgent('RFC', $rfc->request_check_id))
                     @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
                 @endif
@@ -120,7 +120,11 @@
     </div>
 
     <div class="acc-review-body">
-        @if (!empty($rfc->request_check_funds_released_at))
+        @if (!empty($rfc->request_check_funds_collected_at))
+            <div class="acc-note acc-note-ok mb-3">
+                Check collected / handed over since {{ \Carbon\Carbon::parse($rfc->request_check_funds_collected_at)->format('M d, Y g:i A') }}.
+            </div>
+        @elseif (!empty($rfc->request_check_funds_released_at))
             <div class="acc-note acc-note-ok mb-3">
                 Funds ready for personal collection since {{ \Carbon\Carbon::parse($rfc->request_check_funds_released_at)->format('M d, Y g:i A') }}.
             </div>

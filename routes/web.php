@@ -2560,6 +2560,7 @@ Route::middleware(['auth', 'accounting'])
         Route::post('/disbursement-vouchers/{id}/submit', [DisbursementVoucherController::class, 'submit'])->whereNumber('id')->name('accounting.dv.submit');
         Route::post('/disbursement-vouchers/{id}/submit-president', [DisbursementVoucherController::class, 'submitToPresident'])->whereNumber('id')->name('accounting.dv.submit-president');
         Route::post('/disbursement-vouchers/{id}/release-check', [DisbursementVoucherController::class, 'releaseCheck'])->whereNumber('id')->name('accounting.dv.release-check');
+        Route::post('/disbursement-vouchers/{id}/collect-check', [DisbursementVoucherController::class, 'collectCheck'])->whereNumber('id')->name('accounting.dv.collect-check');
 
         Route::get('/liquidation-reports', [AccountingController::class, 'liquidationReports'])->name('accounting.liq.index');
         Route::get('/liquidation-reports/{id}', [AccountingController::class, 'showLiquidation']);

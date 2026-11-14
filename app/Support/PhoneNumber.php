@@ -45,7 +45,12 @@ class PhoneNumber
         }
 
         // International without explicit PH shape — store/display as +E.164.
+        // Do not promote incomplete PH mobiles (9xxxxxxxxx needs 10 digits) to +E.164.
         if (! str_starts_with($digits, '0') && strlen($digits) >= 8 && strlen($digits) <= 15) {
+            if (str_starts_with($digits, '9') && strlen($digits) < 10) {
+                return $digits;
+            }
+
             return '+'.$digits;
         }
 
@@ -113,12 +118,27 @@ class PhoneNumber
             return strlen($national) === 11 && str_starts_with($national, '09');
         }
 
+        // Incomplete +63 / 63 national mobile (needs 12–13 digits total).
+        if (str_starts_with($digits, '63')) {
+            return false;
+        }
+
         if (strlen($digits) === 11 && str_starts_with($digits, '09')) {
             return true;
         }
 
         if (strlen($digits) === 10 && str_starts_with($digits, '9')) {
             return true;
+        }
+
+        // Incomplete PH national fragments (already failed exact-length checks above).
+        if (! $hasPlus && (str_starts_with($digits, '09') || str_starts_with($digits, '9'))) {
+            return false;
+        }
+
+        // Short +9… values are incomplete PH mobiles, not real E.164 country codes.
+        if ($hasPlus && str_starts_with($digits, '9') && strlen($digits) < 10) {
+            return false;
         }
 
         // International E.164: 8–15 digits, country code cannot start with 0.

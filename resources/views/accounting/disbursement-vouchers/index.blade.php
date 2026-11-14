@@ -18,6 +18,7 @@
         'with_president' => 'With President',
         'ready_release' => 'Release check',
         'released' => 'Check released',
+        'collected' => 'Check collected',
         'all' => 'All requests',
     ];
     $editDvId = (int) ($editDvId ?? 0);
@@ -229,7 +230,18 @@
                             </td>
                             <td class="px-5 py-4">
                                 @if($rowDvId)
-                                    <span class="inline-flex rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $row->dv_status }}{{ $row->dv_form_number ? ' · '.$row->dv_form_number : '' }}</span>
+                                    @php
+                                        $dvStatus = (string) ($row->dv_status ?? '');
+                                        $dvBadgeClass = match ($dvStatus) {
+                                            'Check Released' => 'border-blue-200 bg-blue-50 text-blue-800',
+                                            'Check Collected' => 'border-teal-200 bg-teal-50 text-teal-800',
+                                            'President Approved' => 'border-emerald-200 bg-emerald-50 text-emerald-800',
+                                            'Draft', 'Revision' => 'border-gray-200 bg-gray-50 text-gray-700',
+                                            'No DV yet' => 'border-amber-200 bg-amber-50 text-amber-800',
+                                            default => 'border-gray-200 bg-gray-50 text-gray-700',
+                                        };
+                                    @endphp
+                                    <span class="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium {{ $dvBadgeClass }}">{{ $dvStatus }}{{ $row->dv_form_number ? ' · '.$row->dv_form_number : '' }}</span>
                                 @else
                                     <span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">No DV yet</span>
                                 @endif
@@ -266,6 +278,12 @@
                                             <form method="POST" action="{{ route('accounting.dv.release-check', $rowDvId) }}" class="inline" onsubmit="return confirm('Mark this check as released and notify the Purchaser?');">
                                                 @csrf
                                                 <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700">Release check</button>
+                                            </form>
+                                        @endif
+                                        @if(($row->dv_status ?? '') === 'Check Released')
+                                            <form method="POST" action="{{ route('accounting.dv.collect-check', $rowDvId) }}" class="inline" onsubmit="return confirm('Confirm the check was handed over / collected by the Purchaser?');">
+                                                @csrf
+                                                <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-600 px-3 text-xs font-semibold text-white transition hover:bg-teal-700">Mark collected</button>
                                             </form>
                                         @endif
                                     @else
@@ -468,7 +486,13 @@
                                     'printId' => 'dv-print-'.$dvId,
                                 ])
                             </div>
-                            <div class="print-hidden flex justify-end border-t border-gray-100 px-5 py-4">
+                            <div class="print-hidden flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
+                                @if(($dv->dv_status ?? '') === 'Check Released')
+                                    <form method="POST" action="{{ route('accounting.dv.collect-check', $dvId) }}" onsubmit="return confirm('Confirm the check was handed over / collected by the Purchaser?');">
+                                        @csrf
+                                        <button type="submit" class="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">Mark collected</button>
+                                    </form>
+                                @endif
                                 <button type="button" @click="closeModal()" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-900">Close</button>
                             </div>
                         </div>

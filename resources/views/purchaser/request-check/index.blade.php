@@ -477,7 +477,9 @@
                             <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $rfc->request_check_date ? \Carbon\Carbon::parse($rfc->request_check_date)->format('M d, Y') : '—' }}</td>
                             <td class="px-5 py-4">
                                 @if($rfc->request_check_status === 'Approved')
-                                    @if($rfc->funds_released)
+                                    @if(!empty($rfc->funds_collected))
+                                        @include('accounting.partials.status-badge', ['status' => 'Check collected'])
+                                    @elseif($rfc->funds_released)
                                         @include('accounting.partials.status-badge', ['status' => 'Checks released'])
                                     @else
                                         @include('accounting.partials.status-badge', ['status' => 'Waiting for funds'])

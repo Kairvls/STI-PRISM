@@ -717,6 +717,8 @@
         createNameSigModal: false,
         createDeleteSigModal: false,
         createPendingSaveLabel: '',
+        createPendingSaveError: '',
+        createNameSigSaving: false,
         createPendingDeleteId: null,
         createPendingDeleteLabel: '',
         createSigNotice: '',
@@ -870,7 +872,7 @@
                     this.showCreateSigNotice(err.message || 'Could not save signature to your list.');
                 }
             } else if (this.createSaveOnDraw && this.savedSignatures.length >= this.maxSavedSignatures) {
-                this.showCreateSigNotice('Signature applied. List is full (4 max) — remove one to save this drawing.');
+                this.showCreateSigNotice('Signature applied. List is full (4 max) - remove one to save this drawing.');
             }
             if (shouldSubmit) {
                 this.submitCreateRisForm();
@@ -909,7 +911,7 @@
                 this.applyCreateSignature(dataUrl || '');
                 if (this.createSaveOnUpload) {
                     if (this.savedSignatures.length >= this.maxSavedSignatures) {
-                        this.showCreateSigNotice('Signature applied. List is full (4 max) — remove one to save this upload.');
+                        this.showCreateSigNotice('Signature applied. List is full (4 max) - remove one to save this upload.');
                     } else {
                         const label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
                         await this.saveSignatureToLibrary({ file, label });
@@ -930,18 +932,27 @@
                 return;
             }
             this.createPendingSaveLabel = 'My signature';
+            this.createPendingSaveError = '';
+            this.createNameSigSaving = false;
             this.createNameSigModal = true;
         },
         async confirmCreateNameSig() {
+            if (this.createNameSigSaving) return;
+            this.createPendingSaveError = '';
+            this.createNameSigSaving = true;
             try {
                 await this.saveSignatureToLibrary({
                     dataUrl: this.createSignaturePreview,
                     label: String(this.createPendingSaveLabel || '').trim() || 'My signature',
                 });
                 this.createNameSigModal = false;
+                this.createPendingSaveError = '';
                 this.showCreateSigNotice('Signature saved to your list.');
             } catch (err) {
-                this.showCreateSigNotice(err.message || 'Could not save signature.');
+                this.createPendingSaveError = err.message || 'Could not save signature.';
+                this.showCreateSigNotice(this.createPendingSaveError);
+            } finally {
+                this.createNameSigSaving = false;
             }
         },
         openCreateDeleteSigModal(id, label) {
@@ -2630,7 +2641,7 @@
                                                     </span>
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
-                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
+                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers'); return prefix + ' - ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining'; })()"></p>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
                                                     @include('purchaser.ris._searchable-select', [
@@ -2670,7 +2681,7 @@
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="text" readonly tabindex="-1" value="" placeholder="—" title="Issued is filled by the School Administrator or the President" class="pointer-events-none w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-400 outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="text" readonly tabindex="-1" value="" placeholder="" title="Issued is filled by the School Administrator or the President" class="pointer-events-none w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-400 outline-none focus:ring-0 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
@@ -3051,13 +3062,20 @@
                         placeholder="e.g. My official signature"
                         class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
                         x-model="createPendingSaveLabel"
+                        x-bind:disabled="createNameSigSaving"
                         x-on:keydown.enter.prevent="confirmCreateNameSig()"
                     >
                 </div>
+                <p
+                    x-cloak
+                    x-show="createPendingSaveError"
+                    class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                    x-text="createPendingSaveError"
+                ></p>
             </div>
             <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3">
-                <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50" x-on:click="createNameSigModal = false">Cancel</button>
-                <button type="button" class="rounded-xl bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800" x-on:click="confirmCreateNameSig()">Save signature</button>
+                <button type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" x-bind:disabled="createNameSigSaving" x-on:click="createNameSigModal = false; createPendingSaveError = ''">Cancel</button>
+                <button type="button" class="rounded-xl bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" x-bind:disabled="createNameSigSaving" x-on:click="confirmCreateNameSig()" x-text="createNameSigSaving ? 'Saving...' : 'Save signature'"></button>
             </div>
         </div>
     </div>
@@ -3091,7 +3109,7 @@
         x-cloak
         x-show="createSigNotice"
         x-transition.opacity
-        class="pointer-events-none fixed inset-x-0 bottom-6 z-[100] flex justify-center px-4"
+        class="pointer-events-none fixed inset-x-0 bottom-6 z-[300] flex justify-center px-4"
     >
         <div class="pointer-events-auto max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg shadow-slate-900/10 ring-1 ring-slate-100">
             <span x-text="createSigNotice"></span>
@@ -3301,7 +3319,7 @@
                             <td class="px-3 py-3.5">
                                 @include('partials.procurement-request-no', ['requestNo' => $ris->ris_request_no ?? null, 'inline' => true, 'showLabel' => false])
                                 @if(blank($ris->ris_request_no ?? null))
-                                    <span class="text-xs text-gray-400">—</span>
+                                    <span class="text-xs text-gray-400">-</span>
                                 @endif
                             </td>
 
@@ -4633,7 +4651,7 @@
                                                                     if (!info) return '';
                                                                     if (info.single) return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').';
                                                                     const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers');
-                                                                    return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
+                                                                    return prefix + ' - ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
                                                                 })()"
                                                             ></p>
                                                         </div>
@@ -4717,7 +4735,7 @@
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="text" readonly tabindex="-1" value="" placeholder="—" title="Issued is filled by the School Administrator or the President" class="ris-cell-input pointer-events-none cursor-not-allowed bg-gray-50 text-center text-gray-400">
+                                                        <input type="text" readonly tabindex="-1" value="" placeholder="" title="Issued is filled by the School Administrator or the President" class="ris-cell-input pointer-events-none cursor-not-allowed bg-gray-50 text-center text-gray-400">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>

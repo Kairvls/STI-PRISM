@@ -518,7 +518,7 @@ class SupplierController extends Controller
 
     private function writeSupplierAudit(string $action, int $supplierId, string $description): void
     {
-        DB::table('audit_logs_table')->insert([
+        $audit = [
             'audit_log_user_id' => Auth::id(),
             'audit_log_action' => $action,
             'audit_log_table_name' => 'suppliers_table',
@@ -526,6 +526,12 @@ class SupplierController extends Controller
             'audit_log_description' => $description,
             'audit_log_ip_address' => request()->ip(),
             'audit_log_created_at' => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn('audit_logs_table', 'audit_log_module')) {
+            $audit['audit_log_module'] = 'Suppliers';
+        }
+
+        DB::table('audit_logs_table')->insert($audit);
     }
 }

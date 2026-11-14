@@ -161,6 +161,9 @@ class PurchaserAttentionSummary
 
         if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
             $query->whereNotNull('request_check_table.request_check_funds_released_at');
+            if (Schema::hasColumn('request_check_table', 'request_check_funds_collected_at')) {
+                $query->whereNull('request_check_table.request_check_funds_collected_at');
+            }
         } elseif (Schema::hasTable('disbursement_vouchers_table')) {
             $query->whereExists(function ($sub) {
                 $sub->select(DB::raw(1))

@@ -193,6 +193,7 @@ class RequestForCheckController extends Controller
             $rfc->has_rr = $rrAtps !== null
                 && (count($linked) < 2 || array_diff($linked, $rrAtps) === []);
             $rfc->funds_released = !empty($rfc->request_check_funds_released_at ?? null);
+            $rfc->funds_collected = !empty($rfc->request_check_funds_collected_at ?? null);
             $rfc->sent_to_accounting = AccountingHandoff::rfcIsSentToAccounting($rfc);
             $rfc->can_send_to_accounting = AccountingHandoff::purchaserCanSendRfc($rfc);
         }

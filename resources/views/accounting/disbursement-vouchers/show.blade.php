@@ -96,6 +96,12 @@
                     <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Release check</button>
                 </form>
             @endif
+            @if(($dv->dv_status ?? '') === 'Check Released')
+                <form method="POST" action="{{ route('accounting.dv.collect-check', $dv->dv_id) }}" onsubmit="return confirm('Confirm the check was handed over / collected by the Purchaser?');">
+                    @csrf
+                    <button type="submit" class="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700">Mark collected</button>
+                </form>
+            @endif
         </div>
     @endif
 </div>

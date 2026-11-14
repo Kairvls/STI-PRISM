@@ -199,7 +199,7 @@ class ReceivingReportController extends Controller
             ]);
         }
 
-        return DB::transaction(function () use ($validated, $isDraft, $receivedName, $receivedSig, $rfcId, $atpId, $orMoney, $orFile) {
+        return DB::transaction(function () use ($request, $validated, $isDraft, $receivedName, $receivedSig, $rfcId, $atpId, $orMoney, $orFile) {
             $now = now();
             $user = auth()->user();
             $reviewerId = $isDraft
@@ -239,7 +239,8 @@ class ReceivingReportController extends Controller
             }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_or_attachment_path')) {
                 $payload['receiving_report_or_attachment_path'] = $orFile['path'];
-                $payload['receiving_report_or_attachment_name'] = $orFile['name'];                $payload['receiving_report_or_attachment_mime'] = $orFile['mime'];
+                $payload['receiving_report_or_attachment_name'] = $orFile['name'];
+                $payload['receiving_report_or_attachment_mime'] = $orFile['mime'];
             }
             if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_name')) {
                 $payload['receiving_report_received_by_name'] = $receivedName !== '' ? $receivedName : null;
@@ -322,7 +323,7 @@ class ReceivingReportController extends Controller
             ]);
         }
 
-        return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId, $atpId, $receivedName, $receivedSig, $orMoney, $orFile) {
+        return DB::transaction(function () use ($request, $validated, $rr, $isDraft, $id, $rfcId, $atpId, $receivedName, $receivedSig, $orMoney, $orFile) {
             $now = now();
             $reviewerId = $isDraft
                 ? null

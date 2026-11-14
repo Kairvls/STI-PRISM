@@ -207,6 +207,7 @@ class ProcurementRecordCompiler
             'President Approved',
             'Completed',
             'Check Released',
+            'Check Collected',
             'Released',
         ], true);
     }

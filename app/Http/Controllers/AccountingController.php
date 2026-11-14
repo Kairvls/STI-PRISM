@@ -757,7 +757,9 @@ class AccountingController extends Controller
 
         $rows = $query->limit(1000)->get()->map(function ($row) {
             $status = (string) ($row->request_check_status ?? '');
-            if (! empty($row->request_check_funds_released_at)) {
+            if (! empty($row->request_check_funds_collected_at)) {
+                $status = 'Check collected';
+            } elseif (! empty($row->request_check_funds_released_at)) {
                 $status = 'Released';
             }
             $when = $row->request_check_submitted_at ?? $row->request_check_date ?? $row->request_check_created_at ?? null;
@@ -1365,7 +1367,13 @@ class AccountingController extends Controller
                 $this->applySearch($q, $request, $cols);
             }
             foreach ($q->orderByDesc($this->rfcSortColumn())->get() as $row) {
-                $status = !empty($row->request_check_funds_released_at ?? null) ? 'Checks released' : $row->request_check_status;
+                if (! empty($row->request_check_funds_collected_at ?? null)) {
+                    $status = 'Check collected';
+                } elseif (! empty($row->request_check_funds_released_at ?? null)) {
+                    $status = 'Checks released';
+                } else {
+                    $status = $row->request_check_status;
+                }
                 $rows->push((object) [
                     'type' => 'Request Check',
                     'ref' => $row->request_check_form_number ?? ('RFC-' . $row->request_check_id),
@@ -2459,6 +2467,7 @@ class AccountingController extends Controller
             'request_check_submitted_at',
             'request_check_created_at',
             'request_check_funds_released_at',
+            'request_check_funds_collected_at',
             'request_check_is_archived',
             'request_check_assigned_reviewer_id',
             'request_check_authority_purchase_id',

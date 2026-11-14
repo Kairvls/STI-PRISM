@@ -77,6 +77,8 @@ class DisbursementVoucherController extends Controller
             $packagesQuery->where('dv.dv_status', 'President Approved');
         } elseif ($filter === 'released') {
             $packagesQuery->where('dv.dv_status', 'Check Released');
+        } elseif ($filter === 'collected') {
+            $packagesQuery->where('dv.dv_status', 'Check Collected');
         }
 
         if ($focusRfc > 0) {
@@ -127,6 +129,7 @@ class DisbursementVoucherController extends Controller
             'with_president' => (clone $base)->where('dv.dv_status', 'With President')->count(),
             'ready_release' => (clone $base)->where('dv.dv_status', 'President Approved')->count(),
             'released' => (clone $base)->where('dv.dv_status', 'Check Released')->count(),
+            'collected' => (clone $base)->where('dv.dv_status', 'Check Collected')->count(),
         ];
 
         $editDvId = (int) $request->query('edit_dv', 0);
@@ -868,6 +871,89 @@ class DisbursementVoucherController extends Controller
         });
     }
 
+    /** Accounting confirms the check was handed over / collected in person. */
+    public function collectCheck(Request $request, $id)
+    {
+        return DB::transaction(function () use ($id) {
+            $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->lockForUpdate()->first();
+            abort_if(! $dv, 404);
+
+            if (($dv->dv_status ?? '') !== 'Check Released') {
+                return back()->with('error', 'Only released checks can be marked as collected.');
+            }
+
+            $dvPayload = [
+                'dv_status' => 'Check Collected',
+                'updated_at' => now(),
+            ];
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_check_collected_at')) {
+                $dvPayload['dv_check_collected_at'] = now();
+            }
+            if (Schema::hasColumn('disbursement_vouchers_table', 'dv_check_collected_by')) {
+                $dvPayload['dv_check_collected_by'] = Auth::id();
+            }
+
+            DB::table('disbursement_vouchers_table')->where('dv_id', $id)->update($dvPayload);
+
+            $rfcId = (int) ($dv->dv_request_check_id ?? 0);
+            if ($rfcId > 0 && Schema::hasTable('request_check_table')) {
+                $rfcPayload = [];
+                if (Schema::hasColumn('request_check_table', 'request_check_funds_collected_at')) {
+                    $rfcPayload['request_check_funds_collected_at'] = now();
+                }
+                if (Schema::hasColumn('request_check_table', 'request_check_funds_collected_by')) {
+                    $rfcPayload['request_check_funds_collected_by'] = Auth::id();
+                }
+                if ($rfcPayload !== []) {
+                    DB::table('request_check_table')->where('request_check_id', $rfcId)->update($rfcPayload);
+                }
+            }
+
+            $label = $dv->dv_form_number ?: 'Disbursement Voucher';
+            $requestNo = $dv->dv_request_no ?? null;
+            $purchaserId = null;
+            if ($rfcId > 0) {
+                $rfc = DB::table('request_check_table')->where('request_check_id', $rfcId)->first();
+                $purchaserId = $rfc->request_check_created_by
+                    ?? $rfc->request_check_submitted_by
+                    ?? null;
+            }
+
+            $message = $label.' check was collected / handed over at the office.'
+                .($requestNo ? ' Request No. '.$requestNo.'.' : '')
+                .' Proceed to purchase and file the Receiving Report.';
+
+            if ($purchaserId) {
+                WorkflowNotifier::toUser(
+                    $purchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'Check collected',
+                    $message,
+                    'dv_check_collected',
+                    'DV',
+                    (int) $id,
+                    '/purchaser/request-check?view_rfc='.$rfcId,
+                    'accounting'
+                );
+            } else {
+                WorkflowNotifier::toRole(
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'Check collected',
+                    $message,
+                    'dv_check_collected',
+                    'DV',
+                    (int) $id,
+                    '/purchaser/request-check',
+                    'accounting'
+                );
+            }
+
+            return redirect()
+                ->route('accounting.dv.index', ['status' => 'collected', 'view_dv' => $id])
+                ->with('success', $label.' marked as check collected.');
+        });
+    }
+
     /** President queue */
     public function presidentIndex(Request $request)
     {
@@ -893,7 +979,7 @@ class DisbursementVoucherController extends Controller
         if ($filter === 'incoming') {
             $query->where('disbursement_vouchers_table.dv_status', 'With President');
         } elseif ($filter === 'approved') {
-            $query->whereIn('disbursement_vouchers_table.dv_status', ['President Approved', 'Check Released']);
+            $query->whereIn('disbursement_vouchers_table.dv_status', ['President Approved', 'Check Released', 'Check Collected']);
         } elseif ($filter === 'revision') {
             $query->where('disbursement_vouchers_table.dv_status', 'Approved')
                 ->whereNotNull('disbursement_vouchers_table.dv_president_revision_reason');
@@ -908,7 +994,7 @@ class DisbursementVoucherController extends Controller
 
         $counts = [
             'incoming' => (clone $base)->where('dv_status', 'With President')->count(),
-            'approved' => (clone $base)->whereIn('dv_status', ['President Approved', 'Check Released'])->count(),
+            'approved' => (clone $base)->whereIn('dv_status', ['President Approved', 'Check Released', 'Check Collected'])->count(),
             'revision' => (clone $base)->where('dv_status', 'Approved')->whereNotNull('dv_president_revision_reason')->count(),
         ];
 
@@ -924,7 +1010,7 @@ class DisbursementVoucherController extends Controller
         $dv = $this->findDv($id);
         abort_if(! $dv, 404);
         abort_unless(in_array((string) ($dv->dv_status ?? ''), [
-            'With President', 'President Approved', 'Check Released', 'Approved',
+            'With President', 'President Approved', 'Check Released', 'Check Collected', 'Approved',
         ], true), 404);
 
         $package = $this->packageContext((int) $dv->dv_request_check_id);

@@ -243,7 +243,7 @@ class PresidentController extends Controller
             $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
             abort_if(! $dv, 404);
             abort_unless(in_array((string) ($dv->dv_status ?? ''), [
-                'With President', 'President Approved', 'Check Released', 'Approved',
+                'With President', 'President Approved', 'Check Released', 'Check Collected', 'Approved',
             ], true), 404);
 
             return view('president.dashboard-preview', [

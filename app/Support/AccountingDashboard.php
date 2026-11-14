@@ -124,6 +124,7 @@ class AccountingDashboard
                         'With President',
                         'President Approved',
                         'Check Released',
+                        'Check Collected',
                     ])
                     ->where(function ($arch) {
                         $arch->whereNull('disbursement_vouchers_table.dv_is_archived')

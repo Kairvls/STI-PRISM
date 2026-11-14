@@ -3142,6 +3142,7 @@
                         selectedComlabRow: null,
                         selectedComlabRowTable: null,
                         comlabSetCarouselIndex: 0,
+                        comlabOtherCarouselPage: 0,
                         comlabHoldingPage: 0,
                         selectedFloorSetId: null,
                         highlightCustodianId: null,
@@ -9757,6 +9758,7 @@
                         this.roomLayout.selectedComlabRowTable = null;
                         this.selectedComlabRowTable = null;
                         this.roomLayout.comlabSetCarouselIndex = 0;
+                        this.roomLayout.comlabOtherCarouselPage = 0;
 
                         this.roomLayout.equipment.forEach((item) => {
                             const zone = item.placement_zone || item.location || '';
@@ -10852,6 +10854,53 @@
                         return this.comlabRowSummary(this.roomLayout.selectedComlabRow).other;
                     },
 
+                    /** 3 columns × 4 rows before paging into a carousel. */
+                    comlabOtherPerPage() {
+                        return 12;
+                    },
+
+                    comlabOtherCarouselPageCount() {
+                        const total = this.comlabOtherInSelectedRow().length;
+                        return Math.max(1, Math.ceil(total / this.comlabOtherPerPage()));
+                    },
+
+                    comlabOtherCarouselPage() {
+                        const maxPage = this.comlabOtherCarouselPageCount() - 1;
+                        return Math.min(Math.max(0, this.roomLayout.comlabOtherCarouselPage || 0), maxPage);
+                    },
+
+                    comlabOtherPageItems() {
+                        const per = this.comlabOtherPerPage();
+                        const page = this.comlabOtherCarouselPage();
+                        return this.comlabOtherInSelectedRow().slice(page * per, (page + 1) * per);
+                    },
+
+                    comlabOtherCarouselLabel() {
+                        const total = this.comlabOtherInSelectedRow().length;
+                        if (total <= this.comlabOtherPerPage()) {
+                            return `${total} item${total === 1 ? '' : 's'}`;
+                        }
+                        return `${this.comlabOtherCarouselPage() + 1} / ${this.comlabOtherCarouselPageCount()}`;
+                    },
+
+                    comlabOtherCarouselGoToPage(page) {
+                        const maxPage = this.comlabOtherCarouselPageCount() - 1;
+                        this.roomLayout.comlabOtherCarouselPage = Math.min(Math.max(0, page), maxPage);
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    comlabOtherCarouselPrev() {
+                        const page = this.comlabOtherCarouselPage();
+                        if (page <= 0) return;
+                        this.comlabOtherCarouselGoToPage(page - 1);
+                    },
+
+                    comlabOtherCarouselNext() {
+                        const page = this.comlabOtherCarouselPage();
+                        if (page >= this.comlabOtherCarouselPageCount() - 1) return;
+                        this.comlabOtherCarouselGoToPage(page + 1);
+                    },
+
                     activeComlabSet() {
                         const sets = this.comlabSetsInSelectedRow();
                         return sets[this.roomLayout.comlabSetCarouselIndex] || null;
@@ -10868,6 +10917,7 @@
                     selectComlabRow(row) {
                         this.roomLayout.selectedComlabRow = row;
                         this.roomLayout.comlabSetCarouselIndex = 0;
+                        this.roomLayout.comlabOtherCarouselPage = 0;
                         this.roomLayout.selectedAssetId = null;
                         this.roomLayout.selectedFloorSetId = null;
                         // Prefer set carousel view whenever this row has computer sets (labs + offices).
@@ -11595,6 +11645,7 @@
                             selectedComlabRow: null,
                             selectedComlabRowTable: null,
                             comlabSetCarouselIndex: 0,
+                            comlabOtherCarouselPage: 0,
                             comlabHoldingPage: 0,
                             highlightCustodianId: null,
                         };

@@ -1,7 +1,8 @@
 @forelse ($records as $row)
     @php
         $st = $row->request_check_status;
-        if (!empty($row->request_check_funds_released_at)) { $st = 'Released'; }
+        if (!empty($row->request_check_funds_collected_at)) { $st = 'Check collected'; }
+        elseif (!empty($row->request_check_funds_released_at)) { $st = 'Released'; }
         $when = $row->request_check_submitted_at ?? $row->request_check_date ?? $row->request_check_created_at;
         $reviewTip = ($st === 'Released' || $st === 'Approved') ? 'View request check' : 'Review request check';
     @endphp

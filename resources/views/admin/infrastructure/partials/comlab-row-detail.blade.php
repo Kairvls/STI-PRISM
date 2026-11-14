@@ -130,25 +130,65 @@
     </template>
     <template x-if="rowUsesComputerSetUi() && comlabOtherInSelectedRow().length > 0">
         <div class="mt-4">
-            <p class="mb-2 text-xs font-medium text-slate-500">Other equipment in row</p>
-            <div class="flex flex-col gap-2">
-                <template x-for="item in comlabOtherInSelectedRow()" :key="'other-' + item.id">
-                    <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <button type="button" @click="selectComlabAsset(item.id)" class="inline-flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
-                            <span class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(item.name)"></span>
-                            <span class="truncate" x-text="item.quantity > 1 ? (item.name + ' × ' + item.quantity) : item.name"></span>
-                        </button>
+            <div class="mb-2 flex items-center justify-between gap-2">
+                <p class="text-xs font-medium text-slate-500">Other equipment in row</p>
+                <span class="text-[11px] font-medium text-slate-400" x-text="comlabOtherCarouselLabel()"></span>
+            </div>
+            <div class="relative">
+                <button
+                    type="button"
+                    x-show="comlabOtherCarouselPageCount() > 1"
+                    @click="comlabOtherCarouselPrev()"
+                    :disabled="comlabOtherCarouselPage() <= 0"
+                    class="absolute -left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-35"
+                    title="Previous equipment page"
+                >
+                    <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                </button>
+                <button
+                    type="button"
+                    x-show="comlabOtherCarouselPageCount() > 1"
+                    @click="comlabOtherCarouselNext()"
+                    :disabled="comlabOtherCarouselPage() >= comlabOtherCarouselPageCount() - 1"
+                    class="absolute -right-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-35"
+                    title="Next equipment page"
+                >
+                    <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                </button>
+                <div :class="comlabOtherCarouselPageCount() > 1 ? 'px-9' : 'px-0'">
+                    <div class="grid grid-cols-3 gap-2">
+                        <template x-for="item in comlabOtherPageItems()" :key="'other-' + item.id">
+                            <div
+                                class="flex min-h-[2.75rem] items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2"
+                                :class="roomLayout.selectedAssetId === item.id ? 'border-[#005EA6] ring-1 ring-[#005EA6]/20 bg-white' : ''"
+                            >
+                                <button type="button" @click="selectComlabAsset(item.id)" class="inline-flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
+                                    <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(item.name)"></span>
+                                    <span class="truncate font-medium text-slate-700" x-text="item.quantity > 1 ? (item.name + ' × ' + item.quantity) : item.name"></span>
+                                </button>
+                                <button
+                                    type="button"
+                                    x-show="roomLayout.edit"
+                                    @click="sendEquipmentToHolding(item.id)"
+                                    class="shrink-0 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-amber-700 hover:bg-amber-100"
+                                    title="Remove from row to holding area"
+                                >
+                                    Hold
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-center gap-1.5" x-show="comlabOtherCarouselPageCount() > 1">
+                    <template x-for="pageIdx in comlabOtherCarouselPageCount()" :key="'other-page-dot-' + pageIdx">
                         <button
                             type="button"
-                            x-show="roomLayout.edit"
-                            @click="sendEquipmentToHolding(item.id)"
-                            class="shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
-                            title="Remove from row to holding area"
-                        >
-                            To holding
-                        </button>
-                    </div>
-                </template>
+                            @click="comlabOtherCarouselGoToPage(pageIdx - 1)"
+                            class="h-1.5 rounded-full transition-all duration-300 ease-out"
+                            :class="comlabOtherCarouselPage() === (pageIdx - 1) ? 'w-5 bg-[#005EA6]' : 'w-1.5 bg-slate-300'"
+                        ></button>
+                    </template>
+                </div>
             </div>
         </div>
     </template>

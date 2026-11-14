@@ -1781,30 +1781,19 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             // =============================================
             // RECALCULATE AMOUNT
             // Never trust a manually supplied amount.
+            // Before Admin fills Quantity Issued, amount is
+            // based on Quantity Requested (same as risItemPayload).
             // =============================================
-            $quantityIssued =
-                (int) ($item->ris_quantity_issued ?? 0);
+            $quantityIssued = (int) ($item->ris_quantity_issued ?? 0);
+            $quantityRequested = (int) ($item->ris_quantity_requested ?? 0);
+            $unitCost = (float) ($item->ris_unit_cost ?? 0);
+            $amountBasis = $quantityIssued > 0 ? $quantityIssued : $quantityRequested;
+            $correctAmount = round($amountBasis * $unitCost, 2);
 
-            $unitCost =
-                (float) ($item->ris_unit_cost ?? 0);
-
-            $correctAmount = round(
-                $quantityIssued * $unitCost,
-                2
-            );
-
-
-            DB::table(
-                'requisition_issue_slip_items_table'
-            )
-                ->where(
-                    'ris_item_id',
-                    $item->ris_item_id
-                )
+            DB::table('requisition_issue_slip_items_table')
+                ->where('ris_item_id', $item->ris_item_id)
                 ->update([
-
-                    'ris_total_amount' =>
-                        $correctAmount,
+                    'ris_total_amount' => $correctAmount,
                 ]);
         }
 

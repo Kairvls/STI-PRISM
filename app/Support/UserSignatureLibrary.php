@@ -24,6 +24,7 @@ class UserSignatureLibrary
             return collect();
         }
 
+        self::pruneMissingFiles($userId);
         self::trimToMax($userId);
 
         return DB::table('user_signatures_table')
@@ -40,11 +41,40 @@ class UserSignatureLibrary
             ->filter(fn ($row) => is_string($row->preview_url) && $row->preview_url !== '');
     }
 
+    /**
+     * Drop DB rows whose files were deleted from storage so the 4-slot
+     * limit cannot soft-lock the UI (empty list, but saves still blocked).
+     */
+    public static function pruneMissingFiles(int $userId): void
+    {
+        if (!self::tableReady() || $userId <= 0) {
+            return;
+        }
+
+        $rows = DB::table('user_signatures_table')
+            ->where('user_id', $userId)
+            ->get(['user_signature_id', 'user_signature_path']);
+
+        foreach ($rows as $row) {
+            $path = trim((string) ($row->user_signature_path ?? ''));
+            if ($path !== '' && Storage::disk('public')->exists($path)) {
+                continue;
+            }
+
+            DB::table('user_signatures_table')
+                ->where('user_signature_id', (int) $row->user_signature_id)
+                ->where('user_id', $userId)
+                ->delete();
+        }
+    }
+
     public static function trimToMax(int $userId): void
     {
         if (!self::tableReady() || $userId <= 0) {
             return;
         }
+
+        self::pruneMissingFiles($userId);
 
         $ids = DB::table('user_signatures_table')
             ->where('user_id', $userId)
@@ -88,6 +118,8 @@ class UserSignatureLibrary
             return 0;
         }
 
+        self::pruneMissingFiles($userId);
+
         return (int) DB::table('user_signatures_table')
             ->where('user_id', $userId)
             ->count();
@@ -103,6 +135,8 @@ class UserSignatureLibrary
         if (!self::tableReady() || $userId <= 0) {
             return null;
         }
+
+        self::pruneMissingFiles($userId);
 
         if (!self::canSaveMore($userId)) {
             return null;
@@ -131,6 +165,8 @@ class UserSignatureLibrary
         if (!self::tableReady() || $userId <= 0 || !$file->isValid()) {
             return null;
         }
+
+        self::pruneMissingFiles($userId);
 
         if (!self::canSaveMore($userId)) {
             return null;
