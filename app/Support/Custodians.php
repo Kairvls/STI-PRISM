@@ -36,7 +36,7 @@ class Custodians
             return null;
         }
 
-        return self::withDepartment(DB::table('custodians_table as person'))
+        $person = self::withDepartment(DB::table('custodians_table as person'))
             ->leftJoin('rooms_table as home', 'home.room_id', '=', 'person.custodian_room_id')
             ->leftJoin('reporters_table as account', 'account.reporter_id', '=', 'person.custodian_reporter_id')
             ->where('person.custodian_id', $custodianId)
@@ -47,6 +47,144 @@ class Custodians
                 'account.reporter_employee_id as linked_employee_id',
                 'account.reporter_full_name as linked_reporter_name',
             ]);
+
+        if ($person) {
+            self::hydrateFromCampusDirectory($person);
+            self::hydrateRoomFromDepartment($person);
+        }
+
+        return $person;
+    }
+
+    /**
+     * When a property person is linked to Faculty & Staff, prefer campus directory
+     * identity for display and backfill drifted overlay columns.
+     */
+    public static function hydrateFromCampusDirectory(object $person): void
+    {
+        if (! Schema::hasColumn('custodians_table', 'person_id')) {
+            return;
+        }
+
+        $personId = (int) ($person->person_id ?? 0);
+        if ($personId < 1 || ! Persons::tableReady()) {
+            return;
+        }
+
+        $campus = Persons::find($personId);
+        if (! $campus) {
+            return;
+        }
+
+        $patch = [];
+
+        $campusDeptId = ! empty($campus->person_department_id) ? (int) $campus->person_department_id : null;
+        if ((int) ($person->custodian_department_id ?? 0) !== (int) ($campusDeptId ?? 0)) {
+            $person->custodian_department_id = $campusDeptId;
+            $patch['custodian_department_id'] = $campusDeptId;
+        }
+        if (! empty($campus->department_name)) {
+            $person->custodian_department = $campus->department_name;
+        } elseif ($campusDeptId === null) {
+            $person->custodian_department = null;
+        }
+
+        if ((string) ($person->custodian_employment_basis ?? '') !== (string) ($campus->person_employment_basis ?? '')) {
+            $person->custodian_employment_basis = $campus->person_employment_basis;
+            $patch['custodian_employment_basis'] = $campus->person_employment_basis;
+        }
+
+        if ((string) ($person->custodian_employee_id ?? '') !== (string) ($campus->person_employee_id ?? '')) {
+            $person->custodian_employee_id = $campus->person_employee_id;
+            $patch['custodian_employee_id'] = $campus->person_employee_id;
+        }
+        if ((string) ($person->custodian_full_name ?? '') !== (string) ($campus->person_full_name ?? '')) {
+            $person->custodian_full_name = $campus->person_full_name;
+            $patch['custodian_full_name'] = $campus->person_full_name;
+        }
+        if (Schema::hasColumn('custodians_table', 'custodian_first_name')) {
+            foreach (['first_name', 'middle_name', 'last_name'] as $part) {
+                $cKey = 'custodian_'.$part;
+                $pKey = 'person_'.$part;
+                if ((string) ($person->{$cKey} ?? '') !== (string) ($campus->{$pKey} ?? '')) {
+                    $person->{$cKey} = $campus->{$pKey};
+                    $patch[$cKey] = $campus->{$pKey};
+                }
+            }
+        }
+        if (Schema::hasColumn('custodians_table', 'custodian_position')
+            && (string) ($person->custodian_position ?? '') !== (string) ($campus->person_employment_type ?? '')) {
+            $person->custodian_position = $campus->person_employment_type;
+            $patch['custodian_position'] = $campus->person_employment_type;
+        }
+        if ((string) ($person->custodian_email_address ?? '') !== (string) ($campus->person_email_address ?? '')) {
+            $person->custodian_email_address = $campus->person_email_address;
+            $patch['custodian_email_address'] = $campus->person_email_address;
+        }
+        if ((string) ($person->custodian_contact_number ?? '') !== (string) ($campus->person_contact_number ?? '')) {
+            $person->custodian_contact_number = $campus->person_contact_number;
+            $patch['custodian_contact_number'] = $campus->person_contact_number;
+        }
+
+        if ($patch !== []) {
+            $patch['custodian_updated_at'] = now();
+            DB::table('custodians_table')
+                ->where('custodian_id', (int) $person->custodian_id)
+                ->update($patch);
+        }
+    }
+
+    /**
+     * When personal home room is blank, use the department's linked office room.
+     */
+    public static function hydrateRoomFromDepartment(object $person): void
+    {
+        if (! empty($person->custodian_room_id) || ! empty($person->home_room_name)) {
+            return;
+        }
+
+        $departmentId = (int) ($person->custodian_department_id ?? 0);
+        if ($departmentId < 1 || ! RoomDepartments::ready()) {
+            return;
+        }
+
+        $room = RoomDepartments::primaryForDepartment($departmentId);
+        if (! $room) {
+            return;
+        }
+
+        $person->custodian_room_id = (int) $room['id'];
+        $person->home_room_name = (string) $room['name'];
+
+        DB::table('custodians_table')
+            ->where('custodian_id', (int) $person->custodian_id)
+            ->where(function ($q) {
+                $q->whereNull('custodian_room_id')->orWhere('custodian_room_id', 0);
+            })
+            ->update([
+                'custodian_room_id' => (int) $room['id'],
+                'custodian_updated_at' => now(),
+            ]);
+    }
+
+    /**
+     * Whether this person_id can be attached to the given custodian (unique person_id).
+     */
+    public static function canAttachPersonId(int $personId, ?int $custodianId = null): bool
+    {
+        if (! Schema::hasColumn('custodians_table', 'person_id')) {
+            return false;
+        }
+
+        $owner = DB::table('custodians_table')
+            ->where('person_id', $personId)
+            ->value('custodian_id');
+
+        if (! $owner) {
+            return true;
+        }
+
+        return $custodianId !== null && (int) $owner === (int) $custodianId;
     }
 
     /**
@@ -187,15 +325,79 @@ class Custodians
     {
         $now = now();
 
-        return (int) DB::table('custodians_table')->insertGetId(self::columns($data) + [
+        // 1A: when picked from Faculty & Staff, link only — do not push form identity to persons.
+        $pickedPersonId = ! empty($data['person_id']) ? (int) $data['person_id'] : null;
+        $personId = $pickedPersonId;
+        if ($personId && Persons::tableReady() && Persons::find($personId)) {
+            if (self::canAttachPersonId($personId)) {
+                $data['person_id'] = $personId;
+            }
+        } else {
+            // New campus row without a pick: create/link master once, then identity is owned by Faculty & Staff.
+            $personId = self::writeThroughCampusIdentity($data);
+            if ($personId && self::canAttachPersonId($personId)) {
+                $data['person_id'] = $personId;
+            }
+        }
+
+        $id = (int) DB::table('custodians_table')->insertGetId(self::columns($data) + [
             'custodian_created_by' => Auth::id(),
             'custodian_created_at' => $now,
             'custodian_updated_at' => $now,
         ]);
+
+        if ($personId) {
+            Persons::syncOverlayIdentity($personId);
+        }
+
+        return $id;
     }
 
     public static function update(int $custodianId, array $data): void
     {
+        $existing = DB::table('custodians_table')
+            ->where('custodian_id', $custodianId)
+            ->first(['person_id', 'custodian_affiliation']);
+
+        if ($existing && ! array_key_exists('custodian_affiliation', $data)
+            && Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+            $data['custodian_affiliation'] = $existing->custodian_affiliation;
+        }
+
+        $linkedPersonId = $existing && ! empty($existing->person_id) ? (int) $existing->person_id : null;
+        $affiliation = (string) ($data['custodian_affiliation'] ?? $existing->custodian_affiliation ?? self::AFFILIATION_CAMPUS);
+        $isExternal = $affiliation === self::AFFILIATION_EXTERNAL;
+
+        // 1A: linked campus people — Property may only change role fields; identity comes from Faculty & Staff.
+        if ($linkedPersonId && ! $isExternal && Persons::tableReady()) {
+            $columns = self::roleColumns($data);
+            $columns['person_id'] = $linkedPersonId;
+
+            if (($columns['custodian_status'] ?? null) === 'Inactive') {
+                $held = self::activeItemCount($custodianId);
+                if ($held > 0) {
+                    throw new RuntimeException(
+                        "This person still holds {$held} ".($held === 1 ? 'item' : 'items')
+                        .'. Return or transfer them before marking the person inactive.'
+                    );
+                }
+            }
+
+            DB::table('custodians_table')
+                ->where('custodian_id', $custodianId)
+                ->update($columns + ['custodian_updated_at' => now()]);
+
+            Persons::syncOverlayIdentity($linkedPersonId);
+
+            return;
+        }
+
+        // Unlinked campus or external: allow local identity edit; campus may create/link master once.
+        $personId = $isExternal ? null : self::writeThroughCampusIdentity($data, $linkedPersonId);
+        if ($personId && self::canAttachPersonId($personId, $custodianId)) {
+            $data['person_id'] = $personId;
+        }
+
         $columns = self::columns($data);
 
         if ($columns['custodian_status'] === 'Inactive') {
@@ -211,6 +413,58 @@ class Custodians
         DB::table('custodians_table')
             ->where('custodian_id', $custodianId)
             ->update($columns + ['custodian_updated_at' => now()]);
+
+        if ($personId) {
+            Persons::syncOverlayIdentity($personId);
+        }
+    }
+
+    /**
+     * Role-only columns editable on Property Assignment when linked to Faculty & Staff.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function roleColumns(array $data): array
+    {
+        $clean = fn ($key) => ($value = trim((string) ($data[$key] ?? ''))) !== '' ? $value : null;
+        $status = in_array($data['custodian_status'] ?? null, self::STATUSES, true)
+            ? $data['custodian_status']
+            : self::STATUS_ACTIVE;
+
+        $out = [
+            'custodian_room_id' => ! empty($data['custodian_room_id']) ? (int) $data['custodian_room_id'] : null,
+            'custodian_reporter_id' => ! empty($data['custodian_reporter_id']) ? (int) $data['custodian_reporter_id'] : null,
+            'custodian_status' => $status,
+            'custodian_notes' => $clean('custodian_notes'),
+        ];
+
+        if (Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+            $affiliation = in_array($data['custodian_affiliation'] ?? null, self::AFFILIATIONS, true)
+                ? $data['custodian_affiliation']
+                : self::AFFILIATION_CAMPUS;
+            $out['custodian_affiliation'] = $affiliation;
+        }
+        if (Schema::hasColumn('custodians_table', 'custodian_organization')) {
+            $out['custodian_organization'] = $clean('custodian_organization');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Push campus identity to Faculty & Staff; external people stay local-only.
+     * Used for first-time campus create/link only (1A: later edits stay in Faculty & Staff).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function writeThroughCampusIdentity(array $data, ?int $existingPersonId = null): ?int
+    {
+        if (! Persons::tableReady() || ! Schema::hasColumn('custodians_table', 'person_id')) {
+            return $existingPersonId;
+        }
+
+        return Persons::writeThroughFromCustodian($data, $existingPersonId);
     }
 
     /**
@@ -293,32 +547,65 @@ class Custodians
 
     /**
      * Directory entry for a faculty/staff employee ID (used by the public report form).
+     * Prefers the campus-linked / newest row when duplicate custodians share an employee ID.
      */
     public static function idForEmployee(string $employeeId): ?int
     {
+        $ids = self::idsForEmployee($employeeId);
+
+        return $ids[0] ?? null;
+    }
+
+    /**
+     * All active custodian rows that belong to this employee (reporter, campus person, or employee ID).
+     * Used so held-equipment lookups still work when legacy duplicate custodian rows exist.
+     *
+     * @return list<int>
+     */
+    public static function idsForEmployee(string $employeeId): array
+    {
         if (! self::tableReady() || trim($employeeId) === '') {
-            return null;
+            return [];
         }
 
-        $reporterId = DB::table('reporters_table')
-            ->where('reporter_employee_id', $employeeId)
-            ->where('reporter_status', 'Active')
-            ->value('reporter_id');
+        $normalized = strtoupper(trim($employeeId));
+        $reporter = Schema::hasTable('reporters_table')
+            ? DB::table('reporters_table')
+                ->whereRaw('UPPER(TRIM(reporter_employee_id)) = ?', [$normalized])
+                ->where('reporter_status', 'Active')
+                ->first(['reporter_id', 'person_id'])
+            : null;
 
-        if (! $reporterId) {
-            return null;
+        if (! $reporter) {
+            return [];
         }
 
-        $id = DB::table('custodians_table')
+        $reporterId = (int) $reporter->reporter_id;
+        $personId = (int) ($reporter->person_id ?? 0);
+        $hasPersonCol = Schema::hasColumn('custodians_table', 'person_id');
+
+        $query = DB::table('custodians_table')
             ->where('custodian_status', '!=', 'Inactive')
-            ->where(function ($q) use ($reporterId, $employeeId) {
+            ->where(function ($q) use ($reporterId, $normalized, $personId, $hasPersonCol) {
                 $q->where('custodian_reporter_id', $reporterId)
-                    ->orWhere('custodian_employee_id', $employeeId);
-            })
-            ->orderByRaw('custodian_reporter_id = ? DESC', [$reporterId])
-            ->value('custodian_id');
+                    ->orWhereRaw('UPPER(TRIM(custodian_employee_id)) = ?', [$normalized]);
+                if ($hasPersonCol && $personId > 0) {
+                    $q->orWhere('person_id', $personId);
+                }
+            });
 
-        return $id ? (int) $id : null;
+        if ($hasPersonCol && $personId > 0) {
+            $query->orderByRaw('CASE WHEN person_id = ? THEN 0 ELSE 1 END', [$personId]);
+        }
+        $query->orderByRaw('CASE WHEN custodian_reporter_id = ? THEN 0 ELSE 1 END', [$reporterId])
+            ->orderByDesc('custodian_id');
+
+        return $query
+            ->pluck('custodian_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public static function hasNameColumns(): bool

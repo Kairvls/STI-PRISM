@@ -3874,14 +3874,21 @@
 
                     {{-- REPORTER INFO BOX + PROPERTY-ASSIGNED EQUIPMENT --}}
                     <div id="reporterInfoBox" class="hidden">
-                        <div id="assignedEquipmentBox" class="mb-5 hidden rounded-xl border border-[#2947f0]/15 bg-[#f3f6ff] px-3.5 py-3">
-                            <p class="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#2947f0]">
-                                Your assigned equipment
-                            </p>
-                            <p class="mb-2.5 text-[11px] leading-snug text-slate-500">
-                                Detected from your employee ID’s property assignment (including computer sets). Tap one to report it — these units stay out of the shared location list.
-                            </p>
-                            <div id="assignedEquipmentList" class="flex flex-wrap gap-2"></div>
+                        <div id="assignedEquipmentBox" class="mb-5 hidden overflow-hidden rounded-2xl border border-[#2947f0]/25 bg-gradient-to-br from-[#eef2ff] via-[#f3f6ff] to-white shadow-sm shadow-[#2947f0]/5">
+                            <div class="flex items-start gap-3 border-b border-[#2947f0]/10 px-3.5 py-3">
+                                <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2947f0] text-white">
+                                    <i data-lucide="briefcase" class="h-4 w-4"></i>
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-bold text-slate-900">
+                                        Your held equipment
+                                    </p>
+                                    <p class="mt-0.5 text-[11px] leading-snug text-slate-500">
+                                        Tap a component or item to report it. Location fills from where that unit is — change it below if needed.
+                                    </p>
+                                </div>
+                            </div>
+                            <div id="assignedEquipmentList" class="space-y-2 px-3.5 py-3"></div>
                         </div>
                     </div>
 
@@ -3977,6 +3984,22 @@
                         </button>
                         <p id="qrScanNotice" class="rf-qr-notice hidden" role="status"></p>
                         <div class="rf-qr-divider" aria-hidden="true"><span>or choose manually</span></div>
+                        </div>
+
+                        <div id="assignedEquipmentInlineBox" class="mb-3 hidden rounded-xl border border-[#2947f0]/20 bg-[#f8faff] px-3 py-2.5">
+                            <div class="mb-2 flex items-center justify-between gap-2">
+                                <p class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#2947f0]">
+                                    Quick pick from held
+                                </p>
+                                <button
+                                    type="button"
+                                    id="assignedEquipmentJumpBtn"
+                                    class="text-[11px] font-semibold text-[#2947f0] hover:underline"
+                                >
+                                    View all
+                                </button>
+                            </div>
+                            <div id="assignedEquipmentInlineList" class="flex flex-wrap gap-1.5"></div>
                         </div>
 
                         <div class="rf-loc-equip-card mb-3 grid grid-cols-1 gap-5 md:mb-0 md:grid-cols-2">
@@ -7553,6 +7576,12 @@ toggleRoomBtn.addEventListener('click', function () {
 
         enhanceModernSelects();
 
+        document.getElementById("assignedEquipmentJumpBtn")?.addEventListener("click", () => {
+            const box = document.getElementById("assignedEquipmentBox");
+            if (!box || box.classList.contains("hidden")) return;
+            box.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+
         /*
     |--------------------------------------------------------------------------
     | CLEAR EMPLOYEE ERROR WHILE TYPING
@@ -7854,60 +7883,243 @@ toggleRoomBtn.addEventListener('click', function () {
         });
 
         /* EQUIPMENT ASSIGNED TO THE VERIFIED REPORTER (read-only quick pick) */
+        let assignedEquipmentCache = [];
+
         function clearAssignedEquipment() {
+            assignedEquipmentCache = [];
             const box = document.getElementById("assignedEquipmentBox");
             const list = document.getElementById("assignedEquipmentList");
+            const inlineBox = document.getElementById("assignedEquipmentInlineBox");
+            const inlineList = document.getElementById("assignedEquipmentInlineList");
             if (list) list.innerHTML = "";
+            if (inlineList) inlineList.innerHTML = "";
             if (box) box.classList.add("hidden");
+            if (inlineBox) inlineBox.classList.add("hidden");
         }
 
         function loadAssignedEquipment(employeeId) {
             fetch(`/get-reporter/${encodeURIComponent(employeeId)}/assigned-equipment`, {
                 headers: { Accept: "application/json" },
             })
-                .then((response) => (response.ok ? response.json() : []))
-                .then((items) => {
+                .then((response) => (response.ok ? response.json() : { equipment: [] }))
+                .then((payload) => {
                     if (employeeInput.value.trim() !== employeeId || !reporterVerified) return;
-                    renderAssignedEquipment(Array.isArray(items) ? items : []);
+                    const items = Array.isArray(payload)
+                        ? payload
+                        : (Array.isArray(payload?.equipment) ? payload.equipment : []);
+                    const defaultRoomId = Array.isArray(payload) ? null : (payload?.default_room_id || null);
+                    const defaultRoomName = Array.isArray(payload) ? null : (payload?.default_room_name || null);
+                    applyDefaultReporterRoom(defaultRoomId, defaultRoomName, true);
+                    renderAssignedEquipment(items);
                 })
                 .catch(() => clearAssignedEquipment());
+        }
+
+        function applyDefaultReporterRoom(roomId, roomName, force = false) {
+            if (!roomSelect || !roomId) return;
+            if (!force && roomSelect.value) return;
+
+            const id = String(roomId);
+            if (!Array.from(roomSelect.options).some((option) => option.value === id)) {
+                const opt = document.createElement("option");
+                opt.value = id;
+                opt.textContent = roomName || ("Location #" + id);
+                roomSelect.appendChild(opt);
+            }
+
+            if (roomSelect.value === id) {
+                if (typeof syncRoomSelectTrigger === "function") syncRoomSelectTrigger();
+                return;
+            }
+
+            roomSelect.value = id;
+            roomSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            if (typeof syncRoomSelectTrigger === "function") {
+                syncRoomSelectTrigger();
+            }
+        }
+
+        function heldItemCanReport(item) {
+            if (item && Object.prototype.hasOwnProperty.call(item, "can_report")) {
+                return !!item.can_report;
+            }
+            return String(item?.room_id || "") !== "";
+        }
+
+        function heldItemLabel(item) {
+            const role = String(item.computer_set_member_role || "").trim();
+            const name = item.equipment_name || "Equipment";
+            return role ? `${name} · ${role.replace(/_/g, " ")}` : name;
+        }
+
+        function heldItemMeta(item) {
+            const tag = String(item.equipment_asset_tag || "").trim();
+            const room = String(item.room_name || "").trim();
+            const block = !heldItemCanReport(item)
+                ? (item.report_block_reason || "Not reportable")
+                : null;
+            return [tag || null, room || null, block].filter(Boolean).join(" · ");
         }
 
         function renderAssignedEquipment(items) {
             const box = document.getElementById("assignedEquipmentBox");
             const list = document.getElementById("assignedEquipmentList");
+            const inlineBox = document.getElementById("assignedEquipmentInlineBox");
+            const inlineList = document.getElementById("assignedEquipmentInlineList");
             if (!box || !list) return;
 
             list.innerHTML = "";
-            const roomIds = new Set(Array.from(roomSelect.options).map((option) => option.value));
-            const pickable = items.filter((item) => {
-                const roomId = String(item.room_id || "");
-                return roomId !== "" && (roomIds.has(roomId) || roomIds.size === 0);
+            if (inlineList) inlineList.innerHTML = "";
+            assignedEquipmentCache = Array.isArray(items) ? items.slice() : [];
+            const visible = assignedEquipmentCache.filter((item) => String(item.room_id || "") !== "");
+
+            const sets = new Map();
+            const loose = [];
+            visible.forEach((item) => {
+                const setId = Number(item.computer_set_id || 0);
+                if (setId > 0) {
+                    if (!sets.has(setId)) {
+                        sets.set(setId, {
+                            id: setId,
+                            tag: String(item.computer_set_tag || "").trim(),
+                            name: String(item.computer_set_name || "").trim(),
+                            roomName: String(
+                                item.computer_set_room_name || item.room_name || "",
+                            ).trim(),
+                            items: [],
+                        });
+                    }
+                    const bucket = sets.get(setId);
+                    if (!bucket.roomName && item.room_name) {
+                        bucket.roomName = String(item.room_name);
+                    }
+                    bucket.items.push(item);
+                } else {
+                    loose.push(item);
+                }
             });
 
-            pickable.forEach((item) => {
-                const chip = document.createElement("button");
-                chip.type = "button";
-                chip.className =
-                    "inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs text-slate-700 transition hover:border-[#2947f0]/40 hover:bg-[#2947f0]/5";
+            sets.forEach((set) => {
+                const wrap = document.createElement("div");
+                wrap.className = "overflow-hidden rounded-xl border border-slate-200/80 bg-white";
 
-                const name = document.createElement("span");
-                name.className = "truncate font-semibold";
-                const setTag = String(item.computer_set_tag || "").trim();
-                name.textContent = setTag
-                    ? `${item.equipment_name || "Equipment"} · ${setTag}`
-                    : (item.equipment_name || "Equipment");
+                const toggle = document.createElement("button");
+                toggle.type = "button";
+                toggle.className =
+                    "flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-800 transition hover:bg-slate-50";
+                const chevron = document.createElement("i");
+                chevron.setAttribute("data-lucide", "chevron-down");
+                chevron.className = "h-3.5 w-3.5 shrink-0 text-slate-400 transition";
+                const titleWrap = document.createElement("span");
+                titleWrap.className = "min-w-0 flex-1";
+                const title = document.createElement("span");
+                title.className = "block truncate";
+                const label = set.name || "Computer set";
+                title.textContent = set.tag ? `${label} · ${set.tag}` : label;
+                const setMeta = document.createElement("span");
+                setMeta.className = "mt-0.5 block truncate text-[11px] font-medium text-slate-400";
+                setMeta.textContent = set.roomName
+                    ? `Set location · ${set.roomName}`
+                    : "Open to pick a component";
+                titleWrap.append(title, setMeta);
+                const count = document.createElement("span");
+                count.className = "shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500";
+                count.textContent = String(set.items.length);
+                toggle.append(chevron, titleWrap, count);
 
-                const room = document.createElement("span");
-                room.className = "truncate text-slate-400";
-                room.textContent = item.room_name || "";
+                const tree = document.createElement("div");
+                tree.className = "border-t border-slate-100 px-3 pb-2.5 pt-1";
+                set.items.forEach((item, index) => {
+                    tree.appendChild(buildHeldEquipmentRow(item, {
+                        tree: true,
+                        isLast: index === set.items.length - 1,
+                    }));
+                });
 
-                chip.append(name, room);
-                chip.addEventListener("click", () => pickAssignedEquipment(item));
-                list.appendChild(chip);
+                toggle.addEventListener("click", () => {
+                    const open = !tree.classList.contains("hidden");
+                    tree.classList.toggle("hidden", open);
+                    chevron.style.transform = open ? "rotate(-90deg)" : "";
+                    if (window.lucide) lucide.createIcons();
+                });
+
+                wrap.append(toggle, tree);
+                list.appendChild(wrap);
             });
 
-            box.classList.toggle("hidden", pickable.length === 0);
+            loose.forEach((item) => {
+                list.appendChild(buildHeldEquipmentRow(item, { tree: false }));
+            });
+
+            if (inlineList) {
+                const quick = visible.filter((item) => heldItemCanReport(item)).slice(0, 6);
+                quick.forEach((item) => {
+                    const chip = document.createElement("button");
+                    chip.type = "button";
+                    chip.className =
+                        "inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#2947f0]/20 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-[#2947f0]/45 hover:bg-[#2947f0]/5";
+                    const label = document.createElement("span");
+                    label.className = "truncate";
+                    label.textContent = heldItemLabel(item);
+                    chip.appendChild(label);
+                    chip.title = heldItemMeta(item) || heldItemLabel(item);
+                    chip.addEventListener("click", () => pickAssignedEquipment(item));
+                    inlineList.appendChild(chip);
+                });
+            }
+
+            const hasItems = visible.length > 0;
+            box.classList.toggle("hidden", !hasItems);
+            if (inlineBox) {
+                inlineBox.classList.toggle(
+                    "hidden",
+                    !hasItems || !inlineList || inlineList.children.length === 0,
+                );
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function buildHeldEquipmentRow(item, options = {}) {
+            const canReport = heldItemCanReport(item);
+            const row = document.createElement("button");
+            row.type = "button";
+            row.disabled = !canReport;
+            row.className = options.tree
+                ? "relative flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-xs text-slate-700 transition"
+                : "flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-xs text-slate-700 transition";
+            if (canReport) {
+                row.className += options.tree
+                    ? " hover:bg-[#2947f0]/5"
+                    : " hover:border-[#2947f0]/40 hover:bg-[#2947f0]/5";
+            } else {
+                row.className += " cursor-not-allowed opacity-60";
+            }
+
+            if (options.tree) {
+                const branch = document.createElement("span");
+                branch.className = "mt-0.5 flex w-4 shrink-0 flex-col items-center";
+                branch.innerHTML =
+                    '<span class="h-2 w-px bg-slate-300"></span><span class="h-2 w-2 rounded-full border-2 border-[#2947f0] bg-white"></span>' +
+                    (!options.isLast ? '<span class="min-h-[1.25rem] w-px flex-1 bg-slate-200"></span>' : "");
+                row.appendChild(branch);
+            }
+
+            const body = document.createElement("span");
+            body.className = "min-w-0 flex-1";
+            const name = document.createElement("span");
+            name.className = "block truncate font-semibold text-slate-800";
+            name.textContent = heldItemLabel(item);
+            const meta = document.createElement("span");
+            meta.className = "mt-0.5 block truncate text-[11px] text-slate-400";
+            meta.textContent = heldItemMeta(item);
+            body.append(name, meta);
+            row.appendChild(body);
+
+            if (canReport) {
+                row.addEventListener("click", () => pickAssignedEquipment(item));
+            }
+
+            return row;
         }
 
         function syncRoomSelectTrigger() {
@@ -7951,6 +8163,15 @@ toggleRoomBtn.addEventListener('click', function () {
         }
 
         function pickAssignedEquipment(item) {
+            if (!heldItemCanReport(item)) {
+                const err = document.getElementById("equipmentError");
+                if (err) {
+                    err.classList.remove("hidden");
+                    err.innerText = item.report_block_reason || "That held item cannot be reported right now.";
+                }
+                return;
+            }
+
             const roomId = String(item.room_id);
             const equipmentId = String(item.equipment_id);
 

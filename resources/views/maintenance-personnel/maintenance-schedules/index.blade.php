@@ -8,5 +8,5 @@
     </div>
 
     {{-- CALENDAR PAGE CONTENT --}}
-    @include('maintenance-personnel.maintenance-schedules._calendar')
+    @include('maintenance-personnel.maintenance-schedules._calendar', ['suppressCalendar' => true])
 @endsection

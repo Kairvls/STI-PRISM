@@ -1,4 +1,4 @@
-{{-- Row detail: computer set carousel (labs) or equipment list (other rooms) --}}
+{{-- Row detail: computer set carousel when sets exist (labs + offices); else flat equipment --}}
 <div class="shrink-0 border-b border-slate-100 px-4 py-3">
     <button type="button" @click="comlabNavTo('rows')" class="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800">
         <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
@@ -6,22 +6,22 @@
     </button>
     <div class="flex items-center justify-between gap-3">
         <div>
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400" x-text="isComputerLabLayout() ? 'Computer sets' : 'Row equipment'"></p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400" x-text="rowUsesComputerSetUi() ? 'Computer sets' : 'Row equipment'"></p>
             <p class="text-xs text-slate-500" x-text="roomLayout.selectedComlabRow"></p>
         </div>
         <span
             class="text-xs font-medium text-slate-500"
-            x-show="isComputerLabLayout() && comlabSetsInSelectedRow().length"
+            x-show="rowUsesComputerSetUi() && comlabSetsInSelectedRow().length"
             x-text="comlabSetCarouselPageLabel()"
         ></span>
         <span
             class="text-xs font-medium text-slate-500"
-            x-show="!isComputerLabLayout()"
+            x-show="!rowUsesComputerSetUi()"
             x-text="comlabRowItemsLabel(roomLayout.selectedComlabRow)"
         ></span>
     </div>
 
-    <div class="relative mt-3" x-show="isComputerLabLayout() && comlabSetsInSelectedRow().length > 0">
+    <div class="relative mt-3" x-show="rowUsesComputerSetUi() && comlabSetsInSelectedRow().length > 0">
         <button
             type="button"
             x-show="comlabSetCarouselPageCount() > 1"
@@ -81,7 +81,7 @@
         No computer sets for this row yet. Create them in Computer Sets and set the row / zone to this row.
     </p>
     <p
-        x-show="isComputerLabLayout() && activeComlabSet()?.from_module && activeComlabSet()?.manage_url"
+        x-show="rowUsesComputerSetUi() && activeComlabSet()?.from_module && activeComlabSet()?.manage_url"
         class="mt-2"
     >
         <a
@@ -97,8 +97,8 @@
 </div>
 
 <div class="min-h-0 flex-1 overflow-y-auto p-4">
-    {{-- Computer lab: active set members --}}
-    <template x-if="isComputerLabLayout() && activeComlabSet()">
+    {{-- Set members when this row uses computer-set UI --}}
+    <template x-if="rowUsesComputerSetUi() && activeComlabSet()">
         <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <template x-for="member in activeComlabSet().members" :key="'member-' + member.id">
                 <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3" :class="roomLayout.selectedAssetId === member.id ? 'border-[#005EA6] ring-1 ring-[#005EA6]/20' : ''">
@@ -108,11 +108,16 @@
                             <p class="truncate text-sm font-semibold" x-text="member.name"></p>
                             <p class="truncate text-[11px] text-slate-400" x-text="(member.role_label ? member.role_label + ' · ' : '') + (member.asset_tag || 'No tag')"></p>
                             <p class="mt-0.5 text-[10px] font-semibold text-rose-600" x-show="member.needs_replacement">Needs replacement</p>
+                            <p
+                                class="mt-0.5 text-[10px] font-semibold text-amber-700"
+                                x-show="comlabMemberPresenceHint(member)"
+                                x-text="comlabMemberPresenceHint(member)"
+                            ></p>
                         </span>
                     </button>
                     <button
                         type="button"
-                        x-show="roomLayout.edit"
+                        x-show="roomLayout.edit && !member.is_deployed && member.in_room_inventory !== false"
                         @click="sendEquipmentToHolding(member.id)"
                         class="shrink-0 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
                         title="Remove from row to holding area"
@@ -123,7 +128,7 @@
             </template>
         </div>
     </template>
-    <template x-if="isComputerLabLayout() && comlabOtherInSelectedRow().length > 0">
+    <template x-if="rowUsesComputerSetUi() && comlabOtherInSelectedRow().length > 0">
         <div class="mt-4">
             <p class="mb-2 text-xs font-medium text-slate-500">Other equipment in row</p>
             <div class="flex flex-col gap-2">
@@ -148,11 +153,11 @@
         </div>
     </template>
 
-    {{-- Other room types: flat equipment list with icons --}}
-    <template x-if="!isComputerLabLayout()">
+    {{-- Rooms with no computer sets in this row: flat loose equipment --}}
+    <template x-if="!rowUsesComputerSetUi()">
         <div>
-            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" x-show="equipmentInComlabRow(roomLayout.selectedComlabRow).length">
-                <template x-for="item in equipmentInComlabRow(roomLayout.selectedComlabRow)" :key="'row-eq-' + item.id">
+            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" x-show="looseEquipmentInComlabRow(roomLayout.selectedComlabRow).length">
+                <template x-for="item in looseEquipmentInComlabRow(roomLayout.selectedComlabRow)" :key="'row-eq-' + item.id">
                     <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3" :class="roomLayout.selectedAssetId === item.id ? 'border-[#005EA6] ring-1 ring-[#005EA6]/20' : ''">
                         <button type="button" @click="selectComlabAsset(item.id)" class="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-90">
                             <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(item.name)"></span>
@@ -173,7 +178,7 @@
                     </div>
                 </template>
             </div>
-            <p x-show="!equipmentInComlabRow(roomLayout.selectedComlabRow).length" class="text-xs text-slate-400">No equipment in this row yet. Edit layout and drop items from the holding area onto this row.</p>
+            <p x-show="!looseEquipmentInComlabRow(roomLayout.selectedComlabRow).length" class="text-xs text-slate-400">No equipment in this row yet. Edit layout and drop items from the holding area onto this row.</p>
         </div>
     </template>
 </div>

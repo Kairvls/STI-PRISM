@@ -112,7 +112,6 @@
             <i class="h-5 w-5" data-lucide="layout-dashboard"></i>
             <span>Dashboard</span>
         </a>
-        
         <a
             href="/maintenance/reports"
             class="menu-item {{ request()->is('maintenance/reports') ? 'active' : '' }}"
@@ -146,7 +145,7 @@
             <span>All equipment</span>
         </a>
         <a
-            href="/maintenance/schedules"
+            href="/maintenance/schedules/all"
             class="menu-item {{ request()->is('maintenance/schedules*', 'maintenance/semester-inspections*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="calendar-days"></i>
@@ -163,30 +162,31 @@
         </a>
 
         @php
-            $equipmentActive = request()->is('maintenance/equipment/inventory')
+            $managementActive = request()->is('maintenance/equipment/inventory')
                 || request()->is('maintenance/equipment/inventory/*')
                 || request()->is('maintenance/equipment/deployed')
-                || request()->is('maintenance/equipment/deployed/*')
-                || request()->is('maintenance/equipment/transfer-requests*')
+                || request()->is('maintenance/equipment/deployed/*');
+            $equipmentActive = request()->is('maintenance/equipment/transfer-requests*')
                 || request()->is('maintenance/property-assignments*')
                 || request()->is('maintenance/replacement-suggestions*')
                 || request()->is('maintenance/disposal*')
-                || request()->is('maintenance/equipment/history*');
+                || request()->is('maintenance/equipment/history*')
+                || request()->is('maintenance/lifespan-broadcasts*');
         @endphp
-        <div class="menu-group {{ $equipmentActive ? 'is-open' : '' }}" data-menu-group>
+        <div class="menu-group {{ $managementActive ? 'is-open' : '' }}" data-menu-group>
             <button
                 type="button"
-                class="menu-item menu-group-toggle {{ $equipmentActive ? 'active-parent' : '' }}"
+                class="menu-item menu-group-toggle {{ $managementActive ? 'active-parent' : '' }}"
                 data-menu-group-toggle
-                aria-expanded="{{ $equipmentActive ? 'true' : 'false' }}"
+                aria-expanded="{{ $managementActive ? 'true' : 'false' }}"
             >
                 <i class="h-5 w-5" data-lucide="package"></i>
-                <span>Operations</span>
+                <span>Management</span>
                 <span class="menu-group-trail">
                     <i data-lucide="chevron-down" class="menu-group-chevron"></i>
                 </span>
             </button>
-            <div class="menu-sub" @if (! $equipmentActive) hidden @endif>
+            <div class="menu-sub" @if (! $managementActive) hidden @endif>
                 <a
                     href="/maintenance/equipment/inventory"
                     class="menu-sub-item {{ request()->is('maintenance/equipment/inventory') || request()->is('maintenance/equipment/inventory/*') ? 'active' : '' }}"
@@ -194,13 +194,36 @@
                     <i data-lucide="package"></i>
                     <span>Equipment Inventory</span>
                 </a>
-                
                 <a
                     href="/maintenance/equipment/deployed"
                     class="menu-sub-item {{ request()->is('maintenance/equipment/deployed') || request()->is('maintenance/equipment/deployed/*') ? 'active' : '' }}"
                 >
                     <i data-lucide="boxes"></i>
                     <span>Deployed Equipment</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="menu-group {{ $equipmentActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $equipmentActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $equipmentActive ? 'true' : 'false' }}"
+            >
+                <i class="h-5 w-5" data-lucide="wrench"></i>
+                <span>Operations</span>
+                <span class="menu-group-trail">
+                    <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+                </span>
+            </button>
+            <div class="menu-sub" @if (! $equipmentActive) hidden @endif>
+                <a
+                    href="{{ route('maintenance.lifespan-broadcasts.index') }}"
+                    class="menu-sub-item {{ request()->is('maintenance/lifespan-broadcasts*') ? 'active' : '' }}"
+                >
+                    <i data-lucide="hourglass"></i>
+                    <span>Lifespan broadcasts</span>
                 </a>
 
                 <a

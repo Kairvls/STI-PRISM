@@ -1043,6 +1043,7 @@
                 </div>
                 <div>
                     <label class="{{ $eqLabel }}">Departments</label>
+                    <p class="mb-1.5 text-[11px] text-slate-400">Many departments can share this room. Each department can only belong to one room.</p>
                     @include('admin.rooms.partials.department-picker', [
                         'inputName' => 'department_ids[]',
                         'selectedIds' => [],

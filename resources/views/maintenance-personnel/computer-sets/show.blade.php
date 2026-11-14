@@ -49,14 +49,53 @@
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <a href="{{ \App\Support\ComputerSets::url() }}" class="inline-flex items-center gap-1 text-sm font-semibold text-[#0025cc] hover:underline">
+            @php
+                $computerSetsFallback = \App\Support\ComputerSets::url();
+                $computerSetsReferer = (string) (request()->headers->get('referer') ?? '');
+                $computerSetsBackUrl = $computerSetsFallback;
+                $computerSetsBackLabel = 'All computer sets';
+                if ($computerSetsReferer !== '') {
+                    $refHost = parse_url($computerSetsReferer, PHP_URL_HOST);
+                    $refPath = rtrim((string) (parse_url($computerSetsReferer, PHP_URL_PATH) ?: ''), '/');
+                    $appHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: request()->getHost();
+                    $currentPath = rtrim('/'.ltrim(request()->path(), '/'), '/');
+                    if ($refHost === $appHost && $refPath !== '' && $refPath !== $currentPath) {
+                        $computerSetsBackUrl = $computerSetsReferer;
+                        if (str_contains($refPath, '/qr-tools')) {
+                            $computerSetsBackLabel = 'Back to Property Tagging';
+                        } elseif (! preg_match('#/computer-sets/?$#', $refPath)) {
+                            $computerSetsBackLabel = 'Back';
+                        }
+                    }
+                }
+            @endphp
+            <a
+                href="{{ $computerSetsBackUrl }}"
+                class="inline-flex items-center gap-1 text-sm font-semibold text-[#0025cc] hover:underline"
+                onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }"
+            >
                 <i data-lucide="chevron-left" class="h-4 w-4"></i>
-                All computer sets
+                {{ $computerSetsBackLabel }}
             </a>
             <h1 class="mt-2 font-mono text-xl font-semibold text-slate-950">{{ $set->computer_set_tag }}</h1>
             <p class="mt-1 text-sm text-slate-500">
                 Set tag for reporting · individual equipment keep their own tags (QR / asset tag).
             </p>
+            @if (filled($set->computer_set_qr_code ?? null))
+                <p class="mt-2 text-xs font-semibold text-slate-700">
+                    Set QR {{ $set->computer_set_qr_code }}
+                    <a href="{{ url('/equipment/'.$set->computer_set_qr_code) }}" target="_blank" class="ml-2 text-[#0025cc] hover:underline">Preview scan</a>
+                    <a href="{{ url('/admin/qr-tools/'.$set->computer_set_qr_code.'/print') }}" target="_blank" class="ml-2 text-[#0025cc] hover:underline">Print label</a>
+                </p>
+            @elseif (\App\Support\ComputerSetQrCodes::ready())
+                <form method="POST" action="{{ route('admin.qr-tools.generate-set', $set->computer_set_id) }}" class="mt-2">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#001fad]">
+                        <i data-lucide="qr-code" class="h-3.5 w-3.5"></i>
+                        Generate set QR
+                    </button>
+                </form>
+            @endif
             @if ($needsReplacementCount > 0)
                 <p class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
                     <i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>
@@ -192,6 +231,7 @@
                         </template>
                     </select>
                     <p class="mt-1 text-[11px] text-slate-400">From campus layout rows / zones already used in this room</p>
+                    <p class="mt-1 text-[11px] text-slate-400">Changing the room moves every part still with the set onto Floor in the new room (old row is cleared). Place the set into a row from Rooms Layout. Deployed parts stay where they are until returned.</p>
                 </div>
                 <div>
                     <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
@@ -311,6 +351,7 @@
                             <th class="px-5 py-3">Role</th>
                             <th class="px-5 py-3">Equipment</th>
                             <th class="px-5 py-3">Individual tag</th>
+                            <th class="px-5 py-3">Location</th>
                             <th class="px-5 py-3">Status</th>
                             <th class="px-5 py-3">QR</th>
                             <th class="px-5 py-3">Actions</th>
@@ -321,13 +362,25 @@
                             @php
                                 $roleKey = (string) ($member->member_role ?? 'other');
                                 $roleStock = collect($storageByRole->get($roleKey, []));
+                                $isDeployed = ! empty($member->is_deployed);
                             @endphp
                             <tr class="{{ ! empty($member->needs_replacement) ? 'bg-rose-50/30' : '' }}">
                                 <td class="px-5 py-3 font-medium text-slate-800 align-top">
                                     {{ \App\Support\ComputerSets::roleLabel($member->member_role) }}
                                 </td>
-                                <td class="px-5 py-3 text-slate-900 align-top">{{ $member->equipment_name }}</td>
+                                <td class="px-5 py-3 text-slate-900 align-top">
+                                    <p>{{ $member->equipment_name }}</p>
+                                    <p class="mt-0.5 text-[11px] font-medium text-[#0025cc]">Part of this computer set</p>
+                                </td>
                                 <td class="px-5 py-3 font-mono text-xs text-slate-600 align-top">{{ $member->equipment_asset_tag ?: '—' }}</td>
+                                <td class="px-5 py-3 align-top">
+                                    <p class="text-sm text-slate-700">{{ $member->equipment_room_name ?: '—' }}</p>
+                                    @if ($isDeployed)
+                                        <span class="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-100">Deployed away from set</span>
+                                    @else
+                                        <span class="mt-1 inline-flex rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">With set</span>
+                                    @endif
+                                </td>
                                 <td class="px-5 py-3 align-top">
                                     @if (! empty($member->needs_replacement))
                                         <span class="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">Needs replacement</span>
@@ -375,6 +428,48 @@
                                                 @endif
                                             </div>
                                         @else
+                                            @if ($isDeployed)
+                                                <form
+                                                    method="POST"
+                                                    action="{{ \App\Support\ComputerSets::url('/'.$set->computer_set_id.'/members/return') }}"
+                                                >
+                                                    @csrf
+                                                    <input type="hidden" name="equipment_id" value="{{ $member->equipment_id }}">
+                                                    <button type="submit" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-[#0025cc] hover:bg-slate-50">
+                                                        <i data-lucide="undo-2" class="h-3.5 w-3.5"></i>
+                                                        Return to set room
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <form
+                                                    method="POST"
+                                                    action="{{ \App\Support\ComputerSets::url('/'.$set->computer_set_id.'/members/deploy') }}"
+                                                    class="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5"
+                                                >
+                                                    @csrf
+                                                    <input type="hidden" name="equipment_id" value="{{ $member->equipment_id }}">
+                                                    <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Deploy / pull out</p>
+                                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                        <select
+                                                            name="to_room_id"
+                                                            required
+                                                            class="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                                        >
+                                                            <option value="">Move to room…</option>
+                                                            @foreach ($rooms as $room)
+                                                                @if ((int) $room->room_id !== (int) ($set->computer_set_room_id ?? 0))
+                                                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                                                                @endif
+                                                            @endforeach
+                                                        </select>
+                                                        <button type="submit" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-white">
+                                                            <i data-lucide="map-pin" class="h-3.5 w-3.5"></i>
+                                                            Deploy
+                                                        </button>
+                                                    </div>
+                                                    <p class="mt-1 text-[11px] text-slate-400">Stays part of this set. Changing the set room later will not move this part until you return it.</p>
+                                                </form>
+                                            @endif
                                             <form
                                                 method="POST"
                                                 action="{{ \App\Support\ComputerSets::url('/'.$set->computer_set_id.'/members/remove') }}"
@@ -385,7 +480,7 @@
                                                 <button type="submit" class="text-xs font-semibold text-rose-600 hover:underline">
                                                     Remove from computer set
                                                 </button>
-                                                <p class="mt-0.5 text-[11px] text-slate-400">Unbinds this part only. It stays in the room under Holding for interior layout — not sent to Storage Room.</p>
+                                                <p class="mt-0.5 text-[11px] text-slate-400">Confirm to unbind. Asset tag stays the same; only membership ends.</p>
                                             </form>
                                         @endif
                                     </div>

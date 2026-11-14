@@ -43,22 +43,40 @@
         @endif
 
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div
+            class="grid items-start gap-6"
+            x-data="{ wide: localStorage.getItem('prism-room-schedule-wide') === '1' }"
+            :class="wide ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_300px]'"
+        >
+        <section class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="flex flex-col gap-4 px-6 pb-2 pt-6 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">Room inspection schedules</h2>
                     <p class="mt-0.5 text-sm text-slate-400">
-                        Recurring room checks by department: lights, outlets, ventilation, doors, cleanliness and safety.
+                        {{ number_format($schedules->total()) }}
+                        {{ $schedules->total() === 1 ? 'total schedule' : 'total schedules' }}
                     </p>
                 </div>
-                <button
-                    type="button"
-                    @click="openCreate()"
-                    class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
-                >
-                    <i data-lucide="plus" class="h-4 w-4"></i>
-                    New schedule
-                </button>
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        @click="wide = !wide; localStorage.setItem('prism-room-schedule-wide', wide ? '1' : '0')"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                        :data-tooltip="wide ? 'Exit full width' : 'Full width'"
+                        :aria-label="wide ? 'Exit full width' : 'Full width'"
+                    >
+                        <i data-lucide="maximize-2" class="h-4 w-4" x-show="!wide"></i>
+                        <i data-lucide="minimize-2" class="h-4 w-4" x-show="wide" x-cloak></i>
+                    </button>
+                    <button
+                        type="button"
+                        @click="openCreate()"
+                        class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        New schedule
+                    </button>
+                </div>
             </div>
 
             <form data-auto-filter method="GET" action="{{ $roomsUrl }}" class="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center">
@@ -244,6 +262,48 @@
                 <div class="border-t border-slate-100 px-5 py-4">{{ $schedules->links() }}</div>
             @endif
         </section>
+
+        <aside class="rounded-2xl border border-slate-200 bg-white p-5" x-show="!wide" x-cloak>
+            <div class="flex items-baseline justify-between gap-2">
+                <h3 class="text-sm font-semibold text-slate-900">Nearest upcoming</h3>
+                @if ($upcomingTotal > 0)
+                    <p class="text-[11px] text-slate-400">{{ $upcomingInspections->count() }} of {{ $upcomingTotal }}</p>
+                @endif
+            </div>
+            <div class="mt-4 divide-y divide-slate-100">
+                @forelse ($upcomingInspections as $upcoming)
+                    @php
+                        $upcomingNext = Carbon::parse($upcoming->room_inspection_schedule_next_date);
+                        $upcomingPayload = [
+                            'id' => (int) $upcoming->room_inspection_schedule_id,
+                            'room' => $upcoming->room_name,
+                            'title' => $upcoming->room_inspection_schedule_title,
+                            'frequency' => $upcoming->room_inspection_schedule_frequency,
+                            'next_date' => $upcomingNext->toDateString(),
+                            'next_label' => $upcomingNext->format('M j, Y'),
+                            'notes' => $upcoming->room_inspection_schedule_notes,
+                            'checklist' => RoomInspections::checklistFor($upcoming),
+                        ];
+                        $upcomingDetail = collect([
+                            $upcoming->room_name,
+                            isset($upcoming->department_name) ? $upcoming->department_name : null,
+                            $upcoming->room_inspection_schedule_frequency,
+                        ])->filter()->implode(' · ');
+                    @endphp
+                    <button type="button" class="flex w-full items-start justify-between gap-2 py-3 text-left first:pt-0 last:pb-0" @click='openInspect(@json($upcomingPayload))'>
+                        <span class="min-w-0">
+                            <span class="block text-[11px] font-medium text-slate-400">{{ $upcomingNext->format('M j, Y') }}</span>
+                            <span class="mt-0.5 block truncate text-sm font-medium text-slate-800">{{ $upcoming->room_inspection_schedule_title }}</span>
+                            <span class="block truncate text-xs text-slate-400">{{ $upcomingDetail }}</span>
+                        </span>
+                        <span class="mt-4 shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-100">Room</span>
+                    </button>
+                @empty
+                    <p class="text-sm text-slate-400">Nothing upcoming.</p>
+                @endforelse
+            </div>
+        </aside>
+        </div>
 
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="px-6 pb-3 pt-6">

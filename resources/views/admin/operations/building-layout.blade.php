@@ -20,6 +20,6 @@
 </div>
 
 @include('partials.building-3d.scripts', [
-    'building3DRoomViewUrl' => url('/maintenance/property-assignments/rooms/__ROOM__'),
+    'building3DRoomViewUrl' => url('/admin/infrastructure').'?room=__ROOM__',
 ])
 @endsection

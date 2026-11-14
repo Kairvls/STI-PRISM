@@ -49,6 +49,134 @@ class PropertyAssignments
     }
 
     /**
+     * People who currently hold equipment, for the administrator dashboard modal.
+     *
+     * @return array{href: string, total: int, people: list<array<string, mixed>>}
+     */
+    public static function dashboardPreview(): array
+    {
+        $href = route('admin.property-assignments.index');
+        $empty = ['href' => $href, 'total' => 0, 'people' => []];
+        if (! self::tableReady()) {
+            return $empty;
+        }
+
+        $columns = [
+            'person.custodian_id',
+            'person.custodian_full_name',
+            'person.custodian_position',
+            'e.equipment_name',
+        ];
+        if (Schema::hasTable('rooms_table') && Schema::hasColumn('equipment_table', 'equipment_room_id')) {
+            $columns[] = 'room.room_name';
+        }
+        foreach (EquipmentIdentity::columns() as $column) {
+            $columns[] = 'e.'.substr($column, strlen('equipment_table.'));
+        }
+
+        $query = DB::table('property_assignments_table as pa')
+            ->join('equipment_table as e', 'e.equipment_id', '=', 'pa.assignment_equipment_id')
+            ->join('custodians_table as person', 'person.custodian_id', '=', 'pa.assignment_custodian_id')
+            ->where('pa.assignment_status', PropertyAssignment::STATUS_ACTIVE)
+            ->orderBy('person.custodian_full_name')
+            ->orderBy('e.equipment_name');
+
+        if (in_array('room.room_name', $columns, true)) {
+            $query->leftJoin('rooms_table as room', 'room.room_id', '=', 'e.equipment_room_id');
+        }
+
+        $people = [];
+        foreach ($query->get(array_values(array_unique($columns))) as $row) {
+            $id = (int) $row->custodian_id;
+            if (! isset($people[$id])) {
+                $people[$id] = [
+                    'name' => trim((string) ($row->custodian_full_name ?? '')) ?: 'Person',
+                    'meta' => trim((string) ($row->custodian_position ?? '')),
+                    'href' => route('admin.property-assignments.person', $id),
+                    'items' => [],
+                ];
+            }
+            $people[$id]['items'][] = [
+                'equipment_id' => (int) ($row->equipment_id ?? 0),
+                'name' => trim((string) ($row->equipment_name ?? '')) ?: 'Equipment',
+                'identity' => EquipmentIdentity::label($row) ?: 'No asset tag / serial',
+                'room' => isset($row->room_name) ? trim((string) $row->room_name) : '',
+            ];
+        }
+
+        $setsByEquipment = self::computerSetsForEquipment(
+            collect($people)->flatMap(fn (array $person) => collect($person['items'])->pluck('equipment_id'))->filter()->unique()->all()
+        );
+
+        foreach ($people as &$person) {
+            $grouped = [];
+            $loose = [];
+            foreach ($person['items'] as $item) {
+                $set = $setsByEquipment[(int) ($item['equipment_id'] ?? 0)] ?? null;
+                if ($set === null) {
+                    $loose[] = $item;
+                    continue;
+                }
+                $setId = (int) $set['id'];
+                if (! isset($grouped[$setId])) {
+                    $grouped[$setId] = [
+                        'set' => true,
+                        'name' => $set['tag'] !== '' ? $set['tag'] : ('Set '.$setId),
+                        'identity' => $set['name'],
+                        'room' => '',
+                        'members' => [],
+                    ];
+                }
+                $grouped[$setId]['members'][] = $item;
+            }
+            $person['count'] = count($person['items']);
+            $person['items'] = array_values([...$grouped, ...$loose]);
+        }
+        unset($person);
+
+        $list = array_values($people);
+
+        return [
+            'href' => $href,
+            'total' => count($list),
+            'people' => $list,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $equipmentIds
+     * @return array<int, array{id: int, tag: string, name: string}>
+     */
+    private static function computerSetsForEquipment(array $equipmentIds): array
+    {
+        if ($equipmentIds === [] || ! ComputerSets::tablesReady()) {
+            return [];
+        }
+
+        $rows = DB::table('computer_set_members_table as m')
+            ->join('computer_sets_table as cs', 'cs.computer_set_id', '=', 'm.computer_set_id')
+            ->whereIn('m.equipment_id', $equipmentIds)
+            ->where('cs.computer_set_status', ComputerSets::STATUS_ACTIVE)
+            ->get([
+                'm.equipment_id',
+                'cs.computer_set_id',
+                'cs.computer_set_tag',
+                'cs.computer_set_name',
+            ]);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->equipment_id] = [
+                'id' => (int) $row->computer_set_id,
+                'tag' => trim((string) ($row->computer_set_tag ?? '')),
+                'name' => trim((string) ($row->computer_set_name ?? '')),
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
      * @return array{active: int, custodians: int, offices: int, unassigned: int, people: int}
      */
     public static function stats(): array
@@ -104,20 +232,42 @@ class PropertyAssignments
                 ) ORDER BY e.equipment_name SEPARATOR '||') as equipment_names")
             );
 
+        $personsReady = Persons::tableReady() && Schema::hasColumn('custodians_table', 'person_id');
+
         $query = Custodians::withDepartment(DB::table('custodians_table as person'))
             ->leftJoinSub($active, 'a', 'a.assignment_custodian_id', '=', 'person.custodian_id')
             ->leftJoin('rooms_table as home', 'home.room_id', '=', 'person.custodian_room_id')
-            ->when($search !== '', function ($query) use ($search, $departmentsReady) {
-                $query->where(function ($q) use ($search, $departmentsReady) {
+            ->when($personsReady, function ($query) {
+                $query->leftJoin('persons_table as campus', 'campus.person_id', '=', 'person.person_id');
+                if (Departments::tableReady()) {
+                    $query->leftJoin('departments_table as campus_dept', 'campus_dept.department_id', '=', 'campus.person_department_id');
+                }
+            })
+            ->when($search !== '', function ($query) use ($search, $departmentsReady, $personsReady) {
+                $query->where(function ($q) use ($search, $departmentsReady, $personsReady) {
                     $q->where('person.custodian_full_name', 'like', "%{$search}%")
                         ->orWhere('person.custodian_employee_id', 'like', "%{$search}%")
                         ->orWhere('person.custodian_position', 'like', "%{$search}%");
                     if ($departmentsReady) {
                         $q->orWhere('dept.department_name', 'like', "%{$search}%");
                     }
+                    if ($personsReady) {
+                        $q->orWhere('campus.person_full_name', 'like', "%{$search}%")
+                            ->orWhere('campus.person_employee_id', 'like', "%{$search}%");
+                        if ($departmentsReady) {
+                            $q->orWhere('campus_dept.department_name', 'like', "%{$search}%");
+                        }
+                    }
                 });
             })
-            ->when($departmentId && $departmentsReady, fn ($query) => $query->where('person.custodian_department_id', $departmentId));
+            ->when($departmentId && $departmentsReady, function ($query) use ($departmentId, $personsReady) {
+                $query->where(function ($q) use ($departmentId, $personsReady) {
+                    $q->where('person.custodian_department_id', $departmentId);
+                    if ($personsReady) {
+                        $q->orWhere('campus.person_department_id', $departmentId);
+                    }
+                });
+            });
 
         match ($filter) {
             'holding' => $query->whereNotNull('a.active_count'),
@@ -128,12 +278,16 @@ class PropertyAssignments
             }),
         };
 
+        $departmentSelect = $personsReady && $departmentsReady
+            ? DB::raw('COALESCE(campus_dept.department_name, dept.department_name) as custodian_department')
+            : Custodians::departmentNameColumn();
+
         return $query
             ->orderByDesc('active_count')
             ->orderBy('person.custodian_full_name')
             ->select(
                 'person.*',
-                Custodians::departmentNameColumn(),
+                $departmentSelect,
                 'home.room_name as home_room_name',
                 DB::raw('COALESCE(a.active_count, 0) as active_count'),
                 'a.last_issued_at',
@@ -217,6 +371,9 @@ class PropertyAssignments
             $row->computer_set_tag = $set->computer_set_tag ?? null;
             $row->computer_set_name = $set->computer_set_name ?? null;
             $row->computer_set_member_role = $set->member_role ?? null;
+            $row->computer_set_room_id = isset($set->computer_set_room_id) ? (int) $set->computer_set_room_id : null;
+            $row->computer_set_room_name = $set->computer_set_room_name ?? null;
+            $row->computer_set_member_deployed = ! empty($set->is_deployed);
 
             return $row;
         })->values();
@@ -652,6 +809,9 @@ class PropertyAssignments
     /**
      * Read-only list for the public report form: units held by this reporter
      * via property assignment (including computer-set members).
+     *
+     * Softer than the room picker filters: held units stay visible even when
+     * Damaged / For Replacement so reporters can find what they already hold.
      */
     public static function reportableForEmployee(string $employeeId): Collection
     {
@@ -659,17 +819,18 @@ class PropertyAssignments
             return collect();
         }
 
-        $custodianId = Custodians::idForEmployee($employeeId);
-        if (! $custodianId) {
+        $custodianIds = Custodians::idsForEmployee($employeeId);
+        if ($custodianIds === []) {
             return collect();
         }
 
         $query = DB::table('equipment_table')
             ->join('property_assignments_table as pa', 'pa.assignment_equipment_id', '=', 'equipment_table.equipment_id')
             ->join('rooms_table as room', 'room.room_id', '=', 'equipment_table.equipment_room_id')
-            ->where('pa.assignment_custodian_id', $custodianId)
+            ->whereIn('pa.assignment_custodian_id', $custodianIds)
             ->where('pa.assignment_status', PropertyAssignment::STATUS_ACTIVE)
-            ->where('room.room_type', '!=', RoomCategories::STORAGE_TYPE);
+            ->where('room.room_type', '!=', RoomCategories::STORAGE_TYPE)
+            ->where('equipment_table.equipment_inventory_status', '!=', 'Disposed');
 
         if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
             $query->where('room.room_is_archived', false);
@@ -678,6 +839,8 @@ class PropertyAssignments
         $select = [
             'equipment_table.equipment_id',
             'equipment_table.equipment_name',
+            'equipment_table.equipment_inventory_status',
+            'equipment_table.equipment_condition_status',
             'room.room_id',
             'room.room_name',
         ];
@@ -687,25 +850,155 @@ class PropertyAssignments
             }
         }
 
-        $rows = ReportGrouping::applyReporterEquipmentFilters($query)
+        $rows = $query
             ->orderBy('room.room_name')
             ->orderBy('equipment_table.equipment_name')
             ->limit(50)
-            ->get($select);
+            ->get($select)
+            ->unique('equipment_id')
+            ->values();
 
         $membership = ComputerSets::membershipMapForEquipmentIds(
             $rows->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
         );
 
-        return $rows->map(function ($row) use ($membership) {
-            $set = $membership[(int) $row->equipment_id] ?? null;
+        $blockedIds = self::heldEquipmentBlockedByOpenReplacement(
+            $rows->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
+        );
+
+        return $rows->map(function ($row) use ($membership, $blockedIds) {
+            $equipmentId = (int) $row->equipment_id;
+            $set = $membership[$equipmentId] ?? null;
             $row->computer_set_id = $set->computer_set_id ?? null;
             $row->computer_set_tag = $set->computer_set_tag ?? null;
             $row->computer_set_name = $set->computer_set_name ?? null;
             $row->computer_set_member_role = $set->member_role ?? null;
+            $row->computer_set_room_id = isset($set->computer_set_room_id) ? (int) $set->computer_set_room_id : null;
+            $row->computer_set_room_name = $set->computer_set_room_name ?? null;
+
+            $isDeployed = ! empty($set->is_deployed ?? false);
+            // Prefer the set's room when the unit travels with the set.
+            if ($set && ! $isDeployed && (int) ($set->computer_set_room_id ?? 0) > 0) {
+                $row->room_id = (int) $set->computer_set_room_id;
+                if (! empty($set->computer_set_room_name)) {
+                    $row->room_name = $set->computer_set_room_name;
+                }
+            }
+
+            $inventory = (string) ($row->equipment_inventory_status ?? '');
+            $row->can_report = $inventory !== 'For Replacement'
+                && $inventory !== 'Replaced'
+                && ! isset($blockedIds[$equipmentId]);
+            $row->report_block_reason = $row->can_report
+                ? null
+                : 'Already queued for replacement';
 
             return $row;
         })->values();
+    }
+
+    /**
+     * @param  list<int>  $equipmentIds
+     * @return array<int, true>
+     */
+    private static function heldEquipmentBlockedByOpenReplacement(array $equipmentIds): array
+    {
+        if ($equipmentIds === []) {
+            return [];
+        }
+
+        $blocked = DB::table('reports_table')
+            ->whereIn('report_equipment_id', $equipmentIds)
+            ->where('report_current_status', 'For Replacement')
+            ->where('report_is_archived', false)
+            ->pluck('report_equipment_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (ReportItems::tableExists()) {
+            $blocked = array_merge($blocked, DB::table('report_items_table')
+                ->join('reports_table', 'reports_table.report_id', '=', 'report_items_table.report_id')
+                ->whereIn('report_items_table.report_item_equipment_id', $equipmentIds)
+                ->where('report_items_table.report_item_status', 'For Replacement')
+                ->where('reports_table.report_is_archived', false)
+                ->pluck('report_items_table.report_item_equipment_id')
+                ->map(fn ($id) => (int) $id)
+                ->all());
+        }
+
+        $map = [];
+        foreach ($blocked as $id) {
+            $map[$id] = true;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Preferred report location for a verified employee: most common held-equipment
+     * room first, then personal home room, else the department's linked office room.
+     *
+     * @param  Collection<int, object>|null  $heldEquipment
+     * @return array{room_id:int,room_name:string}|null
+     */
+    public static function reporterDefaultRoom(string $employeeId, ?Collection $heldEquipment = null): ?array
+    {
+        $held = $heldEquipment ?? self::reportableForEmployee($employeeId);
+        if ($held->isNotEmpty()) {
+            $counts = [];
+            $names = [];
+            foreach ($held as $item) {
+                $roomId = (int) ($item->room_id ?? 0);
+                if ($roomId < 1) {
+                    continue;
+                }
+                $counts[$roomId] = ($counts[$roomId] ?? 0) + 1;
+                $names[$roomId] = (string) ($item->room_name ?? ('Room #'.$roomId));
+            }
+            if ($counts !== []) {
+                arsort($counts);
+                $roomId = (int) array_key_first($counts);
+
+                return [
+                    'room_id' => $roomId,
+                    'room_name' => $names[$roomId] ?? ('Room #'.$roomId),
+                ];
+            }
+        }
+
+        $custodianId = Custodians::idForEmployee($employeeId);
+        if ($custodianId) {
+            $person = Custodians::find($custodianId);
+            if ($person && (int) ($person->custodian_room_id ?? 0) > 0) {
+                $name = trim((string) ($person->home_room_name ?? ''));
+                if ($name === '') {
+                    $name = (string) (DB::table('rooms_table')
+                        ->where('room_id', (int) $person->custodian_room_id)
+                        ->value('room_name') ?: '');
+                }
+
+                return [
+                    'room_id' => (int) $person->custodian_room_id,
+                    'room_name' => $name !== '' ? $name : ('Room #'.$person->custodian_room_id),
+                ];
+            }
+        }
+
+        if (Persons::tableReady()) {
+            $campus = Persons::findByEmployeeId(Persons::normalizeEmployeeId($employeeId));
+            $deptId = (int) ($campus->person_department_id ?? 0);
+            if ($deptId > 0 && RoomDepartments::ready()) {
+                $room = RoomDepartments::primaryForDepartment($deptId);
+                if ($room) {
+                    return [
+                        'room_id' => (int) $room['id'],
+                        'room_name' => (string) $room['name'],
+                    ];
+                }
+            }
+        }
+
+        return null;
     }
 
     public static function history(int $equipmentId, int $limit = 20): Collection

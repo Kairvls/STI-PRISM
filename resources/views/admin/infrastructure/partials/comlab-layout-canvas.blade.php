@@ -152,7 +152,57 @@
             </div>
         </template>
 
-        {{-- Floor equipment (projector, aircon, whiteboard, etc.) — thin markers --}}
+        {{-- Computer sets on Floor (one icon per set; members open on click) --}}
+        <template x-for="set in comlabFloorComputerSets()" :key="'comlab-floor-set-' + set.id">
+            <div
+                class="absolute z-20 flex items-center justify-center overflow-visible rounded-xl border-2 bg-[#0025cc] shadow-md"
+                :class="{
+                    'ring-2 ring-white/80 cursor-grab border-white scale-[1.03]': roomLayout.edit && Number(roomLayout.selectedFloorSetId) === Number(set.id),
+                    'ring-2 ring-[#07319C] cursor-grab border-white': roomLayout.edit && Number(roomLayout.selectedFloorSetId) !== Number(set.id),
+                    'ring-2 ring-emerald-400 border-emerald-300': !roomLayout.edit && Number(roomLayout.selectedFloorSetId) === Number(set.id),
+                    'cursor-pointer': !roomLayout.edit,
+                }"
+                :data-computer-set-id="set.id"
+                :draggable="roomLayout.edit ? 'true' : 'false'"
+                @dragstart.stop="comlabDragStartSet($event, set.id)"
+                @click.stop="openFloorComputerSet(set.id)"
+                :style="`
+                    left:${set.x}%;
+                    top:${set.y}%;
+                    width:${set.width || 72}px;
+                    height:${set.height || 72}px;
+                    touch-action:none;
+                    transform:translate(-50%,-50%);
+                    transform-origin:center center;
+                `"
+                :title="(set.tag || set.label || 'Computer set') + ' — click to open components'"
+            >
+                <span class="pointer-events-none flex h-[70%] w-[70%] items-center justify-center text-white">
+                    <i data-lucide="pc-case" class="h-8 w-8"></i>
+                </span>
+                <span
+                    class="pointer-events-none absolute z-30 max-w-[9rem] truncate whitespace-nowrap rounded-md bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200"
+                    style="top: calc(100% + 6px); left: 50%; transform: translateX(-50%);"
+                    x-text="set.label || set.tag || 'Computer set'"
+                ></span>
+                <span
+                    class="pointer-events-none absolute -right-1 -top-1 z-30 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold text-[#0025cc] shadow ring-1 ring-slate-200"
+                    x-text="set.member_count || (set.members || []).length || 0"
+                ></span>
+                <button
+                    type="button"
+                    x-show="roomLayout.edit"
+                    @pointerdown.stop
+                    @click.stop="sendComputerSetToHolding(set.id)"
+                    class="absolute -left-2 -top-2 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-amber-50 hover:text-amber-700"
+                    title="Move computer set to holding"
+                >
+                    <i data-lucide="inbox" class="h-3 w-3"></i>
+                </button>
+            </div>
+        </template>
+
+        {{-- Floor equipment (projector, aircon, etc.) — never set members --}}
         <template x-for="item in comlabCanvasEquipment()" :key="'comlab-floor-' + item.id">
             <div
                 class="room-equipment-node comlab-floor-node absolute z-20 flex items-center justify-center overflow-visible rounded-xl border-2 border-slate-300 bg-white shadow-md"
@@ -231,7 +281,7 @@
 
     {{-- Holding area (edit mode) — only when it has items --}}
     <div
-        x-show="roomLayout.edit && roomLayout.comlabNav === 'rows' && comlabHoldingItems().length > 0"
+        x-show="roomLayout.edit && roomLayout.comlabNav === 'rows' && comlabHoldingUnitCount() > 0"
         x-cloak
         class="shrink-0 border-t border-slate-200 bg-white px-4 py-3"
         @dragover.prevent="$event.currentTarget.classList.add('ring-2','ring-inset','ring-amber-300'); roomLayout.edit"
@@ -266,20 +316,32 @@
                         <template x-for="item in page" :key="'hold-' + item.id">
                             <div
                                 draggable="true"
-                                @dragstart="comlabDragStart($event, item.id)"
-                                @click="selectComlabHoldingItem(item.id)"
+                                @dragstart="item._kind === 'set' ? comlabDragStartSet($event, item.set_id) : comlabDragStart($event, item.id)"
+                                @click="item._kind === 'set' ? openFloorComputerSet(item.set_id) : selectComlabHoldingItem(item.id)"
                                 class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition active:cursor-grabbing"
-                                :class="roomLayout.selectedAssetId === item.id
-                                    ? 'border-[#005EA6] bg-[#005EA6]/10 ring-1 ring-[#005EA6]/25'
-                                    : (isComlabFloorEquipment(item) ? 'border-slate-300 bg-slate-50 hover:border-slate-400' : 'border-[#005EA6]/40 bg-[#005EA6]/5 hover:border-[#005EA6]/60')"
-                                title="Click for details · drag to place"
+                                :class="item._kind === 'set'
+                                    ? (Number(roomLayout.selectedFloorSetId) === Number(item.set_id)
+                                        ? 'border-[#0025cc] bg-[#0025cc]/10 ring-1 ring-[#0025cc]/25'
+                                        : 'border-[#0025cc]/40 bg-[#0025cc]/5 hover:border-[#0025cc]/60')
+                                    : (roomLayout.selectedAssetId === item.id
+                                        ? 'border-[#005EA6] bg-[#005EA6]/10 ring-1 ring-[#005EA6]/25'
+                                        : (isComlabFloorEquipment(item) ? 'border-slate-300 bg-slate-50 hover:border-slate-400' : 'border-[#005EA6]/40 bg-[#005EA6]/5 hover:border-[#005EA6]/60'))"
+                                :title="item._kind === 'set' ? 'Computer set — click to open · drag to place' : 'Click for details · drag to place'"
                             >
-                                <span class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(item.name)"></span>
-                                <span x-text="item.quantity > 1 ? (item.name + ' × ' + item.quantity) : item.name"></span>
-                                <span
-                                    class="rounded px-1 py-0.5 text-[9px] font-semibold bg-[#005EA6]/15 text-[#005EA6]"
-                                    x-text="'Place'"
-                                ></span>
+                                <template x-if="item._kind === 'set'">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <i data-lucide="pc-case" class="h-4 w-4 text-[#0025cc]"></i>
+                                        <span class="font-semibold text-[#0025cc]" x-text="item.label || item.tag || 'Computer set'"></span>
+                                        <span class="rounded px-1 py-0.5 text-[9px] font-semibold bg-[#0025cc]/15 text-[#0025cc]" x-text="(item.member_count || (item.members || []).length || 0) + ' parts'"></span>
+                                    </span>
+                                </template>
+                                <template x-if="item._kind !== 'set'">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(item.name)"></span>
+                                        <span x-text="item.quantity > 1 ? (item.name + ' × ' + item.quantity) : item.name"></span>
+                                        <span class="rounded px-1 py-0.5 text-[9px] font-semibold bg-[#005EA6]/15 text-[#005EA6]">Place</span>
+                                    </span>
+                                </template>
                             </div>
                         </template>
                     </div>

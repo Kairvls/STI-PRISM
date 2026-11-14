@@ -6,7 +6,8 @@
 
         @php
             $moduleHeading = match (true) {
-                request()->is('maintenance/dashboard') => ['Dashboard', ''],
+                request()->is('maintenance/dashboard') => ['Overview', ''],
+                request()->is('maintenance/activities*') => ['Recent Activities', 'Your recorded maintenance actions and history.'],
                 request()->is('maintenance/building-layout*') => ['Campus Monitoring', ''],
                 request()->is('maintenance/reports/urgent') => ['Critical & High Reports', ''],
                 request()->is('maintenance/reports/pending') => ['Pending Reports', ''],
@@ -22,6 +23,8 @@
                 request()->is('maintenance/equipment/history*') => ['Equipment History', ''],
                 request()->is('maintenance/property-assignments/*') => [View::yieldContent('title', 'Property Assignment'), 'Items this person or office is accountable for.'],
                 request()->is('maintenance/property-assignments') => ['Property Assignment', ''],
+                request()->is('maintenance/lifespan-broadcasts*') => ['Lifespan broadcasts', 'Equipment approaching or past its useful life.'],
+                request()->is('maintenance/schedules/all') => ['Maintenance Schedule', 'All equipment, room, and semestral schedules.'],
                 request()->is('maintenance/schedules/rooms*') => ['Maintenance Schedule', 'Room inspections: recurring checks of a whole room.'],
                 request()->is('maintenance/schedules/today') => ["Today's Schedules", ''],
                 request()->is('maintenance/schedules*') => ['Maintenance Schedule', 'Equipment maintenance: per-asset schedules.'],

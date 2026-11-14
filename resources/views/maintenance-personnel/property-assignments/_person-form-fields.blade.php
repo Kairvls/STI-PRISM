@@ -99,6 +99,12 @@
     <div class="border-b border-slate-100 px-5 py-4">
         <h2 class="text-base font-semibold text-slate-900">{{ $editing ? 'Edit person' : 'Add a person to the directory' }}</h2>
         <p class="mt-0.5 text-sm text-slate-500">They don't need a system account.</p>
+        @if ($editing && ! empty($person->person_id) && \App\Support\Persons::tableReady())
+            <p class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-800 ring-1 ring-sky-100">
+                <i data-lucide="lock" class="h-3.5 w-3.5"></i>
+                Identity is managed in Faculty &amp; Staff (read-only here). Room, status, and notes stay editable.
+            </p>
+        @endif
     </div>
 
     @if ($errors->any())
@@ -120,7 +126,7 @@
                 @include('admin.partials.person-picker', [
                     'label' => 'From Faculty & Staff',
                     'required' => false,
-                    'hint' => 'Optional — pick to auto-fill the form and lock identity.',
+                    'hint' => 'Optional — pick a campus person; identity stays managed in Faculty & Staff.',
                     'searchUrl' => request()->is('admin/*')
                         ? route('admin.persons.search')
                         : route('maintenance.persons.search'),
@@ -283,7 +289,7 @@
     </div>
 </form>
 
-@if (! $editing && \App\Support\Persons::tableReady())
+@if (\App\Support\Persons::tableReady())
 <script>
 function getPropertyPersonPhoneInput() {
     return document.querySelector('#personCreateForm [data-phone-input]');
@@ -431,6 +437,7 @@ function clearPropertyPersonAutofill() {
     }
 }
 
+@if (! $editing)
 function propertyPersonPicker() {
     return {
         personId: '',
@@ -501,5 +508,13 @@ function propertyPersonPicker() {
         },
     };
 }
+@endif
+
+@if ($editing && ! empty($person->person_id))
+document.addEventListener('DOMContentLoaded', function () {
+    setPropertyPersonIdentityLocked(true);
+    if (window.lucide) lucide.createIcons();
+});
+@endif
 </script>
 @endif

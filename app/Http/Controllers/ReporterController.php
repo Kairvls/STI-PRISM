@@ -576,12 +576,22 @@ class ReporterController extends Controller
     public function getAssignedEquipment(Request $request, $employeeId)
     {
         if (! $request->user() && ! ReporterPins::sessionMatches($request, (string) $employeeId)) {
-            return response()->json([]);
+            return response()->json([
+                'equipment' => [],
+                'default_room_id' => null,
+                'default_room_name' => null,
+            ]);
         }
 
-        return response()->json(
-            PropertyAssignments::reportableForEmployee((string) $employeeId)
-        );
+        $employeeId = (string) $employeeId;
+        $equipment = PropertyAssignments::reportableForEmployee($employeeId);
+        $hint = PropertyAssignments::reporterDefaultRoom($employeeId, $equipment);
+
+        return response()->json([
+            'equipment' => $equipment->values(),
+            'default_room_id' => $hint['room_id'] ?? null,
+            'default_room_name' => $hint['room_name'] ?? null,
+        ]);
     }
 
     /*

@@ -74,7 +74,20 @@
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
         <span class="text-slate-400">Location</span>
-        <span class="font-medium text-slate-800" x-text="roomLayout.name || '—'"></span>
+        <span
+            class="max-w-[60%] truncate text-right font-medium text-slate-800"
+            x-text="selectedLayoutAsset()?.room_name || roomLayout.name || '—'"
+        ></span>
+    </div>
+    <div
+        class="flex items-center justify-between gap-3 border-b border-slate-50 py-3"
+        x-show="comlabMemberPresenceHint(selectedLayoutAsset())"
+    >
+        <span class="text-slate-400">Presence</span>
+        <span
+            class="max-w-[60%] truncate text-right text-[12px] font-semibold text-amber-700"
+            x-text="comlabMemberPresenceHint(selectedLayoutAsset())"
+        ></span>
     </div>
     <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
         <span class="text-slate-400">Zone</span>
@@ -83,6 +96,23 @@
             x-text="placementZoneLabel(selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location)"
         ></span>
     </div>
+    <template x-if="layoutComputerSetForAsset(selectedLayoutAsset()?.id)">
+        <div class="border-b border-slate-50 py-3">
+            <div class="flex items-center justify-between gap-3">
+                <span class="text-slate-400">Computer set</span>
+                <a
+                    :href="layoutComputerSetForAsset(selectedLayoutAsset()?.id)?.manage_url || '#'"
+                    class="max-w-[60%] truncate text-right font-medium text-[#0025cc] hover:underline"
+                    x-text="layoutComputerSetForAsset(selectedLayoutAsset()?.id)?.tag
+                        || layoutComputerSetForAsset(selectedLayoutAsset()?.id)?.name
+                        || 'Computer set'"
+                ></a>
+            </div>
+            <p class="mt-1 text-right text-[11px] text-slate-400">
+                Set owns this workstation’s room. Transfer moves the whole set (unless a part is deployed elsewhere).
+            </p>
+        </div>
+    </template>
     <div class="border-b border-slate-50 py-3">
         <div class="flex items-center justify-between gap-3">
             <span class="text-slate-400">Accountable person</span>
@@ -147,7 +177,12 @@
                                     →
                                     <span x-text="move.to_room_name || '—'"></span>
                                 </p>
-                                <p class="text-[11px] text-slate-400" x-text="formatLayoutDate(move.created_at)"></p>
+                                <p
+                                    class="text-[11px] text-slate-400"
+                                    x-text="isSetRelocateMove(move)
+                                        ? ('Moved with computer set · ' + formatLayoutDate(move.created_at))
+                                        : formatLayoutDate(move.created_at)"
+                                ></p>
                             </div>
                         </template>
                     </div>
@@ -178,7 +213,7 @@
             class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
             <i data-lucide="arrow-right-left" class="h-4 w-4 text-slate-500"></i>
-            Transfer to another room
+            <span x-text="layoutComputerSetForAsset(selectedLayoutAsset()?.id) ? 'Transfer computer set' : 'Transfer to another room'"></span>
         </button>
         <a
             :href="selectedLayoutAsset()?.view_url || ('/maintenance/equipment/view/' + selectedLayoutAsset()?.id)"

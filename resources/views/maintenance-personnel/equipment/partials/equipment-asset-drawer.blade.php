@@ -45,6 +45,7 @@
             }
         </style>
 
+    @include('layouts.partials.equipment-layout-icons')
     <script>
         const equipmentModalLifecycleUrl = @json($assetLifecycleUrl ?? url('/maintenance/equipment/lifecycle/__ID__'));
         let equipmentModalLifecycleRequest = 0;
@@ -504,7 +505,9 @@
                 iconWrap.classList.remove('hidden');
                 iconWrap.classList.add('flex');
                 if (icon) {
-                    icon.innerHTML = '';
+                    icon.innerHTML = window.PrismEquipmentIcons
+                        ? window.PrismEquipmentIcons.svg(displayName)
+                        : '';
                 }
             }
 

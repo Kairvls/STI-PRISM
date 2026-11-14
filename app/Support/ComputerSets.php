@@ -136,6 +136,95 @@ class ComputerSets
         return $order[trim((string) $role)] ?? 99;
     }
 
+    /**
+     * Active sets and the equipment inside each one, for the dashboard preview.
+     *
+     * @return array{href: string, sets: list<array<string, mixed>>}
+     */
+    public static function dashboardPreview(): array
+    {
+        $empty = ['href' => self::url(), 'sets' => []];
+        if (! self::tablesReady()) {
+            return $empty;
+        }
+
+        $sets = DB::table('computer_sets_table as cs')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'cs.computer_set_room_id')
+            ->where('cs.computer_set_status', self::STATUS_ACTIVE)
+            ->orderBy('cs.computer_set_tag')
+            ->get([
+                'cs.computer_set_id',
+                'cs.computer_set_tag',
+                'cs.computer_set_name',
+                'cs.computer_set_placement_zone',
+                'r.room_name',
+            ]);
+
+        if ($sets->isEmpty()) {
+            return $empty;
+        }
+
+        $sets = self::attachAccountablePeople($sets);
+
+        $memberColumns = [
+            'm.computer_set_id',
+            'm.member_role',
+            'e.equipment_name',
+        ];
+        if (Schema::hasColumn('equipment_table', 'equipment_image')) {
+            $memberColumns[] = 'e.equipment_image';
+        }
+        foreach (EquipmentIdentity::columns() as $column) {
+            $memberColumns[] = 'e.'.substr($column, strlen('equipment_table.'));
+        }
+
+        $members = DB::table('computer_set_members_table as m')
+            ->join('equipment_table as e', 'e.equipment_id', '=', 'm.equipment_id')
+            ->whereIn('m.computer_set_id', $sets->pluck('computer_set_id')->all())
+            ->get($memberColumns)
+            ->groupBy('computer_set_id');
+
+        return [
+            'href' => self::url(),
+            'sets' => $sets->map(function ($set) use ($members) {
+                $items = ($members->get($set->computer_set_id) ?? collect())
+                    ->sortBy(fn ($row) => sprintf(
+                        '%03d-%s',
+                        self::roleSort($row->member_role ?? null),
+                        mb_strtolower((string) ($row->equipment_name ?? ''))
+                    ))
+                    ->map(function ($row) {
+                        $role = trim((string) ($row->member_role ?? ''));
+                        $roleLabel = self::ROLES[$role] ?? ($role !== '' ? $role : 'Equipment');
+                        $name = trim((string) ($row->equipment_name ?? '')) ?: 'Equipment';
+                        $imagePath = trim((string) ($row->equipment_image ?? ''));
+
+                        return [
+                            'name' => strcasecmp($name, $roleLabel) === 0 ? '' : $name,
+                            'role' => $roleLabel,
+                            'identity' => EquipmentIdentity::label($row) ?: 'No asset tag / serial',
+                            'image' => $imagePath !== '' ? asset('storage/'.$imagePath) : '',
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $tag = trim((string) ($set->computer_set_tag ?? ''));
+                $name = trim((string) ($set->computer_set_name ?? ''));
+
+                return [
+                    'title' => $tag !== '' ? $tag : ($name !== '' ? $name : 'Computer set'),
+                    'name' => $name,
+                    'room' => trim((string) ($set->room_name ?? '')),
+                    'zone' => trim((string) ($set->computer_set_placement_zone ?? '')),
+                    'owner' => trim((string) ($set->accountable_person_name ?? '')),
+                    'href' => self::url('/'.$set->computer_set_id),
+                    'items' => $items,
+                ];
+            })->all(),
+        ];
+    }
+
     public static function url(string $suffix = ''): string
     {
         // Computer sets are Administrator-only.
@@ -362,8 +451,34 @@ class ComputerSets
             return collect();
         }
 
+        $select = [
+            'm.computer_set_member_id',
+            'm.computer_set_id',
+            'm.equipment_id',
+            'm.member_role',
+            'm.member_sort',
+            'm.member_added_at',
+            'e.equipment_name',
+            'e.equipment_asset_tag',
+            'e.equipment_qr_code',
+            'e.equipment_serial_number',
+            'e.equipment_brand_name',
+            'e.equipment_model',
+            'e.equipment_condition_status',
+            'e.equipment_inventory_status',
+            'e.equipment_placement_zone',
+            'e.equipment_room_id',
+            'r.room_name as equipment_room_name',
+            'c.equipment_category_name',
+        ];
+        if (Schema::hasColumn('computer_set_members_table', 'member_is_deployed')) {
+            $select[] = 'm.member_is_deployed';
+            $select[] = 'm.member_deployed_at';
+        }
+
         $rows = DB::table('computer_set_members_table as m')
             ->join('equipment_table as e', 'e.equipment_id', '=', 'm.equipment_id')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
             ->leftJoin(
                 'equipment_categories_table as c',
                 'c.equipment_category_id',
@@ -371,24 +486,7 @@ class ComputerSets
                 'e.equipment_category_id'
             )
             ->where('m.computer_set_id', $setId)
-            ->select(
-                'm.computer_set_member_id',
-                'm.computer_set_id',
-                'm.equipment_id',
-                'm.member_role',
-                'm.member_sort',
-                'm.member_added_at',
-                'e.equipment_name',
-                'e.equipment_asset_tag',
-                'e.equipment_qr_code',
-                'e.equipment_serial_number',
-                'e.equipment_brand_name',
-                'e.equipment_model',
-                'e.equipment_condition_status',
-                'e.equipment_inventory_status',
-                'e.equipment_placement_zone',
-                'c.equipment_category_name'
-            )
+            ->select($select)
             ->get();
 
         return $rows->sortBy(function ($row) {
@@ -399,6 +497,7 @@ class ComputerSets
             );
         })->map(function ($row) {
             $row->needs_replacement = ($row->equipment_inventory_status ?? null) === 'For Replacement';
+            $row->is_deployed = ! empty($row->member_is_deployed);
 
             return $row;
         })->values();
@@ -437,21 +536,31 @@ class ComputerSets
             return [];
         }
 
+        $select = [
+            'm.equipment_id',
+            'm.member_role',
+            'cs.computer_set_id',
+            'cs.computer_set_tag',
+            'cs.computer_set_name',
+            'cs.computer_set_room_id',
+            'cs.computer_set_placement_zone',
+            'r.room_name as computer_set_room_name',
+        ];
+        if (Schema::hasColumn('computer_set_members_table', 'member_is_deployed')) {
+            $select[] = 'm.member_is_deployed';
+        }
+
         $rows = DB::table('computer_set_members_table as m')
             ->join('computer_sets_table as cs', 'cs.computer_set_id', '=', 'm.computer_set_id')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'cs.computer_set_room_id')
             ->whereIn('m.equipment_id', $equipmentIds)
             ->where('cs.computer_set_status', self::STATUS_ACTIVE)
-            ->select(
-                'm.equipment_id',
-                'm.member_role',
-                'cs.computer_set_id',
-                'cs.computer_set_tag',
-                'cs.computer_set_name'
-            )
+            ->select($select)
             ->get();
 
         $map = [];
         foreach ($rows as $row) {
+            $row->is_deployed = ! empty($row->member_is_deployed ?? false);
             $map[(int) $row->equipment_id] = $row;
         }
 
@@ -474,8 +583,31 @@ class ComputerSets
             return collect();
         }
 
+        $memberSelect = [
+            'm.computer_set_id',
+            'm.equipment_id',
+            'm.member_role',
+            'e.equipment_name',
+            'e.equipment_asset_tag',
+            'e.equipment_qr_code',
+            'e.equipment_serial_number',
+            'e.equipment_brand_name',
+            'e.equipment_model',
+            'e.equipment_category_id',
+            'e.equipment_condition_status',
+            'e.equipment_inventory_status',
+            'e.equipment_placement_zone',
+            'e.equipment_room_id',
+            'r.room_name as equipment_room_name',
+            'c.equipment_category_name',
+        ];
+        if (Schema::hasColumn('computer_set_members_table', 'member_is_deployed')) {
+            $memberSelect[] = 'm.member_is_deployed';
+        }
+
         $membersBySet = DB::table('computer_set_members_table as m')
             ->join('equipment_table as e', 'e.equipment_id', '=', 'm.equipment_id')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
             ->leftJoin(
                 'equipment_categories_table as c',
                 'c.equipment_category_id',
@@ -483,31 +615,22 @@ class ComputerSets
                 'e.equipment_category_id'
             )
             ->whereIn('m.computer_set_id', $sets->pluck('computer_set_id')->all())
-            ->select(
-                'm.computer_set_id',
-                'm.equipment_id',
-                'm.member_role',
-                'e.equipment_name',
-                'e.equipment_asset_tag',
-                'e.equipment_qr_code',
-                'e.equipment_serial_number',
-                'e.equipment_brand_name',
-                'e.equipment_model',
-                'e.equipment_category_id',
-                'e.equipment_condition_status',
-                'e.equipment_inventory_status',
-                'e.equipment_placement_zone',
-                'c.equipment_category_name'
-            )
+            ->select($memberSelect)
             ->get()
             ->groupBy('computer_set_id');
 
-        return $sets->map(function ($set) use ($membersBySet) {
+        return $sets->map(function ($set) use ($membersBySet, $roomId) {
             $members = ($membersBySet->get($set->computer_set_id) ?? collect())
                 ->sortBy(fn ($row) => sprintf('%03d-%s', self::roleSort($row->member_role), mb_strtolower((string) $row->equipment_name)))
                 ->values();
 
-            $set->members = $members;
+            $set->members = $members->map(function ($row) use ($roomId) {
+                $row->is_deployed = ! empty($row->member_is_deployed ?? false);
+                $row->outside_set_room = (int) ($row->equipment_room_id ?? 0) > 0
+                    && (int) ($row->equipment_room_id ?? 0) !== (int) $roomId;
+
+                return $row;
+            });
             $set->member_count = $members->count();
             $set->needs_replacement_count = $members
                 ->filter(fn ($row) => ($row->equipment_inventory_status ?? null) === 'For Replacement')
@@ -533,8 +656,11 @@ class ComputerSets
         $payload = [];
         foreach ($roomIds as $roomId) {
             $payload[$roomId] = self::forRoom($roomId)
-                ->map(function ($set) {
-                    $members = collect($set->members ?? [])->map(function ($member) {
+                ->map(function ($set) use ($roomId) {
+                    $members = collect($set->members ?? [])->map(function ($member) use ($roomId) {
+                        $memberRoomId = (int) ($member->equipment_room_id ?? 0);
+                        $isDeployed = ! empty($member->is_deployed ?? $member->member_is_deployed ?? false);
+
                         return [
                             'id' => (int) $member->equipment_id,
                             'name' => $member->equipment_name,
@@ -546,6 +672,10 @@ class ComputerSets
                             'condition' => $member->equipment_condition_status ?? null,
                             'inventory_status' => $member->equipment_inventory_status ?? null,
                             'placement_zone' => $member->equipment_placement_zone ?? null,
+                            'room_id' => $memberRoomId ?: null,
+                            'room_name' => $member->equipment_room_name ?? null,
+                            'is_deployed' => $isDeployed,
+                            'outside_set_room' => $memberRoomId > 0 && $memberRoomId !== (int) $roomId,
                             'needs_replacement' => ($member->equipment_inventory_status ?? null) === 'For Replacement',
                         ];
                     })->values()->all();
@@ -930,7 +1060,7 @@ class ComputerSets
         $now = now();
         $tag = trim((string) ($data['computer_set_tag'] ?? '')) ?: self::nextTag();
 
-        return (int) DB::table('computer_sets_table')->insertGetId([
+        $setId = (int) DB::table('computer_sets_table')->insertGetId([
             'computer_set_tag' => $tag,
             'computer_set_name' => $data['computer_set_name'] ?? null,
             'computer_set_room_id' => $data['computer_set_room_id'] ?? null,
@@ -940,10 +1070,25 @@ class ComputerSets
             'computer_set_created_at' => $now,
             'computer_set_updated_at' => $now,
         ], 'computer_set_id');
+
+        ComputerSetQrCodes::assignIfMissing($setId);
+
+        return $setId;
     }
 
     public static function update(int $setId, array $data): void
     {
+        $existing = DB::table('computer_sets_table')->where('computer_set_id', $setId)->first();
+        if (! $existing) {
+            return;
+        }
+
+        $oldRoomId = (int) ($existing->computer_set_room_id ?? 0);
+        $newRoomId = array_key_exists('computer_set_room_id', $data)
+            ? (int) ($data['computer_set_room_id'] ?? 0)
+            : $oldRoomId;
+        $roomChanged = array_key_exists('computer_set_room_id', $data) && $newRoomId > 0 && $newRoomId !== $oldRoomId;
+
         $update = ['computer_set_updated_at' => now()];
         foreach (['computer_set_name', 'computer_set_room_id', 'computer_set_placement_zone', 'computer_set_status'] as $key) {
             if (array_key_exists($key, $data)) {
@@ -955,6 +1100,13 @@ class ComputerSets
             ->where('computer_set_id', $setId)
             ->update($update);
 
+        if ($roomChanged) {
+            // Cross-room moves always land fresh on Floor — never keep the source room's row.
+            self::transferRoom($setId, $newRoomId, 'Floor', $oldRoomId);
+
+            return;
+        }
+
         if (array_key_exists('computer_set_placement_zone', $data)
             || array_key_exists('computer_set_room_id', $data)
         ) {
@@ -963,21 +1115,188 @@ class ComputerSets
     }
 
     /**
-     * Mirror the set's room/row onto member equipment so Room Interior Layout stays aligned.
+     * Move a computer set to another room. Members that are still with the set
+     * follow; deployed (pulled-out) members keep their current room.
+     * Placement defaults to Floor so source rows are never carried over.
+     *
+     * @return list<int> Equipment ids that moved with the set
      */
-    public static function applySetPlacementToMembers(int $setId): void
-    {
-        if (! self::tablesReady() || ! Schema::hasTable('equipment_table')) {
-            return;
+    public static function transferRoom(
+        int $setId,
+        int $toRoomId,
+        ?string $zone = 'Floor',
+        ?int $fromRoomId = null
+    ): array {
+        if (! self::tablesReady() || $toRoomId < 1) {
+            return [];
         }
 
         $set = DB::table('computer_sets_table')->where('computer_set_id', $setId)->first();
         if (! $set) {
+            return [];
+        }
+
+        $fromRoomId = $fromRoomId ?? (int) ($set->computer_set_room_id ?? 0);
+        $resolvedZone = trim((string) ($zone ?? 'Floor'));
+        if ($resolvedZone === '') {
+            $resolvedZone = 'Floor';
+        }
+
+        $payload = [
+            'computer_set_room_id' => $toRoomId,
+            'computer_set_placement_zone' => $resolvedZone,
+            'computer_set_updated_at' => now(),
+        ];
+
+        DB::table('computer_sets_table')->where('computer_set_id', $setId)->update($payload);
+
+        $movedIds = self::applySetPlacementToMembers($setId);
+
+        $fromName = $fromRoomId > 0
+            ? (DB::table('rooms_table')->where('room_id', $fromRoomId)->value('room_name') ?: ('Room #'.$fromRoomId))
+            : 'Unassigned';
+        $toName = DB::table('rooms_table')->where('room_id', $toRoomId)->value('room_name') ?: ('Room #'.$toRoomId);
+        $note = 'Set moved from '.$fromName.' to '.$toName;
+
+        foreach ($movedIds as $equipmentId) {
+            self::recordHistory($setId, 'relocated', $equipmentId, null, null, $note);
+            self::logEquipmentRoomTransfer($equipmentId, $fromRoomId ?: null, $toRoomId, $note);
+        }
+
+        return $movedIds;
+    }
+
+    /**
+     * Deploy a set member to another room while keeping set membership.
+     */
+    public static function deployMember(int $setId, int $equipmentId, int $toRoomId): void
+    {
+        if (! self::tablesReady() || $toRoomId < 1) {
+            throw new \RuntimeException('Pick a room to deploy this part to.');
+        }
+
+        $member = DB::table('computer_set_members_table')
+            ->where('computer_set_id', $setId)
+            ->where('equipment_id', $equipmentId)
+            ->first();
+        if (! $member) {
+            throw new \RuntimeException('That equipment is not part of this computer set.');
+        }
+
+        $equipment = DB::table('equipment_table')->where('equipment_id', $equipmentId)->first();
+        if (! $equipment) {
+            throw new \RuntimeException('Equipment not found.');
+        }
+
+        $fromRoomId = (int) ($equipment->equipment_room_id ?? 0);
+        $toName = DB::table('rooms_table')->where('room_id', $toRoomId)->value('room_name') ?: ('Room #'.$toRoomId);
+
+        $memberUpdate = [];
+        if (Schema::hasColumn('computer_set_members_table', 'member_is_deployed')) {
+            $memberUpdate['member_is_deployed'] = true;
+            $memberUpdate['member_deployed_at'] = now();
+        }
+        if ($memberUpdate !== []) {
+            DB::table('computer_set_members_table')
+                ->where('computer_set_member_id', $member->computer_set_member_id)
+                ->update($memberUpdate);
+        }
+
+        $equipmentUpdate = ['equipment_room_id' => $toRoomId];
+        if (Schema::hasColumn('equipment_table', 'equipment_placement_zone')) {
+            $equipmentUpdate['equipment_placement_zone'] = 'Holding';
+            if (Schema::hasColumn('equipment_table', 'equipment_current_location')) {
+                $equipmentUpdate['equipment_current_location'] = 'Holding';
+            }
+        }
+        DB::table('equipment_table')->where('equipment_id', $equipmentId)->update($equipmentUpdate);
+
+        $note = 'Deployed while still part of set → '.$toName;
+        self::recordHistory($setId, 'deployed', $equipmentId, $member->member_role ?? null, null, $note);
+        self::logEquipmentRoomTransfer($equipmentId, $fromRoomId ?: null, $toRoomId, $note);
+
+        DB::table('computer_sets_table')
+            ->where('computer_set_id', $setId)
+            ->update(['computer_set_updated_at' => now()]);
+    }
+
+    /**
+     * Return a deployed member to the set's room (still a member).
+     */
+    public static function returnMemberToSet(int $setId, int $equipmentId): void
+    {
+        if (! self::tablesReady()) {
             return;
         }
 
-        $memberIds = DB::table('computer_set_members_table')
+        $member = DB::table('computer_set_members_table')
             ->where('computer_set_id', $setId)
+            ->where('equipment_id', $equipmentId)
+            ->first();
+        if (! $member) {
+            throw new \RuntimeException('That equipment is not part of this computer set.');
+        }
+
+        $set = DB::table('computer_sets_table')->where('computer_set_id', $setId)->first();
+        $setRoomId = (int) ($set->computer_set_room_id ?? 0);
+        if ($setRoomId < 1) {
+            throw new \RuntimeException('This computer set has no room. Set a room first.');
+        }
+
+        $equipment = DB::table('equipment_table')->where('equipment_id', $equipmentId)->first();
+        $fromRoomId = (int) ($equipment->equipment_room_id ?? 0);
+
+        if (Schema::hasColumn('computer_set_members_table', 'member_is_deployed')) {
+            DB::table('computer_set_members_table')
+                ->where('computer_set_member_id', $member->computer_set_member_id)
+                ->update([
+                    'member_is_deployed' => false,
+                    'member_deployed_at' => null,
+                ]);
+        }
+
+        self::applySetPlacementToMembers($setId, [$equipmentId]);
+
+        $toName = DB::table('rooms_table')->where('room_id', $setRoomId)->value('room_name') ?: ('Room #'.$setRoomId);
+        $note = 'Returned to set location → '.$toName;
+        self::recordHistory($setId, 'returned', $equipmentId, $member->member_role ?? null, null, $note);
+        self::logEquipmentRoomTransfer($equipmentId, $fromRoomId ?: null, $setRoomId, $note);
+
+        DB::table('computer_sets_table')
+            ->where('computer_set_id', $setId)
+            ->update(['computer_set_updated_at' => now()]);
+    }
+
+    /**
+     * Mirror the set's room/row onto member equipment so Room Interior Layout stays aligned.
+     * Skips deployed members unless $onlyEquipmentIds is provided (forced return).
+     *
+     * @param  list<int>|null  $onlyEquipmentIds
+     * @return list<int> Equipment ids that were updated
+     */
+    public static function applySetPlacementToMembers(int $setId, ?array $onlyEquipmentIds = null): array
+    {
+        if (! self::tablesReady() || ! Schema::hasTable('equipment_table')) {
+            return [];
+        }
+
+        $set = DB::table('computer_sets_table')->where('computer_set_id', $setId)->first();
+        if (! $set) {
+            return [];
+        }
+
+        $query = DB::table('computer_set_members_table')
+            ->where('computer_set_id', $setId);
+
+        if ($onlyEquipmentIds !== null) {
+            $query->whereIn('equipment_id', $onlyEquipmentIds);
+        } elseif (Schema::hasColumn('computer_set_members_table', 'member_is_deployed')) {
+            $query->where(function ($q) {
+                $q->where('member_is_deployed', false)->orWhereNull('member_is_deployed');
+            });
+        }
+
+        $memberIds = $query
             ->pluck('equipment_id')
             ->map(fn ($id) => (int) $id)
             ->filter()
@@ -985,7 +1304,7 @@ class ComputerSets
             ->all();
 
         if ($memberIds === []) {
-            return;
+            return [];
         }
 
         $zone = trim((string) ($set->computer_set_placement_zone ?? ''));
@@ -1003,12 +1322,34 @@ class ComputerSets
         }
 
         if ($equipmentUpdate === []) {
-            return;
+            return [];
         }
 
         DB::table('equipment_table')
             ->whereIn('equipment_id', $memberIds)
             ->update($equipmentUpdate);
+
+        return $memberIds;
+    }
+
+    private static function logEquipmentRoomTransfer(
+        int $equipmentId,
+        ?int $fromRoomId,
+        int $toRoomId,
+        string $notes
+    ): void {
+        if (! Schema::hasTable('equipment_transfer_history_table') || $toRoomId < 1) {
+            return;
+        }
+
+        DB::table('equipment_transfer_history_table')->insert([
+            'equipment_id' => $equipmentId,
+            'from_room_id' => $fromRoomId ?: null,
+            'to_room_id' => $toRoomId,
+            'transferred_by' => Auth::id(),
+            'remarks' => $notes,
+            'created_at' => now(),
+        ]);
     }
 
     public static function assertUniqueRoles(array $rolesByEquipmentId): void
@@ -1163,6 +1504,7 @@ class ComputerSets
             ->delete();
 
         $event = $replacedByEquipmentId ? 'replaced' : 'removed';
+        $wasDeployed = ! empty($row->member_is_deployed);
         self::recordHistory(
             $setId,
             $event,
@@ -1173,7 +1515,9 @@ class ComputerSets
                 ? 'Replaced in this computer set'
                 : ($releaseToRoomHolding
                     ? 'Removed from this computer set; left in room Holding'
-                    : 'Removed from this computer set')
+                    : ($wasDeployed
+                        ? 'Removed from this computer set (was deployed away from set room)'
+                        : 'Removed from this computer set'))
         );
 
         if ($releaseToRoomHolding && ! $replacedByEquipmentId && Schema::hasTable('equipment_table')) {

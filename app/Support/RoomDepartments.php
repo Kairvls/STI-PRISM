@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Many departments can be assigned to one room (and the reverse).
+ * Many departments can share one room; each department has at most one room.
  */
 class RoomDepartments
 {
@@ -141,6 +141,22 @@ class RoomDepartments
     }
 
     /**
+     * The single room linked to a department (one room per department rule).
+     *
+     * @return array{id:int,name:string}|null
+     */
+    public static function primaryForDepartment(int $departmentId): ?array
+    {
+        if ($departmentId < 1) {
+            return null;
+        }
+
+        $rooms = self::forDepartments([$departmentId])[$departmentId] ?? [];
+
+        return $rooms[0] ?? null;
+    }
+
+    /**
      * Replace the department set for a room.
      *
      * @param  list<int|string|null>  $departmentIds
@@ -156,6 +172,14 @@ class RoomDepartments
             ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values();
+
+        // Each department belongs to at most one room — move them onto this room.
+        if ($ids->isNotEmpty()) {
+            DB::table(self::TABLE)
+                ->whereIn('department_id', $ids->all())
+                ->where('room_id', '!=', $roomId)
+                ->delete();
+        }
 
         DB::table(self::TABLE)->where('room_id', $roomId)->delete();
 

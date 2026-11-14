@@ -2728,7 +2728,7 @@
             transition: none !important;
             outline: 4px solid #0025cc;
             outline-offset: 3px;
-            animation: roomFocusFlicker 0.28s ease-in-out 12;
+            animation: roomFocusFlicker 0.45s ease-in-out 6;
         }
         @keyframes roomFocusFlicker {
             0%,
@@ -3132,6 +3132,7 @@
                         computerSets: [],
                         selectedGroupKey: null,
                         selectedAssetId: null,
+                        selectedAssetStub: null,
                         listSearch: "",
                         listPage: 1,
                         listPerPage: 12,
@@ -3142,6 +3143,7 @@
                         selectedComlabRowTable: null,
                         comlabSetCarouselIndex: 0,
                         comlabHoldingPage: 0,
+                        selectedFloorSetId: null,
                         highlightCustodianId: null,
                         lifecycle: {
                             loading: false,
@@ -3170,6 +3172,7 @@
 
                     layoutTransferModal: false,
                     layoutTransferAsset: null,
+                    layoutTransferSet: null,
                     layoutTransferRoomId: '',
                     layoutTransferQuery: '',
                     layoutTransferError: '',
@@ -7000,7 +7003,6 @@
                                 return;
                             }
 
-                            playHighlight();
                             this.animateBlueprintTo({
                                 zoom,
                                 panX,
@@ -8366,42 +8368,70 @@
                         });
                     },
                     collectComlabComputerSetsForSave() {
-                        if (!this.roomLayout.open || !this.isComputerLabLayout()) {
+                        if (!this.roomLayout.open || !this.isComlabRoomLayout()) {
                             return null;
                         }
 
-                        const sets = [];
+                        const byId = new Map();
                         const rows = (this.roomLayout.comlabRows || []).length
                             ? this.roomLayout.comlabRows
                             : (this.roomLayout.comlabRowLayouts || []).map((entry) => entry.name);
 
-                        rows.forEach((rowName) => {
-                            (this.comlabComputerSetsForRow(rowName) || []).forEach((set) => {
-                                const members = (set.members || [])
+                        const pushSet = (set, fallbackZone) => {
+                            const members = (set.members || [])
+                                .map((member) => {
+                                    const id = Number(member.id || member.equipment_id || 0);
+                                    if (!id) return null;
+                                    const role = member.role
+                                        || this.computerSetComponentRole(member.name)
+                                        || null;
+                                    return { id, role };
+                                })
+                                .filter(Boolean);
+
+                            if (!members.length && !set.id) {
+                                return;
+                            }
+
+                            const id = set.id ? Number(set.id) : null;
+                            const key = id || `new-${byId.size}`;
+                            if (id && byId.has(id)) {
+                                return;
+                            }
+
+                            let zone = String(fallbackZone || set.placement_zone || '').trim();
+                            if (!zone) {
+                                const zones = members
                                     .map((member) => {
-                                        const id = Number(member.id || 0);
-                                        if (!id) return null;
-                                        const role = member.role
-                                            || this.computerSetComponentRole(member.name)
-                                            || null;
-                                        return { id, role };
+                                        const live = (this.roomLayout.equipment || []).find(
+                                            (item) => Number(item.id) === Number(member.id),
+                                        );
+                                        return String(live?.placement_zone || live?.location || '').trim();
                                     })
                                     .filter(Boolean);
+                                zone = zones[0] || 'Floor';
+                            }
 
-                                if (!members.length && !set.id) {
-                                    return;
-                                }
+                            byId.set(key, {
+                                id: id || undefined,
+                                name: set.label || set.name || null,
+                                placement_zone: zone,
+                                members,
+                            });
+                        };
 
-                                sets.push({
-                                    id: set.id ? Number(set.id) : undefined,
-                                    name: set.label || set.name || null,
-                                    placement_zone: rowName,
-                                    members,
-                                });
+                        rows.forEach((rowName) => {
+                            (this.comlabComputerSetsForRow(rowName) || []).forEach((set) => {
+                                pushSet(set, rowName);
                             });
                         });
 
-                        return sets;
+                        // Keep Floor/Holding sets (e.g. just transferred) so save does not retire them.
+                        (this.roomLayout.computerSets || []).forEach((set) => {
+                            pushSet(set, set.placement_zone || 'Floor');
+                        });
+
+                        return Array.from(byId.values());
                     },
 
                     applyRoomComputerSets(roomId, computerSets) {
@@ -8414,6 +8444,7 @@
                         }
                         if (this.roomLayout.open && Number(this.roomLayout.id) === Number(roomId)) {
                             this.roomLayout.computerSets = sets;
+                            this.reconcileComputerSetPlacementZones();
                         }
                     },
 
@@ -8427,7 +8458,7 @@
                             ),
                         ];
                         try {
-                            const computerSetsPayload = this.roomLayout.open && this.isComputerLabLayout()
+                            const computerSetsPayload = this.roomLayout.open && this.isComlabRoomLayout()
                                 ? this.collectComlabComputerSetsForSave()
                                 : null;
 
@@ -8915,6 +8946,215 @@
 
                     },
 
+                    layoutComputerSetForAsset(equipmentId) {
+                        const id = Number(equipmentId || 0);
+                        if (!id) return null;
+                        const sets = Array.isArray(this.roomLayout?.computerSets)
+                            ? this.roomLayout.computerSets
+                            : [];
+                        for (const set of sets) {
+                            const members = Array.isArray(set?.members) ? set.members : [];
+                            if (members.some((member) => Number(member.id || member.equipment_id || 0) === id)) {
+                                return this.normalizeLayoutComputerSet(set);
+                            }
+                        }
+                        return null;
+                    },
+
+                    normalizeLayoutComputerSet(set) {
+                        if (!set) return null;
+                        const members = Array.isArray(set.members) ? set.members : [];
+                        const resolved = this.resolveComlabSetMembers
+                            ? this.resolveComlabSetMembers(members)
+                            : members;
+                        return {
+                            id: Number(set.id || 0) || null,
+                            tag: set.tag || null,
+                            name: set.name || set.label || null,
+                            label: set.label || set.name || set.tag || 'Computer set',
+                            manage_url: set.manage_url || (set.id ? `/admin/computer-sets/${set.id}` : null),
+                            member_count: Number(set.member_count || resolved.length || members.length || 0),
+                            members: resolved,
+                            placement_zone: set.placement_zone || null,
+                            needs_replacement_count: Number(set.needs_replacement_count || 0)
+                                || resolved.filter((member) => member.needs_replacement).length,
+                        };
+                    },
+
+                    layoutComputerSetById(setId) {
+                        const id = Number(setId || 0);
+                        if (!id) return null;
+                        const sets = Array.isArray(this.roomLayout?.computerSets)
+                            ? this.roomLayout.computerSets
+                            : [];
+                        const match = sets.find((set) => Number(set.id) === id);
+                        return match ? this.normalizeLayoutComputerSet(match) : null;
+                    },
+
+                    equipmentIdsInAnyComputerSet() {
+                        const ids = new Set();
+                        (this.roomLayout.computerSets || []).forEach((set) => {
+                            (set.members || []).forEach((member) => {
+                                const id = Number(member.id || member.equipment_id || 0);
+                                if (id) ids.add(id);
+                            });
+                        });
+                        return ids;
+                    },
+
+                    isEquipmentInComputerSet(equipmentId) {
+                        return this.equipmentIdsInAnyComputerSet().has(Number(equipmentId || 0));
+                    },
+
+                    computerSetMemberZone(set) {
+                        // Set placement is authoritative — one set must not appear in Holding and a row.
+                        const setZone = String(set?.placement_zone || '').trim();
+                        if (setZone === 'Holding' || setZone === 'Floor' || this.isComlabRowZone(setZone)) {
+                            return setZone;
+                        }
+
+                        const members = this.resolveComlabSetMembers
+                            ? this.resolveComlabSetMembers(set?.members || [])
+                            : (set?.members || []);
+                        const zones = members
+                            .map((member) => String(member.placement_zone || member.location || '').trim())
+                            .filter(Boolean);
+                        // Prefer a row / Floor over Holding when inferring from stale member rows.
+                        if (zones.some((zone) => this.isComlabRowZone(zone))) {
+                            return zones.find((zone) => this.isComlabRowZone(zone)) || 'Floor';
+                        }
+                        if (zones.some((zone) => zone === 'Floor')) return 'Floor';
+                        if (zones.some((zone) => zone === 'Holding')) return 'Holding';
+                        return 'Floor';
+                    },
+
+                    /**
+                     * Align with-set equipment zones to each set's placement_zone so Holding/row lists stay in sync.
+                     */
+                    reconcileComputerSetPlacementZones() {
+                        const sets = Array.isArray(this.roomLayout?.computerSets)
+                            ? this.roomLayout.computerSets
+                            : [];
+                        if (!sets.length || !Array.isArray(this.roomLayout?.equipment)) {
+                            return;
+                        }
+
+                        const memberToZone = new Map();
+                        sets.forEach((set) => {
+                            const zone = this.computerSetMemberZone(set);
+                            (set.members || []).forEach((member) => {
+                                const id = Number(member.id || member.equipment_id || 0);
+                                if (id) {
+                                    memberToZone.set(id, zone);
+                                }
+                            });
+                        });
+
+                        this.roomLayout.equipment.forEach((item) => {
+                            const id = Number(item.id || 0);
+                            if (!id || !memberToZone.has(id)) {
+                                return;
+                            }
+                            const zone = memberToZone.get(id);
+                            item.placement_zone = zone;
+                            item.location = zone;
+                            item._holding = zone === 'Holding';
+                            if (zone === 'Holding') {
+                                item.x = null;
+                                item.y = null;
+                            }
+                        });
+
+                        this.roomLayout.computerSets = sets.map((set) => ({
+                            ...set,
+                            placement_zone: this.computerSetMemberZone(set),
+                        }));
+                    },
+
+                    computerSetFloorAnchor(set) {
+                        const members = this.resolveComlabSetMembers
+                            ? this.resolveComlabSetMembers(set?.members || [])
+                            : (set?.members || []);
+                        const placed = members.find((member) => (
+                            member
+                            && member.x != null
+                            && member.y != null
+                            && !this.isEquipmentInHolding(member)
+                        ));
+                        return {
+                            x: placed?.x != null ? Number(placed.x) : 50,
+                            y: placed?.y != null ? Number(placed.y) : 72,
+                            width: 72,
+                            height: 72,
+                            rotation: Number(placed?.rotation || 0),
+                            anchor_equipment_id: placed?.id || members[0]?.id || null,
+                        };
+                    },
+
+                    comlabFloorComputerSets() {
+                        return (this.roomLayout.computerSets || [])
+                            .map((set) => this.normalizeLayoutComputerSet(set))
+                            .filter((set) => set && set.id && this.computerSetMemberZone(set) === 'Floor')
+                            .map((set) => ({ ...set, ...this.computerSetFloorAnchor(set) }));
+                    },
+
+                    comlabHoldingComputerSets() {
+                        return (this.roomLayout.computerSets || [])
+                            .map((set) => this.normalizeLayoutComputerSet(set))
+                            .filter((set) => set && set.id && this.computerSetMemberZone(set) === 'Holding');
+                    },
+
+                    activeFloorComputerSet() {
+                        return this.layoutComputerSetById(this.roomLayout.selectedFloorSetId);
+                    },
+
+                    openFloorComputerSet(setId) {
+                        const set = this.layoutComputerSetById(setId);
+                        if (!set?.id) return;
+
+                        // Stay on the room canvas — only the right sidebar shows set members.
+                        if (Number(this.roomLayout.selectedFloorSetId) === Number(set.id)
+                            && !this.roomLayout.selectedAssetId
+                            && this.roomLayout.comlabNav === 'rows'
+                        ) {
+                            this.clearFloorComputerSetSelection();
+                            return;
+                        }
+
+                        this.roomLayout.selectedFloorSetId = set.id;
+                        this.roomLayout.selectedComlabRow = null;
+                        this.selectedComlabRowTable = null;
+                        this.selectedEquipmentId = null;
+                        this.roomLayout.selectedAssetId = null;
+                        this.roomLayout.comlabNav = 'rows';
+                        this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    clearFloorComputerSetSelection() {
+                        this.roomLayout.selectedFloorSetId = null;
+                        this.roomLayout.selectedAssetId = null;
+                        this.selectedEquipmentId = null;
+                        this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    selectFloorSetMember(equipmentId) {
+                        const id = Number(equipmentId || 0);
+                        if (!id) return;
+                        // Keep selectedFloorSetId so Back from asset returns to the set member list.
+                        const keepSetId = this.roomLayout.selectedFloorSetId;
+                        this.selectComlabAsset(id);
+                        this.roomLayout.selectedFloorSetId = keepSetId;
+                        this.selectedEquipmentId = this.roomLayout.edit ? id : null;
+                        this.roomLayout.comlabNav = 'rows';
+                    },
+
+                    isSetRelocateMove(move) {
+                        const remarks = String(move?.remarks || '').trim().toLowerCase();
+                        return remarks.startsWith('set moved from');
+                    },
+
                     openLayoutTransferModal() {
                         const asset = typeof this.selectedLayoutAsset === 'function'
                             ? this.selectedLayoutAsset()
@@ -8936,7 +9176,9 @@
                             return;
                         }
 
+                        const set = this.layoutComputerSetForAsset(asset.id);
                         this.layoutTransferAsset = { ...asset };
+                        this.layoutTransferSet = set && set.id ? { ...set } : null;
                         this.layoutTransferRoomId = '';
                         this.layoutTransferQuery = '';
                         this.layoutTransferError = '';
@@ -8948,6 +9190,7 @@
                     closeLayoutTransferModal() {
                         this.layoutTransferModal = false;
                         this.layoutTransferAsset = null;
+                        this.layoutTransferSet = null;
                         this.layoutTransferRoomId = '';
                         this.layoutTransferQuery = '';
                         this.layoutTransferError = '';
@@ -8974,7 +9217,10 @@
 
                         const equipmentId = Number(this.layoutTransferAsset?.id);
                         const destinationId = Number(this.layoutTransferRoomId);
-                        if (!equipmentId || !destinationId) {
+                        const transferSet = this.layoutTransferSet && this.layoutTransferSet.id
+                            ? this.layoutTransferSet
+                            : null;
+                        if ((!equipmentId && !transferSet) || !destinationId) {
                             this.layoutTransferError = 'Select a destination room.';
                             return;
                         }
@@ -8983,67 +9229,129 @@
                         this.layoutTransferError = '';
 
                         try {
-                            const response = await fetch(
-                                `/admin/infrastructure/equipment/${equipmentId}/transfer`,
-                                {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        Accept: 'application/json',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
-                                    },
-                                    body: JSON.stringify({
-                                        room_id: destinationId,
-                                    }),
+                            const headers = {
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '',
+                            };
+
+                            let movedIds = equipmentId ? [equipmentId] : [];
+                            let payload = {};
+
+                            if (transferSet) {
+                                const response = await fetch(
+                                    `/admin/computer-sets/${transferSet.id}/transfer`,
+                                    {
+                                        method: 'POST',
+                                        headers,
+                                        body: JSON.stringify({
+                                            room_id: destinationId,
+                                        }),
+                                    }
+                                );
+                                payload = await response.json().catch(() => ({}));
+                                if (!response.ok) {
+                                    const firstError = payload?.errors
+                                        ? Object.values(payload.errors).flat()[0]
+                                        : null;
+                                    throw new Error(firstError || payload?.message || 'Could not transfer computer set.');
                                 }
-                            );
-                            const payload = await response.json().catch(() => ({}));
-                            if (!response.ok) {
-                                const firstError = payload?.errors
-                                    ? Object.values(payload.errors).flat()[0]
-                                    : null;
-                                throw new Error(firstError || payload?.message || 'Could not transfer equipment.');
+                                movedIds = Array.isArray(payload?.moved_equipment_ids)
+                                    && payload.moved_equipment_ids.length
+                                    ? payload.moved_equipment_ids.map((id) => Number(id))
+                                    : (Array.isArray(transferSet.members)
+                                        ? transferSet.members.map((member) => Number(member.id || member.equipment_id || 0)).filter(Boolean)
+                                        : movedIds);
+                            } else {
+                                const response = await fetch(
+                                    `/admin/infrastructure/equipment/${equipmentId}/transfer`,
+                                    {
+                                        method: 'POST',
+                                        headers,
+                                        body: JSON.stringify({
+                                            room_id: destinationId,
+                                        }),
+                                    }
+                                );
+                                payload = await response.json().catch(() => ({}));
+                                if (!response.ok) {
+                                    const firstError = payload?.errors
+                                        ? Object.values(payload.errors).flat()[0]
+                                        : null;
+                                    throw new Error(firstError || payload?.message || 'Could not transfer equipment.');
+                                }
                             }
 
+                            const movedIdSet = new Set(movedIds.map((id) => Number(id)).filter(Boolean));
                             const sourceRoom = this.roomCatalog.find(
                                 (room) => Number(room.id) === Number(this.roomLayout.id)
                             );
                             const destRoom = this.roomCatalog.find(
                                 (room) => Number(room.id) === destinationId
                             );
-                            const moved = this.layoutTransferAsset
-                                ? { ...this.layoutTransferAsset }
-                                : null;
 
-                            if (sourceRoom?.equipment) {
-                                sourceRoom.equipment = sourceRoom.equipment.filter(
-                                    (item) => Number(item.id) !== equipmentId
-                                );
+                            const takeEquipment = (list) => {
+                                const kept = [];
+                                const moved = [];
+                                (list || []).forEach((item) => {
+                                    if (movedIdSet.has(Number(item.id))) {
+                                        moved.push(item);
+                                    } else {
+                                        kept.push(item);
+                                    }
+                                });
+                                return { kept, moved };
+                            };
+
+                            const sourceSplit = takeEquipment(this.roomLayout.equipment || []);
+                            this.roomLayout.equipment = sourceSplit.kept;
+                            if (sourceRoom) {
+                                sourceRoom.equipment = takeEquipment(sourceRoom.equipment || []).kept;
                             }
-
-                            this.roomLayout.equipment = (this.roomLayout.equipment || []).filter(
-                                (item) => Number(item.id) !== equipmentId
-                            );
-
                             if (Array.isArray(this.originalRoomLayout)) {
-                                this.originalRoomLayout = this.originalRoomLayout.filter(
-                                    (item) => Number(item.id) !== equipmentId
+                                this.originalRoomLayout = takeEquipment(this.originalRoomLayout).kept;
+                            }
+
+                            if (transferSet && Array.isArray(this.roomLayout.computerSets)) {
+                                this.roomLayout.computerSets = this.roomLayout.computerSets.filter(
+                                    (set) => Number(set.id) !== Number(transferSet.id)
+                                );
+                            }
+                            if (transferSet && sourceRoom && Array.isArray(sourceRoom.computer_sets)) {
+                                sourceRoom.computer_sets = sourceRoom.computer_sets.filter(
+                                    (set) => Number(set.id) !== Number(transferSet.id)
                                 );
                             }
 
-                            if (destRoom && moved) {
+                            if (destRoom) {
                                 destRoom.equipment = Array.isArray(destRoom.equipment)
                                     ? destRoom.equipment
                                     : [];
-                                if (!destRoom.equipment.some((item) => Number(item.id) === equipmentId)) {
+                                sourceSplit.moved.forEach((item, index) => {
+                                    if (destRoom.equipment.some((row) => Number(row.id) === Number(item.id))) {
+                                        return;
+                                    }
                                     destRoom.equipment.push({
-                                        ...moved,
-                                        placement_zone: 'Holding',
-                                        location: 'Holding',
-                                        _holding: true,
-                                        x: 50,
-                                        y: 90,
+                                        ...item,
+                                        placement_zone: 'Floor',
+                                        location: 'Floor',
+                                        _holding: false,
+                                        x: Math.min(90, 18 + (index % 5) * 14),
+                                        y: Math.min(88, 72 + Math.floor(index / 5) * 10),
                                     });
+                                });
+                                if (transferSet) {
+                                    destRoom.computer_sets = Array.isArray(destRoom.computer_sets)
+                                        ? destRoom.computer_sets
+                                        : [];
+                                    if (!destRoom.computer_sets.some((set) => Number(set.id) === Number(transferSet.id))) {
+                                        destRoom.computer_sets.push({
+                                            ...transferSet,
+                                            placement_zone: 'Floor',
+                                            manage_url: transferSet.manage_url
+                                                || `/admin/computer-sets/${transferSet.id}`,
+                                        });
+                                    }
                                 }
                             }
 
@@ -9054,14 +9362,17 @@
                             this.invalidateRoomInspectorCache?.(destinationId);
 
                             const destName = destRoom?.name || 'the selected room';
+                            const toast = transferSet
+                                ? `Computer set transferred to ${destName}.`
+                                : `Transferred to ${destName}.`;
                             this.closeLayoutTransferModal();
-                            this.toast = `Transferred to ${destName}.`;
+                            this.toast = toast;
                             setTimeout(() => {
-                                if (this.toast === `Transferred to ${destName}.`) this.toast = '';
+                                if (this.toast === toast) this.toast = '';
                             }, 3000);
                             this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                         } catch (e) {
-                            this.layoutTransferError = e?.message || 'Could not transfer equipment.';
+                            this.layoutTransferError = e?.message || 'Could not transfer.';
                         } finally {
                             this.layoutTransferring = false;
                         }
@@ -9371,27 +9682,36 @@
                             || this.isComlabRoom(this.roomLayout.type);
                     },
 
+                    /** Lab UI, or any room row that already has module computer sets. */
+                    rowUsesComputerSetUi() {
+                        if (this.isComputerLabLayout()) {
+                            return true;
+                        }
+                        return typeof this.comlabSetsInSelectedRow === 'function'
+                            && this.comlabSetsInSelectedRow().length > 0;
+                    },
+
                     roomLayoutHint() {
-                        const holdingCount = typeof this.comlabHoldingItems === 'function'
-                            ? this.comlabHoldingItems().length
+                        const holdingCount = typeof this.comlabHoldingUnitCount === 'function'
+                            ? this.comlabHoldingUnitCount()
                             : 0;
 
                         if (!this.isComlabRoomLayout()) {
                             return holdingCount > 0
-                                ? 'Drag Holding equipment onto the floor to place it, then save.'
+                                ? 'Drag Holding sets/items onto the floor to place them, then save.'
                                 : 'Drag equipment inside the room, then save to apply your changes.';
                         }
                         if (this.roomLayout.edit) {
                             return holdingCount > 0
-                                ? 'Drag Holding equipment onto a row or the floor to place it. Drag row tables to arrange.'
-                                : 'Drag row tables to arrange. Drop equipment on rows, or place icons on the floor.';
+                                ? 'Drag Holding computer sets or items onto a row or the floor. Drag row tables to arrange.'
+                                : 'Drag row tables to arrange. Drop computer sets on rows, or place icons on the floor.';
                         }
                         if (holdingCount > 0) {
-                            return 'Turn on Edit layout, then drag Holding equipment onto a row or the floor to place it.';
+                            return 'Turn on Edit layout, then drag Holding computer sets or items onto a row or the floor.';
                         }
                         return this.isComputerLabLayout()
                             ? 'Select a row and click Open to browse computer sets and equipment.'
-                            : 'Select a row and click Open to browse equipment, or select floor icons.';
+                            : 'Click a floor computer set to open its components, or open a row.';
                     },
 
                     isComlabRowZone(zone) {
@@ -9517,6 +9837,8 @@
                                 if (!h || h < 24 || h > 1000 || isLegacyCard) item.height = isLegacyCard ? 64 : (h > 1000 ? 1000 : 64);
                             }
                         });
+
+                        this.reconcileComputerSetPlacementZones();
                     },
 
                     buildDefaultComlabRowLayouts(names) {
@@ -9569,8 +9891,8 @@
 
                     comlabRowItemsLabel(rowName) {
                         const items = this.equipmentInComlabRow(rowName);
-                        if (this.isComputerLabLayout()) {
-                            const summary = this.comlabRowSummary(rowName);
+                        const summary = this.comlabRowSummary(rowName);
+                        if (this.isComputerLabLayout() || summary.setCount > 0) {
                             const parts = [];
                             parts.push(
                                 summary.setCount === 1
@@ -9590,8 +9912,15 @@
                         return total === 1 ? '1 Item' : `${total} Items`;
                     },
 
+                    looseEquipmentInComlabRow(rowName) {
+                        return this.equipmentInComlabRow(rowName).filter(
+                            (item) => !this.isEquipmentInComputerSet(item.id),
+                        );
+                    },
+
                     comlabCanvasEquipment() {
                         return (this.roomLayout.equipment || []).filter((item) => {
+                            if (this.isEquipmentInComputerSet(item.id)) return false;
                             if (!this.isComlabFloorEquipment(item)) return false;
                             if (item._holding || item.placement_zone === 'Holding' || item.location === 'Holding') {
                                 return false;
@@ -9602,6 +9931,7 @@
 
                     comlabDraggableSetItems() {
                         return (this.roomLayout.equipment || []).filter((item) => {
+                            if (this.isEquipmentInComputerSet(item.id)) return false;
                             if (this.isComlabFloorEquipment(item)) {
                                 return false;
                             }
@@ -9612,13 +9942,19 @@
 
                     comlabDraggableFloorItems() {
                         return (this.roomLayout.equipment || []).filter((item) => {
+                            if (this.isEquipmentInComputerSet(item.id)) return false;
                             if (!this.isComlabFloorEquipment(item)) return false;
                             return !!item._holding || item.placement_zone === 'Holding' || item.location === 'Holding';
                         });
                     },
 
                     comlabHoldingItems() {
+                        // Loose equipment only — computer sets use comlabHoldingComputerSets().
                         return [...this.comlabDraggableSetItems(), ...this.comlabDraggableFloorItems()];
+                    },
+
+                    comlabHoldingUnitCount() {
+                        return this.comlabHoldingComputerSets().length + this.comlabHoldingItems().length;
                     },
 
                     comlabHoldingPerPage() {
@@ -9626,13 +9962,36 @@
                     },
 
                     comlabHoldingPages() {
-                        const items = this.comlabHoldingItems();
+                        const units = [
+                            ...this.comlabHoldingComputerSets().map((set) => ({
+                                ...set,
+                                _kind: 'set',
+                                set_id: set.id,
+                                id: `set-${set.id}`,
+                            })),
+                            ...this.comlabHoldingItems().map((item) => ({
+                                ...item,
+                                _kind: 'equipment',
+                            })),
+                        ];
                         const per = this.comlabHoldingPerPage();
                         const pages = [];
-                        for (let i = 0; i < items.length; i += per) {
-                            pages.push(items.slice(i, i + per));
+                        for (let i = 0; i < units.length; i += per) {
+                            pages.push(units.slice(i, i + per));
                         }
                         return pages.length ? pages : [[]];
+                    },
+
+                    sendComputerSetToHolding(setId) {
+                        if (!this.roomLayout.edit) return;
+                        const set = this.layoutComputerSetById(setId);
+                        const anchorId = Number(set?.members?.[0]?.id || 0);
+                        if (!anchorId) return;
+                        this.sendEquipmentToHolding(anchorId);
+                        if (Number(this.roomLayout.selectedFloorSetId) === Number(setId)) {
+                            this.roomLayout.selectedFloorSetId = null;
+                            this.roomLayout.comlabNav = 'rows';
+                        }
                     },
 
                     comlabHoldingPageCount() {
@@ -9668,6 +10027,8 @@
                         this.selectedComlabRowTable = null;
                         this.roomLayout.selectedComlabRow = null;
                         this.roomLayout.selectedAssetId = id;
+                        const set = this.layoutComputerSetForAsset(id);
+                        this.roomLayout.selectedFloorSetId = set?.id || null;
                         this.loadAssetLifecycle(id);
                         // Stay on room layout — never open the row page for floor items
                         this.roomLayout.comlabNav = 'rows';
@@ -9695,6 +10056,9 @@
                     clearComlabCanvasSelection() {
                         this.selectedComlabRowTable = null;
                         this.deselectComlabFloorEquipment();
+                        if (this.roomLayout.selectedFloorSetId) {
+                            this.roomLayout.selectedFloorSetId = null;
+                        }
                     },
 
                     onComlabFloorPointerDown(event, id) {
@@ -10072,27 +10436,47 @@
 
                     comlabDropOnCanvas(event) {
                         if (!this.roomLayout.edit) return;
-                        const id = Number(event.dataTransfer.getData('equipmentId'));
-                        if (!id) return;
-                        const item = this.roomLayout.equipment.find((entry) => entry.id === id);
-                        if (!item) return;
-                        // Labs: only floor gear. Other rooms: any equipment can sit on the floor as an icon.
-                        if (this.isComputerLabLayout() && !this.isFloorEquipmentType(item)) return;
+                        const setId = Number(event.dataTransfer.getData('computerSetId') || 0);
+                        const id = Number(event.dataTransfer.getData('equipmentId') || 0);
+                        const set = setId
+                            ? this.layoutComputerSetById(setId)
+                            : (id ? this.layoutComputerSetForAsset(id) : null);
+                        const anchorId = id || Number(set?.members?.[0]?.id || 0);
+                        if (!anchorId && !set) return;
+
+                        const item = anchorId
+                            ? this.roomLayout.equipment.find((entry) => Number(entry.id) === anchorId)
+                            : null;
+                        if (!set && item && this.isComputerLabLayout() && !this.isFloorEquipmentType(item)) {
+                            return;
+                        }
+                        if (!set && !item) return;
 
                         const canvas = this.$refs.comlabInteriorCanvas;
                         if (!canvas) return;
                         const rect = canvas.getBoundingClientRect();
                         const x = Math.round(((event.clientX - rect.left) / rect.width) * 100);
                         const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
+                        const clampedX = Math.min(96, Math.max(4, x));
+                        const clampedY = Math.min(96, Math.max(4, y));
 
                         this.captureRoomLayoutUndo();
-                        item.x = Math.min(96, Math.max(4, x));
-                        item.y = Math.min(96, Math.max(4, y));
-                        item.placement_zone = 'Floor';
-                        item.location = 'Floor';
-                        item._holding = false;
-                        if (!item.width || Number(item.width) < 24 || Number(item.width) > 1000) item.width = 64;
-                        if (!item.height || Number(item.height) < 24 || Number(item.height) > 1000) item.height = 64;
+                        const placeId = anchorId || Number(set.members[0]?.id || 0);
+                        this.applyPlacementToAssetOrSet(placeId, 'Floor', {
+                            x: clampedX,
+                            y: clampedY,
+                            holding: false,
+                        });
+                        const placedIds = set && Array.isArray(set.members)
+                            ? set.members.map((member) => Number(member.id || member.equipment_id || 0)).filter(Boolean)
+                            : [placeId];
+                        (this.roomLayout.equipment || []).forEach((entry, index) => {
+                            if (!placedIds.includes(Number(entry.id))) return;
+                            if (!entry.width || Number(entry.width) < 24 || Number(entry.width) > 1000) entry.width = 64;
+                            if (!entry.height || Number(entry.height) < 24 || Number(entry.height) > 1000) entry.height = 64;
+                            entry.x = Math.min(96, Math.max(4, clampedX + (index % 3) * 3));
+                            entry.y = Math.min(96, Math.max(4, clampedY + Math.floor(index / 3) * 3));
+                        });
                         this.roomLayout.comlabHoldingPage = Math.min(
                             this.roomLayout.comlabHoldingPage || 0,
                             Math.max(0, this.comlabHoldingPageCount() - 1),
@@ -10103,11 +10487,11 @@
 
                     returnEquipmentToHolding(item) {
                         if (!item) return;
-                        item.placement_zone = 'Holding';
-                        item.location = 'Holding';
-                        item._holding = true;
-                        item.x = null;
-                        item.y = null;
+                        this.applyPlacementToAssetOrSet(item.id, 'Holding', {
+                            x: null,
+                            y: null,
+                            holding: true,
+                        });
                     },
 
                     sendEquipmentToHolding(equipmentId) {
@@ -10138,6 +10522,11 @@
 
                     comlabDropOnHolding(event) {
                         if (!this.roomLayout.edit) return;
+                        const setId = Number(event.dataTransfer.getData('computerSetId') || 0);
+                        if (setId) {
+                            this.sendComputerSetToHolding(setId);
+                            return;
+                        }
                         const id = Number(event.dataTransfer.getData('equipmentId'));
                         if (!id) return;
                         this.sendEquipmentToHolding(id);
@@ -10226,16 +10615,34 @@
                     },
 
                     resolveComlabSetMembers(moduleMembers) {
+                        const layoutRoomId = Number(this.roomLayout?.id || 0);
                         return (moduleMembers || []).map((member) => {
                             const id = Number(member.id || member.equipment_id || 0);
                             const live = (this.roomLayout.equipment || []).find(
                                 (item) => Number(item.id) === id,
                             );
+                            const isDeployed = Boolean(member.is_deployed);
+                            const memberRoomId = Number(
+                                live?.room_id
+                                || member.room_id
+                                || 0,
+                            );
+                            const outsideSetRoom = Boolean(
+                                member.outside_set_room
+                                || (memberRoomId > 0 && layoutRoomId > 0 && memberRoomId !== layoutRoomId)
+                                || (!live && id > 0),
+                            );
+
                             if (live) {
                                 return {
                                     ...live,
                                     role: member.role || live.role || null,
                                     role_label: member.role_label || null,
+                                    is_deployed: isDeployed,
+                                    outside_set_room: outsideSetRoom || isDeployed,
+                                    room_id: memberRoomId || live.room_id || null,
+                                    room_name: member.room_name || live.room_name || null,
+                                    in_room_inventory: true,
                                     needs_replacement: Boolean(
                                         member.needs_replacement
                                         || live.inventory_status === 'For Replacement',
@@ -10254,9 +10661,31 @@
                                 placement_zone: member.placement_zone || null,
                                 role: member.role || null,
                                 role_label: member.role_label || null,
+                                is_deployed: isDeployed,
+                                outside_set_room: true,
+                                room_id: memberRoomId || null,
+                                room_name: member.room_name || null,
+                                in_room_inventory: false,
                                 needs_replacement: Boolean(member.needs_replacement),
                             };
                         });
+                    },
+
+                    comlabMemberPresenceHint(member) {
+                        if (!member) return '';
+                        if (member.is_deployed) {
+                            const where = String(member.room_name || '').trim();
+                            return where
+                                ? `Deployed elsewhere · ${where}`
+                                : 'Deployed elsewhere';
+                        }
+                        if (member.outside_set_room || member.in_room_inventory === false) {
+                            const where = String(member.room_name || '').trim();
+                            return where
+                                ? `Not in this room · ${where}`
+                                : 'Not in this room';
+                        }
+                        return '';
                     },
 
                     buildComlabComputerSetsFromModule(rowName, startSetNum = 1) {
@@ -10272,10 +10701,20 @@
                         const rowKey = String(rowName || '').trim().toLowerCase();
 
                         const matching = moduleSets.filter((set) => {
-                            const zone = String(set.placement_zone || '').trim().toLowerCase();
-                            if (zone && zone === rowKey) {
+                            const effective = String(this.computerSetMemberZone(set) || '').trim();
+                            const effectiveKey = effective.toLowerCase();
+
+                            // Authoritative: set lives on this row.
+                            if (this.isComlabRowZone(effective) && effectiveKey === rowKey) {
                                 return true;
                             }
+
+                            // Holding / Floor / other row — never also list on this row.
+                            if (effective === 'Holding' || effective === 'Floor' || this.isComlabRowZone(effective)) {
+                                return false;
+                            }
+
+                            // Legacy sets with no zone: only then infer from members still on this row.
                             return (set.members || []).some((member) =>
                                 rowItemIds.has(Number(member.id || member.equipment_id || 0)),
                             );
@@ -10428,9 +10867,11 @@
 
                     selectComlabRow(row) {
                         this.roomLayout.selectedComlabRow = row;
-                        this.roomLayout.comlabNav = 'row';
                         this.roomLayout.comlabSetCarouselIndex = 0;
                         this.roomLayout.selectedAssetId = null;
+                        this.roomLayout.selectedFloorSetId = null;
+                        // Prefer set carousel view whenever this row has computer sets (labs + offices).
+                        this.roomLayout.comlabNav = this.comlabSetsInSelectedRow().length > 0 ? 'set' : 'row';
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
 
@@ -10484,16 +10925,37 @@
                     },
 
                     selectComlabAsset(id) {
-                        const item = (this.roomLayout.equipment || []).find((e) => e.id === id);
-                        if (item && this.isEquipmentInHolding(item)) {
+                        const numericId = Number(id || 0);
+                        let item = (this.roomLayout.equipment || []).find(
+                            (e) => Number(e.id) === numericId,
+                        );
+
+                        // Set members can exist outside this room's inventory — still open details.
+                        if (!item && numericId > 0) {
+                            const fromSets = (this.roomLayout.computerSets || [])
+                                .flatMap((set) => this.resolveComlabSetMembers(set.members || []))
+                                .find((member) => Number(member.id) === numericId);
+                            if (fromSets) {
+                                item = {
+                                    ...fromSets,
+                                    id: numericId,
+                                    _from_set_only: true,
+                                };
+                                this.roomLayout.selectedAssetStub = item;
+                            }
+                        } else {
+                            this.roomLayout.selectedAssetStub = null;
+                        }
+
+                        if (item && this.isEquipmentInHolding(item) && !item._from_set_only) {
                             this.selectComlabHoldingItem(id);
                             return;
                         }
-                        if (item && this.isComlabFloorEquipment(item)) {
+                        if (item && this.isComlabFloorEquipment(item) && !item._from_set_only) {
                             this.selectComlabFloorEquipment(id);
                             return;
                         }
-                        if (item) {
+                        if (item && !item._from_set_only) {
                             const zone = item.placement_zone || item.location || '';
                             if (this.isComlabRowZone(zone)) {
                                 this.roomLayout.selectedComlabRow = zone;
@@ -10504,8 +10966,8 @@
                         } else {
                             this.roomLayout.comlabNav = 'asset';
                         }
-                        this.roomLayout.selectedAssetId = id;
-                        this.loadAssetLifecycle(id);
+                        this.roomLayout.selectedAssetId = numericId || id;
+                        this.loadAssetLifecycle(numericId || id);
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
 
@@ -10521,6 +10983,8 @@
                         this.roomLayout.selectedComlabRow = null;
                         this.selectedEquipmentId = null;
                         this.roomLayout.selectedAssetId = id;
+                        const set = this.layoutComputerSetForAsset(id);
+                        this.roomLayout.selectedFloorSetId = set?.id || null;
                         this.loadAssetLifecycle(id);
                         this.roomLayout.comlabNav = 'rows';
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
@@ -10548,6 +11012,16 @@
                     comlabDragStart(event, equipmentId) {
                         if (!this.roomLayout.edit) return;
                         event.dataTransfer.setData('equipmentId', String(equipmentId));
+                        event.dataTransfer.setData('computerSetId', '');
+                        event.dataTransfer.effectAllowed = 'move';
+                    },
+
+                    comlabDragStartSet(event, setId) {
+                        if (!this.roomLayout.edit) return;
+                        const set = this.layoutComputerSetById(setId);
+                        const anchorId = set?.members?.[0]?.id || '';
+                        event.dataTransfer.setData('computerSetId', String(setId));
+                        event.dataTransfer.setData('equipmentId', anchorId ? String(anchorId) : '');
                         event.dataTransfer.effectAllowed = 'move';
                     },
 
@@ -10556,9 +11030,11 @@
                         if (level === 'rows') {
                             this.roomLayout.selectedComlabRow = null;
                             this.roomLayout.selectedAssetId = null;
+                            this.roomLayout.selectedFloorSetId = null;
                         }
                         if (level === 'row') {
                             this.roomLayout.selectedAssetId = null;
+                            this.roomLayout.selectedFloorSetId = null;
                         }
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
@@ -10567,7 +11043,13 @@
                         if (this.roomLayout.selectedAssetId && this.roomLayout.comlabNav === 'rows') {
                             this.roomLayout.selectedAssetId = null;
                             this.selectedEquipmentId = null;
+                            this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
+                            // Keep selectedFloorSetId so sidebar returns to the set member list.
                             this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                            return;
+                        }
+                        if (this.roomLayout.selectedFloorSetId && this.roomLayout.comlabNav === 'rows') {
+                            this.clearFloorComputerSetSelection();
                             return;
                         }
                         if (this.roomLayout.comlabNav === 'asset') {
@@ -10614,9 +11096,11 @@
                         if (captureStandalone) {
                             this.captureRoomLayoutUndo();
                         }
-                        item.placement_zone = rowName;
-                        item.location = rowName;
-                        item._holding = false;
+                        this.applyPlacementToAssetOrSet(equipmentId, rowName, {
+                            x: null,
+                            y: null,
+                            holding: false,
+                        });
                         this.roomLayout.comlabHoldingPage = Math.min(
                             this.roomLayout.comlabHoldingPage || 0,
                             Math.max(0, this.comlabHoldingPageCount() - 1),
@@ -10624,6 +11108,45 @@
                         this.layoutDirty = true;
                         if (captureStandalone) {
                             this.dropRoomLayoutUndoIfUnchanged();
+                        }
+                    },
+
+                    /**
+                     * Place one asset — or the whole computer set when the asset is a with-set member.
+                     */
+                    applyPlacementToAssetOrSet(equipmentId, zone, options = {}) {
+                        const id = Number(equipmentId || 0);
+                        const targetZone = String(zone || '').trim();
+                        if (!id || !targetZone) return;
+
+                        const set = this.layoutComputerSetForAsset(id);
+                        const memberIds = set && Array.isArray(set.members) && set.members.length
+                            ? set.members
+                                .map((member) => Number(member.id || member.equipment_id || 0))
+                                .filter(Boolean)
+                            : [id];
+
+                        const holding = !!options.holding;
+                        const clearXY = Object.prototype.hasOwnProperty.call(options, 'x')
+                            || Object.prototype.hasOwnProperty.call(options, 'y');
+
+                        (this.roomLayout.equipment || []).forEach((entry) => {
+                            if (!memberIds.includes(Number(entry.id))) return;
+                            entry.placement_zone = targetZone;
+                            entry.location = targetZone;
+                            entry._holding = holding;
+                            if (clearXY) {
+                                entry.x = options.x ?? null;
+                                entry.y = options.y ?? null;
+                            }
+                        });
+
+                        if (set && set.id && Array.isArray(this.roomLayout.computerSets)) {
+                            this.roomLayout.computerSets = this.roomLayout.computerSets.map((row) => (
+                                Number(row.id) === Number(set.id)
+                                    ? { ...row, placement_zone: targetZone }
+                                    : row
+                            ));
                         }
                     },
 
@@ -10653,14 +11176,21 @@
 
                     comlabDropOnRow(event, rowName) {
                         if (!this.roomLayout.edit) return;
-                        const id = Number(event.dataTransfer.getData('equipmentId'));
-                        if (!id) return;
-                        this.assignEquipmentToComlabRow(id, rowName);
-                        if (this.selectedEquipmentId === id) {
+                        const setId = Number(event.dataTransfer.getData('computerSetId') || 0);
+                        const id = Number(event.dataTransfer.getData('equipmentId') || 0);
+                        const set = setId ? this.layoutComputerSetById(setId) : null;
+                        const placeId = id || Number(set?.members?.[0]?.id || 0);
+                        if (!placeId) return;
+                        this.assignEquipmentToComlabRow(placeId, rowName);
+                        if (this.selectedEquipmentId === placeId) {
                             this.selectedEquipmentId = null;
                         }
-                        if (this.roomLayout.selectedAssetId === id) {
+                        if (this.roomLayout.selectedAssetId === placeId) {
                             this.roomLayout.selectedAssetId = null;
+                        }
+                        if (setId && Number(this.roomLayout.selectedFloorSetId) === setId) {
+                            this.roomLayout.selectedFloorSetId = null;
+                            this.roomLayout.comlabNav = 'rows';
                         }
                         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
                     },
@@ -10875,14 +11405,22 @@
                     },
 
                     selectedLayoutAsset() {
-                        const id = this.roomLayout.selectedAssetId;
+                        const id = Number(this.roomLayout.selectedAssetId || 0);
                         if (!id) return null;
-                        return (this.roomLayout.equipment || []).find((item) => item.id === id) || null;
+                        const live = (this.roomLayout.equipment || []).find(
+                            (item) => Number(item.id) === id,
+                        );
+                        if (live) return live;
+                        const stub = this.roomLayout.selectedAssetStub;
+                        if (stub && Number(stub.id) === id) return stub;
+                        return null;
                     },
 
                     clearLayoutSelection() {
                         this.roomLayout.selectedGroupKey = null;
                         this.roomLayout.selectedAssetId = null;
+                        this.roomLayout.selectedAssetStub = null;
+                        this.roomLayout.selectedFloorSetId = null;
                         this.roomLayout.listSearch = '';
                         this.roomLayout.listPage = 1;
                         this.roomLayout.lifecycle = { loading: false, data: null, equipmentId: null };
@@ -11047,6 +11585,7 @@
                                 : [],
                             selectedGroupKey: null,
                             selectedAssetId: null,
+                            selectedAssetStub: null,
                             listSearch: '',
                             listPage: 1,
                             listPerPage: 12,

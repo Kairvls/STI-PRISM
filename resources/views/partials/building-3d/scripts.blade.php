@@ -1283,6 +1283,67 @@
 
             const roomDetailsView = document.getElementById("buildingRoomDetailsView");
 
+            function buildRoomLayoutUrl(roomId, floorId) {
+                if (!roomId) {
+                    return null;
+                }
+
+                if (building3DRoomViewUrl) {
+                    let target = building3DRoomViewUrl.replace(
+                        "__ROOM__",
+                        encodeURIComponent(roomId),
+                    );
+
+                    if (window.location.pathname.includes("/building-layout")) {
+                        const joiner = target.includes("?") ? "&" : "?";
+                        target +=
+                            joiner +
+                            "return=" +
+                            encodeURIComponent(window.location.href.split("#")[0]);
+                    }
+
+                    return target;
+                }
+
+                const params = new URLSearchParams({ room: String(roomId) });
+                if (floorId) {
+                    params.set("floor", String(floorId));
+                }
+
+                return `/admin/infrastructure?${params.toString()}`;
+            }
+
+            function prefetchRoomLayout(roomId, floorId) {
+                const target = buildRoomLayoutUrl(roomId, floorId);
+                if (!target || prefetchRoomLayout.last === target) {
+                    return;
+                }
+
+                prefetchRoomLayout.last = target;
+
+                let link = document.head.querySelector(
+                    'link[data-room-layout-prefetch="1"]',
+                );
+                if (!link) {
+                    link = document.createElement("link");
+                    link.rel = "prefetch";
+                    link.as = "document";
+                    link.dataset.roomLayoutPrefetch = "1";
+                    document.head.appendChild(link);
+                }
+                link.href = target;
+            }
+
+            function setViewRoomBusy(busy) {
+                if (!roomDetailsView) {
+                    return;
+                }
+
+                roomDetailsView.disabled = !!busy;
+                roomDetailsView.classList.toggle("is-loading", !!busy);
+                roomDetailsView.textContent = busy ? "Opening…" : "View Room";
+            }
+
             const roomTooltip = document.getElementById("buildingRoomTooltip");
 
             const roomTooltipName = document.getElementById("buildingRoomTooltipName");
@@ -1666,6 +1727,9 @@
                 if (room.floorId) {
                     roomDetailsView.dataset.floorId = room.floorId;
                 }
+
+                // Warm Rooms Layout while the user reads the panel.
+                prefetchRoomLayout(room.roomId, room.floorId);
 
                 if (roomDetailsPeriodSelect) {
                     roomDetailsPeriodSelect.value = roomDetailPeriod.preset || "today";
@@ -6271,30 +6335,33 @@
                     return;
                 }
 
-                goToRoomLayout.busy = true;
-
-                if (building3DRoomViewUrl) {
-                    let target = building3DRoomViewUrl.replace("__ROOM__", encodeURIComponent(roomId));
-
-                    if (window.location.pathname.includes("/building-layout")) {
-                        const joiner = target.includes("?") ? "&" : "?";
-                        target += joiner + "return=" + encodeURIComponent(window.location.href.split("#")[0]);
-                    }
-
-                    window.location.href = target;
+                const target = buildRoomLayoutUrl(roomId, floorId);
+                if (!target) {
                     return;
                 }
 
-                const params = new URLSearchParams({ room: String(roomId) });
-                if (floorId) {
-                    params.set("floor", String(floorId));
-                }
-
-                window.location.href = `/admin/infrastructure?${params.toString()}`;
+                goToRoomLayout.busy = true;
+                setViewRoomBusy(true);
+                prefetchRoomLayout(roomId, floorId);
+                window.location.href = target;
             }
 
             roomDetailsView?.addEventListener("click", () => {
                 goToRoomLayout(
+                    roomDetailsView.dataset.roomId,
+                    roomDetailsView.dataset.floorId,
+                );
+            });
+
+            roomDetailsView?.addEventListener("mouseenter", () => {
+                prefetchRoomLayout(
+                    roomDetailsView.dataset.roomId,
+                    roomDetailsView.dataset.floorId,
+                );
+            });
+
+            roomDetailsView?.addEventListener("focus", () => {
+                prefetchRoomLayout(
                     roomDetailsView.dataset.roomId,
                     roomDetailsView.dataset.floorId,
                 );

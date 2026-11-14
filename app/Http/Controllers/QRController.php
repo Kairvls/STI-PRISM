@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Support\ComputerSetQrCodes;
+use App\Support\ComputerSets;
 use App\Support\EquipmentQrCodes;
 use App\Support\GdQrPng;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -16,6 +18,8 @@ class QRController extends Controller
 {
     public function qrTools(Request $request)
     {
+        $tab = $request->query('tab', 'equipment') === 'sets' ? 'sets' : 'equipment';
+
         // =====================================================
         // GET CATEGORIES FOR CATEGORY DROPDOWN
         // =====================================================
@@ -335,6 +339,65 @@ class QRController extends Controller
             ->count();
 
 
+        $computerSets = collect();
+        $computerSetOptions = collect();
+        if ($tab === 'sets' && ComputerSets::tablesReady() && ComputerSetQrCodes::ready()) {
+            $computerSetOptions = DB::table('computer_sets_table')
+                ->orderBy('computer_set_name')
+                ->orderBy('computer_set_tag')
+                ->get([
+                    'computer_set_id',
+                    'computer_set_tag',
+                    'computer_set_name',
+                ]);
+
+            $setsQuery = DB::table('computer_sets_table as cs')
+                ->leftJoin('rooms_table as r', 'r.room_id', '=', 'cs.computer_set_room_id')
+                ->leftJoin('floors_table as f', 'f.floor_id', '=', 'r.room_floor_id')
+                ->leftJoin('buildings_table as b', 'b.building_id', '=', 'f.floor_building_id')
+                ->select(
+                    'cs.*',
+                    'r.room_name',
+                    'f.floor_level',
+                    'b.building_name',
+                    DB::raw('(select count(*) from computer_set_members_table m where m.computer_set_id = cs.computer_set_id) as member_count')
+                );
+
+            if ($request->filled('search')) {
+                $needle = '%'.$request->search.'%';
+                $setsQuery->where(function ($q) use ($needle) {
+                    $q->where('cs.computer_set_tag', 'like', $needle)
+                        ->orWhere('cs.computer_set_name', 'like', $needle)
+                        ->orWhere('cs.computer_set_qr_code', 'like', $needle)
+                        ->orWhere('r.room_name', 'like', $needle);
+                });
+            }
+
+            if ($request->filled('computer_set')) {
+                $setsQuery->where('cs.computer_set_id', (int) $request->computer_set);
+            }
+
+            if ($request->filled('room')) {
+                $setsQuery->where('cs.computer_set_room_id', $request->room);
+            }
+
+            if ($request->filled('qr_status')) {
+                if ($request->qr_status === 'generated') {
+                    $setsQuery->whereNotNull('cs.computer_set_qr_code')->where('cs.computer_set_qr_code', '!=', '');
+                }
+                if ($request->qr_status === 'not_generated') {
+                    $setsQuery->where(function ($q) {
+                        $q->whereNull('cs.computer_set_qr_code')->orWhere('cs.computer_set_qr_code', '');
+                    });
+                }
+            }
+
+            $computerSets = $setsQuery
+                ->orderByDesc('cs.computer_set_id')
+                ->paginate(10)
+                ->withQueryString();
+        }
+
         // =====================================================
         // RETURN QR TOOLS PAGE
         // =====================================================
@@ -344,6 +407,9 @@ class QRController extends Controller
 
             compact(
                 'equipment',
+                'computerSets',
+                'computerSetOptions',
+                'tab',
                 'categories',
                 'rooms',
 
@@ -355,6 +421,32 @@ class QRController extends Controller
                 'totalQrScans',
                 'attentionFocus'
             )
+        );
+    }
+
+    public function generateComputerSetQr($id)
+    {
+        if (! ComputerSetQrCodes::ready()) {
+            return back()->with('error', 'Computer set QR tagging is not available yet.');
+        }
+
+        $set = ComputerSets::find((int) $id);
+        if (! $set) {
+            return back()->with('error', 'Computer set not found.');
+        }
+
+        $isRegenerate = filled($set->computer_set_qr_code ?? null);
+        $qrCode = ComputerSetQrCodes::issue((int) $id, true);
+
+        if (! $qrCode) {
+            return back()->with('error', 'Unable to generate a QR code for this computer set.');
+        }
+
+        return back()->with(
+            'success',
+            $isRegenerate
+                ? 'Computer set QR regenerated. Print a new label; members keep their own equipment QR codes.'
+                : 'Computer set QR generated. Members still keep their own equipment QR codes.'
         );
     }
 
@@ -519,10 +611,41 @@ class QRController extends Controller
 
 
         // =====================================================
-        // QR CODE DOES NOT BELONG TO EQUIPMENT
+        // COMPUTER SET QR (MEMBERS KEEP THEIR OWN EQUIPMENT QRs)
         // =====================================================
 
-        if (!$equipment) {
+        if (! $equipment) {
+            $computerSet = ComputerSetQrCodes::findByCode($qrCode);
+            if ($computerSet) {
+                $members = ComputerSets::members((int) $computerSet->computer_set_id);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Computer set found successfully.',
+                    'type' => 'computer_set',
+                    'computer_set' => [
+                        'id' => $computerSet->computer_set_id,
+                        'tag' => $computerSet->computer_set_tag,
+                        'name' => $computerSet->computer_set_name,
+                        'qr_code' => $computerSet->computer_set_qr_code,
+                        'room' => $computerSet->room_name,
+                        'status' => $computerSet->computer_set_status,
+                        'preview_url' => url('/equipment/'.$computerSet->computer_set_qr_code),
+                    ],
+                    'members' => $members->map(fn ($member) => [
+                        'equipment_id' => $member->equipment_id,
+                        'name' => $member->equipment_name,
+                        'role' => $member->member_role,
+                        'asset_tag' => $member->equipment_asset_tag,
+                        'qr_code' => $member->equipment_qr_code,
+                        'serial' => $member->equipment_serial_number,
+                        'status' => $member->equipment_inventory_status,
+                        'preview_url' => filled($member->equipment_qr_code)
+                            ? url('/equipment/'.$member->equipment_qr_code)
+                            : null,
+                    ])->values(),
+                ]);
+            }
 
             return response()->json([
                 'success' => false,
@@ -717,16 +840,67 @@ class QRController extends Controller
 
     private function findEquipmentForQrPrint(string $code)
     {
-        return $this->qrPrintEquipmentQuery()
+        $equipment = $this->qrPrintEquipmentQuery()
             ->where('equipment_table.equipment_qr_code', $code)
             ->first();
+
+        if ($equipment) {
+            $equipment->label_kind = 'equipment';
+
+            return $equipment;
+        }
+
+        return $this->computerSetAsPrintLabel($code);
     }
 
     private function findEquipmentsForQrPrint(array $codes)
     {
-        return $this->qrPrintEquipmentQuery()
+        $equipment = $this->qrPrintEquipmentQuery()
             ->whereIn('equipment_table.equipment_qr_code', $codes)
-            ->get();
+            ->get()
+            ->map(function ($row) {
+                $row->label_kind = 'equipment';
+
+                return $row;
+            });
+
+        $byCode = $equipment->keyBy('equipment_qr_code');
+        foreach ($codes as $code) {
+            if ($byCode->has($code)) {
+                continue;
+            }
+            $setLabel = $this->computerSetAsPrintLabel($code);
+            if ($setLabel) {
+                $byCode->put($code, $setLabel);
+            }
+        }
+
+        return $byCode->values();
+    }
+
+    private function computerSetAsPrintLabel(string $code): ?object
+    {
+        $set = ComputerSetQrCodes::findByCode($code);
+        if (! $set) {
+            return null;
+        }
+
+        return (object) [
+            'label_kind' => 'computer_set',
+            'equipment_id' => null,
+            'equipment_name' => $set->computer_set_name ?: ($set->computer_set_tag ?: 'Computer set'),
+            'equipment_asset_tag' => $set->computer_set_tag,
+            'equipment_qr_code' => $set->computer_set_qr_code,
+            'equipment_serial_number' => null,
+            'equipment_brand_name' => 'Computer set',
+            'equipment_model' => null,
+            'room_name' => $set->room_name,
+            'floor_level' => $set->floor_level ?? null,
+            'building_name' => $set->building_name ?? null,
+            'computer_set_id' => $set->computer_set_id,
+            'computer_set_tag' => $set->computer_set_tag,
+            'member_count' => ComputerSets::members((int) $set->computer_set_id)->count(),
+        ];
     }
 
     private function qrPrintEquipmentQuery()
@@ -925,6 +1099,10 @@ class QRController extends Controller
             )
 
             ->first();
+
+        if (! $equipment) {
+            $equipment = $this->computerSetAsPrintLabel($code);
+        }
 
 
         // =====================================

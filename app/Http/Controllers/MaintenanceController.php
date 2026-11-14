@@ -220,19 +220,15 @@ class MaintenanceController extends Controller
                 false
             )
 
-            ->select(
+            ->select(array_values(array_filter([
                 'reports_table.*',
-
                 'rooms_table.room_name',
-
                 'floors_table.floor_level',
-
                 'buildings_table.building_name',
-
                 'equipment_table.equipment_name',
-
-                'reporters_table.reporter_full_name'
-            )
+                'reporters_table.reporter_full_name',
+                ...\App\Support\EquipmentIdentity::columns(),
+            ])))
 
             ->orderBy(
                 'reports_table.report_submitted_at',
@@ -574,14 +570,18 @@ class MaintenanceController extends Controller
 
             ->limit(5)
 
-            ->get()
+            ->get();
+
+        $recentActivityReports = ReportGrouping::reportsForTicketRewrite($recentActivities);
+
+        $recentActivities = $recentActivities
 
             // =================================================
             // CONVERT AUDIT LOG DATA INTO THE FORMAT EXPECTED
             // BY YOUR EXISTING DASHBOARD.BLADE.PHP
             // =================================================
 
-            ->map(function ($activity) {
+            ->map(function ($activity) use ($recentActivityReports) {
 
                 // =================================================
                 // BASIC ACTIVITY INFORMATION
@@ -591,9 +591,10 @@ class MaintenanceController extends Controller
                     $activity->audit_log_action
                     ?? 'System Activity';
 
-                $activity->description =
-                    $activity->audit_log_description
-                    ?? 'Activity recorded.';
+                $activity->description = ReportGrouping::rewriteReportHashes(
+                    $activity->audit_log_description ?? 'Activity recorded.',
+                    $recentActivityReports
+                );
 
                 $activity->created_at =
                     $activity->audit_log_created_at;
@@ -639,7 +640,7 @@ class MaintenanceController extends Controller
                             : null,
 
                     'maintenance_schedules_table' =>
-                        url('/maintenance/schedules'),
+                        url('/maintenance/schedules/all'),
 
                     'borrowing_records_table' =>
                         RoleAccess::isAdmin(auth()->user()) ? url('/admin/borrowing') : null,
@@ -730,13 +731,17 @@ class MaintenanceController extends Controller
 
             ->limit(15)
 
-            ->get()
+            ->get();
+
+        $activityPreviewReports = ReportGrouping::reportsForTicketRewrite($activityPreview);
+
+        $activityPreview = $activityPreview
 
             // =================================================
             // PREPARE FOR DASHBOARD MODAL
             // =================================================
 
-            ->map(function ($activity) {
+            ->map(function ($activity) use ($activityPreviewReports) {
 
                 // =================================================
                 // ACTIVITY INFORMATION
@@ -746,9 +751,10 @@ class MaintenanceController extends Controller
                     $activity->audit_log_action
                     ?? 'System Activity';
 
-                $activity->description =
-                    $activity->audit_log_description
-                    ?? 'Activity recorded.';
+                $activity->description = ReportGrouping::rewriteReportHashes(
+                    $activity->audit_log_description ?? 'Activity recorded.',
+                    $activityPreviewReports
+                );
 
                 $activity->created_at =
                     $activity->audit_log_created_at;
@@ -806,7 +812,7 @@ class MaintenanceController extends Controller
                             : null,
 
                     'maintenance_schedules_table' =>
-                        url('/maintenance/schedules'),
+                        url('/maintenance/schedules/all'),
 
                     'borrowing_records_table' =>
                         RoleAccess::isAdmin(auth()->user()) ? url('/admin/borrowing') : null,
@@ -825,193 +831,179 @@ class MaintenanceController extends Controller
             });
 
         // =====================================================
-        // CURRENT CALENDAR MONTH
-        // =====================================================
-
-        $calendarStartDate = now()
-            ->copy()
-            ->startOfMonth()
-            ->startOfDay();
-
-
-        $calendarEndDate = now()
-            ->copy()
-            ->endOfMonth()
-            ->endOfDay();
-
-
-        // =====================================================
-        // MAINTENANCE SCHEDULES FOR CURRENT MONTH
-        // =====================================================
-
-        $calendarSchedules = DB::table('maintenance_schedules_table')
-
-            ->leftJoin(
-                'equipment_table',
-                'maintenance_schedules_table.maintenance_schedule_equipment_id',
-                '=',
-                'equipment_table.equipment_id'
-            )
-
-            ->leftJoin(
-                'rooms_table',
-                'equipment_table.equipment_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-
-            ->whereNotNull(
-                'maintenance_schedules_table.maintenance_schedule_next_date'
-            )
-
-            ->whereBetween(
-                'maintenance_schedules_table.maintenance_schedule_next_date',
-                [
-                    $calendarStartDate->toDateString(),
-                    $calendarEndDate->toDateString(),
-                ]
-            )
-
-            ->select(
-
-                'maintenance_schedules_table.maintenance_schedule_id',
-
-                'maintenance_schedules_table.maintenance_schedule_title',
-
-                'maintenance_schedules_table.maintenance_schedule_description',
-
-                'maintenance_schedules_table.maintenance_schedule_frequency',
-
-                'maintenance_schedules_table.maintenance_schedule_next_date',
-
-                'maintenance_schedules_table.maintenance_schedule_last_date',
-
-                'maintenance_schedules_table.maintenance_schedule_status',
-
-                'equipment_table.equipment_name',
-
-                'rooms_table.room_name'
-
-            )
-
-            ->orderBy(
-                'maintenance_schedules_table.maintenance_schedule_next_date',
-                'asc'
-            )
-
-            ->get();
-
-
-        // =====================================================
         // BUILD CALENDAR EVENTS
-        //
-        // ONE COLLECTION USED BY THE BLADE CALENDAR
+        // Equipment maintenance + room inspections + semestral
         // =====================================================
 
         $calendarEvents = collect();
 
+        if (Schema::hasTable('maintenance_schedules_table')) {
+            $calendarSchedules = DB::table('maintenance_schedules_table')
+                ->leftJoin(
+                    'equipment_table',
+                    'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
+                )
+                ->leftJoin(
+                    'rooms_table',
+                    'equipment_table.equipment_room_id',
+                    '=',
+                    'rooms_table.room_id'
+                )
+                ->whereNotNull('maintenance_schedules_table.maintenance_schedule_next_date')
+                ->select(array_values(array_filter([
+                    'maintenance_schedules_table.maintenance_schedule_id',
+                    'maintenance_schedules_table.maintenance_schedule_title',
+                    'maintenance_schedules_table.maintenance_schedule_description',
+                    'maintenance_schedules_table.maintenance_schedule_frequency',
+                    'maintenance_schedules_table.maintenance_schedule_next_date',
+                    'maintenance_schedules_table.maintenance_schedule_last_date',
+                    'maintenance_schedules_table.maintenance_schedule_status',
+                    'equipment_table.equipment_name',
+                    'rooms_table.room_name',
+                    ...\App\Support\EquipmentIdentity::columns(),
+                ])))
+                ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date', 'asc')
+                ->get();
 
-        // =====================================================
-        // ADD SCHEDULE EVENTS
-        // =====================================================
+            foreach ($calendarSchedules as $schedule) {
+                $scheduleDate = \Carbon\Carbon::parse($schedule->maintenance_schedule_next_date);
+                $title = $schedule->maintenance_schedule_title
+                    ?: ($schedule->equipment_name ?: 'Equipment maintenance');
+                $status = (string) ($schedule->maintenance_schedule_status ?: 'Active');
+                if (strcasecmp($status, 'Completed') !== 0 && $scheduleDate->copy()->startOfDay()->lt(today())) {
+                    $status = 'Overdue';
+                }
+                $meta = collect([
+                    ($schedule->equipment_name && $schedule->equipment_name !== $title) ? $schedule->equipment_name : null,
+                    $schedule->room_name ?? null,
+                    $schedule->maintenance_schedule_frequency ?? null,
+                ])->filter()->implode(' · ');
+                $href = url('/maintenance/schedules/all?search='.urlencode($title));
 
-        foreach ($calendarSchedules as $schedule) {
-
-            $scheduleDate = \Carbon\Carbon::parse(
-                $schedule->maintenance_schedule_next_date
-            );
-
-
-            $calendarEvents->push([
-
-                'id' =>
-                    $schedule->maintenance_schedule_id,
-
-                'type' =>
-                    'schedule',
-
-                'date' =>
-                    $scheduleDate->format('Y-m-d'),
-
-
-                // =================================================
-                // YOUR DATABASE STORES ONLY A DATE, NOT A TIME
-                // =================================================
-
-                'time' =>
-                    null,
-
-
-                // =================================================
-                // USE THE REAL SCHEDULE TITLE
-                // =================================================
-
-                'title' =>
-                    $schedule->maintenance_schedule_title
-                    ?? 'Maintenance Schedule',
-
-
-                // =================================================
-                // SHOW EQUIPMENT NAME AS THE MAIN DESCRIPTION
-                // =================================================
-
-                'description' =>
-                    $schedule->equipment_name
-                    ?? $schedule->maintenance_schedule_description
-                    ?? 'Scheduled Maintenance',
-
-
-                'location' =>
-                    $schedule->room_name
-                    ?? 'Unknown Room',
-
-
-                'urgent' =>
-                    false,
-
-
-                'status' =>
-                    $schedule->maintenance_schedule_status,
-
-
-                'frequency' =>
-                    $schedule->maintenance_schedule_frequency,
-
-
-                // =================================================
-                // TEMPORARY URL
-                //
-                // CHANGE THIS LATER IF YOUR REAL SCHEDULE DETAILS
-                // ROUTE USES A DIFFERENT URL
-                // =================================================
-
-                'url' =>
-                    url(
-                        '/maintenance/schedules/'
-                        .
-                        $schedule->maintenance_schedule_id
-                    ),
-
-            ]);
-
+                $calendarEvents->push([
+                    'id' => $schedule->maintenance_schedule_id,
+                    'type' => 'schedule',
+                    'date' => $scheduleDate->format('Y-m-d'),
+                    'date_label' => $scheduleDate->format('M j, Y'),
+                    'time' => null,
+                    'title' => $title,
+                    'description' => $schedule->equipment_name
+                        ?? $schedule->maintenance_schedule_description
+                        ?? 'Scheduled Maintenance',
+                    'location' => $schedule->room_name ?? 'Unknown Room',
+                    'urgent' => false,
+                    'status' => $status,
+                    'frequency' => $schedule->maintenance_schedule_frequency,
+                    'identity' => \App\Support\EquipmentIdentity::label($schedule),
+                    'meta' => $meta,
+                    'badge' => 'Equipment',
+                    'tone' => 'equipment',
+                    'href' => $href,
+                    'url' => $href,
+                ]);
+            }
         }
 
+        if (\App\Support\RoomInspections::ready()) {
+            $roomSchedules = DB::table(\App\Support\RoomInspections::SCHEDULES.' as s')
+                ->leftJoin('rooms_table as r', 'r.room_id', '=', 's.room_inspection_schedule_room_id')
+                ->whereNotNull('s.room_inspection_schedule_next_date')
+                ->orderBy('s.room_inspection_schedule_next_date')
+                ->get([
+                    's.room_inspection_schedule_id',
+                    's.room_inspection_schedule_title',
+                    's.room_inspection_schedule_next_date',
+                    's.room_inspection_schedule_status',
+                    's.room_inspection_schedule_frequency',
+                    'r.room_name',
+                ]);
 
-        // =====================================================
-        // SORT CALENDAR EVENTS BY DATE AND TIME
-        // =====================================================
+            foreach ($roomSchedules as $row) {
+                $when = \Carbon\Carbon::parse($row->room_inspection_schedule_next_date);
+                $title = $row->room_inspection_schedule_title ?: 'Room inspection';
+                $status = (string) ($row->room_inspection_schedule_status ?: 'Active');
+                if (strcasecmp($status, 'Completed') !== 0 && $when->copy()->startOfDay()->lt(today())) {
+                    $status = 'Overdue';
+                }
+                $meta = collect([$row->room_name ?? null, $row->room_inspection_schedule_frequency ?? null])
+                    ->filter()
+                    ->implode(' · ');
+                $href = \App\Support\SchedulePortal::schedulesUrl('/rooms');
+
+                $calendarEvents->push([
+                    'id' => $row->room_inspection_schedule_id ?? null,
+                    'type' => 'room',
+                    'date' => $when->format('Y-m-d'),
+                    'date_label' => $when->format('M j, Y'),
+                    'time' => null,
+                    'title' => $title,
+                    'description' => $row->room_name ?: 'Room inspection',
+                    'location' => $row->room_name ?? 'Unknown Room',
+                    'urgent' => false,
+                    'status' => $status,
+                    'frequency' => $row->room_inspection_schedule_frequency,
+                    'identity' => '',
+                    'meta' => $meta,
+                    'badge' => 'Room',
+                    'tone' => 'room',
+                    'href' => $href,
+                    'url' => $href,
+                ]);
+            }
+        }
+
+        if (Schema::hasTable('semester_inspection_campaigns_table')) {
+            $campaigns = DB::table('semester_inspection_campaigns_table')
+                ->whereNotNull('campaign_due_date')
+                ->whereNotIn('campaign_status', ['Cancelled', 'Archived'])
+                ->orderBy('campaign_due_date')
+                ->get([
+                    'campaign_id',
+                    'campaign_title',
+                    'campaign_academic_year',
+                    'campaign_semester',
+                    'campaign_due_date',
+                    'campaign_status',
+                ]);
+
+            foreach ($campaigns as $row) {
+                $when = \Carbon\Carbon::parse($row->campaign_due_date);
+                $title = $row->campaign_title ?: 'Semestral inspection';
+                $status = (string) ($row->campaign_status ?: 'Active');
+                if (! in_array($status, ['Completed', 'Cancelled', 'Archived'], true) && $when->copy()->startOfDay()->lt(today())) {
+                    $status = 'Overdue';
+                }
+                $meta = collect([$row->campaign_semester ?? null, $row->campaign_academic_year ?? null])
+                    ->filter()
+                    ->implode(' · ');
+                $href = \App\Support\SchedulePortal::semesterUrl('/'.$row->campaign_id);
+
+                $calendarEvents->push([
+                    'id' => $row->campaign_id,
+                    'type' => 'semestral',
+                    'date' => $when->format('Y-m-d'),
+                    'date_label' => $when->format('M j, Y'),
+                    'time' => null,
+                    'title' => $title,
+                    'description' => $meta ?: 'Semestral inspection',
+                    'location' => null,
+                    'urgent' => false,
+                    'status' => $status,
+                    'frequency' => $row->campaign_semester,
+                    'identity' => '',
+                    'meta' => $meta,
+                    'badge' => 'Semestral',
+                    'tone' => 'semestral',
+                    'href' => $href,
+                    'url' => $href,
+                ]);
+            }
+        }
 
         $calendarEvents = $calendarEvents
-            ->sortBy(function ($event) {
-
-                return
-                    $event['date']
-                    .
-                    ' '
-                    .
-                    ($event['time'] ?? '00:00');
-
-            })
+            ->sortBy(fn ($event) => $event['date'].' '.($event['time'] ?? '00:00'))
             ->values();
 
         // =====================================================
@@ -1742,6 +1734,83 @@ class MaintenanceController extends Controller
         // =====================================================
 
         $lifecycleAlerts = EquipmentLifecycle::agingAlerts(5);
+        try {
+            $nearestLifespan = \App\Support\AdminDashboardLists::nearestLifespanBroadcasts(true);
+        } catch (\Throwable) {
+            $nearestLifespan = ['total' => 0, 'due' => [], 'rows' => []];
+        }
+
+        $overdueSchedules = collect();
+        $latestBorrowed = collect();
+        $overdueBorrowed = collect();
+        try {
+            if (Schema::hasTable('maintenance_schedules_table')) {
+                $overdueSchedules = DB::table('maintenance_schedules_table as s')
+                    ->leftJoin('equipment_table as e', 'e.equipment_id', '=', 's.maintenance_schedule_equipment_id')
+                    ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
+                    ->whereNotNull('s.maintenance_schedule_next_date')
+                    ->whereDate('s.maintenance_schedule_next_date', '<', today())
+                    ->where(function ($query) {
+                        $query->whereNull('s.maintenance_schedule_status')
+                            ->orWhereRaw('LOWER(s.maintenance_schedule_status) != ?', ['completed']);
+                    })
+                    ->orderBy('s.maintenance_schedule_next_date')
+                    ->limit(5)
+                    ->get([
+                        's.maintenance_schedule_title',
+                        's.maintenance_schedule_next_date',
+                        's.maintenance_schedule_frequency',
+                        'e.equipment_name',
+                        'r.room_name',
+                        ...\App\Support\EquipmentIdentity::columns('e'),
+                    ]);
+            }
+
+            if (Schema::hasTable('borrowing_records_table')) {
+                $borrowSelect = [
+                    'b.borrowing_record_id',
+                    'b.borrowing_borrower_name',
+                    'b.borrowing_expected_return_date',
+                    'b.borrowing_status',
+                    'b.borrowing_equipment_id',
+                    'e.equipment_name',
+                    ...\App\Support\EquipmentIdentity::columns('e'),
+                ];
+                if (Schema::hasColumn('borrowing_records_table', 'borrowing_date')) {
+                    $borrowSelect[] = 'b.borrowing_date';
+                }
+                if (Schema::hasColumn('borrowing_records_table', 'borrowing_purpose')) {
+                    $borrowSelect[] = 'b.borrowing_purpose';
+                }
+
+                $borrowBase = fn () => DB::table('borrowing_records_table as b')
+                    ->leftJoin('equipment_table as e', 'e.equipment_id', '=', 'b.borrowing_equipment_id')
+                    ->select(array_values(array_unique($borrowSelect)));
+
+                $latestBorrowed = $borrowBase()
+                    ->where('b.borrowing_status', 'Borrowed')
+                    ->orderByDesc('b.borrowing_record_id')
+                    ->limit(5)
+                    ->get();
+
+                $overdueBorrowed = $borrowBase()
+                    ->where(function ($query) {
+                        $query->where('b.borrowing_status', 'Overdue')
+                            ->orWhere(function ($late) {
+                                $late->where('b.borrowing_status', 'Borrowed')
+                                    ->whereNotNull('b.borrowing_expected_return_date')
+                                    ->whereDate('b.borrowing_expected_return_date', '<', today());
+                            });
+                    })
+                    ->orderByDesc('b.borrowing_record_id')
+                    ->limit(5)
+                    ->get();
+            }
+        } catch (\Throwable) {
+            $overdueSchedules = collect();
+            $latestBorrowed = collect();
+            $overdueBorrowed = collect();
+        }
         $warrantyAlerts = EquipmentMonitoring::warrantyAlerts(5);
         $semesterInspectionDue = SemesterInspections::activeCampaignsDueSoon(7, 4);
         $metricsDashboard = $this->dashboardMetricsBundle();
@@ -1868,6 +1937,14 @@ class MaintenanceController extends Controller
                 'semesterInspectionDue',
 
                 'metricsDashboard',
+
+                'nearestLifespan',
+
+                'overdueSchedules',
+
+                'latestBorrowed',
+
+                'overdueBorrowed',
 
             )
 
@@ -4016,7 +4093,7 @@ class MaintenanceController extends Controller
                             'Reports',
                             'reports_table',
                             (int) $id,
-                            'Started processing Report #' . $id . '.'
+                            'Started processing '.ReportGrouping::ticketCode($report ?? (int) $id).'.'
                         );
 
 
@@ -4270,7 +4347,7 @@ class MaintenanceController extends Controller
                             'Reports',
                             'reports_table',
                             (int) $id,
-                            'Submitted '. $targets->count() .' equipment item(s) on Report #' . $id . ' for replacement.'
+                            'Submitted '.$targets->count().' equipment item(s) on '.ReportGrouping::ticketCode($report ?? (int) $id).' for replacement.'
                         );
                     } else {
                         // =================================================
@@ -4307,7 +4384,7 @@ class MaintenanceController extends Controller
                             'Reports',
                             'reports_table',
                             (int) $id,
-                            'Submitted Report #' . $id . ' for equipment replacement.'
+                            'Submitted '.ReportGrouping::ticketCode($report ?? (int) $id).' for equipment replacement.'
                         );
                     }
 
@@ -10314,6 +10391,21 @@ class MaintenanceController extends Controller
 
     public function equipmentByQr($qrCode)
     {
+        $qrCode = trim(urldecode((string) $qrCode));
+        if (str_contains($qrCode, '/')) {
+            $qrCode = basename(parse_url($qrCode, PHP_URL_PATH) ?: $qrCode);
+        }
+
+        $computerSet = \App\Support\ComputerSetQrCodes::findByCode($qrCode);
+        if ($computerSet) {
+            $members = \App\Support\ComputerSets::members((int) $computerSet->computer_set_id);
+
+            return view('public.computer-set-qr-view', [
+                'computerSet' => $computerSet,
+                'members' => $members,
+            ]);
+        }
+
         $equipment = DB::table('equipment_table')
 
             ->leftJoin(
@@ -10770,54 +10862,62 @@ class MaintenanceController extends Controller
 
         // =====================================================
         // GET AVAILABLE BORROWABLE EQUIPMENT
+        // Skip the full catalog when focusing one slip/record —
+        // that payload is only needed for the Borrow modal.
         // =====================================================
 
-        $onLoanByEquipment = DB::table('borrowing_records_table')
-            ->select(
-                'borrowing_equipment_id',
-                DB::raw('COALESCE(SUM(borrowing_quantity), 0) as on_loan_qty')
-            )
-            ->whereIn('borrowing_status', ['Borrowed', 'Overdue'])
-            ->groupBy('borrowing_equipment_id')
-            ->pluck('on_loan_qty', 'borrowing_equipment_id');
+        $needsBorrowCatalog = $recordId === 0 && $slipFilter === '';
+        $equipment = collect();
+        $borrowableEquipmentJson = collect();
 
-        $equipment = DB::table('equipment_table')
-            ->leftJoin(
-                'rooms_table',
-                'equipment_table.equipment_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-            ->where('equipment_is_borrowable', 1)
-            ->where('equipment_inventory_status', 'Active')
-            ->select(
-                'equipment_table.equipment_id',
-                'equipment_table.equipment_name',
-                'equipment_table.equipment_quantity',
-                'equipment_table.equipment_tracking_mode',
-                'equipment_table.equipment_asset_tag',
-                'rooms_table.room_name'
-            )
-            ->orderBy('equipment_name', 'asc')
-            ->get()
-            ->map(function ($item) use ($onLoanByEquipment) {
-                $stock = max(1, (int) ($item->equipment_quantity ?? 1));
-                $onLoan = (int) ($onLoanByEquipment[$item->equipment_id] ?? 0);
-                $item->available_quantity = max(0, $stock - $onLoan);
-                return $item;
-            })
-            ->filter(fn ($item) => $item->available_quantity > 0)
-            ->values();
+        if ($needsBorrowCatalog) {
+            $onLoanByEquipment = DB::table('borrowing_records_table')
+                ->select(
+                    'borrowing_equipment_id',
+                    DB::raw('COALESCE(SUM(borrowing_quantity), 0) as on_loan_qty')
+                )
+                ->whereIn('borrowing_status', ['Borrowed', 'Overdue'])
+                ->groupBy('borrowing_equipment_id')
+                ->pluck('on_loan_qty', 'borrowing_equipment_id');
 
-        $borrowableEquipmentJson = $equipment->map(fn ($item) => [
-            'id' => (int) $item->equipment_id,
-            'name' => (string) $item->equipment_name,
-            'room' => (string) ($item->room_name ?? ''),
-            'assetTag' => (string) ($item->equipment_asset_tag ?? ''),
-            'tracking' => (string) ($item->equipment_tracking_mode ?? 'Individual'),
-            'stock' => max(1, (int) ($item->equipment_quantity ?? 1)),
-            'available' => (int) $item->available_quantity,
-        ])->values();
+            $equipment = DB::table('equipment_table')
+                ->leftJoin(
+                    'rooms_table',
+                    'equipment_table.equipment_room_id',
+                    '=',
+                    'rooms_table.room_id'
+                )
+                ->where('equipment_is_borrowable', 1)
+                ->where('equipment_inventory_status', 'Active')
+                ->select(
+                    'equipment_table.equipment_id',
+                    'equipment_table.equipment_name',
+                    'equipment_table.equipment_quantity',
+                    'equipment_table.equipment_tracking_mode',
+                    'equipment_table.equipment_asset_tag',
+                    'rooms_table.room_name'
+                )
+                ->orderBy('equipment_name', 'asc')
+                ->get()
+                ->map(function ($item) use ($onLoanByEquipment) {
+                    $stock = max(1, (int) ($item->equipment_quantity ?? 1));
+                    $onLoan = (int) ($onLoanByEquipment[$item->equipment_id] ?? 0);
+                    $item->available_quantity = max(0, $stock - $onLoan);
+                    return $item;
+                })
+                ->filter(fn ($item) => $item->available_quantity > 0)
+                ->values();
+
+            $borrowableEquipmentJson = $equipment->map(fn ($item) => [
+                'id' => (int) $item->equipment_id,
+                'name' => (string) $item->equipment_name,
+                'room' => (string) ($item->room_name ?? ''),
+                'assetTag' => (string) ($item->equipment_asset_tag ?? ''),
+                'tracking' => (string) ($item->equipment_tracking_mode ?? 'Individual'),
+                'stock' => max(1, (int) ($item->equipment_quantity ?? 1)),
+                'available' => (int) $item->available_quantity,
+            ])->values();
+        }
 
 
         // =====================================================
@@ -12418,6 +12518,311 @@ class MaintenanceController extends Controller
     | MAINTENANCE SCHEDULES - 4
     |--------------------------------------------------------------------------
     */
+
+    public function updateLifespanBroadcast(Request $request, int $equipment)
+    {
+        if (! Schema::hasColumn('equipment_table', 'equipment_useful_life_years')) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'equipment_useful_life_years' => 'required|integer|min:1|max:50',
+        ]);
+
+        $row = DB::table('equipment_table')->where('equipment_id', $equipment)->first();
+        if (! $row) {
+            abort(404);
+        }
+
+        $years = (int) $validated['equipment_useful_life_years'];
+        $previous = $row->equipment_useful_life_years;
+        $previousYears = $previous === null || $previous === ''
+            ? \App\Support\EquipmentLifecycle::DEFAULT_USEFUL_LIFE_YEARS
+            : (int) $previous;
+
+        if ($years === $previousYears) {
+            return back()->withErrors([
+                'equipment_useful_life_years' => 'This equipment already has a lifespan of '.$years.' '.($years === 1 ? 'year' : 'years').'. Change the number before saving.',
+            ]);
+        }
+
+        DB::table('equipment_table')
+            ->where('equipment_id', $equipment)
+            ->update(['equipment_useful_life_years' => $years]);
+
+        if (Schema::hasTable('audit_logs_table')) {
+            DB::table('audit_logs_table')->insert([
+                'audit_log_user_id' => Auth::id(),
+                'audit_log_action' => 'Edited useful lifespan',
+                'audit_log_module' => 'Equipment Lifecycle',
+                'audit_log_table_name' => 'equipment_table',
+                'audit_log_reference_id' => $equipment,
+                'audit_log_description' => 'Changed useful lifespan for "'.($row->equipment_name ?? 'equipment').'" from '.$previousYears.' years to '.$years.' years.',
+                'audit_log_ip_address' => $request->ip(),
+                'audit_log_created_at' => now(),
+            ]);
+        }
+
+        return back()->with('success', 'Useful lifespan updated to '.$years.' years.');
+    }
+
+    public function lifespanBroadcasts(Request $request): View
+    {
+        $search = trim((string) $request->query('search', ''));
+        $filter = (string) $request->query('filter', 'all');
+        $roomId = (int) $request->query('room', 0);
+        $setId = (string) $request->query('set', 'all');
+        if (! in_array($filter, ['all', 'due', 'year', 'later'], true)) {
+            $filter = 'all';
+        }
+
+        $catalog = \App\Support\EquipmentLifecycle::catalog();
+        $membership = \App\Support\ComputerSets::membershipMapForEquipmentIds(
+            $catalog->pluck('equipment_id')->map(fn ($id) => (int) $id)->all()
+        );
+        $catalog = $catalog->map(function ($row) use ($membership) {
+            $set = $membership[(int) $row->equipment_id] ?? null;
+            $row->computer_set_id = isset($set->computer_set_id) ? (int) $set->computer_set_id : null;
+            $row->computer_set_tag = $set->computer_set_tag ?? null;
+            $row->computer_set_name = $set->computer_set_name ?? null;
+
+            return $row;
+        });
+        $rooms = $catalog
+            ->filter(fn ($row) => (int) ($row->equipment_room_id ?? 0) > 0 && filled($row->room_name ?? null))
+            ->unique(fn ($row) => (int) $row->equipment_room_id)
+            ->sortBy(fn ($row) => mb_strtolower((string) $row->room_name))
+            ->map(fn ($row) => ['id' => (int) $row->equipment_room_id, 'name' => (string) $row->room_name])
+            ->values();
+        $computerSets = $catalog
+            ->filter(fn ($row) => (int) ($row->computer_set_id ?? 0) > 0)
+            ->unique(fn ($row) => (int) $row->computer_set_id)
+            ->sortBy(fn ($row) => (string) ($row->computer_set_tag ?: $row->computer_set_name))
+            ->map(fn ($row) => [
+                'id' => (int) $row->computer_set_id,
+                'label' => trim((string) ($row->computer_set_tag ?: $row->computer_set_name)),
+            ])
+            ->values();
+
+        $rows = $catalog->filter(function ($row) use ($search, $filter, $roomId, $setId) {
+            $yearsLeft = (int) ($row->years_remaining ?? 0);
+            $status = strtolower(trim((string) ($row->equipment_inventory_status ?? '')));
+            $marked = in_array($status, ['for replacement', 'replaced'], true);
+            $matchesFilter = match ($filter) {
+                'due' => $yearsLeft < 0 || $marked,
+                'year' => $yearsLeft === 0 && ! $marked,
+                'later' => $yearsLeft > 0 && ! $marked,
+                default => true,
+            };
+            if (! $matchesFilter) {
+                return false;
+            }
+            if ($roomId > 0 && (int) ($row->equipment_room_id ?? 0) !== $roomId) {
+                return false;
+            }
+            if ($setId === 'none' && (int) ($row->computer_set_id ?? 0) > 0) {
+                return false;
+            }
+            if ($setId !== 'all' && $setId !== 'none' && (int) ($row->computer_set_id ?? 0) !== (int) $setId) {
+                return false;
+            }
+            if ($search === '') {
+                return true;
+            }
+            $haystack = mb_strtolower(implode(' ', array_filter([
+                $row->equipment_name ?? '',
+                $row->room_name ?? '',
+                $row->computer_set_tag ?? '',
+                $row->computer_set_name ?? '',
+                \App\Support\EquipmentIdentity::label($row),
+            ])));
+
+            return str_contains($haystack, mb_strtolower($search));
+        });
+
+        $rows = \App\Support\EquipmentLifecycle::nearestFirst($rows);
+
+        $focusEquipmentId = (int) $request->query('equipment', 0);
+        if ($focusEquipmentId > 0) {
+            $rows = $rows->filter(fn ($row) => (int) $row->equipment_id === $focusEquipmentId)->values();
+        }
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 12;
+        $broadcasts = new \Illuminate\Pagination\LengthAwarePaginator(
+            $rows->slice(($page - 1) * $perPage, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('maintenance-personnel.lifespan-broadcasts.index', [
+            'broadcasts' => $broadcasts,
+            'search' => $search,
+            'filter' => $filter,
+            'roomId' => $roomId,
+            'setId' => $setId,
+            'rooms' => $rooms,
+            'computerSets' => $computerSets,
+            'reachedLife' => \App\Support\AdminDashboardLists::reachedUsefulLife($catalog, ! $request->is('admin/*')),
+            'inAdmin' => $request->is('admin/*'),
+        ]);
+    }
+
+    public function allSchedules(Request $request): View
+    {
+        $search = trim((string) $request->query('search', ''));
+        $rows = collect();
+
+        if (Schema::hasTable('maintenance_schedules_table')) {
+            $equipment = DB::table('maintenance_schedules_table as s')
+                ->leftJoin('equipment_table as e', 'e.equipment_id', '=', 's.maintenance_schedule_equipment_id')
+                ->leftJoin('rooms_table as r', 'r.room_id', '=', 'e.equipment_room_id')
+                ->whereNotNull('s.maintenance_schedule_next_date')
+                ->orderBy('s.maintenance_schedule_next_date')
+                ->get(array_merge([
+                    's.maintenance_schedule_title',
+                    's.maintenance_schedule_next_date',
+                    's.maintenance_schedule_status',
+                    's.maintenance_schedule_frequency',
+                    'e.equipment_name',
+                    'r.room_name',
+                ], \App\Support\EquipmentIdentity::columns('e')));
+
+            foreach ($equipment as $row) {
+                $when = \Carbon\Carbon::parse($row->maintenance_schedule_next_date)->startOfDay();
+                $status = (string) ($row->maintenance_schedule_status ?: 'Active');
+                if (strcasecmp($status, 'Completed') !== 0 && $when->lt(today())) {
+                    $status = 'Overdue';
+                }
+                $rows->push([
+                    'type' => 'Equipment maintenance',
+                    'tone' => 'equipment',
+                    'title' => $row->maintenance_schedule_title ?: ($row->equipment_name ?: 'Equipment maintenance'),
+                    'detail' => collect([$row->equipment_name, $row->room_name, $row->maintenance_schedule_frequency])->filter()->implode(' · '),
+                    'identity' => \App\Support\EquipmentIdentity::label($row),
+                    'date' => $when->toDateString(),
+                    'date_label' => $when->format('M j, Y'),
+                    'status' => $status,
+                    'href' => \App\Support\SchedulePortal::schedulesUrl(),
+                ]);
+            }
+        }
+
+        if (\App\Support\RoomInspections::ready()) {
+            $rooms = DB::table(\App\Support\RoomInspections::SCHEDULES.' as s')
+                ->leftJoin('rooms_table as r', 'r.room_id', '=', 's.room_inspection_schedule_room_id')
+                ->whereNotNull('s.room_inspection_schedule_next_date')
+                ->orderBy('s.room_inspection_schedule_next_date')
+                ->get([
+                    's.room_inspection_schedule_title',
+                    's.room_inspection_schedule_next_date',
+                    's.room_inspection_schedule_status',
+                    's.room_inspection_schedule_frequency',
+                    'r.room_name',
+                ]);
+
+            foreach ($rooms as $row) {
+                $when = \Carbon\Carbon::parse($row->room_inspection_schedule_next_date)->startOfDay();
+                $status = (string) ($row->room_inspection_schedule_status ?: 'Active');
+                if (strcasecmp($status, 'Completed') !== 0 && $when->lt(today())) {
+                    $status = 'Overdue';
+                }
+                $rows->push([
+                    'type' => 'Room inspection',
+                    'tone' => 'room',
+                    'title' => $row->room_inspection_schedule_title ?: 'Room inspection',
+                    'detail' => collect([$row->room_name, $row->room_inspection_schedule_frequency])->filter()->implode(' · '),
+                    'identity' => '',
+                    'date' => $when->toDateString(),
+                    'date_label' => $when->format('M j, Y'),
+                    'status' => $status,
+                    'href' => \App\Support\SchedulePortal::schedulesUrl('/rooms'),
+                ]);
+            }
+        }
+
+        if (Schema::hasTable('semester_inspection_campaigns_table')) {
+            $campaigns = DB::table('semester_inspection_campaigns_table')
+                ->whereNotNull('campaign_due_date')
+                ->whereNotIn('campaign_status', ['Cancelled', 'Archived'])
+                ->orderBy('campaign_due_date')
+                ->get([
+                    'campaign_id',
+                    'campaign_title',
+                    'campaign_academic_year',
+                    'campaign_semester',
+                    'campaign_due_date',
+                    'campaign_status',
+                ]);
+
+            foreach ($campaigns as $row) {
+                $when = \Carbon\Carbon::parse($row->campaign_due_date)->startOfDay();
+                $status = (string) ($row->campaign_status ?: 'Active');
+                if (! in_array($status, ['Completed', 'Cancelled', 'Archived'], true) && $when->lt(today())) {
+                    $status = 'Overdue';
+                }
+                $rows->push([
+                    'type' => 'Semestral inspection',
+                    'tone' => 'semestral',
+                    'title' => $row->campaign_title ?: 'Semestral inspection',
+                    'detail' => collect([$row->campaign_semester, $row->campaign_academic_year])->filter()->implode(' · '),
+                    'identity' => '',
+                    'date' => $when->toDateString(),
+                    'date_label' => $when->format('M j, Y'),
+                    'status' => $status,
+                    'href' => \App\Support\SchedulePortal::semesterUrl('/'.$row->campaign_id),
+                ]);
+            }
+        }
+
+        $rows = $rows->sortBy('date')->values();
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $rows = $rows->filter(function (array $row) use ($needle) {
+                $haystack = mb_strtolower(implode(' ', [
+                    $row['title'] ?? '',
+                    $row['detail'] ?? '',
+                    $row['identity'] ?? '',
+                    $row['type'] ?? '',
+                ]));
+
+                return str_contains($haystack, $needle);
+            })->values();
+        }
+
+        $calendarSchedulesData = collect();
+        if (Schema::hasTable('maintenance_schedules_table')) {
+            $calendarSchedulesData = DB::table('maintenance_schedules_table')
+                ->leftJoin('equipment_table', 'maintenance_schedules_table.maintenance_schedule_equipment_id', '=', 'equipment_table.equipment_id')
+                ->leftJoin('rooms_table', 'equipment_table.equipment_room_id', '=', 'rooms_table.room_id')
+                ->leftJoin('equipment_categories_table', 'equipment_table.equipment_category_id', '=', 'equipment_categories_table.equipment_category_id')
+                ->select(array_values(array_filter([
+                    'maintenance_schedules_table.*',
+                    'equipment_table.equipment_name',
+                    'equipment_table.equipment_qr_code',
+                    'equipment_table.equipment_asset_tag',
+                    'equipment_table.equipment_serial_number',
+                    Schema::hasColumn('equipment_table', 'equipment_tracking_mode') ? 'equipment_table.equipment_tracking_mode' : null,
+                    Schema::hasColumn('equipment_table', 'equipment_quantity') ? 'equipment_table.equipment_quantity' : null,
+                    'equipment_table.equipment_brand_name',
+                    'equipment_table.equipment_model',
+                    'equipment_table.equipment_inventory_status',
+                    'equipment_table.equipment_condition_status',
+                    'equipment_categories_table.equipment_category_name',
+                    'rooms_table.room_name',
+                ])))
+                ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date')
+                ->get();
+        }
+
+        return view('maintenance-personnel.maintenance-schedules.all', [
+            'rows' => $rows,
+            'search' => $search,
+            'calendarSchedulesData' => $calendarSchedulesData,
+        ]);
+    }
 
     public function schedules(Request $request)
     {
@@ -16981,8 +17386,10 @@ class MaintenanceController extends Controller
         // ADD DISPLAY INFORMATION
         // =====================================================
 
+        $activityReports = ReportGrouping::reportsForTicketRewrite($activities->getCollection());
+
         $activities->getCollection()
-            ->transform(function ($activity) {
+            ->transform(function ($activity) use ($activityReports) {
 
                 // =================================================
                 // ICON
@@ -17011,6 +17418,20 @@ class MaintenanceController extends Controller
                         'activity',
                 };
 
+                $activity->audit_log_description = ReportGrouping::rewriteReportHashes(
+                    $activity->audit_log_description ?? 'Activity recorded.',
+                    $activityReports
+                );
+
+                $activity->ticket_label = null;
+                if (($activity->audit_log_table_name ?? '') === 'reports_table'
+                    && filled($activity->audit_log_reference_id ?? null)) {
+                    $refId = (int) $activity->audit_log_reference_id;
+                    $activity->ticket_label = $refId > 0
+                        ? ReportGrouping::ticketCode($activityReports->get($refId) ?? $refId)
+                        : '-';
+                }
+
 
                 // =================================================
                 // DESTINATION
@@ -17037,7 +17458,7 @@ class MaintenanceController extends Controller
                             : null,
 
                     'maintenance_schedules_table' =>
-                        url('/maintenance/schedules'),
+                        url('/maintenance/schedules/all'),
 
                     'borrowing_records_table' =>
                         RoleAccess::isAdmin(auth()->user()) ? url('/admin/borrowing') : null,
@@ -17179,7 +17600,7 @@ class MaintenanceController extends Controller
                             => $schedule->maintenance_schedule_id,
 
                         'notification_url'
-                            => '/maintenance/schedules',
+                            => '/maintenance/schedules/all',
 
                         'notification_event_key'
                             => 'maintenance_overdue_'
@@ -17233,7 +17654,7 @@ class MaintenanceController extends Controller
                             => $schedule->maintenance_schedule_id,
 
                         'notification_url'
-                            => '/maintenance/schedules',
+                            => '/maintenance/schedules/all',
 
                         'notification_event_key'
                             => 'maintenance_due_today_'
@@ -17291,7 +17712,7 @@ class MaintenanceController extends Controller
                             => $schedule->maintenance_schedule_id,
 
                         'notification_url'
-                            => '/maintenance/schedules',
+                            => '/maintenance/schedules/all',
 
                         'notification_event_key'
                             => 'maintenance_upcoming_'

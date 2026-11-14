@@ -35,7 +35,12 @@
     <header class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
+                <span @class([
+                    'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1',
+                    'bg-emerald-50 text-emerald-700 ring-emerald-100' => in_array($campaign->campaign_status, ['Active', 'Completed'], true),
+                    'bg-blue-50 text-blue-700 ring-blue-100' => $campaign->campaign_status === 'In Progress',
+                    'bg-slate-100 text-slate-600 ring-slate-200' => in_array($campaign->campaign_status, ['Draft', 'Cancelled', 'Archived'], true),
+                ])>
                     {{ $campaign->campaign_status }}
                 </span>
             </div>
@@ -79,7 +84,13 @@
                     </button>
                 </form>
                 <form action="{{ $campaignUrl }}/cancel" method="POST"
-                    onsubmit="return confirm('Cancel this campaign?')">
+                    data-pur-confirm="This campaign will be marked cancelled. Inspections already recorded stay on the equipment."
+                    data-pur-confirm-title="Cancel this campaign?"
+                    data-pur-confirm-ok="Cancel campaign"
+                    data-pur-confirm-danger="1"
+                    data-pur-confirm-align="top"
+                    data-pur-confirm-large="1"
+                    data-pur-confirm-close="1">
                     @csrf
                     <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800">
                         Cancel

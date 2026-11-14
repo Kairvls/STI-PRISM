@@ -121,6 +121,29 @@ class ReplacementStock
     }
 
     /**
+     * Storage units that can stand in for this equipment, best match first.
+     *
+     * @return list<array{name: string, asset_tag: ?string, serial: ?string, storage: string, condition: string, match: string}>
+     */
+    public static function briefForEquipment(int $equipmentId): array
+    {
+        if ($equipmentId <= 0 || ! Schema::hasTable('equipment_table')) {
+            return [];
+        }
+
+        return self::candidatesFor((object) ['report_item_equipment_id' => $equipmentId])
+            ->map(fn ($row) => [
+                'name' => (string) ($row['name'] ?? 'Equipment'),
+                'asset_tag' => $row['asset_tag'] ?? null,
+                'serial' => $row['serial'] ?? null,
+                'storage' => (string) ($row['storage'] ?? 'Storage'),
+                'condition' => (string) ($row['condition'] ?? 'Not set'),
+                'match' => (string) ($row['match'] ?? 'Similar item'),
+            ])
+            ->all();
+    }
+
+    /**
      * Stock check payload for the "For Replacement" picker.
      *
      * @param  Collection<int, object>  $items  report items being sent for replacement
@@ -201,6 +224,57 @@ class ReplacementStock
             'replacement_log_notes' => $reason !== '' ? $reason : null,
             'replacement_log_performed_by' => $extra['performed_by'] ?? Auth::id(),
         ]);
+    }
+
+    /**
+     * Latest replacement log rows for the dashboard preview.
+     *
+     * @return array{href: string, total: int, rows: list<array<string, string>>}
+     */
+    public static function dashboardPreview(int $limit = 8): array
+    {
+        $href = route('admin.equipment.replacements');
+        if (! self::tableReady()) {
+            return ['href' => $href, 'total' => 0, 'rows' => []];
+        }
+
+        $total = (int) DB::table(self::TABLE)->count();
+        $logs = DB::table(self::TABLE.' as l')
+            ->orderByDesc('l.replacement_log_performed_at')
+            ->orderByDesc('l.replacement_log_id')
+            ->limit($limit)
+            ->get([
+                'l.replacement_log_replaced_label',
+                'l.replacement_log_replaced_asset_tag',
+                'l.replacement_log_replacement_label',
+                'l.replacement_log_replacement_asset_tag',
+                'l.replacement_log_fulfillment_type',
+                'l.replacement_log_performed_at',
+            ]);
+
+        return [
+            'href' => $href,
+            'total' => $total,
+            'rows' => $logs->map(function ($row) {
+                $type = (string) ($row->replacement_log_fulfillment_type ?? '');
+                $replaced = trim((string) ($row->replacement_log_replaced_label ?? '')) ?: 'Equipment';
+                $replacedTag = trim((string) ($row->replacement_log_replaced_asset_tag ?? ''));
+                $replacement = trim((string) ($row->replacement_log_replacement_label ?? ''));
+                $replacementTag = trim((string) ($row->replacement_log_replacement_asset_tag ?? ''));
+                $when = $row->replacement_log_performed_at
+                    ? Carbon::parse($row->replacement_log_performed_at)->format('M j, Y')
+                    : '';
+
+                return [
+                    'replaced' => $replaced,
+                    'replaced_tag' => $replacedTag,
+                    'replacement' => $replacement,
+                    'replacement_tag' => $replacementTag,
+                    'type' => self::fulfillmentLabel($type),
+                    'date' => $when,
+                ];
+            })->all(),
+        ];
     }
 
     public static function fulfillmentLabel(string $type): string

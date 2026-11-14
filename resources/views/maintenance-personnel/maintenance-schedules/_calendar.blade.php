@@ -1,6 +1,9 @@
 @php
     use Carbon\Carbon;
 
+    $calendarOnly = $calendarOnly ?? false;
+    $suppressCalendar = $suppressCalendar ?? false;
+
     $today = Carbon::today();
 
     $effectiveStatus = function ($schedule) use ($today) {
@@ -46,6 +49,9 @@
                     $schedule->equipment_name
                     ?? "Unassigned equipment",
 
+                "identity" =>
+                    \App\Support\EquipmentIdentity::label($schedule),
+
                 "asset_tag" =>
                     $schedule->equipment_asset_tag ?? "",
 
@@ -80,6 +86,10 @@
                 "room" =>
                     $schedule->room_name
                     ?? "No room assigned",
+
+                "kind" => "equipment",
+
+                "href" => \App\Support\SchedulePortal::schedulesUrl(),
 
                 "title" =>
                     $schedule->maintenance_schedule_title
@@ -124,6 +134,107 @@
         )
 
         ->values();
+
+    try {
+        if (\App\Support\RoomInspections::ready()) {
+            $roomColumns = [
+                's.room_inspection_schedule_id',
+                's.room_inspection_schedule_title',
+                's.room_inspection_schedule_next_date',
+                's.room_inspection_schedule_frequency',
+                's.room_inspection_schedule_status',
+            ];
+            $roomQuery = \Illuminate\Support\Facades\DB::table(\App\Support\RoomInspections::SCHEDULES.' as s')
+                ->whereNotNull('s.room_inspection_schedule_next_date');
+            if (\Illuminate\Support\Facades\Schema::hasTable('rooms_table')) {
+                $roomQuery->leftJoin('rooms_table as r', 'r.room_id', '=', 's.room_inspection_schedule_room_id');
+                $roomColumns[] = 'r.room_name';
+            }
+            $roomRows = $roomQuery->get($roomColumns);
+            foreach ($roomRows as $row) {
+                $when = Carbon::parse($row->room_inspection_schedule_next_date)->startOfDay();
+                $status = (string) ($row->room_inspection_schedule_status ?? 'Active');
+                if (strcasecmp($status, 'Completed') !== 0 && $when->lt($today)) {
+                    $status = 'Overdue';
+                }
+                $calendarSchedules->push([
+                    'id' => 'room-'.$row->room_inspection_schedule_id,
+                    'kind' => 'room',
+                    'href' => \App\Support\SchedulePortal::schedulesUrl('/rooms'),
+                    'equipment' => isset($row->room_name) && $row->room_name ? $row->room_name : 'Room inspection',
+                    'asset_tag' => '',
+                    'serial_number' => '',
+                    'equipment_identifier' => '',
+                    'category' => '',
+                    'brand' => '',
+                    'model' => '',
+                    'inventory_status' => '',
+                    'condition_status' => '',
+                    'room' => isset($row->room_name) && $row->room_name ? $row->room_name : 'No room assigned',
+                    'title' => $row->room_inspection_schedule_title ?: 'Room inspection',
+                    'frequency' => $row->room_inspection_schedule_frequency ?: 'Not set',
+                    'date' => $when->format('Y-m-d'),
+                    'last_date' => '',
+                    'status' => $status,
+                    'can_complete' => false,
+                    'description' => '',
+                    'qr_code' => '',
+                    'qr_image' => '',
+                ]);
+            }
+        }
+    } catch (\Throwable) {
+    }
+
+    try {
+        if (\Illuminate\Support\Facades\Schema::hasTable('semester_inspection_campaigns_table')) {
+            $campaigns = \Illuminate\Support\Facades\DB::table('semester_inspection_campaigns_table')
+                ->whereNotNull('campaign_due_date')
+                ->whereNotIn('campaign_status', ['Cancelled', 'Archived'])
+                ->get([
+                    'campaign_id',
+                    'campaign_title',
+                    'campaign_academic_year',
+                    'campaign_semester',
+                    'campaign_due_date',
+                    'campaign_status',
+                ]);
+            foreach ($campaigns as $row) {
+                $when = Carbon::parse($row->campaign_due_date)->startOfDay();
+                $status = (string) ($row->campaign_status ?? 'Active');
+                if (! in_array($status, ['Completed', 'Cancelled', 'Archived'], true) && $when->lt($today)) {
+                    $status = 'Overdue';
+                }
+                $calendarSchedules->push([
+                    'id' => 'semestral-'.$row->campaign_id,
+                    'kind' => 'semestral',
+                    'href' => \App\Support\SchedulePortal::semesterUrl('/'.$row->campaign_id),
+                    'equipment' => trim(($row->campaign_semester ?? '').' '.($row->campaign_academic_year ?? '')) ?: 'Semestral inspection',
+                    'asset_tag' => '',
+                    'serial_number' => '',
+                    'equipment_identifier' => '',
+                    'category' => '',
+                    'brand' => '',
+                    'model' => '',
+                    'inventory_status' => '',
+                    'condition_status' => '',
+                    'room' => 'Campus',
+                    'title' => $row->campaign_title ?: 'Semestral inspection',
+                    'frequency' => 'Semestral',
+                    'date' => $when->format('Y-m-d'),
+                    'last_date' => '',
+                    'status' => $status,
+                    'can_complete' => false,
+                    'description' => '',
+                    'qr_code' => '',
+                    'qr_image' => '',
+                ]);
+            }
+        }
+    } catch (\Throwable) {
+    }
+
+    $calendarSchedules = $calendarSchedules->sortBy('date')->values();
 
     $scheduleQrById = $calendarSchedulesData->mapWithKeys(function ($schedule) {
         $code = trim((string) ($schedule->equipment_qr_code ?? ""));
@@ -172,17 +283,19 @@
 
     $overdueCount = $overdueAll->count();
 
+    $completedMaintenance = $completedMaintenance ?? $calendarSchedules->where('status', 'Completed')->count();
     $completedPctBar = (int) min(100, max(0, round($completedMaintenancePercentage ?? 0)));
     $firstName = explode(" ", trim(Auth::user()->user_full_name ?? "there"))[0];
 @endphp
 
 <div
-    class="space-y-6"
+    :class="calendarFull ? '-mt-5 pt-6' : 'space-y-6'"
     x-data="{
         wide: localStorage.getItem('prism-schedule-wide') === '1',
-        calendarFull: false,
+        calendarFull: @json(! $suppressCalendar) && localStorage.getItem('prism-schedule-calendar-full') === '1',
         miniMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
         selectedDay: new Date().toISOString().slice(0, 10),
+        calendarKind: '{{ $suppressCalendar ? 'equipment' : 'all' }}',
         events: {{ Js::from($calendarSchedules) }},
         overdueAll: {{ Js::from($overdueAll) }},
         upcomingAll: {{ Js::from($upcomingAll) }},
@@ -194,6 +307,26 @@
             this.wide = !this.wide;
             localStorage.setItem('prism-schedule-wide', this.wide ? '1' : '0');
             this.$nextTick(() => this.updateSidebarLimits());
+        },
+        showScheduleDay(detail) {
+            const date = typeof detail === 'string' ? detail : detail?.date;
+            const title = typeof detail === 'string' ? '' : (detail?.title || '');
+            if (!date) return;
+            const [year, month] = String(date).split('-').map(Number);
+            this.wide = false;
+            this.calendarFull = true;
+            this.selectedDay = String(date);
+            this.miniMonth = new Date(year, (month || 1) - 1, 1);
+            this.$nextTick(() => {
+                if (typeof window.openCalendarOnSchedule === 'function') {
+                    window.openCalendarOnSchedule(date, title);
+                } else if (typeof renderCalendar === 'function') {
+                    renderCalendar();
+                }
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            });
         },
         openBigCalendar() {
             this.calendarFull = true;
@@ -218,6 +351,34 @@
         monthLabel() {
             return this.miniMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
         },
+        monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+        setMiniMonth(month, year) {
+            this.miniMonth = new Date(Number(year), Number(month), 1);
+        },
+        yearOptions() {
+            const years = new Set([new Date().getFullYear(), this.miniMonth.getFullYear()]);
+            this.events.forEach((item) => {
+                const year = Number(String(item.date || '').slice(0, 4));
+                if (year) years.add(year);
+            });
+            const list = Array.from(years).sort((a, b) => a - b);
+            const filled = [];
+            for (let year = list[0]; year <= list[list.length - 1]; year++) filled.push(year);
+            return filled;
+        },
+        goToToday() {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            this.miniMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            this.selectedDay = now.getFullYear() + '-' + month + '-' + day;
+        },
+        selectCalendarDay(date) {
+            if (!date) return;
+            const [year, month] = String(date).split('-').map(Number);
+            this.miniMonth = new Date(year, (month || 1) - 1, 1);
+            this.selectedDay = String(date);
+        },
         dayCells() {
             const year = this.miniMonth.getFullYear();
             const month = this.miniMonth.getMonth();
@@ -233,11 +394,32 @@
             }
             return cells;
         },
+        matchesKind(item) {
+            return this.calendarKind === 'all' || (item.kind || 'equipment') === this.calendarKind;
+        },
+        setCalendarKind(kind) {
+            this.calendarKind = kind;
+            window.calendarKind = kind;
+            if (typeof renderCalendar === 'function') {
+                renderCalendar();
+            }
+        },
         hasEvent(value) {
-            return this.events.some((item) => item.date === value);
+            return this.events.some((item) => item.date === value && this.matchesKind(item));
         },
         selectedEvents() {
-            return this.events.filter((item) => item.date === this.selectedDay);
+            return this.events.filter((item) => item.date === this.selectedDay && this.matchesKind(item));
+        },
+        nearestUpcoming() {
+            return this.upcomingAll.filter((item) => this.matchesKind(item)).slice(0, 5);
+        },
+        upcomingTotal() {
+            return this.upcomingAll.filter((item) => this.matchesKind(item)).length;
+        },
+        kindLabel(item) {
+            if ((item.kind || 'equipment') === 'room') return 'Room inspection';
+            if (item.kind === 'semestral') return 'Semestral';
+            return 'Equipment';
         },
         formatSidebarDate(value) {
             if (!value) {
@@ -249,11 +431,17 @@
                 day: 'numeric',
             });
         },
+        filteredOverdue() {
+            return this.overdueAll.filter((item) => this.matchesKind(item));
+        },
+        filteredUpcoming() {
+            return this.upcomingAll.filter((item) => this.matchesKind(item));
+        },
         visibleOverdue() {
-            return this.overdueAll.slice(0, this.sidebarOverdueLimit);
+            return this.filteredOverdue().slice(0, this.sidebarOverdueLimit);
         },
         visibleUpcoming() {
-            return this.upcomingAll.slice(0, this.sidebarUpcomingLimit);
+            return this.filteredUpcoming().slice(0, this.sidebarUpcomingLimit);
         },
         openSidebarList(type) {
             this.sidebarListModal = type === 'upcoming' ? 'upcoming' : 'overdue';
@@ -268,8 +456,8 @@
         },
         sidebarListItems() {
             return this.sidebarListModal === 'upcoming'
-                ? this.upcomingAll
-                : this.overdueAll;
+                ? this.filteredUpcoming()
+                : this.filteredOverdue();
         },
         sidebarListTitle() {
             return this.sidebarListModal === 'upcoming'
@@ -324,69 +512,39 @@
             this.sidebarLimitsObserver.observe(section);
         },
     }"
-    x-init="$nextTick(() => bindSidebarLimits())"
+    x-init="$nextTick(() => {
+        bindSidebarLimits();
+        const persistCalendar = @json(! $suppressCalendar);
+        const syncCalendar = (open) => {
+            if (persistCalendar) {
+                localStorage.setItem('prism-schedule-calendar-full', open ? '1' : '0');
+            }
+            document.getElementById('scheduleTypeTabs')?.classList.toggle('hidden', !!open);
+            if (open && typeof renderCalendar === 'function') {
+                renderCalendar();
+                if (window.lucide) lucide.createIcons();
+            }
+        };
+        syncCalendar(calendarFull);
+        $watch('calendarFull', syncCalendar);
+    })"
+    @all-schedule-day.window="showScheduleDay($event.detail)"
 >
-    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]" x-show="!calendarFull">
-        <div class="relative overflow-hidden rounded-2xl border border-stone-200/80 bg-[#f5f6f8] px-7 py-8 text-slate-900">
-            <img
-                src="{{ asset('image/maintenance_home_card_image.png') }}"
-                alt=""
-                class="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] object-cover object-right"
-            >
-            <div
-                class="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f5f6f8] from-[0%] via-[#f5f6f8] via-[38%] to-transparent to-[82%]"
-            ></div>
-            <div class="relative z-10 pr-28 sm:pr-40">
-            <p class="text-2xl font-semibold tracking-tight">
-                <span class="text-red-500">{{ number_format($overdueMaintenance ?? 0) }}</span> All Over Equipment Maintenance Overdue {{ \Illuminate\Support\Str::plural('Schedule', (int) ($overdueMaintenance ?? 0)) }}
-            </p>
-            <div class="mt-6 flex flex-wrap gap-2.5">
-                <button
-                    type="button"
-                    onclick="openScheduleModal()"
-                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fad]"
-                >
-                    Schedule Equipment Maintenance
-                </button>
-                <button
-                    type="button"
-                    @click="openBigCalendar()"
-                    class="rounded-xl bg-white/70 px-4 py-2.5 text-sm font-medium text-slate-800 ring-1 ring-stone-300/80 transition hover:bg-white"
-                >
-                    Open calendar
-                </button>
-            </div>
-            </div>
-        </div>
-
-        <div class="rounded-2xl border border-slate-200 bg-white p-6">
-            <p class="text-[32px] font-semibold leading-none tracking-tight text-slate-900">
-                {{ number_format($completedMaintenance) }}
-            </p>
-            <p class="mt-2 text-sm font-medium text-slate-500">Schedules completed</p>
-            <div class="mt-5 flex items-center justify-between text-xs text-slate-400">
-                <span>{{ number_format($upcomingMaintenance) }} pending</span>
-                <span>{{ $completedPctBar }}%</span>
-            </div>
-            <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-[#0025cc]" style="width: {{ $completedPctBar }}%"></div>
-            </div>
-        </div>
-    </div>
-
     <div
         class="grid items-stretch gap-6"
         :class="wide ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_300px]'"
         x-show="!calendarFull"
     >
+    @if ($calendarOnly)
+        @include('maintenance-personnel.maintenance-schedules.partials.all-list')
+    @else
     <section id="scheduleListSection" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div class="flex flex-col gap-4 px-6 pb-2 pt-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-                <h2 class="text-lg font-semibold tracking-tight text-slate-900">All Schedules</h2>
+                <h2 class="text-lg font-semibold tracking-tight text-slate-900">Equipment maintenance schedules</h2>
                 <p class="mt-0.5 text-sm text-slate-400">
                     {{ $schedules->total() }}
-                    {{ $schedules->total() === 1 ? "schedule" : "schedules" }}
-                    available
+                    {{ $schedules->total() === 1 ? "total schedule" : "total schedules" }}
                 </p>
             </div>
             <div class="flex items-center gap-2">
@@ -1391,9 +1549,11 @@
         @endif
 
     </section>
+    @endif
 
+    @unless ($suppressCalendar)
     <aside class="flex h-full flex-col gap-5" x-show="!wide && !calendarFull" x-cloak>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5" data-maintenance-calendar>
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-sm font-semibold text-slate-900">Maintenance Calendar</h3>
@@ -1408,7 +1568,37 @@
                 </button>
             </div>
 
-            <p class="mt-5 text-sm font-semibold text-slate-800" x-text="monthLabel()"></p>
+            <div class="mt-4 flex items-center gap-2">
+                <select
+                    class="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:border-slate-300"
+                    :value="miniMonth.getMonth()"
+                    @change="setMiniMonth($event.target.value, miniMonth.getFullYear())"
+                    aria-label="Month"
+                >
+                    <template x-for="(label, index) in monthNames" :key="'mini-month-'+index">
+                        <option :value="index" x-text="label" :selected="miniMonth.getMonth() === index"></option>
+                    </template>
+                </select>
+                <select
+                    class="h-8 w-[4.5rem] rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:border-slate-300"
+                    :value="miniMonth.getFullYear()"
+                    @change="setMiniMonth(miniMonth.getMonth(), $event.target.value)"
+                    aria-label="Year"
+                >
+                    <template x-for="year in yearOptions()" :key="'mini-year-'+year">
+                        <option :value="year" x-text="year" :selected="miniMonth.getFullYear() === year"></option>
+                    </template>
+                </select>
+                <button
+                    type="button"
+                    @click="goToToday()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                    data-tooltip="Today"
+                    aria-label="Go to today"
+                >
+                    <i data-lucide="calendar-check" class="h-4 w-4"></i>
+                </button>
+            </div>
             <div class="mt-3 grid grid-cols-7 text-center">
                 <template x-for="label in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">
                     <span class="py-1 text-[10px] font-medium uppercase text-slate-400" x-text="label"></span>
@@ -1447,14 +1637,44 @@
             </div>
         </div>
 
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+            <div class="flex items-baseline justify-between gap-2">
+                <h3 class="text-sm font-semibold text-slate-900">Nearest upcoming</h3>
+                <p class="text-[11px] text-slate-400" x-show="nearestUpcoming().length > 0" x-text="nearestUpcoming().length + ' of ' + upcomingTotal()"></p>
+            </div>
+            <div class="mt-4 divide-y divide-slate-100">
+                <template x-if="nearestUpcoming().length === 0">
+                    <p class="text-sm text-slate-400">Nothing upcoming.</p>
+                </template>
+                <template x-for="item in nearestUpcoming()" :key="'near-'+item.id">
+                    <button type="button" class="flex w-full items-start justify-between gap-2 py-3 text-left first:pt-0 last:pb-0" @click="selectCalendarDay(item.date)">
+                        <span class="min-w-0">
+                            <span class="block text-[11px] font-medium text-slate-400" x-text="formatSidebarDate(item.date)"></span>
+                            <span class="mt-0.5 block truncate text-sm font-medium text-slate-800" x-text="item.title"></span>
+                            <span class="block truncate text-xs text-slate-400" x-text="item.equipment"></span>
+                        </span>
+                        <span
+                            class="mt-4 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1"
+                            :class="(item.kind || 'equipment') === 'room' ? 'bg-amber-50 text-amber-800 ring-amber-100' : (item.kind === 'semestral' ? 'bg-violet-50 text-violet-700 ring-violet-100' : 'bg-sky-50 text-sky-700 ring-sky-100')"
+                            x-text="kindLabel(item)"
+                        ></span>
+                    </button>
+                </template>
+            </div>
+        </div>
+    </aside>
+    @endunless
+
+    @unless ($calendarOnly)
+    <aside class="flex h-full flex-col gap-5" x-show="!wide" x-cloak>
         <div class="space-y-5">
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
             <div class="flex items-baseline justify-between gap-2">
                 <h3 class="text-sm font-semibold text-slate-900">Overdue</h3>
                 <p
                     class="text-[11px] text-slate-400"
-                    x-show="overdueAll.length > 0"
-                    x-text="`${Math.min(sidebarOverdueLimit, overdueAll.length)} of ${overdueAll.length}`"
+                    x-show="filteredOverdue().length > 0"
+                    x-text="`${Math.min(sidebarOverdueLimit, filteredOverdue().length)} of ${filteredOverdue().length}`"
                 ></p>
             </div>
             <div class="mt-4 space-y-0">
@@ -1484,8 +1704,8 @@
             <button
                 type="button"
                 class="mt-3 text-[11px] font-medium text-rose-500 transition hover:text-rose-700 hover:underline"
-                x-show="overdueAll.length > sidebarOverdueLimit"
-                x-text="`+${overdueAll.length - sidebarOverdueLimit} more overdue`"
+                x-show="filteredOverdue().length > sidebarOverdueLimit"
+                x-text="`+${filteredOverdue().length - sidebarOverdueLimit} more overdue`"
                 @click="openSidebarList('overdue')"
             ></button>
         </div>
@@ -1495,8 +1715,8 @@
                 <h3 class="text-sm font-semibold text-slate-900">Upcoming</h3>
                 <p
                     class="text-[11px] text-slate-400"
-                    x-show="upcomingAll.length > 0"
-                    x-text="`${Math.min(sidebarUpcomingLimit, upcomingAll.length)} of ${upcomingAll.length}`"
+                    x-show="filteredUpcoming().length > 0"
+                    x-text="`${Math.min(sidebarUpcomingLimit, filteredUpcoming().length)} of ${filteredUpcoming().length}`"
                 ></p>
             </div>
             <div class="mt-4 space-y-0">
@@ -1526,15 +1746,17 @@
             <button
                 type="button"
                 class="mt-3 text-[11px] font-medium text-sky-600 transition hover:text-sky-800 hover:underline"
-                x-show="upcomingAll.length > sidebarUpcomingLimit"
-                x-text="`+${upcomingAll.length - sidebarUpcomingLimit} more upcoming`"
+                x-show="filteredUpcoming().length > sidebarUpcomingLimit"
+                x-text="`+${filteredUpcoming().length - sidebarUpcomingLimit} more upcoming`"
                 @click="openSidebarList('upcoming')"
             ></button>
         </div>
         </div>
     </aside>
+    @endunless
     </div>
 
+    @unless ($calendarOnly)
     {{-- Full overdue / upcoming list modal (teleport so fixed covers full viewport) --}}
     <template x-teleport="body">
         <div
@@ -1614,7 +1836,9 @@
             </div>
         </div>
     </template>
+    @endunless
 
+    @unless ($suppressCalendar)
     {{-- ========================================================= --}}
     {{-- MINIMALIST MAINTENANCE CALENDAR --}}
     {{-- ========================================================= --}}
@@ -1688,7 +1912,7 @@
             </div>
         </aside>
 
-        <div class="calendar-main relative z-10 flex min-w-0 flex-1 flex-col rounded-l-[40px] bg-white pl-6 pr-5 pb-6 pt-6 shadow-[-18px_0_40px_rgba(15,23,42,0.04)] sm:pl-8 sm:pr-7 sm:pb-7">
+        <div class="calendar-main relative z-10 flex min-w-0 flex-1 flex-col rounded-l-[40px] bg-white pl-6 pr-5 pb-6 pt-10 shadow-[-18px_0_40px_rgba(15,23,42,0.04)] sm:pl-8 sm:pr-7 sm:pb-7">
             <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h3 id="calendarFocusDate" class="calendar-focus-date"></h3>
@@ -1777,6 +2001,7 @@
             ></div>
         </div>
     </section>
+    @endunless
 
     
 </div>
@@ -1807,6 +2032,10 @@
                 <p
                     id="popoverEquipment"
                     class="mt-1 truncate text-sm text-slate-500"
+                ></p>
+                <p
+                    id="popoverIdentity"
+                    class="mt-0.5 truncate text-sm font-medium text-slate-700"
                 ></p>
             </div>
 
@@ -2299,6 +2528,21 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    @keyframes calendar-event-blink {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgb(0 37 204 / 0);
+            outline: 2px solid transparent;
+        }
+        40% {
+            box-shadow: 0 0 0 4px rgb(0 37 204 / 0.35);
+            outline: 2px solid #0025cc;
+            background: #e8ecff;
+        }
+    }
+    .calendar-event-blink {
+        z-index: 2;
+        animation: calendar-event-blink 0.7s ease-in-out 3;
+    }
     .calendar-event-title {
         font-size: 10px;
         font-weight: 600;
@@ -2353,6 +2597,7 @@
 
 <script>
     const calendarSchedules = @js ($calendarSchedules);
+    window.calendarKind = window.calendarKind || "all";
     const scheduleQrById = @js ($scheduleQrById);
     let calendarCurrentDate = new Date();
     let calendarSelectedSchedule = null;
@@ -2899,10 +3144,24 @@
         return day;
 
     }
+    let calendarHighlight = null;
+    let calendarHighlightButton = null;
+    let calendarHighlightSchedule = null;
     function createCalendarEvent(schedule) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = `calendar-event ${getCalendarEventClass(schedule.status)}`;
+        if (
+            calendarHighlight
+            && String(schedule.date) === calendarHighlight.date
+            && String(schedule.title || "").trim().toLowerCase() === calendarHighlight.title
+        ) {
+            button.classList.add("calendar-event-blink");
+            if (!calendarHighlightButton) {
+                calendarHighlightButton = button;
+                calendarHighlightSchedule = schedule;
+            }
+        }
         button.innerHTML = `<div class="calendar-event-title">${escapeCalendarHTML(schedule.title)}</div><div class="calendar-event-equipment">${escapeCalendarHTML(schedule.equipment)}</div>`;
         button.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -2947,21 +3206,28 @@
                     .toLowerCase() ?? "",
             status =
                 document.getElementById("calendarStatusFilter")?.value ?? "all";
+        const kind = window.calendarKind || "all";
         return calendarSchedules.filter((schedule) => {
             const scheduleDate = parseCalendarDate(schedule.date),
                 text =
                     `${schedule.title} ${schedule.equipment} ${schedule.room}`.toLowerCase();
             return (
                 isSameCalendarDate(date, scheduleDate) &&
+                (kind === "all" || (schedule.kind || "equipment") === kind) &&
                 (!search || text.includes(search)) &&
                 (status === "all" || schedule.status.toLowerCase() === status)
             );
         });
     }
     function getSchedulesForMonth(year, month) {
+        const kind = window.calendarKind || "all";
         return calendarSchedules.filter((schedule) => {
             const date = parseCalendarDate(schedule.date);
-            return date.getFullYear() === year && date.getMonth() === month;
+            return (
+                date.getFullYear() === year &&
+                date.getMonth() === month &&
+                (kind === "all" || (schedule.kind || "equipment") === kind)
+            );
         });
     }
     function calendarPrevious() {
@@ -3005,12 +3271,51 @@
         closeEventPopover();
         renderCalendar();
     }
+    window.openCalendarOnSchedule = function (date, title) {
+        calendarCurrentDate = parseCalendarDate(date);
+        calendarCurrentView = "month";
+        const search = document.getElementById("calendarSearchInput");
+        if (search) search.value = title || "";
+        const status = document.getElementById("calendarStatusFilter");
+        if (status) status.value = "all";
+        document.querySelectorAll(".calendar-view-button").forEach((item) => {
+            item.classList.remove("bg-white", "text-slate-900", "text-slate-950", "font-semibold", "font-black", "shadow-sm");
+            item.classList.add("text-slate-500");
+        });
+        const monthButton = document.querySelector('[data-calendar-view="month"]');
+        if (monthButton) {
+            monthButton.classList.add("bg-white", "text-slate-900", "font-semibold", "shadow-sm");
+            monthButton.classList.remove("text-slate-500");
+        }
+        calendarHighlight = {
+            date: String(date),
+            title: String(title || "").trim().toLowerCase(),
+        };
+        calendarHighlightButton = null;
+        calendarHighlightSchedule = null;
+        closeEventPopover();
+        renderCalendar();
+        const button = calendarHighlightButton;
+        const schedule = calendarHighlightSchedule;
+        if (button) {
+            button.scrollIntoView({ block: "center" });
+        }
+        if (button && schedule) {
+            setTimeout(() => openEventPopover(schedule, button), 1400);
+        }
+    };
     function openEventPopover(schedule, eventElement) {
         calendarSelectedSchedule = schedule;
         const popover = document.getElementById("calendarEventPopover");
         document.getElementById("popoverTitle").textContent = schedule.title;
         document.getElementById("popoverEquipment").textContent =
             schedule.equipment;
+        const identityEl = document.getElementById("popoverIdentity");
+        if (identityEl) {
+            const identity = schedule.identity || "";
+            identityEl.textContent = identity;
+            identityEl.classList.toggle("hidden", identity === "");
+        }
         document.getElementById("popoverRoom").textContent = schedule.room;
         document.getElementById("popoverFrequency").textContent =
             schedule.frequency;
@@ -3407,12 +3712,17 @@
     function viewScheduleById(scheduleId) {
         // FIND THE SCHEDULE FROM THE CALENDAR DATA
         const schedule = calendarSchedules.find(
-            (item) => Number(item.id) === Number(scheduleId),
+            (item) => String(item.id) === String(scheduleId),
         );
 
         // STOP IF SCHEDULE DOES NOT EXIST
         if (!schedule) {
             console.error("Schedule not found:", scheduleId);
+            return;
+        }
+
+        if (schedule.kind && schedule.kind !== "equipment" && schedule.href) {
+            window.location.href = schedule.href;
             return;
         }
 
@@ -3716,6 +4026,10 @@
     }
     function viewSelectedSchedule() {
         if (!calendarSelectedSchedule) return;
+        if (calendarSelectedSchedule.kind && calendarSelectedSchedule.kind !== "equipment" && calendarSelectedSchedule.href) {
+            window.location.href = calendarSelectedSchedule.href;
+            return;
+        }
         viewSchedule(calendarSelectedSchedule);
         closeEventPopover();
     }

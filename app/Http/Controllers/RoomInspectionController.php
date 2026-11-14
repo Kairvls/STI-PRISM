@@ -109,11 +109,38 @@ class RoomInspectionController extends Controller
 
         $rooms = $this->roomsWithDepartments();
 
+        $upcomingBase = (clone $base)
+            ->where('s.room_inspection_schedule_status', '!=', 'Completed')
+            ->whereNotNull('s.room_inspection_schedule_next_date')
+            ->whereDate('s.room_inspection_schedule_next_date', '>=', today()->toDateString());
+
+        $upcomingColumns = [
+            's.room_inspection_schedule_id',
+            's.room_inspection_schedule_title',
+            's.room_inspection_schedule_frequency',
+            's.room_inspection_schedule_next_date',
+            's.room_inspection_schedule_notes',
+            's.room_inspection_schedule_checklist',
+            'rooms_table.room_name',
+            'rooms_table.room_type',
+        ];
+        if ($hasDepartmentColumn && $hasDepartmentsTable) {
+            $upcomingColumns[] = 'dept.department_name';
+        }
+
+        $upcomingInspections = (clone $upcomingBase)
+            ->orderBy('s.room_inspection_schedule_next_date')
+            ->orderBy('rooms_table.room_name')
+            ->limit(5)
+            ->get($upcomingColumns);
+
         return view('maintenance-personnel.maintenance-schedules.rooms', [
             'tablesMissing' => false,
             'schedules' => $schedules,
             'stats' => $stats,
             'recentLogs' => $recentLogs,
+            'upcomingInspections' => $upcomingInspections,
+            'upcomingTotal' => (clone $upcomingBase)->count(),
             'rooms' => $rooms,
             'frequencies' => RoomInspections::FREQUENCIES,
             'defaultNextDate' => today()->toDateString(),

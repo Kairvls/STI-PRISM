@@ -323,3 +323,9 @@ Because the Edit Roles modal hides additional roles unless both are true:
 Staff (employment type Staff, or ID ending in S)
 IT Department
 Mark’s ID is OMC00123F (F = Faculty), so the UI treats him as not Staff. Then syncEditAdditionalRolesVisibility() hides the whole additional-roles block — even though he already has Purchaser in the database.
+
+in the system if you have held equipments like computer set or not make it in the reporting modal here you can easy access your own/held equipment so that you can easily report it like open one computer set then theres a tree line of equipments belong in that computer set then for the location maybe wire it like if you are in the system that you have department then that department has room so that room where you are is where your equipment right? so maybe auto detect but can still optionally select location
+
+should we make this part accountable person... like what i mean is who ever held that computer set.. equipment in that computer set will be held also by that person like ana reyes held/own computer set 2 then equipments inside that set will be held/own also by ana reyes, am i right?
+
+also what i mean here if you're a person with computer set or equipment held.. add another ui or feature where you can easy access your equipment or equipment inside you computer set thats where the tree line used

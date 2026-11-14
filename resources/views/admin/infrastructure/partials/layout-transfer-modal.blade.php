@@ -14,11 +14,27 @@
             <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold tracking-tight text-slate-950">
-                        Transfer to another room
+                        <span x-text="layoutTransferSet ? 'Transfer computer set' : 'Transfer to another room'"></span>
                     </h2>
                     <p class="mt-1 truncate text-sm text-slate-500">
-                        <span x-text="layoutTransferAsset?.name || 'Equipment'"></span>
-                        <span x-show="layoutTransferAsset?.asset_tag" x-text="' · ' + layoutTransferAsset.asset_tag"></span>
+                        <template x-if="layoutTransferSet">
+                            <span>
+                                <span x-text="layoutTransferSet.tag || layoutTransferSet.name || 'Computer set'"></span>
+                                <span x-show="layoutTransferSet.member_count" x-text="' · ' + layoutTransferSet.member_count + ' component' + (Number(layoutTransferSet.member_count) === 1 ? '' : 's')"></span>
+                            </span>
+                        </template>
+                        <template x-if="!layoutTransferSet">
+                            <span>
+                                <span x-text="layoutTransferAsset?.name || 'Equipment'"></span>
+                                <span x-show="layoutTransferAsset?.asset_tag" x-text="' · ' + layoutTransferAsset.asset_tag"></span>
+                            </span>
+                        </template>
+                    </p>
+                    <p
+                        x-show="layoutTransferSet"
+                        class="mt-2 text-xs leading-snug text-slate-500"
+                    >
+                        Moves the set’s room and every part still with the set. Deployed parts stay where they are.
                     </p>
                 </div>
                 <button
@@ -84,7 +100,7 @@
                     @click="confirmLayoutTransfer()"
                     :disabled="layoutTransferring || !layoutTransferRoomId"
                     class="h-10 rounded-xl bg-[#005EA6] px-5 text-sm font-semibold text-white transition hover:bg-[#004b86] disabled:cursor-not-allowed disabled:opacity-50"
-                    x-text="layoutTransferring ? 'Transferring…' : 'Transfer'"
+                    x-text="layoutTransferring ? 'Transferring…' : (layoutTransferSet ? 'Transfer set' : 'Transfer')"
                 ></button>
             </div>
         </div>

@@ -293,8 +293,8 @@
             if (type === 'success' && !/^done\b/i.test(clean) && !clean.includes('•')) {
                 return 'Done • ' + clean;
             }
-            if (type === 'error' && !/^error\b/i.test(clean) && !clean.includes('•')) {
-                return 'Error • ' + clean;
+            if (type === 'error' && !/^notice\b/i.test(clean) && !/^error\b/i.test(clean) && !clean.includes('•')) {
+                return 'Notice • ' + clean;
             }
             if (type === 'warning' && !/^warning\b/i.test(clean) && !clean.includes('•')) {
                 return 'Warning • ' + clean;

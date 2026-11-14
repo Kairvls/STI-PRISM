@@ -689,6 +689,7 @@ Route::middleware(['auth', 'admin'])
         // QR tools: generate, print and download equipment QR labels
         Route::get('/qr-tools', [QRController::class, 'qrTools'])->name('qr-tools.index');
         Route::post('/qr-tools/generate/{id}', [QRController::class, 'generateQr'])->whereNumber('id')->name('qr-tools.generate');
+        Route::post('/qr-tools/generate-set/{id}', [QRController::class, 'generateComputerSetQr'])->whereNumber('id')->name('qr-tools.generate-set');
         Route::get('/qr-tools/print', [QRController::class, 'printLabels'])->name('qr-tools.print-batch');
         Route::get('/qr-tools/{code}/print', [QRController::class, 'printLabel'])->name('qr-tools.print');
         Route::get('/qr-tools/{code}/pdf', [QRController::class, 'downloadQrPdf'])->name('qr-tools.pdf');
@@ -713,6 +714,9 @@ Route::middleware(['auth', 'admin'])
         Route::post('/equipment/suggested-issues/{issueId}/checks/{checkId}/move', [IssueCheckController::class, 'move'])->whereNumber(['issueId', 'checkId'])->name('suggested-issues.checks.move');
 
         // Maintenance Schedule: same module as /maintenance/schedules (equipment, room and semestral types)
+        Route::get('/lifespan-broadcasts', [MaintenanceController::class, 'lifespanBroadcasts'])->name('lifespan-broadcasts.index');
+        Route::post('/lifespan-broadcasts/{equipment}', [MaintenanceController::class, 'updateLifespanBroadcast'])->whereNumber('equipment')->name('lifespan-broadcasts.update');
+        Route::get('/schedules/all', [MaintenanceController::class, 'allSchedules'])->name('schedules.all');
         Route::get('/schedules', [MaintenanceController::class, 'schedules'])->name('schedules.index');
         Route::post('/schedules/store', [MaintenanceController::class, 'storeSchedule'])->name('schedules.store');
         Route::post('/schedules/complete', [MaintenanceController::class, 'completeSchedule'])->name('schedules.complete');
@@ -758,9 +762,12 @@ Route::middleware(['auth', 'admin'])
         Route::post('/computer-sets', [ComputerSetController::class, 'store'])->name('computer-sets.store');
         Route::get('/computer-sets/{id}', [ComputerSetController::class, 'show'])->whereNumber('id')->name('computer-sets.show');
         Route::put('/computer-sets/{id}', [ComputerSetController::class, 'update'])->whereNumber('id')->name('computer-sets.update');
+        Route::post('/computer-sets/{id}/transfer', [ComputerSetController::class, 'transferRoom'])->whereNumber('id')->name('computer-sets.transfer');
         Route::post('/computer-sets/{id}/members', [ComputerSetController::class, 'syncMembers'])->whereNumber('id')->name('computer-sets.members.sync');
         Route::post('/computer-sets/{id}/members/add', [ComputerSetController::class, 'addMember'])->whereNumber('id')->name('computer-sets.members.add');
         Route::post('/computer-sets/{id}/members/remove', [ComputerSetController::class, 'removeMember'])->whereNumber('id')->name('computer-sets.members.remove');
+        Route::post('/computer-sets/{id}/members/deploy', [ComputerSetController::class, 'deployMember'])->whereNumber('id')->name('computer-sets.members.deploy');
+        Route::post('/computer-sets/{id}/members/return', [ComputerSetController::class, 'returnMember'])->whereNumber('id')->name('computer-sets.members.return');
         Route::post('/computer-sets/{id}/members/replace', [ComputerSetController::class, 'replaceMember'])->whereNumber('id')->name('computer-sets.members.replace');
 
         // ==========================================
@@ -1796,6 +1803,21 @@ Route::get(
 | CREATE SCHEDULE
 |--------------------------------------------------------------------------
 */
+
+Route::get(
+    '/maintenance/lifespan-broadcasts',
+    [MaintenanceController::class, 'lifespanBroadcasts']
+)->name('maintenance.lifespan-broadcasts.index');
+
+Route::post(
+    '/maintenance/lifespan-broadcasts/{equipment}',
+    [MaintenanceController::class, 'updateLifespanBroadcast']
+)->whereNumber('equipment')->name('maintenance.lifespan-broadcasts.update');
+
+Route::get(
+    '/maintenance/schedules/all',
+    [MaintenanceController::class, 'allSchedules']
+);
 
 Route::get(
     '/maintenance/schedules',

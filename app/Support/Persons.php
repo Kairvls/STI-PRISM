@@ -560,7 +560,27 @@ class Persons
             if (Schema::hasColumn('custodians_table', 'custodian_department_id')) {
                 $payload['custodian_department_id'] = $person->person_department_id;
             }
+
+            // Linked rows (person_id) always get the campus directory values.
             DB::table('custodians_table')->where('person_id', $personId)->update($payload);
+
+            // Also sync any property-person row that shares the employee ID but was
+            // created before the Faculty & Staff link existed. Attach person_id only
+            // when this person is not already linked (unique person_id).
+            $employeeId = strtoupper(trim((string) ($person->person_employee_id ?? '')));
+            if ($employeeId !== '') {
+                $orphanQuery = DB::table('custodians_table')
+                    ->whereRaw('UPPER(TRIM(custodian_employee_id)) = ?', [$employeeId])
+                    ->whereNull('person_id');
+
+                $alreadyLinked = DB::table('custodians_table')
+                    ->where('person_id', $personId)
+                    ->exists();
+
+                $orphanQuery->update(
+                    $alreadyLinked ? $payload : ($payload + ['person_id' => $personId])
+                );
+            }
         }
 
         if (self::hasPersonLink('users_table')) {
@@ -582,5 +602,65 @@ class Persons
         }
 
         return self::create($data);
+    }
+
+    /**
+     * Property Assignment (and later overlays) write campus identity through Faculty & Staff.
+     * Returns person_id, or null when the person is external / has no valid employee ID.
+     *
+     * @param  array<string, mixed>  $custodianData
+     */
+    public static function writeThroughFromCustodian(array $custodianData, ?int $existingPersonId = null): ?int
+    {
+        if (! self::tableReady()) {
+            return $existingPersonId ?: null;
+        }
+
+        $affiliation = (string) ($custodianData['custodian_affiliation'] ?? Custodians::AFFILIATION_CAMPUS);
+        if ($affiliation === Custodians::AFFILIATION_EXTERNAL) {
+            return null;
+        }
+
+        $employeeId = self::normalizeEmployeeId($custodianData['custodian_employee_id'] ?? '');
+        if ($employeeId === '' || ! preg_match(self::EMPLOYEE_ID_REGEX, $employeeId)) {
+            return $existingPersonId ?: null;
+        }
+
+        $position = trim((string) ($custodianData['custodian_position'] ?? ''));
+        $type = in_array($position, self::TYPES, true)
+            ? $position
+            : (str_ends_with($employeeId, 'S') ? 'Staff' : 'Faculty');
+
+        $status = ($custodianData['custodian_status'] ?? null) === self::STATUS_INACTIVE
+            ? self::STATUS_INACTIVE
+            : self::STATUS_ACTIVE;
+
+        $mapped = [
+            'employee_id' => $employeeId,
+            'type' => $type,
+            'first_name' => $custodianData['custodian_first_name'] ?? '',
+            'middle_name' => $custodianData['custodian_middle_name'] ?? '',
+            'last_name' => $custodianData['custodian_last_name'] ?? '',
+            'employment_basis' => $custodianData['custodian_employment_basis'] ?? null,
+            'department_id' => $custodianData['custodian_department_id'] ?? null,
+            'email' => $custodianData['custodian_email_address'] ?? null,
+            'contact' => $custodianData['custodian_contact_number'] ?? null,
+            'status' => $status,
+        ];
+
+        $personId = $existingPersonId ?: null;
+        if (! $personId) {
+            $existing = self::findByEmployeeId($employeeId);
+            $personId = $existing ? (int) $existing->person_id : null;
+        }
+
+        if ($personId) {
+            self::update($personId, $mapped);
+        } else {
+            $personId = self::create($mapped);
+            self::syncOverlayIdentity($personId);
+        }
+
+        return $personId;
     }
 }

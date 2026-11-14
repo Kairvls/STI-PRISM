@@ -101,14 +101,7 @@
 
         </a>
 
-        {{-- ====================================== --}}
-        {{-- CAMPUS / LOCATION --}}
-        {{-- ====================================== --}}
-
         @php
-            $pendingTransferApprovals = \App\Support\TransferRequests::pendingCount();
-            $pendingDisposalApprovals = \App\Support\DisposalRequests::pendingCount();
-
             $campusLinks = [
                 [
                     'url' => route('admin.operations.building-layout'),
@@ -140,6 +133,85 @@
                 ],
             ];
             $campusGroupActive = collect($campusLinks)->contains('active', true);
+        @endphp
+
+        <div class="menu-group {{ $campusGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $campusGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $campusGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="building-2"></i>
+                <span>Facilities</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if (! $campusGroupActive) hidden @endif>
+                @foreach ($campusLinks as $link)
+                    <a
+                        href="{{ $link['url'] }}"
+                        class="menu-sub-item {{ $link['active'] ? 'active' : '' }}"
+                        data-nav-prefetch
+                    >
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        @php
+            $peopleLinks = [
+                [
+                    'url' => route('admin.persons.index'),
+                    'label' => 'Faculty & Staff',
+                    'icon' => 'users',
+                    'active' => request()->is('admin/persons*'),
+                ],
+                [
+                    'url' => route('admin.reporters.index'),
+                    'label' => 'Reporters Directory',
+                    'icon' => 'contact',
+                    'active' => request()->is('admin/reporters*'),
+                ],
+                [
+                    'url' => route('admin.users'),
+                    'label' => 'System Users',
+                    'icon' => 'user-cog',
+                    'active' => request()->is('admin/users*'),
+                ],
+            ];
+            $peopleGroupActive = collect($peopleLinks)->contains('active', true);
+        @endphp
+
+        <div class="menu-group {{ $peopleGroupActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $peopleGroupActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $peopleGroupActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="users"></i>
+                <span>User Management</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
+            </button>
+            <div class="menu-sub" @if (! $peopleGroupActive) hidden @endif>
+                @foreach ($peopleLinks as $link)
+                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
+                        <i data-lucide="{{ $link['icon'] }}"></i>
+                        <span>{{ $link['label'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- ====================================== --}}
+        {{-- EQUIPMENT MENU DATA --}}
+        {{-- ====================================== --}}
+
+        @php
+            $pendingTransferApprovals = \App\Support\TransferRequests::pendingCount();
+            $pendingDisposalApprovals = \App\Support\DisposalRequests::pendingCount();
 
             $equipmentGroups = [
                 [
@@ -190,10 +262,16 @@
                     'icon' => 'wrench',
                     'links' => [
                         [
-                            'url' => route('admin.schedules.index'),
+                            'url' => route('admin.schedules.all'),
                             'label' => 'Maintenance Schedule',
                             'icon' => 'calendar-days',
                             'active' => request()->is('admin/schedules*', 'admin/semester-inspections*', 'admin/operations/schedules*'),
+                        ],
+                        [
+                            'url' => route('admin.lifespan-broadcasts.index'),
+                            'label' => 'Lifespan broadcasts',
+                            'icon' => 'hourglass',
+                            'active' => request()->is('admin/lifespan-broadcasts*'),
                         ],
                         [
                             'url' => route('admin.property-assignments.index'),
@@ -306,33 +384,6 @@
             $recordsOverviewActive = collect($recordsOverviewLinks)->contains('active', true);
         @endphp
 
-        <div class="menu-title" id="campus-section">
-
-            SPACES
-
-        </div>
-
-        <div class="menu-group {{ $campusGroupActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $campusGroupActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $campusGroupActive ? 'true' : 'false' }}"
-            >
-                <i data-lucide="building-2"></i>
-                <span>Facilities</span>
-                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-            </button>
-            <div class="menu-sub" @if (! $campusGroupActive) hidden @endif>
-                @foreach ($campusLinks as $link)
-                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
-                        <i data-lucide="{{ $link['icon'] }}"></i>
-                        <span>{{ $link['label'] }}</span>
-                    </a>
-                @endforeach
-            </div>
-        </div>
-
         <div class="menu-title" id="monitoring-section">
 
             EQUIPMENT
@@ -404,58 +455,13 @@
         </div>
 
         {{-- ====================================== --}}
-        {{-- PEOPLE --}}
+        {{-- REPORTS --}}
         {{-- ====================================== --}}
-
-        @php
-            $peopleLinks = [
-                [
-                    'url' => route('admin.persons.index'),
-                    'label' => 'Faculty & Staff',
-                    'icon' => 'users',
-                    'active' => request()->is('admin/persons*'),
-                ],
-                [
-                    'url' => route('admin.reporters.index'),
-                    'label' => 'Reporters Directory',
-                    'icon' => 'contact',
-                    'active' => request()->is('admin/reporters*'),
-                ],
-                [
-                    'url' => route('admin.users'),
-                    'label' => 'System Users',
-                    'icon' => 'user-cog',
-                    'active' => request()->is('admin/users*'),
-                ],
-            ];
-            $peopleGroupActive = collect($peopleLinks)->contains('active', true);
-        @endphp
 
         <div class="menu-title" id="users-section">
 
-            PERSONNEL &amp; REPORTS
+            REPORTS
 
-        </div>
-
-        <div class="menu-group {{ $peopleGroupActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $peopleGroupActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $peopleGroupActive ? 'true' : 'false' }}"
-            >
-                <i data-lucide="users"></i>
-                <span>User Management</span>
-                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-            </button>
-            <div class="menu-sub" @if (! $peopleGroupActive) hidden @endif>
-                @foreach ($peopleLinks as $link)
-                    <a href="{{ $link['url'] }}" class="menu-sub-item {{ $link['active'] ? 'active' : '' }}">
-                        <i data-lucide="{{ $link['icon'] }}"></i>
-                        <span>{{ $link['label'] }}</span>
-                    </a>
-                @endforeach
-            </div>
         </div>
 
         <div class="menu-group {{ $reportsSectionActive ? 'is-open' : '' }}" data-menu-group>

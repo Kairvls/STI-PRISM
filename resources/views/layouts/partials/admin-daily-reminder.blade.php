@@ -10,7 +10,7 @@
     $showDailyReminder = $attentionTotal > 0;
     $overdueBorrowsUrl = $overdueBorrows > 0 ? route('admin.borrowing.index', ['focus' => \App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE]) : null;
     $overdueSchedulesUrl = $overdueSchedules > 0
-        ? route('admin.schedules.index', ['focus' => \App\Support\MaintenanceAttentionSummary::FOCUS_OVERDUE])
+        ? route('admin.schedules.all')
         : null;
     $pendingRisUrl = \App\Support\AdminPortal::route('procurement-review', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_PENDING_REVIEW]);
     $awaitingCosignUrl = \App\Support\AdminPortal::route('digital-signatures.sign-ris', ['focus' => \App\Support\AdminAttentionSummary::FOCUS_AWAITING_COSIGN]);

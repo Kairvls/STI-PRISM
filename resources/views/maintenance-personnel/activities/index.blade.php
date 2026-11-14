@@ -1,6 +1,6 @@
 @extends("layouts.maintenance-layout")
 
-@section("title", "Activity History")
+@section("title", "Recent Activities")
 
 @section("content")
 
@@ -33,7 +33,7 @@
                     Dashboard
                 </a>
                 <i data-lucide="chevron-right" class="h-4 w-4"></i>
-                <span class="font-medium text-slate-600">Activity history</span>
+                <span class="font-medium text-slate-600">Recent Activities</span>
             </div>
 
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -173,10 +173,15 @@
                                 {{ \Carbon\Carbon::parse($activity->audit_log_created_at)->format("M d, Y · h:i A") }}
                             </span>
 
-                            @if ($activity->audit_log_reference_id)
+                            @if (!empty($activity->ticket_label))
                                 <span class="inline-flex items-center gap-1.5">
                                     <i data-lucide="hash" class="h-3.5 w-3.5"></i>
-                                    Reference #{{ $activity->audit_log_reference_id }}
+                                    {{ $activity->ticket_label }}
+                                </span>
+                            @elseif ($activity->audit_log_reference_id)
+                                <span class="inline-flex items-center gap-1.5">
+                                    <i data-lucide="hash" class="h-3.5 w-3.5"></i>
+                                    Reference {{ $activity->audit_log_reference_id }}
                                 </span>
                             @endif
                         </div>

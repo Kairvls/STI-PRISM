@@ -702,4 +702,80 @@ class ReportGrouping
 
         return null;
     }
+
+    /**
+     * @return list<int>
+     */
+    public static function extractReportHashIds(?string $text): array
+    {
+        if (! preg_match_all('/\bReport\s*#(\d+)\b/i', (string) $text, $matches)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('intval', $matches[1])));
+    }
+
+    /**
+     * Load report rows keyed by id for ticket rewriting on activity text.
+     *
+     * @param  iterable<object>  $activities
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public static function reportsForTicketRewrite(iterable $activities): \Illuminate\Support\Collection
+    {
+        $ids = [];
+        foreach ($activities as $activity) {
+            foreach (self::extractReportHashIds($activity->audit_log_description ?? null) as $id) {
+                $ids[] = $id;
+            }
+            if (($activity->audit_log_table_name ?? '') === 'reports_table'
+                && filled($activity->audit_log_reference_id ?? null)) {
+                $ids[] = (int) $activity->audit_log_reference_id;
+            }
+        }
+
+        $ids = array_values(array_unique(array_filter($ids)));
+        if ($ids === []) {
+            return collect();
+        }
+
+        return \Illuminate\Support\Facades\DB::table('reports_table')
+            ->whereIn('report_id', $ids)
+            ->get(['report_id', 'report_submitted_at'])
+            ->keyBy('report_id');
+    }
+
+    /**
+     * Replace "Report #74" with the real ticket (RPT-…) for display. Missing/zero ids become "-".
+     *
+     * @param  iterable<int|string, object|string|null>  $reportsById  report_id => report row or submitted_at
+     */
+    public static function rewriteReportHashes(?string $text, iterable $reportsById = []): string
+    {
+        $text = (string) ($text ?? '');
+        if ($text === '') {
+            return $text;
+        }
+
+        $byId = [];
+        foreach ($reportsById as $key => $row) {
+            $byId[(int) (is_object($row) ? ($row->report_id ?? $key) : $key)] = $row;
+        }
+
+        $rewritten = preg_replace_callback('/\bReport\s*#(\d+)\b/i', function (array $match) use ($byId) {
+            $id = (int) $match[1];
+            if ($id <= 0) {
+                return '-';
+            }
+
+            $row = $byId[$id] ?? null;
+            if (is_object($row)) {
+                return self::ticketCode($row);
+            }
+
+            return self::ticketCode($id, $row);
+        }, $text);
+
+        return $rewritten ?? $text;
+    }
 }

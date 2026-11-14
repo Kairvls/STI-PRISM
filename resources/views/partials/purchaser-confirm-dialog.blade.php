@@ -63,6 +63,9 @@
         var cancelText = options.cancelText || 'Cancel';
         var danger = !!options.danger;
         var kind = options.kind || (danger ? 'danger' : 'submit');
+        var alignTop = options.align === 'top';
+        var large = !!options.large;
+        var showClose = !!options.close;
         var reviewerRole = options.reviewerRole || null;
         var reviewers = reviewerRole
             ? ((window.purReviewerOptions && window.purReviewerOptions[reviewerRole]) || [])
@@ -74,7 +77,9 @@
 
             var overlay = document.createElement('div');
             overlay.id = 'purConfirmOverlay';
-            overlay.className = 'fixed inset-0 z-[12000] flex items-center justify-center bg-black/50 p-4';
+            overlay.className = alignTop
+                ? 'fixed inset-0 z-[12000] flex items-start justify-center bg-black/50 px-4 pt-16'
+                : 'fixed inset-0 z-[12000] flex items-center justify-center bg-black/50 p-4';
             overlay.setAttribute('role', 'dialog');
             overlay.setAttribute('aria-modal', 'true');
             overlay.setAttribute('aria-labelledby', 'purConfirmTitle');
@@ -108,16 +113,27 @@
                     + '</div>';
             }
 
+            var titleClass = large
+                ? 'text-lg font-semibold tracking-tight text-slate-900'
+                : 'text-[15px] font-semibold tracking-tight text-slate-900';
+            var textClass = large
+                ? 'mt-1.5 text-base leading-relaxed text-slate-500'
+                : 'mt-1.5 text-sm leading-relaxed text-slate-500';
+            var closeHtml = showClose
+                ? '<button type="button" data-pur-close class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>'
+                : '';
+
             overlay.innerHTML =
-                '<div class="w-full max-w-[400px] overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80" data-pur-confirm-card>'
-                +   '<div class="px-5 pt-5 pb-1">'
+                '<div class="relative w-full max-w-[400px] overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80" data-pur-confirm-card>'
+                +   closeHtml
+                +   '<div class="px-5 pt-5 pb-1' + (showClose ? ' pr-12' : '') + '">'
                 +     '<div class="flex items-start gap-3">'
                 +       '<div class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + iconWrap + '">'
                 +         iconSvg(kind)
                 +       '</div>'
                 +       '<div class="min-w-0 flex-1 pt-0.5">'
-                +         '<h3 id="purConfirmTitle" class="text-[15px] font-semibold tracking-tight text-slate-900">' + escapeHtml(title) + '</h3>'
-                +         '<p class="mt-1.5 text-sm leading-relaxed text-slate-500">' + escapeHtml(text) + '</p>'
+                +         '<h3 id="purConfirmTitle" class="' + titleClass + '">' + escapeHtml(title) + '</h3>'
+                +         '<p class="' + textClass + '">' + escapeHtml(text) + '</p>'
                 +       '</div>'
                 +     '</div>'
                 +     reviewerHtml
@@ -166,6 +182,8 @@
                 if (e.target === overlay) finish(false);
             });
             overlay.querySelector('[data-pur-cancel]').addEventListener('click', function () { finish(false); });
+            var closeBtn = overlay.querySelector('[data-pur-close]');
+            if (closeBtn) closeBtn.addEventListener('click', function () { finish(false); });
             overlay.querySelector('[data-pur-ok]').addEventListener('click', tryConfirm);
             document.addEventListener('keydown', onKey);
 
@@ -200,7 +218,10 @@
             confirmText: confirmText,
             danger: danger,
             kind: kind,
-            reviewerRole: reviewerRole
+            reviewerRole: reviewerRole,
+            align: form.getAttribute('data-pur-confirm-align') || '',
+            large: form.getAttribute('data-pur-confirm-large') === '1',
+            close: form.getAttribute('data-pur-confirm-close') === '1'
         }).then(function (result) {
             if (!result) return;
             if (result && result.reviewerId) {

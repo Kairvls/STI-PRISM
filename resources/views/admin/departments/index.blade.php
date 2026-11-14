@@ -277,53 +277,17 @@
                                     </td>
                                     <td class="px-5 py-3">
                                         @php
-                                            $deptRooms = collect($dept->rooms ?? []);
-                                            $visibleRooms = $deptRooms->take(2);
-                                            $extraRoomCount = max(0, $deptRooms->count() - 2);
+                                            $deptRoom = collect($dept->rooms ?? [])->first();
                                         @endphp
-                                        @if ($deptRooms->isEmpty())
+                                        @if (! $deptRoom)
                                             <span class="text-slate-400">None yet</span>
+                                        @elseif ($readOnly)
+                                            <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{{ $deptRoom['name'] ?? $deptRoom }}</span>
                                         @else
-                                            <div class="flex max-w-[260px] flex-wrap items-center gap-1">
-                                                @foreach ($visibleRooms as $room)
-                                                    @if ($readOnly)
-                                                        <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{{ $room['name'] ?? $room }}</span>
-                                                    @else
-                                                        <a
-                                                            href="{{ route('admin.rooms.index', ['search' => $room['name'] ?? '']) }}"
-                                                            class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 transition hover:bg-[#0037C7]/10 hover:text-[#0037C7]"
-                                                        >{{ $room['name'] ?? $room }}</a>
-                                                    @endif
-                                                @endforeach
-                                                @if ($extraRoomCount > 0)
-                                                    <span class="dept-room-more relative inline-flex shrink-0" data-dept-room-more>
-                                                        <button
-                                                            type="button"
-                                                            data-dept-room-more-btn
-                                                            aria-expanded="false"
-                                                            onclick="toggleDeptRoomMore(this, event)"
-                                                            class="inline-flex items-center rounded-md bg-[#0037C7]/10 px-1.5 py-0.5 text-[10px] font-bold leading-4 text-[#0037C7] ring-1 ring-[#0037C7]/20 transition hover:bg-[#0037C7] hover:text-white"
-                                                        >
-                                                            +{{ $extraRoomCount }}
-                                                        </button>
-                                                        <span class="dept-room-more-panel" role="tooltip">
-                                                            <span class="block px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                                                All rooms · {{ $deptRooms->count() }}
-                                                            </span>
-                                                            @foreach ($deptRooms as $room)
-                                                                @if ($readOnly)
-                                                                    <span class="block truncate px-3 py-1.5 text-xs font-medium text-slate-700">{{ $room['name'] ?? $room }}</span>
-                                                                @else
-                                                                    <a
-                                                                        href="{{ route('admin.rooms.index', ['search' => $room['name'] ?? '']) }}"
-                                                                        class="block truncate px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#0037C7]"
-                                                                    >{{ $room['name'] ?? $room }}</a>
-                                                                @endif
-                                                            @endforeach
-                                                        </span>
-                                                    </span>
-                                                @endif
-                                            </div>
+                                            <a
+                                                href="{{ route('admin.rooms.index', ['search' => $deptRoom['name'] ?? '']) }}"
+                                                class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 transition hover:bg-[#0037C7]/10 hover:text-[#0037C7]"
+                                            >{{ $deptRoom['name'] ?? $deptRoom }}</a>
                                         @endif
                                     </td>
                                     <td class="px-5 py-3">

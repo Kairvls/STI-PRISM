@@ -16,12 +16,10 @@
             </button>
             <div
                 id="modal_layout_icon_wrap"
-                class="hidden h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-slate-50 ring-1 ring-slate-200/80"
+                class="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-50 ring-1 ring-slate-200/80"
                 title="No image yet"
             >
-                <i data-lucide="image-off" class="h-4 w-4 text-slate-400"></i>
-                <span class="px-1 text-center text-[8px] font-semibold leading-tight text-slate-500">No image yet</span>
-                <span id="modal_layout_icon" class="hidden" aria-hidden="true"></span>
+                <span id="modal_layout_icon" class="inline-flex h-7 w-7 items-center justify-center [&_svg]:h-full [&_svg]:w-full"></span>
             </div>
 
             <div class="min-w-0 flex-1">

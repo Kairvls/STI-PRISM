@@ -1333,6 +1333,29 @@
             background: rgba(8, 145, 178, 0.25);
         }
 
+        .building-room-details-view:disabled,
+        .building-room-details-view.is-loading {
+            cursor: wait;
+            opacity: 0.85;
+            pointer-events: none;
+        }
+
+        .building-room-details-view.is-loading::after {
+            content: "";
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #fff;
+            animation: buildingRoomViewSpin 0.7s linear infinite;
+        }
+
+        @keyframes buildingRoomViewSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         .building-room-details-view svg {
             width: 14px;
             height: 14px;

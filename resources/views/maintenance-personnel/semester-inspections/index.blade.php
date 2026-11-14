@@ -13,16 +13,6 @@
 <div class="space-y-6">
     @if ($canManage)
     @include('maintenance-personnel.maintenance-schedules.partials.type-tabs')
-    <div class="flex justify-end">
-        <button
-            type="button"
-            onclick="window.dispatchEvent(new CustomEvent('open-create-campaign'))"
-            class="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001fad]"
-        >
-            <i data-lucide="plus" class="h-4 w-4"></i>
-            New schedule
-        </button>
-    </div>
     @endif
 
     @if ($tablesMissing)
@@ -33,6 +23,25 @@
 
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div class="flex flex-col gap-4 px-6 pb-2 pt-6 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-900">Semestral inspection schedules</h2>
+                    <p class="mt-0.5 text-sm text-slate-400">
+                        {{ number_format($campaigns->total()) }}
+                        {{ $campaigns->total() === 1 ? 'total schedule' : 'total schedules' }}
+                    </p>
+                </div>
+                @if ($canManage)
+                    <button
+                        type="button"
+                        onclick="window.dispatchEvent(new CustomEvent('open-create-campaign'))"
+                        class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        New schedule
+                    </button>
+                @endif
+            </div>
             @php
                 $selectClass = 'h-10 min-w-0 rounded-xl border-0 bg-slate-50 px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10 lg:flex-1';
             @endphp
@@ -96,12 +105,13 @@
                         $today = now()->startOfDay();
                         $days = $today->diffInDays($due, false);
                         $statusTone = match ($campaign->campaign_status) {
+                            'Active' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
                             'Completed' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
                             'Cancelled' => 'bg-slate-100 text-slate-600 ring-slate-200',
                             'Archived' => 'bg-slate-200/80 text-slate-600 ring-slate-300',
                             'In Progress' => 'bg-blue-50 text-blue-700 ring-blue-100',
                             'Draft' => 'bg-slate-50 text-slate-600 ring-slate-200',
-                            default => 'bg-amber-50 text-amber-700 ring-amber-100',
+                            default => 'bg-slate-100 text-slate-600 ring-slate-200',
                         };
                         $semester = trim((string) ($campaign->campaign_semester ?? ''));
                         $titleLower = mb_strtolower((string) ($campaign->campaign_title ?? ''));

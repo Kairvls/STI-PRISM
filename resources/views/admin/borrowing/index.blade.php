@@ -1062,7 +1062,7 @@
             </div>
 
             <form
-                method="POST"
+                method="POST" 
                 action="{{ route('admin.borrowing.store') }}"
                 class="flex min-h-0 flex-1 flex-col"
                 novalidate

@@ -58,11 +58,13 @@
                     <div>
 
                         <h2 class="text-sm font-semibold text-slate-900">
-                            Equipment QR Codes
+                            {{ ($tab ?? 'equipment') === 'sets' ? 'Computer set QR codes' : 'Equipment QR Codes' }}
                         </h2>
 
                         <p class="mt-0.5 text-xs text-slate-400">
-                            Select multiple rows to print different QR labels on one A4 sheet
+                            {{ ($tab ?? 'equipment') === 'sets'
+                                ? 'One set label opens the members list; each unit keeps its own equipment QR'
+                                : 'Select multiple rows to print different QR labels on one A4 sheet' }}
                         </p>
 
                     </div>
@@ -96,11 +98,28 @@
                             class="h-3.5 w-3.5"
                         ></i>
 
-                        {{ $equipment->total() }} total
+                        {{ ($tab ?? 'equipment') === 'sets' ? ($computerSets->total() ?? 0) : $equipment->total() }} total
                     </div>
                 </div>
 
             </div>
+
+            <div class="border-b border-slate-200 px-5 pt-3 pb-1">
+                <div class="inline-flex rounded-full bg-slate-100 p-1">
+                    <a
+                        href="{{ request()->fullUrlWithQuery(['tab' => 'equipment', 'page' => null]) }}"
+                        class="rounded-full px-4 py-1.5 text-sm font-semibold {{ ($tab ?? 'equipment') === 'equipment' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500' }}"
+                    >Equipment</a>
+                    <a
+                        href="{{ request()->fullUrlWithQuery(['tab' => 'sets', 'page' => null]) }}"
+                        class="rounded-full px-4 py-1.5 text-sm font-semibold {{ ($tab ?? 'equipment') === 'sets' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500' }}"
+                    >Computer sets</a>
+                </div>
+            </div>
+
+            @if (($tab ?? 'equipment') === 'sets')
+                @include('admin.qr-tools._computer-sets')
+            @else
 
             @if(!empty($attentionFocus))
                 <div class="px-5 pt-4">
@@ -521,10 +540,10 @@
 
 
                                             <p
-                                                class="mt-0.5 text-[11px]
-                                                    text-slate-400"
+                                                class="mt-0.5 max-w-[280px] truncate text-[11px] font-medium text-slate-500"
+                                                title="{{ \App\Support\EquipmentIdentity::label($item) ?: 'No asset tag / serial' }}"
                                             >
-                                                {{ $item->equipment_asset_tag ?? 'Equipment record' }}
+                                                {{ \App\Support\EquipmentIdentity::label($item) ?: 'No asset tag / serial' }}
                                             </p>
 
                                         </div>
@@ -691,64 +710,62 @@
 
                                 <td class="px-5 py-4 text-center">
 
-                                    <div
-                                        class="relative inline-block"
-                                        x-data="qrActionMenu()"
-                                    >
-
-                                        {{-- ACTION MENU BUTTON --}}
-                                        <button
-                                            type="button"
-                                            x-ref="trigger"
-
-                                            @click="toggle()"
-
-                                            @click.outside="open = false"
-
-                                            class="flex h-8 w-8 items-center
-                                                justify-center rounded-lg
-                                                text-slate-400 transition
-                                                hover:bg-slate-200/70
-                                                hover:text-slate-700"
-                                            data-tooltip="Actions"
-                                            aria-label="QR actions"
-                                        >
-                                            <i
-                                                data-lucide="ellipsis"
-                                                class="h-4 w-4"
-                                            ></i>
-                                        </button>
-
-
-
-                                        {{-- ACTION DROPDOWN --}}
+                                    @if ($hasQrCode)
                                         <div
-                                            x-ref="menu"
-
-                                            x-cloak
-
-                                            x-show="open"
-
-                                            x-transition
-
-                                            class="fixed z-[200] w-44 overflow-hidden
-                                                rounded-xl
-                                                border border-slate-200
-                                                bg-white p-1.5
-                                                text-left
-                                                shadow-lg shadow-slate-900/10"
+                                            class="relative inline-block"
+                                            x-data="qrActionMenu()"
                                         >
 
-                                            {{-- ================================= --}}
-                                            {{-- PREVIEW --}}
-                                            {{-- ================================= --}}
+                                            {{-- ACTION MENU BUTTON --}}
+                                            <button
+                                                type="button"
+                                                x-ref="trigger"
 
-                                            @if ($hasQrCode)
+                                                @click="toggle()"
+
+                                                @click.outside="open = false"
+
+                                                class="inline-flex h-8 w-8 items-center
+                                                    justify-center rounded-lg
+                                                    bg-slate-100
+                                                    text-slate-500 transition
+                                                    hover:bg-slate-200
+                                                    hover:text-slate-700"
+                                                data-tooltip="Actions"
+                                                aria-label="QR actions"
+                                            >
+                                                <i
+                                                    data-lucide="ellipsis"
+                                                    class="h-4 w-4"
+                                                ></i>
+                                            </button>
+
+
+
+                                            {{-- ACTION DROPDOWN --}}
+                                            <div
+                                                x-ref="menu"
+
+                                                x-cloak
+
+                                                x-show="open"
+
+                                                x-transition
+
+                                                class="fixed z-[200] w-44 overflow-hidden
+                                                    rounded-xl
+                                                    border border-slate-200
+                                                    bg-white p-1.5
+                                                    text-left
+                                                    shadow-lg shadow-slate-900/10"
+                                            >
 
                                                 <button
                                                     type="button"
 
                                                     @click="
+
+                                                        open = false;
 
                                                         openQrModal({
 
@@ -786,155 +803,15 @@
                                                     Preview QR code
                                                 </button>
 
-                                            
-
-                                            {{-- ===================================== --}}
-                                            {{-- PRINT QR DIRECTLY --}}
-                                            {{-- ===================================== --}}
-
-                                            <button
-                                                type="button"
-
-                                                @click="
-                                                    open = false;
-
-                                                    openQrPrint(
-                                                        @js($item->equipment_qr_code)
-                                                    );
-                                                "
-
-                                                class="flex w-full items-center
-                                                    gap-2.5 rounded-lg
-                                                    px-3 py-2
-                                                    text-xs font-medium
-                                                    text-slate-600
-                                                    transition
-                                                    hover:bg-slate-50
-                                                    hover:text-slate-900"
-                                            >
-
-                                                <i
-                                                    data-lucide="printer"
-                                                    class="h-3.5 w-3.5"
-                                                ></i>
-
-                                                Print QR
-
-                                            </button>
-
-                                            
-
-
-                                            {{-- ================================= --}}
-                                            {{-- COPY QR ID --}}
-                                            {{-- COPY THEN SHOW MINIMAL TOAST --}}
-                                            {{-- ================================= --}}
-
-                                            <button
-                                                type="button"
-                                                @click="
-                                                    open = false;
-                                                    copyQrId(@js($item->equipment_qr_code));
-                                                "
-                                                class="flex w-full items-center
-                                                    gap-2.5 rounded-lg
-                                                    px-3 py-2
-                                                    text-xs font-medium
-                                                    text-slate-600
-                                                    transition
-                                                    hover:bg-slate-50
-                                                    hover:text-slate-900"
-                                            >
-                                                <i
-                                                    data-lucide="copy"
-                                                    class="h-3.5 w-3.5"
-                                                ></i>
-
-                                                Copy QR ID
-                                            </button>
-
-                                            @endif
-
-                                            <div class="my-1 border-t border-slate-100"></div>
-
-
-
-                                            {{-- ================================= --}}
-                                            {{-- GENERATE / REGENERATE --}}
-                                            {{-- ================================= --}}
-
-                                            <form
-                                                method="POST"
-
-                                                action="{{ route('admin.qr-tools.generate', $item->equipment_id) }}"
-
-                                                @submit.prevent="confirmQrGenerate($el, {{ $hasQrCode ? 'true' : 'false' }}, @js($item->equipment_name))"
-                                            >
-
-                                                @csrf
-
-
-                                                <button
-                                                    type="submit"
-
-                                                    class="flex w-full items-center
-                                                        gap-2.5 rounded-lg
-                                                        px-3 py-2
-                                                        text-xs font-medium
-                                                        text-slate-600
-                                                        transition
-                                                        hover:bg-slate-50
-                                                        hover:text-slate-900"
-                                                >
-                                                    <i
-                                                        data-lucide="{{
-                                                            $hasQrCode
-                                                                ? "refresh-cw"
-                                                                : "qr-code"
-                                                        }}"
-                                                        class="h-3.5 w-3.5"
-                                                    ></i>
-
-
-                                                    {{
-                                                        $hasQrCode
-                                                            ? "Regenerate QR"
-                                                            : "Generate QR"
-                                                    }}
-
-                                                </button>
-
-                                            </form>
-
-
-
-                                            {{-- ================================= --}}
-                                            {{-- QR ACTIONS --}}
-                                            {{-- ================================= --}}
-
-                                            <!--@if ($hasQrCode)
-
-                                                <div
-                                                    class="my-1
-                                                        border-t border-slate-100"
-                                                ></div>
-
-
-                                                {{-- PRINT --}}
                                                 <button
                                                     type="button"
 
                                                     @click="
                                                         open = false;
 
-                                                        openQrModal(
-                                                            @js($item->equipment_name),
+                                                        openQrPrint(
                                                             @js($item->equipment_qr_code)
                                                         );
-
-                                                        $nextTick(() => {
-                                                            printQr();
-                                                        });
                                                     "
 
                                                     class="flex w-full items-center
@@ -946,33 +823,22 @@
                                                         hover:bg-slate-50
                                                         hover:text-slate-900"
                                                 >
+
                                                     <i
                                                         data-lucide="printer"
                                                         class="h-3.5 w-3.5"
                                                     ></i>
 
-                                                    Print QR code
+                                                    Print QR
+
                                                 </button>
 
-
-
-                                                {{-- DOWNLOAD --}}
                                                 <button
                                                     type="button"
-
                                                     @click="
                                                         open = false;
-
-                                                        openQrModal(
-                                                            @js($item->equipment_name),
-                                                            @js($item->equipment_qr_code)
-                                                        );
-
-                                                        $nextTick(() => {
-                                                            downloadQr();
-                                                        });
+                                                        copyQrId(@js($item->equipment_qr_code));
                                                     "
-
                                                     class="flex w-full items-center
                                                         gap-2.5 rounded-lg
                                                         px-3 py-2
@@ -983,18 +849,70 @@
                                                         hover:text-slate-900"
                                                 >
                                                     <i
-                                                        data-lucide="download"
+                                                        data-lucide="copy"
                                                         class="h-3.5 w-3.5"
                                                     ></i>
 
-                                                    Download QR code
+                                                    Copy QR ID
                                                 </button>
 
-                                            @endif-->
+                                                <div class="my-1 border-t border-slate-100"></div>
+
+                                                <form
+                                                    method="POST"
+
+                                                    action="{{ route('admin.qr-tools.generate', $item->equipment_id) }}"
+
+                                                    @submit.prevent="open = false; confirmQrGenerate($el, true, @js($item->equipment_name))"
+                                                >
+
+                                                    @csrf
+
+
+                                                    <button
+                                                        type="submit"
+
+                                                        class="flex w-full items-center
+                                                            gap-2.5 rounded-lg
+                                                            px-3 py-2
+                                                            text-xs font-medium
+                                                            text-slate-600
+                                                            transition
+                                                            hover:bg-slate-50
+                                                            hover:text-slate-900"
+                                                    >
+                                                        <i
+                                                            data-lucide="refresh-cw"
+                                                            class="h-3.5 w-3.5"
+                                                        ></i>
+
+                                                        Regenerate QR
+
+                                                    </button>
+
+                                                </form>
+
+                                            </div>
 
                                         </div>
-
-                                    </div>
+                                    @else
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.qr-tools.generate', $item->equipment_id) }}"
+                                            @submit.prevent="confirmQrGenerate($el, false, @js($item->equipment_name))"
+                                            class="inline-flex"
+                                        >
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fad]"
+                                                data-tooltip="Generate QR"
+                                                aria-label="Generate QR"
+                                            >
+                                                <i data-lucide="qr-code" class="h-4 w-4"></i>
+                                            </button>
+                                        </form>
+                                    @endif
 
                                 </td>
 
@@ -1145,6 +1063,8 @@
             {{-- BATCH PRINT BAR --}}
             {{-- ===================================================== --}}
 
+            @endif
+
             <div
                 x-show="selected.length > 0"
                 x-cloak
@@ -1206,7 +1126,7 @@
             <div class="flex items-start justify-between gap-4 px-6 pt-6 pb-2">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">
-                        Preview QR Label
+                        QR code
                     </h2>
                     <p class="mt-1 truncate text-sm text-slate-500" x-text="equipment"></p>
                 </div>
@@ -1227,43 +1147,44 @@
                     <div class="rounded-xl border border-slate-200 bg-white p-4">
                         <img
                             :src="qrImage"
-                            alt="Equipment QR code"
+                            alt="QR code"
                             class="h-52 w-52 object-contain"
                         >
                     </div>
+                    <p class="mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-400">QR code</p>
                     <p
-                        class="mt-4 max-w-full break-all text-center font-mono text-sm font-semibold tracking-wide text-slate-900"
+                        class="mt-1 max-w-full break-all text-center font-mono text-sm font-semibold tracking-wide text-slate-900"
                         x-text="qrCode"
                     ></p>
                 </div>
 
                 <dl class="mt-8 divide-y divide-slate-100 border-t border-slate-100">
                     <div class="flex items-baseline justify-between gap-6 py-3">
-                        <dt class="text-sm text-slate-500">Asset Tag</dt>
+                        <dt class="text-sm text-slate-500" x-text="kind === 'computer_set' ? 'Set tag' : 'Asset Tag'"></dt>
                         <dd
                             class="truncate text-sm font-medium text-slate-900"
                             x-text="assetTag || 'Not Assigned'"
                         ></dd>
                     </div>
                     <div class="flex items-baseline justify-between gap-6 py-3">
-                        <dt class="text-sm text-slate-500">Serial Number</dt>
+                        <dt class="text-sm text-slate-500" x-text="kind === 'computer_set' ? 'Members' : 'Serial Number'"></dt>
                         <dd
                             class="truncate text-sm font-medium text-slate-900"
-                            x-text="serial || 'Not Available'"
+                            x-text="serial || (kind === 'computer_set' ? 'No members' : 'Not Available')"
                         ></dd>
                     </div>
                     <div class="flex items-baseline justify-between gap-6 py-3">
                         <dt class="text-sm text-slate-500">Room</dt>
                         <dd
                             class="truncate text-sm font-medium text-slate-900"
-                            x-text="room"
+                            x-text="room || 'No room'"
                         ></dd>
                     </div>
                     <div class="flex items-baseline justify-between gap-6 py-3">
-                        <dt class="text-sm text-slate-500">Classification</dt>
+                        <dt class="text-sm text-slate-500" x-text="kind === 'computer_set' ? 'Type' : 'Classification'"></dt>
                         <dd
                             class="truncate text-sm font-medium text-slate-900"
-                            x-text="category"
+                            x-text="category || '—'"
                         ></dd>
                     </div>
                 </dl>
@@ -1387,12 +1308,22 @@
     </style>
 
     <script>
-        window.qrPageSelectableCodes = @json(
-            $equipment
-                ->filter(fn ($item) => !empty($item->equipment_qr_code))
-                ->pluck('equipment_qr_code')
-                ->values()
-        );
+        @php
+            $qrPageSelectableCodes = ($tab ?? 'equipment') === 'sets'
+                ? collect(
+                    $computerSets instanceof \Illuminate\Contracts\Pagination\Paginator
+                        ? $computerSets->items()
+                        : ($computerSets ?? [])
+                )
+                    ->filter(fn ($set) => filled($set->computer_set_qr_code ?? null))
+                    ->pluck('computer_set_qr_code')
+                    ->values()
+                : $equipment
+                    ->filter(fn ($item) => ! empty($item->equipment_qr_code))
+                    ->pluck('equipment_qr_code')
+                    ->values();
+        @endphp
+        window.qrPageSelectableCodes = @json($qrPageSelectableCodes);
 
         function qrBatchPrint() {
             return {
@@ -1747,6 +1678,8 @@
 
                 downloadOpen: false,
 
+                kind: 'equipment',
+
                 equipment:'',
 
                 assetTag:'',
@@ -1766,6 +1699,8 @@
                     window.addEventListener("open-qr-preview",(event)=>{
 
                         this.open = true;
+
+                        this.kind = event.detail.kind || 'equipment';
 
                         this.equipment = event.detail.equipment;
 

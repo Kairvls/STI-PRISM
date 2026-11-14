@@ -838,4 +838,47 @@
         });
 
     });
+
+    // Prefetch Facilities (and other marked) destinations on hover / idle.
+    (function () {
+        const warmed = new Set();
+
+        function warm(url) {
+            if (!url || warmed.has(url)) {
+                return;
+            }
+            warmed.add(url);
+
+            const link = document.createElement("link");
+            link.rel = "prefetch";
+            link.as = "document";
+            link.href = url;
+            document.head.appendChild(link);
+        }
+
+        document.querySelectorAll("[data-nav-prefetch][href]").forEach((anchor) => {
+            const url = anchor.href;
+            anchor.addEventListener(
+                "pointerenter",
+                () => warm(url),
+                { passive: true },
+            );
+            anchor.addEventListener(
+                "focus",
+                () => warm(url),
+                { passive: true },
+            );
+        });
+
+        const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 900));
+        idle(() => {
+            document
+                .querySelectorAll("[data-nav-prefetch][href]")
+                .forEach((anchor, index) => {
+                    if (index < 2) {
+                        warm(anchor.href);
+                    }
+                });
+        });
+    })();
 </script>

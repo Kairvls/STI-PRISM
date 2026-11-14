@@ -14,6 +14,8 @@ class ComputerSet extends Model
 
     protected $fillable = [
         'computer_set_tag',
+        'computer_set_qr_code',
+        'computer_set_qr_issued_at',
         'computer_set_name',
         'computer_set_room_id',
         'computer_set_placement_zone',

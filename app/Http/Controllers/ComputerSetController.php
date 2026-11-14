@@ -220,6 +220,90 @@ class ComputerSetController extends Controller
             ->with('success', 'Equipment removed from the computer set and placed in this room’s Holding area (still in the room for interior layout).');
     }
 
+    public function deployMember(Request $request, int $id)
+    {
+        abort_unless(ComputerSets::find($id), 404);
+
+        $data = $request->validate([
+            'equipment_id' => ['required', 'integer', 'min:1'],
+            'to_room_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            ComputerSets::deployMember($id, (int) $data['equipment_id'], (int) $data['to_room_id']);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect(ComputerSets::url('/'.$id))
+            ->with('success', 'Part deployed to another room. It stays part of this computer set until you remove it.');
+    }
+
+    /**
+     * JSON: move a computer set (and with-set members) to another room.
+     */
+    public function transferRoom(Request $request, int $id)
+    {
+        $set = ComputerSets::find($id);
+        abort_unless($set, 404);
+
+        $data = $request->validate([
+            'room_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $toRoomId = (int) $data['room_id'];
+        $fromRoomId = (int) ($set->computer_set_room_id ?? 0);
+        if ($toRoomId === $fromRoomId) {
+            return response()->json([
+                'message' => 'That computer set is already in the selected room.',
+            ], 422);
+        }
+
+        $roomExists = DB::table('rooms_table')->where('room_id', $toRoomId)->exists();
+        if (! $roomExists) {
+            return response()->json(['message' => 'Destination room not found.'], 422);
+        }
+
+        // Always Floor in the destination — place into a row later in Rooms Layout.
+        $movedIds = ComputerSets::transferRoom($id, $toRoomId, 'Floor', $fromRoomId);
+
+        $fresh = ComputerSets::find($id);
+
+        return response()->json([
+            'success' => true,
+            'computer_set_id' => $id,
+            'from_room_id' => $fromRoomId ?: null,
+            'to_room_id' => $toRoomId,
+            'moved_equipment_ids' => $movedIds,
+            'set' => [
+                'id' => $id,
+                'tag' => $fresh->computer_set_tag ?? $set->computer_set_tag,
+                'name' => $fresh->computer_set_name ?? $set->computer_set_name,
+                'room_id' => $toRoomId,
+                'placement_zone' => $fresh->computer_set_placement_zone ?? null,
+                'manage_url' => ComputerSets::url('/'.$id),
+            ],
+        ]);
+    }
+
+    public function returnMember(Request $request, int $id)
+    {
+        abort_unless(ComputerSets::find($id), 404);
+
+        $data = $request->validate([
+            'equipment_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            ComputerSets::returnMemberToSet($id, (int) $data['equipment_id']);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect(ComputerSets::url('/'.$id))
+            ->with('success', 'Part returned to the computer set’s room.');
+    }
+
     public function replaceMember(Request $request, int $id)
     {
         abort_unless(ComputerSets::find($id), 404);

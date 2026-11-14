@@ -216,20 +216,16 @@ class MobileReportController extends Controller
             return $this->pinRequiredResponse();
         }
 
-        $equipmentIds = PropertyAssignments::reportableForEmployee($employeeId)
-            ->pluck('equipment_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+        // Same payload as the web reporter form: held units (incl. computer-set
+        // members), can_report / block reasons, and a default room hint.
+        $equipment = PropertyAssignments::reportableForEmployee($employeeId);
+        $hint = PropertyAssignments::reporterDefaultRoom($employeeId, $equipment);
 
-        if ($equipmentIds === []) {
-            return response()->json([]);
-        }
-
-        $rows = $this->reportableEquipmentRows(
-            DB::table('equipment_table')->whereIn('equipment_table.equipment_id', $equipmentIds)
-        );
-
-        return response()->json($rows->values());
+        return response()->json([
+            'equipment' => $equipment->values(),
+            'default_room_id' => $hint['room_id'] ?? null,
+            'default_room_name' => $hint['room_name'] ?? null,
+        ]);
     }
 
     /**

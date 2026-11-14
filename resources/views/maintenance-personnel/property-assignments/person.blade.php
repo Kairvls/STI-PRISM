@@ -58,6 +58,25 @@
                 <p class="mt-1 text-sm text-slate-500">
                     {{ implode(' · ', array_filter([$person->custodian_position, $person->custodian_department])) ?: 'No position recorded' }}
                 </p>
+                @php
+                    $campusPersonUrl = null;
+                    if (! empty($person->person_id) && \App\Support\Persons::tableReady()) {
+                        $campusPersonUrl = match (true) {
+                            request()->is('admin/*') && \Illuminate\Support\Facades\Route::has('admin.persons.show') => route('admin.persons.show', $person->person_id),
+                            request()->is('school-admin/*') && \Illuminate\Support\Facades\Route::has('school-admin.persons.show') => route('school-admin.persons.show', $person->person_id),
+                            default => null,
+                        };
+                    }
+                @endphp
+                @if (! empty($person->person_id) && \App\Support\Persons::tableReady())
+                    <p class="mt-2 inline-flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                        <i data-lucide="link-2" class="h-3.5 w-3.5 text-[#0025cc]"></i>
+                        Identity from Faculty &amp; Staff — edit name, department, and contact there.
+                        @if ($campusPersonUrl)
+                            <a href="{{ $campusPersonUrl }}" class="font-semibold text-[#0025cc] hover:underline">Open</a>
+                        @endif
+                    </p>
+                @endif
                 <p class="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $holdsProperty ? 'bg-amber-50 text-amber-700 ring-amber-100' : 'bg-emerald-50 text-emerald-700 ring-emerald-100' }}">
                     <i data-lucide="{{ $holdsProperty ? 'package-open' : 'badge-check' }}" class="h-3.5 w-3.5"></i>
                     @if ($holdsProperty)
@@ -69,14 +88,17 @@
             </div>
 
             <div class="flex shrink-0 flex-wrap gap-2">
-                <button
-                    type="button"
-                    onclick="openEditPersonModal()"
-                    class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                    <i data-lucide="pencil" class="h-4 w-4"></i>
-                    Edit details
-                </button>
+                @if (empty($person->person_id))
+                    <button
+                        type="button"
+                        onclick="openEditPersonModal()"
+                        class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        title="Edit person details"
+                    >
+                        <i data-lucide="pencil" class="h-4 w-4"></i>
+                        Edit details
+                    </button>
+                @endif
                 @if ($canReceive)
                     <button
                         type="button"
@@ -119,9 +141,6 @@
             @endforeach
         </dl>
 
-        @if (filled($person->custodian_notes))
-            <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80">{{ $person->custodian_notes }}</p>
-        @endif
     </section>
 
     @if (! $canReceive)
@@ -464,38 +483,114 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        @foreach ($activeItems as $item)
-                            @php $isHighlighted = $highlightEquipmentId > 0 && (int) $item->equipment_id === $highlightEquipmentId; @endphp
+                        @php
+                            $accountableGroups = [];
+                            $seenSets = [];
+                            foreach ($activeItems as $item) {
+                                $setId = (int) ($item->computer_set_id ?? 0);
+                                if ($setId > 0) {
+                                    if (! isset($seenSets[$setId])) {
+                                        $seenSets[$setId] = count($accountableGroups);
+                                        $accountableGroups[] = [
+                                            'type' => 'set',
+                                            'id' => $setId,
+                                            'tag' => $item->computer_set_tag ?: ('Set '.$setId),
+                                            'name' => $item->computer_set_name ?: '',
+                                            'room_id' => (int) ($item->computer_set_room_id ?? 0) ?: null,
+                                            'room_name' => $item->computer_set_room_name ?: null,
+                                            'items' => [],
+                                        ];
+                                    }
+                                    $accountableGroups[$seenSets[$setId]]['items'][] = $item;
+                                    if (empty($accountableGroups[$seenSets[$setId]]['room_id']) && ! empty($item->computer_set_room_id)) {
+                                        $accountableGroups[$seenSets[$setId]]['room_id'] = (int) $item->computer_set_room_id;
+                                        $accountableGroups[$seenSets[$setId]]['room_name'] = $item->computer_set_room_name ?: null;
+                                    }
+                                } else {
+                                    $accountableGroups[] = ['type' => 'item', 'items' => [$item]];
+                                }
+                            }
+                        @endphp
+                        @foreach ($accountableGroups as $group)
+                            @if ($group['type'] === 'set')
+                                <tr class="bg-slate-50/70">
+                                    <td class="relative px-5 py-3">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Computer set</p>
+                                        <a href="{{ \App\Support\ComputerSets::url('/'.$group['id']) }}" class="mt-0.5 inline-flex items-center gap-1.5 font-semibold text-[#0025cc] hover:underline">
+                                            <i data-lucide="pc-case" class="h-4 w-4"></i>
+                                            {{ $group['tag'] }}
+                                        </a>
+                                        @if ($group['name'] !== '' && $group['name'] !== $group['tag'])
+                                            <p class="mt-0.5 text-xs text-slate-500">{{ $group['name'] }}</p>
+                                        @endif
+                                        <p class="mt-0.5 text-[11px] text-slate-400">{{ count($group['items']) }} {{ count($group['items']) === 1 ? 'component' : 'components' }} · change room on Computer Sets</p>
+                                        <span class="absolute bottom-0 left-[1.65rem] h-3 w-px bg-slate-300" aria-hidden="true"></span>
+                                    </td>
+                                    <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ $group['tag'] }}</td>
+                                    <td class="px-5 py-3 text-slate-700">
+                                        @if (! empty($group['room_id']))
+                                            <a href="{{ \App\Support\PropertyAssignments::url('/rooms/'.$group['room_id']) }}" class="font-medium hover:underline">{{ $group['room_name'] ?: ('Room #'.$group['room_id']) }}</a>
+                                            <p class="mt-0.5 text-[11px] text-slate-400">Set location</p>
+                                        @else
+                                            <span class="text-slate-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-3 text-slate-400">—</td>
+                                    <td class="px-5 py-3 text-slate-400">—</td>
+                                    <td class="px-5 py-3 text-slate-400">—</td>
+                                    <td class="px-5 py-3 text-slate-400">—</td>
+                                </tr>
+                            @endif
+                            @foreach ($group['items'] as $item)
+                            @php
+                                $isHighlighted = $highlightEquipmentId > 0 && (int) $item->equipment_id === $highlightEquipmentId;
+                                $isSetMember = $group['type'] === 'set';
+                                $isLastMember = $isSetMember && $loop->last;
+                                $setRoomId = (int) ($group['room_id'] ?? 0);
+                                $memberRoomId = (int) ($item->current_room_id ?? 0);
+                                $memberDeployed = $isSetMember && (
+                                    ! empty($item->computer_set_member_deployed)
+                                    || ($setRoomId > 0 && $memberRoomId > 0 && $memberRoomId !== $setRoomId)
+                                );
+                                $withSet = $isSetMember && ! $memberDeployed;
+                            @endphp
                             <tr
                                 id="equipment-{{ $item->equipment_id }}"
-                                class="scroll-mt-28 transition {{ $isHighlighted ? 'bg-sky-50 ring-2 ring-inset ring-[#0025cc]/30' : 'hover:bg-slate-50/80' }}"
+                                class="scroll-mt-28 transition {{ $isHighlighted ? 'bg-sky-50 ring-2 ring-inset ring-[#0025cc]/30' : 'hover:bg-slate-50/80' }} {{ $isSetMember ? '!border-t-transparent' : '' }}"
                                 @if ($isHighlighted) data-highlight-equipment="1" @endif
                             >
-                                <td class="px-5 py-3">
-                                    <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id) }}#property-assignment" class="font-semibold text-[#0025cc] hover:underline">
-                                        {{ $item->equipment_name }}
-                                    </a>
-                                    <p class="text-xs text-slate-500">{{ implode(' · ', array_filter([$item->equipment_category_name, $item->equipment_brand_name, $item->equipment_model])) ?: '—' }}</p>
-                                    @if (! empty($item->computer_set_tag))
-                                        <p class="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                            <i data-lucide="pc-case" class="h-3 w-3"></i>
-                                            {{ $item->computer_set_name ?: $item->computer_set_tag }}
-                                            <span class="font-mono text-slate-400">{{ $item->computer_set_tag }}</span>
-                                        </p>
+                                <td class="relative px-5 py-3">
+                                    @if ($isSetMember)
+                                        <span class="absolute left-[1.65rem] top-0 w-px bg-slate-300 {{ $isLastMember ? 'h-[1.35rem]' : 'bottom-0' }}" aria-hidden="true"></span>
+                                        <span class="absolute left-[1.65rem] top-[1.35rem] h-px w-3 bg-slate-300" aria-hidden="true"></span>
                                     @endif
+                                    <div class="{{ $isSetMember ? 'pl-7' : '' }}">
+                                        <a href="{{ \App\Support\EquipmentViewReturn::viewUrl((int) $item->equipment_id) }}#property-assignment" class="font-semibold text-[#0025cc] hover:underline">
+                                            {{ $item->equipment_name }}
+                                        </a>
+                                        <p class="text-xs text-slate-500">{{ implode(' · ', array_filter([$item->equipment_category_name, $item->equipment_brand_name, $item->equipment_model])) ?: '—' }}</p>
+                                    </div>
                                 </td>
                                 <td class="px-5 py-3 font-mono text-xs text-slate-600">
                                     {{ $item->equipment_asset_tag ?: '—' }}<br>
                                     <span class="text-slate-400">{{ $item->equipment_serial_number ?: '—' }}</span>
                                 </td>
                                 <td class="px-5 py-3 text-slate-700">
-                                    @if ($item->current_room_id)
+                                    @if ($withSet)
+                                        <span class="text-slate-500">With set</span>
+                                        @if ($item->workstation_slot_label)
+                                            <span class="text-slate-400">· {{ $item->workstation_slot_label }}</span>
+                                        @endif
+                                    @elseif ($item->current_room_id)
                                         <a href="{{ \App\Support\PropertyAssignments::url('/rooms/'.$item->current_room_id) }}" class="hover:underline">{{ $item->current_room_name }}</a>
+                                        @if ($memberDeployed)
+                                            <p class="mt-0.5 text-[11px] font-medium text-amber-600">Deployed from set</p>
+                                        @endif
+                                        @if ($item->workstation_slot_label)
+                                            <span class="text-slate-400">· {{ $item->workstation_slot_label }}</span>
+                                        @endif
                                     @else
                                         —
-                                    @endif
-                                    @if ($item->workstation_slot_label)
-                                        <span class="text-slate-400">· {{ $item->workstation_slot_label }}</span>
                                     @endif
                                 </td>
                                 <td class="px-5 py-3 text-slate-700">{{ $item->equipment_condition_status ?: '—' }}</td>
@@ -505,6 +600,7 @@
                                     {{ filled($item->assignment_verified_at ?? null) ? $formatDate($item->assignment_verified_at) : 'Not yet' }}
                                 </td>
                             </tr>
+                            @endforeach
                         @endforeach
                     </tbody>
                 </table>
