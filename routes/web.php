@@ -2259,6 +2259,61 @@ Route::middleware([
 
 
         // =====================================================
+        // SUPPLIER DELIVERY INSIGHTS (bad-record ranking)
+        // =====================================================
+
+        Route::get(
+            '/supplier-insights',
+            [\App\Http\Controllers\SupplierDeliveryInsightsController::class, 'index']
+        )->name('supplier-insights.index');
+
+        Route::post(
+            '/supplier-insights/{supplier}/caution',
+            [\App\Http\Controllers\SupplierDeliveryInsightsController::class, 'toggleCaution']
+        )->whereNumber('supplier')->name('supplier-insights.caution');
+
+
+        // =====================================================
+        // CASH INSTALLMENT TERMS (maintenance)
+        // =====================================================
+
+        Route::get(
+            '/installment-terms',
+            [\App\Http\Controllers\InstallmentTermController::class, 'index']
+        )->name('installment-terms.index');
+
+        Route::post(
+            '/installment-terms',
+            [\App\Http\Controllers\InstallmentTermController::class, 'store']
+        )->name('installment-terms.store');
+
+        Route::put(
+            '/installment-terms/{term}',
+            [\App\Http\Controllers\InstallmentTermController::class, 'update']
+        )->whereNumber('term')->name('installment-terms.update');
+
+        Route::delete(
+            '/installment-terms/{term}',
+            [\App\Http\Controllers\InstallmentTermController::class, 'destroy']
+        )->whereNumber('term')->name('installment-terms.destroy');
+
+        Route::post(
+            '/installment-terms/intervals',
+            [\App\Http\Controllers\InstallmentTermController::class, 'storeInterval']
+        )->name('installment-terms.intervals.store');
+
+        Route::put(
+            '/installment-terms/intervals/{interval}',
+            [\App\Http\Controllers\InstallmentTermController::class, 'updateInterval']
+        )->whereNumber('interval')->name('installment-terms.intervals.update');
+
+        Route::delete(
+            '/installment-terms/intervals/{interval}',
+            [\App\Http\Controllers\InstallmentTermController::class, 'destroyInterval']
+        )->whereNumber('interval')->name('installment-terms.intervals.destroy');
+
+
+        // =====================================================
         // PURCHASER URGENT REPORTS
         // =====================================================
 

@@ -53,6 +53,13 @@ class SupplierRequest extends FormRequest
             'supplier_store_type' => ['required', Rule::in(['Physical Store', 'Online Store'])],
             'operating_hours' => ['nullable', 'string', 'max:255'],
             'supplier_check_name' => ['nullable', 'string', 'max:255'],
+            'supplier_logo' => [
+                'nullable',
+                'image',
+                'mimes:'.\App\Support\SupplierLogo::MIMES,
+                'max:'.\App\Support\SupplierLogo::MAX_KB,
+            ],
+            'remove_supplier_logo' => ['nullable', 'boolean'],
         ];
 
         if ($this->input('supplier_store_type') === 'Physical Store') {
@@ -90,6 +97,7 @@ class SupplierRequest extends FormRequest
             'email_address' => 'email address',
             'operating_hours' => 'operating hours',
             'supplier_check_name' => 'check name',
+            'supplier_logo' => 'brand logo',
         ];
     }
 }

@@ -5,11 +5,17 @@
 
 @section('content')
 <div class="mx-auto max-w-3xl">
-    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.update', $supplier->supplier_id) }}" class="pur-card space-y-6 p-6">
+    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.update', $supplier->supplier_id) }}" enctype="multipart/form-data" class="pur-card space-y-6 p-6">
         @csrf
         @method('PUT')
 
         <input type="hidden" name="supplier_store_type" value="{{ $supplier->supplier_store_type }}">
+
+        @include('purchaser.suppliers._logo-field', [
+            'inputId' => 'standalone-edit-supplier-logo',
+            'existingPath' => $supplier->supplier_logo_path ?? null,
+            'canRemove' => filled($supplier->supplier_logo_path ?? null),
+        ])
 
         @if($supplier->supplier_store_type === 'Physical Store')
             <div>

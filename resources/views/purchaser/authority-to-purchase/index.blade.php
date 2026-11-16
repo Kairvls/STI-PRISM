@@ -12,6 +12,35 @@
 @include('partials.floating-menu-script')
 
 <script type="application/json" id="atp-ris-prefill">{!! json_encode($risPrefill ?? []) !!}</script>
+@php
+    $installmentModalBoot = [
+        'terms' => collect($installmentTerms ?? [])->map(fn ($t) => [
+            'id' => (int) $t->term_id,
+            'name' => (string) $t->term_name,
+            'months' => (int) $t->term_months,
+        ])->values()->all(),
+        'dayIntervals' => collect($installmentDayIntervals ?? [])->map(fn ($i) => [
+            'id' => (int) $i->interval_id,
+            'name' => (string) $i->interval_name,
+            'days' => (int) $i->interval_days,
+        ])->values()->all(),
+        'atps' => collect(
+            ($atps ?? null) instanceof \Illuminate\Contracts\Pagination\Paginator
+                ? $atps->getCollection()
+                : ($atps ?? [])
+        )->mapWithKeys(fn ($a) => [
+            (string) $a->authority_purchase_id => [
+                'id' => (int) $a->authority_purchase_id,
+                'number' => (string) ($a->authority_purchase_form_number ?? ('ATP #'.$a->authority_purchase_id)),
+                'total' => (float) ($a->atp_total_amount ?? 0),
+                'supplier' => (string) ($a->company_name ?? $a->shop_name ?? 'Supplier'),
+                'plan_url' => route(($pp ?? 'purchaser').'.atp.cash-installment-plan', $a->authority_purchase_id),
+            ],
+        ])->all(),
+        'openId' => (int) request('cash_installment', 0) ?: null,
+    ];
+@endphp
+<script type="application/json" id="atp-installment-boot">{!! json_encode($installmentModalBoot) !!}</script>
 
 <div
     x-data="{
@@ -30,6 +59,14 @@
         modalFullscreen: false,
         selectedAtp: {{ !empty($editAtpId) ? (int) $editAtpId : (!empty($viewAtpId) ? (int) $viewAtpId : 'null') }},
         risPrefill: JSON.parse(document.getElementById('atp-ris-prefill').textContent || '{}'),
+        installmentBoot: JSON.parse(document.getElementById('atp-installment-boot').textContent || '{}'),
+        installmentOpen: false,
+        installmentAtpId: null,
+        installmentTermId: '',
+        installmentDayIntervalId: '',
+        installmentDownpayment: '',
+        installmentDates: [],
+        installmentAutoDating: false,
         risSplit: false,
         risChoiceTick: 0,
 
@@ -40,7 +77,152 @@
             this.$watch('editOpen', (open) => {
                 if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_atp', 'edit_atp']);
             });
+            const bootOpen = Number(this.installmentBoot?.openId || 0);
+            if (bootOpen > 0) {
+                this.openCashInstallment(bootOpen);
+            }
+            const terms = this.installmentBoot?.terms || [];
+            if (terms.length && !this.installmentTermId) {
+                this.installmentTermId = String(terms[0].id);
+            }
+            const intervals = this.installmentBoot?.dayIntervals || [];
+            if (intervals.length && !this.installmentDayIntervalId) {
+                this.installmentDayIntervalId = String(intervals[0].id);
+            }
+            this.$watch('installmentTermId', () => this.$nextTick(() => this.syncInstallmentDates(true)));
+            this.$watch('installmentDownpayment', () => this.$nextTick(() => this.syncInstallmentDates(true)));
+            this.$watch('installmentDayIntervalId', () => this.$nextTick(() => this.syncInstallmentDates(true)));
+            this.$watch('installmentDates', () => {
+                if (this.installmentAutoDating) return;
+                this.$nextTick(() => this.syncInstallmentDates(false));
+            }, { deep: true });
         },
+
+        installmentAtp() {
+            return (this.installmentBoot?.atps || {})[String(this.installmentAtpId || '')] || null;
+        },
+        installmentMonths() {
+            const term = (this.installmentBoot?.terms || []).find((t) => String(t.id) === String(this.installmentTermId));
+            return term ? Number(term.months || 0) : 0;
+        },
+        installmentIntervalDays() {
+            const interval = (this.installmentBoot?.dayIntervals || []).find((i) => String(i.id) === String(this.installmentDayIntervalId));
+            return interval ? Number(interval.days || 0) : 0;
+        },
+        installmentTotal() {
+            return Number(this.installmentAtp()?.total || 0);
+        },
+        installmentDown() {
+            const raw = Number(this.installmentDownpayment || 0);
+            if (!Number.isFinite(raw) || raw < 0) return 0;
+            return Math.min(raw, Math.max(0, this.installmentTotal() - 0.01));
+        },
+        installmentRemaining() {
+            return Math.max(0, Math.round((this.installmentTotal() - this.installmentDown()) * 100) / 100);
+        },
+        installmentSchedule() {
+            const months = this.installmentMonths();
+            const remaining = this.installmentRemaining();
+            const down = this.installmentDown();
+            const rows = [];
+            let dateIndex = 0;
+            if (down > 0) {
+                rows.push({
+                    kind: 'downpayment',
+                    label: 'Downpayment',
+                    amount: down,
+                    dateIndex: dateIndex++,
+                    sequence: 0,
+                });
+            }
+            if (months > 0) {
+                const base = Math.floor((remaining / months) * 100) / 100;
+                let allocated = 0;
+                for (let i = 1; i <= months; i++) {
+                    const amount = i === months
+                        ? Math.round((remaining - allocated) * 100) / 100
+                        : base;
+                    allocated = Math.round((allocated + amount) * 100) / 100;
+                    rows.push({
+                        kind: 'installment',
+                        label: 'Installment ' + i + ' of ' + months,
+                        amount,
+                        dateIndex: dateIndex++,
+                        sequence: i,
+                    });
+                }
+            }
+            return rows;
+        },
+        addDaysIso(isoDate, days) {
+            const parts = String(isoDate || '').split('-').map(Number);
+            if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return '';
+            const date = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (Number.isNaN(date.getTime())) return '';
+            date.setDate(date.getDate() + Number(days || 0));
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + d;
+        },
+        syncInstallmentDates(forceFill = false) {
+            const rows = this.installmentSchedule();
+            const need = rows.length;
+            let dates = [...(this.installmentDates || [])];
+            if (dates.length < need) {
+                dates = [...dates, ...Array(need - dates.length).fill('')];
+            } else if (dates.length > need) {
+                dates = dates.slice(0, need);
+            }
+
+            const days = this.installmentIntervalDays();
+            const hasDown = rows[0]?.kind === 'downpayment';
+            const anchor = String(dates[0] || '').trim();
+
+            if (days > 0 && anchor) {
+                this.installmentAutoDating = true;
+                rows.forEach((row, idx) => {
+                    if (idx === 0) {
+                        dates[row.dateIndex] = anchor;
+                        return;
+                    }
+                    if (hasDown) {
+                        dates[row.dateIndex] = this.addDaysIso(anchor, days * Number(row.sequence || idx));
+                    } else {
+                        dates[row.dateIndex] = this.addDaysIso(anchor, days * Math.max(0, Number(row.sequence || (idx + 1)) - 1));
+                    }
+                });
+                this.installmentDates = dates;
+                this.$nextTick(() => { this.installmentAutoDating = false; });
+                return;
+            }
+
+            if (forceFill || this.installmentDates.length !== need) {
+                this.installmentDates = dates;
+            }
+        },
+        openCashInstallment(atpId) {
+            this.installmentAtpId = Number(atpId);
+            this.installmentDownpayment = '';
+            this.installmentDates = [];
+            const terms = this.installmentBoot?.terms || [];
+            this.installmentTermId = terms.length ? String(terms[0].id) : '';
+            const intervals = this.installmentBoot?.dayIntervals || [];
+            this.installmentDayIntervalId = intervals.length ? String(intervals[0].id) : '';
+            this.installmentOpen = true;
+            this.$nextTick(() => {
+                this.syncInstallmentDates(true);
+                window.lucide && window.lucide.createIcons();
+            });
+        },
+        closeCashInstallment() {
+            this.installmentOpen = false;
+            this.installmentAtpId = null;
+        },
+        peso(amount) {
+            return '₱' + Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+
 
         openView(id) {
             this.selectedAtp = id;
@@ -741,28 +923,18 @@
                                                             <i data-lucide="badge-check" class="h-4 w-4"></i>
                                                         </button>
                                                     </form>
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
-                                                        class="inline"
-                                                        data-pur-confirm="{{ $cashInstallmentConfirm($atp) }}"
-                                                        data-pur-confirm-title="Use Cash Installment?"
-                                                        data-pur-confirm-ok="Use Cash Installment"
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="openCashInstallment({{ (int) $atp->authority_purchase_id }})"
+                                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100"
+                                                        aria-label="Cash Installment"
+                                                        data-pur-tip-title="Cash Installment"
+                                                        data-pur-tip="Choose installment terms and optional downpayment, then create one RFC per installment (and one for downpayment)."
+                                                        data-pur-tip-note="Ends at Receiving Report — no liquidation. Each RFC gets its own DV / check."
+                                                        data-pur-tip-accent="#a78bfa"
                                                     >
-                                                        @csrf
-                                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
-                                                        <button
-                                                            type="submit"
-                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100"
-                                                            aria-label="Cash Installment"
-                                                            data-pur-tip-title="Cash Installment"
-                                                            data-pur-tip="Accounting pays the supplier in installments. Opens the funding request form for this ATP."
-                                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
-                                                            data-pur-tip-accent="#a78bfa"
-                                                        >
-                                                            <i data-lucide="calendar-clock" class="h-4 w-4"></i>
-                                                        </button>
-                                                    </form>
+                                                        <i data-lucide="calendar-clock" class="h-4 w-4"></i>
+                                                    </button>
                                                     <form
                                                         method="POST"
                                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
@@ -1287,24 +1459,15 @@
                                             data-pur-tip-accent="#60a5fa"
                                         >Direct Payment</button>
                                     </form>
-                                    <form
-                                        method="POST"
-                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
-                                        data-pur-confirm="{{ $cashInstallmentConfirm($atp) }}"
-                                        data-pur-confirm-title="Use Cash Installment?"
-                                        data-pur-confirm-ok="Use Cash Installment"
-                                    >
-                                        @csrf
-                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
-                                        <button
-                                            type="submit"
-                                            class="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 transition hover:bg-violet-100"
-                                            data-pur-tip-title="Cash Installment"
-                                            data-pur-tip="Accounting pays the supplier in installments. Opens the funding request form for this ATP."
-                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
-                                            data-pur-tip-accent="#a78bfa"
-                                        >Cash Installment</button>
-                                    </form>
+                                    <button
+                                        type="button"
+                                        x-on:click="openCashInstallment({{ (int) $atp->authority_purchase_id }})"
+                                        class="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 transition hover:bg-violet-100"
+                                        data-pur-tip-title="Cash Installment"
+                                        data-pur-tip="Choose installment terms and optional downpayment, then create one RFC per installment (and one for downpayment)."
+                                        data-pur-tip-note="Ends at Receiving Report — no liquidation. Each RFC gets its own DV / check."
+                                        data-pur-tip-accent="#a78bfa"
+                                    >Cash Installment</button>
                                     <form
                                         method="POST"
                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
@@ -1577,6 +1740,159 @@
     <div id="purDocSignatureDock" class="hidden" aria-hidden="true">
         @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
     </div>
+
+    {{-- CASH INSTALLMENT PLAN MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-cloak
+            x-show="installmentOpen"
+            x-on:keydown.escape.window="if (installmentOpen) closeCashInstallment()"
+            class="fixed inset-0 z-[220] flex items-start justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-[2px] md:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cash-installment-title"
+        >
+            <div x-on:click.self="closeCashInstallment()" class="flex min-h-full w-full justify-center">
+                <form
+                    method="POST"
+                    x-bind:action="installmentAtp()?.plan_url || '#'"
+                    class="my-auto flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)]"
+                    x-on:submit="if (!installmentTermId || installmentSchedule().length === 0) { $event.preventDefault(); }"
+                >
+                    @csrf
+                    <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 md:px-6">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-700/80">Cash installment</p>
+                            <h3 id="cash-installment-title" class="mt-0.5 text-lg font-semibold tracking-tight text-slate-950">Plan funding requests</h3>
+                            <p class="mt-1 text-sm text-slate-500" x-text="(installmentAtp()?.number || '') + ' · ' + (installmentAtp()?.supplier || '')"></p>
+                        </div>
+                        <button type="button" x-on:click="closeCashInstallment()" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-900" aria-label="Close">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+
+                    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 md:px-6">
+                        <div class="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-3">
+                            <div>
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ATP total</p>
+                                <p class="mt-1 text-base font-semibold tabular-nums text-slate-950" x-text="peso(installmentTotal())"></p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Downpayment</p>
+                                <p class="mt-1 text-base font-semibold tabular-nums text-violet-800" x-text="peso(installmentDown())"></p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Remaining</p>
+                                <p class="mt-1 text-base font-semibold tabular-nums text-slate-950" x-text="peso(installmentRemaining())"></p>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Installment term <span class="text-red-500">*</span></label>
+                                <select
+                                    name="term_id"
+                                    x-model="installmentTermId"
+                                    required
+                                    class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-violet-400"
+                                >
+                                    <template x-for="term in (installmentBoot.terms || [])" :key="'term-' + term.id">
+                                        <option :value="String(term.id)" x-text="term.name + ' · ' + term.months + ' installment' + (term.months === 1 ? '' : 's')"></option>
+                                    </template>
+                                </select>
+                                <p class="mt-1 text-[11px] text-slate-400">
+                                    Manage terms in
+                                    <a href="{{ route(($pp ?? 'purchaser').'.installment-terms.index') }}" class="font-semibold text-[#0025cc] hover:underline">Installment Terms</a>.
+                                </p>
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Day-count interval</label>
+                                <select
+                                    name="day_interval_id"
+                                    x-model="installmentDayIntervalId"
+                                    class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-violet-400"
+                                >
+                                    <option value="">Manual dates</option>
+                                    <template x-for="interval in (installmentBoot.dayIntervals || [])" :key="'interval-' + interval.id">
+                                        <option :value="String(interval.id)" x-text="interval.name + ' · +' + interval.days + ' days'"></option>
+                                    </template>
+                                </select>
+                                <p class="mt-1 text-[11px] text-slate-400">
+                                    From the downpayment/start date, each next RFC adds this many days.
+                                </p>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Downpayment (optional)</label>
+                                <input
+                                    type="number"
+                                    name="downpayment"
+                                    min="0"
+                                    step="0.01"
+                                    x-model="installmentDownpayment"
+                                    x-bind:max="Math.max(0, installmentTotal() - 0.01)"
+                                    placeholder="0.00"
+                                    class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-violet-400"
+                                >
+                                <p class="mt-1 text-[11px] text-slate-400">Subtracted from ATP total. Remaining is split across the term months.</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="mb-2 flex items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900">RFC schedule</p>
+                                    <p class="text-xs text-slate-500">
+                                        Set the first due date
+                                        <span x-show="installmentDown() > 0">(downpayment)</span>
+                                        <span x-show="installmentDown() <= 0">(start)</span>
+                                        — later RFCs auto-fill when a day-count interval is selected. Each RFC → one DV / check no.
+                                    </p>
+                                </div>
+                                <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-800" x-text="installmentSchedule().length + ' RFC' + (installmentSchedule().length === 1 ? '' : 's')"></span>
+                            </div>
+
+                            <div class="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2">
+                                <template x-for="(row, idx) in installmentSchedule()" :key="'sched-' + row.kind + '-' + idx">
+                                    <div class="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-slate-900" x-text="row.label"></p>
+                                                <p class="text-xs font-medium tabular-nums text-violet-800" x-text="peso(row.amount)"></p>
+                                            </div>
+                                            <div class="w-full sm:w-44">
+                                                <label class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400" x-text="row.dateIndex === 0 ? (installmentDown() > 0 ? 'Downpayment date' : 'Start date') : 'Due date'"></label>
+                                                <input
+                                                    type="date"
+                                                    x-bind:name="'dates[' + row.dateIndex + ']'"
+                                                    x-model="installmentDates[row.dateIndex]"
+                                                    x-bind:readonly="row.dateIndex > 0 && installmentIntervalDays() > 0"
+                                                    class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-violet-400"
+                                                    x-bind:class="row.dateIndex > 0 && installmentIntervalDays() > 0 ? 'bg-slate-50 text-slate-600' : ''"
+                                                >
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <p x-show="!installmentMonths()" class="px-2 py-6 text-center text-sm text-slate-400">Choose a term to preview the RFC split.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-5 py-4 md:px-6">
+                        <button type="button" x-on:click="closeCashInstallment()" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+                        <button
+                            type="submit"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800"
+                            x-bind:disabled="!installmentTermId || installmentSchedule().length === 0 || installmentRemaining() <= 0"
+                        >
+                            <i data-lucide="check" class="h-4 w-4"></i>
+                            Create draft RFCs
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
 
 </div>
 

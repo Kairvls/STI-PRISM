@@ -74,6 +74,7 @@
     if ($requestedSource && ! old('ris_urgency') && empty($copyPrefill['urgency'] ?? null)) {
         $bootUrgency = \App\Support\RisWorkflow::normalizeUrgency($requestedSource->report_urgency_level ?? null);
     }
+    $supplierInsightsById = \App\Support\SupplierDeliveryInsights::bySupplierId(24);
     $risPageBoot = [
         'openModal' => $viewRisId ? 'ris-' . $viewRisId : null,
         'editRisModal' => $editRisId > 0 ? 'edit-ris-' . $editRisId : null,
@@ -96,12 +97,35 @@
         })->values()->all(),
         'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', '')),
         'lockedReplacement' => request()->filled('replacement_request') || (string) old('source_locked') === '1',
-        'supplierWarnings' => collect($activeSuppliers ?? [])->mapWithKeys(function ($supplier) {
+        'supplierWarnings' => collect($activeSuppliers ?? [])->mapWithKeys(function ($supplier) use ($supplierInsightsById) {
+            $id = (int) $supplier->supplier_id;
+            $insight = $supplierInsightsById[$id] ?? null;
+            $blacklisted = (bool) ($supplier->is_blacklisted ?? false);
+            $hasIssues = $insight && (int) ($insight->issue_count ?? 0) >= \App\Support\SupplierDeliveryInsights::NOTICE_MIN_ISSUES;
+            $elevated = $insight && in_array($insight->risk ?? '', [
+                \App\Support\SupplierDeliveryInsights::RISK_HIGH,
+                \App\Support\SupplierDeliveryInsights::RISK_ELEVATED,
+            ], true);
+            $flagged = $blacklisted || $hasIssues || $elevated || (bool) ($insight->avoid_ordering ?? false);
+
+            $payload = $flagged
+                ? \App\Support\SupplierDeliveryInsights::noticePayload(
+                    $insight,
+                    (string) ($supplier->supplier_blacklist_reason ?? '')
+                )
+                : [
+                    'title' => '',
+                    'short' => '',
+                    'detail' => '',
+                    'chips' => [],
+                    'issues_label' => '',
+                    'risk' => '',
+                    'risk_key' => '',
+                    'reason' => '',
+                ];
+
             return [
-                (string) $supplier->supplier_id => [
-                    'flagged' => (bool) ($supplier->is_blacklisted ?? false),
-                    'reason' => (string) ($supplier->supplier_blacklist_reason ?? ''),
-                ],
+                (string) $id => array_merge(['flagged' => $flagged], $payload),
             ];
         })->all(),
         'replacementRequests' => collect($availableReplacementRequests ?? [])->map(function ($request) {
@@ -115,8 +139,17 @@
                 'id' => (string) $brand->brand_id,
                 'label' => $avoid ? $name.' (avoid — often defective)' : $name,
                 'caution' => $avoid,
+                'cautionLabel' => 'Avoid',
+                'sort_weight' => $avoid ? 1 : 0,
             ];
-        })->values()->all(),
+        })->sortBy([
+            ['sort_weight', 'asc'],
+            ['label', 'asc'],
+        ])->values()->map(function ($opt) {
+            unset($opt['sort_weight']);
+
+            return $opt;
+        })->all(),
         'itemOptions' => collect($itemCatalog ?? [])->map(function ($catalogItem) use ($itemHints) {
             $hint = ($itemHints ?? [])[mb_strtolower(trim((string) $catalogItem->item_name))] ?? [];
 
@@ -138,12 +171,38 @@
                 'label' => (string) $uom->uom_name,
             ];
         })->values()->all(),
-        'supplierOptions' => collect($activeSuppliers ?? [])->map(function ($supplier) {
+        'supplierOptions' => collect($activeSuppliers ?? [])->map(function ($supplier) use ($supplierInsightsById) {
+            $id = (int) $supplier->supplier_id;
+            $insight = $supplierInsightsById[$id] ?? null;
+            $blacklisted = (bool) ($supplier->is_blacklisted ?? false);
+            $baseName = (string) ($supplier->display_name ?? $supplier->supplier_name ?? 'Supplier');
+            $baseName = trim(str_ireplace('(blacklisted)', '', $baseName));
+            $weight = \App\Support\SupplierDeliveryInsights::sortWeight($insight, $blacklisted);
+            $caution = $weight > 0;
+            $notice = $caution
+                ? \App\Support\SupplierDeliveryInsights::noticePayload(
+                    $insight,
+                    (string) ($supplier->supplier_blacklist_reason ?? '')
+                )
+                : null;
+
             return [
-                'id' => (string) $supplier->supplier_id,
-                'label' => (string) ($supplier->display_name ?? $supplier->supplier_name ?? 'Supplier'),
+                'id' => (string) $id,
+                'label' => $baseName,
+                'caution' => $caution,
+                'cautionLabel' => 'Caution',
+                'detail' => $notice['detail'] ?? '',
+                'sort_weight' => $weight,
+                'sort_name' => mb_strtolower($baseName),
             ];
-        })->values()->all(),
+        })->sortBy([
+            ['sort_weight', 'asc'],
+            ['sort_name', 'asc'],
+        ])->values()->map(function ($opt) {
+            unset($opt['sort_weight'], $opt['sort_name']);
+
+            return $opt;
+        })->all(),
         'savedSignatureStoreUrl' => route(($pp ?? 'purchaser').'.ris.saved-signatures.store'),
         'savedSignatureDestroyBaseUrl' => url('/'.($pp ?? 'purchaser').'/ris/saved-signatures'),
         'risIndexUrl' => route(($pp ?? 'purchaser').'.ris.index'),
@@ -2677,7 +2736,7 @@
                                                         'textAlign' => 'left',
                                                         'panelMinWidth' => 'min-w-[12rem]',
                                                     ])
-                                                    <p class="mt-1 px-0.5 text-[9px] leading-snug text-amber-700 sm:px-1 sm:text-[10px]" x-show="supplierWarning(item.supplier_id)" x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"></p>
+                                                    @include('purchaser.ris._supplier-warning')
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
@@ -4720,11 +4779,7 @@
                                                             'panelMinWidth' => 'min-w-[12rem]',
                                                             'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left text-xs',
                                                         ])
-                                                        <p
-                                                            class="mt-1 text-[10px] leading-snug text-amber-700"
-                                                            x-show="supplierWarning(item.supplier_id)"
-                                                            x-text="'Warning: ' + (supplierWarning(item.supplier_id)?.reason || 'This supplier is marked as not recommended.')"
-                                                        ></p>
+                                                        @include('purchaser.ris._supplier-warning')
                                                         <button
                                                             type="button"
                                                             class="ris-row-delete-hit"

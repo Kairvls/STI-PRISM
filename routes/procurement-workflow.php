@@ -110,6 +110,7 @@ Route::get('/authority-to-purchase/{id}/edit', [AuthorityToPurchaseController::c
 Route::put('/authority-to-purchase/{id}', [AuthorityToPurchaseController::class, 'update'])->name('atp.update');
 Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
 Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
+Route::post('/authority-to-purchase/{id}/cash-installment-plan', [AuthorityToPurchaseController::class, 'planCashInstallment'])->name('atp.cash-installment-plan');
 Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
 Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
 Route::get('/authority-to-purchase/{id}/export-xlsx', [AuthorityToPurchaseController::class, 'exportExcel'])->name('atp.export-xlsx');

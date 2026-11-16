@@ -463,9 +463,15 @@
                 || request()->routeIs('purchaser.uom.*')
                 || request()->routeIs('purchaser.categories.*')
                 || request()->routeIs('purchaser.subcategories.*')
-                || request()->routeIs('purchaser.brand-insights*');
+                || request()->routeIs('purchaser.brand-insights*')
+                || request()->routeIs('purchaser.supplier-insights*')
+                || request()->routeIs('purchaser.installment-terms*');
             $fmTab = request('tab', 'brands');
-            if (request()->routeIs('purchaser.brand-insights*')) {
+            if (request()->routeIs('purchaser.installment-terms*')) {
+                $fmTab = 'installment-terms';
+            } elseif (request()->routeIs('purchaser.supplier-insights*')) {
+                $fmTab = 'supplier-insights';
+            } elseif (request()->routeIs('purchaser.brand-insights*')) {
                 $fmTab = 'brand-insights';
             } elseif (request()->routeIs('purchaser.brands.*')) {
                 $fmTab = 'brands';
@@ -479,10 +485,22 @@
                 $fmTab = 'subcategories';
             }
             $fmLinks = [
+                'supplier-insights' => [
+                    'title' => 'Supplier Insights',
+                    'icon' => 'shield-alert',
+                    'route' => 'purchaser.supplier-insights.index',
+                    'params' => [],
+                ],
                 'brand-insights' => [
                     'title' => 'Brand Insights',
                     'icon' => 'trending-down',
                     'route' => 'purchaser.brand-insights.index',
+                    'params' => [],
+                ],
+                'installment-terms' => [
+                    'title' => 'Installment Terms',
+                    'icon' => 'calendar-range',
+                    'route' => 'purchaser.installment-terms.index',
                     'params' => [],
                 ],
                 'brands' => ['title' => 'Brands', 'icon' => 'tag'],

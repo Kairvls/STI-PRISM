@@ -19,9 +19,16 @@
 
 <div class="space-y-6" x-data="{ trailTab: 'All' }">
     <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h2 class="pur-page-title">{{ $supplierName }}</h2>
-            <p class="pur-page-subtitle">{{ $supplierCode }} · {{ $supplier->supplier_store_type }}</p>
+        <div class="flex min-w-0 items-center gap-4">
+            @include('purchaser.suppliers._logo-avatar', [
+                'supplier' => $supplier,
+                'alt' => $supplierName,
+                'size' => 'lg',
+            ])
+            <div class="min-w-0">
+                <h2 class="pur-page-title">{{ $supplierName }}</h2>
+                <p class="pur-page-subtitle">{{ $supplierCode }} · {{ $supplier->supplier_store_type }}</p>
+            </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ route(($pp ?? 'purchaser').'.suppliers.index') }}" class="pur-btn-secondary">Back to suppliers</a>

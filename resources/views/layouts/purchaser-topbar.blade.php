@@ -32,7 +32,9 @@
                 request()->is('purchaser/back-orders*') && request('payment') === 'ca' => ['Back Orders · Cash Advance', 'Items delivered short or damaged.'],
                 request()->is('purchaser/back-orders*') => ['Back Orders', 'Items delivered short or damaged.'],
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', ''],
+                request()->is('purchaser/supplier-insights*') => ['Supplier Insights', 'Suppliers with missing parts, damaged deliveries, or no refund — flag caution before ordering again.'],
                 request()->is('purchaser/brand-insights*') => ['Brand Insights', 'Brands most often reported defective — avoid high-failure brands when ordering.'],
+                request()->is('purchaser/installment-terms*') => ['Installment Terms', 'Maintain month terms and day-count intervals for cash installment RFC schedules.'],
                 request()->is('purchaser/history*') => ['Purchase History', ''],
                 default => [View::yieldContent('title', 'PaAyo'), ''],
             };

@@ -39,6 +39,7 @@ class PurchaserDashboard
             'latestReplacementRequests' => self::latestReplacementRequests(),
             'delayedUrgentFlows' => self::delayedUrgentFlows(),
             'defectiveBrands' => BrandDefectInsights::notice(5),
+            'problemSuppliers' => SupplierDeliveryInsights::notice(5),
         ];
     }
 

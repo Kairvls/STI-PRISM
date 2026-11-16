@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SupplierRequest;
 use App\Support\PhoneNumber;
+use App\Support\ProcurementPortal;
 use App\Support\SupplierCode;
+use App\Support\SupplierLogo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use App\Support\ProcurementPortal;
 
 class SupplierController extends Controller
 {
@@ -233,6 +234,21 @@ class SupplierController extends Controller
             if (Schema::hasColumn('suppliers_table', 'supplier_check_name')) {
                 $parent['supplier_check_name'] = $request->supplier_check_name ? trim($request->supplier_check_name) : null;
             }
+
+            if (SupplierLogo::supported()) {
+                $currentPath = $supplier->supplier_logo_path ?? null;
+                if ($request->boolean('remove_supplier_logo') && ! $request->hasFile('supplier_logo')) {
+                    SupplierLogo::delete($currentPath);
+                    $parent['supplier_logo_path'] = null;
+                } elseif ($request->hasFile('supplier_logo')) {
+                    $parent['supplier_logo_path'] = SupplierLogo::store(
+                        $request->file('supplier_logo'),
+                        (int) $id,
+                        $currentPath
+                    );
+                }
+            }
+
             if ($parent !== []) {
                 DB::table('suppliers_table')->where('supplier_id', $id)->update($parent);
             }
@@ -375,6 +391,13 @@ class SupplierController extends Controller
                 'store_url' => $request->store_url ? trim($request->store_url) : null,
                 'seller_id' => $request->seller_id ? trim($request->seller_id) : null,
                 'order_id' => $request->order_id ? trim($request->order_id) : null,
+            ]);
+        }
+
+        if (SupplierLogo::supported() && $request->hasFile('supplier_logo')) {
+            $logoPath = SupplierLogo::store($request->file('supplier_logo'), (int) $supplierId);
+            DB::table('suppliers_table')->where('supplier_id', $supplierId)->update([
+                'supplier_logo_path' => $logoPath,
             ]);
         }
 

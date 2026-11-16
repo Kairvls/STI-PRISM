@@ -142,9 +142,10 @@
                         <tr class="transition hover:bg-gray-50/70">
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
-                                        <i data-lucide="building-2" class="h-4 w-4"></i>
-                                    </div>
+                                    @include('purchaser.suppliers._logo-avatar', [
+                                        'supplier' => $supplier,
+                                        'alt' => $supplierName,
+                                    ])
                                     <div>
                                         <p class="font-semibold text-gray-900">{{ $supplierName }}</p>
                                         <div class="mt-1 flex flex-wrap items-center gap-2">
@@ -252,6 +253,13 @@
                                 <div class="my-auto w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(15,23,42,0.14)]">
                                     <div class="flex items-start justify-between gap-4 px-6 pt-6 pb-5 md:px-8">
                                         <div class="min-w-0">
+                                            <div class="mb-3">
+                                                @include('purchaser.suppliers._logo-avatar', [
+                                                    'supplier' => $supplier,
+                                                    'alt' => $supplierName,
+                                                    'size' => 'lg',
+                                                ])
+                                            </div>
                                             <div class="flex flex-wrap items-center gap-2.5">
                                                 <h3 class="truncate text-xl font-semibold tracking-tight text-slate-950">{{ $supplierName }}</h3>
                                                 <span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold {{ $statusClass }}">{{ $supplierStatus }}</span>
@@ -439,6 +447,7 @@
                                     <form
                                         method="POST"
                                         action="{{ route(($pp ?? 'purchaser').'.suppliers.update', $supplier->supplier_id) }}"
+                                        enctype="multipart/form-data"
                                         class="flex min-h-0 flex-1 flex-col"
                                     >
                                         @csrf
@@ -447,6 +456,11 @@
                                         <input type="hidden" name="_editing_supplier_id" value="{{ $supplier->supplier_id }}">
 
                                         <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-2 md:px-8">
+                                            @include('purchaser.suppliers._logo-field', [
+                                                'inputId' => 'edit-supplier-logo-'.$supplier->supplier_id,
+                                                'existingPath' => $supplier->supplier_logo_path ?? null,
+                                                'canRemove' => filled($supplier->supplier_logo_path ?? null),
+                                            ])
                                             @if($supplier->supplier_store_type === 'Physical Store')
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-medium text-slate-500">Company Name <span class="text-red-500">*</span></label>
@@ -643,7 +657,7 @@
                     </button>
                 </div>
 
-                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.store') }}" class="flex min-h-0 flex-1 flex-col" novalidate>
+                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.store') }}" enctype="multipart/form-data" class="flex min-h-0 flex-1 flex-col" novalidate>
                     @csrf
                     <input
                         type="hidden"
@@ -726,6 +740,12 @@
                             </div>
 
                             <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
+                                <div class="sm:col-span-2" style="order: 0">
+                                    @include('purchaser.suppliers._logo-field', [
+                                        'inputId' => 'add-supplier-logo',
+                                    ])
+                                </div>
+
                                 <div class="sm:col-span-2" style="order: 1">
                                     <label class="mb-1.5 block text-xs font-medium text-gray-600">
                                         Company / Shop Name <span class="text-red-500">*</span>

@@ -31,23 +31,22 @@
                 <div class="min-w-0 max-w-2xl">
                     <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Predictive procurement</p>
                     <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-950">Brands most reported as defective</h2>
-                    <p class="mt-1.5 text-sm leading-6 text-slate-600">
-                        Ranked from maintenance defect reports. Use this to spot failure-prone brands before you order again, and flag ones to avoid on future RIS.
-                    </p>
                 </div>
                 <form method="GET" action="{{ route('purchaser.brand-insights.index') }}" class="flex flex-wrap items-end gap-2">
                     <div>
                         <label for="brandInsightsMonths" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Period</label>
-                        <select id="brandInsightsMonths" name="months" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#0025cc]">
+                        <select
+                            id="brandInsightsMonths"
+                            name="months"
+                            onchange="this.form.submit()"
+                            class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#0025cc]"
+                        >
                             <option value="6" @selected($months === 6)>Last 6 months</option>
                             <option value="12" @selected($months === 12)>Last 12 months</option>
                             <option value="24" @selected($months === 24)>Last 24 months</option>
                             <option value="0" @selected($months === 0)>All time</option>
                         </select>
                     </div>
-                    <button type="submit" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001db3]">
-                        Apply
-                    </button>
                 </form>
             </div>
         </div>

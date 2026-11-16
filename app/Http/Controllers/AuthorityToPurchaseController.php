@@ -25,6 +25,7 @@ use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\AtpFormExporter;
 use App\Services\DocumentWorkflowService;
+use App\Support\CashInstallmentPlanner;
 use App\Support\ProcurementPortal;
 use App\Support\SupplyHandoff;
 
@@ -265,8 +266,10 @@ class AuthorityToPurchaseController extends Controller
                 $atp->ris_supplier_position = $group['position'] ?? null;
                 $atp->ris_supplier_total = count($groups);
             }
-            $atp->has_rfc = in_array($atpId, $atpHasRfc, true);
+            $atp->has_rfc = in_array($atpId, $atpHasRfc, true)
+                || CashInstallmentPlanner::planExistsForAtp($atpId);
             $atp->funds_via_po = in_array($atpId, $poFundedAtpIds, true);
+            $atp->atp_total_amount = CashInstallmentPlanner::atpTotal($atpId);
             $poMeta = $poMap[$atpId] ?? null;
             $atp->purchase_order_id = $poMeta['purchase_order_id'] ?? null;
             $atp->purchase_order_label = $poMeta['purchase_order_label'] ?? null;
@@ -283,6 +286,8 @@ class AuthorityToPurchaseController extends Controller
             ? UserSignatureLibrary::forUser((int) auth()->id())
             : collect();
         $suggestedAtpFormNumber = $loadFormDatasets ? AtpFormNumber::next() : null;
+        $installmentTerms = CashInstallmentPlanner::activeTerms();
+        $installmentDayIntervals = CashInstallmentPlanner::activeDayIntervals();
 
         return view(
             'purchaser.authority-to-purchase.index',
@@ -303,7 +308,9 @@ class AuthorityToPurchaseController extends Controller
                 'savedSignatures',
                 'suggestedAtpFormNumber',
                 'atpLineages',
-                'loadFormDatasets'
+                'loadFormDatasets',
+                'installmentTerms',
+                'installmentDayIntervals'
             )
         );
     }
@@ -553,11 +560,78 @@ class AuthorityToPurchaseController extends Controller
 
         $label = ProcurementPaymentPath::label($path);
 
+        // Cash Installment uses its own schedule modal — do not auto-open RFC create.
+        if ($path === ProcurementPaymentPath::CASH_INSTALLMENT) {
+            return redirect(ProcurementPortal::route('atp.index', [
+                'cash_installment' => $id,
+            ]))->with('success', "Payment path set to {$label}. Choose the installment schedule to create the funding requests.");
+        }
+
         return redirect(ProcurementPortal::route('rfc.index', [
             'selected_atp' => $id,
             'funding_type' => $path,
             'fund' => $path,
         ]))->with('success', "Payment path set to {$label}. You may now create the funding request.");
+    }
+
+    /**
+     * Cash Installment: term + downpayment → draft RFCs (downpayment + one per month).
+     */
+    public function planCashInstallment(Request $request, $id)
+    {
+        abort_unless(CashInstallmentPlanner::supported(), 404);
+
+        $validated = $request->validate([
+            'term_id' => ['required', 'integer', 'exists:installment_terms_table,term_id'],
+            'day_interval_id' => ['nullable', 'integer', 'exists:installment_day_intervals_table,interval_id'],
+            'downpayment' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'dates' => ['nullable', 'array'],
+            'dates.*' => ['nullable', 'date'],
+        ]);
+
+        $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->first();
+        if (! $atp) {
+            return back()->with('error', 'Authority to Purchase not found.');
+        }
+
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+        if ($atp->authority_purchase_status !== 'Approved') {
+            return back()->with('error', 'Cash installment can only be planned after ATP is approved.');
+        }
+
+        if (SupplyHandoff::atpReleaseColumnsReady() && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)) {
+            return back()->with('error', 'Wait until the School Supply / Material Officer releases this ATP first.');
+        }
+
+        if (
+            filled($atp->authority_purchase_payment_path ?? null)
+            && $atp->authority_purchase_payment_path !== ProcurementPaymentPath::CASH_INSTALLMENT
+        ) {
+            return back()->with('error', 'This ATP already uses a different payment path.');
+        }
+
+        try {
+            $result = CashInstallmentPlanner::create(
+                (int) $id,
+                (int) $validated['term_id'],
+                (float) ($validated['downpayment'] ?? 0),
+                array_values($validated['dates'] ?? []),
+                isset($validated['day_interval_id']) ? (int) $validated['day_interval_id'] : null
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        $count = count($result['rfc_ids']);
+
+        return redirect(ProcurementPortal::route('rfc.index', [
+            'fund' => ProcurementPaymentPath::CASH_INSTALLMENT,
+            'search' => $atp->authority_purchase_form_number ?? null,
+        ]))->with(
+            'success',
+            "Cash installment planned: {$count} draft funding request".($count === 1 ? '' : 's').' created. Open each RFC to sign and submit — each gets its own DV / check number.'
+        );
     }
 
     public function update(Request $request, $id)
