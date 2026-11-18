@@ -154,7 +154,7 @@
                             </svg>
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900">Select a conversation to show</h3>
-                        <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">Choose a conversation from the list to view messages and start chatting.</p>
+                        <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">Choose a conversation to start chatting.</p>
                     </div>
                 </div>
 
@@ -187,18 +187,21 @@
                         </div>
 
                         {{-- ===================================================== --}}
-                        {{-- HEADER ACTIONS: AUDIO CALL / VIDEO CALL / INFO --}}
+                        {{-- HEADER ACTIONS: INFO (+ call/video kept but hidden for later) --}}
                         {{-- ===================================================== --}}
                         <div
                             id="modalChatHeaderActions"
                             class="ml-auto flex shrink-0 items-center justify-end gap-1"
                         >
+                            {{-- Deferred: audio/video call UI — feature code remains; re-show by removing `hidden`. --}}
                             <button
                                 type="button"
                                 id="modalAudioCallButton"
-                                class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                class="hidden h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
                                 data-tooltip="Audio call"
                                 aria-label="Audio call"
+                                aria-hidden="true"
+                                tabindex="-1"
                             >
                                 <i data-lucide="phone" class="h-5 w-5"></i>
                             </button>
@@ -206,9 +209,11 @@
                             <button
                                 type="button"
                                 id="modalVideoCallButton"
-                                class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                class="hidden h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
                                 data-tooltip="Video call"
                                 aria-label="Video call"
+                                aria-hidden="true"
+                                tabindex="-1"
                             >
                                 <i data-lucide="video" class="h-5 w-5"></i>
                             </button>
@@ -2625,6 +2630,7 @@
         window.currentUserId = currentUserId;
         const currentUserName = @json(auth()->user()?->user_full_name ?? 'You');
         const currentUserProfilePicture = @json(auth()->user()?->user_profile_picture);
+        const currentUserRoleIds = @json(\App\Support\RoleAccess::roleIds(auth()->user()));
         @php
             // Shared Open always uses the messages document viewer (any role can open in a new tab).
             $procurementDocUrlTemplates = [
@@ -2639,8 +2645,25 @@
             foreach ($procurementDocUrlTemplates as $k => $url) {
                 $procurementDocUrlTemplates[$k] = str_replace('987654321', '__ID__', $url);
             }
+            $procurementDocStatusTemplates = [];
+            $procurementDocApproveTemplates = [];
+            foreach (['ris', 'atp', 'rfc', 'dv', 'rr', 'liq', 'lr'] as $docType) {
+                $statusType = $docType === 'lr' ? 'liq' : $docType;
+                $procurementDocStatusTemplates[$docType] = str_replace(
+                    '987654321',
+                    '__ID__',
+                    route('messages.documents.status', ['type' => $statusType, 'id' => 987654321])
+                );
+                $procurementDocApproveTemplates[$docType] = str_replace(
+                    '987654321',
+                    '__ID__',
+                    route('messages.documents.approve', ['type' => $statusType, 'id' => 987654321])
+                );
+            }
         @endphp
         const procurementDocUrlTemplates = @json($procurementDocUrlTemplates);
+        const procurementDocStatusTemplates = @json($procurementDocStatusTemplates);
+        const procurementDocApproveTemplates = @json($procurementDocApproveTemplates);
 
         function resolveSharedDocumentUrl(card) {
             const type = String(card?.type || '').toLowerCase();
@@ -2650,6 +2673,26 @@
                 return String(template).split('__ID__').join(String(id));
             }
             return card?.url || '';
+        }
+
+        function resolveSharedDocumentStatusUrl(card) {
+            const type = String(card?.type || '').toLowerCase();
+            const id = Number(card?.id || 0);
+            const template = procurementDocStatusTemplates[type] || null;
+            if (template && id > 0) {
+                return String(template).split('__ID__').join(String(id));
+            }
+            return '';
+        }
+
+        function resolveSharedDocumentApproveUrl(card) {
+            const type = String(card?.type || '').toLowerCase();
+            const id = Number(card?.id || 0);
+            const template = procurementDocApproveTemplates[type] || null;
+            if (template && id > 0) {
+                return String(template).split('__ID__').join(String(id));
+            }
+            return '';
         }
         let currentConversationId = null;
         let lastPinNoticeEl = null;
@@ -7220,7 +7263,7 @@ if (!isGroup) {
                         type="button"
                         class="
                             group-member-action
-                            flex
+                            hidden
                             w-full
                             items-center
                             gap-3
@@ -7236,6 +7279,8 @@ if (!isGroup) {
                         "
                         data-action="audio"
                         data-user-id="${Number(userId)}"
+                        aria-hidden="true"
+                        tabindex="-1"
                     >
                         <i
                             data-lucide="phone"
@@ -7249,7 +7294,7 @@ if (!isGroup) {
                         type="button"
                         class="
                             group-member-action
-                            flex
+                            hidden
                             w-full
                             items-center
                             gap-3
@@ -7265,6 +7310,8 @@ if (!isGroup) {
                         "
                         data-action="video"
                         data-user-id="${Number(userId)}"
+                        aria-hidden="true"
+                        tabindex="-1"
                     >
                         <i
                             data-lucide="video"
@@ -9428,6 +9475,13 @@ if (!isGroup) {
         // CLOSE MEMBER 3-DOT MENU WHEN CLICKING ELSEWHERE
         // =====================================================
         document.addEventListener('click', event => {
+            const approveBtn = event.target?.closest?.('.js-doc-share-approve');
+            if (approveBtn) {
+                event.preventDefault();
+                handleDocumentShareApproveClick(approveBtn);
+                return;
+            }
+
             const menu = document.getElementById('groupMemberMenu');
 
             if (
@@ -9437,6 +9491,13 @@ if (!isGroup) {
                 !event.target.closest('.group-member-menu-button')
             ) {
                 closeGroupMemberMenu();
+            }
+        });
+
+        window.addEventListener('focus', () => {
+            const container = document.getElementById('modalMessagesContainer');
+            if (container && !document.getElementById('messagingModal')?.classList.contains('hidden')) {
+                refreshDocumentShareApproveButtons(container);
             }
         });
 
@@ -11604,6 +11665,11 @@ if (!isGroup) {
 
                                     </div>
 
+                                    ${
+                                        !isGroup && (otherParticipant.role?.role_name || otherParticipant.role_name)
+                                            ? `<p class="mt-0.5 truncate text-xs text-gray-500">${escapeHtml(otherParticipant.role?.role_name || otherParticipant.role_name)}</p>`
+                                            : ''
+                                    }
 
                                     <div
                                         class="
@@ -13721,13 +13787,13 @@ if (!isGroup) {
         function normalizeDocumentShareLabel(card) {
             const rawType = String(card?.type || '').toLowerCase();
             const typeKey = rawType === 'lr' ? 'liq' : rawType;
-            const draftByType = {
-                ris: 'Draft RIS',
-                atp: 'Draft ATP',
-                rfc: 'Draft RFC',
-                dv: 'Draft DV',
-                rr: 'Draft RR',
-                liq: 'Draft LR',
+            const preparationByType = {
+                ris: 'RIS (in preparation)',
+                atp: 'ATP (in preparation)',
+                rfc: 'RFC (in preparation)',
+                dv: 'DV (in preparation)',
+                rr: 'RR (in preparation)',
+                liq: 'LR (in preparation)',
             };
             const label = String(card?.label || '').trim();
 
@@ -13735,14 +13801,14 @@ if (!isGroup) {
             if (/^(ris|atp|rfc|dv|rr|lr|liq)\s*#\d+$/i.test(label)) {
                 const fromLabel = label.split('#')[0].trim().toLowerCase();
                 const key = fromLabel === 'lr' ? 'liq' : fromLabel;
-                return draftByType[key] || draftByType[typeKey] || 'Draft document';
+                return preparationByType[key] || preparationByType[typeKey] || 'Document (in preparation)';
             }
 
             if (label) {
-                return label;
+                return label.replace(/\bDraft\b/gi, 'In preparation');
             }
 
-            return draftByType[typeKey] || card?.title || 'Document';
+            return preparationByType[typeKey] || card?.title || 'Document';
         }
 
         function documentSharePreviewText(content, isMine = false) {
@@ -13765,17 +13831,23 @@ if (!isGroup) {
             const note = card.note || '';
             const url = resolveSharedDocumentUrl(card);
             const type = String(card.type || 'doc').toUpperCase();
+            const docType = String(card.type || '').toLowerCase();
+            const docId = Number(card.id || 0);
 
             const statusHtml = status
-                ? `<p class="mt-1 text-xs font-medium text-slate-500">${escapeHtml(status)}</p>`
-                : '';
+                ? `<p class="js-doc-share-status mt-1 text-xs font-medium text-slate-500">${escapeHtml(status)}</p>`
+                : `<p class="js-doc-share-status mt-1 hidden text-xs font-medium text-slate-500"></p>`;
             const noteHtml = note
                 ? `<p class="mt-2 text-sm text-slate-700">${escapeHtml(note)}</p>`
                 : '';
             const openLabel = type === 'LIQ' ? 'LR' : type;
             // New browser tab → PaAyo form page (e.g. /purchaser/ris?view_ris=41), not a bare file preview.
             const openHtml = url
-                ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#0025cc] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#001db3]">Open ${escapeHtml(openLabel)}</a>`
+                ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="inline-flex w-full items-center justify-center rounded-xl bg-[#0025cc] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#001db3]">Open ${escapeHtml(openLabel)}</a>`
+                : '';
+            // Approve only for aligned receivers while the document still needs approval.
+            const approveHtml = (!isOwn && docType && docId > 0)
+                ? `<button type="button" class="js-doc-share-approve mt-2 hidden w-full items-center justify-center rounded-xl border border-[#0025cc] bg-white px-3 py-2 text-sm font-semibold text-[#0025cc] transition hover:bg-blue-50" data-doc-type="${escapeHtml(docType)}" data-doc-id="${docId}">Approve</button>`
                 : '';
 
             return `
@@ -13787,7 +13859,9 @@ if (!isGroup) {
                 "
                 data-message-id="${Number(msg.message_id || 0)}"
                 data-message-own="${isOwn ? '1' : '0'}"
-                data-message-content="${escapeHtml(msg.message_content || '')}">
+                data-message-content="${escapeHtml(msg.message_content || '')}"
+                data-doc-share-type="${escapeHtml(docType)}"
+                data-doc-share-id="${docId}">
 
                     <div class="
                         w-[min(100%,300px)]
@@ -13811,10 +13885,113 @@ if (!isGroup) {
                                 <p class="mt-1 text-xs text-slate-400">${formatMessageTime(msg.created_at)}</p>
                             </div>
                         </div>
-                        ${openHtml ? `<div class="border-t border-slate-100 px-4 py-3">${openHtml}</div>` : ''}
+                        ${(openHtml || approveHtml) ? `<div class="border-t border-slate-100 px-4 py-3">${openHtml}${approveHtml}</div>` : ''}
                     </div>
                 </div>
             `;
+        }
+
+        async function refreshDocumentShareApproveButtons(root) {
+            const scope = root || document;
+            const rows = scope.querySelectorAll
+                ? scope.querySelectorAll('[data-doc-share-type][data-doc-share-id]')
+                : [];
+            if (!rows.length) return;
+
+            const seen = new Map();
+            rows.forEach((row) => {
+                const type = String(row.getAttribute('data-doc-share-type') || '').toLowerCase();
+                const id = Number(row.getAttribute('data-doc-share-id') || 0);
+                const isOwn = row.getAttribute('data-message-own') === '1';
+                if (!type || id < 1 || isOwn) return;
+                const key = type + ':' + id;
+                if (!seen.has(key)) seen.set(key, { type, id, nodes: [] });
+                seen.get(key).nodes.push(row);
+            });
+
+            for (const item of seen.values()) {
+                const statusUrl = resolveSharedDocumentStatusUrl(item);
+                if (!statusUrl) continue;
+                try {
+                    const res = await fetch(statusUrl, {
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    });
+                    const json = await res.json().catch(() => ({}));
+                    const data = json.data || {};
+                    item.nodes.forEach((row) => {
+                        const statusEl = row.querySelector('.js-doc-share-status');
+                        if (statusEl && data.status) {
+                            statusEl.textContent = data.status;
+                            statusEl.classList.remove('hidden');
+                        }
+                        const approveBtn = row.querySelector('.js-doc-share-approve');
+                        if (!approveBtn) return;
+                        const show = Boolean(data.can_approve && data.approve_url);
+                        approveBtn.classList.toggle('hidden', !show);
+                        approveBtn.classList.toggle('inline-flex', show);
+                        if (show) {
+                            approveBtn.dataset.approveUrl = data.approve_url;
+                        } else {
+                            delete approveBtn.dataset.approveUrl;
+                        }
+                    });
+                } catch (e) {
+                    // Keep Open only if status check fails.
+                }
+            }
+        }
+
+        async function handleDocumentShareApproveClick(button) {
+            if (!button || button.dataset.busy === '1') return;
+            const type = String(button.getAttribute('data-doc-type') || '').toLowerCase();
+            const id = Number(button.getAttribute('data-doc-id') || 0);
+            const approveApi = resolveSharedDocumentApproveUrl({ type, id });
+            if (!approveApi) return;
+
+            button.dataset.busy = '1';
+            const original = button.textContent;
+            button.textContent = 'Opening…';
+            button.disabled = true;
+
+            try {
+                const res = await fetch(approveApi, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({}),
+                });
+                const json = await res.json().catch(() => ({}));
+                const redirect = json.data?.redirect || json.data?.approve_url || button.dataset.approveUrl || '';
+                if (!res.ok || !redirect) {
+                    throw new Error(json.message || 'Approval is not available for this document.');
+                }
+                window.open(redirect, '_blank', 'noopener,noreferrer');
+                if (typeof window.showMpToast === 'function') {
+                    window.showMpToast('Finish approval in the opened form. The list updates when done.', {
+                        type: 'info',
+                        title: 'Approve',
+                        timer: 3500,
+                    });
+                }
+                setTimeout(() => refreshDocumentShareApproveButtons(button.closest('#modalMessages') || document), 1200);
+            } catch (e) {
+                const msg = e.message || 'Could not start approval.';
+                if (typeof window.showMpToast === 'function') {
+                    window.showMpToast(msg, { type: 'error', title: 'Approve' });
+                } else {
+                    alert(msg);
+                }
+            } finally {
+                button.dataset.busy = '0';
+                button.textContent = original || 'Approve';
+                button.disabled = false;
+            }
         }
 
         function renderMessengerMessageRow(msg, isOwn) {
@@ -16676,6 +16853,8 @@ if (!isGroup) {
 
             // Always make typing indicator the final item
             moveTypingIndicatorAfterLastMessage();
+
+            refreshDocumentShareApproveButtons(container);
 
             // =====================================================
             // DATE SEPARATORS

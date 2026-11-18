@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Purchase History')
-@section('page-subtitle', 'Everything this purchaser account has bought, requested, and received.')
+@section('page-subtitle', 'Purchases, requests, and receipts.')
 
 @section('content')
 <style>

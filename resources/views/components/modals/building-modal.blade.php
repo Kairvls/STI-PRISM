@@ -9,7 +9,7 @@
             <h1 class="text-3xl font-black text-[#005EA6] tracking-tight">
                 Infrastructure Dashboard
             </h1>
-            <p class="text-sm text-slate-500">Overview of the physical assets, campus levels, and rooms at STI College Ormoc.</p>
+            <p class="text-sm text-slate-500">Campus buildings, floors, and rooms.</p>
         </div>
         
         <div class="h-2 w-32 bg-gradient-to-r from-[#005EA6] to-[#FFF200] rounded-full hidden md:block"></div>

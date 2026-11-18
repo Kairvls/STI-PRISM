@@ -168,11 +168,12 @@
                                 <td class="px-5 py-4">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <p class="font-semibold text-slate-950">{{ $rr->receiving_report_form_number }}</p>
-                                        @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
-                                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                                        @endif
+                                        @include('partials.ris-urgency-badge', [
+                                            'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
+                                            'size' => 'sm',
+                                            'title' => 'Inherited from linked RIS',
+                                        ])
                                     </div>
-                                    <p class="mt-0.5 text-xs text-slate-400">Record #{{ $rr->receiving_report_id }}</p>
                                 </td>
                                 <td class="px-5 py-4">
                                     @if($requestNo !== '')
@@ -303,9 +304,10 @@
                             @endphp
                             <div class="flex flex-wrap items-center gap-2">
                                 <h3 class="text-xl font-semibold">{{ $rr->receiving_report_form_number }}</h3>
-                                @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
-                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                                @endif
+                                @include('partials.ris-urgency-badge', [
+                                    'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
+                                    'title' => 'Inherited from linked RIS',
+                                ])
                                 @if($roFundLabel && $roFundLabel !== 'Not chosen')
                                     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $roIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $roFundLabel }} RR</span>
                                 @endif

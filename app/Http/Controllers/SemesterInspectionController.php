@@ -730,7 +730,7 @@ class SemesterInspectionController extends Controller
         }
 
         if ($campaign->campaign_status !== 'Draft') {
-            return back()->with('error', 'Only draft campaigns can be activated.');
+            return back()->with('error', 'Only campaigns in preparation can be activated.');
         }
 
         DB::table('semester_inspection_campaigns_table')

@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'ATP Details')
-@section('page-subtitle', 'Review Authority to Purchase record and approval actions')
+@section('page-subtitle', 'Review ATP and approval actions.')
 
 @section('content')
 
@@ -161,7 +161,7 @@
         @endif
 
         @if($atp->authority_purchase_status === 'Pending' && $atp->authority_purchase_submitted_at)
-            <p class="text-sm text-gray-500">Waiting for the School Administrator to approve or request a revision.</p>
+            <p class="text-sm text-gray-500">Waiting for School Administrator decision.</p>
         @endif
 
         @if($atp->authority_purchase_status === 'Approved' && !$atp->authority_purchase_is_archived)

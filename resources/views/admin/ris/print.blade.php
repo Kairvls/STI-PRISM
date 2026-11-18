@@ -266,7 +266,7 @@
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : '' }}
+                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -294,7 +294,7 @@
                         @php
                             $secondColDate = $isDirectlyApproved ? $checkedDate : $approvedDate;
                         @endphp
-                        {{ $secondColDate ? \Carbon\Carbon::parse($secondColDate)->format('d/m/Y') : '' }}
+                        {{ $secondColDate ? \Carbon\Carbon::parse($secondColDate)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -316,7 +316,7 @@
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        {{ $issuedDate ? \Carbon\Carbon::parse($issuedDate)->format('d/m/Y') : '' }}
+                        {{ $issuedDate ? \Carbon\Carbon::parse($issuedDate)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -327,7 +327,7 @@
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : '' }}
+                        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>

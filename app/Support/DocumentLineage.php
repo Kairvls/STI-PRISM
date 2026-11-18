@@ -18,7 +18,7 @@ class DocumentLineage
             'RIS',
             $risId,
             RisWorkflow::formNumber($ris, $risId),
-            route('purchaser.ris.index', ['view_ris' => $risId]),
+            self::openUrl('ris', $risId),
             $ris ? self::reviewHintForRis($ris) : self::reviewHint(null, null, 'ris')
         );
 
@@ -38,8 +38,8 @@ class DocumentLineage
             ->map(fn ($row) => self::node(
                 'ATP',
                 (int) $row->authority_purchase_id,
-                $row->authority_purchase_form_number ?? ('ATP #'.$row->authority_purchase_id),
-                route('purchaser.atp.index', ['view_atp' => $row->authority_purchase_id]),
+                $row->authority_purchase_form_number ?? '',
+                self::openUrl('atp', (int) $row->authority_purchase_id),
                 self::reviewHint(RisWorkflow::atpStatusLabel($row), null, 'atp')
             ))
             ->values()
@@ -63,7 +63,7 @@ class DocumentLineage
                 'RIS',
                 $risId,
                 RisWorkflow::formNumber($ris, $risId),
-                route('purchaser.ris.index', ['view_ris' => $risId]),
+                self::openUrl('ris', $risId),
                 $ris ? self::reviewHintForRis($ris) : null
             );
         }
@@ -82,7 +82,7 @@ class DocumentLineage
             'RIS',
             $risId,
             RisWorkflow::formNumber($ris, $risId),
-            route('purchaser.ris.index', ['view_ris' => $risId]),
+            self::openUrl('ris', $risId),
             self::reviewHintForRis($ris)
         );
 
@@ -90,16 +90,28 @@ class DocumentLineage
     }
 
     /**
-     * Lightweight ATP node only (no RFC/RR/LIQ lookups) for closed list modals.
+     * Prefer {@see forAtp()} for view modals so prior pipeline steps stay clickable.
+     * Stub keeps the linked RIS when present so previous forms are never locked.
      */
     public static function stubAtp(object $atp): array
     {
         $chain = self::emptyChain();
+        if (!empty($atp->authority_purchase_ris_id)) {
+            $risId = (int) $atp->authority_purchase_ris_id;
+            $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+            $chain['ris'] = self::node(
+                'RIS',
+                $risId,
+                RisWorkflow::formNumber($ris, $risId),
+                self::openUrl('ris', $risId),
+                $ris ? self::reviewHintForRis($ris) : null
+            );
+        }
         $chain['atp'] = self::node(
             'ATP',
             (int) $atp->authority_purchase_id,
-            $atp->authority_purchase_form_number ?? ('ATP #'.$atp->authority_purchase_id),
-            route('purchaser.atp.index', ['view_atp' => $atp->authority_purchase_id]),
+            $atp->authority_purchase_form_number ?? '',
+            self::openUrl('atp', (int) $atp->authority_purchase_id),
             self::reviewHint(RisWorkflow::atpStatusLabel($atp), null, 'atp')
         );
 
@@ -107,16 +119,18 @@ class DocumentLineage
     }
 
     /**
-     * Lightweight RFC node only (no RR/LIQ lookups) for closed list modals.
+     * Prefer {@see forRfc()} for view modals so prior pipeline steps stay clickable.
+     * Stub walks back to ATP (and RIS) when linked so previous forms are never locked.
      */
     public static function stubRfc(object $rfc): array
     {
-        $chain = self::emptyChain();
+        $atpId = (int) ($rfc->request_check_authority_purchase_id ?? 0);
+        $chain = $atpId > 0 ? self::forAtp($atpId) : self::emptyChain();
         $chain['rfc'] = self::node(
             'RFC',
             (int) $rfc->request_check_id,
-            $rfc->request_check_form_number ?? ('RFC #'.$rfc->request_check_id),
-            route('purchaser.rfc.index', ['view_rfc' => $rfc->request_check_id]),
+            $rfc->request_check_form_number ?? '',
+            self::openUrl('rfc', (int) $rfc->request_check_id),
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
 
@@ -139,8 +153,8 @@ class DocumentLineage
         $chain['rfc'] = self::node(
             'RFC',
             $rfcId,
-            $rfc->request_check_form_number ?? ('RFC #'.$rfcId),
-            route('purchaser.rfc.index', ['view_rfc' => $rfcId]),
+            $rfc->request_check_form_number ?? '',
+            self::openUrl('rfc', $rfcId),
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
 
@@ -166,8 +180,8 @@ class DocumentLineage
         $chain['rr'] = self::node(
             'RR',
             $rrId,
-            $rr->receiving_report_form_number ?? ('RR #'.$rrId),
-            route('purchaser.rr.index', ['view_rr' => $rrId]),
+            $rr->receiving_report_form_number ?? '',
+            self::openUrl('rr', $rrId),
             self::reviewHint($rr->receiving_report_status ?? null, null, 'rr')
         );
 
@@ -190,8 +204,8 @@ class DocumentLineage
         $chain['liq'] = self::node(
             'LIQ',
             $liqId,
-            $liq->liquidation_report_form_number ?? ('LIQ #'.$liqId),
-            route('purchaser.liq.index', ['view_liq' => $liqId]),
+            $liq->liquidation_report_form_number ?? '',
+            self::openUrl('liq', $liqId),
             self::reviewHint($liq->liquidation_report_status ?? null, $liq->liquidation_report_review_stage ?? null, 'liq')
         );
 
@@ -312,31 +326,43 @@ class DocumentLineage
         ];
     }
 
-    private static function dvUrl(int $dvId): string
+    private static function openUrl(string $type, int $id): string
     {
-        if (class_exists(RequestExplorer::class)) {
-            $url = RequestExplorer::viewUrlFor('dv', $dvId);
-            if (is_string($url) && $url !== '') {
-                return $url;
-            }
-        }
-
-        foreach ([
-            ['accounting.dv.show', ['id' => $dvId]],
-            ['school-admin.dv.show', ['id' => $dvId]],
-            ['president.dv.show', ['id' => $dvId]],
-        ] as [$name, $params]) {
-            if (\Illuminate\Support\Facades\Route::has($name)) {
-                return route($name, $params);
-            }
+        $url = RequestExplorer::viewUrlFor($type, $id);
+        if (is_string($url) && $url !== '') {
+            return $url;
         }
 
         return '#';
     }
 
+    private static function dvUrl(int $dvId): string
+    {
+        return self::openUrl('dv', $dvId);
+    }
+
     private static function node(string $type, int $id, string $label, string $url, ?string $hint = null): array
     {
-        return compact('type', 'id', 'label', 'url', 'hint');
+        return [
+            'type' => $type,
+            'id' => $id,
+            'label' => self::pipelineLabel($label),
+            'url' => $url,
+            'hint' => $hint,
+        ];
+    }
+
+    /**
+     * Pipeline chip text: real form number, or "-" (never TYPE #id).
+     */
+    private static function pipelineLabel(?string $label): string
+    {
+        $label = trim((string) $label);
+        if ($label === '' || preg_match('/^(RIS|ATP|RFC|RR|LR|LIQ|CA|DV)\s*#\d+$/i', $label)) {
+            return '-';
+        }
+
+        return $label;
     }
 
     private static function extendFromAtp(array $chain, object $atp): array
@@ -344,8 +370,8 @@ class DocumentLineage
         $chain['atp'] = self::node(
             'ATP',
             (int) $atp->authority_purchase_id,
-            $atp->authority_purchase_form_number ?? ('ATP #'.$atp->authority_purchase_id),
-            route('purchaser.atp.index', ['view_atp' => $atp->authority_purchase_id]),
+            $atp->authority_purchase_form_number ?? '',
+            self::openUrl('atp', (int) $atp->authority_purchase_id),
             self::reviewHint(RisWorkflow::atpStatusLabel($atp), null, 'atp')
         );
 
@@ -363,8 +389,8 @@ class DocumentLineage
         $chain['rfc'] = self::node(
             'RFC',
             (int) $rfc->request_check_id,
-            $rfc->request_check_form_number ?? ('RFC #'.$rfc->request_check_id),
-            route('purchaser.rfc.index', ['view_rfc' => $rfc->request_check_id]),
+            $rfc->request_check_form_number ?? '',
+            self::openUrl('rfc', (int) $rfc->request_check_id),
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
 
@@ -387,7 +413,7 @@ class DocumentLineage
                 $chain['dv'] = self::node(
                     'DV',
                     (int) $dv->dv_id,
-                    $dv->dv_form_number ?? ('DV #'.$dv->dv_id),
+                    $dv->dv_form_number ?? '',
                     self::dvUrl((int) $dv->dv_id),
                     self::reviewHint($dv->dv_status ?? null, null, 'dv')
                 );
@@ -425,8 +451,8 @@ class DocumentLineage
         $chain['rr'] = self::node(
             'RR',
             (int) $rr->receiving_report_id,
-            $rr->receiving_report_form_number ?? ('RR #'.$rr->receiving_report_id),
-            route('purchaser.rr.index', ['view_rr' => $rr->receiving_report_id]),
+            $rr->receiving_report_form_number ?? '',
+            self::openUrl('rr', (int) $rr->receiving_report_id),
             self::reviewHint($rr->receiving_report_status ?? null, null, 'rr')
         );
 
@@ -455,8 +481,8 @@ class DocumentLineage
             $chain['liq'] = self::node(
                 'LIQ',
                 (int) $liq->liquidation_report_id,
-                $liq->liquidation_report_form_number ?? ('LIQ #'.$liq->liquidation_report_id),
-                route('purchaser.liq.index', ['view_liq' => $liq->liquidation_report_id]),
+                $liq->liquidation_report_form_number ?? '',
+                self::openUrl('liq', (int) $liq->liquidation_report_id),
                 self::reviewHint($liq->liquidation_report_status ?? null, $liq->liquidation_report_review_stage ?? null, 'liq')
             );
         }
@@ -486,6 +512,6 @@ class DocumentLineage
         $type = self::paymentPathForRfc($rfc);
         $prefix = $type === ProcurementPaymentPath::CASH_ADVANCE ? 'CA' : 'RFC';
 
-        return $rfc->request_check_form_number ?? ($prefix . ' #' . $rfc->request_check_id);
+        return self::pipelineLabel($rfc->request_check_form_number ?? '');
     }
 }

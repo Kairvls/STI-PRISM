@@ -1668,7 +1668,7 @@
             <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900">Add many reporters at once</h2>
-                    <p class="mt-1 text-sm text-slate-500">Download the sample file, fill in your faculty and staff, then upload. Each row is checked the same way as adding one reporter.</p>
+                    <p class="mt-1 text-sm text-slate-500">Download the sample, fill it in, then upload.</p>
                 </div>
                 <button type="button" onclick="closeImportModal()" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -1683,7 +1683,7 @@
                     <label id="importDropzone" class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-400 hover:bg-slate-100">
                         <i data-lucide="cloud-upload" class="h-8 w-8 text-slate-400"></i>
                         <p class="mt-3 text-sm font-medium text-slate-700">Drop a CSV or Excel file, or click to browse <span class="text-red-500">*</span></p>
-                        <p class="mt-1 text-xs text-slate-400">Use the sample file so names and numbers import correctly</p>
+                        <p class="mt-1 text-xs text-slate-400">Use the sample so names and IDs import correctly.</p>
                         <input id="importFile" name="file" type="file" accept=".csv,.txt,.xlsx" class="hidden" required />
                     </label>
                     <p id="importFileName" class="mt-3 hidden text-sm font-medium text-slate-600"></p>
@@ -1754,7 +1754,7 @@
                     </div>
                     <div>
                         <h2 class="text-lg font-semibold tracking-tight text-slate-900">Add reporter</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">Fields marked <span class="text-red-500">*</span> are required. The reporter's PIN is sent to their email.</p>
+                        <p class="mt-0.5 text-sm text-slate-500">Required fields marked <span class="text-red-500">*</span>. PIN is emailed.</p>
                     </div>
                 </div>
                 <button type="button" onclick="closeCreateModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
@@ -1771,7 +1771,7 @@
                     @include('admin.partials.person-picker', [
                         'label' => 'Pick existing faculty/staff',
                         'required' => false,
-                        'hint' => 'Optional — pick to auto-fill the form and lock identity.',
+                        'hint' => 'Optional — pick to auto-fill and lock.',
                     ])
                 </section>
                 @endif
@@ -1803,8 +1803,8 @@
                                 <span id="createEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
                             </div>
                             <input type="hidden" id="employee_id" name="employee_id" value="" required>
-                            <p id="createEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
-                            <p id="createEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee ID is already in the Property Assignments people directory; reporter details must match that record.</p>
+                            <p id="createEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter 5 digits.</p>
+                            <p id="createEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">Employee ID already exists — details must match that record.</p>
                         </div>
                         @if(session('mismatch_force_data') && session('mismatch_force_data.type') === 'custodian')
                             @php $m = session('mismatch_force_data.custodian'); @endphp
@@ -1966,8 +1966,8 @@
                                 <span id="editEmployeeIdSuffix" class="reporter-employee-id-suffix is-empty">?</span>
                             </div>
                             <input type="hidden" name="employee_id" id="editEmployeeId" value="" required>
-                            <p id="editEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
-                            <p id="editEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">This employee ID is already in the Property Assignments people directory; reporter details must match that record.</p>
+                            <p id="editEmployeeIdHint" class="mt-1 text-xs text-slate-400">Select type first, then enter 5 digits.</p>
+                            <p id="editEmployeeIdHint2" class="mt-1 text-xs text-amber-700 hidden">Employee ID already exists — details must match that record.</p>
                         </div>
                     </div>
                 </section>
@@ -2290,7 +2290,7 @@
                         placeholder="6 digits"
                         class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-center font-mono text-lg tracking-[0.4em] text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
                     />
-                    <p class="mt-1.5 text-xs text-slate-400">No repeated or sequential digits like 111111 or 123456.</p>
+                    <p class="mt-1.5 text-xs text-slate-400">No repeats or sequences like 111111 or 123456.</p>
                 </div>
 
                 <label id="pinEmailWrap" class="flex items-start gap-3 text-sm text-slate-600">
@@ -2543,11 +2543,11 @@
             if (type) {
                 fieldEl.classList.remove('is-disabled');
                 digitsEl.removeAttribute('readonly');
-                if (hintEl) hintEl.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+                if (hintEl) hintEl.textContent = 'Enter 5 digits only. OMC and ' + suffix + ' are fixed.';
             } else {
                 fieldEl.classList.add('is-disabled');
                 digitsEl.setAttribute('readonly', 'readonly');
-                if (hintEl) hintEl.textContent = 'Select type first, then enter the 5-digit number.';
+                if (hintEl) hintEl.textContent = 'Select type first, then enter 5 digits.';
             }
 
             const fullId = (type && digits.length === 5 && suffix) ? ('OMC' + digits + suffix) : '';

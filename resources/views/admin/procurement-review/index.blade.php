@@ -25,6 +25,7 @@
     @if (\App\Support\AdminPortal::canActOnRis())
         @include('admin.procurement-review._direct-approve-modal')
         @include('admin.procurement-review._accept-modal')
+        @include('admin.digital-signatures._return-revision-modal')
     @endif
 </div>
 
@@ -48,7 +49,13 @@
     let currentFilter = '{{ $filter ?? 'pending' }}';
     let currentSearch = '{{ $search ?? '' }}';
     let currentSubmittedDate = @json($submittedDate ?? '');
+    let currentUrgency = @json($urgencyFilter ?? '');
     let currentFocus = @json($attentionFocus['key'] ?? '');
+
+    window.applyRisUrgencyFilter = function (value) {
+        currentUrgency = value || '';
+        fetchRisData(currentFilter, currentSearch, null);
+    };
 
     function syncRisDateFilterUi() {
         const btn = document.getElementById('risSubmittedDateBtn');
@@ -141,6 +148,10 @@
 
         if (currentSubmittedDate) {
             params.set('submitted', currentSubmittedDate);
+        }
+
+        if (currentUrgency) {
+            params.set('urgency', currentUrgency);
         }
 
         if (page) {

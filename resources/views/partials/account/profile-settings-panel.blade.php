@@ -78,7 +78,7 @@
                     readonly
                     class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-500 outline-none"
                 >
-                <p class="mt-1.5 text-xs text-slate-500">Managed by your administrator. Must match your Office 365 sign-in email.</p>
+                <p class="mt-1.5 text-xs text-slate-500">Must match your Microsoft 365 sign-in email.</p>
             </label>
 
             <label class="block">

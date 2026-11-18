@@ -55,17 +55,49 @@ class DocumentWorkflowService
     }
 
     /**
-     * Creator lists: put unfinished own work (Draft / Minor Revision) above in-flight records.
+     * Creator lists: pin In preparation (Draft) above everything else.
+     * Call before unfinished / urgency / date sorts. Review queues should not use this.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    public static function orderDraftFirst($query, string $statusColumn, string $draftStatus = 'Draft')
+    {
+        return $query->orderByRaw(
+            "CASE WHEN {$statusColumn} = ? THEN 0 ELSE 1 END",
+            [$draftStatus]
+        );
+    }
+
+    /**
+     * Creator lists: unfinished own work above in-flight records, with Draft (In preparation)
+     * above revision statuses so urgency / date cannot bury drafts.
      * Call before date / urgency secondary sorts. Review queues should not use this.
      *
      * @param  \Illuminate\Database\Query\Builder  $query
      * @param  list<string>  $statuses
      */
-    public static function orderOwnUnfinishedFirst($query, string $statusColumn, array $statuses = ['Draft', 'Minor Revision'])
+    public static function orderOwnUnfinishedFirst($query, string $statusColumn, array $statuses = ['Draft', 'Minor Revision', 'President Revision'])
     {
         $statuses = array_values(array_filter($statuses, fn ($s) => is_string($s) && $s !== ''));
         if ($statuses === []) {
             return $query;
+        }
+
+        $draftStatus = 'Draft';
+        $hasDraft = in_array($draftStatus, $statuses, true);
+        $other = array_values(array_filter($statuses, fn ($s) => $s !== $draftStatus));
+
+        if ($hasDraft && $other !== []) {
+            $otherPlaceholders = implode(', ', array_fill(0, count($other), '?'));
+
+            return $query->orderByRaw(
+                "CASE
+                    WHEN {$statusColumn} = ? THEN 0
+                    WHEN {$statusColumn} IN ({$otherPlaceholders}) THEN 1
+                    ELSE 2
+                END",
+                array_merge([$draftStatus], $other)
+            );
         }
 
         $placeholders = implode(', ', array_fill(0, count($statuses), '?'));
@@ -77,7 +109,8 @@ class DocumentWorkflowService
     }
 
     /**
-     * ATP soft-draft lists: unsubmitted + Minor Revision first (Pending without submitted_at).
+     * ATP soft-draft lists: In preparation (Draft or never submitted) first,
+     * then revision, then the rest.
      *
      * @param  \Illuminate\Database\Query\Builder  $query
      */
@@ -85,16 +118,36 @@ class DocumentWorkflowService
         $query,
         string $statusColumn,
         string $submittedAtColumn,
-        string $revisionStatus = 'Minor Revision'
+        string $revisionStatus = 'Minor Revision',
+        string $draftStatus = 'Draft'
     ) {
         return $query->orderByRaw(
             "CASE
                 WHEN {$statusColumn} = ? THEN 0
                 WHEN {$submittedAtColumn} IS NULL THEN 0
-                ELSE 1
+                WHEN {$statusColumn} = ? THEN 1
+                ELSE 2
             END",
-            [$revisionStatus]
+            [$draftStatus, $revisionStatus]
         );
+    }
+
+    /**
+     * When filtering by urgency (or similar), still keep In preparation rows in the list.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  callable(\Illuminate\Database\Query\Builder): void  $matchFilter
+     */
+    public static function whereFilterOrDraft(
+        $query,
+        string $statusColumn,
+        callable $matchFilter,
+        string $draftStatus = 'Draft'
+    ) {
+        return $query->where(function ($q) use ($statusColumn, $matchFilter, $draftStatus) {
+            $matchFilter($q);
+            $q->orWhere($statusColumn, $draftStatus);
+        });
     }
 
     /**

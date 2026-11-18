@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Funding Requests')
-@section('page-subtitle', 'Direct Payment, Cash Installment, and Cash Advance — create, submit, print, and archive funding requests.')
+@section('page-subtitle', 'Prepare funding with ATP, then submit both together for School Admin approval.')
 
 @section('content')
 
@@ -254,8 +254,16 @@
             </a>
         </nav>
 
-        @unless($archiveView)
-            <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            @include('layouts.partials.export-pdf-button', [
+                'exportUrl' => route(($pp ?? 'purchaser').'.rfc.export-pdf', array_filter([
+                    'view' => !empty($archiveView) ? 'archive' : null,
+                    'search' => request('search') ?: null,
+                    'status' => request('status') ?: null,
+                    'fund' => request('fund') ?: null,
+                ])),
+            ])
+            @unless($archiveView)
                 <button
                     type="button"
                     @click="emptyOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
@@ -272,8 +280,8 @@
                     <i data-lucide="plus" class="h-4 w-4"></i>
                     Create {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }}
                 </button>
-            </div>
-        @endunless
+            @endunless
+        </div>
     </div>
 
 
@@ -450,11 +458,12 @@
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?: '—' }}</p>
-                                            @if(\App\Support\DocumentUrgency::isUrgent('RFC', $rfc))
-                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                                            @endif
+                                            @include('partials.ris-urgency-badge', [
+                                                'urgent' => \App\Support\DocumentUrgency::isUrgent('RFC', $rfc),
+                                                'size' => 'sm',
+                                                'title' => 'Inherited from linked RIS',
+                                            ])
                                         </div>
-                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $rfc->request_check_id }}</p>
                                     </div>
                                 </div>
                             </td>
@@ -523,25 +532,36 @@
                                     <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-                                        <form
-                                            method="POST"
-                                            action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
-                                            class="inline"
-                                            data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to the School Administrator?' : 'Submit this Request for Check to the School Administrator?' }}"
-                                            data-pur-confirm-title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit RFC' : 'Submit RFC' }}"
-                                            data-pur-confirm-ok="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
-                                            data-pur-confirm-reviewer-role="School Administrator"
-                                        >
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                                title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}"
-                                                aria-label="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}"
+                                        @if(!empty($rfc->must_joint_submit) && !empty($rfc->joint_submit_atp_id))
+                                            <a
+                                                href="{{ route(($pp ?? 'purchaser').'.atp.index', ['view_atp' => (int) $rfc->joint_submit_atp_id]) }}"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#0025cc] bg-white text-[#0025cc] transition hover:bg-blue-50"
+                                                title="Submit ATP + RFC together"
+                                                aria-label="Submit ATP + RFC together"
                                             >
                                                 <i data-lucide="send" class="h-4 w-4"></i>
-                                            </button>
-                                        </form>
+                                            </a>
+                                        @else
+                                            <form
+                                                method="POST"
+                                                action="{{ route(($pp ?? 'purchaser').'.rfc.submit', $rfc->request_check_id) }}"
+                                                class="inline"
+                                                data-pur-confirm="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit this Request for Check to the School Administrator?' : 'Submit this Request for Check to the School Administrator?' }}"
+                                                data-pur-confirm-title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit RFC' : 'Submit RFC' }}"
+                                                data-pur-confirm-ok="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit' : 'Submit' }}"
+                                                data-pur-confirm-reviewer-role="School Administrator"
+                                            >
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                    title="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}"
+                                                    aria-label="{{ $rfc->request_check_status === 'Minor Revision' ? 'Resubmit to School Administrator' : 'Submit to School Administrator' }}"
+                                                >
+                                                    <i data-lucide="send" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                        @endif
                                     @endif
                                     @if(
                                         !$archiveView
@@ -559,7 +579,7 @@
                                                 method="POST"
                                                 action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}"
                                                 class="inline"
-                                                data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
+                                                data-pur-confirm="Submit approved Canvass + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
                                                 data-pur-confirm-title="Submit to Accounting"
                                                 data-pur-confirm-ok="Submit"
                                                 data-pur-confirm-reviewer-role="Accounting"
@@ -573,7 +593,7 @@
                                                 ><i data-lucide="send" class="h-4 w-4"></i></button>
                                             </form>
                                         @elseif(!empty($rfc->sent_to_accounting) && !$rfc->funds_released)
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for Accounting / DV" aria-label="Waiting for Accounting / DV"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
+                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800" title="Accounting already has this package" aria-label="Accounting already has this package"><i data-lucide="building-2" class="h-4 w-4"></i></span>
                                         @elseif(!$rfc->has_rr && $rfc->funds_released)
                                             <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" data-pur-confirm="Create a Receiving Report for {{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}? The RR form will open with this RFC already selected." data-pur-confirm-title="Create RR" data-pur-confirm-ok="Create RR" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
                                         @elseif(!$rfc->has_rr)
@@ -793,9 +813,10 @@
                         <div>
                             <div class="flex flex-wrap items-center gap-2">
                                 <h3 id="rfc-view-title-{{ $rfc->request_check_id }}" class="text-xl font-semibold text-slate-900">{{ $rfc->request_check_form_number }}</h3>
-                                @if(\App\Support\DocumentUrgency::isUrgent('RFC', $rfc))
-                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                                @endif
+                                @include('partials.ris-urgency-badge', [
+                                    'urgent' => \App\Support\DocumentUrgency::isUrgent('RFC', $rfc),
+                                    'title' => 'Inherited from linked RIS',
+                                ])
                             </div>
                             @if(!empty($rfc->request_check_request_no))
                                 <div class="mt-1.5">
@@ -869,7 +890,7 @@
                     @php
                         $rfcIdKey = (int) $rfc->request_check_id;
                         $rfcLineage = ($rfcLineages[$rfcIdKey] ?? null)
-                            ?: \App\Support\DocumentLineage::stubRfc($rfc);
+                            ?: \App\Support\DocumentLineage::forRfc($rfcIdKey);
                         $rfcHint = \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc');
                     @endphp
                     @include('partials.document-lineage', [
@@ -907,7 +928,7 @@
                                 <form
                                     method="POST"
                                     action="{{ route(($pp ?? 'purchaser').'.rfc.send-to-accounting', $rfc->request_check_id) }}"
-                                    data-pur-confirm="Submit approved Canvas + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
+                                    data-pur-confirm="Submit approved Canvass + RIS + ATP + RFC to Accounting for Disbursement Voucher?"
                                     data-pur-confirm-title="Submit to Accounting"
                                     data-pur-confirm-ok="Submit"
                                     data-pur-confirm-reviewer-role="Accounting"
@@ -921,7 +942,7 @@
                             @elseif($rfc->has_rr)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">RR Created</span>
                             @elseif(!empty($rfc->sent_to_accounting) && !$rfc->funds_released)
-                                <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for Accounting / DV</span>
+                                <span class="inline-flex h-10 items-center rounded-lg border border-sky-200 bg-sky-50 px-4 text-sm font-medium text-sky-800">Accounting already has this package</span>
                             @elseif(!$rfc->funds_released)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">Waiting for funds</span>
                             @endif
@@ -1033,8 +1054,10 @@
                             </div>
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <p class="mr-auto max-w-md text-xs text-gray-500">
-                                    @if($rfc->request_check_status === 'Minor Revision')
-                                        Save your corrections here, then use <strong>⋮ → Resubmit to School Administrator</strong> in the list.
+                                    @if(!empty($rfc->must_joint_submit) && !empty($rfc->joint_submit_atp_id))
+                                        Save in preparation here, then open <strong>Authority to Purchase</strong> and use <strong>Submit ATP + RFC for Review</strong>.
+                                    @elseif($rfc->request_check_status === 'Minor Revision')
+                                        Save your corrections here, then use <strong>Resubmit to School Administrator</strong> in the list.
                                     @else
                                         Save your changes here (including signature), then use the <strong>Submit</strong> (send) button in the list.
                                     @endif

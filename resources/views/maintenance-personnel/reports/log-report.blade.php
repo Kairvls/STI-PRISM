@@ -609,7 +609,7 @@
                             <i data-lucide="clipboard-list" class="h-5 w-5"></i>
                         </div>
                         <p class="text-sm font-semibold text-slate-700">No walk-in reports logged yet</p>
-                        <p class="mt-1 text-sm text-slate-500">Submitted walk-in reports will appear here with the audit trail.</p>
+                        <p class="mt-1 text-sm text-slate-500">Submitted walk-in reports appear here.</p>
                         <button
                             type="button"
                             onclick="openWalkInReportModal()"

@@ -9,7 +9,7 @@
         <div class="min-w-0 hidden sm:block">
         </div>
         <div class="awaiting-indicator" data-tip="RIS currently waiting for your review" id="awaitingIndicator">
-            <span class="awaiting-label">Waiting for Review</span>
+            <span class="awaiting-label">Waiting for Review & Approval</span>
             <strong id="awaitingReviewCount">{{ number_format($totalPendingRis ?? 0) }}</strong>
         </div>
     </header>
@@ -18,11 +18,40 @@
         <section class="queue-panel">
             <div class="panel-head">
                 <div>
-                    <h2>Approval Queue</h2>
-                    <p>Oldest RIS first · pin approved items to keep them on top</p>
+                    <h2>Approval List</h2>
                 </div>
-                <div class="search-wrap">
-                    <input type="text" id="queueSearch" value="{{ request('search') }}" placeholder="Search RIS, requester, purpose" autocomplete="off" data-tip="Search the approval queue" />
+                <div class="panel-tools">
+                    <div class="date-filter-wrap {{ !empty($queueDate) ? 'is-active' : '' }}">
+                        <button
+                            type="button"
+                            id="queueDateBtn"
+                            class="date-filter-btn"
+                            data-tip="{{ !empty($queueDate) ? 'Date '.$queueDate.' — click to change' : 'Filter by date' }}"
+                            aria-label="Filter approval list by date"
+                        >
+                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                        </button>
+                        <input
+                            type="date"
+                            id="queueDateInput"
+                            class="date-filter-input"
+                            value="{{ $queueDate ?? '' }}"
+                            tabindex="-1"
+                            aria-hidden="true"
+                        >
+                        @if(!empty($queueDate))
+                            <button
+                                type="button"
+                                id="queueDateClear"
+                                class="date-filter-clear"
+                                data-tip="Clear date filter"
+                                aria-label="Clear approval list date filter"
+                            >×</button>
+                        @endif
+                    </div>
+                    <form id="queueSearchForm" class="search-wrap" action="{{ route('president.approvals') }}" method="get" role="search">
+                        <input type="text" id="queueSearch" name="search" value="{{ request('search') }}" placeholder="Search RIS, requester, purpose" autocomplete="off" data-tip="Search the approval list" />
+                    </form>
                 </div>
             </div>
             <div id="queueList">
@@ -30,7 +59,7 @@
             </div>
             @include('president.partials.table-word-export', [
                 'target' => '#queueList .pm-queue-table',
-                'filename' => 'president-approval-queue',
+                'filename' => 'president-approval-list',
             ])
             <div id="risPagination" class="{{ $pendingRis->hasPages() ? '' : 'hidden' }}">
                 @if ($pendingRis->hasPages())
@@ -43,7 +72,37 @@
             <div class="panel-head compact">
                 <div>
                     <h2>Recent RIS</h2>
-                    <p>Earliest decisions first</p>
+                    <p>Needs notify first · then earliest decisions</p>
+                </div>
+                <div class="panel-tools">
+                    <div class="date-filter-wrap {{ !empty($recentDate) ? 'is-active' : '' }}">
+                        <button
+                            type="button"
+                            id="recentDateBtn"
+                            class="date-filter-btn"
+                            data-tip="{{ !empty($recentDate) ? 'Date '.$recentDate.' — click to change' : 'Filter by date' }}"
+                            aria-label="Filter recent RIS by date"
+                        >
+                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                        </button>
+                        <input
+                            type="date"
+                            id="recentDateInput"
+                            class="date-filter-input"
+                            value="{{ $recentDate ?? '' }}"
+                            tabindex="-1"
+                            aria-hidden="true"
+                        >
+                        @if(!empty($recentDate))
+                            <button
+                                type="button"
+                                id="recentDateClear"
+                                class="date-filter-clear"
+                                data-tip="Clear date filter"
+                                aria-label="Clear recent RIS date filter"
+                            >×</button>
+                        @endif
+                    </div>
                 </div>
             </div>
             <div id="recentList" class="recent-list">
@@ -108,16 +167,22 @@
         <div class="doc-actions doc-actions-split">
             <div class="doc-actions-left">
                 <div id="reviewAttachments" class="review-attachments-inline hidden">
-                    <p class="review-attachments-label">Canvas</p>
+                    <p class="review-attachments-label">Canvass</p>
                     <div id="reviewAttachmentsList" class="review-attachments-list"></div>
                 </div>
             </div>
             <div class="doc-actions-right">
             
                 <button type="button" class="btn-ghost" data-tip="Close without deciding" onclick="closeRisReviewModal()">Close</button>
-                <button type="button" class="btn-reject" data-tip="Reject this RIS" onclick="openDecisionModal('ris', window.currentRisId, 'Rejected')">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                    Reject
+                <button
+                    type="button"
+                    class="btn-reject"
+                    data-tip="Return this RIS for revision"
+                    onclick="openPresidentRevisionModal(window.currentRisId)"
+                    style="background:#ea580c;border-color:#ea580c;"
+                >
+                    <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+                    Return for Revision
                 </button>
                 <button type="button" class="btn-approve" data-tip="Sign and approve" onclick="submitRisApproval()">
                     <i data-lucide="check" class="h-4 w-4"></i>
@@ -201,7 +266,7 @@
         <div class="doc-actions doc-actions-split">
             <div class="doc-actions-left">
                 <div id="previewAttachments" class="review-attachments-inline">
-                    <p class="review-attachments-label">Canvas</p>
+                    <p class="review-attachments-label">Canvass</p>
                     <div id="previewAttachmentsList" class="review-attachments-list">
                         <span class="text-xs text-slate-400">Loading…</span>
                     </div>
@@ -282,6 +347,52 @@
     </div>
 </div>
 
+<div id="presidentRevisionModal" class="confirm-modal hidden" style="z-index:12050;">
+    <div class="confirm-backdrop" onclick="closePresidentRevisionModal()"></div>
+    <div class="confirm-card wide" onclick="event.stopPropagation()">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h3>Return for Revision</h3>
+                <p id="presidentRevisionSubtitle" class="mt-1 text-sm text-slate-500">Send this RIS back before approving</p>
+            </div>
+            <button type="button" class="icon-close" onclick="closePresidentRevisionModal()" data-tip="Close" aria-label="Close"><i data-lucide="x"></i></button>
+        </div>
+        <form id="presidentRevisionForm" method="POST" action="/president/approvals/ris/return-revision" enctype="multipart/form-data">
+            @csrf
+            <input type="hidden" name="target_id" id="presidentRevisionTargetId" value="" />
+            <div class="mt-4">
+                <label>Revision remarks <span class="text-red-500">*</span></label>
+                <textarea name="remarks" id="presidentRevisionRemarks" rows="3" required placeholder="Describe what needs to be revised."></textarea>
+            </div>
+            <div class="mt-4">
+                <label>Pass this RIS to <span class="text-red-500">*</span></label>
+                <p class="hint" style="margin:4px 0 8px;font-size:0.75rem;color:#64748b;">Choose one path.</p>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-700">
+                        <input type="radio" name="revision_route" value="school_admin" id="revisionRouteAdmin" class="mt-0.5" checked>
+                        <span class="font-medium text-slate-900">School Administrator only</span>
+                    </label>
+                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
+                        <input type="radio" name="revision_route" value="school_admin_and_purchaser" id="revisionRouteBoth" class="mt-0.5">
+                        <span class="font-medium text-slate-900">School Administrator &amp; Purchaser</span>
+                    </label>
+                </div>
+                <p id="presidentRevisionRouteError" class="mt-2 hidden text-xs text-rose-600">Select a destination.</p>
+            </div>
+            <div class="mt-4">
+                @include('admin.partials.revision-image-picker', ['pickerId' => 'presidentRevisionImages'])
+            </div>
+            <div class="confirm-actions mt-5">
+                <button type="button" class="btn-ghost" onclick="closePresidentRevisionModal()">Cancel</button>
+                <button type="button" class="btn-approve" style="background:#b45309;" onclick="submitPresidentRevision()">
+                    <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+                    Return for Revision
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @include('president.partials.ris-fit-viewer')
 @include('president.approvals._approve-modal')
 
@@ -294,10 +405,59 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const presidentDisplayName = @json(Auth::user()->user_full_name ?? 'President');
     const searchInput = document.getElementById('queueSearch');
+    const queueDateInput = document.getElementById('queueDateInput');
+    const recentDateInput = document.getElementById('recentDateInput');
     const attentionFocusKey = @json($attentionFocus['key'] ?? '');
     const PIN_STORAGE_KEY = 'president_ris_pins';
     let searchTimeout = null, sendInFlight = false, decideInFlight = false;
     window.approvedPreviewDirty = false;
+
+    function currentQueueDate() {
+        return queueDateInput && queueDateInput.value ? String(queueDateInput.value) : '';
+    }
+    function currentRecentDate() {
+        return recentDateInput && recentDateInput.value ? String(recentDateInput.value) : '';
+    }
+    function openNativeDatePicker(input) {
+        if (!input) return;
+        try {
+            if (typeof input.showPicker === 'function') input.showPicker();
+            else { input.focus(); input.click(); }
+        } catch (e) {
+            input.focus();
+        }
+    }
+    function syncDateFilterChrome(wrapEl, value) {
+        if (!wrapEl) return;
+        const btn = wrapEl.querySelector('.date-filter-btn');
+        const hasValue = !!value;
+        wrapEl.classList.toggle('is-active', hasValue);
+        if (btn) {
+            btn.setAttribute('data-tip', hasValue ? ('Date ' + value + ' — click to change') : 'Filter by date');
+        }
+        let clearBtn = wrapEl.querySelector('.date-filter-clear');
+        if (hasValue && !clearBtn) {
+            clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'date-filter-clear';
+            clearBtn.textContent = '×';
+            clearBtn.setAttribute('data-tip', 'Clear date filter');
+            clearBtn.setAttribute('aria-label', 'Clear date filter');
+            wrapEl.appendChild(clearBtn);
+        } else if (!hasValue && clearBtn) {
+            clearBtn.remove();
+        }
+    }
+    function updateUrlDateParams() {
+        const url = new URL(window.location.href);
+        const queueDate = currentQueueDate();
+        const recentDate = currentRecentDate();
+        if (queueDate) url.searchParams.set('queue_date', queueDate);
+        else url.searchParams.delete('queue_date');
+        if (recentDate) url.searchParams.set('recent_date', recentDate);
+        else url.searchParams.delete('recent_date');
+        window.history.replaceState({}, '', url);
+    }
 
     function getPinnedIds() {
         try {
@@ -358,7 +518,7 @@
         const body = document.getElementById('queueTableBody');
         if (!body) return;
         const pins = getPinnedIds();
-        const rows = Array.from(body.querySelectorAll('tr.queue-row'));
+        const rows = Array.from(body.querySelectorAll('.queue-row'));
 
         rows.forEach(row => {
             const id = String(row.dataset.risId || '');
@@ -407,13 +567,17 @@
     }
 
     function fetchTableData(page) {
-        const search = searchInput ? searchInput.value : '';
+        const search = searchInput ? String(searchInput.value || '').trim() : '';
+        const queueDate = currentQueueDate();
         const queueList = document.getElementById('queueList');
         const pagination = document.getElementById('risPagination');
         if (queueList) queueList.classList.add('updating');
         const params = new URLSearchParams();
         if (attentionFocusKey) params.set('focus', attentionFocusKey);
         if (search) params.set('search', search);
+        if (queueDate) params.set('queue_date', queueDate);
+        const recentDate = currentRecentDate();
+        if (recentDate) params.set('recent_date', recentDate);
         params.set('page', page || 1);
         fetch(`{{ route('president.approvals') }}?${params.toString()}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
@@ -435,6 +599,16 @@
                 const countEl = document.getElementById('awaitingReviewCount');
                 if (countEl) countEl.textContent = Number(data.awaiting_review).toLocaleString();
             }
+            const url = new URL(window.location.href);
+            if (search) url.searchParams.set('search', search);
+            else url.searchParams.delete('search');
+            if (queueDate) url.searchParams.set('queue_date', queueDate);
+            else url.searchParams.delete('queue_date');
+            if (recentDate) url.searchParams.set('recent_date', recentDate);
+            else url.searchParams.delete('recent_date');
+            if (Number(data.current_page) > 1) url.searchParams.set('page', String(data.current_page));
+            else url.searchParams.delete('page');
+            window.history.replaceState({}, '', url);
             applyPinOrder();
             if (window.lucide) lucide.createIcons();
         })
@@ -455,6 +629,12 @@
         const params = new URLSearchParams(window.location.search);
         params.set('section', 'recent');
         params.set('recent_page', page || 1);
+        const recentDate = currentRecentDate();
+        if (recentDate) params.set('recent_date', recentDate);
+        else params.delete('recent_date');
+        const queueDate = currentQueueDate();
+        if (queueDate) params.set('queue_date', queueDate);
+        else params.delete('queue_date');
 
         fetch(`{{ route('president.approvals') }}?${params.toString()}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
@@ -481,6 +661,8 @@
             } else {
                 url.searchParams.delete('recent_page');
             }
+            if (recentDate) url.searchParams.set('recent_date', recentDate);
+            else url.searchParams.delete('recent_date');
             window.history.replaceState({}, '', url);
             if (window.lucide) lucide.createIcons();
         })
@@ -510,12 +692,64 @@
         @endif
     })();
 
+    const queueSearchForm = document.getElementById('queueSearchForm');
+    if (queueSearchForm) {
+        queueSearchForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            clearTimeout(searchTimeout);
+            fetchTableData(1);
+        });
+    }
     if (searchInput) {
         searchInput.addEventListener('input', function () {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => fetchTableData(1), 300);
         });
+        searchInput.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            clearTimeout(searchTimeout);
+            fetchTableData(1);
+        });
     }
+
+    const queueDateBtn = document.getElementById('queueDateBtn');
+    if (queueDateBtn && queueDateInput) {
+        queueDateBtn.addEventListener('click', function () {
+            openNativeDatePicker(queueDateInput);
+        });
+        queueDateInput.addEventListener('change', function () {
+            syncDateFilterChrome(queueDateInput.closest('.date-filter-wrap'), currentQueueDate());
+            fetchTableData(1);
+        });
+    }
+
+    const recentDateBtn = document.getElementById('recentDateBtn');
+    if (recentDateBtn && recentDateInput) {
+        recentDateBtn.addEventListener('click', function () {
+            openNativeDatePicker(recentDateInput);
+        });
+        recentDateInput.addEventListener('change', function () {
+            syncDateFilterChrome(recentDateInput.closest('.date-filter-wrap'), currentRecentDate());
+            fetchRecentData(1);
+        });
+    }
+
+    document.addEventListener('click', function (event) {
+        const clearBtn = event.target.closest('.date-filter-clear');
+        if (!clearBtn) return;
+        if (clearBtn.closest('.queue-panel')) {
+            if (queueDateInput) queueDateInput.value = '';
+            syncDateFilterChrome(document.querySelector('.queue-panel .date-filter-wrap'), '');
+            fetchTableData(1);
+            return;
+        }
+        if (clearBtn.closest('.recent-panel')) {
+            if (recentDateInput) recentDateInput.value = '';
+            syncDateFilterChrome(document.querySelector('.recent-panel .date-filter-wrap'), '');
+            fetchRecentData(1);
+        }
+    });
 
     window.printRisDocument = function (risId) {
         if (!risId) return;
@@ -691,6 +925,13 @@
         if (window.lucide) lucide.createIcons();
     }
 
+    window._approvedPreviewAutoCloseTimer = null;
+    window.clearApprovedPreviewAutoClose = function () {
+        if (window._approvedPreviewAutoCloseTimer) {
+            clearTimeout(window._approvedPreviewAutoCloseTimer);
+            window._approvedPreviewAutoCloseTimer = null;
+        }
+    };
     window.openApprovedRisPreviewModal = function (risId, options) {
         options = options || {};
         const modal = document.getElementById('approvedRisPreviewModal');
@@ -698,6 +939,7 @@
         const notifyBtn = document.getElementById('sendApprovedRisBtn');
         const attachBox = document.getElementById('previewAttachments');
         const attachList = document.getElementById('previewAttachmentsList');
+        window.clearApprovedPreviewAutoClose();
         window.currentRisId = risId;
         window.approvedPreviewDirty = !!options.afterApprove;
         window.setDocFullscreen('approvedRisPreviewModal', false);
@@ -709,11 +951,25 @@
         document.getElementById('previewPresidentName').textContent = presidentDisplayName;
         document.getElementById('previewApprovedDate').textContent = options.approvedDate
             || new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-        setNotifyAdminButtonState(notifyBtn, { label: 'Notify Administrator' });
+        if (options.adminNotified) {
+            setNotifyAdminButtonState(notifyBtn, { label: 'Administrator Notified', notified: true });
+        } else if (options.awaitingNotify) {
+            setNotifyAdminButtonState(notifyBtn, { label: 'Notify Administrator' });
+        } else {
+            setNotifyAdminButtonState(notifyBtn, { hidden: true });
+        }
         modal.classList.remove('hidden');
         requestAnimationFrame(() => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit'));
         iframe.onload = () => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit');
         if (window.lucide) lucide.createIcons();
+
+        // After a fresh approval: show the signed Final RIS briefly, then close + refresh.
+        if (options.afterApprove) {
+            window._approvedPreviewAutoCloseTimer = setTimeout(function () {
+                window._approvedPreviewAutoCloseTimer = null;
+                closeApprovedRisPreviewModal(true);
+            }, 5000);
+        }
 
         fetch('/president/ris/' + encodeURIComponent(risId) + '/details', {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
@@ -727,7 +983,7 @@
             if (notifyBtn) {
                 if (data.admin_notified) {
                     setNotifyAdminButtonState(notifyBtn, { label: 'Administrator Notified', notified: true });
-                } else if (data.awaiting_notify || data.is_president_approved) {
+                } else if (data.awaiting_notify) {
                     setNotifyAdminButtonState(notifyBtn, { label: 'Notify Administrator' });
                 } else {
                     setNotifyAdminButtonState(notifyBtn, { hidden: true });
@@ -760,6 +1016,7 @@
         });
     };
     window.closeApprovedRisPreviewModal = function (shouldRefresh) {
+        window.clearApprovedPreviewAutoClose();
         window.setDocFullscreen('approvedRisPreviewModal', false);
         const iframe = document.getElementById('approvedRisIframe');
         if (iframe) iframe.src = 'about:blank';
@@ -822,7 +1079,7 @@
         toast.className = 'pm-toast';
         toast.textContent = typeof message === 'string' ? message : (message?.message || 'Done');
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2800);
+        setTimeout(() => toast.remove(), 5500);
     }
     function openDecisionModal(type, id, presetDecision) {
         if ((presetDecision || '').toLowerCase() === 'approved') {
@@ -857,6 +1114,80 @@
     function closeDecisionModal() {
         document.getElementById('decisionModal')?.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
+    }
+    window.openPresidentRevisionModal = function (id) {
+        const modal = document.getElementById('presidentRevisionModal');
+        const form = document.getElementById('presidentRevisionForm');
+        if (!modal || !form || !id) return;
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+        document.getElementById('presidentRevisionTargetId').value = id;
+        const remarks = document.getElementById('presidentRevisionRemarks');
+        if (remarks) remarks.value = '';
+        const adminOnly = document.getElementById('revisionRouteAdmin');
+        if (adminOnly) adminOnly.checked = true;
+        const routeError = document.getElementById('presidentRevisionRouteError');
+        if (routeError) routeError.classList.add('hidden');
+        document.getElementById('presidentRevisionSubtitle').textContent = window.risFormNumberLabel(id);
+        if (typeof window.resetRevisionImagePicker === 'function') {
+            window.resetRevisionImagePicker('presidentRevisionImages');
+        }
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        if (window.lucide) lucide.createIcons();
+        setTimeout(function () { remarks?.focus(); }, 150);
+    };
+    function closePresidentRevisionModal() {
+        document.getElementById('presidentRevisionModal')?.classList.add('hidden');
+        const decisionOpen = document.getElementById('decisionModal');
+        if (!decisionOpen || decisionOpen.classList.contains('hidden')) {
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
+    function submitPresidentRevision() {
+        if (decideInFlight) return;
+        const form = document.getElementById('presidentRevisionForm');
+        if (!form) return;
+        const remarksField = document.getElementById('presidentRevisionRemarks');
+        if (!remarksField || !remarksField.value.trim()) {
+            if (typeof window.showMpToast === 'function') {
+                showMpToast('Please provide revision remarks.', { title: 'Remarks required', type: 'warning', timer: 3600 });
+            } else {
+                alert('Please provide revision remarks.');
+            }
+            remarksField?.focus();
+            return;
+        }
+        const route = form.querySelector('input[name="revision_route"]:checked');
+        const routeError = document.getElementById('presidentRevisionRouteError');
+        if (!route) {
+            if (routeError) routeError.classList.remove('hidden');
+            return;
+        }
+        if (routeError) routeError.classList.add('hidden');
+        decideInFlight = true;
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            body: new FormData(form)
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to return for revision.');
+            closePresidentRevisionModal();
+            closeRisReviewModal();
+            showToast(data.message || 'RIS returned for revision.', { title: 'Returned for revision', type: 'success' });
+            setTimeout(() => window.location.reload(), 900);
+        })
+        .catch(error => {
+            if (typeof window.showMpToast === 'function') {
+                showMpToast(error.message || 'Unable to return for revision.', { title: 'Unable to complete', type: 'error', timer: 4200 });
+            } else {
+                alert(error.message);
+            }
+        })
+        .finally(() => { decideInFlight = false; });
     }
     function submitDecision(decision) {
         if (decideInFlight) return;
@@ -916,6 +1247,7 @@
         closeRisReviewModal();
         closeApprovedRisPreviewModal(true);
         closeDecisionModal();
+        closePresidentRevisionModal();
         closeSendConfirmationModal();
     });
 

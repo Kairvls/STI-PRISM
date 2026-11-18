@@ -497,7 +497,7 @@
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-5 py-4">
                 <h2 class="text-base font-semibold text-slate-950">Components history</h2>
-                <p class="mt-1 text-sm text-slate-500">Previous and current equipment for this computer set (including replacements).</p>
+                <p class="mt-1 text-sm text-slate-500">Current and previous set members.</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-left text-sm">

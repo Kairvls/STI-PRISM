@@ -7,13 +7,13 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('accounting/dashboard') => ['Dashboard', ''],
-                request()->is('accounting/disbursement-vouchers*') => ['Disbursement Vouchers', 'Create a DV only from an approved request (Canvas + RIS + ATP + RFC). You can also print a blank DV form.'],
+                request()->is('accounting/disbursement-vouchers*') => ['Disbursement Vouchers', 'From approved request package. Blank form available.'],
                 request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', ''],
                 request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', ''],
                 request()->is('accounting/notifications*') => ['Alerts', ''],
                 request()->is('accounting/profile*') => ['Profile Settings', ''],
                 request()->is('accounting/security*') => ['Security Settings', ''],
-                request()->is('requests/*') => [View::yieldContent('title', 'Request'), View::yieldContent('page-subtitle', 'Pipeline and documents under this Request No.')],
+                request()->is('requests/*') => [View::yieldContent('title', 'Request'), View::yieldContent('page-subtitle', 'Documents under this Request No.')],
                 default => [View::yieldContent('title', 'PaAyo'), ''],
             };
 

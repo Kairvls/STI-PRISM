@@ -6,8 +6,8 @@
     // Prefer page-local stats when present; fall back to sidebar attention counts.
     $pendingAcceptCount = (int) ($pendingAcceptCount ?? $pendingRis ?? $adminSidebarPendingRis ?? 0);
     $readyToSignCount = (int) ($readyToSignCount ?? $adminSidebarAwaitingCosign ?? 0);
-    $acceptUrl = AdminPortal::route('procurement-review', ['filter' => 'pending']);
-    $signUrl = AdminPortal::route('digital-signatures.sign-ris', ['filter' => 'for_decision']);
+    $acceptUrl = AdminPortal::route('procurement-review');
+    $signUrl = AdminPortal::route('digital-signatures.sign-ris');
 @endphp
 
 <nav

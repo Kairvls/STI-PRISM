@@ -28,6 +28,11 @@ class User extends Authenticatable
         'user_email_address',
         'user_contact_number',
         'user_status',
+        'user_away_status',
+        'user_away_starts_at',
+        'user_away_until',
+        'user_away_note',
+        'user_away_reminder_sent_at',
         'user_profile_picture',
         'user_password',
         'person_id',
@@ -43,6 +48,9 @@ class User extends Authenticatable
 
     protected $casts = [
         'user_can_procurement' => 'boolean',
+        'user_away_starts_at' => 'datetime',
+        'user_away_until' => 'datetime',
+        'user_away_reminder_sent_at' => 'datetime',
     ];
 
     protected $hidden = [

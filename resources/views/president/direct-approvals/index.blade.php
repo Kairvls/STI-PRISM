@@ -15,6 +15,35 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3 flex-1 justify-end min-w-0">
+                <div class="date-filter-wrap {{ !empty($dateFilter) ? 'is-active' : '' }}">
+                    <button
+                        type="button"
+                        id="directApprovalDateBtn"
+                        class="date-filter-btn"
+                        data-tip="{{ !empty($dateFilter) ? 'Date '.$dateFilter.' — click to change' : 'Filter by date' }}"
+                        aria-label="Filter direct approvals by date"
+                    >
+                        <i data-lucide="calendar" class="h-4 w-4"></i>
+                    </button>
+                    <input
+                        type="date"
+                        id="directApprovalDateInput"
+                        class="date-filter-input"
+                        value="{{ $dateFilter ?? '' }}"
+                        tabindex="-1"
+                        aria-hidden="true"
+                    >
+                    @if(!empty($dateFilter))
+                        <button
+                            type="button"
+                            id="directApprovalDateClear"
+                            class="date-filter-clear"
+                            data-tip="Clear date filter"
+                            aria-label="Clear date filter"
+                        >×</button>
+                    @endif
+                </div>
+
                 <div class="relative w-full min-w-[220px] max-w-md">
                     <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
                     <input
@@ -126,7 +155,7 @@
                     </a>
                 </div>
                 <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Canvas</p>
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Canvass</p>
                     <div id="directApprovalDetailDocs" class="mt-1.5 flex flex-wrap gap-2">
                         <p class="text-xs text-slate-400">None attached to this RIS.</p>
                     </div>
@@ -178,7 +207,7 @@
                 class="hidden border-t border-slate-100 bg-slate-50 px-3 py-2"
                 style="line-height: normal; font-size: medium;"
             >
-                <p class="m-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Canvas</p>
+                <p class="m-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Canvass</p>
                 <div class="mt-1.5 flex flex-wrap gap-1.5" id="risViewAttachmentList"></div>
             </div>
             <div class="absolute right-3 top-3 z-10 flex items-center gap-2" style="line-height: normal; font-size: medium;">
@@ -305,6 +334,8 @@
 <script>
 (function () {
     var searchInput = document.getElementById('directApprovalSearch');
+    var dateInput = document.getElementById('directApprovalDateInput');
+    var dateBtn = document.getElementById('directApprovalDateBtn');
     var tableBody = document.getElementById('directApprovalTableBody');
     var countEl = document.getElementById('directApprovalCount');
     var paginationEl = document.getElementById('directApprovalPagination');
@@ -314,6 +345,63 @@
         if (typeof lucide !== 'undefined' && lucide.createIcons) {
             lucide.createIcons();
         }
+    }
+
+    function currentDate() {
+        return dateInput && dateInput.value ? String(dateInput.value) : '';
+    }
+
+    function openNativeDatePicker(input) {
+        if (!input) return;
+        try {
+            if (typeof input.showPicker === 'function') input.showPicker();
+            else { input.focus(); input.click(); }
+        } catch (e) {
+            input.focus();
+        }
+    }
+
+    function syncDateFilterChrome(wrapEl, value) {
+        if (!wrapEl) return;
+        var btn = wrapEl.querySelector('.date-filter-btn');
+        var hasValue = !!value;
+        wrapEl.classList.toggle('is-active', hasValue);
+        if (btn) {
+            btn.setAttribute('data-tip', hasValue ? ('Date ' + value + ' — click to change') : 'Filter by date');
+        }
+        var clearBtn = wrapEl.querySelector('.date-filter-clear');
+        if (hasValue && !clearBtn) {
+            clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'date-filter-clear';
+            clearBtn.id = 'directApprovalDateClear';
+            clearBtn.textContent = '×';
+            clearBtn.setAttribute('data-tip', 'Clear date filter');
+            clearBtn.setAttribute('aria-label', 'Clear date filter');
+            wrapEl.appendChild(clearBtn);
+        } else if (!hasValue && clearBtn) {
+            clearBtn.remove();
+        }
+    }
+
+    function buildListUrl(overrides) {
+        overrides = overrides || {};
+        var params = new URLSearchParams(window.location.search);
+        var search = Object.prototype.hasOwnProperty.call(overrides, 'search')
+            ? String(overrides.search || '').trim()
+            : (searchInput ? searchInput.value.trim() : '');
+        var date = Object.prototype.hasOwnProperty.call(overrides, 'date')
+            ? String(overrides.date || '')
+            : currentDate();
+
+        if (search) params.set('search', search);
+        else params.delete('search');
+        if (date) params.set('date', date);
+        else params.delete('date');
+        params.delete('page');
+
+        var qs = params.toString();
+        return window.location.pathname + (qs ? ('?' + qs) : '');
     }
 
     function fetchPage(url) {
@@ -341,18 +429,42 @@
         searchInput.addEventListener('input', function () {
             clearTimeout(searchTimer);
             searchTimer = setTimeout(function () {
-                var params = new URLSearchParams(window.location.search);
-                var value = searchInput.value.trim();
-                if (value) params.set('search', value);
-                else params.delete('search');
-                params.delete('page');
-                var qs = params.toString();
-                var next = window.location.pathname + (qs ? ('?' + qs) : '');
+                var next = buildListUrl();
                 window.history.replaceState({}, '', next);
                 fetchPage(next);
             }, 300);
         });
+        searchInput.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            clearTimeout(searchTimer);
+            var next = buildListUrl();
+            window.history.replaceState({}, '', next);
+            fetchPage(next);
+        });
     }
+
+    if (dateBtn && dateInput) {
+        dateBtn.addEventListener('click', function () {
+            openNativeDatePicker(dateInput);
+        });
+        dateInput.addEventListener('change', function () {
+            syncDateFilterChrome(dateInput.closest('.date-filter-wrap'), currentDate());
+            var next = buildListUrl();
+            window.history.replaceState({}, '', next);
+            fetchPage(next);
+        });
+    }
+
+    document.addEventListener('click', function (event) {
+        var clearBtn = event.target.closest('#directApprovalDateClear, .date-filter-clear');
+        if (!clearBtn || !clearBtn.closest('.date-filter-wrap')) return;
+        if (dateInput) dateInput.value = '';
+        syncDateFilterChrome(document.querySelector('.date-filter-wrap'), '');
+        var next = buildListUrl({ date: '' });
+        window.history.replaceState({}, '', next);
+        fetchPage(next);
+    });
 
     document.addEventListener('click', function (event) {
         var link = event.target.closest('#directApprovalPagination a');

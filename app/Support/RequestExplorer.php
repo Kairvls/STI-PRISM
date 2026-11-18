@@ -15,7 +15,7 @@ class RequestExplorer
     public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'];
 
     public const STAGE_LABELS = [
-        'ris' => 'Canvas + RIS',
+        'ris' => 'Canvass + RIS',
         'atp' => 'Authority to Purchase',
         'rfc' => 'Request for Check',
         'dv' => 'Disbursement Voucher',
@@ -348,7 +348,9 @@ class RequestExplorer
             'key' => 'dv',
             'type' => 'DV',
             'id' => (int) $dv->dv_id,
-            'label' => $dv->dv_form_number ?: ('DV #'.$dv->dv_id),
+            'label' => trim((string) ($dv->dv_form_number ?? '')) !== ''
+                ? (string) $dv->dv_form_number
+                : '-',
             'hint' => $status,
             'view_url' => self::viewUrlFor('dv', (int) $dv->dv_id),
         ];
@@ -498,6 +500,32 @@ class RequestExplorer
         return $draft;
     }
 
+    /**
+     * Whether the signed-in user may open procurement paper previews / document links.
+     */
+    public static function userCanOpenDocuments(?object $user = null): bool
+    {
+        $user = $user ?? \Illuminate\Support\Facades\Auth::user();
+        if (! $user) {
+            return false;
+        }
+
+        if (RoleAccess::isAdmin($user)) {
+            return true;
+        }
+
+        foreach (RoleAccess::roleIds($user) as $roleId) {
+            if (RoleAccess::isPortalDormant($roleId)) {
+                continue;
+            }
+            if (isset(RoleAccess::portalMeta()[$roleId])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function viewUrlFor(string $key, int $id, ?string $portal = null): ?string
     {
         if ($id < 1) {
@@ -505,6 +533,17 @@ class RequestExplorer
         }
 
         $portal = $portal ?: self::viewerPortal();
+        $key = strtolower($key);
+
+        // Shared paper preview (works for Purchaser, Accounting, SA, President, …).
+        if (in_array($key, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true)
+            && Route::has('procurement.documents.preview')) {
+            try {
+                return route('procurement.documents.preview', ['type' => $key, 'id' => $id]);
+            } catch (\Throwable) {
+                // fall through
+            }
+        }
 
         if (in_array($portal, ['admin', 'school-admin'], true)
             && in_array($key, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true)
@@ -516,25 +555,27 @@ class RequestExplorer
             }
         }
 
-        // Prefer the *current viewer's* portal so shared "Open RIS" links
-        // don't send a Supply Officer to /purchaser/ris (403).
+        $supplyDormant = RoleAccess::isPortalDormant(RoleAccess::SUPPLY_OFFICER);
+
+        // Portal deep-links as fallback (never dormant Supply Officer).
         $candidates = match ($key) {
-            'ris' => [
+            'ris' => array_values(array_filter([
                 ['purchaser.ris.index', ['view_ris' => $id]],
-                ['supply-officer.incoming-ris.show', ['risId' => $id]],
-                ['supply-officer.dashboard.preview-ris', ['ris' => $id]],
+                ['school-admin.ris.show', ['id' => $id]],
                 ['president.ris.view', ['ris' => $id]],
-                ['accounting.ris.show', ['id' => $id]],
-            ],
-            'atp' => [
-                ['supply-officer.atp.index', ['view_atp' => $id]],
+                $supplyDormant ? null : ['supply-officer.incoming-ris.show', ['risId' => $id]],
+                $supplyDormant ? null : ['supply-officer.dashboard.preview-ris', ['ris' => $id]],
+            ])),
+            'atp' => array_values(array_filter([
+                ['school-admin.atp.preview', ['id' => $id]],
+                ['school-admin.atp.show', ['id' => $id]],
                 ['purchaser.atp.index', ['view_atp' => $id]],
-                ['accounting.atp.index', ['view_atp' => $id]],
-            ],
-            'rfc' => [
+                $supplyDormant ? null : ['supply-officer.atp.index', ['view_atp' => $id]],
+            ])),
+            'rfc' => array_values(array_filter([
+                ['school-admin.rfc.index', ['view_rfc' => $id]],
                 ['purchaser.rfc.index', ['view_rfc' => $id]],
-                ['accounting.rfc.index', ['view_rfc' => $id]],
-            ],
+            ])),
             'dv' => [
                 ['accounting.dv.show', ['id' => $id]],
                 ['accounting.dv.index', ['view_dv' => $id]],
@@ -543,6 +584,7 @@ class RequestExplorer
             ],
             'rr' => [
                 ['purchaser.rr.index', ['view_rr' => $id]],
+                ['receiving.rr.index', ['view_rr' => $id]],
             ],
             'liq' => [
                 ['purchaser.liq.index', ['view_liq' => $id]],
@@ -551,7 +593,6 @@ class RequestExplorer
             default => [],
         };
 
-        // Prefer routes for the active portal when namespaced that way.
         usort($candidates, function ($a, $b) use ($portal) {
             $aScore = str_starts_with($a[0], $portal.'.') ? 0 : 1;
             $bScore = str_starts_with($b[0], $portal.'.') ? 0 : 1;
@@ -843,7 +884,7 @@ class RequestExplorer
         $map = [
             'ris' => ['RIS', 'Requisition and Issue Slip'],
             'atp' => ['ATP', 'Authority to Purchase'],
-            'rfc' => ['Check', 'Request Check'],
+            'rfc' => ['RFC', 'Request for Check'],
             'dv' => ['DV', 'Disbursement Voucher'],
             'rr' => ['RR', 'Receiving Report'],
             'liq' => ['Liquidation', 'Liquidation Report'],

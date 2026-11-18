@@ -232,13 +232,13 @@
 
         </a>
 
-        {{-- Released ATPs from Supply Officer (read / fund for RFC) --}}
+        {{-- Purchaser-owned ATPs (create → payment path → RFC → SA); Supply path kept dormant via PURCHASER_OWNS_ATP --}}
         <a
             href="{{ route('purchaser.atp.index') }}"
             class="menu-item {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
         >
             <i data-lucide="file-check-2" class="h-5 w-5"></i>
-            <span>Approved ATPs</span>
+            <span>Authority to Purchase</span>
             @if($menuCounts['atp'] > 0)
                 <span class="{{ $navCount }}" title="{{ $menuCounts['atp'] }} not viewed yet">{{ $menuCounts['atp'] }}</span>
             @endif
@@ -400,7 +400,9 @@
                 Liquidation Reports
             </span>
 
-            @if($menuCounts['liq'] > 0)
+            @if(($menuCounts['liq_overdue'] ?? 0) > 0)
+                <span class="menu-count ml-auto mr-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-bold leading-none !text-white" title="{{ $menuCounts['liq_overdue'] }} overdue liquidation{{ $menuCounts['liq_overdue'] === 1 ? '' : 's' }}">{{ $menuCounts['liq_overdue'] }}</span>
+            @elseif($menuCounts['liq'] > 0)
                 <span class="{{ $navCount }}" title="{{ $menuCounts['liq'] }} not viewed yet">{{ $menuCounts['liq'] }}</span>
             @endif
 

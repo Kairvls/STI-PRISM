@@ -14,23 +14,35 @@
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_collected_at) ? 'Check collected' : (!empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status)])
-                @if (\App\Support\DocumentUrgency::isUrgent('RFC', $rfc->request_check_id))
-                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                @endif
+                @include('partials.ris-urgency-badge', [
+                    'urgent' => \App\Support\DocumentUrgency::isUrgent('RFC', $rfc->request_check_id),
+                    'title' => 'Inherited from linked RIS',
+                ])
             </div>
             @if(!blank($rfc->request_check_request_no ?? null))
                 <div class="mt-2">
                     @include('partials.procurement-request-no', ['requestNo' => $rfc->request_check_request_no, 'inline' => true, 'size' => 'md'])
                 </div>
             @endif
-            <p class="acc-page-subtitle">Funds are collected in person.</p>
+            <p class="acc-page-subtitle">Collect funds in person.</p>
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve request check">
-                    <i data-lucide="check" class="h-4 w-4"></i>
-                    <span>Approve</span>
-                </button>
+                @if(!empty($dualRouteApprove))
+                    <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved', 'purchaser')" class="acc-action-btn is-approve" data-tip="Approve and pass to Purchaser only">
+                        <i data-lucide="user-check" class="h-4 w-4"></i>
+                        <span>Pass to Purchaser</span>
+                    </button>
+                    <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved', 'purchaser_and_accounting')" class="acc-action-btn is-approve" data-tip="Approve and send package to Accounting for DV">
+                        <i data-lucide="building-2" class="h-4 w-4"></i>
+                        <span>Pass to Purchaser + Accounting</span>
+                    </button>
+                @else
+                    <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve request check">
+                        <i data-lucide="check" class="h-4 w-4"></i>
+                        <span>Approve</span>
+                    </button>
+                @endif
                 <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
                     <i data-lucide="undo-2" class="h-4 w-4"></i>
                     <span>Request Revision</span>
@@ -196,17 +208,19 @@
             <input type="hidden" name="target_type" id="targetType" value="" />
             <input type="hidden" name="target_id" id="targetId" value="" />
             <input type="hidden" name="decision" id="targetDecision" value="" />
+            <input type="hidden" name="route_to" id="routeTo" value="purchaser" />
             <input type="hidden" name="signature_data" id="signatureData" value="" />
             <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
             <div id="signatureBlock" class="hidden mt-4">
                 @include('accounting.partials.decision-signature-panel', [
                     'savedSignatures' => $savedSignatures ?? collect(),
-                    'signTitle' => 'Accounting signature',
+                    'signTitle' => 'School Administrator signature',
                     'signHint' => 'Pick a saved signature, draw one, or upload. It approves this Request for Check.',
                     'padTitle' => 'Sign the Request for Check',
                     'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
                 ])
             </div>
+            <div id="routeHint" class="mt-3 hidden rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"></div>
             <div class="mt-4">
                 <label>Remarks <span id="remarksReqStar" class="text-red-500 hidden">*</span></label>
                 <textarea name="remarks" rows="3" placeholder="Optional for approve. Required for revision."></textarea>
@@ -233,13 +247,15 @@
     });
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const dualRouteApprove = @json(!empty($dualRouteApprove));
     let decideInFlight = false;
 
-    function openDecisionModal(type, id, presetDecision) {
+    function openDecisionModal(type, id, presetDecision, routeTo) {
         const form = document.getElementById('decisionForm');
         document.getElementById('targetType').value = type;
         document.getElementById('targetId').value = id;
         document.getElementById('targetDecision').value = presetDecision || '';
+        document.getElementById('routeTo').value = routeTo || 'purchaser';
         if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
         else {
             document.getElementById('signatureData').value = '';
@@ -256,7 +272,24 @@
         if (window.resetRevisionImagePicker) window.resetRevisionImagePicker('decisionRevisionImages');
         document.getElementById('approveBtn').classList.toggle('hidden', !isApproved);
         document.getElementById('rejectBtn').classList.toggle('hidden', isApproved);
-        document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';
+
+        const routeHint = document.getElementById('routeHint');
+        if (isApproved && dualRouteApprove) {
+            const both = (routeTo || 'purchaser') === 'purchaser_and_accounting';
+            routeHint.classList.remove('hidden');
+            routeHint.textContent = both
+                ? 'Approves this funding request (and linked ATP if still pending) and sends the package to Accounting for DV.'
+                : 'Approves for the Purchaser only. They can submit to Accounting later.';
+            document.getElementById('decisionModalTitle').textContent = both
+                ? 'Pass to Purchaser + Accounting'
+                : 'Pass to Purchaser';
+            document.getElementById('approveBtn').textContent = both ? 'Confirm pass to both' : 'Confirm pass to Purchaser';
+        } else {
+            routeHint.classList.add('hidden');
+            document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';
+            document.getElementById('approveBtn').textContent = 'Approve';
+        }
+
         document.getElementById('decisionModal').classList.remove('hidden');
         if (window.lucide) lucide.createIcons();
     }

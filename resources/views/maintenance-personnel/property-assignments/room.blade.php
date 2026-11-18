@@ -100,7 +100,7 @@
         <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
                 <h2 class="text-base font-semibold text-slate-900">Unassigned items</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Individually tracked items in this room with no accountable person.</p>
+                <p class="mt-0.5 text-sm text-slate-500">Tracked items here with no accountable person.</p>
             </div>
             <i data-lucide="package-search" class="h-5 w-5 text-slate-400"></i>
         </div>
@@ -117,7 +117,7 @@
                 'roomId' => $room->room_id,
             ])
         @else
-            <p class="px-5 py-10 text-center text-sm text-slate-500">Every individually tracked item here has an accountable person.</p>
+            <p class="px-5 py-10 text-center text-sm text-slate-500">Every tracked item here has an owner.</p>
         @endif
     </section>
 </div>

@@ -76,11 +76,12 @@
                                             <p class="font-semibold text-gray-900">
                                                 {{ \App\Support\PurchaseOrderBasket::displayNumber($order) }}
                                             </p>
-                                            @if(\App\Support\DocumentUrgency::isUrgent('PO', $order))
-                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Includes an ATP from an urgent RIS'])
-                                            @endif
+                                            @include('partials.ris-urgency-badge', [
+                                                'urgent' => \App\Support\DocumentUrgency::isUrgent('PO', $order),
+                                                'size' => 'sm',
+                                                'title' => 'Inherited from linked RIS',
+                                            ])
                                         </div>
-                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $order->purchase_order_id }}</p>
                                     </div>
                                 </div>
                             </td>

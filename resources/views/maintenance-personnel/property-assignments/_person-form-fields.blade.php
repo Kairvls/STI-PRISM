@@ -126,7 +126,7 @@
                 @include('admin.partials.person-picker', [
                     'label' => 'From Faculty & Staff',
                     'required' => false,
-                    'hint' => 'Optional — pick a campus person; identity stays managed in Faculty & Staff.',
+                    'hint' => 'Optional — pick a campus person.',
                     'searchUrl' => request()->is('admin/*')
                         ? route('admin.persons.search')
                         : route('maintenance.persons.search'),
@@ -159,7 +159,7 @@
                     <span id="custodianEmployeeIdSuffix" class="reporter-employee-id-suffix {{ $empSuffix === '?' ? 'is-empty' : '' }}">{{ $empSuffix }}</span>
                 </div>
                 <input type="hidden" id="custodian_employee_id" name="custodian_employee_id" value="{{ $fullEmp }}" required>
-                <p id="custodianEmployeeHint" class="mt-1 text-xs text-slate-400">Select type first, then enter the 5-digit number.</p>
+                <p id="custodianEmployeeHint" class="mt-1 text-xs text-slate-400">Select type first, then enter 5 digits.</p>
                 @if (! $editing)
                     <p id="custodianEmployeeExistsHint" class="mt-1 hidden text-xs text-amber-700">This employee ID is already in the people directory.</p>
                 @endif

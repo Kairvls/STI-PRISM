@@ -7,7 +7,7 @@
     $hiddenName = $hiddenName ?? 'person_id';
     $label = $label ?? 'Person';
     $required = $required ?? false;
-    $hint = $hint ?? 'Search Faculty & Staff by name or employee ID';
+    $hint = $hint ?? 'Search by name or employee ID.';
     $searchUrl = $searchUrl ?? (request()->is('admin/*')
         ? route('admin.persons.search')
         : (Route::has('maintenance.persons.search')

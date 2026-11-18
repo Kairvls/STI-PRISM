@@ -99,27 +99,53 @@
 
             var reviewerHtml = '';
             if (needsReviewer) {
-                var primaryReviewer = reviewers.find(function (row) { return !!row.primary; }) || null;
+                var roleLabel = reviewerRoleLabel(reviewerRole);
+                var availableReviewers = reviewers.filter(function (row) { return !row.unavailable; });
+                var pool = availableReviewers.length ? availableReviewers : reviewers;
+                var primaryReviewer = pool.find(function (row) { return !!row.primary; }) || null;
                 var autoSelectId = reviewers.length === 1
                     ? reviewers[0].id
-                    : (primaryReviewer ? primaryReviewer.id : null);
-                var opts = '<option value=\"\">Select ' + escapeHtml(reviewerRoleLabel(reviewerRole)) + '…</option>';
-                reviewers.forEach(function (row) {
-                    var selected = autoSelectId !== null && String(row.id) === String(autoSelectId);
-                    opts += '<option value=\"' + escapeHtml(row.id) + '\"' + (selected ? ' selected' : '') + '>' + escapeHtml(row.name) + '</option>';
-                });
-                reviewerHtml =
-                    '<div class=\"mt-4 block w-full\">'
-                    +   '<label for=\"purConfirmReviewer\" class=\"block text-xs font-medium text-slate-600\">Assign to <span class=\"text-red-500\">*</span></label>'
-                    +   '<select id=\"purConfirmReviewer\" data-pur-reviewer class=\"mt-1.5 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300\">'
-                    +     opts
-                    +   '</select>'
-                    +   (reviewers.length === 0
-                        ? '<p class=\"mt-1.5 text-xs text-rose-600\">No ' + escapeHtml(reviewerRoleLabel(reviewerRole)) + ' users are available.</p>'
-                        : '<p class=\"mt-1.5 text-xs text-slate-400\">Only the selected person will receive this for review.'
-                            + (primaryReviewer ? ' Primary-role holders appear first.' : '')
-                            + '</p>')
-                    + '</div>';
+                    : (primaryReviewer ? primaryReviewer.id : (pool[0] ? pool[0].id : null));
+                var hasAvailable = availableReviewers.length > 0;
+                if (reviewers.length === 1) {
+                    var soleAway = !!reviewers[0].unavailable;
+                    reviewerHtml =
+                        '<div class=\"mt-4 block w-full\">'
+                        +   '<input type=\"hidden\" data-pur-reviewer value=\"' + escapeHtml(reviewers[0].id) + '\">'
+                        +   '<div class=\"rounded-lg border ' + (soleAway ? 'border-amber-200 bg-amber-50/70' : 'border-slate-200 bg-slate-50') + ' px-3.5 py-3\">'
+                        +     '<p class=\"text-xs font-medium text-slate-600\">' + escapeHtml(roleLabel) + '</p>'
+                        +     '<p class=\"mt-0.5 text-sm font-semibold text-slate-900\">' + escapeHtml(reviewers[0].name) + '</p>'
+                        +     '<p class=\"mt-1 text-[11px] leading-relaxed ' + (soleAway ? 'text-amber-700' : 'text-slate-400') + '\">'
+                        +       (soleAway
+                            ? 'This ' + escapeHtml(roleLabel) + ' is currently marked unavailable. You can still submit — consider following up if needed.'
+                            : 'Only one ' + escapeHtml(roleLabel) + ' is in the system, so this is sent to them automatically.')
+                        +     '</p>'
+                        +   '</div>'
+                        + '</div>';
+                } else {
+                    var opts = '<option value=\"\">Select ' + escapeHtml(roleLabel) + '…</option>';
+                    reviewers.forEach(function (row) {
+                        var selected = autoSelectId !== null && String(row.id) === String(autoSelectId);
+                        var disabled = !!row.unavailable && hasAvailable;
+                        opts += '<option value=\"' + escapeHtml(row.id) + '\"'
+                            + (selected ? ' selected' : '')
+                            + (disabled ? ' disabled' : '')
+                            + '>' + escapeHtml(row.name) + '</option>';
+                    });
+                    reviewerHtml =
+                        '<div class=\"mt-4 block w-full\">'
+                        +   '<label for=\"purConfirmReviewer\" class=\"block text-xs font-medium text-slate-600\">Assign to <span class=\"text-red-500\">*</span></label>'
+                        +   '<select id=\"purConfirmReviewer\" data-pur-reviewer class=\"mt-1.5 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-slate-300\">'
+                        +     opts
+                        +   '</select>'
+                        +   (reviewers.length === 0
+                            ? '<p class=\"mt-1.5 text-xs text-rose-600\">No ' + escapeHtml(roleLabel) + ' users are available.</p>'
+                            : '<p class=\"mt-1.5 text-xs text-slate-400\">Only the selected person will receive this for review.'
+                                + (primaryReviewer ? ' Available primary-role holders are preferred.' : '')
+                                + (hasAvailable && reviewers.some(function (r) { return !!r.unavailable; }) ? ' People on leave or absent are greyed out.' : '')
+                                + '</p>')
+                        + '</div>';
+                }
             }
 
             var titleClass = large

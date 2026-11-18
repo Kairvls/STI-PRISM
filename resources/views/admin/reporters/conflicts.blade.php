@@ -6,7 +6,7 @@
 <div class="mx-auto max-w-4xl">
     <div class="mb-4">
         <h2 class="text-lg font-semibold">Reporter ↔ People conflicts</h2>
-        <p class="mt-1 text-sm text-slate-500">Employee IDs present in both Reporter and People directories with differing details.</p>
+        <p class="mt-1 text-sm text-slate-500">Same employee ID, different details.</p>
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">

@@ -65,6 +65,7 @@ Route::post(
 // =====================================================
 
 Route::get('/ris', [RisController::class, 'index'])->name('ris.index');
+Route::get('/ris/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'ris'])->name('ris.export-pdf');
 Route::post('/ris', [RisController::class, 'store'])->name('ris.store');
 Route::post('/ris/saved-signatures', [RisController::class, 'storeSavedSignature'])->name('ris.saved-signatures.store');
 Route::delete('/ris/saved-signatures/{signature}', [RisController::class, 'destroySavedSignature'])
@@ -101,6 +102,7 @@ Route::get('/ris/{risId}/export-docx', [RisController::class, 'exportWord'])->na
 // =====================================================
 
 Route::get('/authority-to-purchase', [AuthorityToPurchaseController::class, 'index'])->name('atp.index');
+Route::get('/authority-to-purchase/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'atp'])->name('atp.export-pdf');
 Route::get('/authority-to-purchase/create', [AuthorityToPurchaseController::class, 'create'])->name('atp.create');
 Route::post('/authority-to-purchase', [AuthorityToPurchaseController::class, 'store'])->name('atp.store');
 Route::get('/authority-to-purchase/export-blank-xlsx', [AuthorityToPurchaseController::class, 'exportBlankExcel'])->name('atp.export-blank-xlsx');
@@ -137,6 +139,7 @@ Route::post('/purchase-orders/{id}/restore', [PurchaseOrderController::class, 'r
 // =====================================================
 
 Route::get('/request-check', [RequestForCheckController::class, 'index'])->name('rfc.index');
+Route::get('/request-check/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'rfc'])->name('rfc.export-pdf');
 Route::post('/request-check', [RequestForCheckController::class, 'store'])->name('rfc.store');
 Route::get('/request-check/export-blank-xlsx', [RequestForCheckController::class, 'exportBlankExcel'])->name('rfc.export-blank-xlsx');
 Route::get('/request-check/export-blank-docx', [RequestForCheckController::class, 'exportBlankWord'])->name('rfc.export-blank-docx');
@@ -155,6 +158,7 @@ Route::get('/request-check/{id}/export-docx', [RequestForCheckController::class,
 // =====================================================
 
 Route::get('/receiving-reports', [ReceivingReportController::class, 'index'])->name('rr.index');
+Route::get('/receiving-reports/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'rr'])->name('rr.export-pdf');
 Route::post('/receiving-reports', [ReceivingReportController::class, 'store'])->name('rr.store');
 Route::get('/receiving-reports/export-blank-xlsx', [ReceivingReportController::class, 'exportBlankExcel'])->name('rr.export-blank-xlsx');
 Route::get('/receiving-reports/export-blank-docx', [ReceivingReportController::class, 'exportBlankWord'])->name('rr.export-blank-docx');
@@ -171,6 +175,7 @@ Route::get('/receiving-reports/{id}/export-docx', [ReceivingReportController::cl
 // =====================================================
 
 Route::get('/back-orders', [BackOrderController::class, 'index'])->name('bo.index');
+Route::get('/back-orders/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'backOrders'])->name('bo.export-pdf');
 Route::post('/back-orders/{id}', [BackOrderController::class, 'update'])->whereNumber('id')->name('bo.update');
 Route::post('/back-orders/{id}/refund', [BackOrderController::class, 'refund'])->whereNumber('id')->name('bo.refund');
 Route::post('/back-orders/{id}/replace', [BackOrderController::class, 'replace'])->whereNumber('id')->name('bo.replace');
@@ -186,6 +191,7 @@ Route::get('/back-orders/{id}/files/{kind}/{index}', [BackOrderController::class
 // =====================================================
 
 Route::get('/liquidation-reports', [LiquidationReportController::class, 'index'])->name('liq.index');
+Route::get('/liquidation-reports/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'liquidation'])->name('liq.export-pdf');
 Route::post('/liquidation-reports', [LiquidationReportController::class, 'store'])->name('liq.store');
 Route::get('/liquidation-reports/export-blank-xlsx', [LiquidationReportController::class, 'exportBlankExcel'])->name('liq.export-blank-xlsx');
 Route::get('/liquidation-reports/export-blank-docx', [LiquidationReportController::class, 'exportBlankWord'])->name('liq.export-blank-docx');
@@ -225,6 +231,7 @@ Route::post(
 // =====================================================
 
 Route::get('/procurement-records', [ProcurementRecordPackageController::class, 'index'])->name('procurement-records.index');
+Route::get('/procurement-records/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'procurementRecords'])->name('procurement-records.export-pdf');
 Route::post('/procurement-records', [ProcurementRecordPackageController::class, 'store'])->name('procurement-records.store');
 Route::get('/procurement-records/preview/{atp}/{type}/{docId}', [ProcurementRecordPackageController::class, 'purchaserPreviewDocument'])
     ->whereNumber(['atp', 'docId'])
@@ -237,6 +244,7 @@ Route::get('/procurement-records/preview/{atp}/{type}/{docId}', [ProcurementReco
 // =====================================================
 
 Route::get('/suppliers', [\App\Http\Controllers\SupplierController::class, 'index'])->name('suppliers.index');
+Route::get('/suppliers/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'suppliers'])->name('suppliers.export-pdf');
 Route::get('/suppliers/create', [\App\Http\Controllers\SupplierController::class, 'create'])->name('suppliers.create');
 Route::post('/suppliers', [\App\Http\Controllers\SupplierController::class, 'store'])->name('suppliers.store');
 Route::post('/suppliers/quick-store', [\App\Http\Controllers\SupplierController::class, 'quickStore'])->name('suppliers.quick-store');

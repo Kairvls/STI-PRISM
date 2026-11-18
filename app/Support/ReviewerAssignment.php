@@ -142,8 +142,9 @@ class ReviewerAssignment
     /**
      * People who can act in $role for Assign-to dropdowns.
      * Primary-role holders (users_table.user_role_id) are labeled and sorted first.
+     * Unavailable (leave/absent) people stay listed but are marked and de-prioritized.
      *
-     * @return array<int, array{id:int,name:string,primary:bool}>
+     * @return array<int, array{id:int,name:string,primary:bool,unavailable:bool,away_label:string}>
      */
     public static function options(string $role): array
     {
@@ -153,11 +154,20 @@ class ReviewerAssignment
         }
 
         $roleId = self::roleIdFor($role);
+        $availabilityOn = UserAvailability::supported();
 
         try {
             $columns = ['user_id', 'user_full_name', 'user_username'];
             if (Schema::hasColumn('users_table', 'user_role_id')) {
                 $columns[] = 'user_role_id';
+            }
+            if ($availabilityOn) {
+                $columns[] = 'user_away_status';
+                $columns[] = 'user_away_until';
+                $columns[] = 'user_away_note';
+                if (UserAvailability::hasScheduleColumns()) {
+                    $columns[] = 'user_away_starts_at';
+                }
             }
 
             $rows = DB::table('users_table')
@@ -167,40 +177,65 @@ class ReviewerAssignment
             return [];
         }
 
-        return $rows
+        $mapped = $rows
             ->map(function ($row) use ($roleId) {
                 $baseName = trim((string) ($row->user_full_name ?: $row->user_username ?: ('User #'.$row->user_id)));
                 $isPrimary = $roleId !== null
                     && isset($row->user_role_id)
                     && (int) $row->user_role_id === $roleId;
+                $awayLabel = UserAvailability::shortLabel($row);
+                $unavailable = UserAvailability::isUnavailable($row);
 
                 return [
                     'id' => (int) $row->user_id,
-                    'name' => $isPrimary ? $baseName.' - Primary role' : $baseName,
+                    'base_name' => $baseName,
                     'primary' => $isPrimary,
+                    'unavailable' => $unavailable,
+                    'away_label' => $awayLabel,
                     'sort_name' => mb_strtolower($baseName),
                 ];
             })
             ->sort(function (array $a, array $b) {
+                // Available people first, then primary role, then name.
+                if ($a['unavailable'] !== $b['unavailable']) {
+                    return $a['unavailable'] ? 1 : -1;
+                }
                 if ($a['primary'] !== $b['primary']) {
                     return $a['primary'] ? -1 : 1;
                 }
 
                 return $a['sort_name'] <=> $b['sort_name'];
             })
-            ->map(fn (array $row) => [
-                'id' => $row['id'],
-                'name' => $row['name'],
-                'primary' => $row['primary'],
-            ])
-            ->values()
+            ->values();
+
+        // "- Primary role" only when there is more than one person to choose from.
+        $labelPrimary = $mapped->count() > 1;
+
+        return $mapped
+            ->map(function (array $row) use ($labelPrimary) {
+                $name = $row['base_name'];
+                if ($labelPrimary && $row['primary']) {
+                    $name .= ' - Primary role';
+                }
+                if ($row['away_label'] !== '') {
+                    $name .= ' ('.$row['away_label'].')';
+                }
+
+                return [
+                    'id' => $row['id'],
+                    'name' => $name,
+                    'primary' => $row['primary'],
+                    'unavailable' => $row['unavailable'],
+                    'away_label' => $row['away_label'],
+                ];
+            })
             ->all();
     }
 
     /**
-     * Preferred default selection: sole option, otherwise the primary-role holder.
+     * Preferred default selection: sole option, otherwise an available primary-role holder.
      *
-     * @param  array<int, array{id:int,name?:string,primary?:bool}>  $options
+     * @param  array<int, array{id:int,name?:string,primary?:bool,unavailable?:bool}>  $options
      */
     public static function preferredId(array $options): ?int
     {
@@ -208,10 +243,20 @@ class ReviewerAssignment
             return (int) ($options[0]['id'] ?? 0) ?: null;
         }
 
-        foreach ($options as $option) {
+        $available = array_values(array_filter(
+            $options,
+            static fn (array $option): bool => empty($option['unavailable'])
+        ));
+        $pool = $available !== [] ? $available : $options;
+
+        foreach ($pool as $option) {
             if (! empty($option['primary'])) {
                 return (int) ($option['id'] ?? 0) ?: null;
             }
+        }
+
+        if ($pool !== []) {
+            return (int) ($pool[0]['id'] ?? 0) ?: null;
         }
 
         return null;
@@ -237,6 +282,14 @@ class ReviewerAssignment
         $raw = $request->input($input);
         $id = (int) $raw;
         $allowed = WorkflowNotifier::userIdsForRole($role);
+
+        // Sole holder (one School Administrator / one President): accept automatically.
+        if ($id <= 0 || ! in_array($id, $allowed, true)) {
+            $preferred = self::preferredId(self::options($role));
+            if ($preferred !== null && in_array($preferred, $allowed, true)) {
+                return $preferred;
+            }
+        }
 
         if ($id <= 0 || ! in_array($id, $allowed, true)) {
             $label = match ($role) {

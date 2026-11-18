@@ -21,29 +21,41 @@
         $risStatusClass = 'border-violet-200 bg-violet-50 text-violet-700';
         $risStatusTitle = 'Accepted — ready for Direct Approve or Pass to President on Ready to Sign';
     } elseif ($risStatus === 'Directly Approved') {
-        $risStatusLabel = 'Directly approved by the Administrator';
+        $risStatusLabel = 'Directly approved';
         $risStatusClass = 'border-slate-200 bg-slate-50 text-slate-600';
         $risStatusTitle = 'Directly approved by the Administrator and returned to Purchaser';
     } elseif ($risStatus === 'Forwarded to President' || ($risStatus === 'Approved' && ($presidentSig === '' || !$presidentImage))) {
-        $risStatusLabel = 'Forwarded to the President by the Administrator';
+        $risStatusLabel = 'Forwarded to President';
         $risStatusClass = 'border-blue-200 bg-blue-50 text-blue-700';
         $risStatusTitle = 'Sent to the President for a decision';
     } elseif ($presidentApproved && $issuedBy === '') {
-        $risStatusLabel = 'President approved · Sign Issued by';
+        $risStatusLabel = 'Sign Issued by';
         $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-800';
         $risStatusTitle = 'The President approved this RIS. Sign the Issued by field to send it back to the Purchaser.';
     } elseif ($presidentApproved) {
-        $risStatusLabel = 'Approved by the President';
+        $risStatusLabel = 'President approved';
         $risStatusClass = 'border-slate-200 bg-white text-slate-600';
         $risStatusTitle = 'Approved by the President and signed by Administrator';
     } elseif (in_array($risStatus, ['Rejected by the President', 'Rejected by President'], true)) {
-        $risStatusLabel = 'Rejected by the President';
+        $risStatusLabel = 'President rejected';
         $risStatusClass = 'border-slate-500 bg-slate-800 text-slate-100';
         $risStatusTitle = 'Rejected by the President';
-    } elseif (in_array($risStatus, ['Minor Revision', 'Rejected'], true)) {
-        $risStatusLabel = 'Amend';
+    } elseif ($risStatus === 'Returned by the President') {
+        $risStatusLabel = 'For revision by President';
         $risStatusClass = 'border-amber-300 bg-amber-50 text-amber-800';
-        $risStatusTitle = 'Returned to Purchaser for amendment';
+        $risStatusTitle = 'President returned this RIS for revision. School Administrator must return it to the Purchaser.';
+    } elseif ($risStatus === 'President Revision') {
+        $risStatusLabel = 'For revision by President';
+        $risStatusClass = 'border-amber-300 bg-amber-50 text-amber-800';
+        $risStatusTitle = 'President returned this RIS for revision — Purchaser can edit and resubmit';
+    } elseif ($risStatus === 'Minor Revision') {
+        $risStatusLabel = 'For revision by School Administrator';
+        $risStatusClass = 'border-amber-300 bg-amber-50 text-amber-800';
+        $risStatusTitle = 'Returned by School Administrator for revision — update and resubmit';
+    } elseif ($risStatus === 'Rejected') {
+        $risStatusLabel = 'Rejected';
+        $risStatusClass = 'border-slate-500 bg-slate-800 text-slate-100';
+        $risStatusTitle = 'Hard rejected by School Administrator';
     } elseif (\App\Support\ProcurementDraftLabel::isDraftStatus($risStatus)) {
         $risStatusLabel = \App\Support\ProcurementDraftLabel::STATUS;
         $risStatusClass = 'border-gray-200 bg-gray-50 text-gray-600';
@@ -56,8 +68,8 @@
 @endphp
 
 <span
-    class="inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-xs font-bold leading-tight {{ !empty($wrap) ? 'whitespace-normal' : 'whitespace-nowrap' }} {{ $risStatusClass }}"
-    title="{{ $risStatusTitle }}"
+    class="max-w-full rounded-full border px-2 py-0.5 text-[10px] font-semibold {{ !empty($wrap) ? 'inline-block whitespace-normal break-words text-left leading-snug' : 'inline-flex items-center whitespace-nowrap leading-4' }} {{ $risStatusClass }}"
+    data-tip="{{ $risStatusTitle }}"
 >
     {{ $risStatusLabel }}
 </span>

@@ -5,16 +5,35 @@ namespace App\Support;
 /**
  * Canonical max lengths / numeric caps for text & number inputs.
  * Keep UI maxlength/max in sync with these server rules.
+ *
+ * Policy (system-wide):
+ * - Money / amounts: 7 digits before decimal + 2 after (9999999.99)
+ * - Other numbers (qty, counts): up to 7 digits (9999999)
+ * - Names (person, product, equipment, brand, room…): 30 characters
+ * - Purpose / short description fields: 400 characters (~2 RIS lined rows)
+ * - Longer admin remarks / revision notes stay on NOTES
  */
 class InputLimits
 {
-    public const NAME = 255;
+    /** Person / product / equipment / supplier display names. */
+    public const NAME = 30;
 
+    /**
+     * Purpose / particulars / short descriptions.
+     * Sized to fit the RIS paper PURPOSE block (~2 lined rows) without runaway input.
+     */
+    public const PURPOSE = 400;
+
+    /** Alias for purpose-length description fields. */
+    public const DESCRIPTION = 400;
+
+    /** Longer remarks / revision notes (not purpose text). */
     public const NOTES = 500;
 
     public const ASSET_TAG = 255;
 
-    public const SERIAL = 255;
+    /** Serial number: up to 16 letters, digits, or symbols (+ - / etc.). */
+    public const SERIAL = 16;
 
     public const EMPLOYEE_ID = 50;
 
@@ -22,13 +41,24 @@ class InputLimits
 
     public const EMAIL = 255;
 
-    public const QTY = 500;
+    /** Quantity / count fields: max 7 digits. */
+    public const QTY = 9999999;
 
-    public const COST = 999999999.99;
+    /** Digits allowed for integer quantity / count fields. */
+    public const QTY_DIGITS = 7;
 
-    public const NUMBER_DEFAULT = 999999;
+    /** Max money value: 7 digits before decimal + 2 after (9999999.99). */
+    public const COST = 9999999.99;
 
-    public const SHORT = 100;
+    /** Digits allowed before the decimal point for money fields. */
+    public const MONEY_WHOLE_DIGITS = 7;
+
+    /** Digits allowed after the decimal point for money fields. */
+    public const MONEY_DECIMAL_DIGITS = 2;
+
+    public const NUMBER_DEFAULT = 9999999;
+
+    public const SHORT = 30;
 
     /** Official Receipt / invoice / DR reference numbers (max length) */
     public const DOC_REF_NO = 16;
@@ -39,17 +69,17 @@ class InputLimits
     /** @deprecated use DOC_REF_NO */
     public const OR_NUMBER = 16;
 
-    public const BRAND = 255;
+    public const BRAND = 30;
 
-    public const MODEL = 255;
+    public const MODEL = 30;
 
-    public const LOCATION = 255;
+    public const LOCATION = 30;
 
-    public const CATEGORY_NAME = 255;
+    public const CATEGORY_NAME = 30;
 
-    public const ROOM_NAME = 255;
+    public const ROOM_NAME = 30;
 
-    public const BUILDING_NAME = 255;
+    public const BUILDING_NAME = 30;
 
     public static function stringMax(int $max): string
     {
@@ -61,6 +91,16 @@ class InputLimits
         return 'max:'.self::NAME;
     }
 
+    public static function purpose(): string
+    {
+        return 'max:'.self::PURPOSE;
+    }
+
+    public static function description(): string
+    {
+        return 'max:'.self::DESCRIPTION;
+    }
+
     public static function notes(): string
     {
         return 'max:'.self::NOTES;
@@ -69,6 +109,24 @@ class InputLimits
     public static function qty(): string
     {
         return 'integer|min:1|max:'.self::QTY;
+    }
+
+    /**
+     * Laravel validation rules for money / amount fields.
+     *
+     * @return list<string>
+     */
+    public static function moneyRules(bool $required = false, bool $allowZero = true): array
+    {
+        $rules = [
+            $required ? 'required' : 'nullable',
+            'numeric',
+            $allowZero ? 'min:0' : 'gt:0',
+            'max:'.self::COST,
+            'regex:/^\d{1,'.self::MONEY_WHOLE_DIGITS.'}(\.\d{1,'.self::MONEY_DECIMAL_DIGITS.'})?$/',
+        ];
+
+        return $rules;
     }
 
     /** Laravel validation rules for invoice / DR / OR reference fields. */

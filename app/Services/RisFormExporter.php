@@ -257,7 +257,7 @@ class RisFormExporter
             $sheet->setCellValue("{$startCol}{$dateLabelRow}", 'Date:');
             $sheet->getStyle("{$startCol}{$dateLabelRow}")->getFont()->setName('Arial')->setSize(8);
 
-            $sheet->setCellValue("{$startCol}{$dateLineRow}", $this->d($sig[2], 'd/m/Y'));
+            $sheet->setCellValue("{$startCol}{$dateLineRow}", $this->d($sig[2], 'm/d/Y'));
             $sheet->getStyle("{$startCol}{$dateLineRow}")->getFont()->setName('Arial')->setSize(9);
             $sheet->getStyle("{$startCol}{$dateLineRow}")->getAlignment()->setHorizontal($center)->setVertical(Alignment::VERTICAL_BOTTOM);
             $sheet->getStyle("{$startCol}{$dateLineRow}:{$endCol}{$dateLineRow}")->applyFromArray($bottom);
@@ -489,7 +489,7 @@ class RisFormExporter
                 'borderBottomSize' => 6,
                 'borderBottomColor' => '1F2937',
                 'valign' => VerticalJc::BOTTOM,
-            ])->addText($this->d($sig[2], 'd/m/Y'), ['size' => 8], ['alignment' => Jc::CENTER]);
+            ])->addText($this->d($sig[2], 'm/d/Y'), ['size' => 8], ['alignment' => Jc::CENTER]);
         }
 
         $filename = ($ris->ris_form_number ?: 'blank-ris') . '.docx';
@@ -553,7 +553,7 @@ class RisFormExporter
         return number_format((float) $value, 2);
     }
 
-    protected function d($value, string $format = 'd/m/Y'): string
+    protected function d($value, string $format = 'm/d/Y'): string
     {
         return $this->formatDate($value, $format);
     }

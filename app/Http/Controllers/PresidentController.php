@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Support\PresidentApprovalGuide;
 use App\Support\PresidentAttentionSummary;
 use App\Support\PresidentDashboardInsights;
+use App\Support\RisRevisionImages;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -368,12 +369,19 @@ class PresidentController extends Controller
             $applySearch($query);
         }
 
+        $queueDate = $this->normalizeFilterDate($request->query('queue_date'));
+        $recentDate = $this->normalizeFilterDate($request->query('recent_date'));
+
+        if ($queueDate !== null) {
+            $query->whereDate('ris.ris_created_at', $queueDate);
+        }
+
         // ================================
-        // Order & paginate (oldest / first-in first)
+        // Order & paginate (newest first)
         // ================================
         $pendingRis = $query
-            ->orderBy('ris.ris_created_at')
-            ->orderBy('ris.ris_id')
+            ->orderByDesc('ris.ris_created_at')
+            ->orderByDesc('ris.ris_id')
             ->paginate(10)
             ->withQueryString();
 
@@ -426,8 +434,18 @@ class PresidentController extends Controller
             $awaitingQuery->where('ris.ris_id', $recordRisId);
         } elseif ($focus === PresidentAttentionSummary::FOCUS_AWAITING_APPROVAL) {
             $awaitingQuery->whereRaw('1 = 0');
-        } elseif ($focus === PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY && $search !== '') {
+        } elseif ($search !== '') {
             $applySearch($awaitingQuery);
+        }
+
+        if ($queueDate !== null) {
+            $awaitingQuery->where(function ($q) use ($queueDate) {
+                $q->whereDate('ris.ris_approved_by_date', $queueDate)
+                    ->orWhere(function ($inner) use ($queueDate) {
+                        $inner->whereNull('ris.ris_approved_by_date')
+                            ->whereDate('ris.ris_created_at', $queueDate);
+                    });
+            });
         }
 
         $awaitingNotifyRis = $awaitingQuery
@@ -453,6 +471,9 @@ class PresidentController extends Controller
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
                 'ris.ris_approved_by_date',
+                Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no')
+                    ? 'ris.ris_request_no'
+                    : DB::raw('NULL as ris_request_no'),
                 DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_approved_by_signature').') as ris_approved_by_signature'),
                 DB::raw('MAX('.$this->risSignaturePresenceSql('ris.ris_issued_by_signature').') as ris_issued_by_signature'),
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
@@ -467,14 +488,25 @@ class PresidentController extends Controller
             ->whereNotNull('ris.ris_requested_by_date')
             ->where('ris.ris_status', '!=', 'Directly Approved')
             ->when($recordRisId > 0, fn ($q) => $q->where('ris.ris_id', $recordRisId))
-            ->groupBy(
+            ->when($recentDate !== null, function ($q) use ($recentDate) {
+                $q->where(function ($inner) use ($recentDate) {
+                    $inner->whereDate('ris.ris_approved_by_date', $recentDate)
+                        ->orWhere(function ($fallback) use ($recentDate) {
+                            $fallback->whereNull('ris.ris_approved_by_date')
+                                ->whereDate('ris.ris_created_at', $recentDate);
+                        });
+                });
+            })
+            ->groupBy(array_values(array_filter([
                 'ris.ris_id',
                 'ris.ris_form_number',
                 'ris.ris_status',
                 'ris.ris_created_at',
                 'ris.ris_purpose_description',
-                'ris.ris_approved_by_date'
-            )
+                'ris.ris_approved_by_date',
+                Schema::hasColumn('requisition_issue_slip_table', 'ris_request_no') ? 'ris.ris_request_no' : null,
+            ])))
+            ->orderByRaw("CASE WHEN ris.ris_status IN ('Approved', 'Approved by the President') AND TRIM(COALESCE(MAX(".$this->risSignaturePresenceSql('ris.ris_issued_by_signature')."), '')) = '' THEN 0 ELSE 1 END")
             ->orderBy('ris.ris_approved_by_date')
             ->orderBy('ris.ris_created_at')
             ->orderBy('ris.ris_id')
@@ -486,7 +518,8 @@ class PresidentController extends Controller
         );
 
         $recentRis->setCollection(
-            $recentRis->getCollection()->map(function ($ris) use ($recentNotifiedIds) {
+            $recentRis->getCollection()
+                ->map(function ($ris) use ($recentNotifiedIds) {
                 $isApproved = RisWorkflow::isPresidentApproved($ris);
                 $ris->is_president_approved = $isApproved;
                 $ris->admin_notified = $isApproved && isset($recentNotifiedIds[(int) $ris->ris_id]);
@@ -495,6 +528,12 @@ class PresidentController extends Controller
 
                 return $ris;
             })
+                ->sortBy([
+                    fn ($ris) => ! empty($ris->awaiting_notify) ? 0 : 1,
+                    fn ($ris) => $ris->ris_approved_by_date ?: $ris->ris_created_at ?: '',
+                    fn ($ris) => (int) $ris->ris_id,
+                ])
+                ->values()
         );
 
         $recentAttachmentFiles = collect();
@@ -590,18 +629,38 @@ class PresidentController extends Controller
             'pendingValue' => $pendingValue,
             'latestSubmitted' => $latestSubmitted,
             'attentionFocus' => $attentionFocus,
+            'queueDate' => $queueDate,
+            'recentDate' => $recentDate,
         ]);
     }
 
 
     public function approvalHistory(Request $request)
     {
-        $query = DB::table('requisition_issue_slip_table as ris')
-            ->join('approval_logs_table as log', function ($join) {
-                $join->on('log.approval_log_reference_id', '=', 'ris.ris_id')
-                    ->where('log.approval_log_reference_type', '=', 'RIS')
-                    ->where('log.approval_log_level', '=', 'President');
+        $period = (string) $request->query('period', 'all');
+        if (! in_array($period, ['all', 'today', 'week', 'month', 'year'], true)) {
+            $period = 'all';
+        }
+
+        $status = (string) $request->query('status', 'all');
+        if (! in_array($status, ['all', 'approved', 'rejected'], true)) {
+            $status = 'all';
+        }
+
+        $dateFilter = $this->normalizeFilterDate($request->query('date'));
+
+        $latestPresidentLog = DB::table('approval_logs_table')
+            ->select('approval_log_reference_id', DB::raw('MAX(approval_log_id) as latest_log_id'))
+            ->where('approval_log_reference_type', 'RIS')
+            ->where('approval_log_level', 'President')
+            ->whereIn('approval_log_approval_status', ['Approved', 'Rejected'])
+            ->groupBy('approval_log_reference_id');
+
+        $listQuery = DB::table('requisition_issue_slip_table as ris')
+            ->joinSub($latestPresidentLog, 'latest_log', function ($join) {
+                $join->on('latest_log.approval_log_reference_id', '=', 'ris.ris_id');
             })
+            ->join('approval_logs_table as log', 'log.approval_log_id', '=', 'latest_log.latest_log_id')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
             ->select($this->withRisRequestNoSelect([
                 'ris.ris_id',
@@ -632,10 +691,16 @@ class PresidentController extends Controller
                 'log.approval_log_approved_at',
             ]));
 
-        // Search
+        if ($dateFilter !== null) {
+            $this->applyDecisionDateFilter($listQuery, $dateFilter);
+        } else {
+            $this->applyDecisionPeriodFilter($listQuery, $period);
+        }
+        $this->applyDecisionStatusFilter($listQuery, $status);
+
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
+            $search = (string) $request->search;
+            $listQuery->where(function ($q) use ($search) {
                 $q->where('ris.ris_id', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
                   ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%");
@@ -645,15 +710,17 @@ class PresidentController extends Controller
             });
         }
 
-        // Order & paginate
-        $approvalHistoryRecords = $query
-            ->orderByDesc('log.approval_log_approved_at')
+        $approvalHistoryRecords = $listQuery
+            ->orderByDesc(DB::raw('COALESCE(log.approval_log_approved_at, ris.ris_approved_by_date)'))
+            ->orderByDesc('ris.ris_id')
             ->paginate(10)
             ->withQueryString();
 
-        // AJAX response
+        $summary = $this->decisionReportsSummary($period, $dateFilter);
+
         if ($request->ajax()) {
             $tableHtml = view('president.approvals._history-table', compact('approvalHistoryRecords'))->render();
+
             return response()->json([
                 'table_html' => $tableHtml,
                 'total' => $approvalHistoryRecords->total(),
@@ -661,11 +728,19 @@ class PresidentController extends Controller
                 'to' => $approvalHistoryRecords->lastItem(),
                 'current_page' => $approvalHistoryRecords->currentPage(),
                 'last_page' => $approvalHistoryRecords->lastPage(),
+                'summary' => $summary,
+                'period' => $period,
+                'status' => $status,
+                'date' => $dateFilter,
             ]);
         }
 
         return view('president.approvals.approval-history', [
             'approvalHistoryRecords' => $approvalHistoryRecords,
+            'period' => $period,
+            'status' => $status,
+            'dateFilter' => $dateFilter,
+            'summary' => $summary,
         ]);
     }
 
@@ -754,6 +829,8 @@ class PresidentController extends Controller
             ->groupBy($groupBy);
 
         $recordRisId = max(0, (int) $request->query('ris', 0));
+        $dateFilter = $this->normalizeFilterDate($request->query('date'));
+
         if ($recordRisId > 0) {
             $query->where('ris.ris_id', $recordRisId);
         } elseif ($request->filled('search')) {
@@ -778,6 +855,10 @@ class PresidentController extends Controller
         $orderExpr = $hasApprovedAt
             ? 'COALESCE(ris.ris_direct_approval_at, ris.ris_approved_by_date, ris.ris_created_at)'
             : 'COALESCE(ris.ris_approved_by_date, ris.ris_created_at)';
+
+        if ($dateFilter !== null) {
+            $query->whereRaw('DATE('.$orderExpr.') = ?', [$dateFilter]);
+        }
 
         $records = $query
             ->orderByDesc(DB::raw($orderExpr))
@@ -815,6 +896,7 @@ class PresidentController extends Controller
 
         return view('president.direct-approvals.index', [
             'records' => $records,
+            'dateFilter' => $dateFilter,
             'attentionFocus' => $recordRisId > 0
                 ? \App\Support\RecordFocus::ris($recordRisId, route('president.direct-approvals'))
                 : null,
@@ -978,27 +1060,13 @@ class PresidentController extends Controller
             $approvedDate = $this->parseFlexibleDate($request->input('ris_approved_by_date'));
             $updateValues['ris_approved_by_date'] = $approvedDate ?: now()->toDateString();
 
-            $returnTo = array_values(array_intersect(
-                (array) $request->input('return_to', []),
-                ['school_admin', 'purchaser']
-            ));
-            if ($returnTo === []) {
-                return $fail('Choose who this RIS is passed to. You can select the School Administrator, the Purchaser, or both.');
-            }
-
-            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
-            if (in_array('purchaser', $returnTo, true) && $purchaserId <= 0) {
-                return $fail('This RIS has no purchaser to return it to.');
-            }
+            // Always passes to School Administrator so they can sign Issued by.
         }
 
         try {
             DB::transaction(function () use ($targetId, $updateValues, $request, $decision) {
                 if ($decision === 'Approved') {
-                    $issuedError = RisWorkflow::applyIssuedQuantities(
-                        (int) $targetId,
-                        (array) $request->input('issued', [])
-                    );
+                    $issuedError = RisWorkflow::assertPurchaserIssuedComplete((int) $targetId);
                     if ($issuedError) {
                         throw new \RuntimeException($issuedError);
                     }
@@ -1034,17 +1102,10 @@ class PresidentController extends Controller
         $passedTo = [];
         $adminNotified = false;
 
-        // Reject still notifies Admin immediately. Approve passes the RIS to
-        // whoever the President selected: School Administrator, Purchaser, or both.
+        // Approve always goes to School Administrator for Issued-by co-sign.
         if ($decision === 'Approved') {
-            $returnTo = array_values(array_intersect(
-                (array) $request->input('return_to', []),
-                ['school_admin', 'purchaser']
-            ));
             $form = RisWorkflow::formNumber($target);
-            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
 
-            if (in_array('school_admin', $returnTo, true)) {
                 try {
                     DB::table('approval_logs_table')->insert([
                         'approval_log_reference_type' => 'RIS',
@@ -1069,21 +1130,6 @@ class PresidentController extends Controller
                 );
                 $passedTo[] = 'School Administrator';
                 $adminNotified = true;
-            }
-
-            if (in_array('purchaser', $returnTo, true) && $purchaserId > 0) {
-                WorkflowNotifier::toUser(
-                    $purchaserId,
-                    WorkflowNotifier::ROLE_PURCHASER,
-                    'President returned an approved RIS',
-                    $form . ' was approved and returned to you. Issued quantities are filled in.',
-                    'ris_president_returned',
-                    'RIS',
-                    (int) $targetId,
-                    '/purchaser/ris'
-                );
-                $passedTo[] = WorkflowNotifier::recipientName($purchaserId, 'the Purchaser');
-            }
         }
 
         if ($decision === 'Rejected') {
@@ -1099,15 +1145,15 @@ class PresidentController extends Controller
             }
 
             if (in_array('school_admin', $rejectReturnTo, true)) {
-                WorkflowNotifier::toRole(
-                    WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-                    'President rejected an RIS',
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                'President rejected an RIS',
                     $form.($rejectNote !== '' ? (': '.$rejectNote) : ''),
-                    'ris_president_rejected',
-                    'RIS',
-                    (int) $targetId,
-                    '/school-admin/digital-signatures/sign-ris'
-                );
+                'ris_president_rejected',
+                'RIS',
+                (int) $targetId,
+                '/school-admin/digital-signatures/sign-ris'
+            );
                 $passedTo[] = 'School Administrator';
                 $adminNotified = true;
             }
@@ -1168,6 +1214,179 @@ class PresidentController extends Controller
         return redirect('/president/approvals')->with('success', 'RIS decision saved successfully.');
     }
 
+    /**
+     * Soft return for revision (not hard reject).
+     * school_admin → Returned by the President (SA returns to Purchaser later)
+     * school_admin_and_purchaser → President Revision (Purchaser edits directly; SA sees FYI)
+     */
+    public function returnRisForRevision(Request $request)
+    {
+        $targetId = (int) $request->input('target_id');
+        $remarks = trim((string) $request->input('remarks', ''));
+        $route = (string) $request->input('revision_route', '');
+
+        $fail = function (string $message, int $code = 422) use ($request) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], $code);
+            }
+
+            return back()->with('error', $message);
+        };
+
+        if ($targetId < 1) {
+            return $fail('Invalid RIS.');
+        }
+        if ($remarks === '') {
+            return $fail('Please provide revision remarks.');
+        }
+        if (! in_array($route, ['school_admin', 'school_admin_and_purchaser'], true)) {
+            return $fail('Choose School Administrator only, or School Administrator & Purchaser.');
+        }
+
+        if ($imageError = RisRevisionImages::validationError($request)) {
+            return $fail($imageError);
+        }
+
+        $target = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $targetId)
+            ->first();
+
+        if (! $target) {
+            return $fail('RIS not found.', 404);
+        }
+
+        if (! $this->risIsAwaitingPresident($target)) {
+            return $fail('Only RIS records forwarded by Administrator can be returned for revision.');
+        }
+
+        $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+        if ($route === 'school_admin_and_purchaser' && $purchaserId <= 0) {
+            return $fail('This RIS has no purchaser to return it to.');
+        }
+
+        $toPurchaser = $route === 'school_admin_and_purchaser';
+        $newStatus = $toPurchaser
+            ? RisWorkflow::PRESIDENT_REVISION
+            : RisWorkflow::RETURNED_BY_PRESIDENT;
+
+        $images = [];
+        $committed = false;
+
+        try {
+            if (RisRevisionImages::supported()) {
+                $images = RisRevisionImages::store(
+                    RisRevisionImages::uploadedFiles($request),
+                    $targetId
+                );
+            }
+
+            DB::transaction(function () use ($targetId, $remarks, $newStatus, $images, $toPurchaser) {
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $targetId)
+                    ->update([
+                        'ris_status' => $newStatus,
+                        'ris_rejection_reason' => $remarks,
+                        'ris_approved_by_signature' => null,
+                        'ris_approved_by_date' => null,
+                        'ris_issued_by_signature' => null,
+                        'ris_issued_by_date' => null,
+                    ]);
+
+                // Always store a revision note (incl. proof images) — even for SA-only returns —
+                // so School Administrator can relay images to the Purchaser later.
+                if (Schema::hasTable('ris_revision_notes_table')) {
+                    $note = [
+                        'ris_id' => (int) $targetId,
+                        'ris_revision_requested_by' => Auth::id(),
+                        'ris_revision_type' => RisWorkflow::PRESIDENT_REVISION,
+                        'ris_revision_note' => $remarks,
+                        'ris_revision_created_at' => now(),
+                    ];
+                    if ($images !== [] && Schema::hasColumn('ris_revision_notes_table', 'ris_revision_images')) {
+                        $note['ris_revision_images'] = RisRevisionImages::encode($images);
+                    }
+                    if (Schema::hasColumn('ris_revision_notes_table', 'ris_revision_updated_at')) {
+                        $note['ris_revision_updated_at'] = now();
+                    }
+                    DB::table('ris_revision_notes_table')->insert($note);
+                }
+
+                try {
+                    DB::table('approval_logs_table')->insert([
+                        'approval_log_reference_type' => 'RIS',
+                        'approval_log_reference_id' => (int) $targetId,
+                        'approval_log_level' => 'President',
+                        'approval_log_approved_by' => Auth::id(),
+                        'approval_log_approval_status' => $newStatus,
+                        'approval_log_approval_remarks' => $remarks,
+                        'approval_log_approved_at' => now(),
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore logging failures
+                }
+            });
+            $committed = true;
+        } catch (\Throwable $e) {
+            if ($images !== []) {
+                RisRevisionImages::delete($images);
+            }
+
+            return $fail('Could not return this RIS for revision. Check that the new statuses are migrated.');
+        } finally {
+            if (! $committed && $images !== []) {
+                RisRevisionImages::delete($images);
+            }
+        }
+
+        $form = RisWorkflow::formNumber($target);
+        $imageSuffix = count($images) === 0
+            ? ''
+            : ' ('.count($images).' image'.(count($images) === 1 ? '' : 's').' attached)';
+
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+            $toPurchaser
+                ? 'President returned an RIS for revision (Purchaser notified)'
+                : 'President returned an RIS for revision',
+            $form.': '.$remarks.($toPurchaser
+                ? ' Status: For revision (President). Purchaser can edit directly.'
+                : ' Status: For revision (President) — School Administrator. Return it to the Purchaser when ready.'),
+            'ris_president_revision',
+            'RIS',
+            $targetId,
+            '/school-admin/procurement-review/ris?filter=revision'
+        );
+
+        $passedTo = ['School Administrator'];
+
+        if ($toPurchaser && $purchaserId > 0) {
+            WorkflowNotifier::toUser(
+                $purchaserId,
+                WorkflowNotifier::ROLE_PURCHASER,
+                'President returned your RIS for revision',
+                $form.': '.$remarks.$imageSuffix,
+                'ris_president_revision',
+                'RIS',
+                $targetId,
+                '/purchaser/ris'
+            );
+            $passedTo[] = WorkflowNotifier::recipientName($purchaserId, 'the Purchaser');
+        }
+
+        $message = 'RIS returned for revision to '.implode(' and ', $passedTo).'.';
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'decision' => 'Revision',
+                'ris_id' => $targetId,
+                'message' => $message,
+            ]);
+        }
+
+        return redirect('/president/approvals')->with('success', $message);
+    }
+
     public function decideProcurement(Request $request)
     {
         $targetId = $request->input('target_id');
@@ -1216,115 +1435,12 @@ class PresidentController extends Controller
 
     public function approvedReports(Request $request)
     {
-        $filter = $request->filled('filter') ? $request->filter : 'all';
-
-        if (!in_array($filter, ['all', 'approved', 'rejected', 'pending'], true)) {
-            $filter = 'all';
-        }
-
-        // Latest President approval-log per RIS (avoids duplicate table rows)
-        $latestPresidentLog = DB::table('approval_logs_table')
-            ->select('approval_log_reference_id', DB::raw('MAX(approval_log_id) as latest_log_id'))
-            ->where('approval_log_reference_type', 'RIS')
-            ->where('approval_log_level', 'President')
-            ->groupBy('approval_log_reference_id');
-
-        $query = DB::table('requisition_issue_slip_table as ris')
-            ->leftJoinSub($latestPresidentLog, 'latest_log', function ($join) {
-                $join->on('latest_log.approval_log_reference_id', '=', 'ris.ris_id');
-            })
-            ->leftJoin('approval_logs_table as log', 'log.approval_log_id', '=', 'latest_log.latest_log_id')
-            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
-            ->select(
-                'ris.ris_id',
-                'ris.ris_form_number',
-                'ris.ris_status',
-                'ris.ris_created_at',
-                'ris.ris_purpose_description',
-                'ris.ris_requested_by_signature',
-                'ris.ris_approved_by_signature',
-                'ris.ris_approved_by_date',
-                'ris.ris_issued_by_signature',
-                'ris.ris_created_by',
-                'ris.ris_submitted_by',
-                'log.approval_log_approval_remarks as remarks',
-                'log.approval_log_approved_at as decided_at',
-                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
-            )
-            ->groupBy(
-                'ris.ris_id',
-                'ris.ris_form_number',
-                'ris.ris_status',
-                'ris.ris_created_at',
-                'ris.ris_purpose_description',
-                'ris.ris_requested_by_signature',
-                'ris.ris_approved_by_signature',
-                'ris.ris_approved_by_date',
-                'ris.ris_issued_by_signature',
-                'ris.ris_created_by',
-                'ris.ris_submitted_by',
-                'log.approval_log_approval_remarks',
-                'log.approval_log_approved_at'
-            );
-
-        // Same buckets for table filters and KPI cards
-        $this->applyDecisionHistoryFilter($query, $filter);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('ris.ris_id', 'LIKE', "%{$search}%")
-                  ->orWhere('ris.ris_form_number', 'LIKE', "%{$search}%")
-                  ->orWhere('ris.ris_purpose_description', 'LIKE', "%{$search}%")
-                  ->orWhere('ris.ris_requested_by_signature', 'LIKE', "%{$search}%")
-                  ->orWhereIn('ris.ris_created_by', RisWorkflow::userIdsMatchingName((string) $search))
-                  ->orWhere('ris.ris_status', 'LIKE', "%{$search}%");
-
-                $this->addDateSearch($q, 'ris.ris_created_at', $search);
-            });
-        }
-
-        $outcomeRecords = $query
-            ->orderByDesc(DB::raw('COALESCE(log.approval_log_approved_at, ris.ris_approved_by_date, ris.ris_created_at)'))
-            ->orderByDesc('ris.ris_id')
-            ->paginate(10)
-            ->withQueryString();
-
-        // Card totals = same scopes as the All / Approved / Rejected / Pending lists
-        $totalApproved = $this->countDecisionHistoryBucket('approved');
-        $totalRejected = $this->countDecisionHistoryBucket('rejected');
-        $totalPending = $this->countDecisionHistoryBucket('pending');
-        $totalDecisions = $totalApproved + $totalRejected + $totalPending;
-
-        if ($request->ajax()) {
-            $tableHtml = view('president.reports._approved-table', [
-                'approvedOutcomeRecords' => $outcomeRecords,
-                'type' => $filter,
-            ])->render();
-
-            return response()->json([
-                'table_html' => $tableHtml,
-                'total' => $outcomeRecords->total(),
-                'from' => $outcomeRecords->firstItem(),
-                'to' => $outcomeRecords->lastItem(),
-                'current_page' => $outcomeRecords->currentPage(),
-                'last_page' => $outcomeRecords->lastPage(),
-                'total_approved' => $totalApproved,
-                'total_rejected' => $totalRejected,
-                'total_pending' => $totalPending,
-                'total_decisions' => $totalDecisions,
-            ]);
-        }
-
-        return view('president.reports.approved', [
-            'outcomeRecords' => $outcomeRecords,
-            'filter' => $filter,
-            'type' => $filter,
-            'totalApproved' => $totalApproved,
-            'totalRejected' => $totalRejected,
-            'totalPending' => $totalPending,
-            'totalDecisions' => $totalDecisions,
-        ]);
+        return redirect()->route('president.approvals.history', array_filter([
+            'period' => $request->query('period', 'month'),
+            'status' => $request->query('filter') === 'rejected' ? 'rejected'
+                : ($request->query('filter') === 'approved' ? 'approved' : null),
+            'search' => $request->query('search'),
+        ]));
     }
 
     /**
@@ -1374,364 +1490,128 @@ class PresidentController extends Controller
         return (int) $query->count();
     }
 
-    public function monthlySummary(Request $request): View
+    public function monthlySummary(Request $request)
     {
-        // ================================
-        // Get filter parameters
-        // ================================
-
-        $filterMonth = $request->filled('month') ? (int) $request->month : null;
-        $filterYear = $request->filled('year') ? (int) $request->year : null;
-
-        // Base query for RIS
-        $risQuery = DB::table('requisition_issue_slip_table');
-
-        // Apply month/year filter if provided
-        if ($filterMonth && $filterYear) {
-            $risQuery->whereYear('ris_created_at', $filterYear)
-                     ->whereMonth('ris_created_at', $filterMonth);
-        }
-
-        // ================================
-        // Summary cards (filtered)
-        // ================================
-
-        $risApproved = (clone $risQuery)->where('ris_status', 'Approved')->count();
-        $risRejected = (clone $risQuery)->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])->count();
-        $risPending = (clone $risQuery)->where('ris_status', 'Pending')->count();
-        $totalRis = $risApproved + $risRejected + $risPending;
-
-        // Total amount (filtered)
-        $totalAmountQuery = DB::table('requisition_issue_slip_items_table as items')
-            ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-            ->whereIn('ris.ris_status', ['Approved', 'Approved by the President', 'Rejected', 'Rejected by President', 'Rejected by the President', 'Pending']);
-
-        if ($filterMonth && $filterYear) {
-            $totalAmountQuery->whereYear('ris.ris_created_at', $filterYear)
-                             ->whereMonth('ris.ris_created_at', $filterMonth);
-        }
-
-        $totalAmount = $totalAmountQuery->sum('items.ris_total_amount');
-
-        // Per-status amounts
-        $approvedAmount = DB::table('requisition_issue_slip_items_table as items')
-            ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-            ->where('ris.ris_status', 'Approved');
-
-        $rejectedAmount = DB::table('requisition_issue_slip_items_table as items')
-            ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-            ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President']);
-
-        if ($filterMonth && $filterYear) {
-            $approvedAmount->whereYear('ris.ris_created_at', $filterYear)
-                           ->whereMonth('ris.ris_created_at', $filterMonth);
-            $rejectedAmount->whereYear('ris.ris_created_at', $filterYear)
-                           ->whereMonth('ris.ris_created_at', $filterMonth);
-        }
-
-        $approvedAmount = $approvedAmount->sum('items.ris_total_amount');
-        $rejectedAmount = $rejectedAmount->sum('items.ris_total_amount');
-
-        // ================================
-        // Weekly breakdown — last 4 weeks
-        // ================================
-
-        $weeklyStats = [];
-
-        for ($i = 3; $i >= 0; $i--) {
-            $weekEnd = now()->subWeeks($i)->endOfWeek(Carbon::SUNDAY);
-            $weekStart = $weekEnd->copy()->subDays(6);
-
-            $approved = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
-                ->count();
-
-            $rejected = DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
-                ->count();
-
-            $pending = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Pending')
-                ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
-                ->count();
-
-            $total = $approved + $rejected + $pending;
-            $approvalRate = $total > 0 ? round(($approved / $total) * 100, 1) : 0;
-            $rejectionRate = $total > 0 ? round(($rejected / $total) * 100, 1) : 0;
-
-            $weekApprovedAmount = DB::table('requisition_issue_slip_items_table as items')
-                ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                ->where('ris.ris_status', 'Approved')
-                ->whereBetween('ris.ris_created_at', [$weekStart, $weekEnd])
-                ->sum('items.ris_total_amount');
-
-            $weekRejectedAmount = DB::table('requisition_issue_slip_items_table as items')
-                ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->whereBetween('ris.ris_created_at', [$weekStart, $weekEnd])
-                ->sum('items.ris_total_amount');
-
-            $avgProcessingTime = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
-                ->whereNotNull('ris_approved_by_date')
-                ->selectRaw('AVG(DATEDIFF(ris_approved_by_date, ris_created_at)) as avg_days')
-                ->value('avg_days');
-
-            $avgProcessingTime = $avgProcessingTime ? round($avgProcessingTime, 1) : null;
-
-            // Trend: compare with previous week
-            $prevWeekEnd = now()->subWeeks($i + 1)->endOfWeek(Carbon::SUNDAY);
-            $prevWeekStart = $prevWeekEnd->copy()->subDays(6);
-            $prevTotal = DB::table('requisition_issue_slip_table')
-                ->whereBetween('ris_created_at', [$prevWeekStart, $prevWeekEnd])
-                ->count();
-
-            $trend = '➜ No Change';
-            if ($prevTotal > 0 && $total > $prevTotal) {
-                $trend = '▲ Improved';
-            } elseif ($prevTotal > 0 && $total < $prevTotal) {
-                $trend = '▼ Declined';
-            }
-
-            $weeklyStats[] = [
-                'week_start' => $weekStart->format('Y-m-d'),
-                'week_end' => $weekEnd->format('Y-m-d'),
-                'label' => $weekStart->format('M d') . ' - ' . $weekEnd->format('M d, Y'),
-                'total' => $total,
-                'approved' => $approved,
-                'rejected' => $rejected,
-                'pending' => $pending,
-                'approval_rate' => $approvalRate,
-                'rejection_rate' => $rejectionRate,
-                'approved_amount' => $weekApprovedAmount ?? 0,
-                'rejected_amount' => $weekRejectedAmount ?? 0,
-                'avg_processing_time' => $avgProcessingTime,
-                'trend' => $trend,
-            ];
-        }
-
-        // ================================
-        // Monthly breakdown
-        // ================================
-
-        $monthlyStats = [];
-        $monthNames = [
-            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
-            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
-            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
-        ];
-
-        if ($filterMonth && $filterYear) {
-            // Show only the selected month
-            $approved = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereYear('ris_created_at', $filterYear)
-                ->whereMonth('ris_created_at', $filterMonth)
-                ->count();
-
-            $rejected = DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->whereYear('ris_created_at', $filterYear)
-                ->whereMonth('ris_created_at', $filterMonth)
-                ->count();
-
-            $pending = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Pending')
-                ->whereYear('ris_created_at', $filterYear)
-                ->whereMonth('ris_created_at', $filterMonth)
-                ->count();
-
-            $total = $approved + $rejected + $pending;
-            $approvalRate = $total > 0 ? round(($approved / $total) * 100, 1) : 0;
-            $rejectionRate = $total > 0 ? round(($rejected / $total) * 100, 1) : 0;
-
-            $monthApprovedAmount = DB::table('requisition_issue_slip_items_table as items')
-                ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                ->where('ris.ris_status', 'Approved')
-                ->whereYear('ris.ris_created_at', $filterYear)
-                ->whereMonth('ris.ris_created_at', $filterMonth)
-                ->sum('items.ris_total_amount');
-
-            $monthRejectedAmount = DB::table('requisition_issue_slip_items_table as items')
-                ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->whereYear('ris.ris_created_at', $filterYear)
-                ->whereMonth('ris.ris_created_at', $filterMonth)
-                ->sum('items.ris_total_amount');
-
-            $avgProcessingTime = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereYear('ris_created_at', $filterYear)
-                ->whereMonth('ris_created_at', $filterMonth)
-                ->whereNotNull('ris_approved_by_date')
-                ->selectRaw('AVG(DATEDIFF(ris_approved_by_date, ris_created_at)) as avg_days')
-                ->value('avg_days');
-
-            $avgProcessingTime = $avgProcessingTime ? round($avgProcessingTime, 1) : null;
-
-            // Trend: compare with previous month
-            $prevMonth = $filterMonth == 1 ? 12 : $filterMonth - 1;
-            $prevYear = $filterMonth == 1 ? $filterYear - 1 : $filterYear;
-            $prevTotal = DB::table('requisition_issue_slip_table')
-                ->whereYear('ris_created_at', $prevYear)
-                ->whereMonth('ris_created_at', $prevMonth)
-                ->count();
-
-            $trend = '➜ No Change';
-            if ($prevTotal > 0 && $total > $prevTotal) {
-                $trend = '▲ Improved';
-            } elseif ($prevTotal > 0 && $total < $prevTotal) {
-                $trend = '▼ Declined';
-            }
-
-            $monthlyStats[] = [
-                'year_month' => sprintf('%04d-%02d', $filterYear, $filterMonth),
-                'month_label' => $monthNames[$filterMonth] . ' ' . $filterYear,
-                'total' => $total,
-                'approved' => $approved,
-                'rejected' => $rejected,
-                'pending' => $pending,
-                'approval_rate' => $approvalRate,
-                'rejection_rate' => $rejectionRate,
-                'approved_amount' => $monthApprovedAmount ?? 0,
-                'rejected_amount' => $monthRejectedAmount ?? 0,
-                'avg_processing_time' => $avgProcessingTime,
-                'trend' => $trend,
-            ];
-        } else {
-            // Show last 6 months by default
-            for ($i = 5; $i >= 0; $i--) {
-                $y = (int) date('Y', strtotime("-$i months"));
-                $m = (int) date('m', strtotime("-$i months"));
-
-                $approved = DB::table('requisition_issue_slip_table')
-                    ->where('ris_status', 'Approved')
-                    ->whereYear('ris_created_at', $y)
-                    ->whereMonth('ris_created_at', $m)
-                    ->count();
-
-                $rejected = DB::table('requisition_issue_slip_table')
-                    ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                    ->whereYear('ris_created_at', $y)
-                    ->whereMonth('ris_created_at', $m)
-                    ->count();
-
-                $pending = DB::table('requisition_issue_slip_table')
-                    ->where('ris_status', 'Pending')
-                    ->whereYear('ris_created_at', $y)
-                    ->whereMonth('ris_created_at', $m)
-                    ->count();
-
-                $total = $approved + $rejected + $pending;
-                $approvalRate = $total > 0 ? round(($approved / $total) * 100, 1) : 0;
-                $rejectionRate = $total > 0 ? round(($rejected / $total) * 100, 1) : 0;
-
-                $monthApprovedAmount = DB::table('requisition_issue_slip_items_table as items')
-                    ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                    ->where('ris.ris_status', 'Approved')
-                    ->whereYear('ris.ris_created_at', $y)
-                    ->whereMonth('ris.ris_created_at', $m)
-                    ->sum('items.ris_total_amount');
-
-                $monthRejectedAmount = DB::table('requisition_issue_slip_items_table as items')
-                    ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                    ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                    ->whereYear('ris.ris_created_at', $y)
-                    ->whereMonth('ris.ris_created_at', $m)
-                    ->sum('items.ris_total_amount');
-
-                $avgProcessingTime = DB::table('requisition_issue_slip_table')
-                    ->where('ris_status', 'Approved')
-                    ->whereYear('ris_created_at', $y)
-                    ->whereMonth('ris_created_at', $m)
-                    ->whereNotNull('ris_approved_by_date')
-                    ->selectRaw('AVG(DATEDIFF(ris_approved_by_date, ris_created_at)) as avg_days')
-                    ->value('avg_days');
-
-                $avgProcessingTime = $avgProcessingTime ? round($avgProcessingTime, 1) : null;
-
-                // Trend: compare with previous month
-                $prevMonth = $m == 1 ? 12 : $m - 1;
-                $prevYear = $m == 1 ? $y - 1 : $y;
-                $prevTotal = DB::table('requisition_issue_slip_table')
-                    ->whereYear('ris_created_at', $prevYear)
-                    ->whereMonth('ris_created_at', $prevMonth)
-                    ->count();
-
-                $trend = '➜ No Change';
-                if ($prevTotal > 0 && $total > $prevTotal) {
-                    $trend = '▲ Improved';
-                } elseif ($prevTotal > 0 && $total < $prevTotal) {
-                    $trend = '▼ Declined';
-                }
-
-                $monthlyStats[] = [
-                    'year_month' => sprintf('%04d-%02d', $y, $m),
-                    'month_label' => $monthNames[$m] . ' ' . $y,
-                    'total' => $total,
-                    'approved' => $approved,
-                    'rejected' => $rejected,
-                    'pending' => $pending,
-                    'approval_rate' => $approvalRate,
-                    'rejection_rate' => $rejectionRate,
-                    'approved_amount' => $monthApprovedAmount ?? 0,
-                    'rejected_amount' => $monthRejectedAmount ?? 0,
-                    'avg_processing_time' => $avgProcessingTime,
-                    'trend' => $trend,
-                ];
-            }
-        }
-
-        // ================================
-        // Executive insights
-        // ================================
-
-        $insights = [
-            'approval_rate' => $totalRis > 0 ? round(($risApproved / $totalRis) * 100, 1) : 0,
-            'rejection_rate' => $totalRis > 0 ? round(($risRejected / $totalRis) * 100, 1) : 0,
-            'approved_amount' => $approvedAmount,
-            'rejected_amount' => $rejectedAmount,
-        ];
-
-        // Find highest approval month (from monthly stats)
-        $highestApprovalMonth = null;
-        $highestApprovalCount = 0;
-        foreach ($monthlyStats as $stat) {
-            if ($stat['approved'] > $highestApprovalCount) {
-                $highestApprovalCount = $stat['approved'];
-                $highestApprovalMonth = $stat['month_label'];
-            }
-        }
-        $insights['highest_approval_month'] = $highestApprovalMonth;
-
-        // Find highest rejection month
-        $highestRejectionMonth = null;
-        $highestRejectionCount = 0;
-        foreach ($monthlyStats as $stat) {
-            if ($stat['rejected'] > $highestRejectionCount) {
-                $highestRejectionCount = $stat['rejected'];
-                $highestRejectionMonth = $stat['month_label'];
-            }
-        }
-        $insights['highest_rejection_month'] = $highestRejectionMonth;
-
-        return view('president.reports.monthly-summary', [
-            'approvedDecisionsCount' => $risApproved,
-            'rejectedDecisionsCount' => $risRejected,
-            'pendingApprovalsCount' => $risPending,
-            'totalRis' => $totalRis,
-            'totalAmount' => $totalAmount,
-            'approvedAmount' => $approvedAmount,
-            'rejectedAmount' => $rejectedAmount,
-            'weeklyStats' => $weeklyStats,
-            'monthlyStats' => $monthlyStats,
-            'filterMonth' => $filterMonth,
-            'filterYear' => $filterYear,
-            'insights' => $insights,
+        return redirect()->route('president.approvals.history', [
+            'period' => $request->filled('month') ? 'month' : 'year',
         ]);
+    }
+
+    private function applyDecisionPeriodFilter($query, string $period): void
+    {
+        $expr = 'COALESCE(log.approval_log_approved_at, ris.ris_approved_by_date)';
+
+        if ($period === 'today') {
+            $query->whereRaw('DATE('.$expr.') = ?', [now()->toDateString()]);
+            return;
+        }
+
+        if ($period === 'week') {
+            $query->whereRaw($expr.' BETWEEN ? AND ?', [
+                now()->startOfWeek()->toDateTimeString(),
+                now()->endOfWeek()->toDateTimeString(),
+            ]);
+            return;
+        }
+
+        if ($period === 'month') {
+            $query->whereRaw('YEAR('.$expr.') = ? AND MONTH('.$expr.') = ?', [
+                (int) now()->year,
+                (int) now()->month,
+            ]);
+            return;
+        }
+
+        if ($period === 'year') {
+            $query->whereRaw('YEAR('.$expr.') = ?', [(int) now()->year]);
+        }
+    }
+
+    private function applyDecisionDateFilter($query, string $date): void
+    {
+        $expr = 'COALESCE(log.approval_log_approved_at, ris.ris_approved_by_date)';
+        $query->whereRaw('DATE('.$expr.') = ?', [$date]);
+    }
+
+    private function applyDecisionStatusFilter($query, string $status): void
+    {
+        if ($status === 'approved') {
+            $query->where('log.approval_log_approval_status', 'Approved');
+            return;
+        }
+
+        if ($status === 'rejected') {
+            $query->where('log.approval_log_approval_status', 'Rejected');
+        }
+    }
+
+    /**
+     * @return array{approved_count:int, rejected_count:int, approved_amount:float, rejected_amount:float, period_label:string}
+     */
+    private function decisionReportsSummary(string $period, ?string $dateFilter = null): array
+    {
+        $latestPresidentLog = DB::table('approval_logs_table')
+            ->select('approval_log_reference_id', DB::raw('MAX(approval_log_id) as latest_log_id'))
+            ->where('approval_log_reference_type', 'RIS')
+            ->where('approval_log_level', 'President')
+            ->whereIn('approval_log_approval_status', ['Approved', 'Rejected'])
+            ->groupBy('approval_log_reference_id');
+
+        $query = DB::table('requisition_issue_slip_table as ris')
+            ->joinSub($latestPresidentLog, 'latest_log', function ($join) {
+                $join->on('latest_log.approval_log_reference_id', '=', 'ris.ris_id');
+            })
+            ->join('approval_logs_table as log', 'log.approval_log_id', '=', 'latest_log.latest_log_id')
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
+            ->whereIn('ris.ris_status', [
+                'Approved',
+                'Approved by the President',
+                'Rejected',
+                'Rejected by President',
+                'Rejected by the President',
+            ]);
+
+        if ($dateFilter !== null) {
+            $this->applyDecisionDateFilter($query, $dateFilter);
+        } else {
+            $this->applyDecisionPeriodFilter($query, $period);
+        }
+
+        $rows = $query
+            ->select(
+                'log.approval_log_approval_status as decision',
+                'ris.ris_id',
+                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
+            )
+            ->groupBy('ris.ris_id', 'log.approval_log_approval_status')
+            ->get();
+
+        $approved = $rows->filter(fn ($row) => strcasecmp((string) $row->decision, 'Approved') === 0);
+        $rejected = $rows->filter(fn ($row) => strcasecmp((string) $row->decision, 'Rejected') === 0);
+
+        if ($dateFilter !== null) {
+            try {
+                $periodLabel = Carbon::createFromFormat('Y-m-d', $dateFilter)->format('F j, Y');
+            } catch (\Throwable) {
+                $periodLabel = $dateFilter;
+            }
+        } else {
+            $periodLabel = match ($period) {
+                'today' => 'Today',
+                'week' => 'This week',
+                'month' => 'This month',
+                'year' => 'This year',
+                default => 'All time',
+            };
+        }
+
+        return [
+            'approved_count' => $approved->count(),
+            'rejected_count' => $rejected->count(),
+            'approved_amount' => (float) $approved->sum('total_amount'),
+            'rejected_amount' => (float) $rejected->sum('total_amount'),
+            'period_label' => $periodLabel,
+        ];
     }
 
     // =====================================================
@@ -2232,6 +2112,20 @@ class PresidentController extends Controller
         return $groupBy;
     }
 
+    private function normalizeFilterDate(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function addDateSearch($query, string $dateColumn, string $search): void
     {
         $timestamp = strtotime($search);
@@ -2451,7 +2345,7 @@ class PresidentController extends Controller
             return null;
         }
 
-        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
+        foreach (['m/d/Y', 'n/j/Y', 'Y-m-d', 'm-d-Y', 'Y/m/d', 'd/m/Y', 'j/n/Y', 'd-m-Y'] as $format) {
             try {
                 $parsed = Carbon::createFromFormat($format, $value);
                 if ($parsed !== false) {

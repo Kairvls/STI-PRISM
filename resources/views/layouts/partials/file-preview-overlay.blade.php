@@ -1,4 +1,4 @@
-{{-- In-page file preview (Canvas / attachments) — no new tab --}}
+{{-- In-page file preview (Canvass / attachments) — no new tab --}}
 <div
     id="filePreviewOverlay"
     class="fixed inset-0 z-[10050] hidden items-stretch justify-center bg-[#0b1220]/65 p-3 sm:p-6"

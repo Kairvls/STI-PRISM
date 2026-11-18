@@ -25,17 +25,33 @@ use App\Support\UserSignatureLibrary;
 use App\Support\WorkflowNotifier;
 use App\Services\AtpFormExporter;
 use App\Services\DocumentWorkflowService;
+use App\Support\AccountingHandoff;
 use App\Support\CashInstallmentPlanner;
 use App\Support\ProcurementPortal;
+use App\Support\RfcFormNumber;
 use App\Support\SupplyHandoff;
 
 class AuthorityToPurchaseController extends Controller
 {
+    /**
+     * Active path: Purchaser may mutate ATP when PURCHASER_OWNS_ATP.
+     * Supply Officer URL context remains allowed so that path can be re-enabled later.
+     */
+    private function assertAtpMutator(): void
+    {
+        if (ProcurementPortal::userCanMutateAtp()) {
+            return;
+        }
+
+        abort(403, ProcurementPortal::PURCHASER_OWNS_ATP
+            ? 'Only the Purchaser (or School Supply / Material Officer) may create or submit Authority to Purchase records.'
+            : 'Only the School Supply / Material Officer may create or submit Authority to Purchase records.');
+    }
+
+    /** @deprecated Use assertAtpMutator(); kept for Supply Officer path compatibility. */
     private function assertSupplyOfficerMutatesAtp(): void
     {
-        if (! ProcurementPortal::isSupplyOfficerContext() || ! ProcurementPortal::userCanAccessAtpWorkflow()) {
-            abort(403, 'Only the School Supply / Material Officer may create or submit Authority to Purchase records.');
-        }
+        $this->assertAtpMutator();
     }
 
     public function index(Request $request)
@@ -175,7 +191,10 @@ class AuthorityToPurchaseController extends Controller
 
         $atpSummary = $this->atpStatusSummary();
 
-        $loadFormDatasets = filled($selectedRisId)
+        // Always load create-form datasets on the active list so "+ Create ATP"
+        // can open instantly without a ?create=1 round-trip reload.
+        $loadFormDatasets = ! $archiveView
+            || filled($selectedRisId)
             || filled($editAtpId)
             || $request->boolean('create')
             || ($request->session()->getOldInput('authority_purchase_ris_id') !== null);
@@ -216,7 +235,7 @@ class AuthorityToPurchaseController extends Controller
                     ]))
                     ->with(
                         'success',
-                        'This Canvas + RIS already has an Authority to Purchase. Opening that record instead of creating a duplicate.'
+                        'This Canvass + RIS already has an Authority to Purchase. Opening that record instead of creating a duplicate.'
                     );
             }
         }
@@ -280,6 +299,16 @@ class AuthorityToPurchaseController extends Controller
             $atp->can_release_to_purchaser = ($atp->authority_purchase_status ?? null) === 'Approved'
                 && ! $atp->released_to_purchaser
                 && ProcurementPortal::isSupplyOfficerContext();
+            $latestRfc = RfcAtpLinks::latestRfcForAtp($atpId);
+            $atp->linked_rfc_sent_to_accounting = $latestRfc
+                ? AccountingHandoff::rfcIsSentToAccounting($latestRfc)
+                : false;
+            $atp->can_joint_submit = ProcurementPortal::PURCHASER_OWNS_ATP
+                && ! ProcurementPortal::isSupplyOfficerContext()
+                && empty($atp->authority_purchase_submitted_at)
+                && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true)
+                && filled($atp->authority_purchase_payment_path ?? null)
+                && ! empty($atp->has_rfc);
         }
 
         $savedSignatures = $loadFormDatasets || filled($viewAtpId) || filled($editAtpId)
@@ -328,6 +357,12 @@ class AuthorityToPurchaseController extends Controller
         $this->assertSupplyOfficerMutatesAtp();
 
         $saveAction = $request->input('save_action', 'draft');
+        // Purchaser path: create always soft-saves first; joint submit happens after payment path + RFC.
+        $purchaserOwnsPath = ProcurementPortal::PURCHASER_OWNS_ATP && ! ProcurementPortal::isSupplyOfficerContext();
+        if ($purchaserOwnsPath && $saveAction === 'submit') {
+            $saveAction = 'draft';
+            $request->merge(['save_action' => 'draft']);
+        }
         $isDraft = $saveAction === 'draft';
 
         $validated = $request->validate([
@@ -361,10 +396,10 @@ class AuthorityToPurchaseController extends Controller
             ],
             'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:100'],
             'items' => [$isDraft ? 'nullable' : 'required', 'array', 'max:50'],
-            'items.*.description' => ['nullable', 'string', 'max:2000'],
-            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999999'],
+            'items.*.description' => ['nullable', 'string', 'max:'.\App\Support\InputLimits::DESCRIPTION],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:'.\App\Support\InputLimits::QTY],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
-            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
             'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMMDD-0001.',
@@ -463,6 +498,20 @@ class AuthorityToPurchaseController extends Controller
                 ? ProcurementDraftLabel::flashCreated('Authority to Purchase')
                 : 'Authority to Purchase submitted successfully.';
 
+            if (
+                $isDraft
+                && ProcurementPortal::PURCHASER_OWNS_ATP
+                && ! ProcurementPortal::isSupplyOfficerContext()
+            ) {
+                return ProcurementPortal::redirect('atp.index', [
+                    'view_atp' => $authorityPurchaseId,
+                    'choose_path' => 1,
+                ])->with(
+                    'success',
+                    $message.' Choose a payment path, prepare the funding request, then submit both for School Administrator review.'
+                );
+            }
+
             return $this->redirectAfterSplitAtp($risId, $supplierSplit, $message);
         });
     }
@@ -533,12 +582,8 @@ class AuthorityToPurchaseController extends Controller
 
         PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
-        if ($atp->authority_purchase_status !== 'Approved') {
-            return back()->with('error', 'Payment path can only be chosen after ATP is approved.');
-        }
-
-        if (SupplyHandoff::atpReleaseColumnsReady() && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)) {
-            return back()->with('error', 'Wait until the School Supply / Material Officer releases this ATP before choosing a payment path.');
+        if ($error = $this->paymentPathGateError($atp)) {
+            return back()->with('error', $error);
         }
 
         if (
@@ -575,7 +620,8 @@ class AuthorityToPurchaseController extends Controller
     }
 
     /**
-     * Cash Installment: term + downpayment → draft RFCs (downpayment + one per month).
+     * Cash Installment: term + day interval + downpayment → draft RFCs
+     * (optional downpayment + duration/interval installments).
      */
     public function planCashInstallment(Request $request, $id)
     {
@@ -584,7 +630,7 @@ class AuthorityToPurchaseController extends Controller
         $validated = $request->validate([
             'term_id' => ['required', 'integer', 'exists:installment_terms_table,term_id'],
             'day_interval_id' => ['nullable', 'integer', 'exists:installment_day_intervals_table,interval_id'],
-            'downpayment' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'downpayment' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'dates' => ['nullable', 'array'],
             'dates.*' => ['nullable', 'date'],
         ]);
@@ -596,12 +642,8 @@ class AuthorityToPurchaseController extends Controller
 
         PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
-        if ($atp->authority_purchase_status !== 'Approved') {
-            return back()->with('error', 'Cash installment can only be planned after ATP is approved.');
-        }
-
-        if (SupplyHandoff::atpReleaseColumnsReady() && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)) {
-            return back()->with('error', 'Wait until the School Supply / Material Officer releases this ATP first.');
+        if ($error = $this->paymentPathGateError($atp)) {
+            return back()->with('error', $error);
         }
 
         if (
@@ -630,7 +672,7 @@ class AuthorityToPurchaseController extends Controller
             'search' => $atp->authority_purchase_form_number ?? null,
         ]))->with(
             'success',
-            "Cash installment planned: {$count} draft funding request".($count === 1 ? '' : 's').' created. Open each RFC to sign and submit — each gets its own DV / check number.'
+            "Cash installment planned: {$count} funding request".($count === 1 ? '' : 's').' created in preparation. Open each RFC to sign and submit — each gets its own DV / check number.'
         );
     }
 
@@ -653,6 +695,12 @@ class AuthorityToPurchaseController extends Controller
         }
 
         $saveAction = $request->input('save_action', 'save');
+        $purchaserOwnsPath = ProcurementPortal::PURCHASER_OWNS_ATP && ! ProcurementPortal::isSupplyOfficerContext();
+        // Purchaser cannot submit ATP alone — joint submit via submit() after path + RFC.
+        if ($purchaserOwnsPath && $saveAction === 'submit') {
+            $saveAction = 'save';
+            $request->merge(['save_action' => 'save']);
+        }
         $isDraft = in_array($saveAction, ['save', 'draft'], true);
 
         $validated = $request->validate([
@@ -680,10 +728,10 @@ class AuthorityToPurchaseController extends Controller
             ],
             'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:100'],
             'items' => [$isDraft ? 'nullable' : 'required', 'array', 'max:50'],
-            'items.*.description' => ['nullable', 'string', 'max:2000'],
-            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:9999999'],
+            'items.*.description' => ['nullable', 'string', 'max:'.\App\Support\InputLimits::DESCRIPTION],
+            'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:'.\App\Support\InputLimits::QTY],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
-            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
         ], [
             'authority_purchase_form_number.required' => 'ATP number is required before submitting.',
             'authority_purchase_form_number.regex' => 'ATP number must follow the format ATP-YYYYMMDD-0001.',
@@ -832,6 +880,10 @@ class AuthorityToPurchaseController extends Controller
                     ->with('error', 'This ATP is on a Purchase Order. Submit the Purchase Order to Accounting instead.');
             }
 
+            if ($error = $this->purchaserJointSubmitGateError($atp, (int) $id)) {
+                return back()->with('error', $error);
+            }
+
             if (blank($atp->authority_purchase_supplier_id)) {
                 return back()->with('error', 'Supplier is required before submitting.');
             }
@@ -904,13 +956,47 @@ class AuthorityToPurchaseController extends Controller
                     ]);
             }
 
+            $draftRfcs = RfcAtpLinks::draftRfcsForAtp((int) $id);
+            if (
+                ProcurementPortal::PURCHASER_OWNS_ATP
+                && ! ProcurementPortal::isSupplyOfficerContext()
+                && $draftRfcs->isEmpty()
+            ) {
+                // Cash installment may already have RFCs stamped as Draft with null submitted_at —
+                // also accept any linked non-rejected RFC that is still editable-ish.
+                $latest = RfcAtpLinks::latestRfcForAtp((int) $id);
+                if (! $latest || ! in_array($latest->request_check_status ?? '', ['Draft', 'Pending', 'Minor Revision'], true)) {
+                    return back()->with('error', 'Create and complete the funding request (RFC) before submitting ATP + RFC together.');
+                }
+                $draftRfcs = collect([$latest]);
+            }
+
+            foreach ($draftRfcs as $rfc) {
+                if (blank($rfc->request_check_payee ?? null)) {
+                    return back()->with('error', 'Complete payee on the linked funding request before submitting.');
+                }
+                if ((float) ($rfc->request_check_amount_figures ?? 0) <= 0) {
+                    return back()->with('error', 'Complete the amount on the linked funding request before submitting.');
+                }
+                if (blank($rfc->request_check_particulars_purpose ?? null)) {
+                    return back()->with('error', 'Complete the purpose on the linked funding request before submitting.');
+                }
+                if (
+                    Schema::hasColumn('request_check_table', 'request_check_requested_by_signature')
+                    && ! RisWorkflow::isDrawnSignature((string) ($rfc->request_check_requested_by_signature ?? ''))
+                ) {
+                    return back()->with('error', 'Sign the linked funding request before submitting ATP + RFC together.');
+                }
+            }
+
+            $now = now();
             $update = [
                 'authority_purchase_status' => 'Pending',
                 'authority_purchase_form_number' => $formNumber,
                 'authority_purchase_submitted_by' => auth()->id(),
-                'authority_purchase_submitted_at' => now(),
+                'authority_purchase_submitted_at' => $now,
                 'authority_purchase_rejection_reason' => null,
-                'authority_purchase_updated_at' => now(),
+                'authority_purchase_updated_at' => $now,
             ];
             if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_assigned_reviewer_id')) {
                 $update['authority_purchase_assigned_reviewer_id'] = $reviewerId;
@@ -920,12 +1006,50 @@ class AuthorityToPurchaseController extends Controller
                 ->where('authority_purchase_id', $id)
                 ->update($update);
 
-            $this->notifyAccountingAtp($id, $formNumber, $reviewerId);
+            $jointRfcCount = 0;
+            foreach ($draftRfcs as $rfc) {
+                $rfcId = (int) $rfc->request_check_id;
+                $wasRevision = ($rfc->request_check_status ?? '') === 'Minor Revision';
+                $rfcPayload = [
+                    'request_check_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
+                    'request_check_submitted_by' => auth()->id(),
+                    'request_check_submitted_at' => $now,
+                    'request_check_updated_at' => $now,
+                ];
+                if (Schema::hasColumn('request_check_table', 'request_check_review_stage')) {
+                    $rfcPayload['request_check_review_stage'] = 'accounting';
+                }
+                if (Schema::hasColumn('request_check_table', 'request_check_form_number')) {
+                    $rfcPayload['request_check_form_number'] = RfcFormNumber::allocateOnSubmit($rfc->request_check_form_number ?? null);
+                }
+                if (Schema::hasColumn('request_check_table', 'request_check_assigned_reviewer_id')) {
+                    $rfcPayload['request_check_assigned_reviewer_id'] = $reviewerId;
+                }
+                // Persist only statuses the enum allows.
+                if (! $this->rfcStatusAllowed($rfcPayload['request_check_status'])) {
+                    $rfcPayload['request_check_status'] = $this->rfcStatusAllowed('Pending')
+                        ? 'Pending'
+                        : ($rfc->request_check_status ?? 'Submitted');
+                }
+
+                DB::table('request_check_table')->where('request_check_id', $rfcId)->update($rfcPayload);
+                $jointRfcCount++;
+            }
+
+            if ($jointRfcCount > 0) {
+                $this->notifyAccountingAtpPair($id, $formNumber, $jointRfcCount, $reviewerId);
+            } else {
+                $this->notifyAccountingAtp($id, $formNumber, $reviewerId);
+            }
+
+            $success = $jointRfcCount > 0
+                ? 'Authority to Purchase and funding request'.($jointRfcCount === 1 ? '' : 's').' submitted to the School Administrator.'
+                : 'Authority to Purchase submitted successfully.';
 
             return $this->redirectAfterSplitAtp(
                 (int) ($atp->authority_purchase_ris_id ?? 0),
                 (int) ($atp->authority_purchase_ris_supplier_split ?? 0) === 1,
-                'Authority to Purchase submitted successfully.'
+                $success
             );
         });
     }
@@ -966,7 +1090,7 @@ class AuthorityToPurchaseController extends Controller
 
         return back()->with(
             'success',
-            $form.' (with approved Canvas + RIS) was released to the Purchaser for Request for Check.'
+            $form.' (with approved Canvass + RIS) was released to the Purchaser for Request for Check.'
         );
     }
 
@@ -1051,6 +1175,42 @@ class AuthorityToPurchaseController extends Controller
         );
     }
 
+    private function notifyAccountingAtpPair($id, ?string $formNumber, int $rfcCount, ?int $reviewerId = null): void
+    {
+        $atpLabel = $formNumber ?: ('ATP #'.$id);
+        $rfcBit = $rfcCount === 1 ? 'linked funding request' : "{$rfcCount} linked funding requests";
+
+        DocumentWorkflowService::notifySubmitted(
+            \App\Support\ProcurementReviewPortal::ROLE,
+            'ATP + funding request submitted',
+            "{$atpLabel} and {$rfcBit} are waiting for School Administrator review.",
+            'atp_rfc_submitted',
+            'ATP',
+            (int) $id,
+            \App\Support\ProcurementReviewPortal::atp((int) $id),
+            $reviewerId
+        );
+    }
+
+    private function rfcStatusAllowed(string $status): bool
+    {
+        static $values = null;
+        if ($values === null) {
+            $values = [];
+            try {
+                $col = DB::select("SHOW COLUMNS FROM request_check_table LIKE 'request_check_status'");
+                $type = $col[0]->Type ?? '';
+                if (preg_match_all("/'([^']+)'/", $type, $matches)) {
+                    $values = $matches[1];
+                }
+            } catch (\Throwable $e) {
+                $values = [];
+            }
+        }
+
+        return $values === [] || in_array($status, $values, true);
+    }
+
     /**
      * PO id that still blocks a direct submit, or null. An ATP that is alone in
      * a draft PO is released from it first so it can go straight to the School Administrator.
@@ -1075,6 +1235,65 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_submitted_at',
             'authority_purchase_is_archived'
         );
+    }
+
+    /**
+     * Purchaser-owned path: payment path + RFC while ATP is still Draft/Pending.
+     * Legacy Supply path: only after Approved + released to Purchaser.
+     */
+    private function paymentPathGateError(object $atp): ?string
+    {
+        if (ProcurementPortal::PURCHASER_OWNS_ATP && ! ProcurementPortal::isSupplyOfficerContext()) {
+            $status = (string) ($atp->authority_purchase_status ?? '');
+            if (! in_array($status, ['Draft', 'Pending', 'Approved'], true)) {
+                return 'Payment path cannot be chosen for this ATP status.';
+            }
+
+            // Once submitted to SA, path is locked until approved (or revision returns it to soft draft).
+            if (
+                $status === 'Pending'
+                && filled($atp->authority_purchase_submitted_at ?? null)
+                && ! $this->isSoftDraft($atp)
+            ) {
+                return 'This ATP is already with the School Administrator. Wait for approval before changing the payment path.';
+            }
+
+            return null;
+        }
+
+        if ($atp->authority_purchase_status !== 'Approved') {
+            return 'Payment path can only be chosen after ATP is approved.';
+        }
+
+        if (SupplyHandoff::atpReleaseColumnsReady() && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)) {
+            return 'Wait until the School Supply / Material Officer releases this ATP before choosing a payment path.';
+        }
+
+        return null;
+    }
+
+    /**
+     * When Purchaser owns ATP, joint submit requires a linked funding request first.
+     */
+    private function purchaserJointSubmitGateError(object $atp, int $atpId): ?string
+    {
+        if (! ProcurementPortal::PURCHASER_OWNS_ATP || ProcurementPortal::isSupplyOfficerContext()) {
+            return null;
+        }
+
+        if (
+            ! Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            || blank($atp->authority_purchase_payment_path ?? null)
+        ) {
+            return 'Choose a payment path (Direct Payment, Cash Installment, or Cash Advance) before submitting to the School Administrator.';
+        }
+
+        $funded = RfcAtpLinks::fundedAtpIds([$atpId]);
+        if ($funded === [] && ! CashInstallmentPlanner::planExistsForAtp($atpId)) {
+            return 'Create the funding request (RFC) for this ATP before submitting to the School Administrator.';
+        }
+
+        return null;
     }
 
     private function applyStatusFilter($query, string $status): void
@@ -1505,7 +1724,12 @@ class AuthorityToPurchaseController extends Controller
     {
         RisWorkflow::applyEligibleForAtpScope($query);
 
-        // Supply Officer may only build ATP from RIS the Purchaser explicitly sent.
+        // Purchaser-owned ATP path: any eligible approved RIS (no Supply handoff required).
+        if (ProcurementPortal::PURCHASER_OWNS_ATP && ! ProcurementPortal::isSupplyOfficerContext()) {
+            return $query;
+        }
+
+        // Supply Officer path: only RIS the Purchaser explicitly sent.
         if (SupplyHandoff::risHandoffColumnsReady()) {
             $query->whereNotNull('requisition_issue_slip_table.ris_sent_to_supply_at');
             $officerId = (int) auth()->id();
@@ -1538,6 +1762,11 @@ class AuthorityToPurchaseController extends Controller
     {
         if (! RisWorkflow::isEligibleForAtp($ris)) {
             return false;
+        }
+
+        // Purchaser-owned ATP path: skip Supply handoff requirement.
+        if (ProcurementPortal::PURCHASER_OWNS_ATP && ! ProcurementPortal::isSupplyOfficerContext()) {
+            return true;
         }
 
         if (! SupplyHandoff::risHandoffColumnsReady()) {

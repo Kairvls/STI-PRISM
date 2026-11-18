@@ -8,7 +8,8 @@
             <a
                 href="{{ route($downloadRoute, $file->ris_attachment_id) }}"
                 class="block max-w-[220px] truncate text-sm font-semibold text-[#0025cc] hover:underline"
-                title="{{ $file->ris_attachment_original_name }}"
+                data-tip="{{ $file->ris_attachment_original_name }}"
+                data-truncate-tip="{{ $file->ris_attachment_original_name }}"
                 target="_blank"
                 rel="noopener"
             >

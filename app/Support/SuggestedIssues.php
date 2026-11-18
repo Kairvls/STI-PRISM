@@ -70,7 +70,17 @@ class SuggestedIssues
             'Split Type' => ['split type', 'split-type', 'aircon', 'air conditioner'],
             'Projector' => ['projector'],
             'Flat Screen TV' => ['flat screen', 'television', 'tv'],
-            'Ethernet Cable' => ['ethernet', 'internet cable', 'lan cable', 'network cable'],
+            'Ethernet Cable' => [
+                'ethernet',
+                'internet cable',
+                'lan cable',
+                'network cable',
+                'electrical wire',
+                'electric wire',
+                'power cable',
+                'power cord',
+                'extension cord',
+            ],
             'CFL Bulb' => ['compact fluorescent', 'cfl'],
             'Fluorescent' => ['fluorescent', 'flourescent'],
             'LED Bulb' => ['led light', 'led bulb', 'bulb'],
@@ -103,6 +113,12 @@ class SuggestedIssues
 
     public static function detectCategory(?string $equipmentName): ?string
     {
+        // When Classification maintenance has equipment names, only that list
+        // drives prediction — no vague hardcoded fallbacks (e.g. bare "wire").
+        if (EquipmentCategoryTypes::tableReady() && EquipmentCategoryTypes::options()->isNotEmpty()) {
+            return EquipmentCategoryTypes::detectCategoryName($equipmentName);
+        }
+
         $component = self::detectComponent($equipmentName);
 
         if (!$component) {
@@ -120,6 +136,12 @@ class SuggestedIssues
 
     public static function categoryDetectPayload($categories): array
     {
+        // Prefer the maintained Classification → equipment list so vague names
+        // (e.g. bare "Wire") are not force-mapped unless an admin listed them.
+        if (EquipmentCategoryTypes::tableReady() && EquipmentCategoryTypes::options()->isNotEmpty()) {
+            return EquipmentCategoryTypes::categoryDetectPayload($categories);
+        }
+
         $ids = [];
 
         foreach ($categories as $category) {
@@ -141,6 +163,15 @@ class SuggestedIssues
                 continue;
             }
 
+            // Drop bare wire/cable/cord — too ambiguous for auto-predict.
+            $needles = array_values(array_filter(
+                $needles,
+                fn ($needle) => ! in_array(mb_strtolower(trim((string) $needle)), ['wire', 'cable', 'cord'], true)
+            ));
+            if ($needles === []) {
+                continue;
+            }
+
             $rules[] = [
                 'needles' => $needles,
                 'category' => $componentToCategory[$component],
@@ -151,6 +182,11 @@ class SuggestedIssues
             'needles' => ['computer'],
             'except' => ['computer laboratory'],
             'category' => 'Computer Equipment',
+        ];
+
+        $rules[] = [
+            'needles' => ['door knob', 'doorknob', 'knob', 'hinge', 'cabinet', 'shelf', 'locker', 'sofa', 'desk'],
+            'category' => 'Furniture and Fixtures',
         ];
 
         return [

@@ -18,7 +18,9 @@
         name="{{ $field }}[]"
         accept="image/png,image/jpeg,image/webp"
         multiple
-        class="hidden"
+        class="sr-only"
+        tabindex="-1"
+        aria-hidden="true"
         data-rip-input
     >
     <div class="mt-1.5 grid grid-cols-3 gap-2" data-rip-grid></div>
@@ -29,6 +31,28 @@
 </div>
 
 @once
+<div
+    id="revisionImageLightbox"
+    class="fixed inset-0 z-[14000] hidden items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+    onclick="if (event.target === this) window.closeRevisionImageLightbox()"
+>
+    <div class="relative flex max-h-full w-full max-w-4xl flex-col items-center">
+        <div class="mb-2 flex w-full items-center justify-between gap-3 text-white">
+            <p id="revisionImageLightboxName" class="truncate text-sm font-medium"></p>
+            <button
+                type="button"
+                onclick="window.closeRevisionImageLightbox()"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+                aria-label="Close"
+            >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <img id="revisionImageLightboxFull" src="" alt="" class="max-h-[80vh] w-auto max-w-full rounded-xl bg-white object-contain shadow-2xl">
+    </div>
+</div>
 <script>
     (function () {
         function escapeAttr(value) {
@@ -75,11 +99,13 @@
                 var url = URL.createObjectURL(file);
                 root._ripUrls.push(url);
                 html += '<div class="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">'
-                    + '<img src="' + url + '" alt="' + escapeAttr(file.name) + '" class="h-full w-full object-cover">'
-                    + '<button type="button" data-rip-remove="' + index + '" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/70 text-white transition hover:bg-rose-600" title="Remove image" aria-label="Remove image">'
+                    + '<button type="button" data-rip-preview="' + index + '" class="block h-full w-full cursor-zoom-in" title="View full size" aria-label="View ' + escapeAttr(file.name) + ' full size">'
+                    + '<img src="' + url + '" alt="' + escapeAttr(file.name) + '" class="h-full w-full object-cover pointer-events-none">'
+                    + '</button>'
+                    + '<button type="button" data-rip-remove="' + index + '" class="absolute right-1 top-1 z-[1] inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/70 text-white transition hover:bg-rose-600" title="Remove image" aria-label="Remove image">'
                     + '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>'
                     + '</button>'
-                    + '<span class="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-slate-900/70 to-transparent px-2 pb-1 pt-4 text-[10px] font-medium text-white">' + escapeAttr(file.name) + '</span>'
+                    + '<span class="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-slate-900/70 to-transparent px-2 pb-1 pt-4 text-[10px] font-medium text-white">' + escapeAttr(file.name) + '</span>'
                     + '</div>';
             });
             if (files.length < max) {
@@ -124,15 +150,60 @@
             sync(root);
         };
 
+        window.closeRevisionImageLightbox = function () {
+            var box = document.getElementById('revisionImageLightbox');
+            if (!box) return;
+            box.classList.add('hidden');
+            box.classList.remove('flex');
+            var img = document.getElementById('revisionImageLightboxFull');
+            if (img) {
+                img.src = '';
+                img.alt = '';
+            }
+            var name = document.getElementById('revisionImageLightboxName');
+            if (name) name.textContent = '';
+        };
+
+        window.openRevisionImageLightbox = function (src, name) {
+            var box = document.getElementById('revisionImageLightbox');
+            if (!box || !src) return;
+            if (box.parentElement !== document.body) {
+                document.body.appendChild(box);
+            }
+            var img = document.getElementById('revisionImageLightboxFull');
+            var label = document.getElementById('revisionImageLightboxName');
+            if (img) {
+                img.src = src;
+                img.alt = name || '';
+            }
+            if (label) label.textContent = name || '';
+            box.classList.remove('hidden');
+            box.classList.add('flex');
+        };
+
+        // Capture phase: Return/Reject modals use stopPropagation on the dialog panel,
+        // which would otherwise block a bubble-phase document listener.
         document.addEventListener('click', function (event) {
             var root = event.target.closest('.revision-image-picker');
             if (!root) return;
             var remove = event.target.closest('[data-rip-remove]');
             if (remove) {
                 event.preventDefault();
+                window.closeRevisionImageLightbox();
                 state(root).splice(parseInt(remove.getAttribute('data-rip-remove'), 10), 1);
                 showError(root, '');
                 sync(root);
+                return;
+            }
+            var preview = event.target.closest('[data-rip-preview]');
+            if (preview) {
+                event.preventDefault();
+                var idx = parseInt(preview.getAttribute('data-rip-preview'), 10);
+                var file = state(root)[idx];
+                var url = (root._ripUrls || [])[idx];
+                if (url) {
+                    window.openRevisionImageLightbox(url, file ? file.name : '');
+                }
                 return;
             }
             if (event.target.closest('[data-rip-add]')) {
@@ -140,7 +211,7 @@
                 var input = root.querySelector('[data-rip-input]');
                 if (input) input.click();
             }
-        });
+        }, true);
 
         document.addEventListener('change', function (event) {
             var input = event.target;
@@ -151,7 +222,19 @@
             addFiles(root, Array.prototype.slice.call(input.files || []));
         });
 
+        document.addEventListener('keydown', function (event) {
+            var box = document.getElementById('revisionImageLightbox');
+            if (event.key === 'Escape' && box && !box.classList.contains('hidden')) {
+                event.stopImmediatePropagation();
+                window.closeRevisionImageLightbox();
+            }
+        }, true);
+
         function initAll() {
+            var box = document.getElementById('revisionImageLightbox');
+            if (box && box.parentElement !== document.body) {
+                document.body.appendChild(box);
+            }
             Array.prototype.forEach.call(document.querySelectorAll('.revision-image-picker'), render);
         }
         if (document.readyState === 'loading') {

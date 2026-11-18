@@ -94,7 +94,7 @@
                 id="{{ $modalId }}-attachments"
                 class="hidden shrink-0 border-t border-gray-100 bg-white px-4 py-2"
             >
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Canvas</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Canvass</p>
                 <div class="mt-1 space-y-0.5" data-attachment-list></div>
             </div>
 

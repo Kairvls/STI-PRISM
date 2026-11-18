@@ -17,6 +17,7 @@ class DocumentUrgency
         'ATP' => ['table' => 'authority_to_purchase_table', 'key' => 'authority_purchase_id'],
         'PO' => ['table' => 'purchase_orders_table', 'key' => 'purchase_order_id'],
         'RFC' => ['table' => 'request_check_table', 'key' => 'request_check_id'],
+        'DV' => ['table' => 'disbursement_vouchers_table', 'key' => 'dv_id'],
         'RR' => ['table' => 'receiving_reports_table', 'key' => 'receiving_report_id'],
         'LIQ' => ['table' => 'liquidation_reports_table', 'key' => 'liquidation_report_id'],
     ];
@@ -74,6 +75,30 @@ class DocumentUrgency
     }
 
     /**
+     * Filter by inherited RIS urgency. Empty / unknown values are ignored.
+     */
+    public static function applyFilter($query, string $type, ?string $urgency, ?string $table = null)
+    {
+        $urgency = trim((string) $urgency);
+        if ($urgency === '' || ! in_array($urgency, RisWorkflow::urgencyOptions(), true)) {
+            return $query;
+        }
+
+        $sql = self::sql($type, $table);
+        if ($sql === null) {
+            return $query;
+        }
+
+        if ($urgency === RisWorkflow::URGENCY_URGENT) {
+            $query->whereRaw($sql);
+        } else {
+            $query->whereRaw('NOT ('.$sql.')');
+        }
+
+        return $query;
+    }
+
+    /**
      * Accepts a row that already carries doc_is_urgent (see select()) or a document id.
      */
     public static function isUrgent(string $type, $rowOrId): bool
@@ -120,6 +145,13 @@ class DocumentUrgency
                     Schema::hasColumn('request_check_table', 'request_check_authority_purchase_id') ? "{$t}.request_check_authority_purchase_id" : null,
                     Schema::hasColumn('request_check_table', 'request_check_purchase_order_id') ? "{$t}.request_check_purchase_order_id" : null
                 ),
+                'DV' => Schema::hasColumn('disbursement_vouchers_table', 'dv_request_check_id')
+                    ? self::rfcMatch(
+                        "{$t}.dv_request_check_id",
+                        null,
+                        null
+                    )
+                    : [],
                 'RR' => self::rrMatch(
                     Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id') ? "{$t}.receiving_report_atp_id" : null,
                     Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id') ? "{$t}.receiving_report_request_check_id" : null

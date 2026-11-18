@@ -81,7 +81,7 @@
         <div class="signature-box">
             <p>Requested by:</p>
             @include('partials.ris-requested-by-signatory', ['ris' => $ris])
-            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : '' }}</div></div>
+            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : '' }}</div></div>
         </div>
         <div class="signature-box">
             <p>{{ (($ris->ris_status ?? '') === 'Directly Approved') ? 'Checked by:' : 'Approved by:' }}</p>
@@ -97,7 +97,7 @@
                 @endif
                 </span>
             </div>
-            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') : '' }}</div></div>
+            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('m/d/Y') : '' }}</div></div>
         </div>
         <div class="signature-box">
             <p>Issued by:</p>
@@ -118,12 +118,12 @@
                 @endif
                 </span>
             </div>
-            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : '' }}</div></div>
+            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('m/d/Y') : '' }}</div></div>
         </div>
         <div class="signature-box">
             <p>Received by:</p>
             <div class="signature-line">{{ $ris->ris_received_by_signature }}</div>
-            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : '' }}</div></div>
+            <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : '' }}</div></div>
         </div>
     </section>
 </div>

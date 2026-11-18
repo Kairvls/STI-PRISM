@@ -515,6 +515,7 @@
                     >
                         <option value="">All primary roles</option>
                         @foreach ($roles as $role)
+                            @continue(! \App\Support\RoleAccess::isAssignableRoleId((int) $role->role_id))
                             <option value="{{ (int) $role->role_id }}">{{ $role->role_name }}</option>
                         @endforeach
                     </select>
@@ -904,7 +905,7 @@
                             @include('admin.partials.person-picker', [
                                 'label' => 'From Faculty & Staff',
                                 'required' => false,
-                                'hint' => 'Optional — pick faculty/staff to auto-fill the form',
+                                'hint' => 'Optional — pick to auto-fill.',
                                 'searchUrl' => route('admin.persons.search'),
                             ])
                         </div>
@@ -922,7 +923,6 @@
                                 <option value="Faculty" @selected(old('user_type') === 'Faculty')>Faculty</option>
                                 <option value="Staff" @selected(old('user_type') === 'Staff')>Staff</option>
                             </select>
-                            <p class="mt-1.5 text-xs text-gray-500">Faculty ends with F, Staff ends with S.</p>
                         </div>
                         @php
                             $oldCreateEmployeeId = strtoupper(preg_replace('/\s+/', '', (string) old('employee_id', '')));
@@ -964,11 +964,6 @@
                                 value="{{ old('employee_id') }}"
                                 required
                             />
-                            <p id="createUserEmployeeIdHint" class="mt-1.5 text-xs text-gray-500">
-                                {{ $oldCreateSuffix
-                                    ? 'Enter the 5-digit number only. OMC and '.$oldCreateSuffix.' are fixed.'
-                                    : 'Select type first, then enter the 5-digit number.' }}
-                            </p>
                         </div>
                     </div>
                     <div class="space-y-4">
@@ -997,10 +992,31 @@
                                 ])
                             </div>
                         </div>
-                        <div>
-                            <label class="pur-label">Email <span class="text-red-500">*</span></label>
-                            <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
-                            <p class="mt-1.5 text-xs text-gray-500">Must match the Microsoft 365 sign-in email. Local password is not used for login.</p>
+                        <div class="flex flex-col gap-4 sm:flex-row">
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label">Email <span class="text-red-500">*</span></label>
+                                <input type="email" name="email" class="pur-input mt-1.5" placeholder="e.g. juan.delacruz@sti.edu.ph" required />
+                                <p class="mt-1.5 text-xs text-gray-500">Must match the Microsoft 365 sign-in email.</p>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <label class="pur-label" for="createUserDepartment">Department</label>
+                                <select
+                                    name="department_id"
+                                    id="createUserDepartment"
+                                    class="pur-select mt-1.5"
+                                    data-searchable="1"
+                                    data-search-placeholder="Search department…"
+                                >
+                                    <option value="">Select department...</option>
+                                    @foreach(($departments ?? collect()) as $dept)
+                                        <option
+                                            value="{{ $dept->department_id }}"
+                                            data-department-name="{{ $dept->department_name }}"
+                                            @selected((int) old('department_id') === (int) $dept->department_id)
+                                        >{{ $dept->department_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -1008,11 +1024,23 @@
                         <select name="primary_role" id="createUserRole" class="pur-select mt-1.5" required>
                             <option value="">Select primary role...</option>
                             @foreach($roles as $role)
-                                <option value="{{ $role->role_id }}">{{ $role->role_name }}</option>
+                                @php
+                                    $createRoleId = (int) $role->role_id;
+                                    $createRoleDormant = \App\Support\RoleAccess::isPortalDormant($createRoleId);
+                                    $createRoleTaken = \App\Support\RoleAccess::singletonRoleTaken($createRoleId);
+                                @endphp
+                                @continue($createRoleDormant)
+                                <option
+                                    value="{{ $createRoleId }}"
+                                    @if($createRoleTaken) disabled @endif
+                                >{{ $role->role_name }}{{ $createRoleTaken ? ' - already assigned' : '' }}</option>
                             @endforeach
                         </select>
+                        <p class="mt-1.5 text-xs text-gray-500">
+                            School Administrator and President are limited to one account each. Remove or reassign the existing account before creating another.
+                        </p>
                     </div>
-                    <div id="createAdditionalRolesSection">
+                    <div id="createAdditionalRolesSection" class="hidden">
                         <label class="pur-label">Additional roles <span class="font-normal text-gray-400">(optional)</span></label>
                         <div id="createAdditionalRolesList" class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                             @foreach($roles as $role)
@@ -1024,7 +1052,6 @@
                                 @endif
                             @endforeach
                         </div>
-                        <p id="createAdditionalRolesHint" class="mt-1.5 text-xs text-gray-500">Only Staff in IT Department with Purchaser or Maintenance primary may add the other role.</p>
                     </div>
                 </div>
                 <div class="pur-modal-footer">
@@ -1043,7 +1070,7 @@
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h3>Edit Roles</h3>
-                        <p class="mt-0.5 text-sm font-normal text-gray-500" id="editRolesSubtitle">Update primary and additional roles</p>
+                        <p class="mt-0.5 text-sm font-normal text-gray-500" id="editRolesSubtitle">Edit roles for this user.</p>
                     </div>
                     <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeEditRolesModal()" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1059,12 +1086,27 @@
                         <label class="pur-label">Primary role <span class="text-red-500">*</span></label>
                         <select name="primary_role" id="editPrimaryRole" class="pur-select mt-1.5" required>
                             @foreach($roles as $role)
-                                <option value="{{ $role->role_id }}" class="edit-primary-role-option" data-role-id="{{ $role->role_id }}">{{ $role->role_name }}</option>
+                                @php
+                                    $editRoleId = (int) $role->role_id;
+                                    $editRoleAssignable = \App\Support\RoleAccess::isAssignableRoleId($editRoleId);
+                                    $editRoleTaken = \App\Support\RoleAccess::singletonRoleTaken($editRoleId);
+                                @endphp
+                                <option
+                                    value="{{ $editRoleId }}"
+                                    class="edit-primary-role-option"
+                                    data-role-id="{{ $editRoleId }}"
+                                    data-assignable="{{ $editRoleAssignable ? '1' : '0' }}"
+                                    data-singleton-taken="{{ $editRoleTaken ? '1' : '0' }}"
+                                    @if(! $editRoleAssignable) hidden disabled @endif
+                                >{{ $role->role_name }}{{ $editRoleTaken ? ' - already assigned' : '' }}</option>
                             @endforeach
                         </select>
-                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-gray-500">Administrator primary role is locked and cannot have additional roles.</p>
+                        <p class="mt-1.5 text-xs text-gray-500">
+                            School Administrator and President stay one-per-system. Keep the current holder, or free the role first.
+                        </p>
+                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-gray-500">Administrator primary is locked. IT Staff may add Maintenance or Purchaser.</p>
                     </div>
-                    <div id="editAdditionalRolesSection">
+                    <div id="editAdditionalRolesSection" class="hidden">
                         <label class="pur-label">Additional roles</label>
                         <div id="editAdditionalRolesList" class="mt-1.5 space-y-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
                             @foreach($roles as $role)
@@ -1076,7 +1118,7 @@
                                 @endif
                             @endforeach
                         </div>
-                        <p id="editAdditionalRolesHint" class="mt-1.5 text-xs text-gray-500">Only Staff in IT Department with Purchaser or Maintenance primary may add the other role.</p>
+                        <p id="editAdditionalRolesHint" class="mt-1.5 text-xs text-gray-500">Staff in IT may add Maintenance or Purchaser.</p>
                     </div>
                 </div>
                 <div class="pur-modal-footer">
@@ -1095,7 +1137,7 @@
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h3>Edit Office 365 email</h3>
-                        <p id="editEmailSubtitle" class="mt-0.5 text-sm font-normal text-gray-500">Must match the Microsoft sign-in email exactly.</p>
+                        <p id="editEmailSubtitle" class="mt-0.5 text-sm font-normal text-gray-500">Must match the Microsoft 365 sign-in email.</p>
                     </div>
                     <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-900" onclick="closeEditEmailModal()" aria-label="Close">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1118,7 +1160,7 @@
                             autocomplete="off"
                             placeholder="name@sti.edu.ph"
                         />
-                        <p class="mt-1.5 text-xs text-gray-500">PaAyo matches this to the Microsoft account after Office 365 sign-in.</p>
+                        <p class="mt-1.5 text-xs text-gray-500">Matched to Microsoft 365 after sign-in.</p>
                     </div>
                     @error('email')
                         <p class="text-sm text-red-600">{{ $message }}</p>
@@ -1436,11 +1478,11 @@
         return String(name || '').trim().toLowerCase() === 'it department';
     }
 
-    function allowedAdditionalRoleId(primaryId, isStaff, isItDepartment) {
-        if (!isStaff || !isItDepartment) return null;
-        if (primaryId === '3') return '2';
-        if (primaryId === '2') return '3';
-        return null;
+    function allowedAdditionalRoleIds(primaryId, isStaff, isItDepartment) {
+        if (!isStaff || !isItDepartment) return [];
+        // Administrator, Maintenance, Purchaser → Maintenance / Purchaser (except primary).
+        if (primaryId !== '1' && primaryId !== '2' && primaryId !== '3') return [];
+        return ['2', '3'].filter(function (id) { return id !== String(primaryId); });
     }
 
     function syncRoleMatrixVisibility(options) {
@@ -1453,20 +1495,20 @@
         var isStaff = !!options.isStaff;
         var isItDepartment = !!options.isItDepartment;
         var primaryId = primarySelect ? String(primarySelect.value || '') : '';
-        var allowedId = allowedAdditionalRoleId(primaryId, isStaff, isItDepartment);
-        var eligible = allowedId !== null;
+        var allowedIds = allowedAdditionalRoleIds(primaryId, isStaff, isItDepartment);
+        var eligible = allowedIds.length > 0;
 
         if (section) section.classList.toggle('hidden', !eligible);
         if (list) list.classList.toggle('hidden', !eligible);
         if (hint) {
             hint.textContent = eligible
-                ? 'Staff in IT Department may add only the counterpart role (Purchaser ↔ Maintenance).'
-                : 'Additional roles are only for Staff in IT Department when primary is Purchaser or Maintenance.';
+                ? 'Staff in IT may add Maintenance or Purchaser.'
+                : 'Needs Staff + IT, with Admin, Maintenance, or Purchaser primary.';
         }
 
         document.querySelectorAll(rowSelector).forEach(function (row) {
             var roleId = String(row.getAttribute('data-role-id') || '');
-            var show = eligible && roleId === allowedId;
+            var show = eligible && allowedIds.indexOf(roleId) !== -1;
             row.classList.toggle('hidden', !show);
             if (!show) {
                 var cb = row.querySelector(checkboxSelector);
@@ -1474,6 +1516,20 @@
             }
         });
     }
+
+    window.syncCreateUserDepartmentHint = function () {
+        var deptSelect = document.getElementById('createUserDepartment');
+        if (!deptSelect) {
+            createUserItDepartment = false;
+        } else {
+            var opt = deptSelect.options[deptSelect.selectedIndex];
+            var name = opt ? (opt.getAttribute('data-department-name') || opt.textContent || '') : '';
+            createUserItDepartment = isItDepartmentName(name);
+        }
+        if (typeof window.syncCreateAdditionalRolesVisibility === 'function') {
+            window.syncCreateAdditionalRolesVisibility();
+        }
+    };
 
     window.syncCreateUserTypeHint = function () {
         var typeSelect = document.getElementById('createUserType');
@@ -1495,13 +1551,13 @@
             fieldEl.classList.remove('is-disabled');
             digitsInput.removeAttribute('readonly');
             if (hint) {
-                hint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+                hint.textContent = 'Enter 5 digits only. OMC and ' + suffix + ' are fixed.';
             }
         } else {
             fieldEl.classList.add('is-disabled');
             digitsInput.setAttribute('readonly', 'readonly');
             if (hint) {
-                hint.textContent = 'Select type first, then enter the 5-digit number.';
+                hint.textContent = 'Select type first, then enter 5 digits.';
             }
         }
 
@@ -1627,7 +1683,15 @@
         var isAdminTarget = btn.getAttribute('data-is-admin') === '1';
         var primary = document.getElementById('editPrimaryRole');
         if (primary) {
-            primary.value = btn.getAttribute('data-primary-role') || '';
+            var currentPrimary = btn.getAttribute('data-primary-role') || '';
+            // Block-listed roles stay hidden unless this user already holds them.
+            primary.querySelectorAll('.edit-primary-role-option').forEach(function (opt) {
+                var assignable = opt.getAttribute('data-assignable') === '1';
+                var keepCurrent = String(opt.value) === String(currentPrimary);
+                opt.hidden = !assignable && !keepCurrent;
+                opt.disabled = !assignable && !keepCurrent;
+            });
+            primary.value = currentPrimary;
             primary.disabled = isAdminTarget;
             // Disabled fields are not submitted — mirror primary for Admin edits.
             var locked = document.getElementById('editPrimaryRoleLocked');
@@ -1875,6 +1939,11 @@
             roleSelect.addEventListener('change', syncCreateAdditionalRolesVisibility);
         }
 
+        var departmentSelect = document.getElementById('createUserDepartment');
+        if (departmentSelect) {
+            departmentSelect.addEventListener('change', syncCreateUserDepartmentHint);
+        }
+
         var typeSelect = document.getElementById('createUserType');
         var employeeDigitsInput = document.getElementById('createUserEmployeeIdDigits');
         if (typeSelect) {
@@ -2006,6 +2075,9 @@
         createUserItDepartment = false;
         setCreateUserIdentityLocked(false);
 
+        var deptEl = document.getElementById('createUserDepartment');
+        if (deptEl) deptEl.value = '';
+
         var typeEl = document.getElementById('createUserType');
         if (typeEl) {
             typeEl.disabled = false;
@@ -2048,7 +2120,16 @@
 
     function fillCreateUserFromPerson(row) {
         if (!row) return;
-        createUserItDepartment = isItDepartmentName(row.department_name);
+
+        var deptEl = document.getElementById('createUserDepartment');
+        if (deptEl && row.person_department_id) {
+            deptEl.value = String(row.person_department_id);
+        }
+        if (typeof window.syncCreateUserDepartmentHint === 'function') {
+            window.syncCreateUserDepartmentHint();
+        } else {
+            createUserItDepartment = isItDepartmentName(row.department_name);
+        }
 
         var typeEl = document.getElementById('createUserType');
         var employmentType = String(row.person_employment_type || '').trim();

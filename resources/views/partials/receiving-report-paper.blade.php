@@ -140,7 +140,7 @@
             @if($editable)
                 <input type="date" name="receiving_report_date" value="{{ $dateValue }}" class="h-7 w-36 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
-                <span class="inline-block min-w-[8rem] border-b border-black px-1">{{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '' }}</span>
+                <span class="inline-block min-w-[8rem] border-b border-black px-1">{{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('m/d/Y') : '' }}</span>
             @endif
         </div>
     </div>
@@ -193,7 +193,7 @@
                 @if($editable)
                     <input type="date" name="receiving_report_delivery_date" value="{{ $deliveryValue }}" class="h-7 flex-1 border-0 border-b border-black bg-transparent outline-none">
                 @else
-                    <span class="flex-1 border-b border-black">{{ $deliveryValue ? \Carbon\Carbon::parse($deliveryValue)->format('d/m/Y') : '' }}</span>
+                    <span class="flex-1 border-b border-black">{{ $deliveryValue ? \Carbon\Carbon::parse($deliveryValue)->format('m/d/Y') : '' }}</span>
                 @endif
             </div>
         </div>
@@ -230,7 +230,7 @@
                 limitMoney(raw) {
                     let v = String(raw ?? '').replace(/[^\d.]/g, '');
                     const parts = v.split('.');
-                    parts[0] = (parts[0] || '').slice(0, 10);
+                    parts[0] = (parts[0] || '').slice(0, 7);
                     if (parts.length > 1) {
                         v = parts[0] + '.' + parts.slice(1).join('').slice(0, 2);
                     } else {
@@ -238,7 +238,8 @@
                     }
                     if (v === '' || v === '.') return null;
                     const n = Number(v);
-                    return Number.isNaN(n) ? null : n;
+                    if (Number.isNaN(n)) return null;
+                    return Math.min(n, 9999999.99);
                 },
                 setCheck(e) { this.checkAmt = this.limitMoney(e.target.value); e.target.value = this.checkAmt ?? ''; },
                 setOr(e) { this.orAmt = this.limitMoney(e.target.value); e.target.value = this.orAmt ?? ''; },
@@ -487,7 +488,7 @@
                 </div>
                 <div class="mt-3 text-xs font-semibold">Date:</div>
                 <div class="mt-1 w-40 border-b border-black pb-0.5 text-center text-sm">
-                    {{ now()->format('d/m/Y') }}
+                    {{ now()->format('m/d/Y') }}
                 </div>
             @else
                 {{-- Center name + signature on the underline (same as ATP / RFC). --}}

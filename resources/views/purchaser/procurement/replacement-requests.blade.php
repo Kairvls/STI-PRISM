@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Replacement Requests')
-@section('page-subtitle', 'Review and manage equipment replacement requests')
+@section('page-subtitle', 'Equipment replacement requests.')
 
 @section('content')
 

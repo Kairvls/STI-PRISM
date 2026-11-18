@@ -25,13 +25,13 @@
                 >
             </th>
             @endif
-            <th class="{{ $risPageHasAcceptable ? 'w-[14%]' : 'w-[15%]' }} text-left">RIS Number</th>
-            <th class="w-[12%] text-left">Request No.</th>
-            <th class="{{ $risPageHasAcceptable ? 'w-[23%]' : 'w-[25%]' }}">Equipment</th>
-            <th class="w-[15%]">Requested By</th>
-            <th class="w-[10%]">Status</th>
-            <th class="w-[11%] text-right">Amount</th>
-            <th class="w-[12%] text-center">Actions</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[13%]' : 'w-[14%]' }} text-left">RIS Number</th>
+            <th class="w-[11%] text-left">Request No.</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[20%]' : 'w-[24%]' }}">Equipment</th>
+            <th class="w-[13%]">Requested By</th>
+            <th class="w-[12%]">Status</th>
+            <th class="w-[10%] text-right">Amount</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[18%]' : 'w-[16%]' }} text-center">Actions</th>
         </tr>
     </thead>
 
@@ -66,11 +66,12 @@
                         title="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
                     >
                         {{ \App\Support\RisWorkflow::formNumber($ris) }}
-                        @if(\App\Support\RisWorkflow::isUrgent($ris))
-                            <div class="mt-0.5">
-                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm'])
-                            </div>
-                        @endif
+                        <div class="mt-0.5">
+                            @include('partials.ris-urgency-badge', [
+                                'urgent' => \App\Support\RisWorkflow::isUrgent($ris),
+                                'size' => 'sm',
+                            ])
+                        </div>
                     </div>
                 </td>
 
@@ -82,15 +83,10 @@
                 </td>
 
                 <td>
-                    <div
-                        class="truncate text-sm {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ \App\Support\RisWorkflow::sourceLabel($ris) }}"
-                    >
-                        {{ \App\Support\RisWorkflow::sourceLabel($ris) }}
-                        @if(!empty($ris->ris_request_type))
-                            <div class="mt-0.5 truncate text-[11px] text-gray-400">{{ \App\Support\RisWorkflow::requestTypeLabel($ris) }}</div>
-                        @endif
-                    </div>
+                    @include('admin.partials.ris-equipment-cell', [
+                        'ris' => $ris,
+                        'muted' => ! $isAcceptable,
+                    ])
                     @include('admin.partials.ris-attachments', ['ris' => $ris])
                 </td>
 
@@ -119,13 +115,12 @@
                     </div>
                 </td>
 
-                <td>
-                    {{-- Keep existing status badge design --}}
-                    @include('admin.partials.ris-status-badge', ['ris' => $ris])
+                <td class="min-w-0 align-middle">
+                    @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
                 </td>
 
                 <td
-                    class="text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-900' }}"
+                    class="min-w-0 text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-900' }}"
                     title="Total computed amount of this RIS"
                 >
                     ₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 2) }}
@@ -146,19 +141,70 @@
                             </svg>
                         </button>
 
-                        @include('partials.share-document-button', [
-                            'type' => 'ris',
-                            'id' => $ris->ris_id,
-                            'label' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
-                        ])
+                        @php
+                            $passToPurchaser = $risCanAct && \App\Support\RisWorkflow::canReturnForRevision($ris);
+                            $ownerPurchaserId = \App\Support\RisWorkflow::ownerPurchaserId($ris);
+                            $ownerPurchaserName = \App\Support\RisWorkflow::requesterName($ris, '');
+                        @endphp
 
                         @if($isAcceptable && $risCanAct)
+                            <button
+                                type="button"
+                                onclick="window.openAcceptRisModal('{{ $ris->ris_id }}', @js(\App\Support\RisWorkflow::formNumber($ris)), @js(\App\Support\RisWorkflow::sourceLabel($ris)))"
+                                data-tip="Accept"
+                                data-tip-place="above"
+                                aria-label="Accept"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-[#0025cc] transition hover:border-blue-300 hover:bg-blue-100"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </button>
+                            <button
+                                type="button"
+                                onclick="window.openAmendModal('{{ $ris->ris_id }}')"
+                                data-tip="Return for Revision"
+                                data-tip-place="above"
+                                aria-label="Return for Revision"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v5h5"></path>
+                                </svg>
+                            </button>
+
                             @include('admin.procurement-review._ris-action-menu', [
                                 'risId' => $ris->ris_id,
+                                'ris' => $ris,
                                 'mode' => 'pending',
                                 'btnSizeClass' => 'h-9 w-9',
-                                'acceptRef' => \App\Support\RisWorkflow::formNumber($ris),
-                                'acceptDetail' => \App\Support\RisWorkflow::sourceLabel($ris),
+                                'shareLabel' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
+                            ])
+                        @elseif($passToPurchaser)
+                            <button
+                                type="button"
+                                onclick="window.openReturnRevisionModal('{{ $ris->ris_id }}', {{ (int) $ownerPurchaserId }}, @js($ownerPurchaserName))"
+                                data-tip="Pass to Purchaser"
+                                data-tip-place="above"
+                                aria-label="Pass to Purchaser"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v5h5"></path>
+                                </svg>
+                            </button>
+                            @include('partials.share-document-button', [
+                                'type' => 'ris',
+                                'id' => $ris->ris_id,
+                                'label' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
+                            ])
+                        @else
+                            @include('partials.share-document-button', [
+                                'type' => 'ris',
+                                'id' => $ris->ris_id,
+                                'label' => \App\Support\RequestExplorer::shareUiLabel('ris', $ris->ris_form_number ?? null, $ris->ris_request_no ?? null),
                             ])
                         @endif
                     </div>
@@ -169,8 +215,6 @@
                 <td colspan="{{ $risPageHasAcceptable ? 8 : 7 }}" class="pur-empty">
                     @if (($filter ?? 'pending') === 'pending')
                         No pending procurement requests
-                    @elseif (($filter ?? '') === 'accepted')
-                        No accepted requests waiting on Ready to Sign
                     @elseif (($filter ?? '') === 'revision')
                         No RIS returned for revision
                     @else

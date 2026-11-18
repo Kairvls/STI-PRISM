@@ -94,7 +94,7 @@
         ->implode("\n");
 
     $inp = 'dv-field';
-    $dateDisplay = $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d-m-y') : '';
+    $dateDisplay = $dateValue ? \Carbon\Carbon::parse($dateValue)->format('m/d/Y') : '';
     $adminName = trim((string) ($dv?->dv_admin_signed_name ?? ''));
     $presidentName = trim((string) ($dv?->dv_president_signed_name ?? ''));
     $presidentSignature = trim((string) ($dv?->dv_president_signature ?? ''));
@@ -473,7 +473,7 @@
                             style="padding: 2px;"
                             data-dv-amount-input
                             autocomplete="off"
-                            title="Up to 10 digits before the decimal and 2 decimal places (max 9,999,999,999.99)"
+                            title="Up to 7 digits before the decimal and 2 decimal places (max 9,999,999.99)"
                         >
                     @else
                         <div class="text-[16px] font-semibold tabular-nums" style="padding: 2px;">{{ $amount !== '' && $amount !== null ? $fmt($amount) : '' }}</div>
@@ -757,10 +757,10 @@
     if (window.__dvAmountFormatBound) return;
     window.__dvAmountFormatBound = true;
 
-    // Safe AMOUNT limit: up to 10 digits before decimal + 2 decimal places.
-    var MAX_WHOLE_DIGITS = 10;
+    // Safe AMOUNT limit: up to 7 digits before decimal + 2 decimal places.
+    var MAX_WHOLE_DIGITS = 7;
     var MAX_DECIMAL_DIGITS = 2;
-    var MAX_AMOUNT = 9999999999.99;
+    var MAX_AMOUNT = 9999999.99;
 
     function sanitizeAmount(raw) {
         var cleaned = String(raw || '').replace(/,/g, '').replace(/[^0-9.]/g, '');
@@ -943,7 +943,7 @@
             if (cleaned === '' || cleaned === '.') return '';
             var num = Number(cleaned);
             if (!isFinite(num) || num < 0) return '';
-            if (num > 9999999999.99) num = 9999999999.99;
+            if (num > 9999999.99) num = 9999999.99;
             return num.toFixed(2);
         }
 

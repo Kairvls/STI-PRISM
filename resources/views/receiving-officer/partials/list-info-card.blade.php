@@ -23,16 +23,20 @@
         <div class="min-w-0">
             <div class="flex min-w-0 items-center gap-2">
                 <h3 class="truncate text-sm font-bold text-black" title="{{ $title }}">{{ $title }}</h3>
-                @if(!empty($urgent))
-                    @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                @endif
+                @isset($urgent)
+                    @include('partials.ris-urgency-badge', [
+                        'urgent' => (bool) $urgent,
+                        'size' => 'sm',
+                        'title' => 'Inherited from linked RIS',
+                    ])
+                @endisset
             </div>
             @if($subtitle)
                 <p class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $subtitle }}</p>
             @endif
         </div>
         @if($status)
-            <span class="shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
+            <span class="shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold {{ $statusClass }}">{{ \App\Support\ProcurementDraftLabel::status($status) }}</span>
         @endif
     </div>
 

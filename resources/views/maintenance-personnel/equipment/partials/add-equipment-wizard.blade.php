@@ -5,6 +5,11 @@
     $defaultStorageRoomId = $defaultStorageRoomId ?? optional($storageRooms->first())->room_id;
     $acquisitionReady = $acquisitionReady ?? \App\Support\EquipmentAcquisition::ready();
     $acquisitionSuppliers = $acquisitionSuppliers ?? \App\Support\EquipmentAcquisition::supplierOptions();
+    $equipmentBrands = ($equipmentBrands ?? collect())->isNotEmpty() ? $equipmentBrands : \App\Support\EquipmentBrands::options();
+    $equipmentModels = ($equipmentModels ?? collect())->isNotEmpty() ? $equipmentModels : \App\Support\EquipmentModels::options();
+    $equipmentTypeOptions = ($equipmentTypeOptions ?? collect())->isNotEmpty()
+        ? $equipmentTypeOptions
+        : \App\Support\EquipmentCategoryTypes::options();
     $acquisitionPeople = ($acquisitionPeople ?? collect())->isNotEmpty() ? $acquisitionPeople : \App\Support\Custodians::assignable();
     $replacementCandidates = ($replacementCandidates ?? collect())->isNotEmpty() ? $replacementCandidates : \App\Support\EquipmentAcquisition::replacementCandidates();
     $eqField = $eqField ?? 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
@@ -454,6 +459,24 @@
                                 </ul>
                             </div>
                             <p x-show="errors.rr" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.rr"></p>
+                            <div
+                                x-show="rrSelected.length && intakeBasis !== 'non_procurement'"
+                                x-cloak
+                                class="mt-3 flex flex-col gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                                <p class="text-xs leading-relaxed text-slate-700">
+                                    Stocks from the RR into storage when classification is known — skips the other steps.
+                                </p>
+                                <button
+                                    type="button"
+                                    @click="expressStock()"
+                                    :disabled="submitting || !rrSelected.length"
+                                    class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                                >
+                                    <i data-lucide="zap" class="h-4 w-4"></i>
+                                    <span x-text="submitting ? 'Stocking…' : ('Express stock' + (rrSelected.length > 1 ? (' (' + rrSelected.length + ')') : ''))"></span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -506,7 +529,7 @@
                                     name="equipment_supplier_name"
                                     x-model="acqSupplierName"
                                     :disabled="intakeBasis !== 'non_procurement' || acqSupplier !== '{{ \App\Support\EquipmentAcquisition::OTHER_SUPPLIER }}'"
-                                    maxlength="255"
+                                    maxlength="{{ \App\Support\InputLimits::NAME }}"
                                     placeholder="e.g. Alumni Association, STI Main Campus, PC Express"
                                     class="{{ $eqField }}"
                                 />
@@ -519,7 +542,7 @@
                                     name="equipment_reference_number"
                                     x-model="acqReference"
                                     :disabled="intakeBasis !== 'non_procurement'"
-                                    maxlength="120"
+                                    maxlength="{{ \App\Support\InputLimits::DOC_REF_NO }}"
                                     placeholder="OR / invoice / DR / deed of donation no."
                                     class="{{ $eqField }}"
                                 />
@@ -533,7 +556,7 @@
                                 name="intake_reason"
                                 x-model="intakeReason"
                                 @input="clearError('intake_reason')"
-                                maxlength="500"
+                                maxlength="{{ \App\Support\InputLimits::PURPOSE }}"
                                 placeholder="e.g. Donated by Batch 2019 alumni, inventory migration from old spreadsheet"
                                 class="{{ $eqField }}"
                                 :class="errors.intake_reason ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
@@ -630,25 +653,42 @@
                     x-show="needsItemStep()"
                     x-cloak
                 >
-                    Photos are optional per unit on the next step — one shared photo isn’t used when creating multiple individually tracked assets.
+                    Qty is more than 1 with Individual tracking — asset tag, serial number, and photos are entered per unit on the <span class="font-semibold text-slate-800">Units</span> step.
                 </div>
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What it is</p>
                         <div>
                             <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
-                            <input
+                            <select
                                 id="add_equipment_name"
-                                type="text"
                                 name="equipment_name"
                                 x-model="name"
-                                maxlength="{{ \App\Support\InputLimits::NAME }}"
-                                @input="clearError('name'); onNameInput(); syncAssetTag()"
-                                placeholder="e.g. Mouse"
+                                data-searchable="1"
+                                data-search-placeholder="Search equipment…"
+                                data-add-url="{{ url('/admin/inventory/equipment-types/quick-add') }}"
+                                data-add-label="Add new equipment"
+                                data-add-placeholder="New equipment name"
+                                data-add-requires-category="1"
+                                data-link-category-select="add_equipment_category"
+                                @change="clearError('name'); onNameInput(); syncAssetTag()"
                                 class="{{ $eqField }}"
                                 :class="errors.name ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            />
+                            >
+                                <option value="">Select equipment</option>
+                                @foreach ($equipmentTypeOptions->groupBy('equipment_category_name') as $groupLabel => $typeRows)
+                                    <optgroup label="{{ $groupLabel }}">
+                                        @foreach ($typeRows as $typeRow)
+                                            <option
+                                                value="{{ $typeRow->type_name }}"
+                                                data-category-id="{{ $typeRow->equipment_category_id }}"
+                                            >{{ $typeRow->type_name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
                             <p x-show="errors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.name"></p>
+                            <!--<p x-show="!errors.name" class="mt-1.5 text-xs text-slate-400">From Classification maintenance. To add a new name, pick a classification first.</p>-->
                         </div>
                         <div>
                             <label for="add_equipment_category" class="{{ $eqLabel }}">Classification <span class="text-rose-500">*</span></label>
@@ -656,6 +696,11 @@
                                 id="add_equipment_category"
                                 name="equipment_category_id"
                                 x-model="category"
+                                data-searchable="1"
+                                data-search-placeholder="Search classifications…"
+                                data-add-url="{{ url('/admin/inventory/classifications/quick-add') }}"
+                                data-add-label="Add new classification"
+                                data-add-placeholder="New classification name"
                                 @change="clearError('category'); onCategoryChange()"
                                 class="{{ $eqField }}"
                                 :class="errors.category ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
@@ -666,29 +711,95 @@
                                 @endforeach
                             </select>
                             <p x-show="errors.category" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.category"></p>
-                            <p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
+                            <!--<p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name list. You can still choose another category.</p>-->
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name</label>
-                                <input id="add_equipment_brand" type="text" name="equipment_brand_name" x-model="brand" maxlength="{{ \App\Support\InputLimits::BRAND }}" placeholder="e.g. Logitech" class="{{ $eqField }}" />
+                                <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name <span class="text-red-500">*</span></label>
+                                <select
+                                    id="add_equipment_brand"
+                                    name="equipment_brand_name"
+                                    x-model="brand"
+                                    data-searchable="1"
+                                    data-search-placeholder="Search brands…"
+                                    data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
+                                    data-add-label="Add new brand"
+                                    data-add-placeholder="New brand name"
+                                    @change="clearError('brand'); syncCatalogOption($el, brand)"
+                                    :class="errors.brand ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    class="{{ $eqField }}"
+                                >
+                                    <option value="">Select brand</option>
+                                    @foreach ($equipmentBrands as $brandOption)
+                                        <option value="{{ $brandOption }}">{{ $brandOption }}</option>
+                                    @endforeach
+                                </select>
+                                <p x-show="errors.brand" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.brand"></p>
                             </div>
                             <div>
-                                <label for="add_equipment_model" class="{{ $eqLabel }}">Model</label>
-                                <input id="add_equipment_model" type="text" name="equipment_model" x-model="model" maxlength="{{ \App\Support\InputLimits::MODEL }}" placeholder="e.g. B100" class="{{ $eqField }}" />
+                                <label for="add_equipment_model" class="{{ $eqLabel }}">Model <span class="text-red-500">*</span></label>
+                                <select
+                                    id="add_equipment_model"
+                                    name="equipment_model"
+                                    x-model="model"
+                                    data-searchable="1"
+                                    data-search-placeholder="Search models…"
+                                    data-add-url="{{ url('/admin/inventory/models/quick-add') }}"
+                                    data-add-label="Add new model"
+                                    data-add-placeholder="New model name"
+                                    @change="clearError('model'); syncCatalogOption($el, model)"
+                                    :class="errors.model ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    class="{{ $eqField }}"
+                                >
+                                    <option value="">Select model</option>
+                                    @foreach ($equipmentModels as $modelOption)
+                                        <option value="{{ $modelOption }}">{{ $modelOption }}</option>
+                                    @endforeach
+                                </select>
+                                <p x-show="errors.model" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.model"></p>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-3" x-show="!needsItemStep()">
+                        <div class="grid grid-cols-2 gap-3" x-show="!needsItemStep()" x-cloak>
                             <div>
-                                <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
-                                <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" x-model="assetTag" maxlength="{{ \App\Support\InputLimits::ASSET_TAG }}" @input="assetTagManual = true" class="{{ $eqField }}" />
+                                <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag <span class="text-red-500">*</span></label>
+                                <input
+                                    id="add_equipment_asset_tag"
+                                    type="text"
+                                    name="equipment_asset_tag"
+                                    x-model="assetTag"
+                                    maxlength="{{ \App\Support\InputLimits::ASSET_TAG }}"
+                                    @input="assetTagManual = true; clearError('asset_tag')"
+                                    :class="errors.asset_tag ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    class="{{ $eqField }}"
+                                />
+                                <p x-show="errors.asset_tag" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.asset_tag"></p>
                             </div>
                             <div>
-                                <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
-                                <input id="add_equipment_serial" type="text" name="equipment_serial_number" x-model="serial" maxlength="{{ \App\Support\InputLimits::SERIAL }}" class="{{ $eqField }}" />
+                                <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number <span class="text-red-500">*</span></label>
+                                <input
+                                    id="add_equipment_serial"
+                                    type="text"
+                                    name="equipment_serial_number"
+                                    x-model="serial"
+                                    maxlength="{{ \App\Support\InputLimits::SERIAL }}"
+                                    placeholder="e.g. SN-ABC/12+34"
+                                    @input="serial = String(serial || '').slice(0, {{ \App\Support\InputLimits::SERIAL }}); clearError('serial')"
+                                    :class="errors.serial ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    class="{{ $eqField }}"
+                                />
+                                <p x-show="errors.serial" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.serial"></p>
                             </div>
                         </div>
-                        <p x-show="needsItemStep()" x-cloak class="text-xs text-slate-400">Asset tag and serial number are entered per unit on the Units step.</p>
+                        <div
+                            x-show="needsItemStep()"
+                            x-cloak
+                            class="rounded-xl bg-white px-3.5 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
+                        >
+                            <p class="font-medium text-slate-800">Asset tag &amp; serial number</p>
+                            <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                                Hidden here because each of the <span class="font-semibold text-slate-700" x-text="quantity"></span> units needs its own values on the <span class="font-semibold text-slate-700">Units</span> step.
+                            </p>
+                        </div>
                     </div>
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
@@ -698,10 +809,12 @@
                                 <input
                                     id="add_equipment_quantity"
                                     type="number"
+                                    name="equipment_quantity"
+                                    data-qty
                                     min="1"
-                                    max="200"
+                                    :max="maxAddQty()"
                                     x-model.number="quantity"
-                                    @input="clearError('quantity'); syncAssetTag(); onSharedPhotoModeChange()"
+                                    @input="onQuantityInput()"
                                     class="{{ $eqField }}"
                                     :class="errors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                 />
@@ -791,9 +904,28 @@
                             <span class="font-semibold text-slate-900" x-text="multiLines.length + ' items'"></span>
                             fetched from
                             <span class="font-semibold text-slate-900" x-text="selectedRrCount + ' RR' + (selectedRrCount === 1 ? '' : 's')"></span>.
-                            Names come from the RR line; check the category and add brand or model if you have them.
+                            <span class="font-semibold text-slate-900">Classification is required</span> for every line (Express cannot skip it).
+                            Names come from the RR; brand and model are required for every line.
                             Condition is <span class="font-semibold text-slate-900">Good</span> because these are new deliveries.
                         </p>
+                    </div>
+                    <div
+                        x-show="canExpressResume()"
+                        x-cloak
+                        class="flex flex-col gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <p class="text-xs leading-relaxed text-slate-700">
+                            All classifications are set. Run <span class="font-semibold text-slate-900">Express stock</span> to finish without the remaining steps.
+                        </p>
+                        <button
+                            type="button"
+                            @click="expressStock()"
+                            :disabled="submitting"
+                            class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                        >
+                            <i data-lucide="zap" class="h-4 w-4"></i>
+                            <span x-text="submitting ? 'Stocking…' : 'Express stock now'"></span>
+                        </button>
                     </div>
                     <template x-for="(row, index) in multiLines" :key="'multi-' + row.id">
                         <div class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
@@ -831,14 +963,33 @@
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
                                     <label class="{{ $eqLabel }}" :for="'multi_name_' + row.id">Equipment name <span class="text-rose-500">*</span></label>
-                                    <input
+                                    <select
                                         :id="'multi_name_' + row.id"
-                                        type="text"
+                                        name="equipment_name"
                                         x-model="row.name"
-                                        @input="clearMultiError(row, 'name'); onMultiNameInput(row)"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search equipment…"
+                                        data-add-url="{{ url('/admin/inventory/equipment-types/quick-add') }}"
+                                        data-add-label="Add new equipment"
+                                        data-add-placeholder="New equipment name"
+                                        data-add-requires-category="1"
+                                        :data-link-category-select="'multi_category_' + row.id"
+                                        @change="clearMultiError(row, 'name'); onMultiNameInput(row); syncCatalogOption($el, row.name)"
                                         class="{{ $eqField }}"
                                         :class="multiError(row, 'name') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    />
+                                    >
+                                        <option value="">Select equipment</option>
+                                        @foreach ($equipmentTypeOptions->groupBy('equipment_category_name') as $groupLabel => $typeRows)
+                                            <optgroup label="{{ $groupLabel }}">
+                                                @foreach ($typeRows as $typeRow)
+                                                    <option
+                                                        value="{{ $typeRow->type_name }}"
+                                                        data-category-id="{{ $typeRow->equipment_category_id }}"
+                                                    >{{ $typeRow->type_name }}</option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endforeach
+                                    </select>
                                     <p x-show="multiError(row, 'name')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'name')"></p>
                                 </div>
                                 <div>
@@ -846,7 +997,12 @@
                                     <select
                                         :id="'multi_category_' + row.id"
                                         x-model="row.category"
-                                        @change="row.categoryManual = true; clearMultiError(row, 'category'); if (!rowAllowsBulk(row)) { row.tracking = 'Individual'; syncPieces(row); }"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search classifications…"
+                                        data-add-url="{{ url('/admin/inventory/classifications/quick-add') }}"
+                                        data-add-label="Add new classification"
+                                        data-add-placeholder="New classification name"
+                                        @change="row.categoryManual = true; clearMultiError(row, 'category'); applyExpressDefaultsToRow(row, true); if (!rowAllowsBulk(row)) { row.tracking = 'Individual'; syncPieces(row); } $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
                                         class="{{ $eqField }}"
                                         :class="multiError(row, 'category') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     >
@@ -859,12 +1015,52 @@
                                 </div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label class="{{ $eqLabel }}" :for="'multi_brand_' + row.id" x-text="hasPieces(row) ? 'Brand (all pcs)' : 'Brand name'"></label>
-                                        <input :id="'multi_brand_' + row.id" type="text" x-model="row.brand" placeholder="e.g. Logitech" class="{{ $eqField }}" />
+                                        <label class="{{ $eqLabel }}" :for="'multi_brand_' + row.id">
+                                            <span x-text="hasPieces(row) ? 'Brand (all pcs)' : 'Brand name'"></span> <span class="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            :id="'multi_brand_' + row.id"
+                                            name="equipment_brand_name"
+                                            x-model="row.brand"
+                                            data-searchable="1"
+                                            data-search-placeholder="Search brands…"
+                                            data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
+                                            data-add-label="Add new brand"
+                                            data-add-placeholder="New brand name"
+                                            @change="clearMultiError(row, 'brand'); syncCatalogOption($el, row.brand)"
+                                            class="{{ $eqField }}"
+                                            :class="multiError(row, 'brand') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        >
+                                            <option value="">Select brand</option>
+                                            @foreach ($equipmentBrands as $brandOption)
+                                                <option value="{{ $brandOption }}">{{ $brandOption }}</option>
+                                            @endforeach
+                                        </select>
+                                        <p x-show="multiError(row, 'brand')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'brand')"></p>
                                     </div>
                                     <div>
-                                        <label class="{{ $eqLabel }}" :for="'multi_model_' + row.id" x-text="hasPieces(row) ? 'Model (all pcs)' : 'Model'"></label>
-                                        <input :id="'multi_model_' + row.id" type="text" x-model="row.model" placeholder="e.g. B100" class="{{ $eqField }}" />
+                                        <label class="{{ $eqLabel }}" :for="'multi_model_' + row.id">
+                                            <span x-text="hasPieces(row) ? 'Model (all pcs)' : 'Model'"></span> <span class="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            :id="'multi_model_' + row.id"
+                                            name="equipment_model"
+                                            x-model="row.model"
+                                            data-searchable="1"
+                                            data-search-placeholder="Search models…"
+                                            data-add-url="{{ url('/admin/inventory/models/quick-add') }}"
+                                            data-add-label="Add new model"
+                                            data-add-placeholder="New model name"
+                                            @change="clearMultiError(row, 'model'); syncCatalogOption($el, row.model)"
+                                            class="{{ $eqField }}"
+                                            :class="multiError(row, 'model') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        >
+                                            <option value="">Select model</option>
+                                            @foreach ($equipmentModels as $modelOption)
+                                                <option value="{{ $modelOption }}">{{ $modelOption }}</option>
+                                            @endforeach
+                                        </select>
+                                        <p x-show="multiError(row, 'model')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'model')"></p>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3">
@@ -873,10 +1069,12 @@
                                         <input
                                             :id="'multi_qty_' + row.id"
                                             type="number"
+                                            name="equipment_quantity"
+                                            data-qty
                                             min="1"
-                                            :max="row.max"
+                                            :max="Math.min(row.max || {{ \App\Support\InputLimits::QTY }}, {{ \App\Support\InputLimits::QTY }})"
                                             x-model.number="row.quantity"
-                                            @input="clearMultiError(row, 'quantity'); syncPieces(row)"
+                                            @input="row.quantity = Number((window.PrismInputLimits && PrismInputLimits.clampQty(row.quantity)) || Math.min(Number(row.quantity) || 0, row.max || {{ \App\Support\InputLimits::QTY }})) || ''; clearMultiError(row, 'quantity'); syncPieces(row)"
                                             class="{{ $eqField }}"
                                             :class="multiError(row, 'quantity') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                         />
@@ -951,21 +1149,39 @@
                                                     ></span>
                                                 </div>
                                                 <label class="sr-only" :for="'pc_brand_' + row.id + '_' + pieceIndex">Brand</label>
-                                                <input
+                                                <select
                                                     :id="'pc_brand_' + row.id + '_' + pieceIndex"
-                                                    type="text"
                                                     x-model="piece.brand"
-                                                    :placeholder="row.brand || 'Brand'"
+                                                    data-searchable="1"
+                                                    data-search-placeholder="Search brands…"
+                                                    data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
+                                                    data-add-label="Add new brand"
+                                                    data-add-placeholder="New brand name"
+                                                    @change="syncCatalogOption($el, piece.brand)"
                                                     class="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
-                                                />
+                                                >
+                                                    <option value="" x-text="row.brand || 'Brand'"></option>
+                                                    @foreach ($equipmentBrands as $brandOption)
+                                                        <option value="{{ $brandOption }}">{{ $brandOption }}</option>
+                                                    @endforeach
+                                                </select>
                                                 <label class="sr-only" :for="'pc_model_' + row.id + '_' + pieceIndex">Model</label>
-                                                <input
+                                                <select
                                                     :id="'pc_model_' + row.id + '_' + pieceIndex"
-                                                    type="text"
                                                     x-model="piece.model"
-                                                    :placeholder="row.model || 'Model'"
+                                                    data-searchable="1"
+                                                    data-search-placeholder="Search models…"
+                                                    data-add-url="{{ url('/admin/inventory/models/quick-add') }}"
+                                                    data-add-label="Add new model"
+                                                    data-add-placeholder="New model name"
+                                                    @change="syncCatalogOption($el, piece.model)"
                                                     class="mt-2 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
-                                                />
+                                                >
+                                                    <option value="" x-text="row.model || 'Model'"></option>
+                                                    @foreach ($equipmentModels as $modelOption)
+                                                        <option value="{{ $modelOption }}">{{ $modelOption }}</option>
+                                                    @endforeach
+                                                </select>
                                             </div>
                                         </template>
                                     </div>
@@ -1054,7 +1270,9 @@
                                 <p x-show="!errors.purchase_date" class="mt-1.5 text-xs text-slate-400">Past dates are allowed. Future dates are not.</p>
                             </div>
                             <div x-show="!isMultiManual()">
-                                <label for="add_manual_purchase_cost" class="{{ $eqLabel }}" x-text="acqSource === 'donation' ? 'Estimated value per unit (₱)' : 'Cost per unit (₱)'"></label>
+                                <label for="add_manual_purchase_cost" class="{{ $eqLabel }}">
+                                    <span x-text="acqSource === 'donation' ? 'Estimated value per unit (₱)' : 'Cost per unit (₱)'"></span> <span class="text-red-500">*</span>
+                                </label>
                                 <input
                                     id="add_manual_purchase_cost"
                                     type="number"
@@ -1062,10 +1280,16 @@
                                     x-model="purchaseCost"
                                     :disabled="!manualIntake()"
                                     min="0"
+                                    max="{{ \App\Support\InputLimits::COST }}"
                                     step="0.01"
+                                    inputmode="decimal"
+                                    data-money
                                     placeholder="0.00"
+                                    @input="clearError('purchase_cost')"
+                                    :class="errors.purchase_cost ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     class="{{ $eqField }}"
                                 />
+                                <p x-show="errors.purchase_cost" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.purchase_cost"></p>
                             </div>
                             <div>
                                 <label for="add_received_date" class="{{ $eqLabel }}">Received on</label>
@@ -1090,23 +1314,40 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Warranty &amp; lifespan</p>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
-                                <label for="add_warranty_expiration" class="{{ $eqLabel }}" x-text="isMulti() ? 'Warranty expiration (all items)' : 'Warranty expiration'"></label>
-                                <input id="add_warranty_expiration" type="date" name="equipment_warranty_expiration" x-model="warranty" class="{{ $eqField }}" />
+                                <label for="add_warranty_expiration" class="{{ $eqLabel }}">
+                                    <span x-text="isMulti() ? 'Warranty expiration (all items)' : 'Warranty expiration'"></span> <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    id="add_warranty_expiration"
+                                    type="date"
+                                    name="equipment_warranty_expiration"
+                                    x-model="warranty"
+                                    @input="clearError('warranty')"
+                                    :class="errors.warranty ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    class="{{ $eqField }}"
+                                />
+                                <p x-show="errors.warranty" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.warranty"></p>
                             </div>
                             <div>
-                                <label for="add_useful_life_years" class="{{ $eqLabel }}" x-text="isMulti() ? 'Useful lifespan, years (all items)' : 'Useful lifespan (years)'"></label>
+                                <label for="add_useful_life_years" class="{{ $eqLabel }}">
+                                    <span x-text="isMulti() ? 'Useful lifespan, years (all items)' : 'Useful lifespan (years)'"></span> <span class="text-red-500">*</span>
+                                </label>
                                 <input
                                     id="add_useful_life_years"
                                     type="number"
                                     name="equipment_useful_life_years"
                                     min="1"
-                                    max="50"
+                                    max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
                                     step="1"
                                     x-model="usefulLifeYears"
-                                    placeholder="Default 5"
+                                    placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                    @input="onUsefulLifeInput()"
+                                    :class="(errors.useful_life || isInvalidUsefulLife(usefulLifeYears)) ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                     class="{{ $eqField }}"
                                 />
-                                <p class="mt-1.5 text-xs text-slate-400">Used for replacement alerts when the equipment nears end of life.</p>
+                                <p x-show="errors.useful_life" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.useful_life"></p>
+                                <p x-show="!errors.useful_life && isInvalidUsefulLife(usefulLifeYears)" x-cloak class="mt-1.5 text-xs font-medium text-rose-600">Enter a whole number from 1 to {{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}.</p>
+                                <p x-show="!errors.useful_life && !isInvalidUsefulLife(usefulLifeYears)" class="mt-1.5 text-xs text-slate-400">1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }} years · used for replacement alerts near end of life.</p>
                             </div>
                         </div>
                         <div x-show="isMulti()" x-cloak class="space-y-2">
@@ -1137,7 +1378,10 @@
                                             x-show="isMultiManual()"
                                             type="number"
                                             min="0"
+                                            max="{{ \App\Support\InputLimits::COST }}"
                                             step="0.01"
+                                            inputmode="decimal"
+                                            data-money
                                             x-model="row.cost"
                                             placeholder="0.00"
                                             class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
@@ -1153,17 +1397,19 @@
                                         <input
                                             type="number"
                                             min="1"
-                                            max="50"
+                                            max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
                                             step="1"
                                             x-model="row.useful_life_years"
+                                            @input="row.useful_life_years = clampUsefulLife(row.useful_life_years)"
                                             :placeholder="usefulLifeYears ? String(usefulLifeYears) : '5'"
                                             class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            :class="isInvalidUsefulLife(row.useful_life_years) ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                             :aria-label="'Useful lifespan in years for ' + (row.name || row.article)"
                                         />
                                     </div>
                                 </template>
                             </div>
-                            <p class="text-xs text-slate-400">These values apply to every unit by default. On the Units step you can change purchase date, cost, warranty, or lifespan for individual units that differ.</p>
+                            <p class="text-xs text-slate-400">Warranty, lifespan, and cost are required. These defaults apply to every unit; change a unit on the Units step only if it differs.</p>
                         </div>
                     </div>
                 </div>
@@ -1407,7 +1653,15 @@
                                     </td>
                                     <td class="px-2 py-2">
                                         <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <input
+                                                type="text"
+                                                :name="'items[' + index + '][equipment_serial_number]'"
+                                                x-model="item.equipment_serial_number"
+                                                maxlength="{{ \App\Support\InputLimits::SERIAL }}"
+                                                placeholder="e.g. SN-ABC/12+34"
+                                                @input="item.equipment_serial_number = String(item.equipment_serial_number || '').slice(0, {{ \App\Support\InputLimits::SERIAL }})"
+                                                class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm"
+                                            />
                                             <div
                                                 x-show="String(item.equipment_serial_number || '').trim()"
                                                 x-cloak
@@ -1417,26 +1671,42 @@
                                         </div>
                                     </td>
                                     <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_brand_name]'" x-model="item.equipment_brand_name" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_brand_name || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_brand_name"
-                                            ></div>
-                                        </div>
+                                        <select
+                                            :name="'items[' + index + '][equipment_brand_name]'"
+                                            :id="'unit_brand_' + index"
+                                            x-model="item.equipment_brand_name"
+                                            data-searchable="1"
+                                            data-search-placeholder="Search brands…"
+                                            data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
+                                            data-add-label="Add new brand"
+                                            data-add-placeholder="New brand name"
+                                            @change="syncCatalogOption($el, item.equipment_brand_name)"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                        >
+                                            <option value="">Select brand</option>
+                                            @foreach ($equipmentBrands as $brandOption)
+                                                <option value="{{ $brandOption }}">{{ $brandOption }}</option>
+                                            @endforeach
+                                        </select>
                                     </td>
                                     <td class="px-2 py-2">
-                                        <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_model]'" x-model="item.equipment_model" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
-                                            <div
-                                                x-show="String(item.equipment_model || '').trim()"
-                                                x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
-                                                x-text="item.equipment_model"
-                                            ></div>
-                                        </div>
+                                        <select
+                                            :name="'items[' + index + '][equipment_model]'"
+                                            :id="'unit_model_' + index"
+                                            x-model="item.equipment_model"
+                                            data-searchable="1"
+                                            data-search-placeholder="Search models…"
+                                            data-add-url="{{ url('/admin/inventory/models/quick-add') }}"
+                                            data-add-label="Add new model"
+                                            data-add-placeholder="New model name"
+                                            @change="syncCatalogOption($el, item.equipment_model)"
+                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                        >
+                                            <option value="">Select model</option>
+                                            @foreach ($equipmentModels as $modelOption)
+                                                <option value="{{ $modelOption }}">{{ $modelOption }}</option>
+                                            @endforeach
+                                        </select>
                                     </td>
                                     <td class="px-2 py-2">
                                         <div
@@ -1475,7 +1745,10 @@
                                         <input
                                             type="number"
                                             min="0"
+                                            max="{{ \App\Support\InputLimits::COST }}"
                                             step="0.01"
+                                            inputmode="decimal"
+                                            data-money
                                             :name="'items[' + index + '][equipment_purchase_cost]'"
                                             x-model="item.equipment_purchase_cost"
                                             @input="item._costManual = true"
@@ -1487,13 +1760,14 @@
                                         <input
                                             type="number"
                                             min="1"
-                                            max="50"
+                                            max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
                                             step="1"
                                             :name="'items[' + index + '][equipment_useful_life_years]'"
                                             x-model="item.equipment_useful_life_years"
-                                            @input="item._lifeManual = true"
-                                            placeholder="5"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                            @input="item._lifeManual = true; item.equipment_useful_life_years = clampUsefulLife(item.equipment_useful_life_years)"
+                                            placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                            class="h-9 w-full min-w-0 rounded-md border px-1.5 text-sm"
+                                            :class="isInvalidUsefulLife(item.equipment_useful_life_years) ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200'"
                                         />
                                     </td>
                                     <td class="px-2 py-2">
@@ -1610,7 +1884,7 @@
                                                 ></p>
                                             </td>
                                             <td class="px-2 py-2">
-                                                <input type="text" x-model="unit.serial" placeholder="Optional" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                                <input type="text" x-model="unit.serial" placeholder="Required" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
                                             </td>
                                             <td class="px-2 py-2">
                                                 <input
@@ -1626,7 +1900,10 @@
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    max="{{ \App\Support\InputLimits::COST }}"
                                                     step="0.01"
+                                                    inputmode="decimal"
+                                                    data-money
                                                     x-model="unit.cost"
                                                     @input="unit._costManual = true"
                                                     placeholder="0.00"
@@ -1638,12 +1915,13 @@
                                                 <input
                                                     type="number"
                                                     min="1"
-                                                    max="50"
+                                                    max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
                                                     step="1"
                                                     x-model="unit.useful_life_years"
-                                                    @input="unit._lifeManual = true"
-                                                    placeholder="5"
-                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    @input="unit._lifeManual = true; unit.useful_life_years = clampUsefulLife(unit.useful_life_years)"
+                                                    placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                                    class="h-9 w-full min-w-0 rounded-md border px-1.5 text-sm"
+                                                    :class="isInvalidUsefulLife(unit.useful_life_years) ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200'"
                                                     :aria-label="'Useful lifespan for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
                                                 />
                                             </td>
@@ -1750,16 +2028,38 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
+            <div class="flex flex-wrap items-center justify-end gap-2 px-6 py-4">
                 <button type="button" @click="back()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100" x-text="isFirstStep() ? 'Cancel' : 'Back'"></button>
                 <button
                     type="button"
-                    x-show="step !== 3"
+                    x-show="canSaveNow()"
+                    x-cloak
+                    @click="goToReview()"
+                    class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                >
+                    Review first
+                </button>
+                <button
+                    type="button"
+                    x-show="step !== 3 && !canSaveNow()"
                     @click="next()"
                     class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
                 >
                     Next
                 </button>
+                <button
+                    type="button"
+                    x-show="canSaveNow()"
+                    x-cloak
+                    @click="saveNow()"
+                    :disabled="submitting"
+                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                    x-text="submitting
+                        ? 'Saving…'
+                        : (isMulti()
+                            ? ('Save ' + multiLines.length + ' items now')
+                            : (needsItemStep() ? ('Save ' + items.length + ' assets now') : 'Save now'))"
+                ></button>
                 <button
                     type="submit"
                     x-show="step === 3"
@@ -1818,7 +2118,7 @@
                 brand: '',
                 model: '',
                 warranty: '',
-                usefulLifeYears: '',
+                usefulLifeYears: 5,
                 assetTag: '',
                 assetTagManual: false,
                 serial: '',
@@ -2061,6 +2361,7 @@
                     const borrowable = document.getElementById('add_equipment_borrowable');
                     if (borrowable) borrowable.checked = !!only.borrowable;
                     this.syncAssetTag();
+                    this.ensureBrandModelOptions();
                 },
                 isRrSelected(line) {
                     return !!line && (this.rrSelected || []).includes(String(line.id));
@@ -2147,12 +2448,15 @@
                     (this.rrMultiLines || []).forEach((row) => { previous[row.id] = row; });
                     this.rrMultiLines = this.selectedRrLines.map((line) => {
                         const id = String(line.id);
-                        if (previous[id]) return previous[id];
+                        if (previous[id]) {
+                            this.applyExpressDefaultsToRow(previous[id], false);
+                            return previous[id];
+                        }
                         const article = String(line.article || '').trim();
                         const remaining = Number(line.remaining_qty != null ? line.remaining_qty : line.quantity) || 1;
                         const max = Math.min(200, Math.max(1, remaining));
                         const detected = typeof detectEquipmentCategoryId === 'function' ? detectEquipmentCategoryId(article) : '';
-                        return {
+                        const row = {
                             id,
                             article,
                             source: [line.rr_number, line.supplier_name].filter(Boolean).join(' · '),
@@ -2171,16 +2475,38 @@
                             borrowable: false,
                             warranty: '',
                             useful_life_years: '',
+                            cost: line.unit_cost != null ? String(line.unit_cost) : '',
                             perPiece: false,
                             pieces: [],
                         };
+                        this.applyExpressDefaultsToRow(row, true);
+                        return row;
                     });
-                    const ids = this.multiLines.map((row) => row.id);
+                    const ids = this.rrMultiLines.map((row) => row.id);
                     const errors = {};
                     Object.keys(this.multiErrors || {}).forEach((id) => {
                         if (ids.includes(id)) errors[id] = this.multiErrors[id];
                     });
                     this.multiErrors = errors;
+                },
+                applyExpressDefaultsToRow(row, forceTracking = true) {
+                    if (!row) return;
+                    if (!String(row.category || '').trim() && !row.categoryManual && typeof detectEquipmentCategoryId === 'function') {
+                        const detected = detectEquipmentCategoryId(row.name || row.article);
+                        if (detected) row.category = String(detected);
+                    }
+                    if (forceTracking || !row.tracking) {
+                        row.tracking = this.rowAllowsBulk(row) ? 'Bulk' : 'Individual';
+                    } else if (!this.rowAllowsBulk(row)) {
+                        row.tracking = 'Individual';
+                    }
+                    if ((row.cost === '' || row.cost == null) && row.unit_cost != null) {
+                        row.cost = String(row.unit_cost);
+                    }
+                },
+                applyExpressDefaults() {
+                    (this.rrMultiLines || []).forEach((row) => this.applyExpressDefaultsToRow(row, true));
+                    this.applyRrTrackingLock();
                 },
                 onMultiNameInput(row) {
                     if (row.categoryManual || typeof detectEquipmentCategoryId !== 'function') return;
@@ -2210,6 +2536,14 @@
                     }
                     this.multiErrors = next;
                     if (!Object.keys(next).length) this.clearError('multi');
+                    if (
+                        field === 'category'
+                        && (this.rrMultiLines || []).length
+                        && this.rrMultiLines.every((line) => String(line.category || '').trim() !== '')
+                    ) {
+                        this.formError = '';
+                        this.clearError('multi');
+                    }
                 },
                 onRrLineChange() {
                     const line = this.selectedRrLine;
@@ -2222,6 +2556,8 @@
                     if (!String(this.name || '').trim()) {
                         this.name = line.article || '';
                         this.onNameInput();
+                    } else {
+                        this.onNameInput();
                     }
                     const qty = Number(line.remaining_qty != null ? line.remaining_qty : line.quantity) || 1;
                     this.quantity = Math.min(200, Math.max(1, qty));
@@ -2233,6 +2569,11 @@
                     this.clearError('quantity');
                     this.syncAssetTag();
                     this.applyRrTrackingLock();
+                    this.ensureBrandModelOptions();
+                    if (this.categoryAllowsBulk()) {
+                        this.tracking = 'Bulk';
+                        this.onSharedPhotoModeChange();
+                    }
                 },
                 isConsumableCategory(categoryId) {
                     const name = String(this.categoryName(categoryId) || '').toLowerCase();
@@ -2353,6 +2694,67 @@
                 },
                 hasUnitsStep() {
                     return this.isMulti() || this.needsItemStep();
+                },
+                maxUsefulLife() {
+                    return {{ (int) \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }};
+                },
+                isInvalidUsefulLife(value) {
+                    if (value === '' || value === null || value === undefined) return false;
+                    const years = Number(value);
+                    return !Number.isInteger(years) || years < 1 || years > this.maxUsefulLife();
+                },
+                clampUsefulLife(value) {
+                    if (value === '' || value === null || value === undefined) return value;
+                    const years = Number(value);
+                    if (!Number.isFinite(years)) return value;
+                    if (years > this.maxUsefulLife()) return this.maxUsefulLife();
+                    if (years < 0) return 0;
+                    return Math.trunc(years);
+                },
+                onUsefulLifeInput() {
+                    this.usefulLifeYears = this.clampUsefulLife(this.usefulLifeYears);
+                    if (this.isInvalidUsefulLife(this.usefulLifeYears)) {
+                        this.errors = {
+                            ...this.errors,
+                            useful_life: 'Useful lifespan must be a whole number from 1 to ' + this.maxUsefulLife() + ' years.',
+                        };
+                    } else {
+                        this.clearError('useful_life');
+                    }
+                },
+                maxAddQty() {
+                    if (isStockPage && this.intakeBasis !== 'non_procurement' && this.selectedRrLine) {
+                        const rem = Number(this.selectedRrLine.remaining_qty ?? this.selectedRrLine.quantity) || 0;
+                        return Math.max(1, Math.min(200, rem));
+                    }
+                    return Math.min(200, {{ (int) min(200, \App\Support\InputLimits::QTY) }});
+                },
+                onQuantityInput() {
+                    const max = this.maxAddQty();
+                    let qty = Number(this.quantity);
+                    if (this.quantity === '' || this.quantity === null || this.quantity === undefined) {
+                        this.clearError('quantity');
+                        this.syncAssetTag();
+                        this.onSharedPhotoModeChange();
+                        return;
+                    }
+                    if (!Number.isFinite(qty)) {
+                        this.quantity = '';
+                        this.clearError('quantity');
+                        return;
+                    }
+                    // Hard-cap to RR remaining / max with no subtitle — value at max is valid.
+                    this.quantity = Math.max(1, Math.min(Math.trunc(qty), max));
+                    this.clearError('quantity');
+                    this.syncAssetTag();
+                    this.onSharedPhotoModeChange();
+                },
+                clampQuantityToRr() {
+                    if (!(isStockPage && this.intakeBasis !== 'non_procurement' && this.selectedRrLine)) return;
+                    const max = this.maxAddQty();
+                    if (Number(this.quantity) > max) {
+                        this.quantity = max;
+                    }
                 },
                 deploying() {
                     return isStockPage && this.placement === 'deploy';
@@ -2536,25 +2938,69 @@
                     const tags = {};
                     const serials = {};
                     for (const row of this.multiLines) {
+                        if (!String(row.brand || '').trim()) {
+                            this.formError = 'Brand name is required for ' + (row.name || row.article || 'each item') + '.';
+                            return false;
+                        }
+                        if (!String(row.model || '').trim()) {
+                            this.formError = 'Model is required for ' + (row.name || row.article || 'each item') + '.';
+                            return false;
+                        }
                         for (let i = 0; i < (row.units || []).length; i++) {
                             const unit = row.units[i];
                             const label = (row.name || row.article) + ' #' + (i + 1);
-                            const tag = String(unit.asset_tag || '').trim().toLowerCase();
-                            const serial = String(unit.serial || '').trim().toLowerCase();
-                            if (tag) {
-                                if (tags[tag]) {
-                                    this.formError = 'Asset tag "' + unit.asset_tag.trim() + '" is used by both ' + tags[tag] + ' and ' + label + '.';
-                                    return false;
-                                }
-                                tags[tag] = label;
+                            const tag = String(unit.asset_tag || '').trim();
+                            const serial = String(unit.serial || '').trim();
+                            const brand = String((this.hasPieces(row) ? this.pieceValues(row, i).brand : row.brand) || row.brand || '').trim();
+                            const model = String((this.hasPieces(row) ? this.pieceValues(row, i).model : row.model) || row.model || '').trim();
+                            const warranty = String(unit.warranty || row.warranty || this.warranty || '').trim();
+                            const lifeRaw = unit.useful_life_years !== '' && unit.useful_life_years != null
+                                ? unit.useful_life_years
+                                : (row.useful_life_years !== '' && row.useful_life_years != null ? row.useful_life_years : this.usefulLifeYears);
+                            const life = Number(lifeRaw);
+                            const costRaw = unit.cost !== '' && unit.cost != null
+                                ? unit.cost
+                                : (row.cost !== '' && row.cost != null ? row.cost : this.purchaseCost);
+                            if (!tag) {
+                                this.formError = 'Asset tag is required for ' + label + '.';
+                                return false;
                             }
-                            if (serial) {
-                                if (serials[serial]) {
-                                    this.formError = 'Serial number "' + unit.serial.trim() + '" is used by both ' + serials[serial] + ' and ' + label + '.';
-                                    return false;
-                                }
-                                serials[serial] = label;
+                            if (!serial) {
+                                this.formError = 'Serial number is required for ' + label + '.';
+                                return false;
                             }
+                            if (!brand) {
+                                this.formError = 'Brand name is required for ' + label + '.';
+                                return false;
+                            }
+                            if (!model) {
+                                this.formError = 'Model is required for ' + label + '.';
+                                return false;
+                            }
+                            if (!warranty) {
+                                this.formError = 'Warranty expiration is required for ' + label + '.';
+                                return false;
+                            }
+                            if (!Number.isInteger(life) || life < 1 || life > this.maxUsefulLife()) {
+                                this.formError = 'Useful lifespan for ' + label + ' must be a whole number from 1 to ' + this.maxUsefulLife() + ' years.';
+                                return false;
+                            }
+                            if (costRaw === '' || costRaw === null || costRaw === undefined || !Number.isFinite(Number(costRaw)) || Number(costRaw) < 0) {
+                                this.formError = 'Cost is required for ' + label + '.';
+                                return false;
+                            }
+                            const tagKey = tag.toLowerCase();
+                            const serialKey = serial.toLowerCase();
+                            if (tags[tagKey]) {
+                                this.formError = 'Asset tag "' + tag + '" is used by both ' + tags[tagKey] + ' and ' + label + '.';
+                                return false;
+                            }
+                            tags[tagKey] = label;
+                            if (serials[serialKey]) {
+                                this.formError = 'Serial number "' + serial + '" is used by both ' + serials[serialKey] + ' and ' + label + '.';
+                                return false;
+                            }
+                            serials[serialKey] = label;
                             if (this.isFutureDate(unit.purchase_date)) {
                                 this.formError = 'Purchase date for ' + label + ' cannot be in the future.';
                                 return false;
@@ -2563,6 +3009,10 @@
                                 this.formError = 'Choose a room for ' + label + '.';
                                 return false;
                             }
+                            // Persist resolved values so server validation receives them.
+                            unit.warranty = warranty;
+                            unit.useful_life_years = life;
+                            unit.cost = costRaw;
                         }
                     }
                     this.formError = '';
@@ -2574,6 +3024,39 @@
                     delete next[field];
                     this.errors = next;
                     this.formError = '';
+                },
+                syncCatalogOption(selectEl, value) {
+                    const label = String(value || '').trim();
+                    if (!selectEl || !label) return;
+                    const addUrl = selectEl.dataset?.addUrl || '';
+                    document.querySelectorAll('select[data-searchable="1"]').forEach((peer) => {
+                        if (peer !== selectEl && (peer.dataset.addUrl || '') !== addUrl) return;
+                        if (!Array.from(peer.options).some((opt) => opt.value === label)) {
+                            peer.add(new Option(label, label));
+                        }
+                    });
+                    if (selectEl.value !== label) {
+                        selectEl.value = label;
+                    }
+                },
+                ensureBrandModelOptions() {
+                    this.$nextTick(() => {
+                        const nameEl = document.getElementById('add_equipment_name');
+                        const brandEl = document.getElementById('add_equipment_brand');
+                        const modelEl = document.getElementById('add_equipment_model');
+                        if (nameEl) this.syncCatalogOption(nameEl, this.name);
+                        if (brandEl) this.syncCatalogOption(brandEl, this.brand);
+                        if (modelEl) this.syncCatalogOption(modelEl, this.model);
+                        (this.multiLines || []).forEach((row) => {
+                            const n = document.getElementById('multi_name_' + row.id);
+                            const b = document.getElementById('multi_brand_' + row.id);
+                            const m = document.getElementById('multi_model_' + row.id);
+                            if (n) this.syncCatalogOption(n, row.name);
+                            if (b) this.syncCatalogOption(b, row.brand);
+                            if (m) this.syncCatalogOption(m, row.model);
+                        });
+                        if (window.mpSelect?.scan) window.mpSelect.scan();
+                    });
                 },
                 clearErrors() {
                     this.errors = {};
@@ -2691,8 +3174,12 @@
                 next() {
                     if (this.step === 1) {
                         if (!this.validatePage(this.page)) return;
-                        if (this.page === 1 && this.isMultiRr()) {
+                        if (this.page === 1 && this.intakeBasis !== 'non_procurement' && (this.rrSelected || []).length) {
                             this.syncMultiLines();
+                            this.applyExpressDefaults();
+                            if (this.rrSelected.length === 1) {
+                                this.onRrLineChange();
+                            }
                         }
                         if (this.page < 4) {
                             this.page += 1;
@@ -2704,18 +3191,13 @@
                             this.goToItems();
                             return;
                         }
-                        this.items = [];
-                        this.syncAssetTag();
-                        this.step = 3;
-                        this.markFurthest();
-                        this.scrollToTop();
+                        // Prefer Save now — Review remains available via “Review first”.
+                        this.saveNow();
                         return;
                     }
                     if (this.step === 2) {
                         if (!(this.isMulti() ? this.validateMultiUnits() : this.validateItems())) return;
-                        this.step = 3;
-                        this.markFurthest();
-                        this.scrollToTop();
+                        this.saveNow();
                     }
                 },
                 back() {
@@ -2761,6 +3243,8 @@
                             const rowError = {};
                             if (!String(row.name || '').trim()) rowError.name = 'Equipment name is required.';
                             if (!String(row.category || '').trim()) rowError.category = 'Please select a classification.';
+                            if (!String(row.brand || '').trim()) rowError.brand = 'Brand name is required.';
+                            if (!String(row.model || '').trim()) rowError.model = 'Model is required.';
                             const qty = Number(row.quantity);
                             if (!Number.isInteger(qty) || qty < 1) {
                                 rowError.quantity = 'Quantity must be at least 1.';
@@ -2785,16 +3269,28 @@
                         if (!String(this.category || '').trim()) {
                             next.category = 'Please select a classification.';
                         }
+                        if (!String(this.brand || '').trim()) {
+                            next.brand = 'Brand name is required.';
+                        }
+                        if (!String(this.model || '').trim()) {
+                            next.model = 'Model is required.';
+                        }
+                        if (!this.needsItemStep()) {
+                            if (!String(this.assetTag || '').trim()) {
+                                next.asset_tag = 'Asset tag is required.';
+                            }
+                            if (!String(this.serial || '').trim()) {
+                                next.serial = 'Serial number is required.';
+                            }
+                        }
                         const qty = Number(this.quantity);
+                        const maxQty = this.maxAddQty();
                         if (!Number.isFinite(qty) || qty < 1) {
                             next.quantity = 'Quantity must be at least 1.';
-                        } else if (qty > 200) {
-                            next.quantity = 'Quantity cannot exceed 200.';
-                        } else if (isStockPage && this.intakeBasis !== 'non_procurement' && this.selectedRrLine) {
-                            const maxQty = Number(this.selectedRrLine.quantity) || 0;
-                            if (maxQty > 0 && qty > maxQty) {
-                                next.quantity = 'Quantity cannot exceed received qty (' + maxQty + ').';
-                            }
+                        } else if (qty > maxQty) {
+                            next.quantity = isStockPage && this.intakeBasis !== 'non_procurement'
+                                ? ('Quantity cannot exceed ' + maxQty + ' left on this RR line.')
+                                : ('Quantity cannot exceed ' + maxQty + '.');
                         }
                     }
                     if (page === 3) {
@@ -2809,20 +3305,32 @@
                                 next.received_date = 'Received on cannot be before the ' + purchaseLabel.toLowerCase() + '.';
                             }
                         }
-                        const badLife = (value) => {
-                            if (value === '' || value === null || value === undefined) return false;
-                            const years = Number(value);
-                            return !Number.isInteger(years) || years < 1 || years > 50;
-                        };
-                        if (badLife(this.usefulLifeYears)) {
-                            next.useful_life = 'Useful lifespan must be a whole number from 1 to 50 years.';
-                        } else if (this.isMulti()) {
-                            const row = this.multiLines.find((line) => badLife(line.useful_life_years));
-                            if (row) next.useful_life = 'Lifespan for ' + (row.name || row.article) + ' must be a whole number from 1 to 50 years.';
+                        if (!String(this.warranty || '').trim()) {
+                            next.warranty = 'Warranty expiration is required.';
                         }
-                        if (this.isMultiManual()) {
-                            const row = this.multiLines.find((line) => line.cost !== '' && line.cost !== null && (!Number.isFinite(Number(line.cost)) || Number(line.cost) < 0));
-                            if (row) next.useful_life = 'Cost for ' + (row.name || 'an item') + ' must be zero or more.';
+                        const lifeMissing = this.usefulLifeYears === '' || this.usefulLifeYears === null || this.usefulLifeYears === undefined;
+                        const life = Number(this.usefulLifeYears);
+                        const lifeMax = this.maxUsefulLife();
+                        if (lifeMissing || !Number.isInteger(life) || life < 1 || life > lifeMax) {
+                            next.useful_life = 'Useful lifespan must be a whole number from 1 to ' + lifeMax + ' years.';
+                        } else if (this.isMulti()) {
+                            const row = this.multiLines.find((line) => {
+                                if (line.useful_life_years === '' || line.useful_life_years === null || line.useful_life_years === undefined) return false;
+                                const years = Number(line.useful_life_years);
+                                return !Number.isInteger(years) || years < 1 || years > lifeMax;
+                            });
+                            if (row) next.useful_life = 'Lifespan for ' + (row.name || row.article) + ' must be a whole number from 1 to ' + lifeMax + ' years.';
+                        }
+                        if (!this.isMultiManual()) {
+                            if (this.purchaseCost === '' || this.purchaseCost === null || this.purchaseCost === undefined || !Number.isFinite(Number(this.purchaseCost)) || Number(this.purchaseCost) < 0) {
+                                next.purchase_cost = 'Cost per unit is required.';
+                            }
+                        } else {
+                            const row = this.multiLines.find((line) => (
+                                line.cost === '' || line.cost === null || line.cost === undefined
+                                || !Number.isFinite(Number(line.cost)) || Number(line.cost) < 0
+                            ));
+                            if (row) next.purchase_cost = 'Cost for ' + (row.name || 'an item') + ' is required.';
                         }
                     }
                     if (page === 4) {
@@ -2842,8 +3350,8 @@
                 pageForErrors() {
                     const keys = Object.keys(this.errors || {});
                     if (isStockPage && keys.some((k) => ['rr', 'intake_reason', 'acq_source'].includes(k))) return 1;
-                    if (keys.some((k) => ['name', 'category', 'quantity', 'image', 'multi'].includes(k))) return 2;
-                    if (keys.some((k) => ['useful_life', 'purchase_date', 'received_date'].includes(k))) return 3;
+                    if (keys.some((k) => ['name', 'category', 'quantity', 'image', 'multi', 'brand', 'model', 'asset_tag', 'serial'].includes(k))) return 2;
+                    if (keys.some((k) => ['useful_life', 'purchase_date', 'received_date', 'warranty', 'purchase_cost'].includes(k))) return 3;
                     if (keys.some((k) => ['room', 'deploy', 'custodian'].includes(k))) return 4;
                     return firstPage;
                 },
@@ -2877,29 +3385,78 @@
                     const serials = {};
                     for (let i = 0; i < this.items.length; i++) {
                         const item = this.items[i];
-                        const tag = String(item.equipment_asset_tag || '').trim().toLowerCase();
-                        const serial = String(item.equipment_serial_number || '').trim().toLowerCase();
-                        if (tag) {
-                            if (tags[tag] !== undefined) {
-                                this.formError = `Duplicate asset tag on rows ${tags[tag] + 1} and ${i + 1}.`;
-                                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                                return false;
-                            }
-                            tags[tag] = i;
-                        }
-                        if (serial) {
-                            if (serials[serial] !== undefined) {
-                                this.formError = `Duplicate serial number on rows ${serials[serial] + 1} and ${i + 1}.`;
-                                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
-                                return false;
-                            }
-                            serials[serial] = i;
-                        }
-                        if (this.isFutureDate(item.equipment_purchase_date)) {
-                            this.formError = `Purchase date on row ${i + 1} cannot be in the future.`;
+                        const row = i + 1;
+                        const tag = String(item.equipment_asset_tag || '').trim();
+                        const serial = String(item.equipment_serial_number || '').trim();
+                        const brand = String(item.equipment_brand_name || this.brand || '').trim();
+                        const model = String(item.equipment_model || this.model || '').trim();
+                        const warranty = String(item.equipment_warranty_expiration || this.warranty || '').trim();
+                        const lifeRaw = item.equipment_useful_life_years !== '' && item.equipment_useful_life_years != null
+                            ? item.equipment_useful_life_years
+                            : this.usefulLifeYears;
+                        const life = Number(lifeRaw);
+                        const costRaw = item.equipment_purchase_cost !== '' && item.equipment_purchase_cost != null
+                            ? item.equipment_purchase_cost
+                            : this.purchaseCost;
+                        if (!tag) {
+                            this.formError = `Asset tag is required on row ${row}.`;
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return false;
                         }
+                        if (!serial) {
+                            this.formError = `Serial number is required on row ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        if (!brand) {
+                            this.formError = `Brand name is required on row ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        if (!model) {
+                            this.formError = `Model is required on row ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        if (!warranty) {
+                            this.formError = `Warranty expiration is required on row ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        if (!Number.isInteger(life) || life < 1 || life > this.maxUsefulLife()) {
+                            this.formError = `Useful lifespan on row ${row} must be a whole number from 1 to ${this.maxUsefulLife()} years.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        if (costRaw === '' || costRaw === null || costRaw === undefined || !Number.isFinite(Number(costRaw)) || Number(costRaw) < 0) {
+                            this.formError = `Cost is required on row ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        const tagKey = tag.toLowerCase();
+                        const serialKey = serial.toLowerCase();
+                        if (tags[tagKey] !== undefined) {
+                            this.formError = `Duplicate asset tag on rows ${tags[tagKey] + 1} and ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        tags[tagKey] = i;
+                        if (serials[serialKey] !== undefined) {
+                            this.formError = `Duplicate serial number on rows ${serials[serialKey] + 1} and ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        serials[serialKey] = i;
+                        if (this.isFutureDate(item.equipment_purchase_date)) {
+                            this.formError = `Purchase date on row ${row} cannot be in the future.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        item.equipment_brand_name = brand;
+                        item.equipment_model = model;
+                        item.equipment_warranty_expiration = warranty;
+                        item.equipment_useful_life_years = life;
+                        item.equipment_purchase_cost = costRaw;
                     }
                     this.formError = '';
                     return true;
@@ -2920,6 +3477,15 @@
                         if (this.category) this.clearError('category');
                     }
                     this.applyRrTrackingLock();
+                    if (
+                        isStockPage
+                        && this.intakeBasis !== 'non_procurement'
+                        && this.categoryAllowsBulk()
+                        && this.tracking !== 'Bulk'
+                    ) {
+                        this.tracking = 'Bulk';
+                        this.onSharedPhotoModeChange();
+                    }
                 },
                 onCategoryChange() {
                     if (
@@ -2952,7 +3518,7 @@
                     this.brand = '';
                     this.model = '';
                     this.warranty = '';
-                    this.usefulLifeYears = '';
+                    this.usefulLifeYears = 5;
                     this.assetTag = '';
                     this.assetTagManual = false;
                     this.serial = '';
@@ -3250,6 +3816,258 @@
                     });
                     this.scrollToTop();
                 },
+                canSaveNow() {
+                    if (this.submitting || this.step === 3) return false;
+                    if (this.step === 2) return true;
+                    return this.step === 1 && this.page === 4 && !this.hasUnitsStep();
+                },
+                canExpressResume() {
+                    if (!isStockPage || this.submitting) return false;
+                    if (this.intakeBasis === 'non_procurement') return false;
+                    if (this.step !== 1 || this.page !== 2) return false;
+                    if (!(this.rrSelected || []).length) return false;
+                    if (!(this.rrMultiLines || []).length) return false;
+                    return this.rrMultiLines.every((row) => String(row.category || '').trim() !== '');
+                },
+                goToReview() {
+                    if (this.step === 1) {
+                        if (!this.validatePage(this.page)) return;
+                        if (this.hasUnitsStep()) {
+                            this.goToItems();
+                            return;
+                        }
+                        this.items = [];
+                        this.syncAssetTag();
+                    } else if (this.step === 2) {
+                        if (!(this.isMulti() ? this.validateMultiUnits() : this.validateItems())) return;
+                    }
+                    this.step = 3;
+                    this.markFurthest();
+                    this.scrollToTop();
+                },
+                async saveNow() {
+                    if (this.submitting) return;
+                    if (this.step === 1 && this.page === 4) {
+                        if (!this.validatePage(4)) return;
+                        if (this.hasUnitsStep()) {
+                            this.goToItems();
+                            return;
+                        }
+                    }
+                    if (this.isMulti()) {
+                        if (!this.validateStep1()) return;
+                        if (this.multiLines.some((row) => !Array.isArray(row.units))) this.buildMultiUnits();
+                        if (!this.validateMultiUnits()) {
+                            this.step = 2;
+                            this.markFurthest();
+                            this.scrollToTop();
+                            return;
+                        }
+                        await this.submitMulti();
+                        return;
+                    }
+                    if (!this.validateStep1()) return;
+                    if (this.needsItemStep()) {
+                        if (!Array.isArray(this.items) || !this.items.length) this.buildItems();
+                        if (!this.validateItems()) {
+                            this.step = 2;
+                            this.markFurthest();
+                            this.scrollToTop();
+                            return;
+                        }
+                    } else {
+                        this.items = [];
+                        this.syncAssetTag();
+                    }
+                    this.step = 3;
+                    this.markFurthest();
+                    this.$nextTick(() => {
+                        const form = document.querySelector('#addEquipmentModal form');
+                        if (form) form.requestSubmit();
+                    });
+                },
+                async expressStock() {
+                    if (this.submitting) return;
+                    if (!isStockPage || this.intakeBasis === 'non_procurement') {
+                        this.formError = 'Express stock is only for delivered Receiving Report lines.';
+                        return;
+                    }
+                    if (!this.validatePage(1)) return;
+
+                    this.placement = 'storage';
+                    this.deployRoom = '';
+                    this.custodianId = '';
+                    if (!String(this.room || '').trim()) {
+                        const first = document.querySelector('#add_equipment_room option:not([value=""])');
+                        if (first) this.room = first.value;
+                    }
+                    if (!String(this.room || '').trim()) {
+                        this.formError = 'Choose a storage room before Express stock.';
+                        this.page = 4;
+                        this.markFurthest();
+                        this.scrollToTop();
+                        return;
+                    }
+
+                    this.syncMultiLines();
+                    this.applyExpressDefaults();
+
+                    // Prefill single-line fields too (guided path / review).
+                    if (this.rrSelected.length === 1) {
+                        this.rrItemId = this.rrSelected[0];
+                        this.onRrLineChange();
+                        const row = this.rrMultiLines[0];
+                        if (row) {
+                            this.name = row.name || this.name;
+                            this.category = row.category || this.category;
+                            this.quantity = row.quantity || this.quantity;
+                            this.tracking = row.tracking || this.tracking;
+                            this.purchaseDate = row.purchase_date || this.purchaseDate;
+                            this.purchaseCost = row.cost || this.purchaseCost;
+                        }
+                    }
+
+                    const missing = (this.rrMultiLines || []).filter((row) => !String(row.category || '').trim());
+                    if (missing.length) {
+                        const rowErrors = {};
+                        missing.forEach((row) => {
+                            rowErrors[row.id] = { category: 'Please select a classification.' };
+                        });
+                        this.multiErrors = { ...this.multiErrors, ...rowErrors };
+                        this.errors = { ...this.errors, multi: 'Classification is required for every line.' };
+                        this.formError = missing.length === 1
+                            ? 'Classification is required for “' + (missing[0].name || missing[0].article) + '”. Select it below, then Express stock now.'
+                            : ('Classification is required for ' + missing.length + ' lines. Select each classification below, then Express stock now.');
+                        this.step = 1;
+                        this.page = 2;
+                        this.furthestStepIndex = Math.max(this.furthestStepIndex, this.currentStepIndex());
+                        this.scrollToTop();
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                        return;
+                    }
+
+                    // Brand / model / warranty / lifespan / cost are required before Express can finish.
+                    if (!this.validatePage(2)) {
+                        this.step = 1;
+                        this.page = 2;
+                        this.furthestStepIndex = Math.max(this.furthestStepIndex, this.currentStepIndex());
+                        this.scrollToTop();
+                        return;
+                    }
+                    if (!this.validatePage(3)) {
+                        this.step = 1;
+                        this.page = 3;
+                        this.furthestStepIndex = Math.max(this.furthestStepIndex, this.currentStepIndex());
+                        this.scrollToTop();
+                        return;
+                    }
+
+                    this.buildMultiUnits();
+                    if (!this.validateMultiUnits()) {
+                        this.step = 2;
+                        this.markFurthest();
+                        this.scrollToTop();
+                        return;
+                    }
+                    await this.submitExpressRrLines();
+                },
+                async submitExpressRrLines() {
+                    if (this.submitting) return;
+                    if (!(this.rrMultiLines || []).length) {
+                        this.formError = 'Tick at least one received equipment line.';
+                        return;
+                    }
+                    if (!this.validateMultiUnits()) {
+                        this.step = 2;
+                        this.markFurthest();
+                        this.scrollToTop();
+                        return;
+                    }
+
+                    const form = this.rrLinesFormFrom(this.rrMultiLines);
+                    const token = document.querySelector('#addEquipmentModal input[name="_token"]')?.value
+                        || document.querySelector('meta[name="csrf-token"]')?.content
+                        || '';
+                    this.submitting = true;
+                    this.formError = '';
+                    try {
+                        const res = await fetch('/admin/inventory/store-rr-lines', {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': token,
+                            },
+                            credentials: 'same-origin',
+                            body: form,
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok || data.success === false) {
+                            const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                            this.formError = first || data.message || 'Could not add the equipment. Please try again.';
+                            this.submitting = false;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return;
+                        }
+                        window.location.href = data.redirect || '/admin/inventory';
+                    } catch (e) {
+                        this.formError = 'Network error. Check your connection and try again.';
+                        this.submitting = false;
+                    }
+                },
+                rrLinesFormFrom(lines) {
+                    const deploying = this.deploying();
+                    const form = new FormData();
+                    form.append('storage_room_id', String(this.room));
+                    if (deploying && this.deployRoom) form.append('deploy_room_id', String(this.deployRoom));
+                    form.append('warranty', String(this.warranty || ''));
+                    form.append('useful_life_years', String(this.usefulLifeYears || ''));
+                    (lines || []).forEach((row, i) => {
+                        const key = 'lines[' + i + ']';
+                        form.append(key + '[receiving_report_item_id]', String(row.id));
+                        form.append(key + '[name]', String(row.name || '').trim());
+                        form.append(key + '[category_id]', String(row.category));
+                        form.append(key + '[tracking]', row.tracking);
+                        form.append(key + '[quantity]', String(Number(row.quantity)));
+                        form.append(key + '[brand]', String(row.brand || '').trim());
+                        form.append(key + '[model]', String(row.model || '').trim());
+                        form.append(key + '[borrowable]', row.borrowable ? '1' : '0');
+                        form.append(key + '[warranty]', String(row.warranty || this.warranty || ''));
+                        form.append(key + '[useful_life_years]', String(
+                            row.useful_life_years !== '' && row.useful_life_years != null
+                                ? row.useful_life_years
+                                : (this.usefulLifeYears || '')
+                        ));
+                        (row.units || []).forEach((unit, u) => {
+                            const unitKey = key + '[units][' + u + ']';
+                            const warranty = String(unit.warranty || row.warranty || this.warranty || '').trim();
+                            const life = unit.useful_life_years !== '' && unit.useful_life_years != null
+                                ? unit.useful_life_years
+                                : (row.useful_life_years !== '' && row.useful_life_years != null ? row.useful_life_years : this.usefulLifeYears);
+                            const cost = unit.cost !== '' && unit.cost != null
+                                ? unit.cost
+                                : (row.cost !== '' && row.cost != null ? row.cost : this.purchaseCost);
+                            form.append(unitKey + '[asset_tag]', String(unit.asset_tag || '').trim());
+                            form.append(unitKey + '[serial]', String(unit.serial || '').trim());
+                            if (this.hasPieces(row)) {
+                                const values = this.pieceValues(row, u);
+                                form.append(unitKey + '[brand]', values.brand || String(row.brand || '').trim());
+                                form.append(unitKey + '[model]', values.model || String(row.model || '').trim());
+                            } else {
+                                form.append(unitKey + '[brand]', String(row.brand || '').trim());
+                                form.append(unitKey + '[model]', String(row.model || '').trim());
+                            }
+                            form.append(unitKey + '[warranty]', warranty);
+                            if (unit.purchase_date) form.append(unitKey + '[purchase_date]', unit.purchase_date);
+                            form.append(unitKey + '[cost]', String(cost ?? ''));
+                            form.append(unitKey + '[useful_life_years]', String(life ?? ''));
+                            if (deploying) form.append(unitKey + '[deploy_room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
+                            if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
+                            if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
+                        });
+                    });
+                    return form;
+                },
                 prepareSubmit(event) {
                     if (this.step !== 3) {
                         event.preventDefault();
@@ -3365,45 +4183,7 @@
                     return form;
                 },
                 rrLinesForm() {
-                    const deploying = this.deploying();
-                    const form = new FormData();
-                    form.append('storage_room_id', String(this.room));
-                    if (deploying && this.deployRoom) form.append('deploy_room_id', String(this.deployRoom));
-                    if (this.warranty) form.append('warranty', this.warranty);
-                    if (this.usefulLifeYears) form.append('useful_life_years', String(this.usefulLifeYears));
-                    this.multiLines.forEach((row, i) => {
-                        const key = 'lines[' + i + ']';
-                        form.append(key + '[receiving_report_item_id]', String(row.id));
-                        form.append(key + '[name]', String(row.name || '').trim());
-                        form.append(key + '[category_id]', String(row.category));
-                        form.append(key + '[tracking]', row.tracking);
-                        form.append(key + '[quantity]', String(Number(row.quantity)));
-                        form.append(key + '[brand]', String(row.brand || '').trim());
-                        form.append(key + '[model]', String(row.model || '').trim());
-                        form.append(key + '[borrowable]', row.borrowable ? '1' : '0');
-                        if (row.warranty) form.append(key + '[warranty]', row.warranty);
-                        if (row.useful_life_years) form.append(key + '[useful_life_years]', String(row.useful_life_years));
-                        row.units.forEach((unit, u) => {
-                            const unitKey = key + '[units][' + u + ']';
-                            form.append(unitKey + '[asset_tag]', String(unit.asset_tag || '').trim());
-                            form.append(unitKey + '[serial]', String(unit.serial || '').trim());
-                            if (this.hasPieces(row)) {
-                                const values = this.pieceValues(row, u);
-                                form.append(unitKey + '[brand]', values.brand);
-                                form.append(unitKey + '[model]', values.model);
-                            }
-                            if (unit.warranty) form.append(unitKey + '[warranty]', unit.warranty);
-                            if (unit.purchase_date) form.append(unitKey + '[purchase_date]', unit.purchase_date);
-                            if (unit.cost !== '' && unit.cost !== null && unit.cost !== undefined) form.append(unitKey + '[cost]', String(unit.cost));
-                            if (unit.useful_life_years !== '' && unit.useful_life_years !== null && unit.useful_life_years !== undefined) {
-                                form.append(unitKey + '[useful_life_years]', String(unit.useful_life_years));
-                            }
-                            if (deploying) form.append(unitKey + '[deploy_room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
-                            if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
-                            if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
-                        });
-                    });
-                    return form;
+                    return this.rrLinesFormFrom(this.multiLines);
                 },
             };
         }

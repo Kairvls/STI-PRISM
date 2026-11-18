@@ -228,7 +228,17 @@ class MicrosoftController extends Controller
 
             AdminLoginGate::clearIntent();
 
-            return redirect(RoleAccess::dashboardPath((int) $user->user_role_id));
+            $destination = RoleAccess::loginDestination($user);
+            if ($destination === null) {
+                Auth::logout();
+                request()->session()->invalidate();
+                request()->session()->regenerateToken();
+
+                return redirect('/')
+                    ->with('error', RoleAccess::dormantPortalMessage());
+            }
+
+            return redirect($destination);
         } catch (\Throwable $e) {
             Log::warning('Microsoft login failed', [
                 'type' => $e::class,

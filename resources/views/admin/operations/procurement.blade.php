@@ -1,7 +1,7 @@
 @extends('layouts.admin-layout')
 
 @section('title', 'Procurement Monitor')
-@section('page-subtitle', 'Track each Request No. (PR) through Canvas + RIS → ATP → RFC → DV → RR → Liquidation.')
+@section('page-subtitle', 'Canvass + RIS → ATP → RFC → DV → RR → Liquidation.')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
@@ -387,7 +387,7 @@
                         <template x-for="key in ['ris','atp','rfc','dv','rr','liq']" :key="key">
                             <div class="flex items-start justify-between gap-3 px-4 py-3">
                                 <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key === 'ris' ? 'Canvas + RIS' : key"></p>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400" x-text="key === 'ris' ? 'Canvass + RIS' : key"></p>
                                     <p class="mt-1 text-sm font-semibold text-gray-900" x-text="pipelineData?.stages?.[key]?.exists ? (pipelineData.stages[key].label) : 'Not started'"></p>
                                     <p class="mt-0.5 text-xs text-gray-400" x-text="pipelineData?.stages?.[key]?.hint || ''"></p>
                                 </div>

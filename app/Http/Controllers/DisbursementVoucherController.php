@@ -343,7 +343,7 @@ class DisbursementVoucherController extends Controller
                         }
                     },
                 ],
-                'dv_amount' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'regex:/^\d{1,10}(\.\d{1,2})?$/'],
+                'dv_amount' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST, 'regex:/^\d{1,'.\App\Support\InputLimits::MONEY_WHOLE_DIGITS.'}(\.\d{1,'.\App\Support\InputLimits::MONEY_DECIMAL_DIGITS.'})?$/'],
                 'dv_prepared_by_name' => ['nullable', 'string', 'max:26', 'regex:/^[A-Za-z0-9 ]{0,26}$/'],
                 'dv_checked_by_name' => ['nullable', 'string', 'max:26', 'regex:/^[A-Za-z0-9 ]{0,26}$/'],
                 'dv_cdv_number' => ['nullable', 'string', 'max:26', 'regex:/^[A-Za-z0-9 ]{0,26}$/'],
@@ -516,7 +516,9 @@ class DisbursementVoucherController extends Controller
         $filter = $listing['filter'];
         $search = $listing['search'];
         $submittedDate = $listing['submittedDate'];
+        $urgencyFilter = $listing['urgencyFilter'] ?? null;
 
+        \App\Support\DocumentUrgency::orderUrgentFirst($query, 'DV');
         $records = $query->orderByDesc('dv_submitted_at')->orderByDesc('dv_id')->paginate(20)->withQueryString();
 
         $base = DB::table('disbursement_vouchers_table')
@@ -537,6 +539,7 @@ class DisbursementVoucherController extends Controller
         return view('accounting.disbursement-vouchers.school-admin-index', [
             'records' => $records,
             'filter' => $filter,
+            'urgencyFilter' => $urgencyFilter,
             'search' => $search,
             'submittedDate' => $submittedDate,
             'counts' => $counts,
@@ -597,7 +600,7 @@ class DisbursementVoucherController extends Controller
         $titles = [
             'all' => 'Disbursement Vouchers — All',
             'incoming' => 'Disbursement Vouchers — Needs review',
-            'revision' => 'Disbursement Vouchers — Returned',
+            'revision' => 'Disbursement Vouchers — Revision',
             'approved' => 'Disbursement Vouchers — Approved',
         ];
 
@@ -617,13 +620,12 @@ class DisbursementVoucherController extends Controller
      */
     private function schoolAdminDvListing(Request $request): array
     {
-        $statusProvided = $request->query->has('status');
-        $filter = trim((string) $request->query('status', 'incoming'));
-        if ($filter === '') {
-            $filter = 'incoming';
-        }
+        $statusProvided = $request->query->has('status')
+            && trim((string) $request->query('status')) !== '';
+        $filter = trim((string) $request->query('status', ''));
         $search = trim((string) $request->query('search', ''));
         $submittedDate = $this->normalizeSubmittedDateQuery($request);
+        $urgencyFilter = \App\Support\RisWorkflow::urgencyFilter($request->query('urgency'));
 
         $query = DB::table('disbursement_vouchers_table')
             ->leftJoin('request_check_table', 'disbursement_vouchers_table.dv_request_check_id', '=', 'request_check_table.request_check_id')
@@ -641,12 +643,23 @@ class DisbursementVoucherController extends Controller
             ReviewerAssignment::applyQueueFilter($query, 'disbursement_vouchers_table.dv_assigned_reviewer_id');
         }
 
-        // Default landing is Needs review; if that queue is empty, open All instead.
-        if (! $statusProvided && $filter === 'incoming') {
+        // Landing default: Needs review → Revision → Approved → All
+        if (! $statusProvided) {
             $incomingCount = (clone $query)->where('dv_status', 'Pending')->count();
-            if ($incomingCount === 0) {
+            $revisionCount = (clone $query)->where('dv_status', 'Revision')->count();
+            $approvedCount = (clone $query)->where('dv_status', 'Approved')->count();
+
+            if ($incomingCount > 0) {
+                $filter = 'incoming';
+            } elseif ($revisionCount > 0) {
+                $filter = 'revision';
+            } elseif ($approvedCount > 0) {
+                $filter = 'approved';
+            } else {
                 $filter = 'all';
             }
+        } elseif (! in_array($filter, ['all', 'incoming', 'revision', 'approved'], true)) {
+            $filter = 'incoming';
         }
 
         if ($filter === 'incoming') {
@@ -656,6 +669,9 @@ class DisbursementVoucherController extends Controller
         } elseif ($filter === 'revision') {
             $query->where('dv_status', 'Revision');
         }
+
+        \App\Support\DocumentUrgency::select($query, 'DV');
+        \App\Support\DocumentUrgency::applyFilter($query, 'DV', $urgencyFilter);
 
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -683,7 +699,7 @@ class DisbursementVoucherController extends Controller
             $query->whereDate('disbursement_vouchers_table.dv_submitted_at', $submittedDate);
         }
 
-        return compact('query', 'filter', 'search', 'submittedDate');
+        return compact('query', 'filter', 'search', 'submittedDate', 'urgencyFilter');
     }
 
     /**
@@ -1016,7 +1032,39 @@ class DisbursementVoucherController extends Controller
     {
         abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
 
-        $filter = trim((string) $request->query('status', 'incoming'));
+        $statusProvided = $request->query->has('status')
+            && trim((string) $request->query('status')) !== '';
+        $filter = trim((string) $request->query('status', ''));
+
+        $base = DB::table('disbursement_vouchers_table')
+            ->where(function ($q) {
+                $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
+            });
+        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_president_id')) {
+            ReviewerAssignment::applyQueueFilter($base, 'dv_assigned_president_id');
+        }
+
+        $counts = [
+            'incoming' => (clone $base)->where('dv_status', 'With President')->count(),
+            'approved' => (clone $base)->whereIn('dv_status', ['President Approved', 'Check Released', 'Check Collected'])->count(),
+            'revision' => (clone $base)->where('dv_status', 'Approved')->whereNotNull('dv_president_revision_reason')->count(),
+            'all' => (clone $base)->count(),
+        ];
+
+        // Landing default: Awaiting signature → Signed/released → Returned to Accounting → All
+        if (! $statusProvided) {
+            if ($counts['incoming'] > 0) {
+                $filter = 'incoming';
+            } elseif ($counts['approved'] > 0) {
+                $filter = 'approved';
+            } elseif ($counts['revision'] > 0) {
+                $filter = 'revision';
+            } else {
+                $filter = 'all';
+            }
+        } elseif (! in_array($filter, ['all', 'incoming', 'approved', 'revision'], true)) {
+            $filter = 'incoming';
+        }
 
         $query = DB::table('disbursement_vouchers_table')
             ->leftJoin('request_check_table', 'disbursement_vouchers_table.dv_request_check_id', '=', 'request_check_table.request_check_id')
@@ -1047,20 +1095,6 @@ class DisbursementVoucherController extends Controller
         }
 
         $rows = $query->paginate(20)->withQueryString();
-
-        $base = DB::table('disbursement_vouchers_table')
-            ->where(function ($q) {
-                $q->whereNull('dv_is_archived')->orWhere('dv_is_archived', 0);
-            });
-        if (Schema::hasColumn('disbursement_vouchers_table', 'dv_assigned_president_id')) {
-            ReviewerAssignment::applyQueueFilter($base, 'dv_assigned_president_id');
-        }
-
-        $counts = [
-            'incoming' => (clone $base)->where('dv_status', 'With President')->count(),
-            'approved' => (clone $base)->whereIn('dv_status', ['President Approved', 'Check Released', 'Check Collected'])->count(),
-            'revision' => (clone $base)->where('dv_status', 'Approved')->whereNotNull('dv_president_revision_reason')->count(),
-        ];
 
         $viewDvId = (int) $request->query('view_dv', 0);
         $modalDvIds = $rows->getCollection()
@@ -1453,7 +1487,7 @@ class DisbursementVoucherController extends Controller
         return view('accounting.disbursement-vouchers.package-reference', [
             'docType' => 'rfc',
             'title' => $rfc->request_check_form_number ?: 'Request for Check',
-            'subtitle' => 'Request for Check — request reference for DV',
+            'subtitle' => 'RFC reference for this DV',
             'rfc' => $rfc,
             'rfcId' => (int) $rfc->request_check_id,
             'package' => $this->packageContext((int) $rfc->request_check_id),
@@ -1508,7 +1542,7 @@ class DisbursementVoucherController extends Controller
         return view('accounting.disbursement-vouchers.package-reference', [
             'docType' => 'atp',
             'title' => $atp->authority_purchase_form_number ?: 'Authority to Purchase',
-            'subtitle' => 'Authority to Purchase — request reference for DV',
+            'subtitle' => 'ATP reference for this DV',
             'rfc' => $rfc,
             'rfcId' => (int) $rfc->request_check_id,
             'package' => $package,
@@ -1541,7 +1575,7 @@ class DisbursementVoucherController extends Controller
         return view('accounting.disbursement-vouchers.package-reference', [
             'docType' => 'ris',
             'title' => RisWorkflow::formNumber($ris),
-            'subtitle' => 'Canvas + RIS — request reference for DV',
+            'subtitle' => 'Canvass + RIS reference for this DV',
             'rfc' => $rfc,
             'rfcId' => (int) $rfc->request_check_id,
             'package' => $package,

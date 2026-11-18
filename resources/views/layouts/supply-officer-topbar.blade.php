@@ -7,9 +7,9 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('supply-officer/dashboard') => ['Dashboard', ''],
-                request()->is('supply-officer/incoming-ris/*') => ['Canvas + RIS', 'Approved request reference for Authority to Purchase.'],
-                request()->is('supply-officer/incoming-ris*') => ['Incoming RIS', 'Approved Canvas + RIS sent by Purchaser for ATP.'],
-                request()->is('supply-officer/authority-to-purchase*') => ['Authority to Purchase', 'Create and submit ATP to the School Administrator.'],
+                request()->is('supply-officer/incoming-ris/*') => ['Canvass + RIS', 'Reference for creating ATP.'],
+                request()->is('supply-officer/incoming-ris*') => ['Incoming RIS', 'Approved Canvass + RIS for ATP.'],
+                request()->is('supply-officer/authority-to-purchase*') => ['Authority to Purchase', 'Create ATP, then submit for approval.'],
                 request()->is('supply-officer/notifications*') => ['Notifications', ''],
                 request()->is('supply-officer/profile*') => ['Profile Settings', ''],
                 request()->is('supply-officer/security*') => ['Security Settings', ''],

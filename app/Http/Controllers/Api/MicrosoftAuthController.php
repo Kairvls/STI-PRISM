@@ -75,16 +75,17 @@ class MicrosoftAuthController extends Controller
         }
 
         // =====================================================
-        // ROLE CHECK (primary OR additional Maintenance)
+        // ROLE CHECK — System Administrator OR Maintenance
+        // (primary or additional role assignment)
         // =====================================================
 
-        if (! \App\Support\RoleAccess::hasRole(
+        if (! \App\Support\RoleAccess::hasAnyRole([
+            \App\Support\RoleAccess::ADMIN,
             \App\Support\RoleAccess::MAINTENANCE,
-            $user
-        )) {
+        ], $user)) {
 
             return response()->json([
-                'message' => 'Only Maintenance Personnel can use this app.',
+                'message' => 'Access denied.',
             ], 403);
 
         }
@@ -92,7 +93,13 @@ class MicrosoftAuthController extends Controller
         $roleIds = \App\Support\RoleAccess::roleIds($user);
         $mobilePortals = \App\Support\RoleAccess::mobilePortals($user);
         $primaryRoleId = (int) $user->user_role_id;
-        $activeRoleId = \App\Support\RoleAccess::MAINTENANCE;
+        // Prefer Maintenance portal when assigned; otherwise Admin.
+        $activeRoleId = \App\Support\RoleAccess::hasRole(
+            \App\Support\RoleAccess::MAINTENANCE,
+            $user
+        )
+            ? \App\Support\RoleAccess::MAINTENANCE
+            : \App\Support\RoleAccess::ADMIN;
 
         // =====================================================
         // CREATE SANCTUM TOKEN

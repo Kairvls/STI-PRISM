@@ -39,6 +39,10 @@
     if ($raw === 'Incomplete') {
         $cls = 'bg-amber-50 text-amber-800 ring-amber-300';
     }
+    if ($raw === 'Overdue' || ! empty($overdue)) {
+        $cls = 'bg-rose-50 text-rose-800 ring-rose-300';
+        $label = 'Overdue';
+    }
     if (! empty($displayLabel)) {
         $label = (string) $displayLabel;
     }

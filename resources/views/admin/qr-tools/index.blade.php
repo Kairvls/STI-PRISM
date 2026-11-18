@@ -1604,7 +1604,7 @@
                     '<p class="text-sm text-slate-600">This will replace the QR for <span class="font-semibold text-slate-900">' +
                     equipmentName +
                     '</span>.</p>' +
-                    '<p class="mt-2 text-sm text-slate-500">Printed labels and saved scans for the old code may no longer match this equipment.</p>',
+                    '<p class="mt-2 text-sm text-slate-500">Old labels and scans may no longer match.</p>',
                 showCancelButton: true,
                 confirmButtonText: 'Regenerate QR',
                 cancelButtonText: 'Cancel',

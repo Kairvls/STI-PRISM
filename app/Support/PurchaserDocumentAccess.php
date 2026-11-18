@@ -41,7 +41,11 @@ class PurchaserDocumentAccess
 
     public static function isAtpActor(?object $user = null): bool
     {
-        return self::isSupplyOfficer($user) || RoleAccess::isAdmin($user);
+        if (self::isSupplyOfficer($user) || RoleAccess::isAdmin($user)) {
+            return true;
+        }
+
+        return ProcurementPortal::PURCHASER_OWNS_ATP && self::isProcurementActor($user);
     }
 
     /**
@@ -59,8 +63,14 @@ class PurchaserDocumentAccess
                 return;
             }
 
-            // Purchasers may view released ATPs for RFC; mutating routes should not hit this for them.
+            // Purchaser owns created ATPs when PURCHASER_OWNS_ATP; otherwise released ATPs only.
             if (self::isProcurementActor()) {
+                if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+                    if (! self::owns($record, 'atp') && ! self::purchaserCanAccessReleasedAtp($record)) {
+                        abort(403, 'You do not have access to this document.');
+                    }
+                }
+
                 return;
             }
 
@@ -102,6 +112,29 @@ class PurchaserDocumentAccess
         return false;
     }
 
+    /**
+     * Legacy Supply-released ATPs remain visible to the Purchaser even if not owned.
+     */
+    public static function purchaserCanAccessReleasedAtp(object $record): bool
+    {
+        if (! SupplyHandoff::atpReleaseColumnsReady()) {
+            return false;
+        }
+
+        if (($record->authority_purchase_status ?? null) !== 'Approved') {
+            return false;
+        }
+
+        if (! SupplyHandoff::atpIsReleasedToPurchaser($record)) {
+            return false;
+        }
+
+        $userId = (int) (Auth::id() ?? 0);
+        $releasedTo = (int) ($record->authority_purchase_released_to_user_id ?? 0);
+
+        return $releasedTo === 0 || $releasedTo === $userId;
+    }
+
     public static function ownerId(object $record, string $document): ?int
     {
         $fields = match ($document) {
@@ -139,7 +172,34 @@ class PurchaserDocumentAccess
         }
 
         if ($document === 'atp' && self::isProcurementActor() && ! RoleAccess::isAdmin()) {
-            // Purchaser list: ATPs released to them (for RFC), plus legacy unreleased if columns missing.
+            if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+                // Owned ATPs (create/submit path) plus any released-to-them ATPs (legacy Supply releases).
+                return $query->where(function ($outer) use ($prefix, $userId) {
+                    $outer->where(function ($owned) use ($prefix, $userId) {
+                        $owned->where($prefix.'authority_purchase_created_by', $userId)
+                            ->orWhere(function ($legacy) use ($prefix, $userId) {
+                                $legacy->whereNull($prefix.'authority_purchase_created_by')
+                                    ->where(function ($sub) use ($prefix, $userId) {
+                                        $sub->where($prefix.'authority_purchase_submitted_by', $userId)
+                                            ->orWhereNull($prefix.'authority_purchase_submitted_by');
+                                    });
+                            });
+                    });
+
+                    if (SupplyHandoff::atpReleaseColumnsReady()) {
+                        $outer->orWhere(function ($released) use ($userId) {
+                            $released->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
+                                ->whereNotNull('authority_to_purchase_table.authority_purchase_released_to_purchaser_at')
+                                ->where(function ($q) use ($userId) {
+                                    $q->where('authority_to_purchase_table.authority_purchase_released_to_user_id', $userId)
+                                        ->orWhereNull('authority_to_purchase_table.authority_purchase_released_to_user_id');
+                                });
+                        });
+                    }
+                });
+            }
+
+            // Legacy: Purchaser list = ATPs released to them only.
             if (SupplyHandoff::atpReleaseColumnsReady()) {
                 return SupplyHandoff::scopeReleasedAtpsForPurchaser($query, $userId);
             }

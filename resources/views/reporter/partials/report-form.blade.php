@@ -1014,6 +1014,17 @@
         color: #0025cc;
     }
 
+    .rf-check-link.rf-check-skip {
+        color: #64748b;
+    }
+
+    .rf-check-skip-hint {
+        margin: 8px 0 0;
+        font-size: 11px;
+        line-height: 1.35;
+        color: #94a3b8;
+    }
+
     .rf-check-result {
         padding: 6px 4px 2px;
         text-align: center;
@@ -4503,8 +4514,9 @@
             <div class="rf-check-actions" id="rfCheckActions"></div>
             <div class="rf-check-foot">
                 <button type="button" class="rf-check-link" id="rfCheckBack">Back</button>
-                <span>If one fixes it, you won't need to report.</span>
+                <button type="button" class="rf-check-link rf-check-skip" id="rfCheckSkip">Skip — just report</button>
             </div>
+            <p class="rf-check-skip-hint">Close cancels. Skip adds this issue without the checks. Priority is still set automatically from the issue and details.</p>
         </div>
 
         <div class="rf-check-result is-fixed" id="rfCheckFixed" hidden>
@@ -6186,14 +6198,16 @@ toggleRoomBtn.addEventListener('click', function () {
             finish("done");
         }
 
-        function finish(status) {
+        function finish(status, options = {}) {
             if (!state) return;
-            const answers = state.answers.slice(0, state.index + 1).filter(Boolean);
+            const answers = (options.skip || status === "cancelled")
+                ? []
+                : state.answers.slice(0, state.index + 1).filter(Boolean);
             const resolve = state.resolve;
             state = null;
             overlay.hidden = true;
             document.removeEventListener("keydown", onKeydown, true);
-            resolve({ status: status, answers: status === "cancelled" ? [] : answers });
+            resolve({ status: status, answers: answers });
         }
 
         function onKeydown(e) {
@@ -6207,6 +6221,9 @@ toggleRoomBtn.addEventListener('click', function () {
         document.getElementById("rfCheckClose").addEventListener("click", () => finish("cancelled"));
         document.getElementById("rfCheckFixedDone").addEventListener("click", () => finish("fixed"));
         document.getElementById("rfCheckDangerAdd").addEventListener("click", () => finish("done"));
+        document.getElementById("rfCheckSkip")?.addEventListener("click", () => {
+            finish("done", { skip: true });
+        });
         els.back.addEventListener("click", () => {
             if (!state || state.index === 0) return;
             state.index -= 1;

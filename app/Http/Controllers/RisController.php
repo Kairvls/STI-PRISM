@@ -163,21 +163,34 @@ class RisController extends Controller
             }
         }
 
-        // Date filters
-        if ($request->filled('date_from')) {
-            $risQuery->whereDate('requisition_issue_slip_table.ris_created_at', '>=', $request->date_from);
+        // Urgency filter (Urgent / Non-Urgent) — always keep In preparation (Draft) visible
+        if (
+            $request->filled('urgency')
+            && Schema::hasColumn('requisition_issue_slip_table', 'ris_urgency')
+        ) {
+            $urgency = RisWorkflow::normalizeUrgency($request->input('urgency'));
+            if (in_array((string) $request->input('urgency'), RisWorkflow::urgencyOptions(), true)) {
+                DocumentWorkflowService::whereFilterOrDraft(
+                    $risQuery,
+                    'requisition_issue_slip_table.ris_status',
+                    fn ($q) => $q->where('requisition_issue_slip_table.ris_urgency', $urgency)
+                );
+            }
         }
 
-        if ($request->filled('date_to')) {
-            $risQuery->whereDate('requisition_issue_slip_table.ris_created_at', '<=', $request->date_to);
+        // Single-day date filter (created date)
+        $filterDate = trim((string) $request->input('date', $request->input('date_from', '')));
+        if ($filterDate !== '') {
+            $risQuery->whereDate('requisition_issue_slip_table.ris_created_at', $filterDate);
         }
 
-        // Paginated RIS list
+        // Paginated RIS list — In preparation → revisions → needs ATP → urgency / date
         $spotlightQuery = clone $risQuery;
         $risRecords = DocumentWorkflowService::orderOwnUnfinishedFirst(
             $risQuery,
             'requisition_issue_slip_table.ris_status'
         );
+        $risRecords = RisWorkflow::orderNeedsAtpNext($risRecords);
         $risRecords = RisWorkflow::orderUrgentFirst($risRecords)
             ->orderByDesc('requisition_issue_slip_table.ris_created_at')
             ->paginate(10)
@@ -255,20 +268,32 @@ class RisController extends Controller
             $ris->atp_supplier_breakdown = $atpSupplierBreakdown[(int) $ris->ris_id] ?? [];
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
             $ris->sent_to_supply = \App\Support\SupplyHandoff::risIsSentToSupply($ris);
-            // Also require !has_atp so the list never shows Send when ATP is already complete.
-            $ris->can_send_to_supply = empty($ris->ris_is_archived)
+
+            $purchaserOwnsAtp = \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP;
+            $eligibleForAtp = empty($ris->ris_is_archived)
+                && \App\Support\RisWorkflow::isEligibleForAtp($ris);
+
+            // Active path: Purchaser creates ATP directly — no Supply handoff.
+            // Legacy path: Purchaser sends approved RIS to Supply Officer first.
+            $ris->can_send_to_supply = ! $purchaserOwnsAtp
                 && empty($ris->has_atp)
+                && $eligibleForAtp
                 && \App\Support\SupplyHandoff::purchaserCanSendRis($ris);
-            // ATP is created by School Supply / Material Officer after Purchaser sends the RIS.
-            $ris->can_create_atp = false;
+
+            $ris->can_create_atp = $purchaserOwnsAtp
+                && $eligibleForAtp
+                && empty($ris->has_atp);
         }
 
         // Dashboard counts
         $risSummary = $this->risStatusSummary();
         $isAjax = $request->ajax();
         $editRisId = (int) $request->session()->get('edit_ris', 0);
+        // Load create/edit form catalogs on the active RIS index so Create RIS
+        // can open as a modal without a full-page ?create=1 reload.
         $loadFormDatasets = ! $isAjax && (
-            $request->boolean('create')
+            ! $archiveView
+            || $request->boolean('create')
             || $request->filled('replacement_request')
             || $request->filled('copy_from')
             || $editRisId > 0
@@ -338,9 +363,11 @@ class RisController extends Controller
             ? (trim((string) (Auth::user()->user_full_name ?? '')) ?: ($risCopyPrefill['requested_by'] ?? ''))
             : null;
         $defaultRequestedByDate = $loadFormDatasets
-            ? ($risCopyPrefill['requested_by_date'] ?? now()->format('d/m/Y'))
+            ? ($risCopyPrefill['requested_by_date'] ?? now()->format('m/d/Y'))
             : null;
-        $savedSignatures = ($loadFormDatasets || $viewRisId > 0 || $editRisId > 0)
+        // Always load the purchaser's signature library on full page views so
+        // Create/Edit can show and auto-wire saved signatures without ?create=1.
+        $savedSignatures = ! $isAjax
             ? UserSignatureLibrary::forUser((int) Auth::id())
             : collect();
 
@@ -484,6 +511,7 @@ class RisController extends Controller
         $isDraft = $saveAction === 'draft';
 
         $this->prefillRisFromReplacement($request);
+        $this->prepareRisItemsRequest($request);
 
 
         // =====================================================
@@ -521,7 +549,7 @@ class RisController extends Controller
             'ris_purpose_description' => [
                 $isDraft ? 'nullable' : 'required',
                 'string',
-                'max:5000',
+                'max:'.\App\Support\InputLimits::PURPOSE,
             ],
 
             // =============================================
@@ -536,7 +564,7 @@ class RisController extends Controller
             'ris_items.*.name_description' => [
                 'nullable',
                 'string',
-                'max:2000',
+                'max:'.\App\Support\InputLimits::NAME,
             ],
 
             'ris_items.*.supplier_id' => $this->activeSupplierRule(),
@@ -571,7 +599,7 @@ class RisController extends Controller
                 'nullable',
                 'numeric',
                 'min:0',
-                'max:9999999.99',
+                'max:'.\App\Support\InputLimits::COST,
             ],
 
             // We still accept the field from the form,
@@ -593,10 +621,10 @@ class RisController extends Controller
             ],
 
             // Browser calendar removed.
-            // User enters: dd/mm/yyyy
+            // User enters: mm/dd/yyyy
             'ris_requested_by_date' => [
                 $isDraft ? 'nullable' : 'required',
-                'date_format:d/m/Y',
+                'date_format:m/d/Y',
             ],
 
             'signature_data' => [
@@ -684,7 +712,7 @@ class RisController extends Controller
                 'Requested By date is required before submitting.',
 
             'ris_requested_by_date.date_format' =>
-                'Requested By date must use dd/mm/yyyy format.',
+                'Requested By date must use mm/dd/yyyy format.',
 
             'signature_data.required' =>
                 'Please sign the RIS before saving.',
@@ -742,7 +770,6 @@ class RisController extends Controller
                     || filled($item['supplier_id'] ?? null);
 
             })
-            ->map(fn ($item) => $this->clearPurchaserIssued($item))
             ->values();
 
         $splitOverflow = $this->risItemSplitOverflowMessage($items);
@@ -779,17 +806,17 @@ class RisController extends Controller
 
 
         // =====================================================
-        // 5. CONVERT dd/mm/yyyy TO MYSQL DATE
+        // 5. CONVERT mm/dd/yyyy TO MYSQL DATE
         //
         // Example:
-        // 25/07/2026 becomes 2026-07-25
+        // 07/25/2026 becomes 2026-07-25
         // =====================================================
         $requestedByDate = null;
 
         if (!empty($validated['ris_requested_by_date'])) {
 
             $requestedByDate = \Carbon\Carbon::createFromFormat(
-                'd/m/Y',
+                'm/d/Y',
                 $validated['ris_requested_by_date']
             )->format('Y-m-d');
         }
@@ -893,7 +920,9 @@ class RisController extends Controller
                 'ris_supplier_id' => null,
                 'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
                 'ris_status' => $isDraft ? 'Draft' : 'Submitted',
-                'ris_requested_by_signature' => $validated['ris_requested_by'] ?? null,
+                'ris_requested_by_signature' => RisWorkflow::resolvePrintedRequesterName(
+                    $validated['ris_requested_by'] ?? null
+                ) ?: null,
                 'ris_requested_by_date' => $requestedByDate,
                 'ris_approved_by_signature' => null,
                 'ris_approved_by_date' => null,
@@ -1112,15 +1141,9 @@ public function update(Request $request, $risId)
 
 
     // =====================================================
-    // ONLY DRAFT AND MINOR REVISION CAN BE EDITED
+    // ONLY DRAFT / FOR-REVISION STATUSES CAN BE EDITED
     // =====================================================
-    if (
-        !in_array(
-            $ris->ris_status,
-            ['Draft', 'Minor Revision'],
-            true
-        )
-    ) {
+    if (! RisWorkflow::isPurchaserEditable($ris)) {
         return back()->with(
             'error',
             'This RIS can no longer be edited.'
@@ -1141,6 +1164,7 @@ public function update(Request $request, $risId)
         $request,
         $this->replacementSourceForRis($ris->ris_procurement_request_id ?? null)
     );
+    $this->prepareRisItemsRequest($request);
 
 
     // =====================================================
@@ -1166,7 +1190,7 @@ public function update(Request $request, $risId)
         'ris_purpose_description' => [
             $isSaveOnly ? 'nullable' : 'required',
             'string',
-            'max:5000',
+            'max:'.\App\Support\InputLimits::PURPOSE,
         ],
 
 
@@ -1182,7 +1206,7 @@ public function update(Request $request, $risId)
         'ris_items.*.name_description' => [
             'nullable',
             'string',
-            'max:2000',
+            'max:'.\App\Support\InputLimits::NAME,
         ],
 
         'ris_items.*.supplier_id' => $this->activeSupplierRule(),
@@ -1217,7 +1241,7 @@ public function update(Request $request, $risId)
             'nullable',
             'numeric',
             'min:0',
-            'max:9999999.99',
+            'max:'.\App\Support\InputLimits::COST,
         ],
 
         'ris_items.*.total_amount' => [
@@ -1238,7 +1262,7 @@ public function update(Request $request, $risId)
 
         'ris_requested_by_date' => [
             $isSaveOnly ? 'nullable' : 'required',
-            'date_format:d/m/Y',
+            'date_format:m/d/Y',
         ],
 
         'signature_data' => [
@@ -1290,7 +1314,7 @@ public function update(Request $request, $risId)
             'Requested By date is required before submitting.',
 
         'ris_requested_by_date.date_format' =>
-            'Requested By date must use dd/mm/yyyy format.',
+            'Requested By date must use mm/dd/yyyy format.',
 
         'ris_items.*.quantity_requested.min' =>
             'Quantity Requested must be at least 1.',
@@ -1337,7 +1361,6 @@ public function update(Request $request, $risId)
                 || filled($item['supplier_id'] ?? null);
 
         })
-        ->map(fn ($item) => $this->clearPurchaserIssued($item))
         ->values();
 
     $splitOverflow = $this->risItemSplitOverflowMessage($items);
@@ -1396,11 +1419,11 @@ public function update(Request $request, $risId)
 
     if (
         $saveAction === 'resubmit'
-        && $ris->ris_status !== 'Minor Revision'
+        && ! in_array($ris->ris_status, [RisWorkflow::MINOR_REVISION, RisWorkflow::PRESIDENT_REVISION], true)
     ) {
         return back()->with(
             'error',
-            'Only an RIS under Minor Revision can be resubmitted.'
+            'Only an RIS under For revision can be resubmitted.'
         );
     }
 
@@ -1414,7 +1437,7 @@ public function update(Request $request, $risId)
 
         $requestedByDate =
             \Carbon\Carbon::createFromFormat(
-                'd/m/Y',
+                'm/d/Y',
                 $validated['ris_requested_by_date']
             )->format('Y-m-d');
     }
@@ -1457,7 +1480,7 @@ public function update(Request $request, $risId)
         // =================================================
         // System-assigned on submit only — drafts stay null; resubmit keeps existing No.
         $formNumber = $ris->ris_form_number;
-        if ($saveAction === 'save' && in_array($ris->ris_status, ['Draft', 'Minor Revision'], true)) {
+        if ($saveAction === 'save' && RisWorkflow::isPurchaserEditable($ris)) {
             $formNumber = null;
         } elseif ($saveAction === 'submit') {
             $formNumber = RisWorkflow::allocateFormNumberOnSubmit();
@@ -1478,8 +1501,9 @@ public function update(Request $request, $risId)
             'ris_status' =>
                 $newStatus,
 
-            'ris_requested_by_signature' =>
-                $validated['ris_requested_by'] ?? null,
+            'ris_requested_by_signature' => RisWorkflow::resolvePrintedRequesterName(
+                $validated['ris_requested_by'] ?? null
+            ) ?: null,
 
             'ris_requested_by_date' =>
                 $requestedByDate,
@@ -1557,7 +1581,7 @@ public function update(Request $request, $risId)
         }
 
 
-        // One Canvas file per RIS. A new upload replaces the file already on record.
+        // One Canvass file per RIS. A new upload replaces the file already on record.
         $this->storeSingleCanvasAttachment(
             (int) $risId,
             $request->file('ris_attachments', [])
@@ -1644,10 +1668,10 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         // STATUS GATE
         // =================================================
         if ($isResubmit) {
-            if ($ris->ris_status !== 'Minor Revision') {
+            if (! in_array($ris->ris_status, [RisWorkflow::MINOR_REVISION, RisWorkflow::PRESIDENT_REVISION], true)) {
                 return back()->with(
                     'error',
-                    'Only an RIS under Minor Revision can be resubmitted.'
+                    'Only an RIS under For revision can be resubmitted.'
                 );
             }
         } elseif ($ris->ris_status !== 'Draft') {
@@ -1880,6 +1904,13 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     public function sendToSupply(Request $request, $risId)
     {
+        if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+            return back()->with(
+                'error',
+                'Supply Officer handoff is disabled. Create the Authority to Purchase from this approved RIS instead.'
+            );
+        }
+
         $ris = DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->first();
@@ -1937,13 +1968,18 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         if ($isApproved) {
-            if (SupplyHandoff::purchaserCanSendRis($ris)) {
+            if (! ProcurementPortal::PURCHASER_OWNS_ATP && SupplyHandoff::purchaserCanSendRis($ris)) {
                 return back()->with('error', 'Send this RIS to the Supply Officer before archiving.');
             }
             $progress = AtpRisSuppliers::progress([(int) $risId])[(int) $risId] ?? null;
             $hasAtp = $progress !== null && (int) ($progress['open'] ?? 1) === 0;
             if (! $hasAtp) {
-                return back()->with('error', 'Wait until an ATP has been created before archiving this RIS.');
+                return back()->with(
+                    'error',
+                    ProcurementPortal::PURCHASER_OWNS_ATP
+                        ? 'Create the Authority to Purchase for this RIS before archiving.'
+                        : 'Wait until an ATP has been created before archiving this RIS.'
+                );
             }
         }
 
@@ -2070,15 +2106,15 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     {
         [$attachment, $ris] = $this->canvasAttachmentForRequest($attachmentId);
 
-        if (! in_array($ris->ris_status, ['Draft', 'Minor Revision'], true)) {
-            return back()->with('error', 'This Canvas file can no longer be removed.');
+        if (! RisWorkflow::isPurchaserEditable($ris)) {
+            return back()->with('error', 'This Canvass file can no longer be removed.');
         }
 
         $this->deleteCanvasAttachmentRow($attachment);
 
         return back()
             ->with('edit_ris', (int) $ris->ris_id)
-            ->with('success', 'Canvas file removed.');
+            ->with('success', 'Canvass file removed.');
     }
 
     public function revisionImage($revisionId, $index)
@@ -2295,7 +2331,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         $requestedByDate = null;
         if (!empty($source->ris_requested_by_date)) {
             try {
-                $requestedByDate = \Carbon\Carbon::parse($source->ris_requested_by_date)->format('d/m/Y');
+                $requestedByDate = \Carbon\Carbon::parse($source->ris_requested_by_date)->format('m/d/Y');
             } catch (\Throwable $e) {
                 $requestedByDate = null;
             }
@@ -2763,7 +2799,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     }
 
     /**
-     * Each RIS keeps one Canvas file. Extra copies are removed, and a new upload replaces the current file.
+     * Each RIS keeps one Canvass file. Extra copies are removed, and a new upload replaces the current file.
      */
     private function canvasAttachmentsByRis($risIds)
     {
@@ -3240,17 +3276,17 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     private function canvasMissingFileHtml(string $name): string
     {
-        $safeName = e($name !== '' ? $name : 'Canvas file');
+        $safeName = e($name !== '' ? $name : 'Canvass file');
 
         return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>File unavailable</title>'
             .'<style>body{margin:0;font-family:Segoe UI,sans-serif;background:#f8fafc;color:#0f172a}'
             .'.card{max-width:28rem;margin:4rem auto;padding:1.5rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px}'
             .'p{margin:0 0 .75rem;line-height:1.45;color:#475569}'
             .'strong{color:#0f172a}</style></head><body><div class="card">'
-            .'<p><strong>This Canvas file is no longer on the server.</strong></p>'
+            .'<p><strong>This Canvass file is no longer on the server.</strong></p>'
             .'<p>'.$safeName.'</p>'
             .'<p>The record is still linked, but the uploaded file is missing from storage. '
-            .'Open the RIS in Edit and upload the Canvas file again.</p>'
+            .'Open the RIS in Edit and upload the Canvass file again.</p>'
             .'</div></body></html>';
     }
 
@@ -3332,8 +3368,10 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 return "Item {$rowNumber} needs a supplier.";
             }
 
-            // Issued is filled later by the School Administrator (direct approval)
-            // or the President. The purchaser leaves this column blank.
+            $issuedRaw = $row['quantity_issued'] ?? null;
+            if ($issuedRaw === null || $issuedRaw === '' || (int) $issuedRaw < 1) {
+                return "Item {$rowNumber} needs an Issued quantity of at least 1.";
+            }
 
             if ($isFirstOfGroup && ($row['unit_cost'] === null || $row['unit_cost'] === '' || (float) $row['unit_cost'] <= 0)) {
                 return "Item {$rowNumber} needs a unit cost greater than 0.";
@@ -3344,26 +3382,38 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     }
 
     /**
-     * @param  array<string, mixed>|object  $item
-     * @return array{
-     *     name_description: string,
-     *     brand_id: mixed,
-     *     uom_id: mixed,
-     *     supplier_id: mixed,
-     *     quantity_requested: mixed,
-     *     quantity_issued: mixed,
-     *     unit_cost: mixed
-     * }
+     * Drop blank padded rows before validation so empty qty/cost placeholders
+     * do not fail min:1 / required-style rules during Save Changes.
      */
-    /**
-     * @param  array<string, mixed>  $item
-     * @return array<string, mixed>
-     */
-    private function clearPurchaserIssued(array $item): array
+    private function prepareRisItemsRequest(Request $request): void
     {
-        $item['quantity_issued'] = 0;
+        $items = collect($request->input('ris_items', []))
+            ->filter(fn ($item) => is_array($item))
+            ->map(function (array $item) {
+                $name = trim((string) ($item['name_description'] ?? ''));
+                $qty = $item['quantity_requested'] ?? null;
+                if ($name === '' && ($qty === '' || $qty === null || (int) $qty === 0)) {
+                    $item['quantity_requested'] = null;
+                }
+                $cost = $item['unit_cost'] ?? null;
+                if ($name === '' && ($cost === '' || $cost === null || (float) $cost <= 0)) {
+                    $item['unit_cost'] = null;
+                }
 
-        return $item;
+                return $item;
+            })
+            ->filter(function (array $item) {
+                return filled($item['name_description'] ?? null)
+                    || (filled($item['quantity_requested'] ?? null) && (int) $item['quantity_requested'] > 0)
+                    || (filled($item['unit_cost'] ?? null) && (float) $item['unit_cost'] > 0)
+                    || filled($item['uom_id'] ?? null)
+                    || filled($item['brand_id'] ?? null)
+                    || filled($item['supplier_id'] ?? null);
+            })
+            ->values()
+            ->all();
+
+        $request->merge(['ris_items' => $items]);
     }
 
     private function normalizeRisItemForValidation(array|object $item): array

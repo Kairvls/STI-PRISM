@@ -242,14 +242,26 @@
                 : (message || '');
 
             const type = opts.type || 'success';
-            const timer = opts.timer == null ? 3000 : opts.timer;
+            const replaceGroup = opts.replaceGroup
+                ? String(opts.replaceGroup)
+                : '';
+            // Messaging / chat toasts keep their own duration; everything else stays ~5–6s.
+            const isMessageToast = replaceGroup === 'incoming-message'
+                || opts.source === 'messaging'
+                || opts.channel === 'message';
+            let timer = opts.timer == null
+                ? (isMessageToast ? 8000 : 5500)
+                : Number(opts.timer);
+            if (! isMessageToast && Number.isFinite(timer) && timer > 0 && timer < 5000) {
+                timer = 5500;
+            }
+            if (! isMessageToast && Number.isFinite(timer) && timer > 6000) {
+                timer = 6000;
+            }
             const title = formatTitle(opts.title || rawMessage, type);
             const subtitle = opts.title
                 ? String(rawMessage || opts.subtitle || opts.text || '').trim()
                 : String(opts.subtitle || opts.text || '').trim();
-            const replaceGroup = opts.replaceGroup
-                ? String(opts.replaceGroup)
-                : '';
             const action = opts.action && typeof opts.action === 'object'
                 ? opts.action
                 : null;
@@ -370,7 +382,7 @@
                     window.showMpToast(subtitle, {
                         title: options.title || '',
                         type: type,
-                        timer: options.timer == null ? 3000 : options.timer,
+                        timer: options.timer == null ? 5500 : options.timer,
                     });
 
                     return Promise.resolve({ isConfirmed: false, isDenied: false, isDismissed: true });
@@ -388,6 +400,11 @@
             const flashSuccess = @json(session('success'));
             const flashError = @json(session('error'));
             const flashStatus = @json(session('status'));
+            const flashValidation = @json(
+                (isset($errors) && $errors->any())
+                    ? $errors->all()
+                    : []
+            );
 
             if (flashSuccess) {
                 window.showMpToast(flashSuccess, { title: 'Success', type: 'success' });
@@ -397,6 +414,17 @@
             }
             if (flashStatus && !flashSuccess) {
                 window.showMpToast(flashStatus, { title: 'Update', type: 'info' });
+            }
+            if (Array.isArray(flashValidation) && flashValidation.length && !flashSuccess) {
+                const first = String(flashValidation[0] || 'Please check the form.');
+                const extra = flashValidation.length > 1
+                    ? ' (+' + (flashValidation.length - 1) + ' more)'
+                    : '';
+                window.showMpToast(first + extra, {
+                    title: 'Could not save',
+                    type: 'error',
+                    timer: 5200,
+                });
             }
         });
 

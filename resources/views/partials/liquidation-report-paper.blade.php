@@ -16,7 +16,7 @@
             @include('partials.liquidation-line', ['label' => 'Cheque Number', 'name' => 'liquidation_report_cheque_number', 'value' => old('liquidation_report_cheque_number', $liq?->liquidation_report_cheque_number ?? ''), 'editable' => $editable])
             @include('partials.liquidation-line', ['label' => 'Purpose', 'name' => 'liquidation_report_purpose', 'value' => old('liquidation_report_purpose', $liq?->liquidation_report_purpose ?? ''), 'editable' => $editable, 'required' => true])
             @include('partials.liquidation-line', ['label' => 'Amount', 'name' => 'liquidation_report_amount_advance', 'value' => old('liquidation_report_amount_advance', $liq?->liquidation_report_amount_advance ?? ''), 'editable' => $editable, 'type' => 'number', 'required' => true])
-            @include('partials.liquidation-line', ['label' => 'Date Released', 'name' => 'liquidation_report_date_released', 'value' => old('liquidation_report_date_released', $liq?->liquidation_report_date_released ?? ''), 'editable' => $editable, 'type' => 'date'])
+            @include('partials.liquidation-line', ['label' => 'Date Released', 'name' => 'liquidation_report_date_released', 'value' => old('liquidation_report_date_released', $liq?->liquidation_report_date_released ?? ''), 'editable' => $editable, 'type' => 'date', 'attrs' => 'data-liq-date-released'])
             @include('partials.liquidation-line', [
                 'label' => 'Charge to Expense/Refundable Account',
                 'name' => 'liquidation_report_charge_to_account',
@@ -26,19 +26,22 @@
             ])
         </div>
         <div class="space-y-1">
-            @include('partials.liquidation-line', ['label' => 'Date Of Activity End', 'name' => 'liquidation_report_activity_end_date', 'value' => old('liquidation_report_activity_end_date', $liq?->liquidation_report_activity_end_date ?? ''), 'editable' => $editable, 'type' => 'date'])
+            @include('partials.liquidation-line', ['label' => 'Date Of Activity End', 'name' => 'liquidation_report_activity_end_date', 'value' => old('liquidation_report_activity_end_date', $liq?->liquidation_report_activity_end_date ?? ''), 'editable' => $editable, 'type' => 'date', 'attrs' => 'data-liq-activity-end'])
             @include('partials.liquidation-line', [
                 'label' => 'Deadline For The Liquidation Submission',
                 'name' => 'liquidation_report_submission_deadline',
                 'value' => old('liquidation_report_submission_deadline', $liq?->liquidation_report_submission_deadline ?? ''),
                 'editable' => $editable,
                 'type' => 'date',
+                'readonly' => true,
+                'attrs' => 'data-liq-deadline',
                 'labelClass' => 'w-[13.5rem] shrink-0 leading-snug',
+                'hint' => $editable ? 'Auto: activity end (or date released) + 15 days' : null,
             ])
             @include('partials.liquidation-line', ['label' => 'Date Submitted', 'name' => 'liquidation_report_date_submitted', 'value' => old('liquidation_report_date_submitted', $liq?->liquidation_report_date_submitted ?? ''), 'editable' => $editable, 'type' => 'date'])
             <div class="flex items-end gap-3 py-1.5">
                 <span class="w-[13.5rem] shrink-0 leading-snug">No. Of Days Lapsed:</span>
-                <span class="min-h-[2rem] flex-1 border-b border-black pb-0.5 leading-8">{{ $liq?->liquidation_report_days_lapse ?? '' }}</span>
+                <span class="min-h-[2rem] flex-1 border-b border-black pb-0.5 leading-8" data-liq-days-lapsed>{{ $liq?->liquidation_report_days_lapse ?? '' }}</span>
             </div>
             @include('partials.liquidation-line', ['label' => 'Other Income', 'name' => 'liquidation_report_other_income', 'value' => old('liquidation_report_other_income', $liq?->liquidation_report_other_income ?? ''), 'editable' => $editable, 'type' => 'number'])
         </div>
@@ -76,13 +79,13 @@
                         @if($editable)<input type="text" name="items[{{ $i }}][particulars]" value="{{ $p }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="w-full border-0 bg-transparent px-1 outline-none">@else{{ $p }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">
-                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][amount]" value="{{ $a }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($a) }}@endif
+                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][amount]" value="{{ $a }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($a) }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">
-                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][actual_amount]" value="{{ $aa }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($aa) }}@endif
+                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][actual_amount]" value="{{ $aa }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($aa) }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">
-                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][actual_total]" value="{{ $at }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($at) }}@endif
+                        @if($editable)<input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][actual_total]" value="{{ $at }}" class="w-full border-0 bg-transparent text-right outline-none">@else{{ $fmt($at) }}@endif
                     </td>
                     <td class="h-9 border border-black px-2 text-right align-middle">{{ $editable ? '' : $fmt($v) }}</td>
                     <td class="h-9 border border-black px-2 text-center align-middle">
@@ -162,7 +165,7 @@
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">
-                        {{ $liq?->liquidation_report_submitted_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_submitted_by_date)->format('d/m/Y') : '' }}
+                        {{ $liq?->liquidation_report_submitted_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_submitted_by_date)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -210,7 +213,7 @@
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">
-                        {{ $liq?->liquidation_report_checked_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_checked_by_date)->format('d/m/Y') : '' }}
+                        {{ $liq?->liquidation_report_checked_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_checked_by_date)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>
@@ -252,7 +255,7 @@
                 <div class="min-w-[7.5rem] text-right text-xs">
                     <div class="font-semibold">Date</div>
                     <div class="mt-1 min-h-[1.5rem] border-b border-black pb-0.5">
-                        {{ $liq?->liquidation_report_indorsed_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_indorsed_by_date)->format('d/m/Y') : '' }}
+                        {{ $liq?->liquidation_report_indorsed_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_indorsed_by_date)->format('m/d/Y') : '' }}
                     </div>
                 </div>
             </div>

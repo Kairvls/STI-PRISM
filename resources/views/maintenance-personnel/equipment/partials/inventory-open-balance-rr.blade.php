@@ -18,10 +18,10 @@
         }
     }
 @endphp
-<div class="{{ $rrPending > 0 ? 'bg-slate-50' : '' }}">
+<div class="{{ $rrPending > 0 ? 'bg-slate-100' : 'bg-white' }}">
     <button
         type="button"
-        class="grid w-full grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 px-5 py-3 text-left transition {{ $rrPending > 0 ? 'border-l-4 border-l-amber-500 hover:bg-slate-100/80' : 'border-l-4 border-l-transparent hover:bg-slate-50/80' }}"
+        class="grid w-full grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 px-5 py-3 text-left transition {{ $rrPending > 0 ? 'border-l-4 border-l-amber-500 hover:bg-slate-200/70' : 'border-l-4 border-l-transparent hover:bg-slate-100' }}"
         :aria-expanded="openRr['{{ $rrKey }}'] ? 'true' : 'false'"
         @click="toggleRr('{{ $rrKey }}')"
     >
@@ -33,7 +33,7 @@
                 <span class="flex flex-wrap items-center gap-2">
                     <span class="text-base font-semibold text-slate-900">{{ $report['rr_number'] }}</span>
                     @if ($rrPending > 0)
-                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                        <span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-amber-300 shadow-sm">
                             <i data-lucide="package-plus" class="h-3 w-3"></i>
                             {{ $rrPending }} pending
                         </span>
@@ -89,7 +89,7 @@
     <div
         x-show="openRr['{{ $rrKey }}']"
         x-cloak
-        class="border-t border-slate-100 bg-white"
+        class="border-t border-slate-200 bg-white"
     >
         @foreach (collect($report['lines'])->sortByDesc(fn ($l) => (int) ($l['pending_stock'] ?? 0))->values() as $line)
             @php
@@ -99,11 +99,11 @@
                 $units = $line['units'] ?? [];
                 $isLastLine = $loop->last;
             @endphp
-            <div class="relative border-b border-slate-100 last:border-b-0 {{ $pending > 0 ? 'border-l-4 border-l-amber-500 bg-slate-50' : 'border-l-4 border-l-transparent bg-white' }}">
+            <div class="relative border-b border-slate-200 last:border-b-0 {{ $pending > 0 ? 'border-l-4 border-l-amber-500 bg-slate-100' : 'border-l-4 border-l-transparent bg-white' }}">
                 {{-- Tree connector: |-- under the RR chevron --}}
                 <span class="pointer-events-none absolute left-[1.625rem] top-0 bottom-0 w-5" aria-hidden="true">
-                    <span class="absolute left-0 w-px bg-slate-300 {{ $isLastLine ? 'top-0 h-1/2' : 'inset-y-0' }}"></span>
-                    <span class="absolute left-0 top-1/2 h-px w-full -translate-y-px bg-slate-300"></span>
+                    <span class="absolute left-0 w-px bg-slate-400 {{ $isLastLine ? 'top-0 h-1/2' : 'inset-y-0' }}"></span>
+                    <span class="absolute left-0 top-1/2 h-px w-full -translate-y-px bg-slate-400"></span>
                 </span>
 
                 <div class="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 py-2.5 pl-14 pr-5">
@@ -111,7 +111,7 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <p class="truncate font-medium text-slate-900">{{ $line['article'] }}</p>
                             @if ($pending > 0)
-                                <span class="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-amber-300">
                                     {{ $pending }} pending
                                 </span>
                             @endif
@@ -158,7 +158,7 @@
                                 </button>
                             @endif
                             @if ($pending > 0)
-                                <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition hover:bg-amber-600" onclick="openAddEquipmentModal({{ $lineId }})">
+                                <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#001db3]" onclick="openAddEquipmentModal({{ $lineId }})">
                                     <i data-lucide="package-plus" class="h-3.5 w-3.5"></i>
                                     Add {{ $pending }} to inventory
                                 </button>

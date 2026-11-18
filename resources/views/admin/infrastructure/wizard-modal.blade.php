@@ -764,7 +764,7 @@
                                             >
                                                 This floor is a blank canvas
                                             </h3>
-                                            <p class="mt-2 text-sm text-slate-500">Use Configure campus to map rooms and their initial assets.</p>
+                                            <p class="mt-2 text-sm text-slate-500">Use Configure campus to map rooms.</p>
                                         </div>
                                         <template x-if="roomLayout.edit && selectedEquipmentId === item.id">
                                                 <span

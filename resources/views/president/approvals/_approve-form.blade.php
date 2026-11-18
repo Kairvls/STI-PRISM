@@ -1,7 +1,7 @@
 {{-- President signs Approved by only --}}
 @php
     $presidentName = Auth::user()->user_full_name ?? 'President';
-    $todayDisplay = now()->format('d/m/Y');
+    $todayDisplay = now()->format('m/d/Y');
     $items = $risItems ?? collect();
     $savedSignatures = $savedSignatures ?? collect();
     $issuedSig = trim((string) ($ris->ris_issued_by_signature ?? ''));
@@ -187,10 +187,6 @@
     <input type="hidden" name="signature_data" id="pa_signature_data" value="">
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-        <div class="mb-4 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-xs text-slate-900">
-            Fill <strong>Issued</strong> for each item (it cannot be higher than Requested), then sign <strong>Approved by</strong>. Choose who this RIS is passed to. You can select the School Administrator, the Purchaser who made the request, or both.
-        </div>
-
         <div class="overflow-x-auto bg-gray-100 p-4 md:p-6">
             <div class="president-ris-form mx-auto">
                 <div class="ris-document-header president-ris-locked">
@@ -232,9 +228,10 @@
                                     $issuedAskedByName[$itemKey] = $rowAsked;
                                 }
                                 $groupAsked = $issuedAskedByName[$itemKey] ?? $rowAsked;
-                                $canFillIssued = $item && $itemName !== '';
-                                $purchaserAmount = $canFillIssued
-                                    ? ((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))
+                                $issuedQty = (int) ($item->ris_quantity_issued ?? 0);
+                                $amountBasis = $issuedQty > 0 ? $issuedQty : (float) ($item->ris_quantity_requested ?? 0);
+                                $lineAmount = isset($item->ris_unit_cost)
+                                    ? round($amountBasis * (float) $item->ris_unit_cost, 2)
                                     : null;
                             @endphp
                             <tr>
@@ -242,28 +239,9 @@
                                 <td class="text-center president-ris-locked">{{ $item?->brand_name ?? '' }}</td>
                                 <td class="text-center president-ris-locked">{{ $item?->uom_name ?? '' }}</td>
                                 <td class="text-center president-ris-locked">{{ $item->ris_quantity_requested ?? '' }}</td>
-                                <td class="text-center">
-                                    @if ($canFillIssued)
-                                        <input
-                                            type="number"
-                                            name="issued[{{ (int) $item->ris_item_id }}]"
-                                            min="1"
-                                            max="9999999"
-                                            required
-                                            inputmode="numeric"
-                                            data-issued-input
-                                            data-item-label="{{ $itemName }}"
-                                            data-item-key="{{ $itemKey }}"
-                                            data-group-asked="{{ $groupAsked }}"
-                                            data-unit-cost="{{ (float) ($item->ris_unit_cost ?? 0) }}"
-                                            value=""
-                                            class="ris-issued-input"
-                                            title="Issued cannot be higher than requested"
-                                        >
-                                    @endif
-                                </td>
+                                <td class="text-center president-ris-locked">{{ $item->ris_quantity_issued ?? '' }}</td>
                                 <td class="text-right president-ris-locked">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
-                                <td class="text-right president-ris-locked" @if($canFillIssued) data-issued-amount="{{ (int) $item->ris_item_id }}" data-purchaser-amount="{{ number_format($purchaserAmount, 2) }}" @endif>{{ $canFillIssued ? number_format($purchaserAmount, 2) : '' }}</td>
+                                <td class="text-right president-ris-locked">{{ $lineAmount !== null ? number_format($lineAmount, 2) : '' }}</td>
                             </tr>
                         @endfor
                     </tbody>
@@ -286,7 +264,7 @@
                         ])
                         <div class="ris-date-label">Date:</div>
                         <div class="ris-date-line">
-                            {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                            {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                         </div>
                     </div>
 
@@ -319,12 +297,12 @@
                                 id="pa_approved_by_date"
                                 value="{{ old('ris_approved_by_date', $todayDisplay) }}"
                                 required
-                                placeholder="dd/mm/yyyy"
+                                placeholder="mm/dd/yyyy"
                                 inputmode="numeric"
                                 maxlength="10"
                                 autocomplete="off"
                                 class="ris-date-input"
-                                title="Approved by date (dd/mm/yyyy)"
+                                title="Approved by date (mm/dd/yyyy)"
                             >
                         </div>
                     </div>
@@ -340,7 +318,7 @@
                         </div>
                         <div class="ris-date-label">Date:</div>
                         <div class="ris-date-line">
-                            {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                            {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                         </div>
                     </div>
 
@@ -355,7 +333,7 @@
                         </div>
                         <div class="ris-date-label">Date:</div>
                         <div class="ris-date-line">
-                            {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                            {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                         </div>
                     </div>
                 </div>
@@ -450,7 +428,7 @@
                 </span>
                 <span class="min-w-0 flex-1">
                     <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
-                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or similar · can be saved to your list</span>
+                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or paper photo · dark ink on light / white bond paper · paper cleared automatically</span>
                     <span id="paSigUploadName" class="mt-1 hidden block truncate text-[11px] font-medium text-slate-600"></span>
                 </span>
                 <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
@@ -492,21 +470,14 @@
     </div>
 
     <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 bg-white px-5 py-4 md:px-6">
-        @php $purchaserName = \App\Support\RisWorkflow::requesterName($ris, 'Purchaser'); @endphp
-        <fieldset class="mr-auto min-w-[16rem] border-0 p-0">
-            <legend class="text-xs font-semibold text-slate-800">Pass this RIS to</legend>
-            <div class="mt-2 flex flex-col gap-1.5">
-                <label class="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" name="return_to[]" value="school_admin" checked class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]">
-                    School Administrator
-                </label>
-                <label class="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" name="return_to[]" value="purchaser" class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]">
-                    {{ $purchaserName }} <span class="text-slate-400">(Purchaser)</span>
-                </label>
-            </div>
-            <p class="mt-1 text-[11px] text-slate-400">Select one or both.</p>
-        </fieldset>
+        <input type="hidden" name="return_to[]" value="school_admin">
+        <div class="mr-auto min-w-0 max-w-sm rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+            <p class="text-xs font-medium text-slate-600">Pass this RIS to</p>
+            <p class="mt-0.5 text-sm font-semibold text-slate-900">School Administrator</p>
+            <p class="mt-1 text-[11px] leading-relaxed text-slate-400">
+                Required so they can sign <strong>Issued by</strong> on the RIS.
+            </p>
+        </div>
         <button
             type="button"
             onclick="if (!window._presidentPaFileDialogOpen) closePresidentApproveModal()"
@@ -1086,15 +1057,25 @@
             var useBtn = event.target.closest('.pa-use-saved');
             if (useBtn) {
                 var previewImg = useBtn.querySelector('.pa-saved-preview');
-                applySignature(previewImg ? previewImg.getAttribute('src') : '');
-                if (uploadInput) uploadInput.value = '';
-                if (uploadNameOut) {
-                    uploadNameOut.textContent = '';
-                    uploadNameOut.classList.add('hidden');
-                }
-                var sigs = form && form.querySelector('.ris-signatures');
-                if (sigs && typeof sigs.scrollIntoView === 'function') {
-                    sigs.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var savedSrc = previewImg ? previewImg.getAttribute('src') : '';
+                var applySaved = function (url) {
+                    applySignature(url || '');
+                    if (uploadInput) uploadInput.value = '';
+                    if (uploadNameOut) {
+                        uploadNameOut.textContent = '';
+                        uploadNameOut.classList.add('hidden');
+                    }
+                    var sigs = form && form.querySelector('.ris-signatures');
+                    if (sigs && typeof sigs.scrollIntoView === 'function') {
+                        sigs.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                };
+                if (savedSrc && window.PrismSignatureImage && window.PrismSignatureImage.cleanForOverlay) {
+                    window.PrismSignatureImage.cleanForOverlay(savedSrc).then(applySaved).catch(function () {
+                        applySaved(savedSrc);
+                    });
+                } else {
+                    applySaved(savedSrc);
                 }
                 return;
             }
@@ -1133,7 +1114,10 @@
                 }
             }
             if (!file) return;
-            readFileAsDataUrl(file).then(function (url) {
+            var load = (window.PrismSignatureImage && window.PrismSignatureImage.fromFile)
+                ? window.PrismSignatureImage.fromFile(file)
+                : readFileAsDataUrl(file);
+            load.then(function (url) {
                 applySignature(url || '');
                 if (saveOnUpload && saveOnUpload.checked) {
                     var currentCount = savedList ? savedList.querySelectorAll('[data-saved-sig-id]').length : 0;
@@ -1141,14 +1125,24 @@
                         showNotice('Signature applied. List is full (4 max) — remove one to save this upload.');
                     } else {
                         var label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
-                        saveSignatureToLibrary({ file: file, label: label }).then(function () {
+                        saveSignatureToLibrary({ dataUrl: url || '', label: label }).then(function () {
                             showNotice('Signature saved to your list.');
                         }).catch(function (err) {
                             showNotice(err.message || 'Signature applied, but could not save it to your list.');
                         });
                     }
                 }
-            }).catch(function () {});
+            }).catch(function (err) {
+                applySignature('');
+                if (uploadInput) uploadInput.value = '';
+                if (uploadNameOut) {
+                    uploadNameOut.textContent = '';
+                    uploadNameOut.classList.add('hidden');
+                }
+                showNotice(err && err.message
+                    ? err.message
+                    : 'Use a clear dark-ink signature on light / white bond paper.');
+            });
         });
     }
 
@@ -1177,7 +1171,8 @@
 
     function issuedQuantityError(scope) {
         var inputs = scope.querySelectorAll('[data-issued-input]');
-        if (!inputs.length) return 'Fill Issued for each item.';
+        // Issued is filled by the Purchaser; skip client check when there are no inputs.
+        if (!inputs.length) return '';
         var groups = {};
         var message = '';
         for (var i = 0; i < inputs.length; i++) {
@@ -1240,11 +1235,6 @@
                 showNotice(issuedError);
                 return;
             }
-            if (!form.querySelector('input[name="return_to[]"]:checked')) {
-                showNotice('Choose who this RIS is passed to. You can select the School Administrator, the Purchaser, or both.');
-                return;
-            }
-
             var canvas = document.getElementById('paSignatureCanvas');
             if (canvasHasDrawing(canvas)) {
                 applySignature((window.exportTrimmedSignatureDataUrl
@@ -1290,6 +1280,8 @@
                 if (typeof window.openApprovedRisPreviewModal === 'function') {
                     openApprovedRisPreviewModal(risId, {
                         afterApprove: true,
+                        adminNotified: data.admin_notified !== false,
+                        awaitingNotify: false,
                         approvedDate: data.approved_by_date
                             ? new Date(data.approved_by_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
                             : null

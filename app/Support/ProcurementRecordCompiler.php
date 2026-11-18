@@ -474,6 +474,49 @@ class ProcurementRecordCompiler
         }
     }
 
+    /**
+     * Best-effort ATP id for a document so paper preview can be resolved without a package.
+     */
+    public static function resolveAtpIdForDocument(string $type, int $docId): ?int
+    {
+        if ($docId < 1) {
+            return null;
+        }
+
+        return match ($type) {
+            'atp' => $docId,
+            'ris' => (int) (DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_ris_id', $docId)
+                ->orderByDesc('authority_purchase_id')
+                ->value('authority_purchase_id') ?: 0) ?: null,
+            'rfc' => (int) (DB::table('request_check_table')
+                ->where('request_check_id', $docId)
+                ->value('request_check_authority_purchase_id') ?: 0) ?: null,
+            'dv' => Schema::hasTable('disbursement_vouchers_table')
+                ? ((int) (DB::table('disbursement_vouchers_table as dv')
+                    ->leftJoin('request_check_table as rfc', 'rfc.request_check_id', '=', 'dv.dv_request_check_id')
+                    ->where('dv.dv_id', $docId)
+                    ->value('rfc.request_check_authority_purchase_id') ?: 0) ?: null)
+                : null,
+            'rr' => (int) (DB::table('receiving_reports_table')
+                ->where('receiving_report_id', $docId)
+                ->value('receiving_report_atp_id') ?: 0) ?: null,
+            'liq' => (function () use ($docId) {
+                $rrId = (int) (DB::table('liquidation_reports_table')
+                    ->where('liquidation_report_id', $docId)
+                    ->value('liquidation_report_receiving_report_id') ?: 0);
+                if ($rrId < 1) {
+                    return null;
+                }
+
+                return (int) (DB::table('receiving_reports_table')
+                    ->where('receiving_report_id', $rrId)
+                    ->value('receiving_report_atp_id') ?: 0) ?: null;
+            })(),
+            default => null,
+        };
+    }
+
     public static function assertAttachmentBelongsToPackage(int $atpId, int $attachmentId): int
     {
         $resolved = self::resolveDocuments($atpId);

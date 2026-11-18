@@ -1,7 +1,7 @@
 {{-- Admin Checked by / Issued by: Direct Approve, Forward to President, or Co-sign --}}
 @php
     $adminName = Auth::user()->user_full_name ?? 'Administrator';
-    $todayDisplay = now()->format('d/m/Y');
+    $todayDisplay = now()->format('m/d/Y');
     $items = $risItems ?? collect();
     $mode = in_array(($mode ?? 'direct'), ['direct', 'forward', 'cosign'], true) ? $mode : 'direct';
     $isForward = $mode === 'forward';
@@ -288,41 +288,21 @@
                             School Administrator supporting details
                         </h4>
                         <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            Optional note and attachment for the President explaining why this RIS should be approved. Separate from the Canvas below.
+                            Optional note and attachment for the President explaining why this RIS should be approved. Separate from the Canvass below.
                         </p>
                     </div>
                 </div>
 
-                @php
-                    $presidentReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_PRESIDENT);
-                    $presidentAutoId = \App\Support\ReviewerAssignment::preferredId($presidentReviewers);
-                @endphp
-                <label for="assigned_reviewer_id" class="mt-3 block text-xs font-medium text-slate-700">
-                    Assign to President <span class="text-red-500">*</span>
-                </label>
-                <select
-                    id="assigned_reviewer_id"
-                    name="assigned_reviewer_id"
-                    required
-                    class="mt-1.5 block h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                >
-                    <option value="">Select President…</option>
-                    @foreach($presidentReviewers as $reviewer)
-                        <option
-                            value="{{ $reviewer['id'] }}"
-                            @selected(old('assigned_reviewer_id', $presidentAutoId) == $reviewer['id'])
-                        >{{ $reviewer['name'] }}</option>
-                    @endforeach
-                </select>
-                <p class="mt-1.5 text-xs text-slate-400">
-                    Only the selected President will receive this RIS for review.
-                    @if(collect($presidentReviewers)->contains(fn ($r) => !empty($r['primary'])))
-                        Primary-role holders appear first.
-                    @endif
-                </p>
-                @error('assigned_reviewer_id')
-                    <p class="mt-1.5 text-xs text-rose-600">{{ $message }}</p>
-                @enderror
+                <div class="mt-3">
+                    @include('partials.assign-reviewer-field', [
+                        'role' => \App\Support\WorkflowNotifier::ROLE_PRESIDENT,
+                        'label' => 'President',
+                        'hint' => 'Only the selected President will receive this RIS for review.',
+                    ])
+                    @error('assigned_reviewer_id')
+                        <p class="mt-1.5 text-xs text-rose-600">{{ $message }}</p>
+                    @enderror
+                </div>
 
                 <label for="forward_details" class="mt-4 block text-xs font-medium text-slate-700">
                     Supporting details
@@ -422,10 +402,11 @@
                                     $issuedAskedByName[$itemKey] = $rowAsked;
                                 }
                                 $groupAsked = $issuedAskedByName[$itemKey] ?? $rowAsked;
-                                $canFillIssued = $isDirect && $item && $itemName !== '';
                                 $lockCell = $isDirect ? 'admin-da-locked' : '';
-                                $purchaserAmount = $canFillIssued
-                                    ? ((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))
+                                $issuedQty = (int) ($item->ris_quantity_issued ?? 0);
+                                $amountBasis = $issuedQty > 0 ? $issuedQty : (float) ($item->ris_quantity_requested ?? 0);
+                                $lineAmount = isset($item->ris_unit_cost)
+                                    ? round($amountBasis * (float) $item->ris_unit_cost, 2)
                                     : null;
                             @endphp
                             <tr>
@@ -434,38 +415,13 @@
                                 <td class="text-center {{ $lockCell }}">{{ $item?->uom_name ?? '' }}</td>
                                 <td class="{{ $lockCell }}">{{ $item->supplier_display_name ?? '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_requested ?? '' }}</td>
-                                <td class="text-center">
-                                    @if ($canFillIssued)
-                                        <input
-                                            type="number"
-                                            name="issued[{{ (int) $item->ris_item_id }}]"
-                                            min="1"
-                                            max="{{ min(9999999, max(1, (int) $groupAsked)) }}"
-                                            required
-                                            inputmode="numeric"
-                                            data-issued-input
-                                            data-item-label="{{ $itemName }}"
-                                            data-item-key="{{ $itemKey }}"
-                                            data-group-asked="{{ $groupAsked }}"
-                                            data-unit-cost="{{ (float) ($item->ris_unit_cost ?? 0) }}"
-                                            value="{{ old('issued.'.(int) $item->ris_item_id) }}"
-                                            class="ris-issued-input"
-                                            title="Issued cannot be higher than requested, and can be up to 7 digits only"
-                                        >
-                                    @else
-                                        {{ $item->ris_quantity_issued ?? '' }}
-                                    @endif
-                                </td>
+                                <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_issued ?? '' }}</td>
                                 <td class="text-right {{ $lockCell }}">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
-                                <td class="text-right {{ $lockCell }}" @if($canFillIssued) data-issued-amount="{{ (int) $item->ris_item_id }}" data-purchaser-amount="{{ number_format($purchaserAmount, 2) }}" @endif>{{ $canFillIssued ? number_format($purchaserAmount, 2) : (isset($item->ris_unit_cost) ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) $item->ris_unit_cost), 2) : '') }}</td>
+                                <td class="text-right {{ $lockCell }}">{{ $lineAmount !== null ? number_format($lineAmount, 2) : '' }}</td>
                             </tr>
                         @endfor
                     </tbody>
                 </table>
-                @if ($isDirect)
-                    <p id="adminDaIssuedError" class="mt-2 hidden text-xs font-medium text-red-700"></p>
-                @endif
-
                 <div class="ris-purpose-area admin-da-locked">
                     <div class="ris-purpose-label">PURPOSE</div>
                     <div class="ris-purpose-line-row">
@@ -483,7 +439,7 @@
                         ])
                         <div class="ris-date-label">Date:</div>
                         <div class="ris-date-line">
-                            {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                            {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                         </div>
                     </div>
 
@@ -517,12 +473,12 @@
                                     id="da_checked_by_date"
                                     value="{{ old('ris_checked_by_date', $todayDisplay) }}"
                                     required
-                                    placeholder="dd/mm/yyyy"
+                                    placeholder="mm/dd/yyyy"
                                     inputmode="numeric"
                                     maxlength="10"
                                     autocomplete="off"
                                     class="ris-date-input"
-                                    title="Checked by date (dd/mm/yyyy)"
+                                    title="Checked by date (mm/dd/yyyy)"
                                 >
                             </div>
                         @else
@@ -541,9 +497,9 @@
                             <div class="ris-date-label">Date:</div>
                             <div class="ris-date-line{{ ($isCosign && !empty($ris->ris_approved_by_date)) ? '' : ' ris-date-placeholder' }}">
                                 @if ($isCosign && !empty($ris->ris_approved_by_date))
-                                    {{ \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') }}
+                                    {{ \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('m/d/Y') }}
                                 @else
-                                    dd/mm/yyyy
+                                    mm/dd/yyyy
                                 @endif
                             </div>
                         @endif
@@ -554,7 +510,7 @@
                         @if ($isForward)
                             <div class="ris-signature-line"> </div>
                             <div class="ris-date-label">Date:</div>
-                            <div class="ris-date-line ris-date-placeholder">dd/mm/yyyy</div>
+                            <div class="ris-date-line ris-date-placeholder">mm/dd/yyyy</div>
                         @else
                         <div class="ris-signature-line ris-signature-line--input ris-signature-input-wrap">
                             <img
@@ -583,12 +539,12 @@
                                 id="da_issued_by_date"
                                 value="{{ old('ris_issued_by_date', $todayDisplay) }}"
                                 required
-                                placeholder="dd/mm/yyyy"
+                                placeholder="mm/dd/yyyy"
                                 inputmode="numeric"
                                 maxlength="10"
                                 autocomplete="off"
                                 class="ris-date-input"
-                                title="Issued by date (dd/mm/yyyy)"
+                                title="Issued by date (mm/dd/yyyy)"
                             >
                         </div>
                         @endif
@@ -599,7 +555,7 @@
                         <div class="ris-signature-line">{{ $ris->ris_received_by_signature ?: ' ' }}</div>
                         <div class="ris-date-label">Date:</div>
                         <div class="ris-date-line{{ empty($ris->ris_received_by_date) ? ' ris-date-placeholder' : '' }}">
-                            {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                            {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                         </div>
                     </div>
                 </div>
@@ -703,7 +659,7 @@
                     </span>
                     <span class="min-w-0 flex-1">
                         <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
-                        <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or similar · can be saved to your list</span>
+                        <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or paper photo · dark ink on light / white bond paper · paper cleared automatically</span>
                         <span id="adminDaSigUploadName" class="mt-1 hidden block truncate text-[11px] font-medium text-slate-600"></span>
                     </span>
                     <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
@@ -732,13 +688,13 @@
                 </label>
             </div>
 
-            {{-- Canvas already attached to this RIS --}}
+            {{-- Canvass already attached to this RIS --}}
             @php $risSupportingDocs = $supportingDocuments ?? collect(); @endphp
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-slate-900">
-                            Canvas
+                            Canvass
                         </h4>
                     </div>
                     <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
@@ -779,7 +735,7 @@
                     </ul>
                 @else
                     <div class="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-3 text-xs text-slate-500">
-                        No Canvas was attached to this RIS.
+                        No Canvass was attached to this RIS.
                     </div>
                 @endif
             </div>
@@ -1402,15 +1358,25 @@
             var useBtn = event.target.closest('.admin-da-use-saved');
             if (useBtn) {
                 var previewImg = useBtn.querySelector('.admin-da-saved-preview');
-                applySignature(previewImg ? previewImg.getAttribute('src') : '');
-                if (uploadInput) uploadInput.value = '';
-                if (uploadNameOut) {
-                    uploadNameOut.textContent = '';
-                    uploadNameOut.classList.add('hidden');
-                }
-                var sigs = form && form.querySelector('.ris-signatures');
-                if (sigs && typeof sigs.scrollIntoView === 'function') {
-                    sigs.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var savedSrc = previewImg ? previewImg.getAttribute('src') : '';
+                var applySaved = function (url) {
+                    applySignature(url || '');
+                    if (uploadInput) uploadInput.value = '';
+                    if (uploadNameOut) {
+                        uploadNameOut.textContent = '';
+                        uploadNameOut.classList.add('hidden');
+                    }
+                    var sigs = form && form.querySelector('.ris-signatures');
+                    if (sigs && typeof sigs.scrollIntoView === 'function') {
+                        sigs.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                };
+                if (savedSrc && window.PrismSignatureImage && window.PrismSignatureImage.cleanForOverlay) {
+                    window.PrismSignatureImage.cleanForOverlay(savedSrc).then(applySaved).catch(function () {
+                        applySaved(savedSrc);
+                    });
+                } else {
+                    applySaved(savedSrc);
                 }
                 return;
             }
@@ -1449,7 +1415,10 @@
                 }
             }
             if (!file) return;
-            readFileAsDataUrl(file).then(function (url) {
+            var load = (window.PrismSignatureImage && window.PrismSignatureImage.fromFile)
+                ? window.PrismSignatureImage.fromFile(file)
+                : readFileAsDataUrl(file);
+            load.then(function (url) {
                 applySignature(url || '');
                 if (saveOnUpload && saveOnUpload.checked) {
                     var currentCount = savedList ? savedList.querySelectorAll('[data-saved-sig-id]').length : 0;
@@ -1457,14 +1426,24 @@
                         showNotice('Signature applied. List is full (4 max) — remove one to save this upload.');
                     } else {
                         var label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
-                        saveSignatureToLibrary({ file: file, label: label }).then(function () {
+                        saveSignatureToLibrary({ dataUrl: url || '', label: label }).then(function () {
                             showNotice('Signature saved to your list.');
                         }).catch(function (err) {
                             showNotice(err.message || 'Signature applied, but could not save it to your list.');
                         });
                     }
                 }
-            }).catch(function () {});
+            }).catch(function (err) {
+                applySignature('');
+                if (uploadInput) uploadInput.value = '';
+                if (uploadNameOut) {
+                    uploadNameOut.textContent = '';
+                    uploadNameOut.classList.add('hidden');
+                }
+                showNotice(err && err.message
+                    ? err.message
+                    : 'Use a clear dark-ink signature on light / white bond paper.');
+            });
         });
     }
 
@@ -1512,7 +1491,8 @@
 
     function issuedQuantityError(scope) {
         var inputs = scope.querySelectorAll('[data-issued-input]');
-        if (!inputs.length) return 'Fill Issued for each item.';
+        // Issued is filled by the Purchaser; skip client check when there are no inputs.
+        if (!inputs.length) return '';
         var groups = {};
         var message = '';
         for (var i = 0; i < inputs.length; i++) {
@@ -1600,14 +1580,22 @@
                 requireSignature();
                 return;
             }
-            readFileAsDataUrl(file).then(function (url) {
+            var load = (window.PrismSignatureImage && window.PrismSignatureImage.fromFile)
+                ? window.PrismSignatureImage.fromFile(file)
+                : readFileAsDataUrl(file);
+            load.then(function (url) {
                 applySignature(url || '');
                 if (hasAppliedSignature()) {
                     form.submit();
                 } else {
                     requireSignature();
                 }
-            }).catch(requireSignature);
+            }).catch(function (err) {
+                showNotice(err && err.message
+                    ? err.message
+                    : 'Use a clear dark-ink signature on light / white bond paper.');
+                requireSignature();
+            });
         });
     }
 

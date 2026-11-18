@@ -233,7 +233,7 @@ class PurchaserDashboard
                 $explorer = $requestNo !== '' ? RequestExplorer::find($requestNo) : null;
                 $stages = $explorer['stages'] ?? [];
                 $stageKey = $explorer['current_stage'] ?? 'ris';
-                $stageName = RequestExplorer::STAGE_LABELS[$stageKey] ?? 'Canvas + RIS';
+                $stageName = RequestExplorer::STAGE_LABELS[$stageKey] ?? 'Canvass + RIS';
                 $detail = trim((string) ($explorer['current_hint'] ?? ''));
                 if ($detail === '') {
                     $detail = trim((string) ($row->ris_status ?? '')) ?: 'In progress';

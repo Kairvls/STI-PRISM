@@ -42,7 +42,7 @@
                 <span class="{{ $showLabel ? 'ml-1 ' : '' }}{{ $badgeClass }}">{{ $requestNo }}</span>
             @endif
             @if($showHint)
-                <p class="mt-1 text-[11px] leading-4 text-slate-400">Same ticket follows Canvas + RIS, ATP, RFC, DV, RR, and Liquidation for this purchase. Click to open the pipeline.</p>
+                <p class="mt-1 text-[11px] leading-4 text-slate-400">Same ticket across Canvass + RIS → Liquidation. Click to open pipeline.</p>
             @endif
         </div>
     @endif

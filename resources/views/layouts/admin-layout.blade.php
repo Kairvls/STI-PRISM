@@ -34,6 +34,7 @@
 @push('scripts')
     @include('layouts.partials.prism-toast')
     @include('layouts.partials.ris-form-number-js')
+    @include('layouts.partials.searchable-select')
     @include('layouts.partials.admin-daily-reminder')
     @include('layouts.partials.module-importance-notice')
     @if (request()->is(

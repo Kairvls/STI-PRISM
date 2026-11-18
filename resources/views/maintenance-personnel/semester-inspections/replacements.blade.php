@@ -78,7 +78,7 @@
                         <i data-lucide="check-circle" class="h-6 w-6"></i>
                     </div>
                     <p class="mt-4 text-sm font-semibold text-slate-900">No aging equipment needing attention</p>
-                    <p class="mt-1 text-sm text-slate-500">Assets will appear here when they near the end of their useful life.</p>
+                    <p class="mt-1 text-sm text-slate-500">Shows assets near end of useful life.</p>
                 </div>
             @endforelse
         </div>

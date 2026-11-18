@@ -104,14 +104,14 @@ class ModuleImportanceNotice
     private static function subtitleFor(string $moduleKey): string
     {
         return match (true) {
-            str_starts_with($moduleKey, 'school-admin.') => 'Items waiting for your review or signature in this module.',
-            str_starts_with($moduleKey, 'president.') => 'Items waiting for your approval or next step in this module.',
-            str_starts_with($moduleKey, 'accounting.') => 'Records in preparation to finish, or items waiting for your action in this module.',
-            str_starts_with($moduleKey, 'receiving.') => 'Receiving reports waiting for your verification in this module.',
-            str_starts_with($moduleKey, 'supply.') => 'Incoming work or records in preparation waiting for you in this module.',
-            $moduleKey === 'maintenance.schedules' => 'Overdue equipment maintenance that still needs to be completed.',
-            str_starts_with($moduleKey, 'maintenance.') => 'Reports that still need your attention in this module.',
-            default => 'Records in preparation, unsubmitted work, or next steps waiting on you in this module.',
+            str_starts_with($moduleKey, 'school-admin.') => 'Waiting for your review or signature.',
+            str_starts_with($moduleKey, 'president.') => 'Waiting for your approval.',
+            str_starts_with($moduleKey, 'accounting.') => 'In-preparation items or work waiting for you.',
+            str_starts_with($moduleKey, 'receiving.') => 'Waiting for your verification.',
+            str_starts_with($moduleKey, 'supply.') => 'Incoming work waiting for you.',
+            $moduleKey === 'maintenance.schedules' => 'Overdue maintenance still open.',
+            str_starts_with($moduleKey, 'maintenance.') => 'Reports needing your attention.',
+            default => 'In-preparation items or next steps waiting on you.',
         };
     }
 
@@ -132,8 +132,8 @@ class ModuleImportanceNotice
             'supply.incoming-ris' => 'Incoming RIS',
             'supply.atp' => 'Authority to Purchase',
             'school-admin.ris' => 'RIS Requests',
-            'school-admin.atp' => 'ATP Requests',
-            'school-admin.rfc' => 'Check Approval Requests',
+            'school-admin.atp' => 'ATP + Check Approvals',
+            'school-admin.rfc' => 'Funding Requests',
             'school-admin.dv' => 'DV Requests',
             'accounting.liq' => 'Liquidation Reports',
             'accounting.dv' => 'Disbursement Vouchers',
@@ -176,7 +176,7 @@ class ModuleImportanceNotice
         $labels = self::moduleLabels();
 
         $match = match (true) {
-            // List only — not Canvas+RIS reference views (/incoming-ris/{id}).
+            // List only — not Canvass+RIS reference views (/incoming-ris/{id}).
             request()->is('supply-officer/incoming-ris') => 'supply.incoming-ris',
             request()->is('supply-officer/authority-to-purchase*') => 'supply.atp',
             request()->is('purchaser/ris*') => 'purchaser.ris',
@@ -307,7 +307,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' '.Str::plural('RIS', $drafts).' in preparation',
-                'Finish and submit these slips to the School Administrator.',
+                'Finish and submit to School Administrator.',
                 self::portalRoute('ris.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -316,20 +316,30 @@ class ModuleImportanceNotice
                 'revision',
                 $revision,
                 $revision.' RIS need'.($revision === 1 ? 's' : '').' resubmit',
-                'Returned for minor revision — update and resubmit.',
+                'Returned for revision — update and resubmit.',
                 self::portalRoute('ris.index', ['status' => 'Minor Revision']),
                 'rotate-ccw',
                 'rose'
             ),
-            self::item(
-                'send-supply',
-                $readySend,
-                $readySend.' approved '.Str::plural('RIS', $readySend).' ready to send',
-                'Send Canvas + RIS to the School Supply / Material Officer next.',
-                self::portalRoute('ris.index', ['focus' => PurchaserAttentionSummary::FOCUS_RIS_READY_FOR_ATP]),
-                'send',
-                'blue'
-            ),
+            ProcurementPortal::PURCHASER_OWNS_ATP
+                ? self::item(
+                    'create-atp',
+                    $readySend,
+                    $readySend.' approved '.Str::plural('RIS', $readySend).' ready for ATP',
+                    'Create ATP, set payment path, then prepare funding.',
+                    self::portalRoute('atp.index', ['focus' => PurchaserAttentionSummary::FOCUS_RIS_READY_FOR_ATP]),
+                    'file-plus-2',
+                    'blue'
+                )
+                : self::item(
+                    'send-supply',
+                    $readySend,
+                    $readySend.' approved '.Str::plural('RIS', $readySend).' ready to send',
+                    'Send Canvass + RIS to Supply Officer next.',
+                    self::portalRoute('ris.index', ['focus' => PurchaserAttentionSummary::FOCUS_RIS_READY_FOR_ATP]),
+                    'send',
+                    'blue'
+                ),
         ];
     }
 
@@ -343,8 +353,12 @@ class ModuleImportanceNotice
             self::item(
                 'create-rfc',
                 $ready,
-                $ready.' approved '.Str::plural('ATP', $ready).' need funding',
-                'Choose a payment path and create the funding request.',
+                ProcurementPortal::PURCHASER_OWNS_ATP
+                    ? $ready.' '.Str::plural('ATP', $ready).' need payment path / funding'
+                    : $ready.' approved '.Str::plural('ATP', $ready).' need funding',
+                ProcurementPortal::PURCHASER_OWNS_ATP
+                    ? 'Set payment path, prepare RFC, then submit ATP + RFC once to School Admin.'
+                    : 'Set payment path and create funding request.',
                 self::portalRoute('atp.index', ['focus' => PurchaserAttentionSummary::FOCUS_ATP_READY_FOR_RFC]),
                 'banknote',
                 'blue'
@@ -409,7 +423,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' unsubmitted funding '.Str::plural('request', $drafts),
-                'In-preparation or revision requests still need to be submitted.',
+                'In-preparation or revision records still need submit.',
                 self::portalRoute('rfc.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -418,7 +432,7 @@ class ModuleImportanceNotice
                 'send-accounting',
                 $canSend,
                 $canSend.' approved '.Str::plural('request', $canSend).' ready for Accounting',
-                'Send the package so Accounting can prepare the disbursement voucher.',
+                'Send package so Accounting can prepare DV.',
                 self::portalRoute('rfc.index', ['status' => 'Approved']),
                 'send',
                 'blue'
@@ -436,7 +450,7 @@ class ModuleImportanceNotice
                 'create-rr',
                 $rrReady,
                 $rrReady.' funded '.Str::plural('request', $rrReady).' need a Receiving Report',
-                'Create the Receiving Report after buying with the released check.',
+                'Create RR after buying with released check.',
                 self::portalRoute('rfc.index', ['focus' => PurchaserAttentionSummary::FOCUS_RFC_READY_FOR_RR]),
                 'package-plus',
                 'blue'
@@ -464,7 +478,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' unsubmitted '.Str::plural('Receiving Report', $drafts),
-                'Finish in-preparation / revision reports and submit to the Receiving Officer.',
+                'Finish in-preparation records and submit to Receiving Officer.',
                 self::portalRoute('rr.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -523,7 +537,7 @@ class ModuleImportanceNotice
                 'create-atp',
                 $count,
                 $count.' incoming '.Str::plural('RIS', $count).' need an ATP',
-                'Create an Authority to Purchase from each approved Canvas + RIS.',
+                'Create ATP from each approved Canvass + RIS.',
                 self::safeRoute('supply-officer.incoming-ris'),
                 'file-plus-2',
                 'blue'
@@ -557,7 +571,7 @@ class ModuleImportanceNotice
                 'drafts',
                 $drafts,
                 $drafts.' unsubmitted '.Str::plural('ATP', $drafts),
-                'Finish records in preparation and submit to the School Administrator.',
+                'Finish in-preparation records and submit for approval.',
                 self::safeRoute('supply-officer.atp.index', ['status' => 'Draft']),
                 'file-pen',
                 'amber'
@@ -566,7 +580,7 @@ class ModuleImportanceNotice
                 'release',
                 $releaseReady,
                 $releaseReady.' approved '.Str::plural('ATP', $releaseReady).' ready to release',
-                'Send each approved ATP back to the Purchaser so they can request funding.',
+                'Release approved ATP to Purchaser for funding.',
                 self::safeRoute('supply-officer.atp.index', ['status' => 'Approved']),
                 'send',
                 'blue'
@@ -593,7 +607,7 @@ class ModuleImportanceNotice
                 'cosign',
                 (int) $c['awaitingCosign'],
                 $c['awaitingCosign'].' RIS waiting for your signature',
-                'Open RIS → Ready to Sign for Direct Approve, Pass to President, or Issued by.',
+                'Approve, pass to President, or Issued by.',
                 self::safeRoute('school-admin.digital-signatures.sign-ris', ['filter' => 'for_decision']),
                 'pen-line',
                 'blue'
@@ -619,8 +633,8 @@ class ModuleImportanceNotice
             self::item(
                 'pending',
                 $count,
-                $count.' ATP waiting for your approval',
-                'Open Authority to Purchase and approve or return these documents.',
+                $count.' ATP + RFC '.Str::plural('package', $count).' waiting for your approval',
+                'One approval stamps ATP and the linked funding request.',
                 self::safeRoute('school-admin.atp.index', ['status' => 'incoming']),
                 'file-check-2',
                 'amber'
@@ -631,28 +645,8 @@ class ModuleImportanceNotice
     /** @return list<array> */
     private static function schoolAdminRfcItems(): array
     {
-        if (! Schema::hasTable('request_check_table')) {
-            return [];
-        }
-
-        $query = DB::table('request_check_table');
-        if (Schema::hasColumn('request_check_table', 'request_check_assigned_reviewer_id')) {
-            ReviewerAssignment::applyQueueFilter($query, 'request_check_table.request_check_assigned_reviewer_id');
-        }
-        AccountingAttentionSummary::scopeRfcIncoming($query);
-        $count = (int) $query->count();
-
-        return [
-            self::item(
-                'pending',
-                $count,
-                $count.' funding '.Str::plural('request', $count).' waiting for your approval',
-                'Open Check Approval Requests and approve or return these funding forms.',
-                self::safeRoute('school-admin.rfc.index', ['status' => 'incoming']),
-                'receipt-text',
-                'amber'
-            ),
-        ];
+        // Needs-review RFCs are handled on the ATP + RFC package page; no separate notice.
+        return [];
     }
 
     /** @return list<array> */
@@ -677,7 +671,7 @@ class ModuleImportanceNotice
                 'pending',
                 $count,
                 $count.' disbursement '.Str::plural('voucher', $count).' waiting for your approval',
-                'Open DV Requests and approve or return vouchers from Accounting.',
+                'Approve or return these DV vouchers.',
                 self::safeRoute('school-admin.dv.index', ['status' => 'incoming']),
                 'file-text',
                 'amber'
@@ -753,7 +747,7 @@ class ModuleImportanceNotice
                 'release',
                 $readyRelease,
                 $readyRelease.' voucher'.($readyRelease === 1 ? '' : 's').' ready to release the check',
-                'President already approved — release the check and notify the Purchaser.',
+                'Release check and notify Purchaser.',
                 self::safeRoute('accounting.dv.index', ['status' => 'ready_release']),
                 'circle-check',
                 'emerald'
@@ -780,7 +774,7 @@ class ModuleImportanceNotice
                 'notify',
                 (int) $c['awaitingNotifyCount'],
                 $c['awaitingNotifyCount'].' approved RIS still need School Admin',
-                'Tell the School Administrator to add their signature on these approved slips.',
+                'Ask School Administrator to co-sign.',
                 self::safeRoute('president.approvals', ['focus' => PresidentAttentionSummary::FOCUS_AWAITING_NOTIFY]),
                 'bell',
                 'blue'
@@ -810,7 +804,7 @@ class ModuleImportanceNotice
                 'pending',
                 $count,
                 $count.' disbursement '.Str::plural('voucher', $count).' waiting for your approval',
-                'Open Disbursement Vouchers and approve or return these packages.',
+                'Approve or return these DV packages.',
                 self::safeRoute('president.dv.index', ['status' => 'incoming']),
                 'file-text',
                 'amber'
@@ -828,7 +822,7 @@ class ModuleImportanceNotice
                 'pending',
                 (int) ($c['pendingCount'] ?? 0),
                 ($c['pendingCount'] ?? 0).' receiving '.Str::plural('report', (int) ($c['pendingCount'] ?? 0)).' waiting for verification',
-                'Open Receiving Reports and verify quantity, condition, and OR details.',
+                'Verify quantity, condition, and OR.',
                 self::safeRoute('receiving.rr.index', ['focus' => 'queue']),
                 'package-check',
                 'amber'
@@ -880,7 +874,7 @@ class ModuleImportanceNotice
                 'overdue',
                 $overdue,
                 $overdue.' overdue maintenance '.Str::plural('schedule', $overdue),
-                'Past the scheduled date — complete or reschedule these first.',
+                'Past due — complete or reschedule first.',
                 SchedulePortal::schedulesUrl('?focus='.MaintenanceAttentionSummary::FOCUS_OVERDUE),
                 'alarm-clock',
                 'rose'

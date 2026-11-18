@@ -115,6 +115,33 @@ class RfcAtpLinks
     }
 
     /**
+     * Draft / revision RFCs covering the ATP that can be jointly submitted with it.
+     *
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public static function draftRfcsForAtp(int $atpId)
+    {
+        if ($atpId < 1 || ! Schema::hasTable('request_check_table')) {
+            return collect();
+        }
+
+        $query = DB::table('request_check_table')
+            ->whereIn('request_check_status', ['Draft', 'Pending', 'Minor Revision'])
+            ->whereNull('request_check_submitted_at');
+
+        if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+            $query->where(function ($q) {
+                $q->whereNull('request_check_is_archived')
+                    ->orWhere('request_check_is_archived', 0);
+            });
+        }
+
+        self::whereCoversAtp($query, $atpId);
+
+        return $query->orderBy('request_check_id')->get();
+    }
+
+    /**
      * Latest funding request (any status) that covers the ATP.
      */
     public static function latestRfcForAtp(int $atpId): ?object

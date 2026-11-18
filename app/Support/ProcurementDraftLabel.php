@@ -33,11 +33,17 @@ class ProcurementDraftLabel
             return self::STATUS;
         }
 
-        if (strcasecmp($status, 'Draft — not submitted yet') === 0) {
+        if (strcasecmp($status, 'Draft — not submitted yet') === 0
+            || strcasecmp($status, 'Draft - not submitted yet') === 0) {
             return self::STATUS_LONG;
         }
 
-        return $status !== '' ? $status : '—';
+        if ($status === '') {
+            return '—';
+        }
+
+        // Catch leftover user-facing "Draft" wording without touching unrelated words.
+        return preg_replace('/\bDraft\b/i', self::STATUS, $status) ?: $status;
     }
 
     /**

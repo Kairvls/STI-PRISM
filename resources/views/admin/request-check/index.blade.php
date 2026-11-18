@@ -17,7 +17,7 @@
 >
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Request for Check Approval</h1>
-        <p class="mt-1 text-sm text-gray-600">Sign as Administrator after Accounting has verified the request.</p>
+        <p class="mt-1 text-sm text-gray-600">Sign after Accounting has verified it.</p>
     </div>
 
 

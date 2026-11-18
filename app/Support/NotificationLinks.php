@@ -90,6 +90,12 @@ class NotificationLinks
         }
 
         if ($role === WorkflowNotifier::ROLE_SUPPLY_OFFICER) {
+            // Supply Officer portal is dormant while Purchaser owns ATP — open paper preview instead.
+            if (RoleAccess::isPortalDormant(RoleAccess::SUPPLY_OFFICER) || ProcurementPortal::PURCHASER_OWNS_ATP) {
+                return RequestExplorer::viewUrlFor('atp', $id)
+                    ?? '/purchaser/authority-to-purchase?view_atp='.$id;
+            }
+
             return str_contains($stored, 'view_atp=')
                 ? $stored
                 : '/supply-officer/authority-to-purchase?view_atp='.$id;
@@ -98,7 +104,7 @@ class NotificationLinks
         if ($role === WorkflowNotifier::ROLE_PURCHASER) {
             return str_contains($stored, 'selected_atp=') || str_contains($stored, 'view_atp=')
                 ? $stored
-                : '/purchaser/request-check?selected_atp='.$id;
+                : (RequestExplorer::viewUrlFor('atp', $id) ?? '/purchaser/authority-to-purchase?view_atp='.$id);
         }
 
         return null;

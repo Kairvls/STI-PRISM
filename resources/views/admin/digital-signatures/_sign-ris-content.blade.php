@@ -6,28 +6,28 @@
 <div id="signRisContent" class="space-y-6">
 
     @php
-        $filter = $filter ?? 'pending';
+        $filter = $filter ?? 'for_decision';
         $search = $search ?? '';
         $signRisCards = [
             [
-                'label' => 'Pending',
-                'hint' => '₱'.number_format((float) ($pendingActionAmount ?? 0), 2),
-                'value' => number_format($pendingActionCount ?? (($forDecisionCount ?? 0) + ($forCosignCount ?? 0))),
+                'label' => 'All',
+                'hint' => '₱'.number_format((float) ($allAmount ?? 0), 2),
+                'value' => number_format($allCount ?? 0),
                 'tag' => 'button',
-                'filterKey' => 'pending',
+                'filterKey' => 'all',
                 'extraClass' => 'sign-ris-filter-card',
-                'active' => $filter === 'pending',
-                'title' => 'Accepted decisions plus Issued by awaiting signature',
+                'active' => $filter === 'all',
+                'title' => 'All Ready to Sign records, including forwarded to President and directly approved',
             ],
             [
-                'label' => 'For Decision',
+                'label' => 'Needs decision',
                 'hint' => '₱'.number_format((float) ($forDecisionAmount ?? 0), 2),
                 'value' => number_format($forDecisionCount ?? 0),
                 'tag' => 'button',
                 'filterKey' => 'for_decision',
                 'extraClass' => 'sign-ris-filter-card',
                 'active' => $filter === 'for_decision',
-                'title' => 'Accepted RIS ready to Forward, Approve Directly, or Return',
+                'title' => 'Accepted RIS ready to Forward or Approve Directly (fresh only)',
             ],
             [
                 'label' => 'Awaiting Issued by',
@@ -74,7 +74,7 @@
                     ])
 
                     <a
-                        href="{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? ''])) }}"
+                        href="{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? '', 'urgency' => $urgencyFilter ?? ''])) }}"
                         title="Export the current Sign RIS table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >
@@ -87,18 +87,12 @@
             </div>
 
             <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div
+                <nav
                     id="signRisFilterSlider"
                     role="tablist"
                     aria-label="Sign RIS filters"
-                    class="relative inline-flex max-w-full items-center overflow-x-auto rounded-lg bg-slate-100 p-1"
+                    class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                    <span
-                        class="sign-ris-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-8 rounded-md bg-white shadow-sm will-change-transform"
-                        style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
-                        aria-hidden="true"
-                    ></span>
-
                     @foreach ($signRisCards as $card)
                         <button
                             type="button"
@@ -106,22 +100,28 @@
                             data-filter="{{ $card['filterKey'] }}"
                             title="{{ $card['title'] }}"
                             aria-selected="{{ $filter === $card['filterKey'] ? 'true' : 'false' }}"
-                            class="sign-ris-filter-btn relative z-10 flex h-8 shrink-0 items-center whitespace-nowrap rounded-md px-3.5 text-xs font-semibold transition-colors
-                                {{ $filter === $card['filterKey'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                            class="sign-ris-filter-btn shrink-0 rounded-lg px-3 py-2 text-sm transition
+                                {{ $filter === $card['filterKey']
+                                    ? 'bg-gray-100/80 font-medium text-black'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}
                             "
                         >
                             {{ $card['label'] }}
+                            <span class="ml-1 tabular-nums" data-count="{{ $card['filterKey'] }}">{{ $card['value'] }}</span>
                         </button>
                     @endforeach
-                </div>
+                </nav>
 
                 @include('admin.partials.ris-submitted-date-search', [
                     'search' => $search,
                     'submittedDate' => $submittedDate ?? '',
+                    'urgencyFilter' => $urgencyFilter ?? '',
+                    'urgencyOnChange' => 'applySignRisUrgencyFilter',
                     'searchInputId' => 'signRisLiveSearch',
                     'dateInputId' => 'signRisSubmittedDate',
                     'dateBtnId' => 'signRisSubmittedDateBtn',
                     'dateClearId' => 'signRisSubmittedDateClear',
+                    'urgencyInputId' => 'signRisUrgencyFilter',
                 ])
             </div>
         </div>

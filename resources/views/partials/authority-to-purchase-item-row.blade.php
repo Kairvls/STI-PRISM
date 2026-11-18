@@ -128,8 +128,9 @@
             name="items[{{ $i }}][unit_price]"
             value="{{ $price }}"
             min="0"
-            max="9999999.99"
+            max="{{ \App\Support\InputLimits::COST }}"
             inputmode="decimal"
+            data-money
             onkeydown="if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();"
             oninput="const [whole, decimals] = this.value.split('.'); if (whole.length > 7 || (decimals ?? '').length > 2) this.value = whole.slice(0, 7) + (decimals !== undefined ? '.' + decimals.slice(0, 2) : '');"
             @if(!empty($lockRow)) readonly @endif

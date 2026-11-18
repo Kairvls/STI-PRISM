@@ -6,7 +6,7 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">Notifications</h1>
-        <p class="admin-page-subtitle">Inbox and compose are in the top bar.</p>
+        <p class="admin-page-subtitle">Use the top bar to inbox or compose.</p>
     </div>
     <div class="rounded-[18px] border border-gray-200 bg-white">
         @forelse ($items as $item)

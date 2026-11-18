@@ -17,6 +17,7 @@ use App\Models\Message;
 use App\Models\MessageHiddenUser;
 use App\Models\User;
 use App\Models\MessageAttachment;
+use App\Support\ProcurementShareApproval;
 use App\Support\RequestExplorer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 
@@ -37,6 +39,8 @@ class MessageController extends Controller
     {
         $userId = Auth::id();
         $search = trim((string) $request->get('search', ''));
+
+        $dormantRoleIds = \App\Support\RoleAccess::dormantRoleIds();
 
         $conversations = Conversation::whereHas(
             'participants',
@@ -55,10 +59,23 @@ class MessageController extends Controller
                 }
             }
         )
+        // Hide 1:1 chats with dormant roles (e.g. School Supply / Material Officer).
+        ->when($dormantRoleIds !== [], function ($q) use ($dormantRoleIds, $userId) {
+            $q->where(function ($inner) use ($dormantRoleIds, $userId) {
+                $inner->where('conversation_type', '!=', 'direct')
+                    ->orWhereDoesntHave('participants', function ($pq) use ($dormantRoleIds, $userId) {
+                        $pq->where('user_id', '!=', $userId)
+                            ->whereHas('user', function ($uq) use ($dormantRoleIds) {
+                                $uq->whereIn('user_role_id', $dormantRoleIds);
+                            });
+                    });
+            });
+        })
         ->with([
             'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,message_type,call_id,is_read,read_at,delivered_at,created_at,is_unsent',
             'lastMessage.call:call_id,caller_id,receiver_id,call_type,status,duration,answered_at',
-            'participants.user:user_id,user_full_name,user_profile_picture,last_active_at',
+            'participants.user:user_id,user_full_name,user_profile_picture,last_active_at,user_role_id',
+            'participants.user.role:role_id,role_name',
         ])
 
         // =========================================
@@ -589,6 +606,70 @@ class MessageController extends Controller
             'type' => $type,
             'printUrl' => route('messages.documents.print', ['type' => $type, 'id' => $id]),
         ], $this->sharedDocumentPaperData($type, $id)));
+    }
+
+    /**
+     * Fresh share-card approval state for chat (Approve button visibility).
+     */
+    public function sharedDocumentStatus(string $type, int $id): JsonResponse
+    {
+        $context = ProcurementShareApproval::contextFor($type, $id, Auth::user());
+        if (! $context) {
+            return response()->json(['message' => 'Document not found.'], 404);
+        }
+
+        return response()->json([
+            'data' => [
+                'type' => $context['card']['type'],
+                'id' => $context['card']['id'],
+                'label' => $context['card']['label'],
+                'title' => $context['card']['title'],
+                'status' => $context['status'],
+                'needs_approval' => $context['needs_approval'],
+                'can_approve' => $context['can_approve'],
+                'approve_url' => $context['approve_url'],
+                'url' => route('messages.documents.show', [
+                    'type' => $context['card']['type'],
+                    'id' => $context['card']['id'],
+                ]),
+            ],
+        ]);
+    }
+
+    /**
+     * Aligned receiver starts / continues approval from chat.
+     * Signature-heavy steps open the portal form; status is refreshed from DB afterward.
+     */
+    public function approveSharedDocument(string $type, int $id): JsonResponse
+    {
+        $context = ProcurementShareApproval::contextFor($type, $id, Auth::user());
+        if (! $context) {
+            return response()->json(['message' => 'Document not found.'], 404);
+        }
+
+        if (! $context['can_approve'] || ! $context['approve_url']) {
+            return response()->json([
+                'message' => $context['needs_approval']
+                    ? 'You are not aligned to approve this document.'
+                    : 'This document is already approved or does not need approval.',
+                'data' => [
+                    'status' => $context['status'],
+                    'needs_approval' => $context['needs_approval'],
+                    'can_approve' => false,
+                ],
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Open the approval form to finish.',
+            'data' => [
+                'status' => $context['status'],
+                'needs_approval' => $context['needs_approval'],
+                'can_approve' => true,
+                'approve_url' => $context['approve_url'],
+                'redirect' => $context['approve_url'],
+            ],
+        ]);
     }
 
     /**
@@ -2587,11 +2668,17 @@ class MessageController extends Controller
         // Also get last_active_at for online status
         // =====================================================
 
+        $dormantRoleIds = \App\Support\RoleAccess::dormantRoleIds();
+
         $query = User::where(
             'user_id',
             '!=',
             $userId
         )
+        ->when($dormantRoleIds !== [], function ($q) use ($dormantRoleIds) {
+            // Hide dormant roles (e.g. School Supply / Material Officer) from messaging pickers.
+            $q->whereNotIn('user_role_id', $dormantRoleIds);
+        })
         ->select(
             'user_id',
             'user_full_name',
@@ -2684,6 +2771,9 @@ class MessageController extends Controller
 
                     'email' =>
                         $user->user_email_address,
+
+                    'role_id' =>
+                        (int) ($user->user_role_id ?? 0),
 
                     'role' =>
                         $user->role->role_name ?? 'User',

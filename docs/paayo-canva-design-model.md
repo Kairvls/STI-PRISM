@@ -92,7 +92,7 @@ tell reporter **personally** → **END**
 
 **Flow:**  
 **Start** →  
-1. **Purchaser** makes Canvas+RIS → **School Admin** (optional **President**)  
+1. **Purchaser** makes Canvass+RIS → **School Admin** (optional **President**)  
 2. Purchaser sends to **Supply Officer** → ATP → School Admin → back to Purchaser  
 3. Purchaser **RFC** → School Admin  
 4. Purchaser → **Accounting** DV → School Admin → **President** → check release → Purchaser collects  

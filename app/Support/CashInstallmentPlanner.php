@@ -11,6 +11,7 @@ use InvalidArgumentException;
 /**
  * Builds cash-installment RFC schedules from an ATP:
  * optional downpayment RFC + N installment RFCs for (total − downpayment) / N.
+ * A downpayment equal to the ATP total creates a single downpayment RFC only.
  */
 class CashInstallmentPlanner
 {
@@ -110,22 +111,42 @@ class CashInstallmentPlanner
     }
 
     /**
+     * How many installment RFCs a term spans, given an optional day-count interval.
+     * Example: 3 months + every 15 days → floor(90 / 15) = 6.
+     * Without an interval, the month count is used as the installment count.
+     */
+    public static function installmentCount(int $months, int $intervalDays = 0): int
+    {
+        $months = max(1, $months);
+        if ($intervalDays > 0) {
+            return max(1, (int) floor(($months * 30) / $intervalDays));
+        }
+
+        return $months;
+    }
+
+    /**
      * Build schedule rows (not yet persisted).
      *
      * @param  array<int, string|null>  $dates  due dates aligned to schedule rows
      * @return list<array{kind: string, sequence: int, amount: float, due_date: string|null, label: string}>
      */
-    public static function buildSchedule(float $total, float $downpayment, int $months, array $dates = []): array
-    {
+    public static function buildSchedule(
+        float $total,
+        float $downpayment,
+        int $months,
+        array $dates = [],
+        int $intervalDays = 0
+    ): array {
         $total = round($total, 2);
         $downpayment = round(max(0, $downpayment), 2);
-        $months = max(1, $months);
+        $count = self::installmentCount($months, $intervalDays);
 
         if ($total <= 0) {
             throw new InvalidArgumentException('ATP total must be greater than zero.');
         }
-        if ($downpayment >= $total) {
-            throw new InvalidArgumentException('Downpayment must be less than the ATP total.');
+        if ($downpayment > $total) {
+            throw new InvalidArgumentException('Downpayment cannot exceed the ATP total.');
         }
 
         $remaining = round($total - $downpayment, 2);
@@ -143,10 +164,19 @@ class CashInstallmentPlanner
             $dateIndex++;
         }
 
-        $base = $months > 0 ? floor(($remaining / $months) * 100) / 100 : 0.0;
+        // Full downpayment covers the ATP — no installment RFCs.
+        if ($remaining <= 0) {
+            if ($rows === []) {
+                throw new InvalidArgumentException('Enter a downpayment or choose an installment term.');
+            }
+
+            return $rows;
+        }
+
+        $base = $count > 0 ? floor(($remaining / $count) * 100) / 100 : 0.0;
         $allocated = 0.0;
-        for ($i = 1; $i <= $months; $i++) {
-            $amount = $i === $months
+        for ($i = 1; $i <= $count; $i++) {
+            $amount = $i === $count
                 ? round($remaining - $allocated, 2)
                 : $base;
             $allocated = round($allocated + $amount, 2);
@@ -155,7 +185,7 @@ class CashInstallmentPlanner
                 'sequence' => $i,
                 'amount' => $amount,
                 'due_date' => self::normalizeDate($dates[$dateIndex] ?? null),
-                'label' => 'Installment '.$i.' of '.$months,
+                'label' => 'Installment '.$i.' of '.$count,
             ];
             $dateIndex++;
         }
@@ -212,7 +242,7 @@ class CashInstallmentPlanner
 
         $months = (int) $term->term_months;
         $total = self::atpTotal($atpId);
-        $schedule = self::buildSchedule($total, $downpayment, $months, $dates);
+        $schedule = self::buildSchedule($total, $downpayment, $months, $dates, $intervalDays);
 
         if ($intervalDays > 0) {
             $anchor = null;
@@ -230,7 +260,17 @@ class CashInstallmentPlanner
                         : 'Set a start date so installment dates can be counted from it.'
                 );
             }
+            if ($anchor < now()->toDateString()) {
+                throw new InvalidArgumentException('Start / downpayment date must be today or a future date.');
+            }
             $schedule = self::applyIntervalDates($schedule, $anchor, $intervalDays);
+        } else {
+            foreach ($schedule as $row) {
+                $due = self::normalizeDate($row['due_date'] ?? null);
+                if ($due !== null && $due < now()->toDateString()) {
+                    throw new InvalidArgumentException('Installment dates must be today or a future date.');
+                }
+            }
         }
 
         $payee = self::payeeForAtp($atp);

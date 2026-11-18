@@ -63,7 +63,7 @@
             toast: true,
             position: 'top',
             showConfirmButton: false,
-            timer: 3000,
+            timer: 5500,
             timerProgressBar: true,
             buttonsStyling: false,
             backdrop: false,
@@ -82,7 +82,7 @@
         @elseif(session('error'))
             Swal.fire(Object.assign({}, flashOpts, {
                 title: @json(session('error')),
-                timer: 4000,
+                timer: 5500,
                 customClass: Object.assign({}, flashOpts.customClass, {
                     popup: 'prism-swal prism-swal--err',
                 }),
@@ -91,7 +91,7 @@
             Swal.fire(Object.assign({}, flashOpts, {
                 title: 'Please check the form',
                 html: @json('<ul class="prism-swal-list">'.collect($errors->all())->unique()->map(fn ($error) => '<li>'.e($error).'</li>')->implode('').'</ul>'),
-                timer: 4000,
+                timer: 5500,
                 customClass: Object.assign({}, flashOpts.customClass, {
                     popup: 'prism-swal prism-swal--err',
                 }),

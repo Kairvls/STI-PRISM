@@ -474,7 +474,7 @@
                         <tr>
                             <td colspan="7" class="px-5 py-16 text-center">
                                 <p class="text-sm font-semibold text-gray-900">No deployed equipment matches your filters</p>
-                                <p class="mt-1 text-sm text-gray-500">Try another room, category, or status, or clear the search. Equipment still in storage is transferred from Inventory.</p>
+                                <p class="mt-1 text-sm text-gray-500">Try another filter, or transfer from Inventory.</p>
                                 @if ($hasFilters)
                                     <a
                                         href="{{ $deployedUrl }}"
@@ -852,7 +852,10 @@
                         name="residual_value"
                         type="number"
                         min="0"
+                        max="{{ \App\Support\InputLimits::COST }}"
                         step="0.01"
+                        inputmode="decimal"
+                        data-money
                         placeholder="Optional salvage / residual amount"
                         class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                     >

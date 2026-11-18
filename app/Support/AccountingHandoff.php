@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Purchaser → Accounting package handoff (approved Canvas+RIS+ATP+RFC for DV).
+ * Purchaser → Accounting package handoff (approved Canvass+RIS+ATP+RFC for DV).
  */
 class AccountingHandoff
 {
@@ -75,7 +75,7 @@ class AccountingHandoff
 
         $label = $rfc->request_check_form_number ?: ('RFC #'.$rfcId);
         $title = 'Package ready for DV';
-        $message = $label.' (Canvas + RIS + ATP + RFC) was submitted by the Purchaser. Create a Disbursement Voucher.';
+        $message = $label.' (Canvass + RIS + ATP + RFC) was submitted by the Purchaser. Create a Disbursement Voucher.';
         $url = '/accounting/disbursement-vouchers?rfc='.$rfcId;
 
         if ($accountingUserId && $accountingUserId > 0) {

@@ -18,10 +18,13 @@ use App\Support\RisWorkflow;
 use App\Support\UserSignatureLibrary;
 use App\Support\ProcurementPaymentPath;
 use App\Support\PurchaseOrderBasket;
+use App\Support\AccountingHandoff;
+use App\Support\ProcurementPortal;
 use App\Support\RfcAtpLinks;
 use App\Support\DocumentRevisionNotes;
 use App\Support\DocumentUrgency;
 use App\Support\RisRevisionImages;
+use App\Support\SupplyHandoff;
 use App\Exceptions\RevisionImageUploadException;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -79,6 +82,7 @@ class AccountingController extends Controller
         $filter = $listing['filter'];
         $submittedDate = $listing['submittedDate'];
         $attentionFocus = $listing['attentionFocus'];
+        $urgencyFilter = $listing['urgencyFilter'] ?? null;
 
         if ($filter === 'incoming') {
             DocumentUrgency::orderUrgentFirst($query, 'ATP');
@@ -118,7 +122,15 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.authority-to-purchase.index', compact('records', 'filter', 'counts', 'attentionFocus', 'submittedDate', 'formPreviews'));
+        return view('accounting.authority-to-purchase.index', compact(
+            'records',
+            'filter',
+            'counts',
+            'attentionFocus',
+            'submittedDate',
+            'urgencyFilter',
+            'formPreviews'
+        ));
     }
 
     public function exportAtpPdf(Request $request)
@@ -217,6 +229,10 @@ class AccountingController extends Controller
         $returnStatus = $this->resolveReturnStatus($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming');
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+        $linkedPendingRfcs = $this->linkedRfcsAwaitingReview((int) $id);
+        $hasLinkedRfcPair = $linkedPendingRfcs->isNotEmpty()
+            || (RfcAtpLinks::latestRfcForAtp((int) $id) !== null);
+        $dualRouteApprove = ProcurementPortal::PURCHASER_OWNS_ATP && $reviewable;
 
         return view('accounting.authority-to-purchase.show', compact(
             'atp',
@@ -226,7 +242,10 @@ class AccountingController extends Controller
             'reviewable',
             'returnStatus',
             'savedSignatures',
-            'purchaseOrder'
+            'purchaseOrder',
+            'linkedPendingRfcs',
+            'hasLinkedRfcPair',
+            'dualRouteApprove'
         ));
     }
 
@@ -353,10 +372,30 @@ class AccountingController extends Controller
             return back()->with('error', 'Only submitted ATP records can be approved.');
         }
 
+        $routeTo = 'purchaser';
+        $linkedPendingRfcs = collect();
+        if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+            $routeTo = in_array($request->input('route_to'), ['purchaser', 'purchaser_and_accounting'], true)
+                ? $request->input('route_to')
+                : 'purchaser';
+            $linkedPendingRfcs = $this->linkedRfcsAwaitingReview((int) $id);
+
+            if ($routeTo === 'purchaser_and_accounting' && $linkedPendingRfcs->isEmpty()) {
+                $latest = RfcAtpLinks::latestRfcForAtp((int) $id);
+                if (! $latest || ($latest->request_check_status ?? '') !== 'Approved') {
+                    return back()->with(
+                        'error',
+                        'Pass to Accounting requires a linked funding request. Approve with Purchaser only, or ensure the RFC is submitted with this ATP.'
+                    );
+                }
+            }
+        }
+
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
+        $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
         $update = [
             'authority_purchase_status' => 'Approved',
-            'authority_purchase_authorized_by_signature' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
+            'authority_purchase_authorized_by_signature' => $signature,
             'authority_purchase_rejection_reason' => null,
             'authority_purchase_updated_at' => now(),
         ];
@@ -367,22 +406,97 @@ class AccountingController extends Controller
             $update['authority_purchase_authorized_by_name'] = $name;
         }
         DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update($update);
+        $atp->authority_purchase_status = 'Approved';
 
-        $this->log('ATP', (int) $id, 'Approved', 'ATP approved. School Supply / Material Officer may release it to the Purchaser.');
-        $supplyUserId = $atp->authority_purchase_submitted_by ?: $atp->authority_purchase_created_by;
-        WorkflowNotifier::toUser(
-            $supplyUserId,
-            WorkflowNotifier::ROLE_SUPPLY_OFFICER,
-            'ATP approved',
-            ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ' was approved by the School Administrator. Release it to the Purchaser for Request for Check.',
-            'atp_approved',
-            'ATP',
-            (int) $id,
-            '/supply-officer/authority-to-purchase?view_atp='.(int) $id,
-            'school-admin'
-        );
+        $purchaserUserId = (int) ($atp->authority_purchase_created_by
+            ?: $atp->authority_purchase_submitted_by
+            ?: SupplyHandoff::defaultPurchaserForAtp($atp)
+            ?: 0);
 
-        $message = 'ATP approved. ' . WorkflowNotifier::recipientName($supplyUserId, 'The School Supply / Material Officer') . ' has been notified.';
+        $sentToAccountingCount = 0;
+        $approvedRfcCount = 0;
+
+        if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+            // Auto-release so Purchaser always keeps an approved record (no Supply handoff).
+            if (SupplyHandoff::atpReleaseColumnsReady() && ! SupplyHandoff::atpIsReleasedToPurchaser($atp) && $purchaserUserId > 0) {
+                SupplyHandoff::releaseAtpToPurchaser($atp, $purchaserUserId, (int) Auth::id(), [
+                    'notify' => false,
+                ]);
+            }
+
+            foreach ($linkedPendingRfcs as $rfc) {
+                $this->approveLinkedRfcDuringAtpApprove($rfc, $name, $signature);
+                $approvedRfcCount++;
+                $rfc->request_check_status = 'Approved';
+
+                if ($routeTo === 'purchaser_and_accounting' && AccountingHandoff::purchaserCanSendRfc($rfc)) {
+                    AccountingHandoff::sendRfcToAccounting($rfc, (int) Auth::id());
+                    $sentToAccountingCount++;
+                }
+            }
+
+            // Dual route on already-approved linked RFC (edge: ATP re-approved alone).
+            if ($routeTo === 'purchaser_and_accounting' && $sentToAccountingCount === 0) {
+                $latest = RfcAtpLinks::latestRfcForAtp((int) $id);
+                if ($latest && AccountingHandoff::purchaserCanSendRfc($latest)) {
+                    AccountingHandoff::sendRfcToAccounting($latest, (int) Auth::id());
+                    $sentToAccountingCount++;
+                }
+            }
+
+            $form = $atp->authority_purchase_form_number ?: ('ATP #'.$id);
+            $logNote = $routeTo === 'purchaser_and_accounting'
+                ? 'ATP approved and passed to Purchaser + Accounting.'
+                : 'ATP approved and passed to Purchaser.';
+            $this->log('ATP', (int) $id, 'Approved', $logNote);
+
+            if ($purchaserUserId > 0) {
+                $notifyMsg = $routeTo === 'purchaser_and_accounting'
+                    ? $form.' was approved. Accounting already has the package for Disbursement Voucher.'
+                    : $form.' was approved. You may submit the funding package to Accounting when ready.';
+                $this->notifyPurchaser(
+                    $purchaserUserId,
+                    'ATP approved',
+                    $notifyMsg,
+                    'atp_approved',
+                    'ATP',
+                    (int) $id,
+                    '/purchaser/authority-to-purchase?view_atp='.(int) $id
+                );
+            }
+
+            if ($approvedRfcCount > 0) {
+                $bits = [
+                    $approvedRfcCount === 1
+                        ? 'ATP + RFC package approved'
+                        : 'ATP + '.$approvedRfcCount.' RFCs approved',
+                ];
+            } else {
+                $bits = ['ATP approved'];
+            }
+            $bits[] = $routeTo === 'purchaser_and_accounting'
+                ? 'passed to Purchaser and Accounting'
+                : 'passed to Purchaser';
+            $message = implode('; ', $bits).'. '
+                .WorkflowNotifier::recipientName($purchaserUserId, 'The Purchaser').' has been notified.';
+        } else {
+            $this->log('ATP', (int) $id, 'Approved', 'ATP approved. School Supply / Material Officer may release it to the Purchaser.');
+            $supplyUserId = $atp->authority_purchase_submitted_by ?: $atp->authority_purchase_created_by;
+            WorkflowNotifier::toUser(
+                $supplyUserId,
+                WorkflowNotifier::ROLE_SUPPLY_OFFICER,
+                'ATP approved',
+                ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ' was approved by the School Administrator. Release it to the Purchaser for Request for Check.',
+                'atp_approved',
+                'ATP',
+                (int) $id,
+                '/supply-officer/authority-to-purchase?view_atp='.(int) $id,
+                'school-admin'
+            );
+
+            $message = 'ATP approved. ' . WorkflowNotifier::recipientName($supplyUserId, 'The School Supply / Material Officer') . ' has been notified.';
+        }
+
         if ($request->ajax()) {
             return response()->json(['ok' => true, 'message' => $message]);
         }
@@ -418,20 +532,36 @@ class AccountingController extends Controller
                 ]);
 
                 $this->log('ATP', (int) $id, 'Under Review', $validated['remarks']);
-                $supplyUserId = $atp->authority_purchase_submitted_by ?: $atp->authority_purchase_created_by;
-                WorkflowNotifier::toUser(
-                    $supplyUserId,
-                    WorkflowNotifier::ROLE_SUPPLY_OFFICER,
-                    'ATP revision required',
-                    ($atp->authority_purchase_form_number ?: ('ATP #' . $id)) . ': ' . $validated['remarks'] . DocumentRevisionNotes::imagesSuffix($images),
-                    'atp_revision',
-                    'ATP',
-                    (int) $id,
-                    '/supply-officer/authority-to-purchase?view_atp='.(int) $id,
-                    'school-admin'
-                );
+                $authorUserId = $atp->authority_purchase_submitted_by ?: $atp->authority_purchase_created_by;
+                $suffix = DocumentRevisionNotes::imagesSuffix($images);
+                $form = $atp->authority_purchase_form_number ?: ('ATP #'.$id);
 
-                $message = 'Revision requested. ' . WorkflowNotifier::recipientName($supplyUserId, 'The School Supply / Material Officer') . ' has been notified' . DocumentRevisionNotes::imagesSuffix($images) . '.';
+                if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+                    $this->notifyPurchaser(
+                        $authorUserId,
+                        'ATP revision required',
+                        $form.': '.$validated['remarks'].$suffix,
+                        'atp_revision',
+                        'ATP',
+                        (int) $id,
+                        '/purchaser/authority-to-purchase?view_atp='.(int) $id
+                    );
+                    $message = 'Revision requested. '.WorkflowNotifier::recipientName($authorUserId, 'The Purchaser').' has been notified'.$suffix.'.';
+                } else {
+                    WorkflowNotifier::toUser(
+                        $authorUserId,
+                        WorkflowNotifier::ROLE_SUPPLY_OFFICER,
+                        'ATP revision required',
+                        $form.': '.$validated['remarks'].$suffix,
+                        'atp_revision',
+                        'ATP',
+                        (int) $id,
+                        '/supply-officer/authority-to-purchase?view_atp='.(int) $id,
+                        'school-admin'
+                    );
+                    $message = 'Revision requested. '.WorkflowNotifier::recipientName($authorUserId, 'The School Supply / Material Officer').' has been notified'.$suffix.'.';
+                }
+
                 if ($request->ajax()) {
                     return response()->json(['ok' => true, 'message' => $message]);
                 }
@@ -441,6 +571,55 @@ class AccountingController extends Controller
         } catch (RevisionImageUploadException $e) {
             return $this->revisionImageError($request, $e->getMessage());
         }
+    }
+
+    /**
+     * RFCs linked to the ATP that are still awaiting School Admin review.
+     *
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function linkedRfcsAwaitingReview(int $atpId)
+    {
+        if ($atpId < 1 || ! Schema::hasTable('request_check_table')) {
+            return collect();
+        }
+
+        $query = DB::table('request_check_table')
+            ->whereIn('request_check_status', $this->rfcIncomingStatuses());
+
+        if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+            $query->where(function ($q) {
+                $q->whereNull('request_check_is_archived')
+                    ->orWhere('request_check_is_archived', 0);
+            });
+        }
+
+        RfcAtpLinks::whereCoversAtp($query, $atpId);
+
+        return $query->orderBy('request_check_id')->get();
+    }
+
+    private function approveLinkedRfcDuringAtpApprove(object $rfc, string $name, string $signature): void
+    {
+        $rfcId = (int) $rfc->request_check_id;
+        $this->rfcUpdate($rfcId, [
+            'request_check_status' => 'Approved',
+            'request_check_review_stage' => 'accounting',
+            'request_check_accounting_verified_by' => Auth::id(),
+            'request_check_accounting_verified_at' => now(),
+            'request_check_approved_by_user_id' => Auth::id(),
+            'request_check_approved_at' => now(),
+            'request_check_approved_by_signature' => $signature,
+            'request_check_approved_by_admin' => $name,
+            'request_check_updated_at' => now(),
+        ]);
+
+        $this->log(
+            'RFC',
+            $rfcId,
+            'Approved',
+            'Request Check approved with linked ATP.'
+        );
     }
 
     private function revisionImageError(Request $request, string $message)
@@ -799,6 +978,36 @@ class AccountingController extends Controller
         $rfc = $this->rfcQuery()->where('request_check_table.request_check_id', $id)->first();
         abort_if(!$rfc, 404);
 
+        // Package review: when linked ATP is still awaiting SA, open the ATP+RFC page instead.
+        if (
+            ProcurementPortal::PURCHASER_OWNS_ATP
+            && in_array((string) ($rfc->request_check_status ?? ''), $this->rfcIncomingStatuses(), true)
+        ) {
+            $linkedAtpIds = RfcAtpLinks::atpIdsFor(
+                (int) $id,
+                (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null
+            );
+            if ($linkedAtpIds !== []) {
+                $packageAtp = DB::table('authority_to_purchase_table')
+                    ->whereIn('authority_purchase_id', $linkedAtpIds)
+                    ->where('authority_purchase_status', 'Pending')
+                    ->whereNotNull('authority_purchase_submitted_at')
+                    ->orderBy('authority_purchase_id')
+                    ->first(['authority_purchase_id']);
+                if ($packageAtp) {
+                    return redirect()
+                        ->route('school-admin.atp.show', [
+                            'id' => (int) $packageAtp->authority_purchase_id,
+                            'return_status' => $request->query('return_status', 'incoming'),
+                        ])
+                        ->with(
+                            'success',
+                            'Review ATP + RFC together here. One approval stamps both documents.'
+                        );
+                }
+            }
+        }
+
         if (in_array($rfc->request_check_status, ['Submitted', 'Resubmitted'], true) && $this->rfcStatusAllowed('Under Review')) {
             $underReviewPayload = [
                 'request_check_status' => 'Under Review',
@@ -859,6 +1068,7 @@ class AccountingController extends Controller
         $returnStatus = $this->resolveReturnStatus($request, ProcurementReviewPortal::SESSION_RFC_STATUS, 'incoming');
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+        $dualRouteApprove = ProcurementPortal::PURCHASER_OWNS_ATP && $reviewable;
 
         return view('accounting.request-check.show', compact(
             'rfc',
@@ -871,12 +1081,14 @@ class AccountingController extends Controller
             'reviewable',
             'releasable',
             'returnStatus',
-            'savedSignatures'
+            'savedSignatures',
+            'dualRouteApprove'
         ));
     }
 
     public function approveRequestCheck(Request $request, $id)
     {
+        return DB::transaction(function () use ($request, $id) {
         $rfc = $this->lockRfc($id);
         abort_if(!$rfc, 404);
         ReviewerAssignment::assertCanAct(
@@ -889,6 +1101,10 @@ class AccountingController extends Controller
         if (!in_array($rfc->request_check_status, $this->rfcIncomingStatuses(), true)) {
             return back()->with('error', 'This Request Check is not awaiting School Administrator review.');
         }
+
+        $routeTo = in_array($request->input('route_to'), ['purchaser', 'purchaser_and_accounting'], true)
+            ? $request->input('route_to')
+            : 'purchaser';
 
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
         $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
@@ -903,23 +1119,86 @@ class AccountingController extends Controller
             'request_check_approved_by_admin' => $name,
             'request_check_updated_at' => now(),
         ]);
+        $rfc->request_check_status = 'Approved';
 
-        $this->log('RFC', (int) $id, 'Approved', 'Request Check approved. Funds may now be released for collection.');
+        // When Purchaser owns ATP: also approve/release linked Pending ATP if still awaiting SA.
+        if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+            $atpIds = RfcAtpLinks::atpIdsFor((int) $id, (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null);
+            foreach ($atpIds as $atpId) {
+                $atp = $this->lockAtp($atpId);
+                if (
+                    $atp
+                    && ($atp->authority_purchase_status ?? null) === 'Pending'
+                    && filled($atp->authority_purchase_submitted_at ?? null)
+                ) {
+                    $atpUpdate = [
+                        'authority_purchase_status' => 'Approved',
+                        'authority_purchase_authorized_by_signature' => $signature,
+                        'authority_purchase_rejection_reason' => null,
+                        'authority_purchase_updated_at' => now(),
+                    ];
+                    if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by')) {
+                        $atpUpdate['authority_purchase_authorized_by'] = Auth::id();
+                    }
+                    if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by_name')) {
+                        $atpUpdate['authority_purchase_authorized_by_name'] = $name;
+                    }
+                    DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->update($atpUpdate);
+                    $atp->authority_purchase_status = 'Approved';
+
+                    $purchaserUserId = (int) ($atp->authority_purchase_created_by
+                        ?: $atp->authority_purchase_submitted_by
+                        ?: SupplyHandoff::defaultPurchaserForAtp($atp)
+                        ?: 0);
+                    if (
+                        SupplyHandoff::atpReleaseColumnsReady()
+                        && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)
+                        && $purchaserUserId > 0
+                    ) {
+                        SupplyHandoff::releaseAtpToPurchaser($atp, $purchaserUserId, (int) Auth::id(), [
+                            'notify' => false,
+                        ]);
+                    }
+                    $this->log('ATP', (int) $atpId, 'Approved', 'ATP approved with linked Request Check.');
+                }
+            }
+        }
+
+        if ($routeTo === 'purchaser_and_accounting' && AccountingHandoff::purchaserCanSendRfc($rfc)) {
+            AccountingHandoff::sendRfcToAccounting($rfc, (int) Auth::id());
+        }
+
+        $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+        $this->log(
+            'RFC',
+            (int) $id,
+            'Approved',
+            $routeTo === 'purchaser_and_accounting'
+                ? 'Request Check approved and passed to Purchaser + Accounting.'
+                : 'Request Check approved. Funds may now be released for collection.'
+        );
         $this->notifyPurchaser(
             $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
             'Request Check approved',
-            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' was approved. Wait for funds to be marked ready for collection, then create a Receiving Report.',
+            $routeTo === 'purchaser_and_accounting'
+                ? $label.' was approved. Accounting already has the package for Disbursement Voucher.'
+                : $label.' was approved. You may submit to Accounting when ready, then create a Receiving Report after funds.',
             'rfc_approved',
             'RFC',
             (int) $id,
             '/purchaser/request-check'
         );
 
-        $message = 'Request Check approved. ' . WorkflowNotifier::recipientName($rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id, 'The Purchaser') . ' has been notified.';
+        $message = ($routeTo === 'purchaser_and_accounting'
+            ? 'Request Check approved and passed to Purchaser + Accounting. '
+            : 'Request Check approved. ')
+            .WorkflowNotifier::recipientName($rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id, 'The Purchaser')
+            .' has been notified.';
         if ($request->ajax()) {
             return response()->json(['ok' => true, 'message' => $message]);
         }
         return redirect(ProcurementReviewPortal::requestCheck((int) $id))->with('success', $message);
+        });
     }
 
     public function reviseRequestCheck(Request $request, $id)
@@ -2224,14 +2503,36 @@ class AccountingController extends Controller
      */
     private function atpReviewListing(Request $request): array
     {
-        $filter = $this->resolveModuleFilter($request, ProcurementReviewPortal::SESSION_ATP_STATUS, 'incoming', [
-            'all', 'incoming', 'revision', 'approved', 'rejected',
-        ]);
+        $allowed = ['all', 'incoming', 'revision', 'approved', 'rejected'];
+        $statusProvided = $request->query->has('status')
+            && trim((string) $request->query('status')) !== '';
+        $urgencyFilter = RisWorkflow::urgencyFilter($request->query('urgency'));
+
         $attentionFocus = AccountingAttentionSummary::focusFor($request, 'authority_to_purchase_table');
         if ($attentionFocus) {
             $filter = $attentionFocus['status'];
             session([ProcurementReviewPortal::SESSION_ATP_STATUS => $filter]);
+        } elseif (! $statusProvided) {
+            // Landing default: Needs review → Revision → Approved → All
+            if ($this->countAtpIncoming() > 0) {
+                $filter = 'incoming';
+            } elseif ($this->countAtpRevision() > 0) {
+                $filter = 'revision';
+            } elseif ($this->countAtpApproved() > 0) {
+                $filter = 'approved';
+            } else {
+                $filter = 'all';
+            }
+            session([ProcurementReviewPortal::SESSION_ATP_STATUS => $filter]);
+        } else {
+            $filter = $this->resolveModuleFilter(
+                $request,
+                ProcurementReviewPortal::SESSION_ATP_STATUS,
+                'incoming',
+                $allowed
+            );
         }
+
         $query = $this->atpIndexQuery()->where(function ($q) {
             $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
                 ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
@@ -2271,7 +2572,9 @@ class AccountingController extends Controller
             $query->whereDate('authority_to_purchase_table.authority_purchase_submitted_at', $submittedDate);
         }
 
-        return compact('query', 'filter', 'submittedDate', 'attentionFocus');
+        DocumentUrgency::applyFilter($query, 'ATP', $urgencyFilter);
+
+        return compact('query', 'filter', 'submittedDate', 'attentionFocus', 'urgencyFilter');
     }
 
     /**

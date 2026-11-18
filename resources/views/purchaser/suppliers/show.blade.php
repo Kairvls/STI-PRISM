@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Supplier Details')
-@section('page-subtitle', 'Profile, notes, blacklist warnings, and linked documents')
+@section('page-subtitle', 'Profile, notes, and linked documents.')
 
 @section('content')
 
@@ -154,7 +154,7 @@
         <section class="pur-card space-y-5 p-6">
             <div>
                 <h3 class="text-lg font-semibold text-slate-900">Notes &amp; blacklist</h3>
-                <p class="text-sm text-slate-500">Blacklist is a warning only — the supplier remains selectable on forms.</p>
+                <p class="text-sm text-slate-500">Warning only — supplier stays selectable.</p>
             </div>
 
             <form method="POST" action="{{ route(($pp ?? 'purchaser').'.suppliers.notes.store', $supplier->supplier_id) }}" class="space-y-3">

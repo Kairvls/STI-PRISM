@@ -91,12 +91,19 @@ class AdminAttentionSummary
     }
 
     /**
-     * RIS returned for minor revision or rejected by Administrator (Procurement Review).
+     * RIS returned for revision — SA minor revision / reject, or President soft return.
      */
     public static function scopeAmendRis($query, string $prefix = '')
     {
         return $query->whereNotNull($prefix.'ris_requested_by_date')
-            ->whereIn($prefix.'ris_status', ['Minor Revision', 'Rejected']);
+            ->whereIn($prefix.'ris_status', [
+                RisWorkflow::MINOR_REVISION,
+                'Rejected',
+                RisWorkflow::RETURNED_BY_PRESIDENT,
+                RisWorkflow::PRESIDENT_REVISION,
+                RisWorkflow::PRESIDENT_REJECTED,
+                RisWorkflow::PRESIDENT_REJECTED_LEGACY,
+            ]);
     }
 
     /**
@@ -150,7 +157,7 @@ class AdminAttentionSummary
             ],
             self::FOCUS_AMENDMENTS => [
                 'label' => 'Amendments / returned RIS',
-                'description' => 'RIS marked for minor revision or rejected and still in the pipeline.',
+                'description' => 'RIS returned for revision by School Administrator or President, still in the pipeline.',
                 'scope' => 'shared',
             ],
             self::FOCUS_AWAITING_COSIGN => [

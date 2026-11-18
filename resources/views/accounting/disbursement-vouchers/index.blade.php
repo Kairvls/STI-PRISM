@@ -206,12 +206,23 @@
                                             @if($row->request_check_payee) · {{ $row->request_check_payee }}@endif
                                         </p>
                                         <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                                            <a href="{{ route('accounting.dv.package.rfc', $row->request_check_id) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">View RFC</a>
+                                            @php
+                                                $rfcPreview = \App\Support\RequestExplorer::viewUrlFor('rfc', (int) $row->request_check_id);
+                                            @endphp
+                                            @if($rfcPreview)
+                                                <a href="{{ $rfcPreview }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">View RFC</a>
+                                            @endif
                                             @foreach(($row->atp_ids ?? []) as $atpId)
-                                                <a href="{{ route('accounting.dv.package.atp', [$row->request_check_id, $atpId]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">View ATP</a>
+                                                @php $atpPreview = \App\Support\RequestExplorer::viewUrlFor('atp', (int) $atpId); @endphp
+                                                @if($atpPreview)
+                                                    <a href="{{ $atpPreview }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">View ATP</a>
+                                                @endif
                                             @endforeach
                                             @foreach(($row->ris_ids ?? []) as $risId)
-                                                <a href="{{ route('accounting.dv.package.ris', [$row->request_check_id, $risId]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">View Canvas + RIS</a>
+                                                @php $risPreview = \App\Support\RequestExplorer::viewUrlFor('ris', (int) $risId); @endphp
+                                                @if($risPreview)
+                                                    <a href="{{ $risPreview }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">View Canvass + RIS</a>
+                                                @endif
                                             @endforeach
                                         </div>
                                     </div>
@@ -373,12 +384,21 @@
                                     @endphp
                                     <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                                         <span class="text-slate-400">References:</span>
-                                        <a href="{{ route('accounting.dv.package.rfc', $pkgRfcId) }}?edit_dv={{ $dvId }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">RFC</a>
+                                        @php $refRfc = \App\Support\RequestExplorer::viewUrlFor('rfc', $pkgRfcId); @endphp
+                                        @if($refRfc)
+                                            <a href="{{ $refRfc }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">RFC</a>
+                                        @endif
                                         @foreach($pkgAtps as $pkgAtp)
-                                            <a href="{{ route('accounting.dv.package.atp', [$pkgRfcId, $pkgAtp->authority_purchase_id]) }}?edit_dv={{ $dvId }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
+                                            @php $refAtp = \App\Support\RequestExplorer::viewUrlFor('atp', (int) $pkgAtp->authority_purchase_id); @endphp
+                                            @if($refAtp)
+                                                <a href="{{ $refAtp }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
+                                            @endif
                                         @endforeach
                                         @foreach($pkgRis as $pkgRisRow)
-                                            <a href="{{ route('accounting.dv.package.ris', [$pkgRfcId, $pkgRisRow->ris_id]) }}?edit_dv={{ $dvId }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">Canvas + RIS</a>
+                                            @php $refRis = \App\Support\RequestExplorer::viewUrlFor('ris', (int) $pkgRisRow->ris_id); @endphp
+                                            @if($refRis)
+                                                <a href="{{ $refRis }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">Canvass + RIS</a>
+                                            @endif
                                         @endforeach
                                     </div>
                                 </div>
@@ -505,12 +525,21 @@
                                     @endphp
                                     <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                                         <span class="text-slate-400">References:</span>
-                                        <a href="{{ route('accounting.dv.package.rfc', $pkgRfcId) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">RFC</a>
+                                        @php $viewRfc = \App\Support\RequestExplorer::viewUrlFor('rfc', $pkgRfcId); @endphp
+                                        @if($viewRfc)
+                                            <a href="{{ $viewRfc }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">RFC</a>
+                                        @endif
                                         @foreach($pkgAtps as $pkgAtp)
-                                            <a href="{{ route('accounting.dv.package.atp', [$pkgRfcId, $pkgAtp->authority_purchase_id]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
+                                            @php $viewAtp = \App\Support\RequestExplorer::viewUrlFor('atp', (int) $pkgAtp->authority_purchase_id); @endphp
+                                            @if($viewAtp)
+                                                <a href="{{ $viewAtp }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">{{ $pkgAtp->authority_purchase_form_number ?: 'ATP' }}</a>
+                                            @endif
                                         @endforeach
                                         @foreach($pkgRis as $pkgRisRow)
-                                            <a href="{{ route('accounting.dv.package.ris', [$pkgRfcId, $pkgRisRow->ris_id]) }}" target="_blank" class="js-pkg-tab font-medium text-[#0025cc] hover:underline">Canvas + RIS</a>
+                                            @php $viewRis = \App\Support\RequestExplorer::viewUrlFor('ris', (int) $pkgRisRow->ris_id); @endphp
+                                            @if($viewRis)
+                                                <a href="{{ $viewRis }}" target="_blank" rel="noopener noreferrer" class="font-medium text-[#0025cc] hover:underline">Canvass + RIS</a>
+                                            @endif
                                         @endforeach
                                     </div>
                                 </div>
@@ -568,7 +597,7 @@
                     <div class="print-hidden flex items-center justify-between border-b border-gray-200 px-5 py-4">
                         <div>
                             <h3 id="dv-empty-title" class="text-lg font-semibold text-slate-900">Print Empty DV</h3>
-                            <p class="mt-0.5 text-xs text-slate-500">Blank Disbursement Voucher for manual/offline use. System DVs still require an approved request (Canvas + RIS + ATP + RFC).</p>
+                            <p class="mt-0.5 text-xs text-slate-500">Blank DV for offline use. System DVs need an approved request package.</p>
                         </div>
                         <div class="flex items-center gap-1">
                             <button type="button" @click="modalFullscreen = !modalFullscreen" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700" :aria-label="modalFullscreen ? 'Exit fullscreen' : 'Fullscreen'">

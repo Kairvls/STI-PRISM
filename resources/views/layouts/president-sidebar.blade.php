@@ -34,18 +34,6 @@
                 <span class="{{ $navCount }}" title="{{ $presCounts['ris'] }} not viewed yet">{{ $presCounts['ris'] }}</span>
             @endif
         </a>
-        
-        <a
-            href="/president/direct-approvals"
-            class="menu-item {{ request()->is('president/direct-approvals*') ? 'active' : '' }} mt-1"
-            id="direct-approvals-section"
-        >
-            <i class="h-5 w-5" data-lucide="shield-check"></i>
-            <span>School Administrator Direct Approvals</span>
-            @if($presCounts['direct'] > 0)
-                <span class="{{ $navCount }}" title="{{ $presCounts['direct'] }} not viewed yet">{{ $presCounts['direct'] }}</span>
-            @endif
-        </a>
 
         <a
             href="{{ route('president.dv.index') }}"
@@ -61,55 +49,32 @@
 
         <div class="menu-title" id="records-section">RECORDS & ARCHIVES</div>
         <a
+            href="/president/direct-approvals"
+            class="menu-item {{ request()->is('president/direct-approvals*') ? 'active' : '' }}"
+            id="direct-approvals-section"
+        >
+            <i class="h-5 w-5" data-lucide="shield-check"></i>
+            <span>School Administrator Direct Approvals</span>
+            @if($presCounts['direct'] > 0)
+                <span class="{{ $navCount }}" title="{{ $presCounts['direct'] }} not viewed yet">{{ $presCounts['direct'] }}</span>
+            @endif
+        </a>
+        <a
             href="/president/procurement-records"
-            class="menu-item {{ request()->is('president/procurement-records*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('president/procurement-records*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="folder-archive"></i>
             <span>Compiled Records</span>
         </a>
 
-        @php
-            $reportsMenuActive = request()->is('president/reports/approved*')
-                || request()->is('president/reports/monthly-summary*')
-                || request()->is('president/approvals/history*');
-        @endphp
         <div class="menu-title" id="reports-section">ANALYTICS & INSIGHTS</div>
-        <div class="menu-group {{ $reportsMenuActive ? 'is-open' : '' }}" data-menu-group @if($reportsMenuActive) data-force-open="1" @endif>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $reportsMenuActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $reportsMenuActive ? 'true' : 'false' }}"
-                aria-controls="reports-section-panel"
-            >
-                <i data-lucide="bar-chart-3"></i>
-                <span>Decision Reports</span>
-                <i data-lucide="chevron-down" class="menu-group-chevron"></i>
-            </button>
-            <div class="menu-sub" id="reports-section-panel" @if(! $reportsMenuActive) hidden @endif>
-                <a
-                    href="/president/reports/approved"
-                    class="menu-sub-item {{ request()->is('president/reports/approved*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="badge-check"></i>
-                    <span>History</span>
-                </a>
-                <a
-                    href="/president/reports/monthly-summary"
-                    class="menu-sub-item {{ request()->is('president/reports/monthly-summary*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="pie-chart"></i>
-                    <span>Reports & Summary</span>
-                </a>
-                <a
-                    href="/president/approvals/history"
-                    class="menu-sub-item {{ request()->is('president/approvals/history*') ? 'active' : '' }}"
-                >
-                    <i data-lucide="history"></i>
-                    <span>Approval History</span>
-                </a>
-            </div>
-        </div>
+        <a
+            href="{{ route('president.approvals.history') }}"
+            class="menu-item {{ request()->is('president/approvals/history*') || request()->is('president/reports*') ? 'active' : '' }}"
+        >
+            <i data-lucide="bar-chart-3"></i>
+            <span>Decision Reports</span>
+        </a>
 
         <!--<div class="menu-title" id="account-section">ACCOUNT</div>
         <a

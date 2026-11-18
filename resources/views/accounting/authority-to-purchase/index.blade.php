@@ -71,10 +71,14 @@
             'dateBtnId' => 'atpSubmittedDateBtn',
             'dateClearId' => 'atpSubmittedDateClear',
             'dateTitle' => 'Filter by submitted date',
+            'urgencyName' => 'urgency',
+            'urgencyValue' => $urgencyFilter ?? '',
+            'urgencyOnChange' => 'applyAtpUrgencyFilter',
             'exportUrl' => route('school-admin.atp.export-pdf', array_filter([
                 'status' => $filter,
                 'search' => request('search'),
                 'submitted' => $submittedDate ?? '',
+                'urgency' => $urgencyFilter ?? '',
                 'focus' => request('focus'),
             ])),
         ])
@@ -182,7 +186,7 @@
                 class="hidden inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-[#001db3]"
             >
                 <i data-lucide="check" class="h-3.5 w-3.5"></i>
-                Approve
+                Approve ATP + RFC
             </button>
         </div>
     </div>
@@ -193,8 +197,8 @@
     <div class="confirm-card wide" onclick="event.stopPropagation()">
         <div class="flex items-start justify-between gap-3">
             <div>
-                <h3>Sign to approve</h3>
-                <p id="atpListDecisionSubtitle">Authority to Purchase</p>
+                <h3>Sign to approve package</h3>
+                <p id="atpListDecisionSubtitle">ATP + linked funding request</p>
             </div>
             <button type="button" class="icon-close" onclick="closeAtpListDecision()" aria-label="Close"><i data-lucide="x"></i></button>
         </div>
@@ -205,9 +209,9 @@
             <div class="mt-4">
                 @include('accounting.partials.decision-signature-panel', [
                     'savedSignatures' => \App\Support\UserSignatureLibrary::forUser((int) auth()->id()),
-                    'signTitle' => 'Accounting signature',
-                    'signHint' => 'Pick a saved signature, draw one, or upload. It authorizes this Authority to Purchase.',
-                    'padTitle' => 'Sign the ATP',
+                    'signTitle' => 'School Administrator signature',
+                    'signHint' => 'Pick a saved signature, draw one, or upload. It authorizes this ATP and linked funding request.',
+                    'padTitle' => 'Sign the ATP + RFC package',
                     'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
                 ])
             </div>
@@ -217,7 +221,7 @@
             </div>
             <div class="confirm-actions mt-5">
                 <button type="button" class="btn-ghost" onclick="closeAtpListDecision()">Cancel</button>
-                <button type="button" class="btn-approve" onclick="submitAtpListDecision()">Approve</button>
+                <button type="button" class="btn-approve" onclick="submitAtpListDecision()">Approve ATP + RFC</button>
             </div>
         </form>
     </div>
@@ -281,7 +285,7 @@
             if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to save decision.');
             window.closeAtpListDecision();
             if (typeof window.showMpToast === 'function') {
-                showMpToast('ATP approved successfully.', { title: 'Approved', type: 'success' });
+                showMpToast('ATP + RFC package approved.', { title: 'Approved', type: 'success' });
             }
             setTimeout(() => window.location.reload(), 900);
         })
@@ -311,12 +315,18 @@
         let previewAtpId = '';
         let currentFilter = '{{ $filter }}';
         let currentFocus = @json($attentionFocus['key'] ?? null);
+        let currentUrgency = @json($urgencyFilter ?? '');
         let searchTimeout = null;
         let fetching = false;
 
         function currentSubmittedDate() {
             return dateInput ? String(dateInput.value || '').trim() : '';
         }
+
+        window.applyAtpUrgencyFilter = function (value) {
+            currentUrgency = value || '';
+            refreshList(1);
+        };
 
         @include('accounting.partials.form-preview-loader')
         const previewSkeleton = window.saFormPreview.skeleton;
@@ -469,12 +479,13 @@
             }
         }
 
-        function buildUrl(page, filter, search, submitted) {
+        function buildUrl(page, filter, search, submitted, urgency) {
             const params = new URLSearchParams();
             params.set('status', filter);
             if (currentFocus) params.set('focus', currentFocus);
             if (search) params.set('search', search);
             if (submitted) params.set('submitted', submitted);
+            if (urgency) params.set('urgency', urgency);
             if (page && page > 1) params.set('page', page);
             return '/school-admin/authority-to-purchase?' + params.toString();
         }
@@ -513,7 +524,7 @@
             filter = filter || currentFilter;
             const search = searchInput ? searchInput.value.trim() : '';
             const submitted = currentSubmittedDate();
-            const requestUrl = new URL(buildUrl(page, filter, search, submitted), window.location.origin).href;
+            const requestUrl = new URL(buildUrl(page, filter, search, submitted, currentUrgency), window.location.origin).href;
             const cachedRaw = window.PrismListCache?.get?.(requestUrl) || null;
 
             if (!cachedRaw && tbody) tbody.classList.add('is-loading');
@@ -555,8 +566,8 @@
             });
         }
 
-        function pushUrl(page, filter, search, submitted) {
-            window.history.replaceState({}, '', buildUrl(page, filter, search, submitted));
+        function pushUrl(page, filter, search, submitted, urgency) {
+            window.history.replaceState({}, '', buildUrl(page, filter, search, submitted, urgency));
         }
 
         function refreshList(page) {
@@ -564,7 +575,7 @@
             const search = searchInput ? searchInput.value.trim() : '';
             const submitted = currentSubmittedDate();
             fetchData(page, currentFilter);
-            pushUrl(page, currentFilter, search, submitted);
+            pushUrl(page, currentFilter, search, submitted, currentUrgency);
         }
 
         function applyFilter(newFilter) {
@@ -628,8 +639,11 @@
             const submitted = params.get('submitted') || '';
             currentFilter = filter;
             currentFocus = params.get('focus') || null;
+            currentUrgency = params.get('urgency') || '';
             if (searchInput) searchInput.value = search;
             if (dateInput) dateInput.value = submitted;
+            const urgencyInput = document.querySelector('#atpSearchForm [data-urgency-field]');
+            if (urgencyInput) urgencyInput.value = currentUrgency;
             updateFilterButtons(filter);
             fetchData(1, filter);
         });

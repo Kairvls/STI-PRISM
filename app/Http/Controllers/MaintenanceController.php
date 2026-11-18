@@ -7369,6 +7369,20 @@ class MaintenanceController extends Controller
         // RETURN CATEGORY PAGE
         // =====================================================
 
+        $categoryTypeCounts = \App\Support\EquipmentCategoryTypes::countsByCategory();
+
+        $catalogTab = strtolower(trim((string) $request->query('tab', 'classifications')));
+        if (! in_array($catalogTab, ['classifications', 'brands', 'models'], true)) {
+            $catalogTab = 'classifications';
+        }
+
+        $catalogBrands = $catalogTab === 'brands'
+            ? \App\Support\EquipmentBrands::manageList($request->query('search'), 15)
+            : null;
+        $catalogModels = $catalogTab === 'models'
+            ? \App\Support\EquipmentModels::manageList($request->query('search'), 15)
+            : null;
+
         return view(
             'admin.categories.index',
 
@@ -7387,9 +7401,114 @@ class MaintenanceController extends Controller
                 'categorizedEquipmentPercentage',
 
                 'categoryMonthlyPercentage',
-                'categoryMonthlyTrend'
+                'categoryMonthlyTrend',
+                'categoryTypeCounts',
+                'catalogTab',
+                'catalogBrands',
+                'catalogModels'
             )
         );
+    }
+
+    public function storeCatalogBrand(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentBrands::maxLength()],
+            'status' => ['nullable', 'in:Active,Inactive'],
+        ], [], ['name' => 'brand name']);
+
+        \App\Support\EquipmentBrands::quickAdd($validated['name']);
+        if (($validated['status'] ?? 'Active') === 'Inactive') {
+            $brand = \App\Models\Brand::query()
+                ->whereRaw('LOWER(brand_name) = ?', [mb_strtolower(trim($validated['name']))])
+                ->first();
+            if ($brand) {
+                \App\Support\EquipmentBrands::update((int) $brand->brand_id, $brand->brand_name, 'Inactive');
+            }
+        }
+
+        return redirect()
+            ->route('admin.equipment-categories.index', ['tab' => 'brands'])
+            ->with('success', 'Brand saved.');
+    }
+
+    public function updateCatalogBrand(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentBrands::maxLength()],
+            'status' => ['required', 'in:Active,Inactive'],
+        ], [], ['name' => 'brand name']);
+
+        \App\Support\EquipmentBrands::update((int) $id, $validated['name'], $validated['status']);
+
+        return redirect()
+            ->route('admin.equipment-categories.index', ['tab' => 'brands'])
+            ->with('success', 'Brand updated.');
+    }
+
+    public function destroyCatalogBrand($id)
+    {
+        try {
+            \App\Support\EquipmentBrands::delete((int) $id);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()
+                ->route('admin.equipment-categories.index', ['tab' => 'brands'])
+                ->with('error', $e->errors()['name'][0] ?? 'Could not delete brand.');
+        }
+
+        return redirect()
+            ->route('admin.equipment-categories.index', ['tab' => 'brands'])
+            ->with('success', 'Brand deleted.');
+    }
+
+    public function storeCatalogModel(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentModels::maxLength()],
+            'active' => ['nullable', 'boolean'],
+        ], [], ['name' => 'model']);
+
+        \App\Support\EquipmentModels::quickAdd($validated['name']);
+
+        if (array_key_exists('active', $validated) && ! (bool) $validated['active'] && \App\Support\EquipmentModels::tableReady()) {
+            $row = DB::table(\App\Support\EquipmentModels::TABLE)
+                ->whereRaw('LOWER(model_name) = ?', [mb_strtolower(trim($validated['name']))])
+                ->first();
+            if ($row) {
+                \App\Support\EquipmentModels::update((int) $row->model_id, $validated['name'], false);
+            }
+        }
+
+        return redirect()
+            ->route('admin.equipment-categories.index', ['tab' => 'models'])
+            ->with('success', 'Model saved.');
+    }
+
+    public function updateCatalogModel(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentModels::maxLength()],
+            'active' => ['required', 'boolean'],
+        ], [], ['name' => 'model']);
+
+        \App\Support\EquipmentModels::update(
+            (int) $id,
+            $validated['name'],
+            (bool) $validated['active']
+        );
+
+        return redirect()
+            ->route('admin.equipment-categories.index', ['tab' => 'models'])
+            ->with('success', 'Model updated.');
+    }
+
+    public function destroyCatalogModel($id)
+    {
+        \App\Support\EquipmentModels::delete((int) $id);
+
+        return redirect()
+            ->route('admin.equipment-categories.index', ['tab' => 'models'])
+            ->with('success', 'Model deleted.');
     }
 
 
@@ -7438,6 +7557,52 @@ class MaintenanceController extends Controller
             'success',
             'Equipment classification added successfully.'
         );
+    }
+
+    public function quickAddClassification(Request $request)
+    {
+        $max = \App\Support\InputLimits::CATEGORY_NAME;
+        $request->validate(
+            ['name' => ['required', 'string', 'max:'.$max]],
+            [],
+            ['name' => 'classification']
+        );
+
+        $name = trim(preg_replace('/\s+/u', ' ', (string) $request->input('name')) ?? '');
+        if ($name === '') {
+            return response()->json(['message' => 'Type the classification name first.'], 422);
+        }
+
+        $existing = DB::table('equipment_categories_table')
+            ->whereRaw('LOWER(equipment_category_name) = ?', [mb_strtolower($name)])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'id' => (string) $existing->equipment_category_id,
+                'name' => (string) $existing->equipment_category_name,
+                'existing' => true,
+            ]);
+        }
+
+        $id = (int) DB::table('equipment_categories_table')->insertGetId([
+            'equipment_category_name' => $name,
+            'equipment_category_created_at' => now(),
+        ]);
+
+        $this->logActivity(
+            'Added classification',
+            'Classification',
+            'equipment_categories_table',
+            $id,
+            'Added classification '.$name.' from equipment intake.'
+        );
+
+        return response()->json([
+            'id' => (string) $id,
+            'name' => $name,
+            'existing' => false,
+        ]);
     }
 
 
@@ -7531,6 +7696,153 @@ class MaintenanceController extends Controller
     | DELETE EQUIPMENT CATEGORY
     |--------------------------------------------------------------------------
     */
+
+    public function categoryTypes($id)
+    {
+        $category = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $id)
+            ->first();
+
+        abort_unless($category, 404);
+
+        $types = \App\Support\EquipmentCategoryTypes::forCategory((int) $id, false)
+            ->map(fn ($row) => [
+                'id' => (int) $row->type_id,
+                'name' => (string) $row->type_name,
+                'aliases' => (string) ($row->type_aliases ?? ''),
+                'active' => (bool) $row->type_is_active,
+            ])
+            ->values();
+
+        return response()->json([
+            'category_id' => (int) $category->equipment_category_id,
+            'category_name' => (string) $category->equipment_category_name,
+            'types' => $types,
+        ]);
+    }
+
+    public function storeCategoryType(Request $request, $id)
+    {
+        $category = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $id)
+            ->first();
+
+        abort_unless($category, 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentCategoryTypes::maxLength()],
+            'aliases' => ['nullable', 'string', 'max:255'],
+        ], [], [
+            'name' => 'equipment name',
+            'aliases' => 'also match',
+        ]);
+
+        $type = \App\Support\EquipmentCategoryTypes::quickAdd(
+            (int) $id,
+            $validated['name'],
+            $validated['aliases'] ?? null
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'id' => $type->type_id,
+                'name' => $type->type_name,
+                'existing' => $type->existing,
+                'category_id' => (int) $id,
+                'category_name' => (string) $category->equipment_category_name,
+            ]);
+        }
+
+        return back()->with(
+            'success',
+            $type->existing
+                ? 'Equipment name already listed under this classification.'
+                : 'Equipment name added to classification.'
+        );
+    }
+
+    public function updateCategoryType(Request $request, $id, $typeId)
+    {
+        $category = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $id)
+            ->first();
+        abort_unless($category, 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentCategoryTypes::maxLength()],
+            'aliases' => ['nullable', 'string', 'max:255'],
+            'active' => ['sometimes', 'boolean'],
+        ], [], [
+            'name' => 'equipment name',
+            'aliases' => 'also match',
+        ]);
+
+        \App\Support\EquipmentCategoryTypes::update(
+            (int) $typeId,
+            $validated['name'],
+            $validated['aliases'] ?? null,
+            array_key_exists('active', $validated) ? (bool) $validated['active'] : true
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('success', 'Equipment name updated.');
+    }
+
+    public function deleteCategoryType(Request $request, $id, $typeId)
+    {
+        $category = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $id)
+            ->first();
+        abort_unless($category, 404);
+
+        $type = DB::table(\App\Support\EquipmentCategoryTypes::TABLE)
+            ->where('type_id', $typeId)
+            ->where('equipment_category_id', $id)
+            ->first();
+        abort_unless($type, 404);
+
+        \App\Support\EquipmentCategoryTypes::delete((int) $typeId);
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('success', 'Equipment name removed from classification.');
+    }
+
+    public function quickAddCategoryType(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:'.\App\Support\EquipmentCategoryTypes::maxLength()],
+            'category_id' => ['required', 'integer', 'exists:equipment_categories_table,equipment_category_id'],
+            'aliases' => ['nullable', 'string', 'max:255'],
+        ], [], [
+            'name' => 'equipment name',
+            'category_id' => 'classification',
+        ]);
+
+        $type = \App\Support\EquipmentCategoryTypes::quickAdd(
+            (int) $validated['category_id'],
+            $validated['name'],
+            $validated['aliases'] ?? null
+        );
+
+        $category = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $validated['category_id'])
+            ->first();
+
+        return response()->json([
+            'id' => $type->type_name,
+            'name' => $type->type_name,
+            'type_id' => $type->type_id,
+            'existing' => $type->existing,
+            'category_id' => (string) $validated['category_id'],
+            'category_name' => (string) ($category->equipment_category_name ?? ''),
+        ]);
+    }
 
     public function deleteEquipmentCategory($id)
     {
@@ -8327,13 +8639,23 @@ class MaintenanceController extends Controller
 
             'equipment_inventory_status' => 'nullable|'.\App\Support\EquipmentInventoryStatuses::ruleIn(),
 
-            'equipment_asset_tag' => 'nullable|string|max:'.\App\Support\InputLimits::ASSET_TAG,
+            'equipment_asset_tag' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'string',
+                'max:'.\App\Support\InputLimits::ASSET_TAG,
+            ],
 
-            'equipment_brand_name' => 'nullable|string|'.\App\Support\InputLimits::name(),
+            'equipment_brand_name' => 'required|string|'.\App\Support\InputLimits::name(),
 
-            'equipment_model' => 'nullable|string|'.\App\Support\InputLimits::name(),
+            'equipment_model' => 'required|string|'.\App\Support\InputLimits::name(),
 
-            'equipment_serial_number' => 'nullable|string|max:'.\App\Support\InputLimits::SERIAL,
+            'equipment_serial_number' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'string',
+                'max:'.\App\Support\InputLimits::SERIAL,
+            ],
 
             'equipment_purchase_date' => 'nullable|date|before_or_equal:today',
 
@@ -8344,11 +8666,11 @@ class MaintenanceController extends Controller
                 $request->filled('equipment_purchase_date') ? 'after_or_equal:equipment_purchase_date' : null,
             ])),
 
-            'equipment_purchase_cost' => 'nullable|numeric|min:0|max:'.\App\Support\InputLimits::COST,
+            'equipment_purchase_cost' => 'required|numeric|min:0|max:'.\App\Support\InputLimits::COST,
 
-            'equipment_warranty_expiration' => 'nullable|date',
+            'equipment_warranty_expiration' => 'required|date',
 
-            'equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
+            'equipment_useful_life_years' => 'required|integer|min:1|max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
 
             'receiving_report_item_id' => 'nullable|integer|min:1',
 
@@ -8358,23 +8680,23 @@ class MaintenanceController extends Controller
 
             'items' => 'nullable|array|max:200',
 
-            'items.*.equipment_asset_tag' => 'nullable|string|max:'.\App\Support\InputLimits::ASSET_TAG,
+            'items.*.equipment_asset_tag' => 'required|string|max:'.\App\Support\InputLimits::ASSET_TAG,
 
-            'items.*.equipment_serial_number' => 'nullable|string|max:'.\App\Support\InputLimits::SERIAL,
+            'items.*.equipment_serial_number' => 'required|string|max:'.\App\Support\InputLimits::SERIAL,
 
-            'items.*.equipment_brand_name' => 'nullable|string|'.\App\Support\InputLimits::name(),
+            'items.*.equipment_brand_name' => 'required|string|'.\App\Support\InputLimits::name(),
 
-            'items.*.equipment_model' => 'nullable|string|'.\App\Support\InputLimits::name(),
+            'items.*.equipment_model' => 'required|string|'.\App\Support\InputLimits::name(),
 
             'items.*.equipment_condition_status' => 'nullable|'.\App\Support\EquipmentConditions::ruleIn(),
 
             'items.*.equipment_purchase_date' => 'nullable|date|before_or_equal:today',
 
-            'items.*.equipment_purchase_cost' => 'nullable|numeric|min:0|max:'.\App\Support\InputLimits::COST,
+            'items.*.equipment_purchase_cost' => 'required|numeric|min:0|max:'.\App\Support\InputLimits::COST,
 
-            'items.*.equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
+            'items.*.equipment_useful_life_years' => 'required|integer|min:1|max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
 
-            'items.*.equipment_warranty_expiration' => 'nullable|date',
+            'items.*.equipment_warranty_expiration' => 'required|date',
 
             'equipment_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
 
@@ -8944,6 +9266,60 @@ class MaintenanceController extends Controller
         ]);
     }
 
+    public function quickAddBrand(Request $request)
+    {
+        $request->validate(
+            ['name' => ['required', 'string', 'max:'.\App\Support\EquipmentBrands::maxLength()]],
+            [],
+            ['name' => 'brand name']
+        );
+
+        $brand = \App\Support\EquipmentBrands::quickAdd((string) $request->input('name'));
+
+        if (! $brand->existing) {
+            $this->logActivity(
+                'Added brand',
+                'Brand',
+                'brands_table',
+                null,
+                'Added brand '.$brand->name.' from equipment intake.'
+            );
+        }
+
+        return response()->json([
+            'id' => $brand->id,
+            'name' => $brand->name,
+            'existing' => $brand->existing,
+        ]);
+    }
+
+    public function quickAddModel(Request $request)
+    {
+        $request->validate(
+            ['name' => ['required', 'string', 'max:'.\App\Support\EquipmentModels::maxLength()]],
+            [],
+            ['name' => 'model']
+        );
+
+        $model = \App\Support\EquipmentModels::quickAdd((string) $request->input('name'));
+
+        if (! $model->existing) {
+            $this->logActivity(
+                'Added model',
+                'Model',
+                'equipment_models_table',
+                null,
+                'Added model '.$model->name.' from equipment intake.'
+            );
+        }
+
+        return response()->json([
+            'id' => $model->id,
+            'name' => $model->name,
+            'existing' => $model->existing,
+        ]);
+    }
+
     public function storeEquipmentFromRrLines(Request $request)
     {
         $data = \App\Support\RrLineIntake::validate($request->all());
@@ -9092,7 +9468,7 @@ class MaintenanceController extends Controller
         $request->validate([
             'equipment_image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
             'remove_equipment_image' => 'nullable',
-            'equipment_useful_life_years' => 'nullable|integer|min:1|max:50',
+            'equipment_useful_life_years' => 'nullable|integer|min:1|max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
             'equipment_purchase_cost' => 'nullable|numeric|min:0',
         ] + EquipmentAcquisition::validationRules());
 
@@ -9198,7 +9574,7 @@ class MaintenanceController extends Controller
 
                     'equipment_useful_life_years'
                         => $request->filled('equipment_useful_life_years')
-                            ? max(1, min(50, (int) $request->equipment_useful_life_years))
+                            ? max(1, min(\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS, (int) $request->equipment_useful_life_years))
                             : null,
 
                     'equipment_is_borrowable'
@@ -13654,7 +14030,7 @@ class MaintenanceController extends Controller
             ],
 
             'parts_used' => ['nullable', 'string', 'max:500'],
-            'repair_cost' => ['nullable', 'numeric', 'min:0'],
+            'repair_cost' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'downtime_hours' => ['nullable', 'numeric', 'min:0'],
 
         ]);
@@ -14509,7 +14885,7 @@ class MaintenanceController extends Controller
             'reason' => 'required|string|max:1000',
             'location' => 'nullable|string|max:255',
             'method' => 'nullable|string|max:80',
-            'residual_value' => 'nullable|numeric|min:0',
+            'residual_value' => 'nullable|numeric|min:0|max:'.\App\Support\InputLimits::COST,
         ]);
 
         $ids = collect($validated['equipment_ids'] ?? [])

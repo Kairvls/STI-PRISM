@@ -17,6 +17,16 @@ class SupplyOfficerMiddleware
             return redirect()->route('login');
         }
 
+        // Portal kept in code but dormant while Purchaser owns ATP.
+        if (RoleAccess::isPortalDormant(RoleAccess::SUPPLY_OFFICER)) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect('/')
+                ->with('error', RoleAccess::dormantPortalMessage());
+        }
+
         if (! RoleAccess::hasRole(RoleAccess::SUPPLY_OFFICER, Auth::user())) {
             abort(403);
         }

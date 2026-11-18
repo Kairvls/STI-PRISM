@@ -332,7 +332,7 @@
                     <h3 class="text-xl font-extrabold">
                         Map rooms and initial assets
                     </h3>
-                    <p class="mt-1 text-sm text-slate-500">Quick Add is for multiple rooms only. Advance Setup is for rooms with equipment.</p>
+                    <p class="mt-1 text-sm text-slate-500">Quick Add for many rooms. Advance Setup for rooms with equipment.</p>
                 </div>
                 <div class="mb-5 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -8,6 +8,7 @@
 
 @php
     $filters = [
+        'all' => 'All',
         'incoming' => 'Awaiting signature',
         'approved' => 'Signed / released',
         'revision' => 'Returned to Accounting',
@@ -88,17 +89,25 @@
     }"
     x-effect="document.body.classList.toggle('overflow-hidden', viewOpen || signOpen)"
 >
-    <div class="flex flex-wrap gap-x-5 border-b border-gray-100 text-sm">
+    <nav
+        role="tablist"
+        aria-label="Disbursement voucher filters"
+        class="flex min-w-0 flex-wrap items-center gap-1"
+    >
         @foreach($filters as $key => $label)
             <a
                 href="{{ route('president.dv.index', ['status' => $key]) }}"
-                class="-mb-px border-b-2 pb-2.5 transition {{ $filter === $key ? 'border-[#0025cc] font-medium text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600' }}"
+                role="tab"
+                aria-selected="{{ $filter === $key ? 'true' : 'false' }}"
+                class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $filter === $key
+                    ? 'bg-gray-100/80 font-medium text-black'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
             >
                 {{ $label }}
                 <span class="ml-1 tabular-nums">{{ $counts[$key] ?? 0 }}</span>
             </a>
         @endforeach
-    </div>
+    </nav>
 
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <table class="w-full min-w-[720px] text-sm">

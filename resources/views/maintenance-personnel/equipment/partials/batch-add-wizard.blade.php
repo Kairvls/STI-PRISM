@@ -208,7 +208,7 @@
                             </div>
                             <div>
                                 <label class="{{ $bLabel }}" x-text="source.acquisition_source === 'donation' ? 'Est. value / unit (₱)' : 'Cost / unit (₱)'"></label>
-                                <input type="number" min="0" step="0.01" placeholder="0.00" x-model="line.cost" class="{{ $bField }}" />
+                                <input type="number" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" inputmode="decimal" data-money placeholder="0.00" x-model="line.cost" class="{{ $bField }}" />
                             </div>
                             <div>
                                 <label class="{{ $bLabel }}">Warranty until</label>

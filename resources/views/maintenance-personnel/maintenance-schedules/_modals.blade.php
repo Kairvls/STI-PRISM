@@ -33,7 +33,7 @@
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment <span class="text-red-500">*</span></p>
-                            <p class="mt-1 text-sm text-slate-500">Type to search, then add each asset to this schedule batch.</p>
+                            <p class="mt-1 text-sm text-slate-500">Search and add assets to this batch.</p>
                         </div>
                         <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' selected') : 'None selected'"></p>
                     </div>
@@ -500,7 +500,10 @@
                             type="number"
                             name="repair_cost"
                             min="0"
+                            max="{{ \App\Support\InputLimits::COST }}"
                             step="0.01"
+                            inputmode="decimal"
+                            data-money
                             placeholder="0.00"
                             class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                         />

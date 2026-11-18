@@ -1,6 +1,6 @@
 @php
     $actions = array_values($actions ?? []);
-    $keepOutClasses = ['pin-btn', 'approve-btn', 'reject-btn'];
+    $keepOutClasses = ['pin-btn', 'review-btn', 'approve-btn', 'revise-btn'];
     $pinActions = array_values(array_filter(
         $actions,
         fn ($action) => in_array(($action['class'] ?? ''), $keepOutClasses, true)

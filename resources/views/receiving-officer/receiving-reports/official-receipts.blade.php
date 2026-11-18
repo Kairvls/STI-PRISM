@@ -5,7 +5,7 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">Official Receipts</h1>
-        <p class="admin-page-subtitle">OR numbers recorded when a delivery is accepted.</p>
+        <p class="admin-page-subtitle">OR numbers from accepted deliveries.</p>
     </div>
 
     @include('layouts.partials.receiving-query-error')

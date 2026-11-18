@@ -50,7 +50,7 @@
             <div class="flex flex-col gap-4 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5">
                 <div class="min-w-0 shrink-0">
                     <h2 class="text-lg font-semibold text-slate-950">Faculty & Staff</h2>
-                    <p class="mt-1 text-sm text-slate-500">Campus faculty and staff — identity source for other modules.</p>
+                    <p class="mt-1 text-sm text-slate-500">Campus identity source for other modules.</p>
                 </div>
 
                 <form data-auto-filter method="GET" action="{{ route('admin.persons.index') }}" class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
@@ -168,7 +168,7 @@
                         </div>
                         <div>
                             <h3 class="text-lg font-semibold tracking-tight text-slate-900">Add faculty/staff</h3>
-                            <p class="mt-0.5 text-sm text-slate-500">Fields marked <span class="text-red-500">*</span> are required. Choose Faculty or Staff — identity is shared with reporters, property, and users.</p>
+                            <p class="mt-0.5 text-sm text-slate-500">Required fields marked <span class="text-red-500">*</span>. Identity is shared across modules.</p>
                         </div>
                     </div>
                     <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" @click="open = false" aria-label="Close">
@@ -203,7 +203,7 @@
                 <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900">Add many faculty &amp; staff at once</h2>
-                        <p class="mt-1 text-sm text-slate-500">Download the sample file, fill in faculty and staff only, then upload. Each row is checked the same way as adding one record.</p>
+                        <p class="mt-1 text-sm text-slate-500">Download the sample, fill it in, then upload.</p>
                     </div>
                     <button type="button" @click="importOpen = false" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
@@ -218,7 +218,7 @@
                         <label id="personImportDropzone" class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-400 hover:bg-slate-100">
                             <i data-lucide="cloud-upload" class="h-8 w-8 text-slate-400"></i>
                             <p class="mt-3 text-sm font-medium text-slate-700">Drop a CSV or Excel file, or click to browse <span class="text-red-500">*</span></p>
-                            <p class="mt-1 text-xs text-slate-400">Use the sample file so names and numbers import correctly</p>
+                            <p class="mt-1 text-xs text-slate-400">Use the sample so names and IDs import correctly.</p>
                             <input id="personImportFile" name="file" type="file" accept=".csv,.txt,.xlsx" class="hidden" required>
                         </label>
                         <p id="personImportFileName" class="mt-3 hidden text-sm font-medium text-slate-600"></p>
@@ -345,7 +345,7 @@ function syncPersonEmployeeId(prefix) {
         suffixEl.textContent = '?';
         suffixEl.classList.add('is-empty');
         fullEl.value = '';
-        if (hint) hint.textContent = 'Select type first, then enter the 5-digit number.';
+        if (hint) hint.textContent = 'Select type first, then enter 5 digits.';
         return;
     }
 
@@ -354,7 +354,7 @@ function syncPersonEmployeeId(prefix) {
     suffixEl.textContent = suffix;
     suffixEl.classList.remove('is-empty');
     fullEl.value = digitsEl.value.length === 5 ? ('OMC' + digitsEl.value + suffix) : '';
-    if (hint) hint.textContent = 'Enter the 5-digit number only. OMC and ' + suffix + ' are fixed.';
+    if (hint) hint.textContent = 'Enter 5 digits only. OMC and ' + suffix + ' are fixed.';
 }
 window.syncPersonEmployeeId = syncPersonEmployeeId;
 

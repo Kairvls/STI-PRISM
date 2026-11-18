@@ -61,8 +61,11 @@ class PurchaseOrderController extends Controller
         }
 
         DocumentUrgency::select($query, 'PO');
-        $orders = $query
-            ->orderByRaw("CASE purchase_order_status WHEN 'Draft' THEN 0 WHEN 'Submitted' THEN 1 ELSE 2 END")
+        $orders = DocumentWorkflowService::orderDraftFirst(
+            $query,
+            'purchase_order_status'
+        )
+            ->orderByRaw("CASE purchase_order_status WHEN 'Submitted' THEN 0 ELSE 1 END")
             ->orderByDesc('purchase_order_updated_at')
             ->orderByDesc('purchase_order_id')
             ->paginate(15)

@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Suppliers')
-@section('page-subtitle', 'Manage Supplier Records')
+@section('page-subtitle', 'Supplier directory.')
 
 @section('content')
 
@@ -25,6 +25,14 @@
 >
 
     <div class="mb-7 flex flex-wrap justify-end gap-2">
+        @include('layouts.partials.export-pdf-button', [
+            'exportUrl' => route(($pp ?? 'purchaser').'.suppliers.export-pdf', array_filter([
+                'search' => request('search') ?: null,
+                'type' => request('type') ?: null,
+                'status' => request('status') ?: null,
+                'blacklisted' => request('blacklisted') ?: null,
+            ])),
+        ])
         <button
             type="button"
             x-on:click="addSupplierModal = true; $nextTick(() => { window.lucide && window.lucide.createIcons(); const phone = document.getElementById('supplier-contact-number'); if (phone && window.refreshPrismPhoneInput) window.refreshPrismPhoneInput(phone); })"

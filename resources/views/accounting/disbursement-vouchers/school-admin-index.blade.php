@@ -13,7 +13,7 @@
     $filters = [
         'all' => 'All',
         'incoming' => 'Needs review',
-        'revision' => 'Returned',
+        'revision' => 'Revision',
         'approved' => 'Approved',
     ];
     $search = $search ?? '';
@@ -39,10 +39,13 @@
             'dateBtnId' => 'dvSubmittedDateBtn',
             'dateClearId' => 'dvSubmittedDateClear',
             'dateTitle' => 'Filter by submitted date',
+            'urgencyName' => 'urgency',
+            'urgencyValue' => $urgencyFilter ?? '',
             'exportUrl' => route('school-admin.dv.export-pdf', array_filter([
                 'status' => $filter,
                 'search' => $search,
                 'submitted' => $submittedDate,
+                'urgency' => $urgencyFilter ?? '',
             ])),
         ])
 
@@ -71,19 +74,26 @@
                             @endphp
                             <tr class="transition hover:bg-gray-50/70">
                                 <td class="px-5 py-4">
-                                    <button
-                                        type="button"
-                                        class="font-semibold text-gray-900 transition hover:text-[#0025cc] hover:underline"
-                                        data-dv-preview
-                                        data-preview-url="{{ $dvPreviewUrl }}"
-                                        data-review-url="{{ $dvReviewUrl }}"
-                                        data-preview-title="{{ $dvLabel }}"
-                                        data-dv-id="{{ $row->dv_id }}"
-                                        data-can-approve="{{ ($row->dv_status ?? '') === 'Pending' && ! empty($row->dv_submitted_at) ? '1' : '0' }}"
-                                        title="View DV form"
-                                    >
-                                        {{ $dvLabel }}
-                                    </button>
+                                    <div class="min-w-0">
+                                        <button
+                                            type="button"
+                                            class="font-semibold text-gray-900 transition hover:text-[#0025cc] hover:underline"
+                                            data-dv-preview
+                                            data-preview-url="{{ $dvPreviewUrl }}"
+                                            data-review-url="{{ $dvReviewUrl }}"
+                                            data-preview-title="{{ $dvLabel }}"
+                                            data-dv-id="{{ $row->dv_id }}"
+                                            data-can-approve="{{ ($row->dv_status ?? '') === 'Pending' && ! empty($row->dv_submitted_at) ? '1' : '0' }}"
+                                            title="View DV form"
+                                        >
+                                            {{ $dvLabel }}
+                                        </button>
+                                        <div class="mt-0.5">
+                                            @include('partials.ris-urgency-badge', [
+                                                'urgent' => \App\Support\DocumentUrgency::isUrgent('DV', $row),
+                                            ])
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="px-5 py-4">
                                     @include('partials.procurement-request-no', ['requestNo' => $dvRequestNo, 'inline' => true, 'showLabel' => false])

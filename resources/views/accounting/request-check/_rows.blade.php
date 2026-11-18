@@ -27,11 +27,12 @@
                         >
                             {{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}
                         </button>
-                        @if (\App\Support\DocumentUrgency::isUrgent('RFC', $row))
-                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                        @endif
+                        @include('partials.ris-urgency-badge', [
+                            'urgent' => \App\Support\DocumentUrgency::isUrgent('RFC', $row),
+                            'size' => 'sm',
+                            'title' => 'Inherited from linked RIS',
+                        ])
                     </div>
-                    <p class="mt-0.5 text-xs text-gray-400">Record #{{ $row->request_check_id }}</p>
                 </div>
             </div>
         </td>

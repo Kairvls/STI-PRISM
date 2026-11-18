@@ -228,7 +228,7 @@
             <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $supplierName }}">
         </td>
         <td class="border border-black">
-            <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+            <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
         </td>
     @elseif($allowMultiSupplier && !$editable)
         <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>

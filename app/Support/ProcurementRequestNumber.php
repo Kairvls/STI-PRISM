@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Shared Request No. (ticket) for one procurement transaction:
- * Canvas+RIS → ATP → RFC → DV → RR → Liquidation.
+ * Canvass+RIS → ATP → RFC → DV → RR → Liquidation.
  *
  * Format: PR-YYYYMM-0001 (year + month, 4-digit sequence).
  */
@@ -28,7 +28,7 @@ class ProcurementRequestNumber
 
     public static function uiHint(): string
     {
-        return 'Ticket for this procurement transaction. One Request No. (PR-YYYYMM-0001) links Canvas + RIS, ATP, RFC, DV, RR, and Liquidation.';
+        return 'One Request No. links Canvass + RIS through Liquidation.';
     }
 
     public static function isValid(?string $value): bool

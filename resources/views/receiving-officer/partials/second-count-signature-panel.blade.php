@@ -82,7 +82,7 @@
         </span>
         <span class="min-w-0 flex-1">
             <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
-            <span class="mt-0.5 block text-[11px] text-slate-400">PNG, JPG, or similar · can be saved to your list</span>
+            <span class="mt-0.5 block text-[11px] text-slate-400">PNG, JPG, or paper photo · dark ink on light / white bond paper · paper cleared automatically</span>
             <span id="roSigUploadName" class="mt-1 hidden block truncate text-[11px] font-medium text-slate-600"></span>
         </span>
         <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">Choose file</span>
@@ -549,11 +549,21 @@
             var useBtn = event.target.closest('.ro-use-saved');
             if (useBtn) {
                 var img = useBtn.querySelector('.ro-saved-preview');
-                applySignature(img ? img.getAttribute('src') : '');
-                if (uploadInput) uploadInput.value = '';
-                if (uploadNameOut) {
-                    uploadNameOut.textContent = '';
-                    uploadNameOut.classList.add('hidden');
+                var savedSrc = img ? img.getAttribute('src') : '';
+                var applySaved = function (url) {
+                    applySignature(url || '');
+                    if (uploadInput) uploadInput.value = '';
+                    if (uploadNameOut) {
+                        uploadNameOut.textContent = '';
+                        uploadNameOut.classList.add('hidden');
+                    }
+                };
+                if (savedSrc && window.PrismSignatureImage && window.PrismSignatureImage.cleanForOverlay) {
+                    window.PrismSignatureImage.cleanForOverlay(savedSrc).then(applySaved).catch(function () {
+                        applySaved(savedSrc);
+                    });
+                } else {
+                    applySaved(savedSrc);
                 }
                 return;
             }
@@ -582,16 +592,35 @@
                 }
             }
             if (!file) return;
-            readFileAsDataUrl(file).then(function (url) {
+            var load = (window.PrismSignatureImage && window.PrismSignatureImage.fromFile)
+                ? window.PrismSignatureImage.fromFile(file)
+                : readFileAsDataUrl(file);
+            load.then(function (url) {
                 applySignature(url || '');
                 if (saveOnUpload && saveOnUpload.checked) {
                     var currentCount = savedList ? savedList.querySelectorAll('[data-saved-sig-id]').length : 0;
                     if (currentCount < maxSavedSignatures) {
                         var label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
-                        saveSignatureToLibrary({ file: file, label: label }).catch(function () {});
+                        saveSignatureToLibrary({ dataUrl: url || '', label: label }).catch(function () {});
                     }
                 }
-            }).catch(function () {});
+            }).catch(function (err) {
+                applySignature('');
+                if (uploadInput) uploadInput.value = '';
+                if (uploadNameOut) {
+                    uploadNameOut.textContent = '';
+                    uploadNameOut.classList.add('hidden');
+                }
+                if (typeof window.showMpToast === 'function') {
+                    showMpToast(err && err.message
+                        ? err.message
+                        : 'Use a clear dark-ink signature on light / white bond paper.', {
+                        title: 'Signature photo',
+                        type: 'warning',
+                        timer: 5500
+                    });
+                }
+            });
         });
     }
 

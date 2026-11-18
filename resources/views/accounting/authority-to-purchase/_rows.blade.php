@@ -20,11 +20,12 @@
                         >
                             {{ $row->authority_purchase_form_number ?? 'ATP-' . $row->authority_purchase_id }}
                         </button>
-                        @if (\App\Support\DocumentUrgency::isUrgent('ATP', $row))
-                            @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                        @endif
+                        @include('partials.ris-urgency-badge', [
+                            'urgent' => \App\Support\DocumentUrgency::isUrgent('ATP', $row),
+                            'size' => 'sm',
+                            'title' => 'Inherited from linked RIS',
+                        ])
                     </div>
-                    <p class="mt-0.5 text-xs text-gray-400">Record #{{ $row->authority_purchase_id }}</p>
                 </div>
             </div>
         </td>
@@ -85,9 +86,9 @@
                 <x-view-action-button
                     :href="'/school-admin/authority-to-purchase/'.$row->authority_purchase_id.'?return_status='.urlencode($filter ?? 'incoming')"
                     label="Review"
-                    title="Review ATP — form and pipeline"
-                    aria-label="Review ATP"
-                    data-tip="Review ATP — form and pipeline"
+                    title="Review ATP + RFC package"
+                    aria-label="Review ATP + RFC package"
+                    data-tip="Review ATP + RFC package"
                 />
             </div>
         </td>

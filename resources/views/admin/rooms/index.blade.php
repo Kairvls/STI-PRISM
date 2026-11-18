@@ -1043,7 +1043,7 @@
                 </div>
                 <div>
                     <label class="{{ $eqLabel }}">Departments</label>
-                    <p class="mb-1.5 text-[11px] text-slate-400">Many departments can share this room. Each department can only belong to one room.</p>
+                    <p class="mb-1.5 text-[11px] text-slate-400">Rooms can be shared. Each department belongs to one room.</p>
                     @include('admin.rooms.partials.department-picker', [
                         'inputName' => 'department_ids[]',
                         'selectedIds' => [],
@@ -1085,7 +1085,7 @@
                 </div>
                 <div>
                     <h2 class="text-lg font-semibold tracking-tight text-slate-900">Room types</h2>
-                    <p class="mt-1 text-sm text-slate-500">Create and manage types you can assign when adding or editing rooms.</p>
+                    <p class="mt-1 text-sm text-slate-500">Types used when adding or editing rooms.</p>
                 </div>
             </div>
             <button type="button" onclick="closeRoomTypesModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">

@@ -3,7 +3,7 @@
 <div x-data="{ viewOpen:false, selectedLiq:null, reviseOpen:false, rejectOpen:false, remarksId:null }" class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold">Liquidation Report Approval</h1>
-        <p class="text-sm text-gray-600">Endorse and recommend approval after Accounting has checked the report.</p>
+        <p class="text-sm text-gray-600">Endorse after Accounting has checked it.</p>
     </div>
     <div class="overflow-x-auto overflow-hidden rounded-xl border bg-white">
         <table class="w-full min-w-[1000px] text-sm">

@@ -3,7 +3,7 @@
         <div class="mb-4 flex items-start justify-between gap-4">
             <div>
                 <h2 class="text-lg font-semibold text-slate-900">Shared unlock PIN</h2>
-                <p class="mt-1 text-sm text-slate-500">Used in the infrastructure wizard when unlocking Step 1.</p>
+                <p class="mt-1 text-sm text-slate-500">Used to unlock campus setup Step 1.</p>
                 <p class="mt-2 text-xs text-slate-500">
                     PIN last updated:
                     <span class="font-semibold text-slate-700">

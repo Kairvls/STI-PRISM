@@ -2,45 +2,64 @@
 
 
 @section('content')
+@php
+    $catalogTab = $catalogTab ?? 'classifications';
+    $tabLabels = [
+        'classifications' => 'Classifications',
+        'brands' => 'Brands',
+        'models' => 'Models',
+    ];
+@endphp
 
 <div
     class="min-h-full"
     x-data="equipmentCategoriesPage()"
 >
 
-    {{-- ===================================================== --}}
-    {{-- PAGE HEADER --}}
-    {{-- ===================================================== --}}
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div class="inline-flex rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200/80">
+            @foreach ($tabLabels as $tabKey => $tabLabel)
+                <a
+                    href="{{ route('admin.equipment-categories.index', ['tab' => $tabKey]) }}"
+                    class="inline-flex h-9 items-center rounded-lg px-3.5 text-xs font-semibold transition {{ $catalogTab === $tabKey ? 'bg-[#0025cc] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900' }}"
+                >{{ $tabLabel }}</a>
+            @endforeach
+        </div>
 
-    
-
-    <div class="flex justify-end">
-        <button
-            type="button"
-            @click="openCreateModal()"
-            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold font-sans-serif text-[13px] text-white transition hover:bg-blue-800"
-        >
-            <i data-lucide="plus" class="w-4 h-4"></i>
-
-            Add Classification
-        </button>
+        <div class="flex justify-end">
+            @if ($catalogTab === 'classifications')
+                <button
+                    type="button"
+                    @click="openCreateModal()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
+                >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    Add Classification
+                </button>
+            @elseif ($catalogTab === 'brands')
+                <button
+                    type="button"
+                    @click="openBrandCreate()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
+                >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    Add Brand
+                </button>
+            @else
+                <button
+                    type="button"
+                    @click="openModelCreate()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
+                >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    Add Model
+                </button>
+            @endif
+        </div>
     </div>
 
-
-
-    {{-- CATEGORY DASHBOARD --}}
-    @php
-        $categoryMonthlyHint = $categoryMonthlyPercentage === null
-            ? 'New activity vs last month'
-            : (($categoryMonthlyPercentage > 0 ? '+' : '') . number_format($categoryMonthlyPercentage, 2) . '% vs last month');
-    @endphp
-    <div class="mt-6 mb-6">
-    </div>
-
-
-
     {{-- ===================================================== --}}
-    {{-- CATEGORY TABLE CONTAINER --}}
+    {{-- TABLE CONTAINER --}}
     {{-- ===================================================== --}}
 
     <div
@@ -57,75 +76,62 @@
         >
 
             <div>
-
-                <h2
-                    class="text-lg font-semibold text-slate-950"
-                >
-                    Classifications
+                <h2 class="text-lg font-semibold text-slate-950">
+                    {{ $tabLabels[$catalogTab] ?? 'Classifications' }}
                 </h2>
-
+                <p class="mt-0.5 text-sm text-slate-500">
+                    @if ($catalogTab === 'brands')
+                        Brand names used when adding equipment to inventory.
+                    @elseif ($catalogTab === 'models')
+                        Model names used when adding equipment to inventory.
+                    @else
+                        Classifications and the equipment names inside them (auto-predict).
+                    @endif
+                </p>
             </div>
-
-
-
-            {{-- ===================================================== --}}
-            {{-- SEARCH FORM --}}
-            {{-- ===================================================== --}}
 
             <form
                 method="GET"
                 action="{{ route('admin.equipment-categories.index') }}"
                 class="flex items-center gap-2"
             >
+                <input type="hidden" name="tab" value="{{ $catalogTab }}">
 
                 <div class="relative">
-
                     <i
                         data-lucide="search"
                         class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                     ></i>
-
                     <input
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
-                        placeholder="Search categories..."
+                        placeholder="{{ $catalogTab === 'brands' ? 'Search brands…' : ($catalogTab === 'models' ? 'Search models…' : 'Search categories…') }}"
                         class="h-9 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 sm:w-72"
                     >
-
                 </div>
-
 
                 <button
                     type="submit"
-                    class="inline-flex h-9 shrink-0
-                            items-center justify-center gap-2
-                            rounded-lg bg-[#0025cc] px-4
-                            text-sm font-semibold text-white
-                            transition hover:bg-blue-800"
+                    class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
                 >
-                        <i
-                            data-lucide="search"
-                            class="h-4 w-4"
-                        ></i>
+                    <i data-lucide="search" class="h-4 w-4"></i>
                     Search
                 </button>
 
-
                 @if(request()->filled('search'))
-
                     <a
-                        href="{{ route('admin.equipment-categories.index') }}"
+                        href="{{ route('admin.equipment-categories.index', ['tab' => $catalogTab]) }}"
                         class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                     >
                         Clear
                     </a>
-
                 @endif
-
             </form>
 
         </div>
+
+@if ($catalogTab === 'classifications')
 
 
 
@@ -147,6 +153,13 @@
                             class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
                         >
                             Classification
+                        </th>
+
+
+                        <th
+                            class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
+                        >
+                            Equipment in classification
                         </th>
 
 
@@ -232,6 +245,31 @@
                             </td>
 
 
+
+                            {{-- Equipment names maintained under this classification (auto-predict catalog) --}}
+                            <td class="px-6 py-4">
+                                @php
+                                    $typeCount = (int) (($categoryTypeCounts ?? [])[$category->equipment_category_id] ?? 0);
+                                @endphp
+                                <button
+                                    type="button"
+                                    @click='openTypesModal(
+                                        @json($category->equipment_category_id),
+                                        @json($category->equipment_category_name)
+                                    )'
+                                    class="group inline-flex max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                                >
+                                    <span class="inline-flex min-w-9 items-center justify-center rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-semibold text-slate-700 group-hover:bg-slate-200/80">
+                                        {{ number_format($typeCount) }}
+                                    </span>
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-medium text-slate-800">
+                                            {{ $typeCount === 1 ? 'equipment name' : 'equipment names' }}
+                                        </span>
+                                        <span class="block text-[11px] text-slate-400">Manage list · helps auto-predict</span>
+                                    </span>
+                                </button>
+                            </td>
 
                             {{-- ===================================================== --}}
                             {{-- EQUIPMENT COUNT --}}
@@ -399,7 +437,7 @@
                         <tr>
 
                             <td
-                                colspan="4"
+                                colspan="5"
                                 class="px-6 py-16 text-center"
                             >
 
@@ -493,6 +531,135 @@
             </div>
 
         @endif
+
+@elseif ($catalogTab === 'brands')
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="border-b border-slate-200 bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Brand name</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                        <th class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse(($catalogBrands ?? collect()) as $brand)
+                        <tr class="transition hover:bg-slate-50/80">
+                            <td class="px-6 py-4">
+                                <p class="font-semibold text-slate-950">{{ $brand->brand_name }}</p>
+                                <p class="mt-0.5 text-xs text-slate-400">Brand ID: {{ $brand->brand_id }}</p>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if (strcasecmp((string) $brand->brand_status, 'Active') === 0)
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                        Active
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-500">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                                        Inactive
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        @click='openBrandEdit(@json($brand->brand_id), @json($brand->brand_name), @json($brand->brand_status))'
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        title="Edit brand"
+                                    >
+                                        <i data-lucide="pencil" class="h-4 w-4"></i>
+                                    </button>
+                                    <form method="POST" action="{{ route('admin.equipment-categories.brands.destroy', $brand->brand_id) }}" onsubmit="return confirm('Delete brand {{ addslashes($brand->brand_name) }}?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700" title="Delete brand">
+                                            <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="3" class="px-6 py-16 text-center text-sm text-slate-400">
+                                No brands yet. Add one for inventory Brand name pickers.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($catalogBrands && $catalogBrands->hasPages())
+            <div class="border-t border-slate-200 px-6 py-4">{{ $catalogBrands->links() }}</div>
+        @endif
+
+@else
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="border-b border-slate-200 bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Model</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                        <th class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse(($catalogModels ?? collect()) as $modelRow)
+                        <tr class="transition hover:bg-slate-50/80">
+                            <td class="px-6 py-4">
+                                <p class="font-semibold text-slate-950">{{ $modelRow->model_name }}</p>
+                                <p class="mt-0.5 text-xs text-slate-400">Model ID: {{ $modelRow->model_id }}</p>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if ($modelRow->model_is_active)
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                        Active
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-500">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                                        Inactive
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        @click='openModelEdit(@json($modelRow->model_id), @json($modelRow->model_name), @json((bool) $modelRow->model_is_active))'
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        title="Edit model"
+                                    >
+                                        <i data-lucide="pencil" class="h-4 w-4"></i>
+                                    </button>
+                                    <form method="POST" action="{{ route('admin.equipment-categories.models.destroy', $modelRow->model_id) }}" onsubmit="return confirm('Delete model {{ addslashes($modelRow->model_name) }}?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700" title="Delete model">
+                                            <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="3" class="px-6 py-16 text-center text-sm text-slate-400">
+                                No models yet. Add one for inventory Model pickers.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($catalogModels && $catalogModels->hasPages())
+            <div class="border-t border-slate-200 px-6 py-4">{{ $catalogModels->links() }}</div>
+        @endif
+@endif
 
     </div>
 
@@ -865,6 +1032,179 @@
 
     </div>
 
+    {{-- Brand create/edit --}}
+    <div x-show="brandModalOpen" x-cloak @keydown.escape.window="closeBrandModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4">
+        <div @click.self="closeBrandModal()" class="absolute inset-0"></div>
+        <div class="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" @click.stop>
+            <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-950" x-text="brandEditId ? 'Edit brand' : 'Add brand'"></h2>
+                    <p class="mt-1 text-sm text-slate-500">Used in Add to inventory Brand name.</p>
+                </div>
+                <button type="button" @click="closeBrandModal()" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <form method="POST" :action="brandEditId ? (brandUpdateBase + '/' + brandEditId) : brandStoreUrl" class="space-y-4 px-6 py-5">
+                @csrf
+                <input type="hidden" name="_method" value="PUT" x-bind:disabled="!brandEditId">
+                <div>
+                    <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Brand name</label>
+                    <input type="text" name="name" x-model="brandName" maxlength="{{ \App\Support\EquipmentBrands::maxLength() }}" required placeholder="e.g. Logitech" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Status</label>
+                    <select name="status" x-model="brandStatus" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="closeBrandModal()" class="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800" x-text="brandEditId ? 'Save changes' : 'Add brand'"></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Model create/edit --}}
+    <div x-show="modelModalOpen" x-cloak @keydown.escape.window="closeModelModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4">
+        <div @click.self="closeModelModal()" class="absolute inset-0"></div>
+        <div class="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" @click.stop>
+            <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-950" x-text="modelEditId ? 'Edit model' : 'Add model'"></h2>
+                    <p class="mt-1 text-sm text-slate-500">Used in Add to inventory Model.</p>
+                </div>
+                <button type="button" @click="closeModelModal()" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <form method="POST" :action="modelEditId ? (modelUpdateBase + '/' + modelEditId) : modelStoreUrl" class="space-y-4 px-6 py-5">
+                @csrf
+                <input type="hidden" name="_method" value="PUT" x-bind:disabled="!modelEditId">
+                <div>
+                    <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Model</label>
+                    <input type="text" name="name" x-model="modelName" maxlength="{{ \App\Support\EquipmentModels::maxLength() }}" required placeholder="e.g. B100" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Status</label>
+                    <select name="active" x-model="modelActive" class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10">
+                        <option value="1">Active</option>
+                        <option value="0">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="closeModelModal()" class="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800" x-text="modelEditId ? 'Save changes' : 'Add model'"></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Manage equipment names inside a classification --}}
+    <div
+        x-show="typesModalOpen"
+        x-cloak
+        @keydown.escape.window="closeTypesModal()"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <div @click.self="closeTypesModal()" class="absolute inset-0"></div>
+        <div
+            x-show="typesModalOpen"
+            x-transition
+            class="relative z-10 flex max-h-[min(40rem,90vh)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            @click.stop
+        >
+            <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div class="min-w-0 pr-4">
+                    <h2 class="text-lg font-semibold text-slate-950">Equipment in classification</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Names listed under
+                        <span class="font-medium text-slate-700" x-text="typesCategoryName"></span>
+                        drive inventory auto-predict. Vague words (e.g. Wire) only map here if you add them.
+                    </p>
+                </div>
+                <button type="button" @click="closeTypesModal()" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+
+            <div class="border-b border-slate-100 bg-slate-50 px-6 py-4">
+                <p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add equipment name</p>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <div class="min-w-0 flex-1 space-y-2">
+                        <input
+                            type="text"
+                            x-model="typesNewName"
+                            maxlength="{{ \App\Support\EquipmentCategoryTypes::maxLength() }}"
+                            @keydown.enter.prevent="addType()"
+                            placeholder="e.g. Mouse, Ethernet Cable"
+                            class="h-10 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900/10"
+                        >
+                        <input
+                            type="text"
+                            x-model="typesNewAliases"
+                            maxlength="255"
+                            @keydown.enter.prevent="addType()"
+                            placeholder="Also match (optional): lan cable, network cable"
+                            class="h-9 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-700 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900/10"
+                        >
+                    </div>
+                    <button
+                        type="button"
+                        @click="addType()"
+                        :disabled="typesSaving"
+                        class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"
+                        x-text="typesSaving ? 'Adding…' : 'Add'"
+                    ></button>
+                </div>
+                <p class="mt-2 text-xs text-rose-600" x-show="typesError" x-text="typesError"></p>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+                <template x-if="typesLoading">
+                    <p class="px-4 py-8 text-center text-sm text-slate-400">Loading…</p>
+                </template>
+                <template x-if="!typesLoading && typesList.length === 0">
+                    <p class="px-4 py-8 text-center text-sm text-slate-400">No equipment names yet. Add the first one above.</p>
+                </template>
+                <ul class="divide-y divide-slate-100">
+                    <template x-for="row in typesList" :key="row.id">
+                        <li class="flex items-start gap-3 px-4 py-3">
+                            <div class="min-w-0 flex-1">
+                                <template x-if="typesEditId !== row.id">
+                                    <div>
+                                        <p class="font-medium text-slate-900" x-text="row.name"></p>
+                                        <p class="mt-0.5 text-xs text-slate-400" x-show="row.aliases" x-text="'Also match: ' + row.aliases"></p>
+                                    </div>
+                                </template>
+                                <template x-if="typesEditId === row.id">
+                                    <div class="space-y-2">
+                                        <input type="text" x-model="typesEditName" maxlength="{{ \App\Support\EquipmentCategoryTypes::maxLength() }}" class="h-9 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm ring-1 ring-slate-200 outline-none focus:bg-white focus:ring-slate-900/10">
+                                        <input type="text" x-model="typesEditAliases" maxlength="255" placeholder="Also match…" class="h-9 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm ring-1 ring-slate-200 outline-none focus:bg-white focus:ring-slate-900/10">
+                                        <div class="flex gap-2">
+                                            <button type="button" @click="saveType(row)" :disabled="typesSaving" class="rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-60">Save</button>
+                                            <button type="button" @click="cancelEditType()" class="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex shrink-0 gap-1" x-show="typesEditId !== row.id">
+                                <button type="button" @click="startEditType(row)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#0025cc] hover:bg-blue-50" title="Edit">
+                                    <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                                </button>
+                                <button type="button" @click="removeType(row)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50" title="Remove">
+                                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                </button>
+                            </div>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 
@@ -900,6 +1240,225 @@
             editCategoryName: '',
 
             editFormAction: '',
+
+            brandModalOpen: false,
+            brandEditId: null,
+            brandName: '',
+            brandStatus: 'Active',
+            brandStoreUrl: @js(route('admin.equipment-categories.brands.store')),
+            brandUpdateBase: @js(url('/admin/equipment/categories/brands')),
+
+            modelModalOpen: false,
+            modelEditId: null,
+            modelName: '',
+            modelActive: '1',
+            modelStoreUrl: @js(route('admin.equipment-categories.models.store')),
+            modelUpdateBase: @js(url('/admin/equipment/categories/models')),
+
+            openBrandCreate() {
+                this.brandEditId = null;
+                this.brandName = '';
+                this.brandStatus = 'Active';
+                this.brandModalOpen = true;
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            openBrandEdit(id, name, status) {
+                this.brandEditId = id;
+                this.brandName = name;
+                this.brandStatus = status || 'Active';
+                this.brandModalOpen = true;
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            closeBrandModal() {
+                this.brandModalOpen = false;
+                this.brandEditId = null;
+                this.brandName = '';
+                this.brandStatus = 'Active';
+            },
+            openModelCreate() {
+                this.modelEditId = null;
+                this.modelName = '';
+                this.modelActive = '1';
+                this.modelModalOpen = true;
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            openModelEdit(id, name, active) {
+                this.modelEditId = id;
+                this.modelName = name;
+                this.modelActive = active ? '1' : '0';
+                this.modelModalOpen = true;
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            closeModelModal() {
+                this.modelModalOpen = false;
+                this.modelEditId = null;
+                this.modelName = '';
+                this.modelActive = '1';
+            },
+
+            typesModalOpen: false,
+            typesLoading: false,
+            typesSaving: false,
+            typesCategoryId: null,
+            typesCategoryName: '',
+            typesList: [],
+            typesNewName: '',
+            typesNewAliases: '',
+            typesError: '',
+            typesEditId: null,
+            typesEditName: '',
+            typesEditAliases: '',
+            typesBaseUrl: @js(url('/admin/equipment/categories')),
+            csrfToken() {
+                return document.querySelector('meta[name="csrf-token"]')?.content || '';
+            },
+            async openTypesModal(categoryId, categoryName) {
+                this.typesModalOpen = true;
+                this.typesCategoryId = categoryId;
+                this.typesCategoryName = categoryName;
+                this.typesNewName = '';
+                this.typesNewAliases = '';
+                this.typesError = '';
+                this.typesEditId = null;
+                this.typesList = [];
+                this.typesLoading = true;
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                try {
+                    const res = await fetch(this.typesBaseUrl + '/' + categoryId + '/types', {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.message || 'Could not load equipment names.');
+                    this.typesList = Array.isArray(data.types) ? data.types : [];
+                } catch (e) {
+                    this.typesError = e.message || 'Could not load equipment names.';
+                } finally {
+                    this.typesLoading = false;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                }
+            },
+            closeTypesModal() {
+                if (this.typesSaving) return;
+                this.typesModalOpen = false;
+                this.typesCategoryId = null;
+                this.typesCategoryName = '';
+                this.typesList = [];
+                this.typesEditId = null;
+                this.typesError = '';
+            },
+            async addType() {
+                if (this.typesSaving || !this.typesCategoryId) return;
+                const name = String(this.typesNewName || '').trim();
+                if (!name) {
+                    this.typesError = 'Type the equipment name first.';
+                    return;
+                }
+                this.typesSaving = true;
+                this.typesError = '';
+                try {
+                    const res = await fetch(this.typesBaseUrl + '/' + this.typesCategoryId + '/types', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': this.csrfToken(),
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            name,
+                            aliases: String(this.typesNewAliases || '').trim() || null,
+                        }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                        throw new Error(first || data.message || 'Could not add.');
+                    }
+                    this.typesNewName = '';
+                    this.typesNewAliases = '';
+                    await this.openTypesModal(this.typesCategoryId, this.typesCategoryName);
+                } catch (e) {
+                    this.typesError = e.message || 'Could not add.';
+                } finally {
+                    this.typesSaving = false;
+                }
+            },
+            startEditType(row) {
+                this.typesEditId = row.id;
+                this.typesEditName = row.name;
+                this.typesEditAliases = row.aliases || '';
+                this.typesError = '';
+            },
+            cancelEditType() {
+                this.typesEditId = null;
+                this.typesEditName = '';
+                this.typesEditAliases = '';
+            },
+            async saveType(row) {
+                if (this.typesSaving) return;
+                const name = String(this.typesEditName || '').trim();
+                if (!name) {
+                    this.typesError = 'Enter the equipment name.';
+                    return;
+                }
+                this.typesSaving = true;
+                this.typesError = '';
+                try {
+                    const res = await fetch(this.typesBaseUrl + '/' + this.typesCategoryId + '/types/' + row.id, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': this.csrfToken(),
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            name,
+                            aliases: String(this.typesEditAliases || '').trim() || null,
+                            active: true,
+                        }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                        throw new Error(first || data.message || 'Could not save.');
+                    }
+                    this.cancelEditType();
+                    await this.openTypesModal(this.typesCategoryId, this.typesCategoryName);
+                } catch (e) {
+                    this.typesError = e.message || 'Could not save.';
+                } finally {
+                    this.typesSaving = false;
+                }
+            },
+            async removeType(row) {
+                if (this.typesSaving) return;
+                const ok = window.confirm('Remove "' + row.name + '" from this classification?');
+                if (!ok) return;
+                this.typesSaving = true;
+                this.typesError = '';
+                try {
+                    const res = await fetch(this.typesBaseUrl + '/' + this.typesCategoryId + '/types/' + row.id, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': this.csrfToken(),
+                        },
+                        credentials: 'same-origin',
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.message || 'Could not remove.');
+                    await this.openTypesModal(this.typesCategoryId, this.typesCategoryName);
+                } catch (e) {
+                    this.typesError = e.message || 'Could not remove.';
+                } finally {
+                    this.typesSaving = false;
+                }
+            },
 
 
             // =====================================================

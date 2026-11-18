@@ -66,11 +66,16 @@ use App\Http\Controllers\DisbursementVoucherController;
 Route::get('/dashboard', function () {
 
     // Only authenticated users can reach this due to middleware('auth').
-    $roleId = (int) (auth()->user()?->user_role_id ?? 0);
-    $path = \App\Support\RoleAccess::dashboardPath($roleId);
+    $user = auth()->user();
+    $path = \App\Support\RoleAccess::loginDestination($user);
 
-    if ($path === '/') {
-        abort(403);
+    if ($path === null || $path === '/') {
+        \Illuminate\Support\Facades\Auth::guard('web')->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+
+        return redirect('/')
+            ->with('error', \App\Support\RoleAccess::dormantPortalMessage());
     }
 
     return redirect($path);
@@ -108,6 +113,12 @@ Route::middleware('auth')->group(function () {
     })
         ->where('requestNo', 'PR-\\d{4,6}-\\d{1,6}')
         ->name('requests.show');
+
+    // Paper-form preview for pipeline / Request No. Open links (any authorized portal role).
+    Route::get('/procurement/documents/{type}/{id}/preview', [\App\Http\Controllers\ProcurementRecordPackageController::class, 'sharedPreviewDocument'])
+        ->where('type', 'ris|atp|rfc|dv|rr|liq')
+        ->whereNumber('id')
+        ->name('procurement.documents.preview');
 
 });
 
@@ -638,6 +649,8 @@ Route::middleware(['auth', 'admin'])
         Route::post('/inventory/batch-store', [MaintenanceController::class, 'storeEquipmentBatch'])->name('inventory.batch-store');
         Route::post('/inventory/store-rr-lines', [MaintenanceController::class, 'storeEquipmentFromRrLines'])->name('inventory.store-rr-lines');
         Route::post('/inventory/suppliers/quick-add', [MaintenanceController::class, 'quickAddSupplier'])->name('inventory.suppliers.quick-add');
+        Route::post('/inventory/brands/quick-add', [MaintenanceController::class, 'quickAddBrand'])->name('inventory.brands.quick-add');
+        Route::post('/inventory/models/quick-add', [MaintenanceController::class, 'quickAddModel'])->name('inventory.models.quick-add');
         Route::post('/inventory/update/{id}', [MaintenanceController::class, 'updateEquipment'])->whereNumber('id')->name('inventory.update');
         Route::post('/inventory/transfer', [MaintenanceController::class, 'transferEquipment'])->name('inventory.transfer');
         Route::post('/inventory/transfer-batch', [MaintenanceController::class, 'transferEquipmentBatch'])->name('inventory.transfer-batch');
@@ -701,6 +714,18 @@ Route::middleware(['auth', 'admin'])
         Route::post('/equipment/categories', [MaintenanceController::class, 'storeEquipmentCategory'])->name('equipment-categories.store');
         Route::put('/equipment/categories/{id}', [MaintenanceController::class, 'updateEquipmentCategory'])->whereNumber('id')->name('equipment-categories.update');
         Route::delete('/equipment/categories/{id}', [MaintenanceController::class, 'deleteEquipmentCategory'])->whereNumber('id')->name('equipment-categories.destroy');
+        Route::get('/equipment/categories/{id}/types', [MaintenanceController::class, 'categoryTypes'])->whereNumber('id')->name('equipment-categories.types.index');
+        Route::post('/equipment/categories/{id}/types', [MaintenanceController::class, 'storeCategoryType'])->whereNumber('id')->name('equipment-categories.types.store');
+        Route::put('/equipment/categories/{id}/types/{typeId}', [MaintenanceController::class, 'updateCategoryType'])->whereNumber('id')->whereNumber('typeId')->name('equipment-categories.types.update');
+        Route::delete('/equipment/categories/{id}/types/{typeId}', [MaintenanceController::class, 'deleteCategoryType'])->whereNumber('id')->whereNumber('typeId')->name('equipment-categories.types.destroy');
+        Route::post('/equipment/categories/brands', [MaintenanceController::class, 'storeCatalogBrand'])->name('equipment-categories.brands.store');
+        Route::put('/equipment/categories/brands/{id}', [MaintenanceController::class, 'updateCatalogBrand'])->whereNumber('id')->name('equipment-categories.brands.update');
+        Route::delete('/equipment/categories/brands/{id}', [MaintenanceController::class, 'destroyCatalogBrand'])->whereNumber('id')->name('equipment-categories.brands.destroy');
+        Route::post('/equipment/categories/models', [MaintenanceController::class, 'storeCatalogModel'])->name('equipment-categories.models.store');
+        Route::put('/equipment/categories/models/{id}', [MaintenanceController::class, 'updateCatalogModel'])->whereNumber('id')->name('equipment-categories.models.update');
+        Route::delete('/equipment/categories/models/{id}', [MaintenanceController::class, 'destroyCatalogModel'])->whereNumber('id')->name('equipment-categories.models.destroy');
+        Route::post('/inventory/equipment-types/quick-add', [MaintenanceController::class, 'quickAddCategoryType'])->name('inventory.equipment-types.quick-add');
+        Route::post('/inventory/classifications/quick-add', [MaintenanceController::class, 'quickAddClassification'])->name('inventory.classifications.quick-add');
 
         // Suggested issues and the quick checks reporters go through for each
         Route::get('/equipment/suggested-issues', [MaintenanceController::class, 'suggestedIssues'])->name('suggested-issues.index');
@@ -2287,6 +2312,11 @@ Route::middleware([
             [\App\Http\Controllers\InstallmentTermController::class, 'store']
         )->name('installment-terms.store');
 
+        Route::post(
+            '/installment-terms/quick-store',
+            [\App\Http\Controllers\InstallmentTermController::class, 'quickStore']
+        )->name('installment-terms.quick-store');
+
         Route::put(
             '/installment-terms/{term}',
             [\App\Http\Controllers\InstallmentTermController::class, 'update']
@@ -2296,6 +2326,11 @@ Route::middleware([
             '/installment-terms/{term}',
             [\App\Http\Controllers\InstallmentTermController::class, 'destroy']
         )->whereNumber('term')->name('installment-terms.destroy');
+
+        Route::post(
+            '/installment-terms/intervals/quick-store',
+            [\App\Http\Controllers\InstallmentTermController::class, 'quickStoreInterval']
+        )->name('installment-terms.intervals.quick-store');
 
         Route::post(
             '/installment-terms/intervals',
@@ -2460,6 +2495,11 @@ Route::middleware([
             '/approvals/ris/decide',
             [PresidentController::class, 'decideRis']
         )->name('approvals.ris.decide');
+
+        Route::post(
+            '/approvals/ris/return-revision',
+            [PresidentController::class, 'returnRisForRevision']
+        )->name('approvals.ris.return-revision');
 
         Route::post(
             '/approvals/saved-signatures',
@@ -2797,6 +2837,20 @@ Route::middleware(['auth'])
         )->whereNumber('id')
             ->where('type', 'ris|atp|rfc|dv|rr|liq|lr')
             ->name('documents.show');
+
+        Route::get(
+            '/documents/{type}/{id}/status',
+            [MessageController::class, 'sharedDocumentStatus']
+        )->whereNumber('id')
+            ->where('type', 'ris|atp|rfc|dv|rr|liq|lr')
+            ->name('documents.status');
+
+        Route::post(
+            '/documents/{type}/{id}/approve',
+            [MessageController::class, 'approveSharedDocument']
+        )->whereNumber('id')
+            ->where('type', 'ris|atp|rfc|dv|rr|liq|lr')
+            ->name('documents.approve');
 
         Route::get(
             '/documents/{type}/{id}/print',

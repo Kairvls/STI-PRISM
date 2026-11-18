@@ -49,8 +49,12 @@ class PurchaserAttentionSummary
             'scope' => 'mine',
         ],
         self::FOCUS_ATP_READY_FOR_RFC => [
-            'label' => 'Approved ATP ready for funding',
-            'description' => 'Approved ATP without an active Request for Check or Cash Advance.',
+            'label' => ProcurementPortal::PURCHASER_OWNS_ATP
+                ? 'ATP needing payment path / funding'
+                : 'Approved ATP ready for funding',
+            'description' => ProcurementPortal::PURCHASER_OWNS_ATP
+                ? 'Finish payment path and prepare RFC, then submit ATP + RFC once to School Administrator.'
+                : 'Approved ATP without an active Request for Check or Cash Advance.',
             'scope' => 'mine',
         ],
         self::FOCUS_CHECK_READY => [
@@ -295,7 +299,17 @@ class PurchaserAttentionSummary
 
     public static function scopeAtpReadyForRfc($query)
     {
-        $query->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
+        if (ProcurementPortal::PURCHASER_OWNS_ATP) {
+            // Soft-draft / owned ATPs awaiting payment path + RFC (pre-SA), or approved without RFC.
+            $query->where(function ($q) {
+                $q->where(function ($soft) {
+                    $soft->whereIn('authority_to_purchase_table.authority_purchase_status', ['Draft', 'Pending'])
+                        ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at');
+                })->orWhere('authority_to_purchase_table.authority_purchase_status', 'Approved');
+            });
+        } else {
+            $query->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
+        }
         self::whereNotArchived($query, 'authority_to_purchase_table', 'authority_purchase_is_archived');
         PurchaserDocumentAccess::scopeOwned($query, 'atp', 'authority_to_purchase_table');
 

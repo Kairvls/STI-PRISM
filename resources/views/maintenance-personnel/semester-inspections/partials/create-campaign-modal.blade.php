@@ -32,7 +32,7 @@
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div>
                 <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Semestral Inspection</h2>
-                <p class="mt-1 text-sm text-slate-500">Every active equipment in the chosen scope is added to the inspection checklist.</p>
+                <p class="mt-1 text-sm text-slate-500">All active equipment in scope is added.</p>
             </div>
             <button type="button" @click="open = false" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                 <i data-lucide="x" class="h-4 w-4"></i>

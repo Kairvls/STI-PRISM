@@ -75,7 +75,7 @@
             <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Shared {{ $typeLabel }}</p>
             <h1 class="truncate text-lg font-semibold text-slate-900">{{ $label }}</h1>
             @if($status !== '')
-                <p class="mt-1 text-sm text-slate-600">{{ $status }}</p>
+                <p class="mt-1 text-sm text-slate-600">{{ \App\Support\ProcurementDraftLabel::status($status) }}</p>
             @endif
         </div>
         <div class="flex items-center gap-2">

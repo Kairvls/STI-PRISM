@@ -2,17 +2,17 @@
 {{-- SIGN RIS TABLE PARTIAL --}}
 {{-- ===================================================== --}}
 
-<table class="pur-table w-full min-w-[980px] table-fixed">
+<table class="pur-table w-full table-fixed">
 
     <thead>
         <tr>
-            <th class="w-[12%]">RIS Number</th>
+            <th class="w-[13%]">RIS Number</th>
             <th class="w-[12%]">Request No.</th>
-            <th class="w-[20%]">Equipment</th>
+            <th class="w-[24%]">Equipment</th>
             <th class="w-[15%]">Requested By</th>
-            <th class="w-[15%]">Status</th>
-            <th class="w-[11%] text-right">Amount</th>
-            <th class="w-[15%] text-center">Actions</th>
+            <th class="w-[9%]">Status</th>
+            <th class="w-[9%] text-right">Amount</th>
+            <th class="w-[18%] text-center">Actions</th>
         </tr>
     </thead>
 
@@ -21,23 +21,33 @@
             @php
                 $awaitingSign = \App\Support\RisWorkflow::needsAdminIssuedBy($ris);
                 $needsDecision = \App\Support\RisWorkflow::needsSignDecision($ris);
+                $allowsDirectApprove = \App\Support\RisWorkflow::allowsDirectApprove($ris);
+                $reforwardToPresident = \App\Support\RisWorkflow::wasReturnedByPresidentForRevision($ris);
                 $isPresidentRejected = \App\Support\RisWorkflow::canReturnForRevision($ris);
+                $ownerPurchaserId = \App\Support\RisWorkflow::ownerPurchaserId($ris);
+                $ownerPurchaserName = \App\Support\RisWorkflow::requesterName($ris, '');
                 $rowDimmed = !$needsDecision && !$awaitingSign && !$isPresidentRejected;
                 $risCanAct = \App\Support\AdminPortal::canActOnRis();
             @endphp
 
             <tr class="transition hover:bg-gray-50/70 {{ $rowDimmed ? 'bg-gray-50/50 text-gray-500' : '' }}">
                 <td>
-                    <div
-                        class="truncate text-sm font-semibold {{ $rowDimmed ? 'text-gray-500' : 'text-gray-900' }}"
-                        title="{{ \App\Support\RisWorkflow::formNumber($ris) }}"
-                    >
-                        {{ \App\Support\RisWorkflow::formNumber($ris) }}
-                        @if(\App\Support\RisWorkflow::isUrgent($ris))
-                            <div class="mt-0.5">
-                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm'])
-                            </div>
-                        @endif
+                    @php $risNumberLabel = \App\Support\RisWorkflow::formNumber($ris); @endphp
+                    <div class="min-w-0">
+                        <div
+                            class="truncate text-sm font-semibold {{ $rowDimmed ? 'text-gray-500' : 'text-gray-900' }}"
+                            data-tip="{{ $risNumberLabel }}"
+                            data-truncate-tip="{{ $risNumberLabel }}"
+                        >{{ $risNumberLabel !== '' ? $risNumberLabel : '—' }}</div>
+                        <div class="mt-0.5 flex flex-wrap items-center gap-1">
+                            @include('partials.ris-urgency-badge', [
+                                'urgent' => \App\Support\RisWorkflow::isUrgent($ris),
+                                'size' => 'sm',
+                            ])
+                            @if($reforwardToPresident && $needsDecision)
+                                @include('partials.ris-reforward-badge', ['size' => 'sm'])
+                            @endif
+                        </div>
                     </div>
                 </td>
 
@@ -49,15 +59,10 @@
                 </td>
 
                 <td>
-                    <div
-                        class="truncate text-sm {{ $rowDimmed ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ \App\Support\RisWorkflow::sourceLabel($ris) }}"
-                    >
-                        {{ \App\Support\RisWorkflow::sourceLabel($ris) }}
-                        @if(!empty($ris->ris_request_type))
-                            <div class="mt-0.5 truncate text-[11px] text-gray-400">{{ \App\Support\RisWorkflow::requestTypeLabel($ris) }}</div>
-                        @endif
-                    </div>
+                    @include('admin.partials.ris-equipment-cell', [
+                        'ris' => $ris,
+                        'muted' => $rowDimmed,
+                    ])
                     @include('admin.partials.ris-attachments', ['ris' => $ris])
                 </td>
 
@@ -68,15 +73,17 @@
                             ? \Carbon\Carbon::parse($risSubmittedRaw)->format('M j, Y')
                             : null;
                     @endphp
+                    @php $requesterLabel = \App\Support\RisWorkflow::requesterName($ris); @endphp
                     <div
                         class="truncate text-sm font-medium {{ $rowDimmed ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ \App\Support\RisWorkflow::requesterName($ris) }}"
+                        data-tip="{{ $requesterLabel }}"
+                        data-truncate-tip="{{ $requesterLabel }}"
                     >
-                        {{ \App\Support\RisWorkflow::requesterName($ris) }}
+                        {{ $requesterLabel }}
                     </div>
                     <div
                         class="mt-0.5 whitespace-nowrap text-xs font-medium {{ $rowDimmed ? 'text-gray-400' : 'text-gray-600' }}"
-                        title="{{ $risSubmittedLabel ? 'Submitted '.$risSubmittedLabel : 'Submit date unavailable' }}"
+                        data-tip="{{ $risSubmittedLabel ? 'Submitted '.$risSubmittedLabel : 'Submit date unavailable' }}"
                     >
                         @if ($risSubmittedLabel)
                             Submitted {{ $risSubmittedLabel }}
@@ -86,13 +93,12 @@
                     </div>
                 </td>
 
-                <td>
-                    {{-- Keep existing status badge design --}}
+                <td class="min-w-0 align-middle">
                     @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
                 </td>
 
                 <td
-                    class="text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ $rowDimmed ? 'text-gray-500' : 'text-gray-900' }}"
+                    class="min-w-0 text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ $rowDimmed ? 'text-gray-500' : 'text-gray-900' }}"
                     title="Total computed amount of this RIS"
                 >
                     ₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 2) }}
@@ -113,6 +119,49 @@
                             </svg>
                         </button>
 
+                        @if($needsDecision && $risCanAct)
+                            @php
+                                $forwardMode = $reforwardToPresident ? 'forward-back' : 'forward';
+                                $forwardTip = $reforwardToPresident
+                                    ? 'Forward back to President'
+                                    : 'Forward RIS to President';
+                            @endphp
+                            <button
+                                type="button"
+                                onclick="window.openDirectApproveModal('{{ $ris->ris_id }}', '{{ $forwardMode }}')"
+                                data-tip="{{ $forwardTip }}"
+                                data-tip-place="above"
+                                aria-label="{{ $forwardTip }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border {{ $reforwardToPresident ? 'border-orange-200 bg-orange-50 text-orange-700 hover:border-orange-300 hover:bg-orange-100 hover:text-orange-800' : 'border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800' }} transition"
+                            >
+                                @if($reforwardToPresident)
+                                    {{-- Return / re-forward indicator (revision RIS) --}}
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-1.2 7.8"/>
+                                    </svg>
+                                @else
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                @endif
+                            </button>
+                            @if($allowsDirectApprove)
+                                <button
+                                    type="button"
+                                    onclick="window.openDirectApproveModal('{{ $ris->ris_id }}', 'direct')"
+                                    data-tip="Approve Directly"
+                                    data-tip-place="above"
+                                    aria-label="Approve Directly"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800"
+                                >
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </button>
+                            @endif
+                        @endif
+
                         @include('partials.share-document-button', [
                             'type' => 'ris',
                             'id' => $ris->ris_id,
@@ -120,13 +169,6 @@
                         ])
 
                         @include('admin.partials.ris-president-remarks-button', ['ris' => $ris])
-
-                        @if($needsDecision)
-                            @include('admin.procurement-review._ris-action-menu', [
-                                'risId' => $ris->ris_id,
-                                'btnSizeClass' => 'h-9 w-9',
-                            ])
-                        @endif
 
                         @if($awaitingSign && $risCanAct)
                             <button
@@ -145,9 +187,11 @@
                         @if($isPresidentRejected && $risCanAct)
                             <button
                                 type="button"
-                                onclick="window.openReturnRevisionModal('{{ $ris->ris_id }}')"
-                                title="Return this President-rejected RIS to Purchaser for Minor Revision"
-                                aria-label="Return for revision"
+                                onclick="window.openReturnRevisionModal('{{ $ris->ris_id }}', {{ (int) $ownerPurchaserId }}, @js($ownerPurchaserName))"
+                                data-tip="Pass to Purchaser"
+                                data-tip-place="above"
+                                title="Pass this RIS to the Purchaser for revision"
+                                aria-label="Pass to Purchaser"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
                             >
                                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

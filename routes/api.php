@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\MobileReportController;
 use App\Http\Controllers\Api\MobileMaintenanceController;
+use App\Http\Controllers\Api\MobileRoomInspectionController;
 use App\Http\Controllers\Api\MobileSemesterInspectionController;
 use App\Http\Controllers\Api\MicrosoftAuthController;
 
@@ -151,7 +152,7 @@ Route::prefix('maintenance')->group(function () {
         Route::get(
             '/equipment/{qr}',
             [MobileMaintenanceController::class, 'equipment']
-        );
+        )->where('qr', '.*');
 
         Route::put(
             '/equipment/{id}',
@@ -183,6 +184,11 @@ Route::prefix('maintenance')->group(function () {
             [MobileMaintenanceController::class, 'updateSchedule']
         );
 
+        Route::post(
+            '/schedule/{scheduleId}/complete',
+            [MobileMaintenanceController::class, 'completeSchedule']
+        );
+
         Route::get(
             '/semester-inspections',
             [MobileSemesterInspectionController::class, 'index']
@@ -202,6 +208,21 @@ Route::prefix('maintenance')->group(function () {
             '/semester-inspections/{id}/inspect/{itemId}',
             [MobileSemesterInspectionController::class, 'inspect']
         )->whereNumber('id')->whereNumber('itemId');
+
+        Route::get(
+            '/room-inspections',
+            [MobileRoomInspectionController::class, 'index']
+        );
+
+        Route::get(
+            '/room-inspections/{id}',
+            [MobileRoomInspectionController::class, 'show']
+        )->whereNumber('id');
+
+        Route::post(
+            '/room-inspections/{id}/inspect',
+            [MobileRoomInspectionController::class, 'inspect']
+        )->whereNumber('id');
 
     });
 

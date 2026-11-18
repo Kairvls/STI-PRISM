@@ -197,6 +197,8 @@ class RequestForCheckController extends Controller
             $rfc->funds_collected = !empty($rfc->request_check_funds_collected_at ?? null);
             $rfc->sent_to_accounting = AccountingHandoff::rfcIsSentToAccounting($rfc);
             $rfc->can_send_to_accounting = AccountingHandoff::purchaserCanSendRfc($rfc);
+            $rfc->must_joint_submit = $this->mustUseJointAtpSubmit($rfc);
+            $rfc->joint_submit_atp_id = $this->jointSubmitAtpId($rfc);
         }
 
         return view('purchaser.request-check.index', [
@@ -240,6 +242,9 @@ class RequestForCheckController extends Controller
         [$error, $atpIds, $poId] = $this->resolveFundingSelection($validated, $fundingType, null, !$isDraft);
         if ($error) {
             return back()->withInput()->with('error', $error);
+        }
+        if (! $isDraft && ($redirect = $this->redirectIfJointSubmitRequired($atpIds))) {
+            return $redirect;
         }
 
         return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig, $atpIds, $poId) {
@@ -347,6 +352,9 @@ class RequestForCheckController extends Controller
         if ($error) {
             return back()->withInput()->with('error', $error)->with('edit_rfc_id', (int) $id);
         }
+        if (! $isDraft && ($redirect = $this->redirectIfJointSubmitRequired($atpIds))) {
+            return $redirect;
+        }
 
         return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig, $atpIds, $poId) {
             $now = now();
@@ -419,6 +427,13 @@ class RequestForCheckController extends Controller
             PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
             if (!$this->isEditable($rfc)) {
                 return back()->with('error', 'This Request for Check cannot be submitted.');
+            }
+            $atpIdsForGate = RfcAtpLinks::atpIdsFor(
+                (int) $id,
+                (int) ($rfc->request_check_authority_purchase_id ?: 0) ?: null
+            );
+            if ($redirect = $this->redirectIfJointSubmitRequired($atpIdsForGate)) {
+                return $redirect;
             }
             $missing = [];
             if (!$rfc->request_check_authority_purchase_id) {
@@ -499,7 +514,7 @@ class RequestForCheckController extends Controller
 
         return back()->with(
             'success',
-            $label.' (Canvas + RIS + ATP + RFC) was submitted to '.$toName.' for Disbursement Voucher.'
+            $label.' (Canvass + RIS + ATP + RFC) was submitted to '.$toName.' for Disbursement Voucher.'
         );
     }
 
@@ -595,10 +610,10 @@ class RequestForCheckController extends Controller
             ],
             'request_check_funding_source' => ['nullable', 'string', 'max:60'],
             'request_check_date' => [$isDraft ? 'nullable' : 'required', 'date'],
-            'request_check_payee' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
-            'request_check_amount_figures' => [$isDraft ? 'nullable' : 'required', 'numeric', $isDraft ? 'min:0' : 'gt:0', 'max:999999999.99'],
-            'request_check_particulars_purpose' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
-            'request_check_requested_by' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'request_check_payee' => [$isDraft ? 'nullable' : 'required', 'string', 'max:'.\App\Support\InputLimits::NAME],
+            'request_check_amount_figures' => [$isDraft ? 'nullable' : 'required', 'numeric', $isDraft ? 'min:0' : 'gt:0', 'max:'.\App\Support\InputLimits::COST],
+            'request_check_particulars_purpose' => [$isDraft ? 'nullable' : 'required', 'string', 'max:'.\App\Support\InputLimits::PURPOSE],
+            'request_check_requested_by' => [$isDraft ? 'nullable' : 'required', 'string', 'max:'.\App\Support\InputLimits::NAME],
             'request_check_requested_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
@@ -664,9 +679,11 @@ class RequestForCheckController extends Controller
 
         $select = [
             'request_check_table.*',
+            'authority_to_purchase_table.authority_purchase_id as linked_atp_id',
             'authority_to_purchase_table.authority_purchase_form_number',
             'authority_to_purchase_table.authority_purchase_payment_path',
             'authority_to_purchase_table.authority_purchase_status as atp_status',
+            'authority_to_purchase_table.authority_purchase_submitted_at as atp_submitted_at',
         ];
 
         if ($this->rfcHas('request_check_assigned_reviewer_id') && Schema::hasTable('users_table')) {
@@ -763,10 +780,32 @@ class RequestForCheckController extends Controller
                 '=',
                 'equipment_table.equipment_id'
             )
-            ->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
             ->when(
-                \App\Support\SupplyHandoff::atpReleaseColumnsReady(),
-                fn ($q) => \App\Support\SupplyHandoff::scopeReleasedAtpsForPurchaser($q)
+                \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP,
+                function ($q) {
+                    // Purchaser may draft RFC against owned Draft/Pending ATP (pre-SA) or Approved.
+                    $q->where(function ($inner) {
+                        $inner->whereIn('authority_to_purchase_table.authority_purchase_status', ['Draft', 'Pending', 'Approved'])
+                            ->where(function ($owned) {
+                                $uid = (int) (\Illuminate\Support\Facades\Auth::id() ?? 0);
+                                $owned->where('authority_to_purchase_table.authority_purchase_created_by', $uid)
+                                    ->orWhere(function ($legacy) use ($uid) {
+                                        $legacy->whereNull('authority_to_purchase_table.authority_purchase_created_by')
+                                            ->where(function ($sub) use ($uid) {
+                                                $sub->where('authority_to_purchase_table.authority_purchase_submitted_by', $uid)
+                                                    ->orWhereNull('authority_to_purchase_table.authority_purchase_submitted_by');
+                                            });
+                                    });
+                            });
+                    });
+                },
+                function ($q) {
+                    $q->where('authority_to_purchase_table.authority_purchase_status', 'Approved')
+                        ->when(
+                            \App\Support\SupplyHandoff::atpReleaseColumnsReady(),
+                            fn ($qq) => \App\Support\SupplyHandoff::scopeReleasedAtpsForPurchaser($qq)
+                        );
+                }
             )
             ->when(
                 Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path'),
@@ -981,6 +1020,90 @@ class RequestForCheckController extends Controller
         return $summary;
     }
 
+    /**
+     * Soft-draft ATP (Pending/Draft, not yet submitted) must go with its RFC via joint submit.
+     *
+     * @param  array<int, int>  $atpIds
+     */
+    private function redirectIfJointSubmitRequired(array $atpIds): ?\Illuminate\Http\RedirectResponse
+    {
+        if (! ProcurementPortal::PURCHASER_OWNS_ATP || ProcurementPortal::isSupplyOfficerContext()) {
+            return null;
+        }
+
+        $atpId = $this->firstUnsubmittedSoftDraftAtpId($atpIds);
+        if (! $atpId) {
+            return null;
+        }
+
+        return ProcurementPortal::redirect('atp.index', ['view_atp' => $atpId])
+            ->with(
+                'error',
+                'Submit ATP + RFC together from Authority to Purchase. Save this funding request in preparation, then use Submit ATP + RFC for Review.'
+            );
+    }
+
+    /**
+     * @param  object|null  $rfc  Row may include atp_submitted_at / linked_atp_id from the list query.
+     */
+    private function mustUseJointAtpSubmit(?object $rfc): bool
+    {
+        if (! $rfc || ! ProcurementPortal::PURCHASER_OWNS_ATP || ProcurementPortal::isSupplyOfficerContext()) {
+            return false;
+        }
+
+        if (! in_array((string) ($rfc->request_check_status ?? ''), $this->rfcEditableStatuses(), true)) {
+            return false;
+        }
+
+        return $this->jointSubmitAtpId($rfc) !== null;
+    }
+
+    private function jointSubmitAtpId(?object $rfc): ?int
+    {
+        if (! $rfc || ! ProcurementPortal::PURCHASER_OWNS_ATP) {
+            return null;
+        }
+
+        // Prefer columns from the list join when present.
+        $joinedAtpId = (int) ($rfc->linked_atp_id ?? $rfc->request_check_authority_purchase_id ?? 0);
+        if (
+            $joinedAtpId > 0
+            && array_key_exists('atp_submitted_at', (array) $rfc)
+            && blank($rfc->atp_submitted_at ?? null)
+            && in_array((string) ($rfc->atp_status ?? ''), ['Draft', 'Pending'], true)
+        ) {
+            return $joinedAtpId;
+        }
+
+        $atpIds = RfcAtpLinks::atpIdsFor(
+            (int) ($rfc->request_check_id ?? 0),
+            (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null
+        );
+
+        return $this->firstUnsubmittedSoftDraftAtpId($atpIds);
+    }
+
+    /**
+     * @param  array<int, int>  $atpIds
+     */
+    private function firstUnsubmittedSoftDraftAtpId(array $atpIds): ?int
+    {
+        $atpIds = array_values(array_unique(array_filter(array_map('intval', $atpIds))));
+        if ($atpIds === []) {
+            return null;
+        }
+
+        $row = DB::table('authority_to_purchase_table')
+            ->whereIn('authority_purchase_id', $atpIds)
+            ->whereIn('authority_purchase_status', ['Draft', 'Pending'])
+            ->whereNull('authority_purchase_submitted_at')
+            ->orderBy('authority_purchase_id')
+            ->first(['authority_purchase_id']);
+
+        return $row ? (int) $row->authority_purchase_id : null;
+    }
+
     private function atpEligibilityError($atpId, $ignoreRfcId, bool $required, ?string $fundingType = null): ?string
     {
         if (!$atpId) {
@@ -991,11 +1114,23 @@ class RequestForCheckController extends Controller
             ->where('authority_purchase_id', $atpId)
             ->first();
 
-        if (
-            !$atp
-            || $atp->authority_purchase_status !== 'Approved'
-            || !empty($atp->authority_purchase_is_archived)
-        ) {
+        if (! $atp || ! empty($atp->authority_purchase_is_archived)) {
+            return 'Only an unarchived Authority to Purchase can be used for a funding request.';
+        }
+
+        $status = (string) ($atp->authority_purchase_status ?? '');
+        if (\App\Support\ProcurementPortal::PURCHASER_OWNS_ATP) {
+            if (! in_array($status, ['Draft', 'Pending', 'Approved'], true)) {
+                return 'Only an in-preparation, pending, or approved Authority to Purchase can be used for a funding request.';
+            }
+            // Block RFC while ATP is already with SA (submitted Pending) — except Approved.
+            if (
+                $status === 'Pending'
+                && filled($atp->authority_purchase_submitted_at ?? null)
+            ) {
+                return 'This ATP is already with the School Administrator. Wait for approval before changing the funding request.';
+            }
+        } elseif ($status !== 'Approved') {
             return 'Only an approved, unarchived Authority to Purchase can be used for a funding request.';
         }
 

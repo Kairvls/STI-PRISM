@@ -14,9 +14,10 @@
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $liq->liquidation_report_form_number ?? ('LIQ-'.$liq->liquidation_report_id) }}</h1>
                 @include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])
-                @if (\App\Support\DocumentUrgency::isUrgent('LIQ', $liq->liquidation_report_id))
-                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                @endif
+                @include('partials.ris-urgency-badge', [
+                    'urgent' => \App\Support\DocumentUrgency::isUrgent('LIQ', $liq->liquidation_report_id),
+                    'title' => 'Inherited from linked RIS',
+                ])
                 @include('accounting.partials.deadline-badge', ['deadline' => $liq->liquidation_report_submission_deadline ?? null])
             </div>
             <p class="acc-page-subtitle">Approval completes the transaction.</p>

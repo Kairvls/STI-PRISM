@@ -122,7 +122,7 @@
                     <span class="inline-block min-w-[7rem] border-b border-black text-center">&nbsp;</span>
                 @else
                     <span class="inline-block min-w-[7rem] border-b border-black px-1 text-center">
-                        {{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '' }}
+                        {{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('m/d/Y') : '' }}
                     </span>
                 @endif
             </div>

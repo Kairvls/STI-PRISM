@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use App\Support\AdminAttentionSummary;
 use App\Support\AdminPortal;
@@ -492,18 +493,28 @@ class AdminController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function procurementReview(Request $request): View
+    public function procurementReview(Request $request)
 {
     // =====================================================
     // PROCUREMENT REVIEW
     // =====================================================
 
-    $filter = strtolower($request->query('filter', 'pending'));
+    $hasExplicitFilter = $request->query->has('filter');
+    $filter = strtolower(trim((string) $request->query('filter', '')));
     $search = trim($request->query('search', ''));
     $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
+    $urgencyFilter = RisWorkflow::urgencyFilter($request->query('urgency'));
 
-    if (!in_array($filter, ['pending', 'accepted', 'revision', 'all'], true)) {
-        $filter = 'pending';
+    // Accepted work lives on Accepted RIS (Ready to Sign) — send old links there.
+    if ($filter === 'accepted') {
+        return redirect()->to(AdminPortal::route('digital-signatures.sign-ris', [
+            'filter' => 'for_decision',
+        ]));
+    }
+
+    if (! in_array($filter, ['pending', 'revision', 'all'], true)) {
+        $filter = '';
+        $hasExplicitFilter = false;
     }
 
     // Daily reminder focus overrides the status tab so the list matches the reminder count.
@@ -515,8 +526,10 @@ class AdminController extends Controller
         $focus = '';
     } elseif ($focus === AdminAttentionSummary::FOCUS_AMENDMENTS) {
         $filter = 'revision';
+        $hasExplicitFilter = true;
     } elseif ($focus === AdminAttentionSummary::FOCUS_PENDING_REVIEW) {
         $filter = 'pending';
+        $hasExplicitFilter = true;
     }
     $recordRisId = max(0, (int) $request->query('ris', 0));
 
@@ -527,14 +540,25 @@ class AdminController extends Controller
 
     $statsBase = $this->procurementReviewStatsBaseQuery();
     $pendingRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'pending'));
-    $acceptedRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'accepted'));
     $revisionRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'revision'));
     $allRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $statsBase, 'all'));
     $pendingRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'pending'));
-    $acceptedRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'accepted'));
     $revisionRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'revision'));
     $allRisAmount = $this->sumRisAmountLean($this->applyProcurementReviewStatusFilter(clone $statsBase, 'all'));
     $amendRis = $revisionRis;
+
+    // Landing default: Pending Accept → Returned for Revision → All
+    if ($filter === '' && $focus === '' && $recordRisId === 0 && ! $hasExplicitFilter) {
+        if ($pendingRis > 0) {
+            $filter = 'pending';
+        } elseif ($revisionRis > 0) {
+            $filter = 'revision';
+        } else {
+            $filter = 'all';
+        }
+    } elseif ($filter === '') {
+        $filter = 'pending';
+    }
 
 
     // =====================================================
@@ -620,6 +644,7 @@ class AdminController extends Controller
 
     if ($recordRisId === 0) {
         $this->applyRisSubmittedDateFilter($query, $submittedDate);
+        RisWorkflow::applyUrgencyFilter($query, $urgencyFilter);
     }
 
 
@@ -645,10 +670,12 @@ class AdminController extends Controller
             'focus' => $focus !== '' ? $focus : null,
             'search' => $search,
             'submitted' => $submittedDate !== '' ? $submittedDate : null,
+            'urgency' => $urgencyFilter,
             'ris' => $recordRisId ?: null,
         ], fn ($value) => $value !== null && $value !== ''));
 
     $this->attachRisSupportingDocuments($risRecords);
+    $this->attachRisEquipmentItems($risRecords);
 
     $attentionFocus = null;
     if ($recordRisId > 0) {
@@ -686,12 +713,11 @@ class AdminController extends Controller
                 'filter',
                 'search',
                 'submittedDate',
+                'urgencyFilter',
                 'pendingRis',
-                'acceptedRis',
                 'revisionRis',
                 'allRis',
                 'pendingRisAmount',
-                'acceptedRisAmount',
                 'revisionRisAmount',
                 'allRisAmount',
                 'attentionFocus'
@@ -708,12 +734,11 @@ class AdminController extends Controller
             'filter',
             'search',
             'submittedDate',
+            'urgencyFilter',
             'pendingRis',
-            'acceptedRis',
             'revisionRis',
             'allRis',
             'pendingRisAmount',
-            'acceptedRisAmount',
             'revisionRisAmount',
             'allRisAmount',
             'attentionFocus'
@@ -726,13 +751,19 @@ class AdminController extends Controller
         $filter = strtolower((string) $request->query('filter', 'pending'));
         $search = trim((string) $request->query('search', ''));
         $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
+        $urgencyFilter = RisWorkflow::urgencyFilter($request->query('urgency'));
 
-        if (! in_array($filter, ['pending', 'accepted', 'revision', 'all'], true)) {
+        if ($filter === 'accepted') {
+            $filter = 'all';
+        }
+
+        if (! in_array($filter, ['pending', 'revision', 'all'], true)) {
             $filter = 'pending';
         }
 
         $query = $this->procurementReviewIndexQuery();
         $this->applyProcurementReviewStatusFilter($query, $filter);
+        RisWorkflow::applyUrgencyFilter($query, $urgencyFilter);
 
         if ($search !== '') {
             $nameIds = RisWorkflow::userIdsMatchingName($search);
@@ -787,7 +818,6 @@ class AdminController extends Controller
 
         $title = match ($filter) {
             'all' => 'RIS — All',
-            'accepted' => 'RIS — Accepted',
             'revision' => 'RIS — Returned for Revision',
             default => 'RIS — Pending Accept',
         };
@@ -810,15 +840,19 @@ class AdminController extends Controller
     // Accepted RIS (Forward / Direct Approve / Return) plus
     // President-approved (Issued by) and President-rejected (return for revision).
 
-    $filter = strtolower($request->query('filter', 'pending'));
+    $hasExplicitFilter = $request->query->has('filter');
+    $filter = strtolower(trim((string) $request->query('filter', '')));
     $search = trim($request->query('search', ''));
     $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
+    $urgencyFilter = RisWorkflow::urgencyFilter($request->query('urgency'));
 
-    if (!in_array($filter, ['all', 'pending', 'for_decision', 'for_cosign', 'cosigned', 'president_rejected'], true)) {
-        $filter = 'pending';
+    // Legacy "pending" tab removed from UI — keep as combined-action alias for reminders.
+    if (! in_array($filter, ['all', 'pending', 'for_decision', 'for_cosign', 'cosigned', 'president_rejected'], true)) {
+        $filter = '';
+        $hasExplicitFilter = false;
     }
 
-    // Daily reminder focus: the "Pending" tab is exactly the reminder's scope.
+    // Daily reminder focus: combined Needs decision + Awaiting Issued by.
     $focus = (string) $request->query('focus', '');
     $focusMeta = $focus === AdminAttentionSummary::FOCUS_AWAITING_COSIGN
         ? AdminAttentionSummary::focusMeta($focus)
@@ -827,6 +861,7 @@ class AdminController extends Controller
         $focus = '';
     } else {
         $filter = 'pending';
+        $hasExplicitFilter = true;
     }
 
         $releasedJoin = DB::raw('(
@@ -883,6 +918,8 @@ class AdminController extends Controller
         )
         ->where(function ($q) {
             $q->where('requisition_issue_slip_table.ris_status', 'Accepted')
+            ->orWhere('requisition_issue_slip_table.ris_status', RisWorkflow::FORWARDED)
+            ->orWhere('requisition_issue_slip_table.ris_status', RisWorkflow::DIRECTLY_APPROVED)
             ->orWhere(function ($approved) {
                 $approved->where('requisition_issue_slip_table.ris_status', 'Approved by the President')
                     ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
@@ -896,6 +933,8 @@ class AdminController extends Controller
             ->orWhereIn('requisition_issue_slip_table.ris_status', [
                 'Rejected by President',
                 'Rejected by the President',
+                RisWorkflow::RETURNED_BY_PRESIDENT,
+                RisWorkflow::PRESIDENT_REVISION,
             ]);
         });
 
@@ -937,6 +976,8 @@ class AdminController extends Controller
         $query->whereIn('requisition_issue_slip_table.ris_status', [
             'Rejected by President',
             'Rejected by the President',
+            RisWorkflow::RETURNED_BY_PRESIDENT,
+            RisWorkflow::PRESIDENT_REVISION,
         ]);
     };
 
@@ -953,6 +994,27 @@ class AdminController extends Controller
     $cosignedAmount = (clone $baseQuery)->where($returnedQuery)->sum('ris_items_sum.ris_calculated_total');
     $presidentRejectedAmount = (clone $baseQuery)->where($presidentRejectedQuery)->sum('ris_items_sum.ris_calculated_total');
     $allAmount = (clone $baseQuery)->sum('ris_items_sum.ris_calculated_total');
+
+    // Landing default: Needs decision → Awaiting Issued by → All
+    // Legacy filter=pending without focus also uses this cascade.
+    if (
+        $focus === ''
+        && (
+            ! $hasExplicitFilter
+            || $filter === ''
+            || $filter === 'pending'
+        )
+    ) {
+        if ($forDecisionCount > 0) {
+            $filter = 'for_decision';
+        } elseif ($forCosignCount > 0) {
+            $filter = 'for_cosign';
+        } else {
+            $filter = 'all';
+        }
+    } elseif ($filter === '') {
+        $filter = 'for_decision';
+    }
 
     $query = clone $baseQuery;
     $recordRisId = max(0, (int) $request->query('ris', 0));
@@ -1031,6 +1093,7 @@ class AdminController extends Controller
 
     if ($recordRisId === 0) {
         $this->applyRisSubmittedDateFilter($query, $submittedDate);
+        RisWorkflow::applyUrgencyFilter($query, $urgencyFilter);
     }
 
 
@@ -1051,10 +1114,12 @@ class AdminController extends Controller
             'focus' => $focus,
             'search' => $search,
             'submitted' => $submittedDate,
+            'urgency' => $urgencyFilter,
             'ris' => $recordRisId ?: '',
-        ], fn ($value) => $value !== ''));
+        ], fn ($value) => $value !== null && $value !== ''));
 
     $this->attachRisSupportingDocuments($signableRisRecords);
+    $this->attachRisEquipmentItems($signableRisRecords);
     $this->attachRisPresidentRemarks($signableRisRecords);
 
     if ($recordRisId > 0) {
@@ -1063,7 +1128,7 @@ class AdminController extends Controller
     } else {
         $attentionFocus = $focusMeta === null ? null : $focusMeta + [
             'key' => $focus,
-            'clear_url' => AdminPortal::route('digital-signatures.sign-ris', array_filter(['filter' => $filter, 'search' => $search])),
+            'clear_url' => AdminPortal::route('digital-signatures.sign-ris', array_filter(['filter' => $filter, 'search' => $search, 'urgency' => $urgencyFilter])),
         ];
     }
 
@@ -1088,6 +1153,7 @@ class AdminController extends Controller
                 'filter',
                 'search',
                 'submittedDate',
+                'urgencyFilter',
                 'pendingActionCount',
                 'forDecisionCount',
                 'forCosignCount',
@@ -1114,6 +1180,7 @@ class AdminController extends Controller
             'filter',
             'search',
             'submittedDate',
+            'urgencyFilter',
             'pendingActionCount',
             'forDecisionCount',
             'forCosignCount',
@@ -1231,7 +1298,11 @@ class AdminController extends Controller
         $presidentApprovedCount = $this->applyRisPresidentApprovedScope(clone $baseQuery)->count();
         $presidentRejectedCount = $this->applyRisPresidentRejectedScope(clone $baseQuery)->count();
         $amendedCount = (clone $baseQuery)
-            ->whereIn('requisition_issue_slip_table.ris_status', ['Minor Revision', 'Rejected'])
+            ->whereIn('requisition_issue_slip_table.ris_status', [
+                RisWorkflow::MINOR_REVISION,
+                RisWorkflow::PRESIDENT_REVISION,
+                'Rejected',
+            ])
             ->count();
 
 
@@ -1248,7 +1319,11 @@ class AdminController extends Controller
         } elseif ($filter === 'president_rejected') {
             $this->applyRisPresidentRejectedScope($query);
         } elseif ($filter === 'amend') {
-            $query->whereIn('requisition_issue_slip_table.ris_status', ['Minor Revision', 'Rejected']);
+            $query->whereIn('requisition_issue_slip_table.ris_status', [
+                RisWorkflow::MINOR_REVISION,
+                RisWorkflow::PRESIDENT_REVISION,
+                'Rejected',
+            ]);
         }
 
         $this->applyRisSubmittedDateFilter($query, $submittedDate);
@@ -1326,6 +1401,7 @@ class AdminController extends Controller
             ]));
 
         $this->attachRisSupportingDocuments($signatureHistory);
+        $this->attachRisEquipmentItems($signatureHistory);
 
         // =====================================================
         // RETURN VIEW
@@ -1711,14 +1787,44 @@ class AdminController extends Controller
             return back()->with('error', 'Please provide remarks so the Purchaser knows what to revise.');
         }
 
-        return $this->withRevisionImages($request, function (callable $storeImages) use ($risId, $remarks) {
-            return $this->returnRisForRevisionWithImages($risId, $remarks, $storeImages);
+        $reassign = $request->boolean('reassign_purchaser');
+        $reassignReason = trim((string) $request->input('reassign_reason', ''));
+        $assignedPurchaserId = (int) $request->input('assigned_purchaser_id', 0);
+
+        return $this->withRevisionImages($request, function (callable $storeImages) use (
+            $risId,
+            $remarks,
+            $reassign,
+            $reassignReason,
+            $assignedPurchaserId
+        ) {
+            return $this->returnRisForRevisionWithImages(
+                $risId,
+                $remarks,
+                $storeImages,
+                $reassign,
+                $reassignReason,
+                $assignedPurchaserId
+            );
         });
     }
 
-    private function returnRisForRevisionWithImages($risId, string $remarks, callable $storeImages)
-    {
-        return DB::transaction(function () use ($risId, $remarks, $storeImages) {
+    private function returnRisForRevisionWithImages(
+        $risId,
+        string $remarks,
+        callable $storeImages,
+        bool $reassign = false,
+        string $reassignReason = '',
+        int $assignedPurchaserId = 0
+    ) {
+        return DB::transaction(function () use (
+            $risId,
+            $remarks,
+            $storeImages,
+            $reassign,
+            $reassignReason,
+            $assignedPurchaserId
+        ) {
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -1726,34 +1832,97 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
-            if (!RisWorkflow::isPresidentRejected($ris) && $ris->ris_status !== 'Rejected') {
-                return back()->with('error', 'Only President-rejected RIS records can be returned for revision.');
+            if (
+                ! RisWorkflow::canReturnForRevision($ris)
+            ) {
+                return back()->with('error', 'Only President-returned or rejected RIS records can be returned for revision.');
+            }
+
+            $ownerPurchaserId = RisWorkflow::ownerPurchaserId($ris);
+            if ($ownerPurchaserId < 1) {
+                return back()->with('error', 'This RIS has no Purchaser owner to return it to.');
+            }
+
+            $allowedPurchasers = WorkflowNotifier::userIdsForRole(WorkflowNotifier::ROLE_PURCHASER);
+            $notifyPurchaserId = $ownerPurchaserId;
+            $reassignmentNote = '';
+
+            if ($reassign) {
+                if ($reassignReason === '') {
+                    return back()->with('error', 'Provide a short reason when reassigning to another Purchaser.');
+                }
+                if ($assignedPurchaserId < 1 || ! in_array($assignedPurchaserId, $allowedPurchasers, true)) {
+                    return back()->with('error', 'Choose a valid covering Purchaser.');
+                }
+                if ($assignedPurchaserId === $ownerPurchaserId) {
+                    return back()->with('error', 'Pick a different Purchaser when reassigning, or leave reassignment off.');
+                }
+
+                $notifyPurchaserId = $assignedPurchaserId;
+                $reassignmentNote = ' Reassigned from '
+                    .WorkflowNotifier::recipientName($ownerPurchaserId, 'original Purchaser')
+                    .' to '
+                    .WorkflowNotifier::recipientName($notifyPurchaserId, 'covering Purchaser')
+                    .' ('.$reassignReason.').';
             }
 
             $images = $storeImages((int) $risId);
+            $logRemarks = $remarks.$reassignmentNote;
+
+            // Preserve presidential origin: SA is only relaying a President return/reject.
+            // Purchaser should see "For revision by President", not a normal SA Minor Revision.
+            $revisionStatus = RisWorkflow::PRESIDENT_REVISION;
+
+            $update = [
+                'ris_status' => $revisionStatus,
+                'ris_rejection_reason' => $logRemarks,
+                'ris_approved_by_signature' => null,
+                'ris_approved_by_date' => null,
+                'ris_issued_by_signature' => null,
+                'ris_issued_by_date' => null,
+                'ris_updated_at' => now(),
+            ];
+            if ($notifyPurchaserId > 0 && Schema::hasColumn('requisition_issue_slip_table', 'ris_submitted_by')) {
+                $update['ris_submitted_by'] = $notifyPurchaserId;
+            }
 
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
-                ->update([
-                    'ris_status' => 'Minor Revision',
-                    'ris_rejection_reason' => $remarks,
-                    'ris_approved_by_signature' => null,
-                    'ris_approved_by_date' => null,
-                    'ris_issued_by_signature' => null,
-                    'ris_issued_by_date' => null,
-                    'ris_updated_at' => now(),
-                ]);
+                ->update($update);
 
             try {
+                // Carry forward President proof images when SA relays without uploading new ones.
+                $encodedImages = $images !== []
+                    ? RisRevisionImages::encode($images)
+                    : null;
+                if (
+                    $encodedImages === null
+                    && Schema::hasColumn('ris_revision_notes_table', 'ris_revision_images')
+                ) {
+                    $priorImages = DB::table('ris_revision_notes_table')
+                        ->where('ris_id', (int) $risId)
+                        ->whereIn('ris_revision_type', [
+                            RisWorkflow::PRESIDENT_REVISION,
+                            RisWorkflow::RETURNED_BY_PRESIDENT,
+                        ])
+                        ->whereNotNull('ris_revision_images')
+                        ->where('ris_revision_images', '!=', '')
+                        ->orderByDesc('ris_revision_created_at')
+                        ->value('ris_revision_images');
+                    if (is_string($priorImages) && trim($priorImages) !== '') {
+                        $encodedImages = $priorImages;
+                    }
+                }
+
                 $note = [
                     'ris_id' => (int) $risId,
                     'ris_revision_requested_by' => Auth::id(),
-                    'ris_revision_type' => 'Minor Revision',
-                    'ris_revision_note' => $remarks,
+                    'ris_revision_type' => $revisionStatus,
+                    'ris_revision_note' => $logRemarks,
                     'ris_revision_created_at' => now(),
                 ];
-                if ($images !== []) {
-                    $note['ris_revision_images'] = RisRevisionImages::encode($images);
+                if ($encodedImages !== null) {
+                    $note['ris_revision_images'] = $encodedImages;
                 }
                 DB::table('ris_revision_notes_table')->insert($note);
             } catch (\Throwable $e) {
@@ -1768,26 +1937,34 @@ class AdminController extends Controller
                     'approval_log_reference_id' => (int) $risId,
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
-                    'approval_log_approval_status' => 'Minor Revision',
-                    'approval_log_approval_remarks' => $remarks,
+                    'approval_log_approval_status' => $revisionStatus,
+                    'approval_log_approval_remarks' => $logRemarks,
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
                 // ignore
             }
 
-            WorkflowNotifier::toUser(
-                $ris->ris_submitted_by,
-                WorkflowNotifier::ROLE_PURCHASER,
-                'RIS rejected by President',
-                RisWorkflow::formNumber($ris) . ': ' . $remarks . $this->revisionImagesSuffix($images),
-                'ris_rejected',
-                'RIS',
-                (int) $risId,
-                '/purchaser/ris'
-            );
+            if ($notifyPurchaserId > 0) {
+                WorkflowNotifier::toUser(
+                    $notifyPurchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    $reassign ? 'RIS revision reassigned to you' : 'RIS revision required',
+                    RisWorkflow::formNumber($ris) . ': ' . $logRemarks . $this->revisionImagesSuffix($images),
+                    'ris_revision',
+                    'RIS',
+                    (int) $risId,
+                    '/purchaser/ris'
+                );
+            }
 
-            return back()->with('success', 'Successfully sent to ' . WorkflowNotifier::recipientName($ris->ris_submitted_by, 'the Purchaser') . ' for revision' . $this->revisionImagesSuffix($images) . '.');
+            $success = 'Successfully sent to ' . WorkflowNotifier::recipientName($notifyPurchaserId, 'the Purchaser')
+                . ' for revision' . $this->revisionImagesSuffix($images) . '.';
+            if ($reassign) {
+                $success .= ' Coverage reassignment recorded.';
+            }
+
+            return back()->with('success', $success);
         });
     }
 
@@ -1934,9 +2111,21 @@ class AdminController extends Controller
             $activeCount = $users->whereIn('user_id', $activeIds)->count();
         }
 
+        $departments = collect();
+        if (Schema::hasTable('departments_table')) {
+            $departmentsQuery = DB::table('departments_table')->orderBy('department_name');
+            if (Schema::hasColumn('departments_table', 'department_is_archived')) {
+                $departmentsQuery->where(function ($q) {
+                    $q->whereNull('department_is_archived')->orWhere('department_is_archived', 0);
+                });
+            }
+            $departments = $departmentsQuery->get(['department_id', 'department_name']);
+        }
+
         return view('admin.users.index', [
             'users' => $users,
             'roles' => $roles,
+            'departments' => $departments,
             'extraRolesByUser' => $extraRolesByUser,
             'totalUsers' => $users->count(),
             'activeUsers' => $activeCount,
@@ -2393,6 +2582,9 @@ class AdminController extends Controller
             'contact_number' => \App\Support\PhoneNumber::rules(),
             'primary_role' => 'nullable|integer',
             'role' => 'nullable|integer',
+            'department_id' => 'nullable|integer|min:1',
+            'additional_roles' => 'nullable|array',
+            'additional_roles.*' => 'integer',
         ], [
             'user_type.required' => 'Please select Faculty or Staff.',
             'employee_id.regex' => 'Employee ID must look like OMC00127F (Faculty) or OMC00127S (Staff).',
@@ -2415,14 +2607,31 @@ class AdminController extends Controller
         if ($primaryRoleId <= 0) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
         }
+        if (\App\Support\RoleAccess::singletonRoleTaken($primaryRoleId)) {
+            return redirect('/admin/users')
+                ->with('error', \App\Support\RoleAccess::singletonRoleMessage($primaryRoleId))
+                ->withInput();
+        }
+        if (! \App\Support\RoleAccess::isAssignableRoleId($primaryRoleId)) {
+            return redirect('/admin/users')->with('error', 'That role is not available for new accounts right now.');
+        }
 
         $person = null;
         if ($request->filled('person_id') && \App\Support\Persons::tableReady()) {
             $person = \App\Support\Persons::find((int) $request->input('person_id'));
         }
 
+        $departmentId = (int) $request->input('department_id', 0);
         $isStaff = \App\Support\RoleAccess::isStaffEmploymentType((string) $request->user_type);
-        $isItDepartment = \App\Support\RoleAccess::personIsItDepartment($person);
+        $isItDepartment = false;
+        if ($departmentId > 0 && Schema::hasTable('departments_table')) {
+            $deptName = DB::table('departments_table')
+                ->where('department_id', $departmentId)
+                ->value('department_name');
+            $isItDepartment = \App\Support\RoleAccess::isItDepartmentName(is_string($deptName) ? $deptName : null);
+        } elseif ($person) {
+            $isItDepartment = \App\Support\RoleAccess::personIsItDepartment($person);
+        }
         $additionalRoles = \App\Support\RoleAccess::filterAllowedAdditionalRoles(
             $primaryRoleId,
             (array) $request->input('additional_roles', []),
@@ -2466,17 +2675,25 @@ class AdminController extends Controller
 
         if (Schema::hasColumn('users_table', 'person_id') && \App\Support\Persons::tableReady()) {
             try {
-                $payload['person_id'] = $request->filled('person_id')
-                    ? (int) $request->input('person_id')
-                    : \App\Support\Persons::ensureFromIdentity([
-                        'employee_id' => $employeeId,
-                        'type' => $request->user_type,
-                        'first_name' => $first,
-                        'middle_name' => $middle,
-                        'last_name' => $last,
-                        'email' => $request->email,
-                        'contact' => $request->contact_number,
-                    ]);
+                $identity = [
+                    'employee_id' => $employeeId,
+                    'type' => $request->user_type,
+                    'first_name' => $first,
+                    'middle_name' => $middle,
+                    'last_name' => $last,
+                    'email' => $request->email,
+                    'contact' => $request->contact_number,
+                    'department_id' => $departmentId > 0 ? $departmentId : null,
+                ];
+                if ($request->filled('person_id')) {
+                    $personId = (int) $request->input('person_id');
+                    if ($departmentId > 0) {
+                        \App\Support\Persons::update($personId, ['department_id' => $departmentId]);
+                    }
+                    $payload['person_id'] = $personId;
+                } else {
+                    $payload['person_id'] = \App\Support\Persons::ensureFromIdentity($identity);
+                }
             } catch (\Throwable $e) {
                 // Continue without person link if ensure fails.
             }
@@ -2494,12 +2711,21 @@ class AdminController extends Controller
         $targetIsAdmin = (int) $user->user_role_id === 1 || \App\Support\RoleAccess::isAdmin($user);
 
         $primaryRoleId = (int) $request->input('primary_role');
+        $currentPrimaryRoleId = (int) ($user->user_role_id ?? 0);
 
-        // Admin accounts keep Administrator as primary and never get additional roles.
+        // Admin accounts keep Administrator as primary; additional roles still allowed when Staff + IT.
         if ($targetIsAdmin) {
             $primaryRoleId = 1;
         } elseif ($primaryRoleId <= 0 || $primaryRoleId === 1) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
+        } elseif (
+            \App\Support\RoleAccess::singletonRoleTaken($primaryRoleId, (int) $user->user_id)
+            && $primaryRoleId !== $currentPrimaryRoleId
+        ) {
+            return redirect('/admin/users')
+                ->with('error', \App\Support\RoleAccess::singletonRoleMessage($primaryRoleId));
+        } elseif (! \App\Support\RoleAccess::isAssignableRoleId($primaryRoleId, $currentPrimaryRoleId)) {
+            return redirect('/admin/users')->with('error', 'That role is not available to assign right now.');
         }
 
         $person = null;
@@ -3709,7 +3935,10 @@ class AdminController extends Controller
     public function directApproveForm(Request $request, $risId)
     {
         $mode = strtolower($request->query('mode', 'direct'));
-        if (!in_array($mode, ['direct', 'forward', 'cosign'], true)) {
+        if ($mode === 'forward-back') {
+            $mode = 'forward';
+        }
+        if (! in_array($mode, ['direct', 'forward', 'cosign'], true)) {
             $mode = 'direct';
         }
 
@@ -3725,6 +3954,8 @@ class AdminController extends Controller
             }
         } elseif (!RisWorkflow::isAccepted($ris) || empty($ris->ris_requested_by_date)) {
             abort(403, 'Only accepted RIS records can be signed by Administrator on Sign RIS.');
+        } elseif ($mode === 'direct' && ! RisWorkflow::allowsDirectApprove($ris)) {
+            abort(403, 'This RIS was returned by the President. Forward it to the President again instead of approving directly.');
         }
 
         $risItems = $this->loadRisItemsWithLookups((int) $risId);
@@ -3857,7 +4088,7 @@ class AdminController extends Controller
             if (!$checkedDate) {
                 return back()->with(
                     'error',
-                    'Checked by date must be a valid date (dd/mm/yyyy).'
+                    'Checked by date must be a valid date (mm/dd/yyyy).'
                 );
             }
 
@@ -3865,7 +4096,7 @@ class AdminController extends Controller
             if (!$issuedDate) {
                 return back()->with(
                     'error',
-                    'Issued by date must be a valid date (dd/mm/yyyy).'
+                    'Issued by date must be a valid date (mm/dd/yyyy).'
                 );
             }
 
@@ -3900,6 +4131,13 @@ class AdminController extends Controller
                 );
             }
 
+            if (! RisWorkflow::allowsDirectApprove($ris)) {
+                return back()->with(
+                    'error',
+                    'This RIS was returned by the President. Forward it to the President again — Approve Directly is only for fresh RIS records.'
+                );
+            }
+
             // =====================================================
             // DIRECTLY APPROVE RIS
             //
@@ -3920,7 +4158,7 @@ class AdminController extends Controller
                 return back()->with('error', 'Please add your signature for Checked by and Issued by before approving this RIS.');
             }
 
-            $issuedError = RisWorkflow::applyIssuedQuantities((int) $risId, (array) $request->input('issued', []));
+            $issuedError = RisWorkflow::assertPurchaserIssuedComplete((int) $risId);
             if ($issuedError) {
                 return back()->withInput()->with('error', $issuedError);
             }
@@ -4126,7 +4364,17 @@ public function rejectRis(Request $request, $risId)
 
     private function rejectRisWithImages(Request $request, $risId, callable $storeImages)
     {
-        return DB::transaction(function () use ($request, $risId, $storeImages) {
+        try {
+            $purchaserId = ReviewerAssignment::resolve(
+                $request,
+                WorkflowNotifier::ROLE_PURCHASER,
+                'assigned_purchaser_id'
+            );
+        } catch (ValidationException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return DB::transaction(function () use ($request, $risId, $storeImages, $purchaserId) {
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -4154,22 +4402,30 @@ public function rejectRis(Request $request, $risId)
             }
 
             $images = $storeImages((int) $risId);
+            $notifyPurchaserId = $purchaserId > 0
+                ? $purchaserId
+                : (int) ($ris->ris_submitted_by ?: ($ris->ris_created_by ?? 0));
+
+            $update = [
+                'ris_status' => RisWorkflow::MINOR_REVISION,
+                'ris_rejection_reason' => $remarks,
+                'ris_approved_by_signature' => null,
+                'ris_approved_by_date' => null,
+                'ris_issued_by_signature' => null,
+                'ris_issued_by_date' => null,
+            ];
+            if ($notifyPurchaserId > 0 && Schema::hasColumn('requisition_issue_slip_table', 'ris_submitted_by')) {
+                $update['ris_submitted_by'] = $notifyPurchaserId;
+            }
 
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
-                ->update([
-                    'ris_status' => 'Minor Revision',
-                    'ris_rejection_reason' => $remarks,
-                    'ris_approved_by_signature' => null,
-                    'ris_approved_by_date' => null,
-                    'ris_issued_by_signature' => null,
-                    'ris_issued_by_date' => null,
-                ]);
+                ->update($update);
 
             $note = [
                 'ris_id' => (int) $risId,
                 'ris_revision_requested_by' => Auth::id(),
-                'ris_revision_type' => 'Minor Revision',
+                'ris_revision_type' => RisWorkflow::MINOR_REVISION,
                 'ris_revision_note' => $remarks,
                 'ris_revision_created_at' => now(),
             ];
@@ -4184,7 +4440,7 @@ public function rejectRis(Request $request, $risId)
                     'approval_log_reference_id' => (int) $risId,
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
-                    'approval_log_approval_status' => 'Minor Revision',
+                    'approval_log_approval_status' => RisWorkflow::MINOR_REVISION,
                     'approval_log_approval_remarks' => $remarks,
                     'approval_log_approved_at' => now(),
                 ]);
@@ -4192,24 +4448,42 @@ public function rejectRis(Request $request, $risId)
                 // Ignore logging failures
             }
 
-            WorkflowNotifier::toUser(
-                $ris->ris_submitted_by,
-                WorkflowNotifier::ROLE_PURCHASER,
-                'RIS revision required',
-                RisWorkflow::formNumber($ris) . ': ' . $remarks . $this->revisionImagesSuffix($images),
-                'ris_revision',
-                'RIS',
-                (int) $risId,
-                '/purchaser/ris'
-            );
+            if ($notifyPurchaserId > 0) {
+                WorkflowNotifier::toUser(
+                    $notifyPurchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'RIS revision required',
+                    RisWorkflow::formNumber($ris) . ': ' . $remarks . $this->revisionImagesSuffix($images),
+                    'ris_revision',
+                    'RIS',
+                    (int) $risId,
+                    '/purchaser/ris'
+                );
+            }
 
-            return back()->with('success', 'Successfully sent to ' . WorkflowNotifier::recipientName($ris->ris_submitted_by, 'the Purchaser') . ' for amendment' . $this->revisionImagesSuffix($images) . '.');
+            return back()->with(
+                'success',
+                'Successfully sent to ' . WorkflowNotifier::recipientName($notifyPurchaserId, 'the Purchaser')
+                    . ' for amendment' . $this->revisionImagesSuffix($images) . '.'
+            );
         });
     }
 
     public function finalRejectRis(Request $request, $risId)
     {
-        return DB::transaction(function () use ($request, $risId) {
+        $remarks = trim((string) $request->input('remarks', $request->input('rejection_reason', '')));
+        if ($remarks === '') {
+            return back()->with('error', 'Please provide rejection remarks.');
+        }
+
+        return $this->withRevisionImages($request, function (callable $storeImages) use ($request, $risId, $remarks) {
+            return $this->finalRejectRisWithImages($request, $risId, $remarks, $storeImages);
+        });
+    }
+
+    private function finalRejectRisWithImages(Request $request, $risId, string $remarks, callable $storeImages)
+    {
+        return DB::transaction(function () use ($risId, $remarks, $storeImages) {
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -4217,20 +4491,44 @@ public function rejectRis(Request $request, $risId)
 
             abort_if(!$ris, 404);
 
-            if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
-                return back()->with('error', 'Only submitted RIS records can be rejected.');
+            if (
+                (! $this->isAdminReviewable($ris->ris_status) && ! RisWorkflow::isAccepted($ris))
+                || ! $ris->ris_requested_by_date
+            ) {
+                return back()->with('error', 'Only pending or accepted RIS records can be rejected.');
             }
 
-            $remarks = trim((string) $request->input('remarks', $request->input('rejection_reason', '')));
+            if ($this->isAdminReviewable($ris->ris_status)) {
+                $this->markRisUnderReview($ris);
+            }
 
-            $this->markRisUnderReview($ris);
+            $images = $storeImages((int) $risId);
+            $notifyPurchaserId = (int) ($ris->ris_submitted_by ?: ($ris->ris_created_by ?? 0));
 
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->update([
                     'ris_status' => 'Rejected',
-                    'ris_rejection_reason' => $remarks !== '' ? $remarks : 'Rejected by Administrator.',
+                    'ris_rejection_reason' => $remarks,
                 ]);
+
+            try {
+                $note = [
+                    'ris_id' => (int) $risId,
+                    'ris_revision_requested_by' => Auth::id(),
+                    'ris_revision_type' => 'Rejected',
+                    'ris_revision_note' => $remarks,
+                    'ris_revision_created_at' => now(),
+                ];
+                if ($images !== []) {
+                    $note['ris_revision_images'] = RisRevisionImages::encode($images);
+                }
+                DB::table('ris_revision_notes_table')->insert($note);
+            } catch (\Throwable $e) {
+                if ($images !== []) {
+                    throw $e;
+                }
+            }
 
             try {
                 DB::table('approval_logs_table')->insert([
@@ -4239,25 +4537,31 @@ public function rejectRis(Request $request, $risId)
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
                     'approval_log_approval_status' => 'Rejected',
-                    'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Rejected by Administrator.',
+                    'approval_log_approval_remarks' => $remarks,
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
                 // Ignore logging failures
             }
 
-            WorkflowNotifier::toUser(
-                $ris->ris_submitted_by,
-                WorkflowNotifier::ROLE_PURCHASER,
-                'RIS rejected by Administrator',
-                RisWorkflow::formNumber($ris) . ': ' . ($remarks !== '' ? $remarks : 'Rejected by Administrator.'),
-                'ris_rejected',
-                'RIS',
-                (int) $risId,
-                '/purchaser/ris'
-            );
+            if ($notifyPurchaserId > 0) {
+                WorkflowNotifier::toUser(
+                    $notifyPurchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'RIS rejected by Administrator',
+                    RisWorkflow::formNumber($ris) . ': ' . $remarks . $this->revisionImagesSuffix($images),
+                    'ris_rejected',
+                    'RIS',
+                    (int) $risId,
+                    '/purchaser/ris'
+                );
+            }
 
-            return back()->with('success', 'RIS rejected. ' . WorkflowNotifier::recipientName($ris->ris_submitted_by, 'The Purchaser') . ' has been notified.');
+            return back()->with(
+                'success',
+                'RIS rejected. ' . WorkflowNotifier::recipientName($notifyPurchaserId, 'The Purchaser')
+                    . ' has been notified' . $this->revisionImagesSuffix($images) . '.'
+            );
         });
     }
 
@@ -5087,6 +5391,8 @@ public function rejectRis(Request $request, $risId)
         return $query->whereIn($this->risColumn('ris_status', $table), [
             'Rejected by the President',
             'Rejected by President',
+            RisWorkflow::RETURNED_BY_PRESIDENT,
+            RisWorkflow::PRESIDENT_REVISION,
         ]);
     }
 
@@ -5121,7 +5427,8 @@ public function rejectRis(Request $request, $risId)
             return null;
         }
 
-        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
+        // Prefer month-first (mm/dd/yyyy); keep day-first as legacy fallback.
+        foreach (['m/d/Y', 'n/j/Y', 'Y-m-d', 'm-d-Y', 'Y/m/d', 'd/m/Y', 'j/n/Y', 'd-m-Y'] as $format) {
             try {
                 $parsed = \Carbon\Carbon::createFromFormat($format, $value);
                 if ($parsed !== false) {
@@ -5533,6 +5840,47 @@ public function rejectRis(Request $request, $risId)
 
         foreach ($records as $ris) {
             $ris->risAttachments = $files->get($ris->ris_id, collect());
+        }
+    }
+
+    /**
+     * Line items for Equipment column "+N more" hover (paginated rows only).
+     */
+    private function attachRisEquipmentItems($records): void
+    {
+        $ids = $this->risRecordIds($records);
+
+        if ($ids->isEmpty() || ! Schema::hasTable('requisition_issue_slip_items_table')) {
+            foreach ($records as $ris) {
+                $ris->risEquipmentItems = collect();
+            }
+
+            return;
+        }
+
+        $select = [
+            'ris_id',
+            'ris_item_id',
+            'ris_item_name_description',
+        ];
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_quantity_requested')) {
+            $select[] = 'ris_quantity_requested';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_unit_cost')) {
+            $select[] = 'ris_unit_cost';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_total_amount')) {
+            $select[] = 'ris_total_amount';
+        }
+
+        $items = DB::table('requisition_issue_slip_items_table')
+            ->whereIn('ris_id', $ids)
+            ->orderBy('ris_item_id')
+            ->get($select)
+            ->groupBy('ris_id');
+
+        foreach ($records as $ris) {
+            $ris->risEquipmentItems = $items->get($ris->ris_id, collect())->values();
         }
     }
 

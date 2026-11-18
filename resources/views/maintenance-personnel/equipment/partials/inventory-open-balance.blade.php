@@ -41,10 +41,10 @@
                 :class="fullscreen ? 'ob-open-balance-panel--fullscreen h-full max-h-none max-w-none rounded-none' : 'max-h-[90vh] max-w-3xl rounded-2xl'"
                 onclick="event.stopPropagation()"
             >
-                <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
                     <div class="min-w-0">
-                        <p class="text-[13px] font-medium uppercase tracking-[0.14em] text-slate-600">Ready to stock</p>
-                        <p class="mt-1 text-sm text-slate-500">Received deliveries waiting to be added to inventory</p>
+                        <p class="text-[13px] font-medium uppercase tracking-[0.14em] text-slate-700">Ready to stock</p>
+                        <p class="mt-1 text-sm text-slate-600">Received deliveries waiting to be added to inventory</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         <button
@@ -69,14 +69,14 @@
                 </div>
 
                 <div class="monitoring-scroll min-h-0 flex-1 overflow-y-auto">
-                <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 border-b border-slate-100 bg-white px-5 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4.5rem] items-center gap-2 border-b border-slate-200 bg-slate-100 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                     <span>Receiving report</span>
                     <span class="text-right">Recv</span>
                     <span class="text-right" title="In inventory">Inv.</span>
                     <span class="text-right">Pending</span>
                 </div>
 
-                <div class="divide-y divide-slate-100 text-sm text-slate-700">
+                <div class="divide-y divide-slate-200 text-sm text-slate-700">
                     @foreach ($obPendingReports as $report)
                         @include('maintenance-personnel.equipment.partials.inventory-open-balance-rr', ['report' => $report])
                     @endforeach
@@ -85,22 +85,22 @@
                         <div class="bg-white">
                             <button
                                 type="button"
-                                class="flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition hover:bg-slate-50"
+                                class="flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition hover:bg-slate-100"
                                 @click="toggleCompletedRr()"
                                 :aria-expanded="showCompletedRr ? 'true' : 'false'"
                             >
                                 <span class="flex min-w-0 items-center gap-2.5">
-                                    <span class="inline-flex h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="showCompletedRr ? 'rotate-90' : ''">
+                                    <span class="inline-flex h-4 w-4 shrink-0 text-slate-500 transition-transform" :class="showCompletedRr ? 'rotate-90' : ''">
                                         <i data-lucide="chevron-right" class="h-4 w-4"></i>
                                     </span>
                                     <span class="min-w-0">
                                         <span class="block text-sm font-semibold text-slate-800" x-text="showCompletedRr ? 'Hide previous completed RRs' : 'Show previous completed RRs'"></span>
-                                        <span class="mt-0.5 block text-[12px] text-slate-500">{{ $obCompletedReports->count() }} {{ \Illuminate\Support\Str::plural('receiving report', $obCompletedReports->count()) }} already in inventory</span>
+                                        <span class="mt-0.5 block text-[12px] text-slate-600">{{ $obCompletedReports->count() }} {{ \Illuminate\Support\Str::plural('receiving report', $obCompletedReports->count()) }} already in inventory</span>
                                     </span>
                                 </span>
                                 <span class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">{{ $obCompletedReports->count() }} done</span>
                             </button>
-                            <div x-show="showCompletedRr" x-cloak class="divide-y divide-slate-100 border-t border-slate-100">
+                            <div x-show="showCompletedRr" x-cloak class="divide-y divide-slate-200 border-t border-slate-200">
                                 @foreach ($obCompletedReports as $report)
                                     @include('maintenance-personnel.equipment.partials.inventory-open-balance-rr', ['report' => $report])
                                 @endforeach

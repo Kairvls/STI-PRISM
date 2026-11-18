@@ -994,7 +994,10 @@
     <script src="{{ asset('js/auto-filter.js') }}" defer></script>
     <script src="{{ asset('js/list-soft-nav.js') }}" defer></script>
     <script src="{{ asset('js/input-limits.js') }}" defer></script>
+    <script src="{{ asset('js/signature-image.js') }}?v=2" defer></script>
     <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
+
+    @include('layouts.partials.floating-tip')
 
     @stack('scripts')
 

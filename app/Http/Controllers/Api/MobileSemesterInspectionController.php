@@ -256,7 +256,7 @@ class MobileSemesterInspectionController extends Controller
 
         if (in_array($campaign->campaign_status, ['Draft'], true)) {
             return response()->json([
-                'message' => 'This campaign is still a draft. Activate it on web first.',
+                'message' => 'This campaign is still in preparation. Activate it on web first.',
             ], 422);
         }
 

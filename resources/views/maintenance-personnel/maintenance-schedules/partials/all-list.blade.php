@@ -32,7 +32,7 @@
                     <a href="{{ url()->current() }}" class="font-semibold text-[#0025cc] hover:underline">Show all</a>
                 </p>
             @else
-                <p class="mt-0.5 text-sm text-slate-500">Equipment maintenance, room inspections, and semestral inspections.</p>
+                <p class="mt-0.5 text-sm text-slate-500">Equipment, room, and semestral inspections.</p>
             @endif
         </div>
         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-500">{{ number_format($rows->count()) }}</span>

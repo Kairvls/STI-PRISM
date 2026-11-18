@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ class InstallmentTermController extends Controller
 
         $validated = $request->validate([
             'term_name' => ['required', 'string', 'max:120'],
-            'term_months' => ['required', 'integer', 'min:1', 'max:60'],
+            'term_months' => ['required', 'integer', 'min:1', 'max:12'],
             'term_is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -67,7 +68,7 @@ class InstallmentTermController extends Controller
 
         $validated = $request->validate([
             'term_name' => ['required', 'string', 'max:120'],
-            'term_months' => ['required', 'integer', 'min:1', 'max:60'],
+            'term_months' => ['required', 'integer', 'min:1', 'max:12'],
             'term_is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -109,6 +110,114 @@ class InstallmentTermController extends Controller
         return redirect()
             ->route('purchaser.installment-terms.index')
             ->with('success', 'Installment term deleted.');
+    }
+
+    public function quickStore(Request $request): JsonResponse
+    {
+        abort_unless(Schema::hasTable('installment_terms_table'), 404);
+
+        $validated = $request->validate([
+            'term_name' => ['nullable', 'string', 'max:120'],
+            'term_months' => ['required', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        $months = (int) $validated['term_months'];
+        $name = trim((string) ($validated['term_name'] ?? ''));
+        if ($name === '') {
+            $name = 'Every '.$months.' month'.($months === 1 ? '' : 's');
+        }
+
+        $existing = DB::table('installment_terms_table')
+            ->where('term_months', $months)
+            ->orderByDesc('term_is_active')
+            ->orderBy('term_id')
+            ->first();
+
+        if ($existing) {
+            if ((int) ($existing->term_is_active ?? 0) !== 1) {
+                DB::table('installment_terms_table')->where('term_id', $existing->term_id)->update([
+                    'term_is_active' => 1,
+                    'term_updated_at' => now(),
+                ]);
+            }
+
+            return response()->json([
+                'id' => (int) $existing->term_id,
+                'name' => (string) $existing->term_name,
+                'months' => (int) $existing->term_months,
+                'created' => false,
+            ]);
+        }
+
+        $now = now();
+        $id = (int) DB::table('installment_terms_table')->insertGetId([
+            'term_name' => $name,
+            'term_months' => $months,
+            'term_is_active' => 1,
+            'term_created_at' => $now,
+            'term_updated_at' => $now,
+        ], 'term_id');
+
+        return response()->json([
+            'id' => $id,
+            'name' => $name,
+            'months' => $months,
+            'created' => true,
+        ], 201);
+    }
+
+    public function quickStoreInterval(Request $request): JsonResponse
+    {
+        abort_unless(Schema::hasTable('installment_day_intervals_table'), 404);
+
+        $validated = $request->validate([
+            'interval_name' => ['nullable', 'string', 'max:120'],
+            'interval_days' => ['required', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $days = (int) $validated['interval_days'];
+        $name = trim((string) ($validated['interval_name'] ?? ''));
+        if ($name === '') {
+            $name = 'Every '.$days.' days';
+        }
+
+        $existing = DB::table('installment_day_intervals_table')
+            ->where('interval_days', $days)
+            ->orderByDesc('interval_is_active')
+            ->orderBy('interval_id')
+            ->first();
+
+        if ($existing) {
+            if ((int) ($existing->interval_is_active ?? 0) !== 1) {
+                DB::table('installment_day_intervals_table')->where('interval_id', $existing->interval_id)->update([
+                    'interval_is_active' => 1,
+                    'interval_updated_at' => now(),
+                ]);
+            }
+
+            return response()->json([
+                'id' => (int) $existing->interval_id,
+                'name' => (string) $existing->interval_name,
+                'days' => (int) $existing->interval_days,
+                'created' => false,
+            ]);
+        }
+
+        $now = now();
+        $id = (int) DB::table('installment_day_intervals_table')->insertGetId([
+            'interval_name' => $name,
+            'interval_days' => $days,
+            'interval_is_active' => 1,
+            'interval_created_at' => $now,
+            'interval_updated_at' => $now,
+        ], 'interval_id');
+
+        return response()->json([
+            'id' => $id,
+            'name' => $name,
+            'days' => $days,
+            'created' => true,
+        ], 201);
     }
 
     public function storeInterval(Request $request): RedirectResponse

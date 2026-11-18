@@ -25,7 +25,7 @@
                 <td class="text-sm text-gray-700">{{ $row->status }}</td>
                 <td class="text-right text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) $row->amount, 2) }}</td>
                 <td class="whitespace-nowrap text-sm text-gray-600">
-                    {{ $row->decided_at ? \Carbon\Carbon::parse($row->decided_at)->format('d/m/Y') : '—' }}
+                    {{ $row->decided_at ? \Carbon\Carbon::parse($row->decided_at)->format('m/d/Y') : '—' }}
                 </td>
                 <td class="text-center">
                     @if ($row->url)

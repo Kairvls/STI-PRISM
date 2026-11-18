@@ -165,60 +165,149 @@
         syncSelectedUi();
     }
 
-    function renderList(conversations, users) {
-        const chunks = [];
+    @php
+        $alignedRolesByType = [
+            'ris' => \App\Support\ProcurementShareApproval::alignedRoleNames('ris'),
+            'atp' => \App\Support\ProcurementShareApproval::alignedRoleNames('atp'),
+            'rfc' => \App\Support\ProcurementShareApproval::alignedRoleNames('rfc'),
+            'dv' => \App\Support\ProcurementShareApproval::alignedRoleNames('dv'),
+            'rr' => \App\Support\ProcurementShareApproval::alignedRoleNames('rr'),
+            'liq' => \App\Support\ProcurementShareApproval::alignedRoleNames('liq'),
+            'lr' => \App\Support\ProcurementShareApproval::alignedRoleNames('liq'),
+        ];
+    @endphp
+    const alignedRolesByType = @json($alignedRolesByType);
 
-        (conversations || []).forEach((conv) => {
-            const id = conv.conversation_id;
-            const participants = Array.isArray(conv.participants) ? conv.participants : [];
-            const others = participants
-                .map((p) => p.user || p)
-                .filter((u) => Number(u.user_id) !== Number(window.currentUserId || 0));
-            let name = conv.conversation_name;
-            if (!name || !String(name).trim()) {
-                name = others.map((u) => u.user_full_name || u.name || 'User').join(', ') || 'Conversation';
+    function roleNameOf(userLike) {
+        if (!userLike) return '';
+        if (typeof userLike.role === 'string') return String(userLike.role).trim();
+        return String(userLike.role?.role_name || userLike.role_name || '').trim();
+    }
+
+    function isAlignedRole(roleName) {
+        const type = String(pending?.type || '').toLowerCase();
+        const aligned = alignedRolesByType[type] || [];
+        if (!roleName || !aligned.length) return false;
+        const needle = String(roleName).trim().toLowerCase();
+        return aligned.some((name) => String(name).toLowerCase() === needle);
+    }
+
+    function conversationAlignmentScore(conv) {
+        const participants = Array.isArray(conv.participants) ? conv.participants : [];
+        const others = participants
+            .map((p) => p.user || p)
+            .filter((u) => Number(u.user_id) !== Number(window.currentUserId || 0));
+        let score = 0;
+        others.forEach((u) => {
+            if (isAlignedRole(roleNameOf(u))) score += 10;
+        });
+        // Prefer 1:1 aligned people over groups with mixed roles.
+        if (others.length === 1 && score > 0) score += 5;
+        return score;
+    }
+
+    function userAlignmentScore(user) {
+        return isAlignedRole(roleNameOf(user)) ? 10 : 0;
+    }
+
+    function sortAlignedFirst(conversations, users) {
+        const convs = (conversations || []).slice().sort((a, b) => {
+            const diff = conversationAlignmentScore(b) - conversationAlignmentScore(a);
+            if (diff !== 0) return diff;
+            return String(b.last_message_at || '').localeCompare(String(a.last_message_at || ''));
+        });
+        const people = (users || []).slice().sort((a, b) => {
+            const diff = userAlignmentScore(b) - userAlignmentScore(a);
+            if (diff !== 0) return diff;
+            const an = String(a.user_full_name || a.name || '');
+            const bn = String(b.user_full_name || b.name || '');
+            return an.localeCompare(bn);
+        });
+        return { conversations: convs, users: people };
+    }
+
+    function conversationRowHtml(conv) {
+        const id = conv.conversation_id;
+        const participants = Array.isArray(conv.participants) ? conv.participants : [];
+        const others = participants
+            .map((p) => p.user || p)
+            .filter((u) => Number(u.user_id) !== Number(window.currentUserId || 0));
+        let name = conv.conversation_name;
+        if (!name || !String(name).trim()) {
+            name = others.map((u) => u.user_full_name || u.name || 'User').join(', ') || 'Conversation';
+        }
+        const roles = [];
+        others.forEach((u) => {
+            const trimmed = roleNameOf(u);
+            if (trimmed && roles.indexOf(trimmed) === -1) {
+                roles.push(trimmed);
             }
-            chunks.push(`
-                <button type="button" data-share-item data-kind="conversation" data-id="${id}" data-label="${escapeAttr(name)}"
-                    aria-pressed="false"
-                    class="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left hover:bg-slate-50">
-                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                        <i data-lucide="message-circle" class="h-4 w-4"></i>
-                    </span>
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-semibold text-slate-900">${escapeHtml(name)}</span>
-                        <span class="block text-xs text-slate-500">Conversation</span>
-                    </span>
-                    <span data-share-check class="hidden inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0025cc] text-white">
-                        <i data-lucide="check" class="h-3 w-3"></i>
-                    </span>
-                </button>
-            `);
+        });
+        let subtitle = 'Conversation';
+        if (roles.length === 1 && others.length <= 1) {
+            subtitle = roles[0];
+        } else if (roles.length > 0) {
+            subtitle = 'Conversation · ' + roles.join(', ');
+        }
+        const aligned = conversationAlignmentScore(conv) > 0;
+        return `
+            <button type="button" data-share-item data-kind="conversation" data-id="${id}" data-label="${escapeAttr(name)}" data-aligned="${aligned ? '1' : '0'}"
+                aria-pressed="false"
+                class="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left hover:bg-slate-50">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                    <i data-lucide="message-circle" class="h-4 w-4"></i>
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-semibold text-slate-900">${escapeHtml(name)}</span>
+                    <span class="block truncate text-xs text-slate-500">${escapeHtml(subtitle)}</span>
+                </span>
+                <span data-share-check class="hidden inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0025cc] text-white">
+                    <i data-lucide="check" class="h-3 w-3"></i>
+                </span>
+            </button>
+        `;
+    }
+
+    function userRowHtml(user) {
+        const id = user.user_id;
+        const name = user.user_full_name || user.name || 'User';
+        const role = roleNameOf(user);
+        const aligned = userAlignmentScore(user) > 0;
+        return `
+            <button type="button" data-share-item data-kind="user" data-id="${id}" data-label="${escapeAttr(name)}" data-aligned="${aligned ? '1' : '0'}"
+                aria-pressed="false"
+                class="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left hover:bg-slate-50">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#0025cc]">
+                    <i data-lucide="user" class="h-4 w-4"></i>
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-semibold text-slate-900">${escapeHtml(name)}</span>
+                    <span class="block text-xs text-slate-500">${escapeHtml(role || 'Staff')}</span>
+                </span>
+                <span data-share-check class="hidden inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0025cc] text-white">
+                    <i data-lucide="check" class="h-3 w-3"></i>
+                </span>
+            </button>
+        `;
+    }
+
+    function renderList(conversations, users) {
+        const sorted = sortAlignedFirst(conversations, users);
+        const alignedItems = [];
+        const otherItems = [];
+
+        sorted.conversations.forEach((conv) => {
+            const html = conversationRowHtml(conv);
+            if (conversationAlignmentScore(conv) > 0) alignedItems.push(html);
+            else otherItems.push(html);
+        });
+        sorted.users.forEach((user) => {
+            const html = userRowHtml(user);
+            if (userAlignmentScore(user) > 0) alignedItems.push(html);
+            else otherItems.push(html);
         });
 
-        (users || []).forEach((user) => {
-            const id = user.user_id;
-            const name = user.user_full_name || user.name || 'User';
-            const role = (typeof user.role === 'string')
-                ? user.role
-                : (user.role?.role_name || user.role_name || '');
-            chunks.push(`
-                <button type="button" data-share-item data-kind="user" data-id="${id}" data-label="${escapeAttr(name)}"
-                    aria-pressed="false"
-                    class="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left hover:bg-slate-50">
-                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#0025cc]">
-                        <i data-lucide="user" class="h-4 w-4"></i>
-                    </span>
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-semibold text-slate-900">${escapeHtml(name)}</span>
-                        <span class="block text-xs text-slate-500">${escapeHtml(role || 'Staff')}</span>
-                    </span>
-                    <span data-share-check class="hidden inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0025cc] text-white">
-                        <i data-lucide="check" class="h-3 w-3"></i>
-                    </span>
-                </button>
-            `);
-        });
+        const chunks = alignedItems.concat(otherItems);
 
         if (!chunks.length) {
             listEl.innerHTML = '<p class="px-3 py-6 text-center text-sm text-slate-400">No matches.</p>';
@@ -327,7 +416,7 @@
                     {
                         type: 'success',
                         title: 'Shared',
-                        timer: 3000,
+                        timer: 5500,
                         action: {
                             label: 'View in Messages',
                             onClick: function () {

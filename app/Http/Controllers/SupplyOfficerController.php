@@ -313,7 +313,7 @@ class SupplyOfficerController extends Controller
     }
 
     /**
-     * Read-only Canvas + RIS reference (same idea as Accounting package refs for DV).
+     * Read-only Canvass + RIS reference (same idea as Accounting package refs for DV).
      */
     public function showIncomingRis(int $risId): View
     {

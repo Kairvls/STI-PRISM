@@ -50,6 +50,8 @@
                 'rr' => $rr,
                 'rows' => $rows,
                 'allowMultiSupplier' => $allowMultiSupplier ?? false,
+                // PR archive view: pure RR form for non-purchasers (photos stay on Purchaser RR module).
+                'showItemPhotos' => \App\Support\RoleAccess::hasRole(\App\Support\RoleAccess::PURCHASER),
             ])
             @break
 

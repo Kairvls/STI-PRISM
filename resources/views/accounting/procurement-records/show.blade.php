@@ -32,7 +32,7 @@
                 @endif
                 <div class="mt-2 flex flex-wrap items-center gap-2">
                     <span class="pr-badge pr-badge--blue">{{ ProcurementPaymentPath::label($package->package_payment_path) }}</span>
-                    <span class="pr-badge {{ $statusClass }}">{{ $status }}</span>
+                    <span class="pr-badge {{ $statusClass }}">{{ \App\Support\ProcurementDraftLabel::status($status) }}</span>
                 </div>
             </div>
         </div>

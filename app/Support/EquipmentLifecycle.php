@@ -10,6 +10,9 @@ class EquipmentLifecycle
 {
     public const DEFAULT_USEFUL_LIFE_YEARS = 5;
 
+    /** Max years allowed when stocking / editing useful lifespan. */
+    public const MAX_USEFUL_LIFE_YEARS = 10;
+
     /**
      * Assets within 1 year of (or past) useful life, excluding disposed.
      */

@@ -2,7 +2,7 @@
 
 @section("page-title", "Requisition Issue Slip")
 
-@section("page-subtitle", "Manage Requisition and Issue Slips")
+@section("page-subtitle", "Canvass + RIS forms.")
 
 @section("content")
 @include('partials.floating-menu-script')
@@ -87,7 +87,32 @@
         'purposeText' => $bootPurpose,
         'urgencyLevel' => $bootUrgency,
         'copiedFromRisId' => (int) old('copied_from_ris_id', $copyPrefill['copied_from_ris_id'] ?? 0) ?: null,
-        'createSignaturePreview' => (string) old('signature_data', ''),
+        'createSignaturePreview' => (function () use ($editRisId, $risRecords, $savedSignatures) {
+            $posted = (string) old('signature_data', '');
+            if ($posted !== '' && str_starts_with($posted, 'data:image/')) {
+                return $posted;
+            }
+            if ($editRisId > 0) {
+                foreach ($risRecords ?? [] as $editRecord) {
+                    if ((int) ($editRecord->ris_id ?? 0) === $editRisId) {
+                        $existing = (string) \App\Support\RisWorkflow::requestedByDrawnSignature($editRecord);
+                        if ($existing !== '' && str_starts_with($existing, 'data:image/')) {
+                            return $existing;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Wire the purchaser's first saved signature onto Create/Edit Requested by.
+            $firstSaved = collect($savedSignatures ?? [])->first();
+            $preview = is_object($firstSaved) ? (string) ($firstSaved->preview_url ?? '') : '';
+            if ($preview !== '' && str_starts_with($preview, 'data:image/')) {
+                return $preview;
+            }
+
+            return $posted;
+        })(),
         'savedSignatures' => collect($savedSignatures ?? [])->map(function ($item) {
             return [
                 'id' => (int) $item->user_signature_id,
@@ -215,8 +240,8 @@
         validDate(value) {
             const match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
             if (!match) return false;
-            const day = Number(match[1]);
-            const month = Number(match[2]);
+            const month = Number(match[1]);
+            const day = Number(match[2]);
             const year = Number(match[3]);
             const date = new Date(year, month - 1, day);
             return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
@@ -285,7 +310,7 @@
             if (!dateValue) {
                 errors.push('Requested By date is required before submitting.');
             } else if (!this.validDate(dateValue)) {
-                errors.push('Requested By date must use dd/mm/yyyy.');
+                errors.push('Requested By date must use MM/DD/YYYY.');
             }
             const signature = String(options.signature || '').trim();
             if (options.requireSignature && signature.indexOf('data:image/') !== 0) {
@@ -294,7 +319,7 @@
             const fileInput = form.querySelector('input[type="file"][name="ris_attachments[]"]');
             const hasNewFile = !!(fileInput && fileInput.files && fileInput.files.length);
             if (!options.hasCanvas && !hasNewFile) {
-                errors.push('Attach a Canvas file (Word, Excel, or PDF) before submitting.');
+                errors.push('Attach a Canvass file (Word, Excel, or PDF) before submitting.');
             }
             const items = this.itemRows(form);
             if (!items.length) {
@@ -345,7 +370,7 @@
         submitRisConfirm: null,
         submitRisSending: false,
         submitRisEditForm: null,
-        closeEditRis(risId, returnToView = true) {
+        closeEditRis(risId, returnToView = false) {
             this.editRisModal = null;
             this.editRisFullscreen = false;
             if (returnToView) {
@@ -366,17 +391,41 @@
                 this.showRisSubmitErrors(form, ['Issued quantity cannot be higher than requested.']);
                 return;
             }
+            let signature = '';
+            if (this.createSignaturePreview && String(this.createSignaturePreview).indexOf('data:image/') === 0) {
+                signature = this.createSignaturePreview;
+            } else {
+                const live = form && form.querySelector
+                    ? (form.querySelector('[data-ris-edit-signature]') || form.querySelector('[name=signature_data]'))
+                    : null;
+                const liveValue = live ? String(live.value || '') : '';
+                if (liveValue.indexOf('data:image/') === 0) {
+                    signature = liveValue;
+                } else if (existingSignature && String(existingSignature).indexOf('data:image/') === 0) {
+                    signature = String(existingSignature);
+                }
+            }
             const errors = window.risSubmitChecks.errors(form, {
-                signature: existingSignature,
-                requireSignature: false,
+                signature: signature,
+                requireSignature: true,
                 hasCanvas: !!hasAttachments,
             });
             if (errors.length) {
                 this.showRisSubmitErrors(form, errors);
+                if (typeof window.showMpToast === 'function') {
+                    window.showMpToast(errors[0] + (errors.length > 1 ? ' (+' + (errors.length - 1) + ' more)' : ''), {
+                        title: 'Complete the RIS first',
+                        type: 'error',
+                        timer: 4800,
+                    });
+                }
                 return;
             }
             this.clearRisSubmitErrors(form);
-            this.openSubmitRis(id, number, form ? form.getAttribute('action') : '#', hasAttachments, kind, existingSignature);
+            document.querySelectorAll('[data-ris-edit-signature]').forEach((el) => {
+                el.value = signature || '';
+            });
+            this.openSubmitRis(id, number, form ? form.getAttribute('action') : '#', hasAttachments, kind, signature);
             this.submitRisEditForm = form;
         },
         submitCreateToAdmin() {
@@ -393,6 +442,13 @@
             });
             if (errors.length) {
                 this.showRisSubmitErrors(form, errors);
+                if (typeof window.showMpToast === 'function') {
+                    window.showMpToast(errors[0] + (errors.length > 1 ? ' (+' + (errors.length - 1) + ' more)' : ''), {
+                        title: 'Complete the RIS first',
+                        type: 'error',
+                        timer: 4800,
+                    });
+                }
                 return;
             }
             this.clearRisSubmitErrors(form);
@@ -414,6 +470,7 @@
                 hasAttachments: !!hasAttachments,
                 kind: kind === 'resubmit' ? 'resubmit' : 'submit',
                 existingSignature: onFile,
+                // Draw pad only when no signature exists yet.
                 replaceSignature: !onFile,
                 signature: '',
                 signatureSource: '',
@@ -422,7 +479,9 @@
                 signatureError: '',
             };
             this.$nextTick(() => {
-                this.resetSubmitRisPad();
+                if (this.submitRisConfirm && this.submitRisConfirm.replaceSignature) {
+                    this.resetSubmitRisPad();
+                }
                 if (this.$refs.submitRisSigUpload) this.$refs.submitRisSigUpload.value = '';
                 if (window.lucide) {
                     window.lucide.createIcons();
@@ -444,6 +503,20 @@
             if (!c.replaceSignature && c.existingSignature) return true;
             return String(c.signature || '').indexOf('data:image/') === 0;
         },
+        lockSubmitRisSignature(dataUrl, source = '', savedId = null) {
+            const c = this.submitRisConfirm;
+            if (!c) return;
+            const raw = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? String(dataUrl) : '';
+            if (!raw) return;
+            c.signatureError = '';
+            c.existingSignature = raw;
+            c.signature = raw;
+            c.signatureSource = source || c.signatureSource || '';
+            c.savedSignatureId = savedId;
+            c.replaceSignature = false;
+            c.uploadName = '';
+            this.clearSubmitRisUpload();
+        },
         setSubmitRisSignature(dataUrl, source, savedId = null) {
             const c = this.submitRisConfirm;
             if (!c) return;
@@ -453,21 +526,33 @@
             c.savedSignatureId = raw ? savedId : null;
             if (raw && source !== 'pad' && typeof window.trimSignatureDataUrl === 'function') {
                 window.trimSignatureDataUrl(raw).then((url) => {
-                    if (this.submitRisConfirm === c) c.signature = url || '';
+                    if (this.submitRisConfirm === c) {
+                        this.lockSubmitRisSignature(url || raw, source, savedId);
+                    }
                 });
+                return;
+            }
+            if (raw && source !== 'pad') {
+                this.lockSubmitRisSignature(raw, source, savedId);
                 return;
             }
             c.signature = raw;
         },
-        pickSubmitRisSavedSignature(sig) {
+        async pickSubmitRisSavedSignature(sig) {
             this.resetSubmitRisPad();
             this.clearSubmitRisUpload();
-            this.setSubmitRisSignature(sig.preview_url, 'saved', sig.id);
+            let url = sig && sig.preview_url ? String(sig.preview_url) : '';
+            if (url && window.PrismSignatureImage && window.PrismSignatureImage.cleanForOverlay) {
+                try {
+                    url = await window.PrismSignatureImage.cleanForOverlay(url) || url;
+                } catch (e) {}
+            }
+            this.setSubmitRisSignature(url, 'saved', sig.id);
         },
         syncSubmitRisPad() {
             const c = this.submitRisConfirm;
             const canvas = document.getElementById('purchaserRisSubmitSignatureCanvas');
-            if (!c || !canvas) return;
+            if (!c || !c.replaceSignature || !canvas) return;
             if (!this.canvasHasDrawing('purchaserRisSubmitSignatureCanvas')) {
                 if (c.signatureSource === 'pad') this.setSubmitRisSignature('', '');
                 return;
@@ -476,7 +561,19 @@
                 ? window.exportTrimmedSignatureDataUrl(canvas)
                 : '') || canvas.toDataURL('image/png');
             this.clearSubmitRisUpload();
-            this.setSubmitRisSignature(dataUrl, 'pad');
+            // Keep pad open while drawing; lock to preview after a short pause of activity
+            // is handled by confirm via saved/upload. For pad, lock when they leave the pad area.
+            c.signature = dataUrl;
+            c.signatureSource = 'pad';
+            c.signatureError = '';
+        },
+        confirmSubmitRisPad() {
+            const c = this.submitRisConfirm;
+            if (!c) return;
+            this.syncSubmitRisPad();
+            if (String(c.signature || '').indexOf('data:image/') === 0) {
+                this.lockSubmitRisSignature(c.signature, 'pad');
+            }
         },
         undoSubmitRisPad() {
             if (window.undoSignaturePad) window.undoSignaturePad('purchaserRisSubmitSignatureCanvas');
@@ -495,33 +592,49 @@
             const file = event.target.files && event.target.files[0];
             if (!file || !this.submitRisConfirm) return;
             try {
-                const dataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
+                const dataUrl = window.PrismSignatureImage && window.PrismSignatureImage.fromFile
+                    ? await window.PrismSignatureImage.fromFile(file)
+                    : await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
                 this.resetSubmitRisPad();
                 this.setSubmitRisSignature(dataUrl || '', 'upload');
-                this.submitRisConfirm.uploadName = file.name || 'Uploaded signature';
+                if (this.submitRisConfirm) {
+                    this.submitRisConfirm.uploadName = file.name || 'Uploaded signature';
+                }
             } catch (err) {
-                this.submitRisConfirm.signatureError = 'Could not read that signature file.';
+                this.clearSubmitRisUpload();
+                this.submitRisConfirm.signatureError = (err && err.message)
+                    ? err.message
+                    : 'Use a clear dark-ink signature on light / white bond paper.';
             }
         },
         replaceSubmitRisSignature() {
             if (!this.submitRisConfirm) return;
             this.submitRisConfirm.replaceSignature = true;
+            this.submitRisConfirm.signature = '';
+            this.submitRisConfirm.signatureSource = '';
+            this.submitRisConfirm.savedSignatureId = null;
+            this.submitRisConfirm.uploadName = '';
+            this.submitRisConfirm.signatureError = '';
             this.$nextTick(() => this.resetSubmitRisPad());
         },
         keepSubmitRisSignature() {
             if (!this.submitRisConfirm || !this.submitRisConfirm.existingSignature) return;
-            this.clearSubmitRisSignature();
+            this.submitRisConfirm.signature = '';
+            this.submitRisConfirm.signatureSource = '';
+            this.submitRisConfirm.savedSignatureId = null;
+            this.submitRisConfirm.uploadName = '';
+            this.submitRisConfirm.signatureError = '';
             this.submitRisConfirm.replaceSignature = false;
         },
         beforeSubmitRis(event) {
             const c = this.submitRisConfirm;
-            if (c && c.replaceSignature && c.signatureSource !== 'saved' && c.signatureSource !== 'upload') {
-                this.syncSubmitRisPad();
+            if (c && c.replaceSignature && c.signatureSource === 'pad') {
+                this.confirmSubmitRisPad();
             }
             if (!this.submitRisSignatureReady()) {
                 event.preventDefault();
@@ -559,7 +672,7 @@
                 const signature = modalForm.querySelector('[name=signature_data]');
                 const postedSignature = signature && String(signature.value || '').indexOf('data:image/') === 0
                     ? signature.value
-                    : '';
+                    : (c && !c.replaceSignature && c.existingSignature ? c.existingSignature : '');
                 if (postedSignature) {
                     const existingSignature = editForm.querySelector('#purchaserRisSignatureData');
                     if (existingSignature) {
@@ -655,9 +768,16 @@
         risNewItemSaving: false,
         risNewItemError: '',
         autoGrowPurpose(el) {
-            if (!el || (window.CSS && CSS.supports('field-sizing', 'content'))) return;
+            if (!el) return;
+            // Keep PURPOSE within the two paper lines (2 × 31px).
+            const maxPx = 62;
+            if (window.CSS && CSS.supports('field-sizing', 'content')) {
+                el.style.maxHeight = maxPx + 'px';
+                return;
+            }
             el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
+            el.style.height = Math.min(el.scrollHeight, maxPx) + 'px';
+            el.style.maxHeight = maxPx + 'px';
         },
         itemHint(label) {
             const key = String(label || '').trim().toLowerCase();
@@ -796,9 +916,15 @@
                 this.createSignaturePreview = url;
                 const hidden = document.getElementById('purchaserRisSignatureData');
                 if (hidden) hidden.value = url;
+                document.querySelectorAll('[data-ris-edit-signature]').forEach((el) => {
+                    el.value = url;
+                });
                 if (!url) {
                     this.createSigUploadName = '';
                     if (this.$refs.createSigUpload) this.$refs.createSigUpload.value = '';
+                    document.querySelectorAll('[data-ris-sig-upload]').forEach((el) => {
+                        el.value = '';
+                    });
                 }
                 this.$nextTick(() => {
                     if (typeof window.scanSignatureNamePins === 'function') {
@@ -810,17 +936,57 @@
                 commit('');
                 return;
             }
-            if (typeof window.trimSignatureDataUrl === 'function') {
-                window.trimSignatureDataUrl(raw).then(commit);
+            const afterClean = (url) => {
+                if (typeof window.trimSignatureDataUrl === 'function') {
+                    window.trimSignatureDataUrl(url).then(commit);
+                    return;
+                }
+                commit(url);
+            };
+            if (window.PrismSignatureImage && window.PrismSignatureImage.cleanForOverlay) {
+                window.PrismSignatureImage.cleanForOverlay(raw).then((cleaned) => {
+                    afterClean(cleaned || raw);
+                }).catch(() => afterClean(raw));
                 return;
             }
-            commit(raw);
+            afterClean(raw);
         },
         clearCreateSignature() {
             if (window.clearSignaturePad) {
                 window.clearSignaturePad('purchaserRisSignatureCanvas', 'purchaserRisPadScratch');
             }
             this.applyCreateSignature('');
+        },
+        seedPurchaserSignatureFromLibrary(force = false) {
+            if (!force && this.createSignaturePreview && String(this.createSignaturePreview).indexOf('data:image/') === 0) {
+                return;
+            }
+            const first = Array.isArray(this.savedSignatures) ? this.savedSignatures[0] : null;
+            const preview = first && first.preview_url ? String(first.preview_url) : '';
+            if (preview.indexOf('data:image/') === 0) {
+                this.applyCreateSignature(preview);
+            }
+        },
+        openCreateRis() {
+            this.lockedReplacement = false;
+            this.selectedReplacement = '';
+            this.copiedFromRisId = null;
+            this.createRisFullscreen = false;
+            this.createRisModal = true;
+            this.seedPurchaserSignatureFromLibrary();
+        },
+        openEditRis(modalKey, existingSignature = '') {
+            this.editRisFullscreen = false;
+            this.editRisModal = modalKey;
+            const seeded = (existingSignature && String(existingSignature).indexOf('data:image/') === 0)
+                ? String(existingSignature)
+                : '';
+            if (seeded) {
+                this.applyCreateSignature(seeded);
+                return;
+            }
+            this.applyCreateSignature('');
+            this.seedPurchaserSignatureFromLibrary(true);
         },
         openCreateSignModal(pendingSave = false) {
             if (this.risHasOverflow(this.createItems) || this.createSignSubmitting) return;
@@ -965,19 +1131,21 @@
             this.createSigUploadName = file ? file.name : '';
             if (!file) return;
             try {
-                const dataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
+                const dataUrl = window.PrismSignatureImage && window.PrismSignatureImage.fromFile
+                    ? await window.PrismSignatureImage.fromFile(file)
+                    : await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
                 this.applyCreateSignature(dataUrl || '');
                 if (this.createSaveOnUpload) {
                     if (this.savedSignatures.length >= this.maxSavedSignatures) {
                         this.showCreateSigNotice('Signature applied. List is full (4 max) - remove one to save this upload.');
                     } else {
                         const label = file.name ? String(file.name).replace(/\.[^.]+$/, '') : 'Uploaded signature';
-                        await this.saveSignatureToLibrary({ file, label });
+                        await this.saveSignatureToLibrary({ dataUrl: dataUrl || '', label });
                         this.showCreateSigNotice('Signature saved to your list.');
                     }
                 }
@@ -1219,13 +1387,17 @@
             this.$watch('selectedReplacement', () => {
                 this.applyReplacementPrefill(true);
             });
+            if (this.createRisModal || this.editRisModal) {
+                this.seedPurchaserSignatureFromLibrary();
+            }
             // One-shot deep links (?replacement_request=, ?copy_from=, ?view_ris=)
             // open a modal once; strip them so refresh does not reopen.
             this.clearOneShotRisQueryParams();
         },
         clearOneShotRisQueryParams() {
             const url = new URL(window.location.href);
-            const keys = ['replacement_request', 'copy_from', 'view_ris', 'ris_id'];
+            // create=1 is a one-shot deep link: open Create once, then strip so refresh stays on the list.
+            const keys = ['create', 'replacement_request', 'copy_from', 'view_ris', 'ris_id'];
             let changed = false;
             keys.forEach((key) => {
                 if (url.searchParams.has(key)) {
@@ -1393,8 +1565,17 @@
             </a>
         </nav>
 
+        <div class="flex flex-wrap items-center gap-2">
+            @include('layouts.partials.export-pdf-button', [
+                'exportUrl' => route(($pp ?? 'purchaser').'.ris.export-pdf', array_filter([
+                    'view' => !empty($archiveView) ? 'archive' : null,
+                    'search' => request('search') ?: null,
+                    'status' => request('status') ?: null,
+                    'urgency' => request('urgency') ?: null,
+                    'date' => request('date', request('date_from')) ?: null,
+                ])),
+            ])
         @unless(!empty($archiveView))
-            <div class="flex flex-wrap items-center gap-2">
                 @if(($risSummary['draft'] ?? 0) > 0)
                     <a
                         href="{{ route(($pp ?? 'purchaser').'.ris.index', ['status' => 'Draft']) }}"
@@ -1418,23 +1599,14 @@
 
                 <button
                     type="button"
-                    x-on:click="
-                        @if(empty($loadFormDatasets))
-                        window.location.href = @js(route(($pp ?? 'purchaser').'.ris.index', array_filter([
-                            'view' => !empty($archiveView) ? 'archive' : null,
-                            'create' => 1,
-                        ])));
-                        @else
-                        lockedReplacement = false; selectedReplacement = ''; copiedFromRisId = null; createRisFullscreen = false; createRisModal = true
-                        @endif
-                    "
+                    x-on:click="openCreateRis()"
                     class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                     <i data-lucide="plus" class="h-4 w-4"></i>
                     Create RIS
                 </button>
-            </div>
         @endunless
+        </div>
     </div>
 
     @unless(!empty($archiveView))
@@ -2222,8 +2394,9 @@
             display: block;
             width: 100%;
             min-height: 62px;
-            height: auto;
-            field-sizing: content;
+            max-height: 62px;
+            height: 62px;
+            field-sizing: fixed;
             resize: none;
             padding: 0 4px 0 0;
             font-size: 12px;
@@ -2740,19 +2913,19 @@
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="1" max="9999999" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="w-full min-w-0 border-0 px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-transparent'">
+                                                    <input type="number" min="1" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-model="item.quantity_requested" x-on:input="item.quantity_requested = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_requested)) || item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="w-full min-w-0 border-0 px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-transparent'">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="text" readonly tabindex="-1" value="" placeholder="" title="Issued is filled by the School Administrator or the President" class="pointer-events-none w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-400 outline-none focus:ring-0 sm:text-sm">
+                                                    <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-model="item.quantity_issued" x-on:input="item.quantity_issued = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_issued)) || item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm" title="Issued cannot be higher than requested">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <input type="number" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" inputmode="decimal" data-money x-model="item.unit_cost" x-on:input="item.unit_cost = (window.PrismInputLimits && PrismInputLimits.clampMoney(item.unit_cost)) || item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="((Number(item.quantity_requested) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="(((Number(item.quantity_issued) || 0) > 0 ? (Number(item.quantity_issued) || 0) : (Number(item.quantity_requested) || 0)) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                             </tr>
@@ -2787,7 +2960,7 @@
                             <div class="mt-5">
                                 <div class="ris-purpose-lined-wrap">
                                     <label class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></label>
-                                    <textarea name="ris_purpose_description" rows="2" maxlength="{{ \App\Support\InputLimits::NOTES }}" x-model="purposeText" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" x-effect="purposeText; $nextTick(() => autoGrowPurpose($el))" class="ris-purpose-input"></textarea>
+                                    <textarea name="ris_purpose_description" rows="2" maxlength="{{ \App\Support\InputLimits::PURPOSE }}" x-model="purposeText" x-on:input="purposeText = String(purposeText || '').slice(0, {{ \App\Support\InputLimits::PURPOSE }}); autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" x-effect="purposeText; $nextTick(() => autoGrowPurpose($el))" class="ris-purpose-input"></textarea>
                                 </div>
                             </div>
 
@@ -2807,165 +2980,38 @@
                                         </span>
                                     </div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date: <span class="text-red-500">*</span></label>
-                                    <input type="text" name="ris_requested_by_date" value="{{ old('ris_requested_by_date', $defaultRequestedByDate ?? '') }}" placeholder="dd/mm/yyyy" inputmode="numeric" maxlength="10" autocomplete="off" x-on:input="formatDateInput($event)" class="mt-1 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 placeholder:text-gray-950 outline-none focus:ring-0 sm:text-sm">
+                                    <input type="text" name="ris_requested_by_date" value="{{ old('ris_requested_by_date', $defaultRequestedByDate ?? '') }}" placeholder="mm/dd/yyyy" inputmode="numeric" maxlength="10" autocomplete="off" x-on:input="formatDateInput($event)" class="mt-1 w-full border-0 border-b border-gray-800 bg-transparent px-1 py-1 text-center text-xs text-gray-950 placeholder:text-gray-950 outline-none focus:ring-0 sm:text-sm">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-gray-600 sm:text-xs">Approved by:</label>
                                     <div class="mt-3 h-[24px] w-full cursor-not-allowed border-b border-gray-800 sm:mt-5 sm:h-[29px]"></div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date:</label>
-                                    <div class="mt-1 flex h-[24px] w-full cursor-not-allowed items-center justify-center border-b border-gray-800 text-[10px] text-gray-400 sm:h-[29px] sm:text-sm">dd/mm/yyyy</div>
+                                    <div class="mt-1 flex h-[24px] w-full cursor-not-allowed items-center justify-center border-b border-gray-800 text-[10px] text-gray-400 sm:h-[29px] sm:text-sm">mm/dd/yyyy</div>
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-gray-600 sm:text-xs">Issued by:</label>
                                     <div class="mt-3 h-[24px] w-full cursor-not-allowed border-b border-gray-800 sm:mt-5 sm:h-[29px]"></div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date:</label>
-                                    <div class="mt-1 flex h-[24px] w-full cursor-not-allowed items-center justify-center border-b border-gray-800 text-[10px] text-gray-400 sm:h-[29px] sm:text-sm">dd/mm/yyyy</div>
+                                    <div class="mt-1 flex h-[24px] w-full cursor-not-allowed items-center justify-center border-b border-gray-800 text-[10px] text-gray-400 sm:h-[29px] sm:text-sm">mm/dd/yyyy</div>
                                 </div>
                                 <div>
                                     <label class="block text-[10px] text-gray-600 sm:text-xs">Received by:</label>
                                     <div class="mt-3 h-[24px] w-full cursor-not-allowed border-b border-gray-800 sm:mt-5 sm:h-[29px]"></div>
                                     <label class="mt-3 block text-[10px] text-gray-600 sm:mt-4 sm:text-xs">Date:</label>
-                                    <div class="mt-1 flex h-[24px] w-full cursor-not-allowed items-center justify-center border-b border-gray-800 text-[10px] text-gray-400 sm:h-[29px] sm:text-sm">dd/mm/yyyy</div>
+                                    <div class="mt-1 flex h-[24px] w-full cursor-not-allowed items-center justify-center border-b border-gray-800 text-[10px] text-gray-400 sm:h-[29px] sm:text-sm">mm/dd/yyyy</div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
-                            <div class="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <h4 class="text-sm font-semibold text-slate-900">Purchaser signature <span class="text-red-500">*</span></h4>
-                                    <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                                        Pick a saved signature, draw one, or upload. It overlays <strong>Requested by</strong> on the form above.
-                                    </p>
-                                </div>
-                                <div
-                                    x-show="createSignaturePreview"
-                                    x-cloak
-                                    class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700"
-                                >
-                                    Signature added
-                                </div>
-                            </div>
-
-                            <div class="mt-3">
-                                <div class="flex items-center justify-between gap-2">
-                                    <p class="text-xs font-medium text-slate-700">My saved signatures</p>
-                                    <span
-                                        class="text-[11px]"
-                                        x-bind:class="savedSignatures.length >= maxSavedSignatures ? 'font-semibold text-amber-600' : 'text-slate-400'"
-                                        x-text="savedSignatures.length + ' / ' + maxSavedSignatures + ' saved'"
-                                    ></span>
-                                </div>
-                                <div class="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-                                    <template x-for="sig in savedSignatures" :key="sig.id">
-                                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/90 p-2.5 shadow-sm shadow-slate-900/[0.03] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-900/5">
-                                            <button
-                                                type="button"
-                                                class="flex w-full flex-col items-center gap-2 rounded-xl px-1 py-1 text-left"
-                                                title="Use this signature"
-                                                x-on:click="applyCreateSignature(sig.preview_url)"
-                                            >
-                                                <span class="flex h-14 w-full items-center justify-center rounded-xl bg-white ring-1 ring-slate-100">
-                                                    <img x-bind:src="sig.preview_url" alt="" class="max-h-10 w-auto max-w-[90%] object-contain">
-                                                </span>
-                                                <span class="w-full truncate text-center text-[11px] font-medium text-slate-600" x-text="sig.label || 'Signature'"></span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-slate-400 opacity-0 shadow-sm ring-1 ring-slate-200/80 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
-                                                title="Remove from list"
-                                                aria-label="Remove saved signature"
-                                                x-on:click="openCreateDeleteSigModal(sig.id, sig.label || 'Signature')"
-                                            >
-                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </template>
-                                    <div
-                                        x-show="!savedSignatures.length"
-                                        class="col-span-full rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-4 text-center text-xs text-slate-500"
-                                    >
-                                        No saved signatures yet. Upload or draw one below, then save it for next time.
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="mt-3 flex flex-wrap items-center gap-2">
-                                <button
-                                    type="button"
-                                    class="inline-flex items-center gap-2 rounded-xl bg-[#0025cc] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                                    x-on:click="openCreateSignModal(false)"
-                                >
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4l10.5-10.5a2.5 2.5 0 00-3.536-3.536L4 16.464V20z"></path>
-                                    </svg>
-                                    <span x-text="createSignaturePreview ? 'Redraw signature' : 'Draw signature'"></span>
-                                </button>
-                                <button
-                                    type="button"
-                                    x-show="createSignaturePreview"
-                                    x-cloak
-                                    class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                                    x-on:click="clearCreateSignature()"
-                                >
-                                    Clear signature
-                                </button>
-                                <button
-                                    type="button"
-                                    x-show="createSignaturePreview"
-                                    x-cloak
-                                    class="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                    x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
-                                    x-bind:title="savedSignatures.length >= maxSavedSignatures ? 'Maximum of 4 saved signatures reached' : ''"
-                                    x-on:click="openCreateNameSigModal()"
-                                >
-                                    Save to my list
-                                </button>
-                            </div>
-
-                            <label class="relative mt-3 flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3.5 py-3 transition hover:border-slate-300 hover:bg-slate-50">
-                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                    </svg>
-                                </span>
-                                <span class="min-w-0 flex-1">
-                                    <span class="block text-xs font-medium text-slate-700">Or upload a signature image</span>
-                                    <span class="mt-0.5 block text-[11px] text-slate-400">Optional · PNG, JPG, or similar · can be saved to your list</span>
-                                    <span x-show="createSigUploadName" x-cloak class="mt-1 block truncate text-[11px] font-medium text-slate-600" x-text="createSigUploadName"></span>
-                                </span>
-                                <span class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
-                                    Choose file
-                                </span>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                                    x-ref="createSigUpload"
-                                    x-on:change="onCreateSigUploadChange($event)"
-                                >
-                            </label>
-
-                            <label class="mt-3 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
-                                <input
-                                    type="checkbox"
-                                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#0f172a]"
-                                    x-model="createSaveOnUpload"
-                                    x-bind:disabled="savedSignatures.length >= maxSavedSignatures"
-                                >
-                                <span class="min-w-0">
-                                    <span class="block text-xs font-medium text-slate-700">Save uploaded signature to my list</span>
-                                    <span class="mt-0.5 block text-[11px] text-slate-400">Keeps up to 4 signatures for the next RIS.</span>
-                                </span>
-                            </label>
-                        </div>
+                        @include('purchaser.ris._purchaser-signature-panel', [
+                            'sigPrefix' => '',
+                            'sigRef' => 'createSigUpload',
+                        ])
 
                         <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
+                                    <p class="text-sm font-semibold text-slate-950">Canvass <span class="text-red-500">*</span></p>
                                     <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word, Excel, or PDF</p>
                                 </div>
                             </div>
@@ -3013,8 +3059,25 @@
                         </div>
                     </div>
 
-                    <div data-ris-form-errors hidden></div>
+                    <div
+                        data-ris-form-errors
+                        @class([
+                            'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6' => $errors->any() && empty(session('edit_ris')),
+                        ])
+                        @if(!($errors->any() && empty(session('edit_ris')))) hidden @endif
+                    >
+                        @if($errors->any() && empty(session('edit_ris')))
+                            <ul class="list-disc space-y-1 pl-4">
+                                @foreach($errors->all() as $message)
+                                    <li>{{ $message }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
                     <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                        <p class="mr-auto max-w-sm text-[11px] text-slate-500">
+                            Submit sends this to the School Administrator next.
+                        </p>
                         <button type="button" x-on:click="createRisModal = false; createRisFullscreen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
@@ -3233,7 +3296,9 @@
                             'In Review' => 'In Review',
                             'Submitted' => 'Submitted',
                             'Under Review' => 'Under Review',
-                            'Minor Revision' => 'Minor Revision',
+                            'Minor Revision' => 'For revision (School Administrator)',
+                            'President Revision' => 'For revision (President)',
+                            'Returned by the President' => 'For revision (President) — School Administrator',
                             'Resubmitted' => 'Resubmitted',
                             'Approved' => 'Approved',
                             'Directly Approved' => 'Directly Approved',
@@ -3243,6 +3308,16 @@
                             'Rejected by the President' => 'Rejected by the President',
                         ];
                         $selectedRisStatus = (string) request('status', '');
+                        $risUrgencyOptions = [
+                            '' => 'All urgency',
+                            \App\Support\RisWorkflow::URGENCY_URGENT => 'Urgent',
+                            \App\Support\RisWorkflow::URGENCY_NON_URGENT => 'Non-Urgent',
+                        ];
+                        $selectedRisUrgency = (string) request('urgency', '');
+                        if ($selectedRisUrgency !== '' && ! array_key_exists($selectedRisUrgency, $risUrgencyOptions)) {
+                            $selectedRisUrgency = '';
+                        }
+                        $risFilterDate = trim((string) request('date', request('date_from', '')));
                     @endphp
 
                     <div
@@ -3317,8 +3392,120 @@
                         </div>
                     </div>
 
-                    <input type="date" name="date_from" value="{{ request('date_from') }}" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-4 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                    <input type="date" name="date_to" value="{{ request('date_to') }}" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-4 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                    <div
+                        class="relative shrink-0"
+                        x-data="{
+                            open: false,
+                            value: @js($selectedRisUrgency),
+                            labels: @js($risUrgencyOptions)
+                        }"
+                        @click.outside="open = false"
+                        @keydown.escape.window="open = false"
+                    >
+                        <input type="hidden" name="urgency" x-bind:value="value">
+
+                        <button
+                            type="button"
+                            x-on:click="open = !open"
+                            class="box-border inline-flex h-9 min-w-[9.5rem] items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-left text-sm leading-none text-gray-600 outline-none transition hover:border-gray-300 hover:bg-white focus:border-gray-300 focus:bg-white"
+                            :aria-expanded="open.toString()"
+                            aria-haspopup="listbox"
+                        >
+                            <span class="truncate" x-text="labels[value] || 'All urgency'"></span>
+                            <svg class="h-4 w-4 shrink-0 text-gray-400 transition" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                            </svg>
+                        </button>
+
+                        <div
+                            x-show="open"
+                            x-cloak
+                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter-start="opacity-0 translate-y-1"
+                            x-transition:enter-end="opacity-100 translate-y-0"
+                            x-transition:leave="transition ease-in duration-100"
+                            x-transition:leave-start="opacity-100 translate-y-0"
+                            x-transition:leave-end="opacity-0 translate-y-1"
+                            class="absolute left-0 top-[calc(100%+6px)] z-30 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.12)]"
+                            role="listbox"
+                        >
+                            <div class="py-1">
+                                <template x-for="(label, key) in labels" :key="'urgency-' + String(key)">
+                                    <button
+                                        type="button"
+                                        role="option"
+                                        x-on:click="
+                                            value = key;
+                                            open = false;
+                                            $nextTick(() => {
+                                                const form = $el.closest('form');
+                                                if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+                                                else if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                                            });
+                                        "
+                                        class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+                                        :class="value === key ? 'bg-slate-50 font-medium text-slate-950' : 'text-slate-600'"
+                                        :aria-selected="(value === key).toString()"
+                                    >
+                                        <span class="truncate" x-text="label"></span>
+                                        <svg
+                                            x-show="value === key"
+                                            class="h-4 w-4 shrink-0 text-[#0f172a]"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden="true"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="m5 13 4 4L19 7" />
+                                        </svg>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relative shrink-0">
+                        <button
+                            type="button"
+                            x-ref="risDateBtn"
+                            x-on:click="
+                                const input = $refs.risDateInput;
+                                if (!input) return;
+                                try {
+                                    if (typeof input.showPicker === 'function') input.showPicker();
+                                    else { input.focus(); input.click(); }
+                                } catch (e) { input.focus(); }
+                            "
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition {{ $risFilterDate !== '' ? 'border-[#0025cc] bg-blue-50 text-[#0025cc]' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}"
+                            title="{{ $risFilterDate !== '' ? 'Date '.$risFilterDate.' — click to change' : 'Filter by date' }}"
+                            aria-label="Filter by date"
+                        >
+                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                        </button>
+                        <input
+                            type="date"
+                            name="date"
+                            x-ref="risDateInput"
+                            value="{{ $risFilterDate }}"
+                            x-on:change="refreshRisRecords()"
+                            class="sr-only"
+                            tabindex="-1"
+                        >
+                        @if($risFilterDate !== '')
+                            <button
+                                type="button"
+                                x-on:click="
+                                    if ($refs.risDateInput) $refs.risDateInput.value = '';
+                                    refreshRisRecords();
+                                "
+                                class="absolute -right-1.5 -top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold leading-none text-white shadow"
+                                title="Clear date filter"
+                                aria-label="Clear date filter"
+                            >
+                                ×
+                            </button>
+                        @endif
+                    </div>
 
                     <button
                         type="submit"
@@ -3330,7 +3517,7 @@
                         <span x-cloak x-show="recordsLoading">Loading...</span>
                     </button>
 
-                    @if(request()->filled('search') || request()->filled('status') || request()->filled('date_from') || request()->filled('date_to'))
+                    @if(request()->filled('search') || request()->filled('status') || request()->filled('urgency') || request()->filled('date') || request()->filled('date_from') || request()->filled('date_to'))
                         <button
                             type="button"
                             x-on:click="clearRisFilters()"
@@ -3372,8 +3559,6 @@
                                         <p class="whitespace-nowrap font-semibold text-gray-900">{{ $ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris') }}</p>
                                         @if(!empty($ris->ris_request_no))
                                             <p class="mt-0.5 text-[11px] font-semibold tabular-nums text-indigo-700">{{ $ris->ris_request_no }}</p>
-                                        @else
-                                            <p class="mt-0.5 text-xs text-gray-400">Record #{{ $ris->ris_id }}</p>
                                         @endif
                                     </div>
                                 </div>
@@ -3476,16 +3661,19 @@
 
                             <td class="py-3.5 pl-3 pr-5 text-right">
                                 @php
-                                    $canEditRis = empty($archiveView) && in_array($ris->ris_status, ['Draft', 'Minor Revision'], true);
+                                    $canEditRis = empty($archiveView) && \App\Support\RisWorkflow::isPurchaserEditable($ris);
                                     $isDraftRis = empty($archiveView) && $ris->ris_status === 'Draft';
-                                    $isMinorRevisionRis = empty($archiveView) && $ris->ris_status === 'Minor Revision';
+                                    $isMinorRevisionRis = empty($archiveView) && in_array($ris->ris_status, [
+                                        \App\Support\RisWorkflow::MINOR_REVISION,
+                                        \App\Support\RisWorkflow::PRESIDENT_REVISION,
+                                    ], true);
                                     $showRisActionsMenu = $isDraftRis || $isMinorRevisionRis;
                                     $risSubmitSignature = $showRisActionsMenu
                                         ? \App\Support\RisWorkflow::requestedByDrawnSignature($ris)
                                         : '';
-                                    $canCreateAtp = false;
-                                    $canSendToSupply = empty($archiveView) && !empty($ris->can_send_to_supply);
-                                    $sentToSupply = !empty($ris->sent_to_supply);
+                                    $canCreateAtp = empty($archiveView) && ! empty($ris->can_create_atp);
+                                    $canSendToSupply = empty($archiveView) && ! empty($ris->can_send_to_supply);
+                                    $sentToSupply = ! empty($ris->sent_to_supply);
                                     $isRejectedRis = in_array($ris->ris_status, [
                                         'Rejected',
                                         'Rejected by President',
@@ -3496,8 +3684,12 @@
                                         'Approved by the President',
                                         'Directly Approved',
                                     ], true);
-                                    // Hide archive while send/pass is still required, or while waiting on ATP.
-                                    $waitingOnAtp = $sentToSupply && empty($ris->has_atp);
+                                    // Hide archive while Supply handoff (legacy) or ATP creation is still outstanding.
+                                    $waitingOnAtp = empty($ris->has_atp) && (
+                                        $canCreateAtp
+                                        || $canSendToSupply
+                                        || ($sentToSupply && ! \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP)
+                                    );
                                     $canArchiveRis = empty($archiveView)
                                         && empty($ris->ris_is_archived)
                                         && ! $canSendToSupply
@@ -3529,7 +3721,7 @@
                                     @if($canEditRis)
                                         <button
                                             type="button"
-                                            x-on:click="editRisFullscreen = false; editRisModal = 'edit-ris-{{ $ris->ris_id }}'"
+                                            x-on:click="openEditRis('edit-ris-{{ $ris->ris_id }}', @js(\App\Support\RisWorkflow::requestedByDrawnSignature($ris)))"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             title="Edit RIS"
                                             aria-label="Edit RIS"
@@ -3538,12 +3730,21 @@
                                         </button>
                                     @endif
 
-                                    @if($canSendToSupply)
+                                    @if($canCreateAtp)
+                                        <a
+                                            href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                            title="Create Authority to Purchase"
+                                            aria-label="Create Authority to Purchase"
+                                        >
+                                            <i data-lucide="file-plus" class="h-4 w-4"></i>
+                                        </a>
+                                    @elseif($canSendToSupply)
                                         <form
                                             method="POST"
                                             action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}"
                                             class="inline"
-                                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
+                                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvass + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
                                             data-pur-confirm-title="Send to Supply Officer"
                                             data-pur-confirm-ok="Send"
                                             data-pur-confirm-reviewer-role="School Supply / Material Officer"
@@ -3558,7 +3759,7 @@
                                                 <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
                                         </form>
-                                    @elseif($sentToSupply && !$ris->has_atp)
+                                    @elseif($sentToSupply && !$ris->has_atp && ! \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP)
                                         <span
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700"
                                             title="Waiting for Supply Officer ATP"
@@ -3843,7 +4044,7 @@
                 @php
                     $risIdKey = (int) $ris->ris_id;
                     $risLineage = ($risLineages[$risIdKey] ?? null)
-                        ?: \App\Support\DocumentLineage::stubRis($ris);
+                        ?: \App\Support\DocumentLineage::forRis($risIdKey, $ris);
                     $risHint = \App\Support\DocumentLineage::reviewHintForRis($ris);
                 @endphp
                 @include('partials.document-lineage', [
@@ -3912,16 +4113,49 @@
                         </div>
                     @endif
 
-                    {{-- CURRENT MINOR REVISION NOTICE --}}
-                    @if($ris->ris_status === 'Minor Revision' && $ris->risRevisions->isNotEmpty())
+                    {{-- HARD REJECT NOTICE --}}
+                    @if($ris->ris_status === 'Rejected')
+                        @php
+                            $latestRejectNote = $ris->risRevisions->first(fn ($note) => ($note->ris_revision_type ?? '') === 'Rejected')
+                                ?: $ris->risRevisions->first();
+                        @endphp
+                        <div class="mb-6 overflow-hidden rounded-lg border border-rose-200">
+                            <div class="border-b border-rose-200 bg-rose-50 px-5 py-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-sm font-semibold text-rose-900">Rejected by School Administrator</p>
+                                        <p class="mt-1 text-xs text-rose-700">This RIS was hard-rejected and cannot be resubmitted into approval.</p>
+                                    </div>
+                                    <span class="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-medium text-rose-700">
+                                        Rejected
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="bg-white p-5">
+                                <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Rejection Remarks</p>
+                                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-800">
+                                    {{ $latestRejectNote->ris_revision_note ?? ($ris->ris_rejection_reason ?: 'Rejected by Administrator.') }}
+                                </p>
+                                @if($latestRejectNote)
+                                    @include('partials.ris-revision-images', ['revision' => $latestRejectNote])
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- CURRENT FOR-REVISION NOTICE --}}
+                    @if(in_array($ris->ris_status, [\App\Support\RisWorkflow::MINOR_REVISION, \App\Support\RisWorkflow::PRESIDENT_REVISION], true) && $ris->risRevisions->isNotEmpty())
                         @php
                             $latestRevision = $ris->risRevisions->first();
+                            $revisionFromPresident = $ris->ris_status === \App\Support\RisWorkflow::PRESIDENT_REVISION;
                         @endphp
                         <div class="mb-6 overflow-hidden rounded-lg border border-orange-200">
                             <div class="border-b border-orange-200 bg-orange-50 px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <p class="text-sm font-semibold text-orange-900">Minor Revision Required</p>
+                                        <p class="text-sm font-semibold text-orange-900">
+                                            {{ $revisionFromPresident ? 'For revision (President)' : 'For revision (School Administrator)' }}
+                                        </p>
                                         <p class="mt-1 text-xs text-orange-700">This RIS was returned for correction.</p>
                                     </div>
                                     <span class="rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-700">
@@ -4010,7 +4244,7 @@
                                     ])
                                     <div class="ris-date-label">Date:</div>
                                     <div class="ris-date-line ris-value-line">
-                                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : ' ' }}
+                                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : ' ' }}
                                     </div>
                                 </div>
                                 @include('partials.ris-view-approval-signatories', ['ris' => $ris])
@@ -4022,7 +4256,7 @@
                     <div class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
                         <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
                             <div>
-                                <p class="text-sm font-semibold text-slate-950">Canvas</p>
+                                <p class="text-sm font-semibold text-slate-950">Canvass</p>
                                 <p class="mt-0.5 text-xs text-slate-500">
                                     @if($ris->risAttachments->isNotEmpty())
                                         {{ $ris->risAttachments->count() }} {{ $ris->risAttachments->count() === 1 ? 'file' : 'files' }} attached
@@ -4093,7 +4327,7 @@
                                     <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
                                         <i data-lucide="folder-open" class="h-5 w-5"></i>
                                     </div>
-                                    <p class="mt-3 text-sm font-medium text-slate-800">No Canvas attached</p>
+                                    <p class="mt-3 text-sm font-medium text-slate-800">No Canvass attached</p>
                                     <p class="mt-1 text-xs text-slate-500">Nothing has been attached to this RIS yet.</p>
                                 </div>
                             @endif
@@ -4144,12 +4378,20 @@
                         Close
                     </button>
 
-                    {{-- SEND TO SUPPLY OFFICER --}}
-                    @if(!empty($ris->can_send_to_supply))
+                    {{-- NEXT STEP AFTER APPROVAL --}}
+                    @if(!empty($ris->can_create_atp))
+                        <a
+                            href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
+                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                        >
+                            <i data-lucide="file-plus" class="h-4 w-4"></i>
+                            Create Authority to Purchase
+                        </a>
+                    @elseif(!empty($ris->can_send_to_supply))
                         <form
                             method="POST"
                             action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}"
-                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvas + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
+                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvass + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
                             data-pur-confirm-title="Send to Supply Officer"
                             data-pur-confirm-ok="Send"
                             data-pur-confirm-reviewer-role="School Supply / Material Officer"
@@ -4162,7 +4404,7 @@
                                 Send to Supply Officer
                             </button>
                         </form>
-                    @elseif(!empty($ris->sent_to_supply) && empty($ris->has_atp))
+                    @elseif(!empty($ris->sent_to_supply) && empty($ris->has_atp) && ! \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP)
                         <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
                             Waiting for Supply Officer ATP
                         </span>
@@ -4287,7 +4529,7 @@
                                     ])
                                     <div class="ris-date-label">Date:</div>
                                     <div class="ris-date-line ris-value-line">
-                                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : ' ' }}
+                                        {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : ' ' }}
                                     </div>
                                 </div>
                                 @include('partials.ris-view-approval-signatories', ['ris' => $ris])
@@ -4343,7 +4585,7 @@
         </div>
         </template>
 
-        @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true))
+        @if(\App\Support\RisWorkflow::isPurchaserEditable($ris))
             {{-- EDIT RIS MODAL: parent owns editRisModal so Close/Cancel/Escape work correctly --}}
             <template x-teleport="body">
             <div
@@ -4442,7 +4684,7 @@
                                 supplier_id: @js((string) ($item['supplier_id'] ?? '')),
                                 uom_id: @js((string) ($item['uom_id'] ?? '')),
                                 quantity_requested: @js($item['quantity_requested'] ?? ''),
-                                quantity_issued: '',
+                                quantity_issued: @js($item['quantity_issued'] ?? ''),
                                 unit_cost: @js($item['unit_cost'] ?? '')
                             }{{ !$loop->last ? ',' : '' }}
                         @endforeach
@@ -4510,7 +4752,9 @@
                         this.editItems.splice(index, 1);
                     },
                     itemTotal(item) {
-                        return (Number(item.quantity_requested) || 0) * (Number(item.unit_cost) || 0);
+                        const issued = Number(item.quantity_issued) || 0;
+                        const requested = Number(item.quantity_requested) || 0;
+                        return (issued > 0 ? issued : requested) * (Number(item.unit_cost) || 0);
                     },
                     formatDateInput(event) {
                         const el = event.target;
@@ -4585,27 +4829,44 @@
                         >
 
                             {{-- REVISION INSTRUCTIONS WHILE EDITING --}}
-                            @if($ris->ris_status === 'Minor Revision' && $ris->risRevisions->isNotEmpty())
+                            @if(in_array($ris->ris_status, [\App\Support\RisWorkflow::MINOR_REVISION, \App\Support\RisWorkflow::PRESIDENT_REVISION], true) && $ris->risRevisions->isNotEmpty())
                                 @php
                                     $latestRevision = $ris->risRevisions->first();
+                                    $revisionFromPresident = $ris->ris_status === \App\Support\RisWorkflow::PRESIDENT_REVISION;
+                                    $presidentRevision = $ris->risRevisions->first(function ($note) {
+                                        return in_array((string) ($note->ris_revision_type ?? ''), [
+                                            \App\Support\RisWorkflow::PRESIDENT_REVISION,
+                                            \App\Support\RisWorkflow::RETURNED_BY_PRESIDENT,
+                                        ], true);
+                                    });
+                                    // Prefer President note for origin text/attribution when this is a President revision.
+                                    $displayRevision = ($revisionFromPresident && $presidentRevision)
+                                        ? $presidentRevision
+                                        : $latestRevision;
+                                    // Prefer a note that actually has proof images (relay may copy them onto the latest).
+                                    $imageRevision = $ris->risRevisions->first(function ($note) {
+                                        return \App\Support\RisRevisionImages::decode($note) !== [];
+                                    }) ?: $displayRevision;
                                 @endphp
                                 <div class="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-5">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
-                                            <p class="text-sm font-semibold text-orange-900">Changes Requested by School Administrator</p>
+                                            <p class="text-sm font-semibold text-orange-900">
+                                                {{ $revisionFromPresident ? 'Changes Requested by the President' : 'Changes Requested by School Administrator' }}
+                                            </p>
                                             <p class="mt-1 text-xs text-orange-700">Correct the issues below, then resubmit to the School Administrator from this form.</p>
                                         </div>
                                         <span class="shrink-0 rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-700">
-                                            Minor Revision
+                                            {{ $revisionFromPresident ? 'For revision (President)' : 'For revision (School Administrator)' }}
                                         </span>
                                     </div>
                                     <div class="mt-4 rounded-lg border border-orange-100 bg-white p-4">
-                                        <p class="whitespace-pre-line text-sm leading-6 text-gray-800">{{ $latestRevision->ris_revision_note }}</p>
-                                        @include('partials.ris-revision-images', ['revision' => $latestRevision])
+                                        <p class="whitespace-pre-line text-sm leading-6 text-gray-800">{{ $displayRevision->ris_revision_note }}</p>
+                                        @include('partials.ris-revision-images', ['revision' => $imageRevision])
                                     </div>
                                     <div class="mt-3 flex flex-wrap gap-4 text-xs text-orange-700">
-                                        <span>Requested by: <strong>{{ $latestRevision->revision_requested_by_name ?? 'Administrator' }}</strong></span>
-                                        <span>{{ $latestRevision->ris_revision_created_at ? \Carbon\Carbon::parse($latestRevision->ris_revision_created_at)->format('M d, Y h:i A') : '' }}</span>
+                                        <span>Requested by: <strong>{{ $displayRevision->revision_requested_by_name ?? ($revisionFromPresident ? 'President' : 'Administrator') }}</strong></span>
+                                        <span>{{ $displayRevision->ris_revision_created_at ? \Carbon\Carbon::parse($displayRevision->ris_revision_created_at)->format('M d, Y h:i A') : '' }}</span>
                                     </div>
                                 </div>
                             @endif
@@ -4659,7 +4920,7 @@
                                         <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
                                         <div class="ris-number-area">
                                             <span class="ris-number-label">No.</span>
-                                            @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true) && blank($ris->ris_form_number))
+                                            @if(\App\Support\RisWorkflow::isPurchaserEditable($ris) && blank($ris->ris_form_number))
                                                 <span class="ris-number-input text-gray-500">Assigned when submitted</span>
                                             @else
                                                 <input
@@ -4790,15 +5051,15 @@
                                                         ></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="9999999" x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="ris-cell-input text-center" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : ''">
+                                                        <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-on:input="item.quantity_requested = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_requested)) || item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="ris-cell-input text-center" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : ''">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="text" readonly tabindex="-1" value="" placeholder="" title="Issued is filled by the School Administrator or the President" class="ris-cell-input pointer-events-none cursor-not-allowed bg-gray-50 text-center text-gray-400">
+                                                        <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-model="item.quantity_issued" x-on:input="item.quantity_issued = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_issued)) || item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center" title="Issued cannot be higher than requested">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="9999999.99" step="0.01" x-model="item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="ris-cell-input text-right">
+                                                        <input type="number" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" inputmode="decimal" data-money x-model="item.unit_cost" x-on:input="item.unit_cost = (window.PrismInputLimits && PrismInputLimits.clampMoney(item.unit_cost)) || item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="ris-cell-input text-right">
                                                         <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
@@ -4846,30 +5107,45 @@
                                     <div class="ris-purpose-area">
                                         <div class="ris-purpose-lined-wrap">
                                             <div class="ris-purpose-label">PURPOSE <span class="text-red-500">*</span></div>
-                                            <textarea name="ris_purpose_description" rows="2" maxlength="{{ \App\Support\InputLimits::NOTES }}" x-on:input="autoGrowPurpose($el)" x-on:focus="autoGrowPurpose($el)" class="ris-purpose-input">{{ $ris->ris_purpose_description }}</textarea>
+                                            <textarea
+                                                name="ris_purpose_description"
+                                                rows="2"
+                                                maxlength="{{ \App\Support\InputLimits::PURPOSE }}"
+                                                x-ref="editPurpose"
+                                                x-on:input="if (($el.value || '').length > {{ (int) \App\Support\InputLimits::PURPOSE }}) { $el.value = ($el.value || '').slice(0, {{ (int) \App\Support\InputLimits::PURPOSE }}); } autoGrowPurpose($el)"
+                                                x-on:focus="autoGrowPurpose($el)"
+                                                class="ris-purpose-input"
+                                            >{{ \Illuminate\Support\Str::limit((string) old('ris_purpose_description', $ris->ris_purpose_description), \App\Support\InputLimits::PURPOSE, '') }}</textarea>
                                         </div>
+                                        <p class="mt-1 text-[11px] text-slate-500 print-hidden">
+                                            Max {{ \App\Support\InputLimits::PURPOSE }} characters.
+                                            @error('ris_purpose_description')
+                                                <span class="font-medium text-rose-600">{{ $message }}</span>
+                                            @enderror
+                                        </p>
                                     </div>
 
                                     <div class="ris-signatures">
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Requested by: <span class="text-red-500">*</span></div>
-                                            <div class="ris-signature-input-wrap">
-                                                @php
-                                                    $editRequestedImage = \App\Support\RisWorkflow::requestedByDrawnSignature($ris);
-                                                @endphp
+                                            <div class="ris-signature-input-wrap relative">
                                                 <span class="signature-name-stack w-full">
-                                                    @if ($editRequestedImage !== '')
-                                                        <img src="{{ $editRequestedImage }}" alt="" class="signature-image">
-                                                    @endif
-                                                    <input type="text" name="ris_requested_by" value="{{ $ris->ris_requested_by_signature }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="ris-signature-input">
+                                                    <img
+                                                        x-show="createSignaturePreview"
+                                                        x-cloak
+                                                        x-bind:src="createSignaturePreview"
+                                                        alt=""
+                                                        class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                                    >
+                                                    <input type="text" name="ris_requested_by" value="{{ old('ris_requested_by', \App\Support\RisWorkflow::editableRequestedByName($ris)) }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="ris-signature-input relative z-[1]">
                                                 </span>
                                             </div>
                                             <div class="ris-date-label">Date: <span class="text-red-500">*</span></div>
                                             <input
                                                 type="text"
                                                 name="ris_requested_by_date"
-                                                value="{{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('d/m/Y') : '' }}"
-                                                placeholder="dd/mm/yyyy"
+                                                value="{{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : '' }}"
+                                                placeholder="mm/dd/yyyy"
                                                 inputmode="numeric"
                                                 maxlength="10"
                                                 autocomplete="off"
@@ -4898,7 +5174,7 @@
                                             </div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
-                                                {{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                                                {{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                                             </div>
                                         </div>
                                         <div class="ris-signature-column">
@@ -4922,7 +5198,7 @@
                                             </div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
-                                                {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                                                {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                                             </div>
                                         </div>
                                         <div class="ris-signature-column">
@@ -4930,12 +5206,25 @@
                                             <div class="ris-signature-line ris-value-line ris-readonly-value">{{ trim((string) ($ris->ris_received_by_signature ?? '')) !== '' ? $ris->ris_received_by_signature : ' ' }}</div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line ris-readonly-value">
-                                                {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
+                                                {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            {{-- Parent Alpine scope stacks into this nested edit x-data, so use the same bindings as Create (not $root). --}}
+                            @include('purchaser.ris._purchaser-signature-panel', [
+                                'sigPrefix' => '',
+                            ])
+
+                            <input
+                                type="hidden"
+                                name="signature_data"
+                                data-ris-edit-signature
+                                value="{{ old('signature_data', \App\Support\RisWorkflow::requestedByDrawnSignature($ris)) }}"
+                                x-bind:value="createSignaturePreview"
+                            >
 
                             {{-- SUPPORTING DOCUMENTS --}}
                             <div
@@ -4974,7 +5263,7 @@
                             >
                                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-semibold text-slate-950">Canvas <span class="text-red-500">*</span></p>
+                                        <p class="text-sm font-semibold text-slate-950">Canvass <span class="text-red-500">*</span></p>
                                         <p class="truncate text-[11px] text-slate-500">
                                             @if($ris->risAttachments->isNotEmpty())
                                                 Current file on file · replace by uploading a new one
@@ -5017,7 +5306,7 @@
                                             <button
                                                 type="submit"
                                                 form="remove-canvas-{{ $attachment->ris_attachment_id }}"
-                                                onclick="return confirm('Remove this Canvas file?')"
+                                                onclick="return confirm('Remove this Canvass file?')"
                                                 class="shrink-0 text-[11px] font-medium text-red-600 transition hover:underline"
                                             >Remove</button>
                                         </div>
@@ -5067,8 +5356,22 @@
                             </div>
                         </div>
 
-                        {{-- EDIT ACTION BUTTONS (submit/resubmit via row ? menu) --}}
-                        <div data-ris-form-errors hidden></div>
+                        {{-- EDIT ACTION BUTTONS — Submit opens a second dialog to pick School Admin --}}
+                        <div
+                            data-ris-form-errors
+                            @class([
+                                'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6' => $errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id,
+                            ])
+                            @if(!($errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id)) hidden @endif
+                        >
+                            @if($errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id)
+                                <ul class="list-disc space-y-1 pl-4">
+                                    @foreach($errors->all() as $message)
+                                        <li>{{ $message }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
                         <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                             <p
                                 x-show="risHasOverflow(editItems)"
@@ -5077,6 +5380,9 @@
                             >
                                 Issued quantity cannot be higher than requested.
                             </p>
+                            <!--<p class="mr-auto max-w-sm text-[11px] text-slate-500">
+                                Submit sends this to the School Administrator next. Fill every item row first.
+                            </p>-->
                             <button
                                 type="button"
                                 x-on:click="closeEditRis({{ $ris->ris_id }})"
@@ -5103,7 +5409,7 @@
                                 >
                                     Submit to School Administrator
                                 </button>
-                            @elseif($ris->ris_status === 'Minor Revision')
+                            @elseif(in_array($ris->ris_status, [\App\Support\RisWorkflow::MINOR_REVISION, \App\Support\RisWorkflow::PRESIDENT_REVISION], true))
                                 <button
                                     type="button"
                                     x-on:click="openSubmitFromEdit($event.currentTarget, {{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'RIS'), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'resubmit', @js($editSubmitSignature))"
@@ -5155,7 +5461,13 @@
                     <input
                         type="hidden"
                         name="signature_data"
-                        x-bind:value="submitRisConfirm && submitRisConfirm.replaceSignature ? (submitRisConfirm.signature || '') : ''"
+                        x-bind:value="submitRisConfirm
+                            ? (
+                                submitRisConfirm.replaceSignature
+                                    ? (submitRisConfirm.signature || '')
+                                    : (submitRisConfirm.existingSignature || '')
+                            )
+                            : ''"
                     >
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
                         <div class="flex items-center gap-3">
@@ -5203,7 +5515,7 @@
                                 >Signed</span>
                             </div>
 
-                            <div x-show="submitRisConfirm && !submitRisConfirm.replaceSignature" x-cloak class="mt-3">
+                            <div x-show="submitRisConfirm && !submitRisConfirm.replaceSignature && submitRisConfirm.existingSignature" x-cloak class="mt-3">
                                 <div class="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
                                     <img x-bind:src="submitRisConfirm?.existingSignature || ''" alt="Signature on file" class="max-h-14 w-auto max-w-full object-contain">
                                 </div>
@@ -5235,14 +5547,6 @@
                                     </div>
                                 </div>
 
-                                <div
-                                    x-show="submitRisConfirm && submitRisConfirm.signatureSource === 'upload' && submitRisConfirm.signature"
-                                    x-cloak
-                                    class="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"
-                                >
-                                    <img x-bind:src="submitRisConfirm?.signature || ''" alt="Uploaded signature" class="max-h-14 w-auto max-w-full object-contain">
-                                </div>
-
                                 <div>
                                     <p class="text-[11px] font-medium text-slate-600" x-text="savedSignatures.length ? 'Or draw your signature' : 'Draw your signature'"></p>
                                     <canvas
@@ -5270,6 +5574,12 @@
                                             class="rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-medium text-slate-700"
                                             x-on:click="clearSubmitRisSignature()"
                                         >Clear</button>
+                                        <button
+                                            type="button"
+                                            class="rounded-lg bg-[#0025cc] px-2.5 py-1 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                            x-bind:disabled="!(submitRisConfirm && String(submitRisConfirm.signature || '').indexOf('data:image/') === 0)"
+                                            x-on:click="confirmSubmitRisPad()"
+                                        >Use this signature</button>
                                         <label class="relative ml-auto inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
                                             <span x-text="submitRisConfirm?.uploadName ? submitRisConfirm.uploadName : 'Upload image'" class="max-w-[10rem] truncate"></span>
                                             <input
@@ -5301,22 +5611,11 @@
                         </div>
 
                         <div>
-                            <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to School Administrator <span class="text-red-500">*</span></label>
-                            @php
-                                $risSaReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN);
-                                $risSaAutoId = \App\Support\ReviewerAssignment::preferredId($risSaReviewers);
-                            @endphp
-                            <select
-                                name="assigned_reviewer_id"
-                                required
-                                class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
-                            >
-                                <option value="">Select School Administrator...</option>
-                                @foreach($risSaReviewers as $reviewer)
-                                    <option value="{{ $reviewer['id'] }}" @selected($risSaAutoId !== null && (int) $reviewer['id'] === (int) $risSaAutoId)>{{ $reviewer['name'] }}</option>
-                                @endforeach
-                            </select>
-                            <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this RIS for review.</p>
+                            @include('partials.assign-reviewer-field', [
+                                'role' => \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                                'label' => 'School Administrator',
+                                'hint' => 'Only the selected School Administrator will receive this RIS for review.',
+                            ])
                         </div>
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">

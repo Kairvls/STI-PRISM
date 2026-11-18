@@ -27,7 +27,7 @@ trait FormExporterHelpers
         return $value;
     }
 
-    protected function formatDate($value, string $format = 'd/m/Y'): string
+    protected function formatDate($value, string $format = 'm/d/Y'): string
     {
         if (blank($value)) {
             return '';
@@ -40,7 +40,7 @@ trait FormExporterHelpers
         }
     }
 
-    protected function d($value, string $format = 'd/m/Y'): string
+    protected function d($value, string $format = 'm/d/Y'): string
     {
         return $this->formatDate($value, $format);
     }

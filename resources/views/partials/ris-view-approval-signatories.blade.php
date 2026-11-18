@@ -30,7 +30,7 @@
     </div>
     <div class="ris-date-label">Date:</div>
     <div class="ris-date-line ris-value-line">
-        {{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') : ' ' }}
+        {{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('m/d/Y') : ' ' }}
     </div>
 </div>
 
@@ -50,7 +50,7 @@
     </div>
     <div class="ris-date-label">Date:</div>
     <div class="ris-date-line ris-value-line">
-        {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : ' ' }}
+        {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('m/d/Y') : ' ' }}
     </div>
 </div>
 
@@ -70,6 +70,6 @@
     </div>
     <div class="ris-date-label">Date:</div>
     <div class="ris-date-line ris-value-line">
-        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : ' ' }}
+        {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : ' ' }}
     </div>
 </div>

@@ -38,7 +38,7 @@
             @if($editable)
                 <input type="date" name="request_check_date" value="{{ $dateValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
-                <span class="flex-1 border-b border-black px-1 pb-0.5">{{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('d/m/Y') : '' }}</span>
+                <span class="flex-1 border-b border-black px-1 pb-0.5">{{ $dateValue ? \Carbon\Carbon::parse($dateValue)->format('m/d/Y') : '' }}</span>
             @endif
         </div>
     </div>
@@ -56,7 +56,7 @@
         <div class="flex items-end gap-3">
             <span class="w-24 shrink-0 font-semibold">Amount: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
-                <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" name="request_check_amount_figures" value="{{ $amountValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
+                <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="request_check_amount_figures" value="{{ $amountValue }}" class="h-8 flex-1 border-0 border-b border-black bg-transparent px-1 outline-none">
             @else
                 <span class="flex-1 border-b border-black px-1 pb-0.5">
                     {{ $amountValue !== '' && $amountValue !== null ? '₱' . number_format((float) $amountValue, 2) : '' }}
@@ -68,7 +68,7 @@
             <div class="flex items-end gap-3">
                 <span class="w-24 shrink-0 font-semibold">For: @if($editable)<span class="text-red-500">*</span>@endif</span>
                 @if($editable)
-                    <textarea name="request_check_particulars_purpose" rows="2" maxlength="{{ \App\Support\InputLimits::NOTES }}" class="flex-1 resize-none border-0 border-b border-black bg-transparent px-1 outline-none">{{ $purposeValue }}</textarea>
+                    <textarea name="request_check_particulars_purpose" rows="2" maxlength="{{ \App\Support\InputLimits::PURPOSE }}" class="flex-1 resize-none border-0 border-b border-black bg-transparent px-1 outline-none">{{ $purposeValue }}</textarea>
                 @else
                     <span class="flex-1 border-b border-black px-1 pb-0.5 min-h-[1.5rem]">{{ $purposeValue }}</span>
                 @endif

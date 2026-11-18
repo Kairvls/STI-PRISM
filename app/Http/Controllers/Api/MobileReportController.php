@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ComputerSetQrCodes;
 use App\Support\ComputerSets;
+use App\Support\Custodians;
 use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
@@ -163,14 +165,151 @@ class MobileReportController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function equipmentByQr(string $qr)
+    public function equipmentByQr(Request $request, string $qr)
     {
+        $qr = trim(urldecode($qr));
+        if (str_contains($qr, '/')) {
+            $qr = basename(parse_url($qr, PHP_URL_PATH) ?: $qr);
+        }
         $qr = trim($qr);
+
+        $reporter = $this->reporterForQrScan($request);
+        $myCustodianIds = $this->custodianIdsForReporter($reporter);
+
+        // Computer-set QR → pickable members (parity with web + held rules).
+        if (ComputerSetQrCodes::ready() && $qr !== '') {
+            $computerSet = ComputerSetQrCodes::findByCode($qr)
+                ?: DB::table('computer_sets_table as cs')
+                    ->leftJoin('rooms_table as r', 'r.room_id', '=', 'cs.computer_set_room_id')
+                    ->whereRaw('LOWER(cs.computer_set_qr_code) = ?', [mb_strtolower($qr)])
+                    ->select('cs.*', 'r.room_name')
+                    ->first();
+
+            if ($computerSet) {
+                $setMembers = ComputerSets::members((int) $computerSet->computer_set_id);
+                if ($setMembers->isEmpty()) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'empty_set',
+                        'message' => 'This computer set has no equipment members yet.',
+                    ], 422);
+                }
+
+                $memberIds = $setMembers
+                    ->pluck('equipment_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->values()
+                    ->all();
+                $holders = PropertyAssignments::activeByEquipment($memberIds);
+
+                $setRoomId = $computerSet->computer_set_room_id ?? null;
+                $setRoomName = $computerSet->room_name ?? null;
+                $otherHeldCount = 0;
+                $members = $setMembers
+                    ->map(function ($m) use ($setRoomId, $setRoomName, $holders, $myCustodianIds, $reporter, &$otherHeldCount) {
+                        $equipmentId = (int) $m->equipment_id;
+                        $roomId = $m->equipment_room_id ?: $setRoomId;
+                        $roomName = $m->equipment_room_name ?: $setRoomName;
+                        $status = (string) ($m->equipment_inventory_status ?? '');
+                        $condition = (string) ($m->equipment_condition_status ?? '');
+
+                        $held = $this->heldOwnershipFromMap($equipmentId, $holders, $myCustodianIds);
+                        $canReport = ! empty($roomId)
+                            && empty($m->needs_replacement)
+                            && strcasecmp($status, 'For Replacement') !== 0
+                            && strcasecmp($status, 'Replaced') !== 0
+                            && strcasecmp($status, 'Disposed') !== 0;
+
+                        $block = null;
+                        if ($held === 'other') {
+                            $otherHeldCount++;
+                            $canReport = false;
+                            $block = $reporter
+                                ? 'This equipment is assigned to another person.'
+                                : 'This equipment is assigned to someone. Verify your Employee ID and PIN first if it\'s yours.';
+                        } elseif (empty($roomId)) {
+                            $canReport = false;
+                            $block = 'This equipment is not assigned to a location yet.';
+                        } elseif (! $canReport) {
+                            $block = $m->needs_replacement || strcasecmp($status, 'For Replacement') === 0
+                                ? 'Already queued for replacement.'
+                                : 'This equipment can\'t be reported right now.';
+                        } elseif ($held === 'none'
+                            && (strcasecmp($status, 'Active') !== 0 || strcasecmp($condition, 'Good') !== 0)) {
+                            // Shared room gear still uses the stricter Active + Good rule.
+                            $canReport = false;
+                            $block = 'This equipment can\'t be reported right now.';
+                        }
+
+                        return [
+                            'equipment_id' => $equipmentId,
+                            'equipment_name' => $m->equipment_name ?? 'Equipment',
+                            'equipment_brand_name' => $m->equipment_brand_name ?? null,
+                            'equipment_model' => $m->equipment_model ?? null,
+                            'equipment_qr_code' => $m->equipment_qr_code ?? null,
+                            'equipment_asset_tag' => $m->equipment_asset_tag ?? null,
+                            'equipment_serial_number' => $m->equipment_serial_number ?? null,
+                            'equipment_category_name' => $m->equipment_category_name ?? null,
+                            'equipment_condition_status' => $m->equipment_condition_status ?? null,
+                            'equipment_inventory_status' => $m->equipment_inventory_status ?? null,
+                            'computer_set_member_role' => $m->member_role ?? null,
+                            'room_id' => $roomId !== null ? (int) $roomId : null,
+                            'room_name' => $roomName,
+                            'location' => $roomName,
+                            'held_status' => $held,
+                            'can_report' => $canReport,
+                            'report_block_reason' => $block,
+                        ];
+                    })
+                    ->filter(fn ($row) => ! empty($row['room_id']))
+                    ->values();
+
+                if ($members->isEmpty()) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'no_location',
+                        'message' => 'This computer set has no equipment with a location yet.',
+                    ], 422);
+                }
+
+                $reportable = $members->where('can_report', true)->count();
+                if ($reportable === 0 && $otherHeldCount === $members->count()) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'held_by_other',
+                        'message' => $reporter
+                            ? 'This computer set is assigned to another person.'
+                            : 'This computer set is assigned to someone. Verify your Employee ID and PIN first if it\'s yours.',
+                    ], 422);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'type' => 'computer_set',
+                    'computer_set' => [
+                        'id' => (int) $computerSet->computer_set_id,
+                        'tag' => $computerSet->computer_set_tag ?? null,
+                        'name' => $computerSet->computer_set_name ?? null,
+                        'qr_code' => $computerSet->computer_set_qr_code ?? null,
+                        'room_id' => $computerSet->computer_set_room_id ?? null,
+                        'room' => $computerSet->room_name ?? null,
+                    ],
+                    'members' => $members,
+                ]);
+            }
+        }
 
         $base = DB::table('equipment_table')
             ->whereRaw('LOWER(equipment_table.equipment_qr_code) = ?', [mb_strtolower($qr)]);
 
-        $raw = (clone $base)->select('equipment_id', 'equipment_room_id')->first();
+        $raw = (clone $base)->select(
+            'equipment_id',
+            'equipment_room_id',
+            'equipment_name',
+            'equipment_inventory_status',
+            'equipment_condition_status'
+        )->first();
 
         if (! $raw) {
             return response()->json([
@@ -180,12 +319,43 @@ class MobileReportController extends Controller
             ], 404);
         }
 
+        $equipmentId = (int) $raw->equipment_id;
+        $held = $this->heldOwnership($equipmentId, $myCustodianIds);
+
+        if ($held === 'other') {
+            return response()->json([
+                'success' => false,
+                'code' => 'held_by_other',
+                'message' => $reporter
+                    ? 'This equipment is assigned to another person.'
+                    : 'This equipment is assigned to someone. Verify your Employee ID and PIN first if it\'s yours.',
+            ], 422);
+        }
+
         if (empty($raw->equipment_room_id)) {
             return response()->json([
                 'success' => false,
                 'code' => 'no_location',
                 'message' => 'This equipment is not assigned to a location yet.',
             ], 422);
+        }
+
+        // Own held units: allow like "Your held equipment" (not only Active+Good room list).
+        if ($held === 'mine') {
+            $heldRow = $this->heldScanEquipmentRow($equipmentId);
+            if (! $heldRow) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'not_reportable',
+                    'message' => 'This equipment can\'t be reported right now.',
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'type' => 'equipment',
+                'equipment' => $heldRow,
+            ]);
         }
 
         $equipment = $this->reportableEquipmentRows(clone $base)->first();
@@ -200,8 +370,124 @@ class MobileReportController extends Controller
 
         return response()->json([
             'success' => true,
+            'type' => 'equipment',
             'equipment' => $equipment,
         ]);
+    }
+
+    private function reporterForQrScan(Request $request): ?object
+    {
+        return ReporterPins::apiReporter($request)
+            ?? ReporterPins::sessionReporter($request);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function custodianIdsForReporter(?object $reporter): array
+    {
+        if (! $reporter) {
+            return [];
+        }
+
+        return Custodians::idsForEmployee((string) ($reporter->reporter_employee_id ?? ''));
+    }
+
+    /**
+     * @param  list<int>  $myCustodianIds
+     * @return 'none'|'mine'|'other'
+     */
+    private function heldOwnership(int $equipmentId, array $myCustodianIds): string
+    {
+        if ($equipmentId <= 0 || ! PropertyAssignments::tableReady()) {
+            return 'none';
+        }
+
+        $current = PropertyAssignments::current($equipmentId);
+        if (! $current) {
+            return 'none';
+        }
+
+        $custodianId = (int) ($current->assignment_custodian_id ?? 0);
+        if ($custodianId <= 0) {
+            return 'none';
+        }
+
+        if ($myCustodianIds !== [] && in_array($custodianId, $myCustodianIds, true)) {
+            return 'mine';
+        }
+
+        // Held, but not by this reporter (or identity unknown) → not theirs.
+        return 'other';
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $holders
+     * @param  list<int>  $myCustodianIds
+     * @return 'none'|'mine'|'other'
+     */
+    private function heldOwnershipFromMap(int $equipmentId, array $holders, array $myCustodianIds): string
+    {
+        if (! isset($holders[$equipmentId])) {
+            return 'none';
+        }
+
+        $custodianId = (int) ($holders[$equipmentId]['custodian_id'] ?? 0);
+        if ($custodianId <= 0) {
+            return 'none';
+        }
+
+        if ($myCustodianIds !== [] && in_array($custodianId, $myCustodianIds, true)) {
+            return 'mine';
+        }
+
+        return 'other';
+    }
+
+    /**
+     * Shape a held unit for scan→prefill (mirrors assigned-equipment fields).
+     */
+    private function heldScanEquipmentRow(int $equipmentId): ?object
+    {
+        $row = DB::table('equipment_table')
+            ->join('rooms_table as room', 'room.room_id', '=', 'equipment_table.equipment_room_id')
+            ->leftJoin('floors_table', 'room.room_floor_id', '=', 'floors_table.floor_id')
+            ->where('equipment_table.equipment_id', $equipmentId)
+            ->where('room.room_type', '!=', RoomCategories::STORAGE_TYPE)
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where('room.room_is_archived', false)
+            )
+            ->where('equipment_table.equipment_inventory_status', '!=', 'Disposed')
+            ->select(
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_brand_name',
+                'equipment_table.equipment_model',
+                'equipment_table.equipment_qr_code',
+                'equipment_table.equipment_asset_tag',
+                'equipment_table.equipment_serial_number',
+                'equipment_table.equipment_inventory_status',
+                'equipment_table.equipment_condition_status',
+                'room.room_id',
+                'room.room_name',
+                DB::raw("CONCAT(floors_table.floor_level, ' - ', room.room_name) AS location")
+            )
+            ->first();
+
+        if (! $row) {
+            return null;
+        }
+
+        $inventory = (string) ($row->equipment_inventory_status ?? '');
+        if (in_array($inventory, ['For Replacement', 'Replaced'], true)) {
+            return null;
+        }
+
+        $row->can_report = true;
+        $row->report_block_reason = null;
+
+        return $row;
     }
 
     /*

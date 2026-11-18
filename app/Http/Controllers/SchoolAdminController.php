@@ -226,11 +226,18 @@ class SchoolAdminController extends Controller
      */
     private function approvalQueues(): array
     {
-        return [
+        $queues = [
             $this->atpApprovalQueue(),
-            $this->rfcApprovalQueue(),
-            $this->dvApprovalQueue(),
         ];
+
+        // When Purchaser owns ATP, RFC needs-review is approved with the ATP package.
+        if (! \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP) {
+            $queues[] = $this->rfcApprovalQueue();
+        }
+
+        $queues[] = $this->dvApprovalQueue();
+
+        return $queues;
     }
 
     /**
@@ -239,10 +246,14 @@ class SchoolAdminController extends Controller
     private function atpApprovalQueue(): array
     {
         $empty = [
-            'title' => 'ATP — Pending approval',
+            'title' => \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP
+                ? 'ATP + RFC — Pending approval'
+                : 'ATP — Pending approval',
             'url' => route('school-admin.atp.index', ['status' => 'incoming']),
             'total' => 0,
-            'empty' => 'No Authority to Purchase waiting for approval.',
+            'empty' => \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP
+                ? 'No ATP + RFC packages waiting for approval.'
+                : 'No Authority to Purchase waiting for approval.',
             'rows' => collect(),
         ];
 
@@ -324,10 +335,10 @@ class SchoolAdminController extends Controller
     private function rfcApprovalQueue(): array
     {
         $empty = [
-            'title' => 'RFC — Pending approval',
-            'url' => route('school-admin.rfc.index', ['status' => 'incoming']),
+            'title' => 'ATP + RFC — Pending approval',
+            'url' => route('school-admin.atp.index', ['status' => 'incoming']),
             'total' => 0,
-            'empty' => 'No Request for Check waiting for approval.',
+            'empty' => 'No ATP + RFC packages waiting for approval.',
             'rows' => collect(),
         ];
 

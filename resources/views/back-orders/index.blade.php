@@ -3,8 +3,8 @@
 @section('title', 'Back Orders')
 @section('page-title', 'Back Orders')
 @section('page-subtitle', $canManage
-    ? 'Missing and damaged items from your Receiving Reports. Record the reason, a refund (Cash Advance), or the replacement delivery to complete the RR.'
-    : 'Monitor missing and damaged items and how the Purchaser is completing each Receiving Report.')
+    ? 'Missing or damaged RR items — record reason, refund, or replacement.'
+    : 'Monitor missing or damaged items on each RR.')
 
 @section('content')
 @use('App\Support\BackOrders')
@@ -44,7 +44,7 @@
                 ? \Carbon\Carbon::parse($bo->back_order_expected_delivery_date)->format('Y-m-d')
                 : null,
             'expected_delivery_label' => !empty($bo->back_order_expected_delivery_date)
-                ? \Carbon\Carbon::parse($bo->back_order_expected_delivery_date)->format('d/m/Y')
+                ? \Carbon\Carbon::parse($bo->back_order_expected_delivery_date)->format('m/d/Y')
                 : null,
             'expected_delivery_overdue' => !empty($bo->back_order_expected_delivery_date)
                 && $bo->is_unresolved
@@ -162,11 +162,25 @@
             }
         </style>
         <div class="space-y-3 border-b border-gray-100 px-5 py-4">
-            <nav class="flex flex-wrap gap-1.5" aria-label="Back order status">
-                @foreach($filters as $key => $label)
-                    <a href="{{ $filterUrl(['status' => $key]) }}" class="rounded-lg px-3 py-1.5 text-sm font-medium transition {{ $filter === $key ? 'bg-[#0025cc] text-white' : 'text-gray-600 hover:bg-gray-100' }}">{{ $label }}</a>
-                @endforeach
-            </nav>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <nav class="flex flex-wrap gap-1.5" aria-label="Back order status">
+                    @foreach($filters as $key => $label)
+                        <a href="{{ $filterUrl(['status' => $key]) }}" class="rounded-lg px-3 py-1.5 text-sm font-medium transition {{ $filter === $key ? 'bg-[#0025cc] text-white' : 'text-gray-600 hover:bg-gray-100' }}">{{ $label }}</a>
+                    @endforeach
+                </nav>
+                @if(\Illuminate\Support\Facades\Route::has($routePrefix.'.export-pdf'))
+                    @include('layouts.partials.export-pdf-button', [
+                        'exportUrl' => route($routePrefix.'.export-pdf', array_filter([
+                            'status' => $filter !== 'unresolved' ? $filter : null,
+                            'search' => request('search') ?: null,
+                            'type' => $typeFilter ?: null,
+                            'payment' => $paymentFilter ?: null,
+                            'supplier' => $supplierFilter ?: null,
+                            'rr' => $rootRrId ?: null,
+                        ])),
+                    ])
+                @endif
+            </div>
             <form method="GET" action="{{ route($routePrefix.'.index') }}" class="flex flex-col gap-2 lg:flex-row lg:items-center">
                 @foreach(array_intersect_key($query, ['status' => true, 'rr' => true]) as $name => $value)
                     <input type="hidden" name="{{ $name }}" value="{{ $value }}">
@@ -284,7 +298,7 @@
                                         $expectedDate = \Carbon\Carbon::parse($bo->back_order_expected_delivery_date);
                                         $isOverdue = $bo->is_unresolved && $expectedDate->startOfDay()->lt(now()->startOfDay());
                                     @endphp
-                                    <p class="font-medium {{ $isOverdue ? 'text-rose-700' : 'text-gray-800' }}">{{ $expectedDate->format('d/m/Y') }}</p>
+                                    <p class="font-medium {{ $isOverdue ? 'text-rose-700' : 'text-gray-800' }}">{{ $expectedDate->format('m/d/Y') }}</p>
                                     @if($isOverdue)
                                         <p class="mt-0.5 text-[11px] font-medium text-rose-600">Overdue</p>
                                     @elseif($bo->back_order_status === BackOrders::STATUS_WAITING_RESTOCK)
@@ -564,7 +578,7 @@
                                         </div>
                                         <div>
                                             <label class="mb-1.5 block text-sm font-medium text-gray-700">Unit price <span class="text-red-500" x-show="current.is_cash_advance">*</span></label>
-                                            <input type="number" name="unit_price" step="0.01" min="0" x-model.number="rep.price" :readonly="!current.is_cash_advance" :class="current.is_cash_advance ? '' : 'bg-gray-50 text-gray-500'" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
+                                            <input type="number" name="unit_price" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money x-model.number="rep.price" :readonly="!current.is_cash_advance" :class="current.is_cash_advance ? '' : 'bg-gray-50 text-gray-500'" class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">
                                         </div>
                                     </div>
                                     <p x-show="rep.quantity < current.quantity || rep.damaged > 0" class="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">Units still missing or damaged after this delivery stay on back order.</p>

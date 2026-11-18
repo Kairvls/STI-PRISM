@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Edit Supplier')
-@section('page-subtitle', 'Update supplier information')
+@section('page-subtitle', 'Edit supplier details.')
 
 @section('content')
 <div class="mx-auto max-w-3xl">

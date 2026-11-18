@@ -41,7 +41,7 @@
                     'bg-blue-50 text-blue-700 ring-blue-100' => $campaign->campaign_status === 'In Progress',
                     'bg-slate-100 text-slate-600 ring-slate-200' => in_array($campaign->campaign_status, ['Draft', 'Cancelled', 'Archived'], true),
                 ])>
-                    {{ $campaign->campaign_status }}
+                    {{ \App\Support\ProcurementDraftLabel::status($campaign->campaign_status) }}
                 </span>
             </div>
             <p class="mt-2 text-sm text-slate-500">

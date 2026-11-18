@@ -15,11 +15,11 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <a href="{{ url('/admin/reports/maintenance-history') }}" class="rounded-[18px] border border-gray-200 bg-white p-5 no-underline transition hover:border-gray-300">
             <p class="font-['Outfit'] text-lg font-bold text-slate-900">Maintenance</p>
-            <p class="mt-1 text-sm text-gray-500">Tickets filed, resolved, rejected, and for replacement — by location, urgency, and technician.</p>
+            <p class="mt-1 text-sm text-gray-500">By location, urgency, and technician.</p>
         </a>
         <a href="{{ url('/admin/reports/receiving') }}" class="rounded-[18px] border border-gray-200 bg-white p-5 no-underline transition hover:border-gray-300">
             <p class="font-['Outfit'] text-lg font-bold text-slate-900">Receiving</p>
-            <p class="mt-1 text-sm text-gray-500">Delivered vs returned items, receipts, and equipment added to inventory.</p>
+            <p class="mt-1 text-sm text-gray-500">Delivered, returned, receipts, and inventory adds.</p>
         </a>
         <a href="{{ url('/admin/reports/approval-logs') }}" class="rounded-[18px] border border-gray-200 bg-white p-5 no-underline transition hover:border-gray-300">
             <p class="font-['Outfit'] text-lg font-bold text-slate-900">Approvals</p>
@@ -27,7 +27,7 @@
         </a>
         <a href="{{ url('/admin/reports/user-login-logs') }}" class="rounded-[18px] border border-gray-200 bg-white p-5 no-underline transition hover:border-gray-300">
             <p class="font-['Outfit'] text-lg font-bold text-slate-900">User access</p>
-            <p class="mt-1 text-sm text-gray-500">Roles and recent session activity. High-level access only.</p>
+            <p class="mt-1 text-sm text-gray-500">Roles and recent sessions.</p>
         </a>
     </div>
 </div>

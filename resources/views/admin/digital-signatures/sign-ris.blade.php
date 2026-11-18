@@ -55,10 +55,16 @@
     let signRisSearchTimer = null;
     let signRisFilterFetchTimer = null;
     let signRisFetchSeq = 0;
-    let currentFilter = '{{ $filter ?? 'pending' }}';
+    let currentFilter = '{{ $filter ?? 'for_decision' }}';
     let currentSearch = '{{ $search ?? '' }}';
     let currentSubmittedDate = @json($submittedDate ?? '');
+    let currentUrgency = @json($urgencyFilter ?? '');
     let currentFocus = @json($attentionFocus['key'] ?? '');
+
+    window.applySignRisUrgencyFilter = function (value) {
+        currentUrgency = value || '';
+        fetchSignRisData(currentFilter, currentSearch, null);
+    };
 
     function syncSignRisDateFilterUi() {
         const btn = document.getElementById('signRisSubmittedDateBtn');
@@ -137,7 +143,7 @@
         const requestedSearch = search || '';
         const seq = ++signRisFetchSeq;
 
-        params.set('filter', filter || 'pending');
+        params.set('filter', filter || 'for_decision');
 
         if (currentFocus) {
             params.set('focus', currentFocus);
@@ -149,6 +155,10 @@
 
         if (currentSubmittedDate) {
             params.set('submitted', currentSubmittedDate);
+        }
+
+        if (currentUrgency) {
+            params.set('urgency', currentUrgency);
         }
 
         if (page) {
@@ -270,53 +280,26 @@
     // BIND SIGN RIS EVENT LISTENERS
     // =====================================================
 
-    function updateSignRisFilterSlider(activeFilter, animate) {
-
+    function updateSignRisFilterSlider(activeFilter) {
         const track = document.getElementById('signRisFilterSlider');
-        if (!track) {
-            return;
-        }
+        if (!track) return;
 
-        const thumb = track.querySelector('.sign-ris-filter-thumb');
         const buttons = track.querySelectorAll('.sign-ris-filter-btn');
-        if (!thumb || !buttons.length) {
-            return;
-        }
-
         let activeBtn = null;
 
-        for (let i = 0; i < buttons.length; i++) {
-            const btn = buttons[i];
+        buttons.forEach(function (btn) {
             const isActive = btn.getAttribute('data-filter') === activeFilter;
-            btn.style.color = isActive ? '#020617' : '#64748b';
+            btn.classList.toggle('bg-gray-100/80', isActive);
+            btn.classList.toggle('font-medium', isActive);
+            btn.classList.toggle('text-black', isActive);
+            btn.classList.toggle('text-slate-500', !isActive);
             btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
             btn.setAttribute('tabindex', isActive ? '0' : '-1');
-            if (isActive) {
-                activeBtn = btn;
-            }
-        }
+            if (isActive) activeBtn = btn;
+        });
 
-        if (!activeBtn) {
-            activeBtn = buttons[0];
-        }
-
-        const x = activeBtn.offsetLeft;
-        const w = activeBtn.offsetWidth;
-
-        if (!animate) {
-            const previous = thumb.style.transition;
-            thumb.style.transition = 'none';
-            thumb.style.width = w + 'px';
-            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
-            void thumb.offsetWidth;
-            thumb.style.transition = previous || 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)';
-        } else {
-            thumb.style.width = w + 'px';
-            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
-        }
-
-        if (typeof activeBtn.scrollIntoView === 'function') {
-            activeBtn.scrollIntoView({ behavior: animate ? 'smooth' : 'auto', inline: 'nearest', block: 'nearest' });
+        if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+            activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
         }
     }
 
@@ -328,7 +311,7 @@
 
         currentFocus = '';
         currentFilter = filter;
-        updateSignRisFilterSlider(currentFilter, true);
+        updateSignRisFilterSlider(currentFilter);
 
         clearTimeout(signRisFilterFetchTimer);
         signRisFilterFetchTimer = setTimeout(function () {
@@ -456,7 +439,7 @@
             });
         });
 
-        updateSignRisFilterSlider(currentFilter, false);
+        updateSignRisFilterSlider(currentFilter);
 
         document.querySelectorAll('.admin-sign-view-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -595,7 +578,7 @@
                 window.scaleSignRisPreviewToFit();
             }
 
-            updateSignRisFilterSlider(currentFilter, false);
+            updateSignRisFilterSlider(currentFilter);
 
         }
     );

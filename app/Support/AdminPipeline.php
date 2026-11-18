@@ -13,7 +13,7 @@ class AdminPipeline
     public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'];
 
     public const STAGE_NAMES = [
-        'ris' => 'Canvas + RIS',
+        'ris' => 'Canvass + RIS',
         'atp' => 'Authority to Purchase',
         'rfc' => 'Request for Check',
         'dv' => 'Disbursement Voucher',

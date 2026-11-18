@@ -31,16 +31,6 @@
                 'title' => 'Show procurement requests waiting for School Administrator accept',
             ],
             [
-                'label' => 'Accepted',
-                'hint' => '₱'.number_format((float) ($acceptedRisAmount ?? 0), 2),
-                'value' => number_format($acceptedRis ?? 0),
-                'tag' => 'button',
-                'filterKey' => 'accepted',
-                'extraClass' => 'ris-filter-card',
-                'active' => $filter === 'accepted',
-                'title' => 'Accepted requests waiting on Ready to Sign',
-            ],
-            [
                 'label' => 'Returned for Revision',
                 'hint' => '₱'.number_format((float) ($revisionRisAmount ?? 0), 2),
                 'value' => number_format($revisionRis ?? 0),
@@ -54,7 +44,6 @@
 
         $sectionTitle = match ($filter) {
             'all' => 'All RIS',
-            'accepted' => 'Accepted',
             'revision' => 'Returned for Revision',
             default => 'Pending Accept',
         };
@@ -114,7 +103,7 @@
                     @endif
 
                     <a
-                        href="{{ \App\Support\AdminPortal::route('procurement-review.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? ''])) }}"
+                        href="{{ \App\Support\AdminPortal::route('procurement-review.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? '', 'urgency' => $urgencyFilter ?? ''])) }}"
                         title="Export the current RIS table to PDF"
                         class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                     >
@@ -155,10 +144,13 @@
                 @include('admin.partials.ris-submitted-date-search', [
                     'search' => $search,
                     'submittedDate' => $submittedDate ?? '',
+                    'urgencyFilter' => $urgencyFilter ?? '',
+                    'urgencyOnChange' => 'applyRisUrgencyFilter',
                     'searchInputId' => 'risLiveSearch',
                     'dateInputId' => 'risSubmittedDate',
                     'dateBtnId' => 'risSubmittedDateBtn',
                     'dateClearId' => 'risSubmittedDateClear',
+                    'urgencyInputId' => 'risUrgencyFilter',
                 ])
             </div>
         </div>
@@ -174,8 +166,6 @@
                 <div class="pur-empty">
                     @if ($filter === 'pending')
                         No pending procurement requests.
-                    @elseif ($filter === 'accepted')
-                        No accepted requests waiting on Ready to Sign.
                     @elseif ($filter === 'revision')
                         No RIS returned for revision.
                     @else

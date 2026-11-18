@@ -166,13 +166,13 @@
                 || request()->is('school-admin/digital-signatures/sign-ris*');
         @endphp
         <a
-            href="{{ route('school-admin.procurement-review', ['filter' => 'pending']) }}"
+            href="{{ route('school-admin.procurement-review') }}"
             class="menu-item {{ $risSidebarActive ? 'active' : '' }}"
         >
 
             <i data-lucide="clipboard-check"></i>
 
-            <span>RIS Approval Requests</span>
+            <span>RIS Approvals</span>
 
             @if($saCounts['ris'] > 0)
                 <span class="{{ $navCount }}" title="{{ $saCounts['ris'] }} not viewed yet">{{ $saCounts['ris'] }}</span>
@@ -180,34 +180,28 @@
 
         </a>
 
+        @php
+            $atpRfcNavCount = (int) ($saCounts['atp'] ?? 0) + (int) ($saCounts['rfc'] ?? 0);
+            $atpRfcNavActive = request()->is('school-admin/authority-to-purchase*')
+                || request()->is('school-admin/request-check*');
+        @endphp
         <a
-            href="{{ route('school-admin.atp.index', ['status' => 'incoming']) }}"
-            class="menu-item {{ request()->is('school-admin/authority-to-purchase*') ? 'active' : '' }}"
+            href="{{ route('school-admin.atp.index') }}"
+            class="menu-item {{ $atpRfcNavActive ? 'active' : '' }}"
         >
             <i data-lucide="file-check"></i>
-            <span>ATP Approval Requests</span>
-            @if($saCounts['atp'] > 0)
-                <span class="{{ $navCount }}" title="{{ $saCounts['atp'] }} not viewed yet">{{ $saCounts['atp'] }}</span>
+            <span>ATP + Check Approvals</span>
+            @if($atpRfcNavCount > 0)
+                <span class="{{ $navCount }}" title="{{ $atpRfcNavCount }} not viewed yet">{{ $atpRfcNavCount }}</span>
             @endif
         </a>
 
         <a
-            href="{{ route('school-admin.rfc.index', ['status' => 'incoming']) }}"
-            class="menu-item {{ request()->is('school-admin/request-check*') ? 'active' : '' }}"
-        >
-            <i data-lucide="clipboard-list"></i>
-            <span>Check Approval Requests</span>
-            @if($saCounts['rfc'] > 0)
-                <span class="{{ $navCount }}" title="{{ $saCounts['rfc'] }} not viewed yet">{{ $saCounts['rfc'] }}</span>
-            @endif
-        </a>
-
-        <a
-            href="{{ route('school-admin.dv.index', ['status' => 'incoming']) }}"
+            href="{{ route('school-admin.dv.index') }}"
             class="menu-item {{ request()->is('school-admin/disbursement-vouchers*') ? 'active' : '' }}"
         >
             <i data-lucide="file-spreadsheet"></i>
-            <span>DV Approval Requests</span>
+            <span>DV Approvals</span>
             @if($saCounts['dv'] > 0)
                 <span class="{{ $navCount }}" title="{{ $saCounts['dv'] }} not viewed yet">{{ $saCounts['dv'] }}</span>
             @endif
@@ -236,7 +230,7 @@
             class="menu-item {{ request()->is('school-admin/operations/procurement*') || request()->is('school-admin/operations/documents*') ? 'active' : '' }}"
         >
             <i data-lucide="git-branch"></i>
-            <span>Procurement Monitoring</span>
+            <span>Procurement</span>
         </a>
 
         <a
@@ -265,7 +259,7 @@
                 aria-expanded="{{ $equipmentGroupActive ? 'true' : 'false' }}"
             >
                 <i data-lucide="radar"></i>
-                <span>Equipment Monitoring</span>
+                <span>Equipment</span>
                 <i data-lucide="chevron-down" class="menu-group-chevron"></i>
             </button>
             <div class="menu-sub" @if(! $equipmentGroupActive) hidden @endif>

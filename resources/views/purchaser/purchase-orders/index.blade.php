@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Purchase Orders')
-@section('page-subtitle', 'Group ATPs in preparation and submit to the School Administrator.')
+@section('page-subtitle', 'Group ATPs, then submit for approval.')
 
 @section('content')
 
@@ -129,9 +129,11 @@
                                         <i data-lucide="shopping-bag" class="h-4 w-4"></i>
                                     </div>
                                     <p class="font-semibold tracking-tight text-gray-900">{{ $label }}</p>
-                                    @if(\App\Support\DocumentUrgency::isUrgent('PO', $order))
-                                        @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Includes an ATP from an urgent RIS'])
-                                    @endif
+                                    @include('partials.ris-urgency-badge', [
+                                        'urgent' => \App\Support\DocumentUrgency::isUrgent('PO', $order),
+                                        'size' => 'sm',
+                                        'title' => 'Inherited from linked RIS',
+                                    ])
                                 </div>
                             </td>
                             <td class="px-5 py-4">
@@ -377,9 +379,10 @@
                         <div>
                             <div class="flex flex-wrap items-center gap-2">
                                 <h3 class="text-lg font-semibold tracking-tight text-gray-950">{{ $label }}</h3>
-                                @if(\App\Support\DocumentUrgency::isUrgent('PO', $order))
-                                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Includes an ATP from an urgent RIS'])
-                                @endif
+                                @include('partials.ris-urgency-badge', [
+                                    'urgent' => \App\Support\DocumentUrgency::isUrgent('PO', $order),
+                                    'title' => 'Inherited from linked RIS',
+                                ])
                             </div>
                             <p class="mt-0.5 text-sm text-gray-500">{{ $order->purchase_order_status }} · {{ $linked->count() }} ATP(s)</p>
                         </div>
@@ -660,22 +663,11 @@
                         Submit <span class="font-semibold text-gray-900" x-text="submitConfirm?.number"></span> with its linked ATPs?
                     </p>
                     <div>
-                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to the School Administrator <span class="text-red-500">*</span></label>
-                        @php
-                            $poSaReviewers = \App\Support\ReviewerAssignment::options(\App\Support\ProcurementReviewPortal::ROLE);
-                            $poSaAutoId = \App\Support\ReviewerAssignment::preferredId($poSaReviewers);
-                        @endphp
-                        <select
-                            name="assigned_reviewer_id"
-                            required
-                            class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300"
-                        >
-                            <option value="">Select School Administrator…</option>
-                            @foreach($poSaReviewers as $reviewer)
-                                <option value="{{ $reviewer['id'] }}" @selected($poSaAutoId !== null && (int) $reviewer['id'] === (int) $poSaAutoId)>{{ $reviewer['name'] }}</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this PO for review.</p>
+                        @include('partials.assign-reviewer-field', [
+                            'role' => \App\Support\ProcurementReviewPortal::ROLE,
+                            'label' => 'School Administrator',
+                            'hint' => 'Only the selected School Administrator will receive this PO for review.',
+                        ])
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">

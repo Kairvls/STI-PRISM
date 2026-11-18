@@ -80,6 +80,15 @@
                 @csrf
                 <div class="max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
                     <div>
+                        @include('partials.assign-reviewer-field', [
+                            'role' => \App\Support\WorkflowNotifier::ROLE_PURCHASER,
+                            'label' => 'Purchaser',
+                            'inputName' => 'assigned_purchaser_id',
+                            'hint' => 'Only the selected Purchaser will receive this for revision.',
+                        ])
+                    </div>
+
+                    <div>
                         <label for="amend_remarks" class="block text-sm font-medium text-slate-700">
                             Revision remarks <span class="text-red-500">*</span>
                         </label>
@@ -128,12 +137,95 @@
     </div>
 </div>
 
+{{-- Hard Reject (remarks + images) --}}
+<div id="finalRejectModal" class="fixed inset-0 z-[12000] hidden">
+    <div
+        class="absolute inset-0 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
+        onclick="if (event.target === this) closeFinalRejectModal()"
+    >
+        <div
+            class="relative h-auto w-full max-w-lg rounded-2xl bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200/80"
+            onclick="event.stopPropagation()"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="finalRejectModalTitle"
+        >
+            <button
+                type="button"
+                onclick="closeFinalRejectModal()"
+                class="absolute right-2.5 top-2.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                title="Close"
+                aria-label="Close"
+            >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+
+            <div class="border-b border-slate-100 px-5 pb-2.5 pr-11 pt-3">
+                <h3 id="finalRejectModalTitle" class="text-base font-semibold tracking-tight text-slate-900">
+                    Reject RIS
+                </h3>
+                <p class="mt-0.5 text-sm leading-snug text-slate-500">
+                    This is a hard rejection. The Purchaser cannot resubmit this RIS into approval.
+                </p>
+            </div>
+
+            <form id="finalRejectForm" method="POST" action="" enctype="multipart/form-data">
+                @csrf
+                <div class="max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
+                    <div>
+                        <label for="final_reject_remarks" class="block text-sm font-medium text-slate-700">
+                            Rejection remarks <span class="text-red-500">*</span>
+                        </label>
+                        <textarea
+                            id="final_reject_remarks"
+                            name="remarks"
+                            rows="4"
+                            required
+                            placeholder="Explain why this RIS is rejected."
+                            class="mt-1.5 block w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                        ></textarea>
+                    </div>
+
+                    @include('admin.partials.revision-image-picker', ['pickerId' => 'finalRejectImages'])
+
+                    <div class="flex gap-2.5 rounded-xl border border-rose-100 bg-rose-50/80 px-3.5 py-2.5">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+                        </svg>
+                        <p class="text-xs leading-relaxed text-rose-900/80">
+                            Confirming marks this RIS as Rejected. Remarks and images are stored for the Purchaser to see.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
+                    <button
+                        type="button"
+                        onclick="closeFinalRejectModal()"
+                        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-rose-700"
+                    >
+                        Reject RIS
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     window._adminDaFileDialogOpen = false;
 
     (function () {
         function mountAdminModalsToBody() {
-            ['directApproveModal', 'amendModal'].forEach(function (id) {
+            ['directApproveModal', 'amendModal', 'finalRejectModal'].forEach(function (id) {
                 var el = document.getElementById(id);
                 if (el && el.parentElement !== document.body) {
                     document.body.appendChild(el);
@@ -169,17 +261,20 @@
         }
 
         var actionMode = 'direct';
-        if (mode === 'forward') actionMode = 'forward';
+        var isForwardBack = mode === 'forward-back';
+        if (mode === 'forward' || isForwardBack) actionMode = 'forward';
         if (mode === 'cosign') actionMode = 'cosign';
 
         if (title) {
             title.textContent = actionMode === 'forward'
-                ? 'Forward RIS to President'
+                ? (isForwardBack ? 'Forward back to President' : 'Forward RIS to President')
                 : (actionMode === 'cosign' ? 'Sign Issued by' : 'Approve Directly');
         }
         if (subtitle) {
             subtitle.textContent = actionMode === 'forward'
-                ? 'Review the RIS form, then Pass to President. Issued by is signed later on Ready to Sign after approval.'
+                ? (isForwardBack
+                    ? 'This RIS was returned by the President before. Review the updated form, then forward it back. Direct Approve is not available.'
+                    : 'Review the RIS form, then Pass to President. Issued by is signed later on Ready to Sign after approval.')
                 : (actionMode === 'cosign'
                     ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
                     : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm School Administrator Approval.');
@@ -257,7 +352,36 @@
         var modal = document.getElementById('amendModal');
         if (modal) modal.classList.add('hidden');
         var da = document.getElementById('directApproveModal');
-        if (!da || da.classList.contains('hidden')) {
+        var rejectOpen = document.getElementById('finalRejectModal');
+        if ((!da || da.classList.contains('hidden')) && (!rejectOpen || rejectOpen.classList.contains('hidden'))) {
+            document.body.style.overflow = '';
+        }
+    };
+
+    window.openFinalRejectModal = function (risId) {
+        var modal = document.getElementById('finalRejectModal');
+        var form = document.getElementById('finalRejectForm');
+        var textarea = document.getElementById('final_reject_remarks');
+        if (!modal || !form || !textarea) return;
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+        form.action = @js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + risId + '/final-reject';
+        textarea.value = '';
+        if (typeof window.resetRevisionImagePicker === 'function') {
+            window.resetRevisionImagePicker('finalRejectImages');
+        }
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () { textarea.focus(); }, 200);
+    };
+
+    window.closeFinalRejectModal = function () {
+        var modal = document.getElementById('finalRejectModal');
+        if (modal) modal.classList.add('hidden');
+        var da = document.getElementById('directApproveModal');
+        var amendOpen = document.getElementById('amendModal');
+        if ((!da || da.classList.contains('hidden')) && (!amendOpen || amendOpen.classList.contains('hidden'))) {
             document.body.style.overflow = '';
         }
     };

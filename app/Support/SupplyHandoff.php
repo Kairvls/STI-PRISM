@@ -159,7 +159,7 @@ class SupplyHandoff
         $form = RisWorkflow::formNumber($ris);
         $url = '/supply-officer/incoming-ris';
         $title = 'Approved RIS ready for ATP';
-        $message = $form.' was sent by the Purchaser. Create an Authority to Purchase based on this Canvas + RIS.';
+        $message = $form.' was sent by the Purchaser. Create an Authority to Purchase based on this Canvass + RIS.';
 
         if ($officerUserId) {
             WorkflowNotifier::toUser(
@@ -206,7 +206,13 @@ class SupplyHandoff
         return null;
     }
 
-    public static function releaseAtpToPurchaser(object $atp, int $purchaserUserId, int $fromUserId): void
+    /**
+     * Stamp release columns (and optionally notify). Used by Supply Officer handoff
+     * and by School Admin auto-release when Purchaser owns ATP.
+     *
+     * @param  array{notify?: bool, title?: string, message?: string, url?: string, kind?: string}|null  $notifyOpts
+     */
+    public static function releaseAtpToPurchaser(object $atp, int $purchaserUserId, int $fromUserId, ?array $notifyOpts = null): void
     {
         if (! self::atpReleaseColumnsReady()) {
             throw new \RuntimeException('ATP release columns are not ready. Run migrations.');
@@ -229,17 +235,27 @@ class SupplyHandoff
             'authority_purchase_updated_at' => now(),
         ]);
 
+        $shouldNotify = $notifyOpts === null || ($notifyOpts['notify'] ?? true);
+        if (! $shouldNotify) {
+            return;
+        }
+
         $form = $atp->authority_purchase_form_number ?: ('ATP #'.$atpId);
+        $title = $notifyOpts['title'] ?? 'ATP released for Request for Check';
+        $message = $notifyOpts['message']
+            ?? ($form.' (with approved Canvass + RIS) was released by the School Supply / Material Officer. You may create a Request for Check.');
+        $url = $notifyOpts['url'] ?? ('/purchaser/request-check?selected_atp='.$atpId);
+        $kind = $notifyOpts['kind'] ?? 'atp_released_to_purchaser';
 
         WorkflowNotifier::toUser(
             $purchaserUserId,
             WorkflowNotifier::ROLE_PURCHASER,
-            'ATP released for Request for Check',
-            $form.' (with approved Canvas + RIS) was released by the School Supply / Material Officer. You may create a Request for Check.',
-            'atp_released_to_purchaser',
+            $title,
+            $message,
+            $kind,
             'ATP',
             $atpId,
-            '/purchaser/request-check?selected_atp='.$atpId
+            $url
         );
     }
 

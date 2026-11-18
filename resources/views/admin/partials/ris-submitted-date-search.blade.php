@@ -4,13 +4,23 @@
     $dateInputId = $dateInputId ?? 'risSubmittedDate';
     $dateBtnId = $dateBtnId ?? 'risSubmittedDateBtn';
     $dateClearId = $dateClearId ?? 'risSubmittedDateClear';
+    $urgencyInputId = $urgencyInputId ?? 'risUrgencyFilter';
+    $urgencyOnChange = $urgencyOnChange ?? null;
     $search = $search ?? '';
     $submittedDate = $submittedDate ?? '';
+    $urgencyFilter = $urgencyFilter ?? '';
     $searchPlaceholder = $searchPlaceholder ?? 'Search RIS, Request No., requester, equipment…';
     $hasDate = $submittedDate !== '';
 @endphp
 
-<div class="flex w-full items-center gap-2 lg:max-w-md">
+<div class="flex w-full flex-wrap items-center gap-2 lg:max-w-xl lg:flex-nowrap">
+    @include('partials.urgency-filter-dropdown', [
+        'urgencyName' => 'urgency',
+        'urgencyValue' => $urgencyFilter,
+        'urgencyInputId' => $urgencyInputId,
+        'urgencyOnChange' => $urgencyOnChange,
+    ])
+
     <div class="relative shrink-0">
         <button
             type="button"

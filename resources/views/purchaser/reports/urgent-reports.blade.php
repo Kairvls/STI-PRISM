@@ -1,7 +1,7 @@
 @extends('layouts.purchaser-layout')
 
 @section('page-title', 'Critical & High Reports')
-@section('page-subtitle', 'Critical and High reports that need purchasing attention.')
+@section('page-subtitle', 'Critical and High reports needing action.')
 
 @section('content')
 @php

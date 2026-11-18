@@ -121,7 +121,7 @@
                                     class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
                                 >
                                     <i data-lucide="eye" class="h-3.5 w-3.5"></i>
-                                    View Canvas + RIS
+                                    View Canvass + RIS
                                 </button>
                                 <a
                                     href="{{ route('supply-officer.atp.index', ['selected_ris' => $ris->ris_id]) }}"
@@ -140,7 +140,7 @@
                                 <i data-lucide="package-open" class="h-5 w-5"></i>
                             </div>
                             <p class="mt-4 font-medium text-gray-700">No approved RIS waiting for ATP</p>
-                            <p class="mt-1 text-sm text-gray-400">Purchasers must send Canvas + RIS here first.</p>
+                            <p class="mt-1 text-sm text-gray-400">Purchasers must send Canvass + RIS here first.</p>
                         </td>
                     </tr>
                 @endforelse
@@ -160,7 +160,7 @@
         <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
             <div class="min-w-0">
                 <h2 id="incomingRisPreviewTitle" class="truncate text-lg font-semibold text-slate-950"></h2>
-                <p class="mt-0.5 text-sm text-slate-500">Approved Canvas + RIS</p>
+                <p class="mt-0.5 text-sm text-slate-500">Approved Canvass + RIS</p>
             </div>
             <button type="button" id="incomingRisPreviewClose" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                 <i data-lucide="x" class="h-4 w-4"></i>
@@ -199,7 +199,7 @@
         }
 
         async function openPreview(button) {
-            title.textContent = button.dataset.previewTitle || 'Canvas + RIS';
+            title.textContent = button.dataset.previewTitle || 'Canvass + RIS';
             atpLink.href = button.dataset.atpUrl || '#';
             body.innerHTML = skeleton;
             modal.classList.remove('hidden');
@@ -215,7 +215,7 @@
                 body.innerHTML = await response.text();
                 if (window.lucide) lucide.createIcons();
             } catch (error) {
-                body.innerHTML = '<p class="px-5 py-10 text-center text-sm text-red-600">Could not load this Canvas + RIS.</p>';
+                body.innerHTML = '<p class="px-5 py-10 text-center text-sm text-red-600">Could not load this Canvass + RIS.</p>';
             }
         }
 

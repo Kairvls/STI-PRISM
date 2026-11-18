@@ -126,20 +126,20 @@ class AccountingAttentionSummary
     {
         return [
             'atp-review' => [
-                'label' => 'ATP awaiting review',
-                'description' => 'Submitted Authority to Purchase documents still Pending (bundled ATPs are reviewed through their Purchase Order).',
+                'label' => 'ATP + RFC packages awaiting review',
+                'description' => 'Submitted ATP documents (with linked funding requests) still Pending for one-package approval.',
                 'scope' => 'mine',
                 'status' => 'incoming',
                 'table' => 'authority_to_purchase_table',
                 'route' => 'school-admin.atp.index',
             ],
             'rfc-review' => [
-                'label' => 'Request Checks pending review',
-                'description' => 'Request Checks in Pending, Submitted, Under Review or Resubmitted.',
+                'label' => 'Funding requests pending review',
+                'description' => 'Opens the ATP + RFC package queue — approve both together from the ATP review page.',
                 'scope' => 'mine',
                 'status' => 'incoming',
                 'table' => 'request_check_table',
-                'route' => 'school-admin.rfc.index',
+                'route' => 'school-admin.atp.index',
             ],
             'funds' => [
                 'label' => 'Approved RFCs waiting for funds release',

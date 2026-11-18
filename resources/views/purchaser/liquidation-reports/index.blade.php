@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Liquidation Reports')
-@section('page-subtitle', 'Liquidate cash advances from completed receiving reports. Request for Check workflows end at Receiving Report.')
+@section('page-subtitle', 'Liquidate cash advances after receiving.')
 
 @section('content')
 <script type="application/json" id="liq-rr-prefill">{!! json_encode($rrPrefill ?? []) !!}</script>
@@ -119,8 +119,15 @@
             </a>
         </nav>
 
-        @unless($archiveView)
-            <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            @include('layouts.partials.export-pdf-button', [
+                'exportUrl' => route(($pp ?? 'purchaser').'.liq.export-pdf', array_filter([
+                    'view' => !empty($archiveView) ? 'archive' : null,
+                    'search' => request('search') ?: null,
+                    'status' => request('status') ?: null,
+                ])),
+            ])
+            @unless($archiveView)
                 <button
                     type="button"
                     @click="emptyOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
@@ -137,10 +144,58 @@
                     <i data-lucide="plus" class="h-4 w-4"></i>
                     Create Liquidation
                 </button>
-            </div>
-        @endunless
+            @endunless
+        </div>
     </div>
 
+    @php
+        $overdueLiquidations = $overdueLiquidations ?? [];
+        $overduePendingRrs = $overduePendingRrs ?? [];
+        $overdueIds = $overdueIds ?? [];
+        $overdueTotal = count($overdueLiquidations) + count($overduePendingRrs);
+    @endphp
+
+    @if(! $archiveView && $overdueTotal > 0)
+        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-950 shadow-sm">
+            <div class="flex flex-wrap items-start gap-3">
+                <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
+                    <i data-lucide="alarm-clock" class="h-4 w-4"></i>
+                </div>
+                <div class="min-w-0 flex-1 space-y-1.5">
+                    <p class="font-semibold text-rose-900">
+                        {{ $overdueTotal }} liquidation{{ $overdueTotal === 1 ? '' : 's' }} overdue
+                        <span class="font-normal text-rose-800/90">— create an LR within {{ \App\Support\LiquidationDeadline::DAYS }} days of RR completion (in preparation drafts are not overdue yet).</span>
+                    </p>
+                    <ul class="space-y-1 text-[13px] text-rose-900/90">
+                        @foreach($overdueLiquidations as $od)
+                            @php
+                                $odLabel = filled($od->liquidation_report_form_number ?? null)
+                                    ? (string) $od->liquidation_report_form_number
+                                    : '-';
+                                $odDays = (int) ($od->liquidation_report_days_lapse ?? 0);
+                            @endphp
+                            <li class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium">{{ $odLabel }}</span>
+                                <span class="text-rose-800/80">{{ $odDays }} day{{ $odDays === 1 ? '' : 's' }} late</span>
+                                <button type="button" class="font-semibold text-[#0025cc] underline-offset-2 hover:underline" @click="openEdit({{ (int) $od->liquidation_report_id }})">Open</button>
+                            </li>
+                        @endforeach
+                        @foreach($overduePendingRrs as $odRr)
+                            @php
+                                $odRrLabel = $odRr->receiving_report_form_number ?: ('RR #'.$odRr->receiving_report_id);
+                                $odRrDays = (int) ($odRr->days_lapsed ?? 0);
+                            @endphp
+                            <li class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium">{{ $odRrLabel }}</span>
+                                <span class="text-rose-800/80">needs LR · {{ $odRrDays }} day{{ $odRrDays === 1 ? '' : 's' }} late</span>
+                                <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $odRr->receiving_report_id]) }}" class="font-semibold text-[#0025cc] underline-offset-2 hover:underline">Create Liquidation</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @php
         $liqHasFilters = request()->filled('search')
@@ -196,8 +251,8 @@
 
                     <select id="liq-status" name="status" aria-label="Filter by status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $s)
-                            <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s === 'Submitted' ? 'In Review' : \App\Support\ProcurementDraftLabel::status($s) }}</option>
+                        @foreach(['Draft','Overdue','Submitted','Minor Revision','Approved','Rejected'] as $s)
+                            <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s === 'Submitted' ? 'In Review' : ($s === 'Overdue' ? 'Overdue' : \App\Support\ProcurementDraftLabel::status($s)) }}</option>
                         @endforeach
                     </select>
 
@@ -239,8 +294,12 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse($reports as $liq)
-                        @php $editable = in_array($liq->liquidation_report_status, ['Draft','Minor Revision'], true) && !$archiveView; @endphp
-                        <tr class="transition hover:bg-gray-50/70">
+                        @php
+                            $editable = in_array($liq->liquidation_report_status, ['Draft','Minor Revision'], true) && !$archiveView;
+                            $liqIsOverdue = in_array((int) $liq->liquidation_report_id, $overdueIds, true)
+                                || \App\Support\LiquidationDeadline::isCreationOverdue($liq);
+                        @endphp
+                        <tr class="transition hover:bg-gray-50/70 {{ $liqIsOverdue ? 'bg-rose-50/40' : '' }}">
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
@@ -249,11 +308,12 @@
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <p class="font-semibold text-gray-900">{{ $liq->liquidation_report_form_number ?: '-' }}</p>
-                                            @if(\App\Support\DocumentUrgency::isUrgent('LIQ', $liq))
-                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                                            @endif
+                                            @include('partials.ris-urgency-badge', [
+                                                'urgent' => \App\Support\DocumentUrgency::isUrgent('LIQ', $liq),
+                                                'size' => 'sm',
+                                                'title' => 'Inherited from linked RIS',
+                                            ])
                                         </div>
-                                        <p class="mt-0.5 text-xs text-gray-400">Record #{{ $liq->liquidation_report_id }}</p>
                                     </div>
                                 </div>
                             </td>
@@ -265,8 +325,8 @@
                             </td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '-' }}</td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '-' }}</td>
-                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? '?'.number_format((float) $liq->liquidation_report_amount_advance, 2) : '-' }}</td>
-                            <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])</td>
+                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? '₱'.number_format((float) $liq->liquidation_report_amount_advance, 2) : '-' }}</td>
+                            <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status, 'overdue' => $liqIsOverdue])</td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
@@ -581,9 +641,10 @@
                                 <div>
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 id="liq-view-title-{{ $liq->liquidation_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $liq->liquidation_report_form_number }}</h3>
-                                        @if(\App\Support\DocumentUrgency::isUrgent('LIQ', $liq))
-                                            @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                                        @endif
+                                        @include('partials.ris-urgency-badge', [
+                                            'urgent' => \App\Support\DocumentUrgency::isUrgent('LIQ', $liq),
+                                            'title' => 'Inherited from linked RIS',
+                                        ])
                                     </div>
                                     <p class="mt-0.5 text-sm text-gray-500">RR: {{ $liq->receiving_report_form_number ?? '-' }}</p>
                                 </div>
@@ -778,5 +839,90 @@
     .liq-print-active { background: #fff !important; }
 }
 </style>
+<script>
+(function () {
+    var WINDOW_DAYS = {{ (int) \App\Support\LiquidationDeadline::DAYS }};
+
+    function parseYmd(value) {
+        if (!value) return null;
+        var parts = String(value).split('-');
+        if (parts.length !== 3) return null;
+        var y = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10) - 1;
+        var d = parseInt(parts[2], 10);
+        if (!y || m < 0 || !d) return null;
+        return new Date(y, m, d);
+    }
+
+    function formatYmd(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var d = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function daysBetween(from, to) {
+        var ms = to.getTime() - from.getTime();
+        return Math.max(0, Math.floor(ms / 86400000));
+    }
+
+    function syncForm(root) {
+        if (!root) return;
+        var activity = root.querySelector('[data-liq-activity-end]');
+        var released = root.querySelector('[data-liq-date-released]');
+        var deadline = root.querySelector('[data-liq-deadline]');
+        var daysOut = root.querySelector('[data-liq-days-lapsed]');
+        if (!deadline) return;
+
+        var anchor = parseYmd(activity && activity.value) || parseYmd(released && released.value);
+        if (!anchor) {
+            if (deadline.tagName === 'INPUT') deadline.value = '';
+            if (daysOut) daysOut.textContent = '';
+            return;
+        }
+
+        var due = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+        due.setDate(due.getDate() + WINDOW_DAYS);
+        if (deadline.tagName === 'INPUT') {
+            deadline.value = formatYmd(due);
+        } else {
+            deadline.textContent = (due.getMonth() + 1) + '/' + due.getDate() + '/' + due.getFullYear();
+        }
+
+        if (daysOut) {
+            var today = new Date();
+            today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            daysOut.textContent = today > due ? String(daysBetween(due, today)) : '0';
+        }
+    }
+
+    function bindRoot(root) {
+        if (!root || root.dataset.liqDeadlineBound === '1') return;
+        root.dataset.liqDeadlineBound = '1';
+        root.addEventListener('change', function (event) {
+            var t = event.target;
+            if (!t || !t.matches) return;
+            if (t.matches('[data-liq-activity-end], [data-liq-date-released]')) {
+                syncForm(root);
+            }
+        });
+        syncForm(root);
+    }
+
+    function scan() {
+        document.querySelectorAll('form').forEach(function (form) {
+            if (form.querySelector('[data-liq-deadline]')) bindRoot(form);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', scan);
+    } else {
+        scan();
+    }
+    document.addEventListener('alpine:initialized', scan);
+    window.addEventListener('liq-deadline-resync', scan);
+})();
+</script>
 @include('partials.ris-revision-image-viewer')
 @endsection

@@ -18,7 +18,7 @@
                 Still there?
             </h2>
             <p class="mt-1 text-sm text-slate-500">
-                No activity detected for 30 minutes. You will be signed out in
+                No activity detected for 3 hours. You will be signed out in
                 <span id="idleSessionCountdown" class="font-semibold text-slate-900">60</span>
                 seconds to protect this account.
             </p>
@@ -44,7 +44,7 @@
 
 <script>
 (function () {
-    const IDLE_MS = 30 * 60 * 1000;
+    const IDLE_MS = 3 * 60 * 60 * 1000;
     const WARN_MS = 60 * 1000;
     const ACTIVITY_EVENTS = [
         'mousemove',

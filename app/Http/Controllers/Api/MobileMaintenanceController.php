@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\MaintenanceReportService;
+use App\Support\ComputerSetQrCodes;
+use App\Support\ComputerSets;
+use App\Support\EquipmentSchedules;
 use App\Support\EquipmentTimeline;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\JsonResponse;
@@ -404,6 +408,31 @@ class MobileMaintenanceController extends Controller
 
     public function equipment($qr): JsonResponse
     {
+        $qr = $this->normalizeQrCode((string) $qr);
+
+        // Computer-set QR → members (parity with web equipmentByQr).
+        $computerSet = $this->findComputerSetByQr($qr);
+        if ($computerSet) {
+            $members = ComputerSets::members((int) $computerSet->computer_set_id)
+                ->map(fn ($m) => $this->mapSetMemberToEquipment($m))
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'type' => 'computer_set',
+                'computer_set' => [
+                    'id' => (int) $computerSet->computer_set_id,
+                    'tag' => $computerSet->computer_set_tag ?? null,
+                    'name' => $computerSet->computer_set_name ?? null,
+                    'qr_code' => $computerSet->computer_set_qr_code ?? null,
+                    'room_id' => $computerSet->computer_set_room_id ?? null,
+                    'room' => $computerSet->room_name ?? null,
+                    'status' => $computerSet->computer_set_status ?? null,
+                ],
+                'members' => $members,
+            ]);
+        }
+
         // =====================================================
         // FIND EQUIPMENT USING QR CODE
         // =====================================================
@@ -424,9 +453,9 @@ class MobileMaintenanceController extends Controller
                 'rooms_table.room_id'
             )
 
-            ->where(
-                'equipment_table.equipment_qr_code',
-                $qr
+            ->whereRaw(
+                'LOWER(equipment_table.equipment_qr_code) = ?',
+                [mb_strtolower($qr)]
             )
 
             ->select(
@@ -491,6 +520,8 @@ class MobileMaintenanceController extends Controller
 
             'success' => true,
 
+            'type' => 'equipment',
+
             'equipment' => [
 
                 'id' => $equipment->equipment_id,
@@ -526,6 +557,132 @@ class MobileMaintenanceController extends Controller
             'recent_history' => $history,
 
         ]);
+    }
+
+    /**
+     * Mark a schedule cycle complete (parity with web completeSchedule).
+     * Writes a history row and advances next_date for recurring frequencies.
+     */
+    public function completeSchedule(Request $request, $scheduleId): JsonResponse
+    {
+        $validated = $request->validate([
+            'findings' => ['required', 'string'],
+            'repair_action' => ['required', 'string'],
+            'maintenance_status' => ['required', 'string', 'max:100'],
+            'replacement_remarks' => ['nullable', 'string'],
+            'proof_image' => ['nullable', 'image', 'max:4096'],
+        ]);
+
+        $schedule = DB::table('maintenance_schedules_table')
+            ->where('maintenance_schedule_id', (int) $scheduleId)
+            ->first();
+
+        if (! $schedule) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Maintenance schedule not found.',
+            ], 404);
+        }
+
+        $blockedReason = EquipmentSchedules::cannotMarkCompleteReason($schedule);
+        if ($blockedReason !== null) {
+            return response()->json([
+                'success' => false,
+                'code' => 'not_completable',
+                'message' => $blockedReason,
+            ], 422);
+        }
+
+        $proofImage = null;
+        if ($request->hasFile('proof_image')) {
+            $proofImage = $request->file('proof_image')->store('maintenance-proofs', 'public');
+        }
+
+        DB::transaction(function () use ($validated, $schedule, $proofImage) {
+            $history = [
+                'equipment_maintenance_equipment_id' => $schedule->maintenance_schedule_equipment_id,
+                'equipment_maintenance_personnel_id' => Auth::id(),
+                'equipment_maintenance_findings' => $validated['findings'],
+                'equipment_maintenance_repair_action' => $validated['repair_action'],
+                'equipment_maintenance_status' => $validated['maintenance_status'],
+                'equipment_maintenance_completed_at' => now(),
+                'equipment_maintenance_created_at' => now(),
+            ];
+
+            if (Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_replacement_remarks')
+                && filled($validated['replacement_remarks'] ?? null)) {
+                $history['equipment_maintenance_replacement_remarks'] = $validated['replacement_remarks'];
+            }
+
+            if ($proofImage !== null
+                && Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_proof_image')) {
+                $history['equipment_maintenance_proof_image'] = $proofImage;
+            }
+
+            DB::table('equipment_maintenance_history_table')->insert($history);
+
+            DB::table('maintenance_schedules_table')
+                ->where('maintenance_schedule_id', $schedule->maintenance_schedule_id)
+                ->update(EquipmentSchedules::completionUpdatePayload($schedule));
+        });
+
+        $fresh = DB::table('maintenance_schedules_table')
+            ->where('maintenance_schedule_id', $schedule->maintenance_schedule_id)
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Maintenance marked complete.',
+            'schedule' => $fresh,
+        ]);
+    }
+
+    private function normalizeQrCode(string $qr): string
+    {
+        $qr = trim(urldecode($qr));
+        if (str_contains($qr, '/')) {
+            $qr = basename(parse_url($qr, PHP_URL_PATH) ?: $qr);
+        }
+
+        return trim($qr);
+    }
+
+    private function findComputerSetByQr(string $qr): ?object
+    {
+        if ($qr === '' || ! ComputerSetQrCodes::ready()) {
+            return null;
+        }
+
+        $set = ComputerSetQrCodes::findByCode($qr);
+        if ($set) {
+            return $set;
+        }
+
+        return DB::table('computer_sets_table as cs')
+            ->leftJoin('rooms_table as r', 'r.room_id', '=', 'cs.computer_set_room_id')
+            ->whereRaw('LOWER(cs.computer_set_qr_code) = ?', [mb_strtolower($qr)])
+            ->select('cs.*', 'r.room_name')
+            ->first();
+    }
+
+    private function mapSetMemberToEquipment(object $m): array
+    {
+        return [
+            'id' => (int) $m->equipment_id,
+            'qr_code' => $m->equipment_qr_code ?? null,
+            'asset_tag' => $m->equipment_asset_tag ?? null,
+            'name' => $m->equipment_name ?? 'Equipment',
+            'brand' => $m->equipment_brand_name ?? null,
+            'model' => $m->equipment_model ?? null,
+            'serial_number' => $m->equipment_serial_number ?? null,
+            'room' => $m->equipment_room_name ?? null,
+            'room_id' => $m->equipment_room_id ?? null,
+            'category' => $m->equipment_category_name ?? null,
+            'condition' => $m->equipment_condition_status ?? null,
+            'inventory_status' => $m->equipment_inventory_status ?? null,
+            'member_role' => $m->member_role ?? null,
+            'needs_replacement' => (bool) ($m->needs_replacement ?? false),
+        ];
     }
 
     // =====================================================

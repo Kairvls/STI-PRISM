@@ -1,7 +1,8 @@
 @php
     $target = $target ?? '';
     $filename = $filename ?? 'president-table';
-    $label = $label ?? 'Print as Word';
+    // Use $wordLabel only — parent views often leave $label as "Rejected" from filter loops.
+    $wordLabel = $wordLabel ?? 'Print as Word';
 @endphp
 
 <div class="pm-table-word-bar">
@@ -14,6 +15,6 @@
         onclick="exportPresidentTableToWord(this)"
     >
         <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-        <span>{{ $label }}</span>
+        <span>{{ $wordLabel }}</span>
     </button>
 </div>

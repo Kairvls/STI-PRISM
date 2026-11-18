@@ -1,6 +1,6 @@
 @extends(\App\Support\ProcurementReviewPortal::LAYOUT)
 
-@section('title', 'Review ATP')
+@section('title', !empty($linkedPendingRfcs) && $linkedPendingRfcs->isNotEmpty() ? 'Review ATP + RFC' : 'Review ATP')
 
 @section('content')
 @include('accounting.partials.flash')
@@ -9,6 +9,10 @@
     $fromPoId = (int) request('from_po', 0);
     $poLabel = !empty($purchaseOrder) ? \App\Support\PurchaseOrderBasket::displayNumber($purchaseOrder) : null;
     $backToPo = !empty($purchaseOrder) && $fromPoId === (int) $purchaseOrder->purchase_order_id;
+    $isAtpRfcPackage = !empty($linkedPendingRfcs) && $linkedPendingRfcs->isNotEmpty();
+    $packageApproveLabel = $isAtpRfcPackage
+        ? ($linkedPendingRfcs->count() === 1 ? 'Approve ATP + RFC' : 'Approve ATP + RFCs')
+        : 'Approve';
 @endphp
 <div class="acc-page acc-page--review fade-in">
     <div class="acc-review-head">
@@ -18,16 +22,22 @@
                     <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 </a>
             @else
-                <a href="/school-admin/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
+                <a href="/school-admin/authority-to-purchase?status={{ urlencode($returnStatus ?? 'incoming') }}" class="acc-back" data-tip="Back to ATP + Check Approvals" aria-label="Back to ATP + Check Approvals">
                     <i data-lucide="arrow-left" class="h-4 w-4"></i>
                 </a>
             @endif
             <div class="mt-1 flex flex-wrap items-center gap-2">
-                <h1 class="acc-page-title">{{ $atp->authority_purchase_form_number }}</h1>
+                <h1 class="acc-page-title">
+                    {{ $atp->authority_purchase_form_number }}
+                    @if($isAtpRfcPackage)
+                        <span class="text-base font-semibold text-slate-500">+ Check</span>
+                    @endif
+                </h1>
                 @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::atpStatusLabel($atp), 'submitted' => $atp->authority_purchase_submitted_at, 'revision' => $atp->authority_purchase_rejection_reason])
-                @if (\App\Support\DocumentUrgency::isUrgent('ATP', $atp->authority_purchase_id))
-                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                @endif
+                @include('partials.ris-urgency-badge', [
+                    'urgent' => \App\Support\DocumentUrgency::isUrgent('ATP', $atp->authority_purchase_id),
+                    'title' => 'Inherited from linked RIS',
+                ])
             </div>
             @if(!blank($atp->authority_purchase_request_no ?? null))
                 <div class="mt-2">
@@ -47,10 +57,32 @@
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve ATP">
-                    <i data-lucide="check" class="h-4 w-4"></i>
-                    <span>Approve</span>
-                </button>
+                @if(!empty($dualRouteApprove))
+                    <button
+                        type="button"
+                        onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved', 'purchaser')"
+                        class="acc-action-btn is-approve"
+                        data-tip="{{ $isAtpRfcPackage ? 'Approve ATP + linked RFC(s) and pass to Purchaser' : 'Approve and pass to Purchaser only' }}"
+                    >
+                        <i data-lucide="user-check" class="h-4 w-4"></i>
+                        <span>{{ $isAtpRfcPackage ? 'Approve → Purchaser' : 'Pass to Purchaser' }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved', 'purchaser_and_accounting')"
+                        class="acc-action-btn is-approve"
+                        data-tip="{{ $isAtpRfcPackage ? 'Approve ATP + linked RFC and send package to Accounting' : 'Requires a linked funding request' }}"
+                        @if(! $isAtpRfcPackage) disabled @endif
+                    >
+                        <i data-lucide="building-2" class="h-4 w-4"></i>
+                        <span>{{ $isAtpRfcPackage ? 'Approve → Purchaser + Accounting' : 'Pass to Purchaser + Accounting' }}</span>
+                    </button>
+                @else
+                    <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="{{ $packageApproveLabel }}">
+                        <i data-lucide="check" class="h-4 w-4"></i>
+                        <span>{{ $packageApproveLabel }}</span>
+                    </button>
+                @endif
                 <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -77,6 +109,26 @@
                             'printId' => 'acc-print-sheet',
                             'accLiveSign' => !empty($reviewable),
                         ])
+                        @if($isAtpRfcPackage)
+                            <div class="mt-6 print-hidden">
+                                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Linked funding {{ $linkedPendingRfcs->count() === 1 ? 'request' : 'requests' }} (approved with ATP)
+                                </p>
+                                @foreach($linkedPendingRfcs as $linkedRfc)
+                                    <div class="mb-6">
+                                        <p class="mb-2 text-sm font-semibold text-slate-800">
+                                            {{ $linkedRfc->request_check_form_number ?: ('RFC #'.$linkedRfc->request_check_id) }}
+                                            <span class="ml-2 text-xs font-medium text-slate-500">{{ $linkedRfc->request_check_status }}</span>
+                                        </p>
+                                        @include('partials.request-check-paper', [
+                                            'editable' => false,
+                                            'rfc' => $linkedRfc,
+                                            'printId' => 'acc-rfc-print-'.$linkedRfc->request_check_id,
+                                        ])
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                         @if ($atp->authority_purchase_rejection_reason)
                             <div class="mt-4 rounded-lg bg-sky-50 p-2.5 text-xs text-sky-900 print-hidden">
                                 <p>Revision remarks: {{ $atp->authority_purchase_rejection_reason }}</p>
@@ -114,17 +166,21 @@
             <input type="hidden" name="target_type" id="targetType" value="" />
             <input type="hidden" name="target_id" id="targetId" value="" />
             <input type="hidden" name="decision" id="targetDecision" value="" />
+            <input type="hidden" name="route_to" id="routeTo" value="purchaser" />
             <input type="hidden" name="signature_data" id="signatureData" value="" />
             <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
             <div id="signatureBlock" class="hidden mt-4">
                 @include('accounting.partials.decision-signature-panel', [
                     'savedSignatures' => $savedSignatures ?? collect(),
-                    'signTitle' => 'Accounting signature',
-                    'signHint' => 'Pick a saved signature, draw one, or upload. It authorizes this Authority to Purchase.',
-                    'padTitle' => 'Sign the ATP',
+                    'signTitle' => 'School Administrator signature',
+                    'signHint' => $isAtpRfcPackage
+                        ? 'Pick a saved signature, draw one, or upload. It authorizes this ATP and linked funding request(s).'
+                        : 'Pick a saved signature, draw one, or upload. It authorizes this Authority to Purchase.',
+                    'padTitle' => $isAtpRfcPackage ? 'Sign the ATP + RFC package' : 'Sign the ATP',
                     'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
                 ])
             </div>
+            <div id="routeHint" class="mt-3 hidden rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"></div>
             <div class="mt-4">
                 <label>Remarks <span id="remarksReqStar" class="text-red-500 hidden">*</span></label>
                 <textarea name="remarks" rows="3" placeholder="Optional for approve. Required for revision."></textarea>
@@ -134,7 +190,7 @@
             </div>
             <div class="confirm-actions mt-5">
                 <button type="button" class="btn-ghost" data-tip="Cancel decision" onclick="closeDecisionModal()">Cancel</button>
-                <button type="button" id="approveBtn" class="btn-approve" data-tip="Confirm approval" onclick="submitDecision('Approved')">Approve</button>
+                <button type="button" id="approveBtn" class="btn-approve" data-tip="Confirm approval" onclick="submitDecision('Approved')">{{ $packageApproveLabel }}</button>
                 <button type="button" id="rejectBtn" class="btn-reject" data-tip="Confirm revision" onclick="submitDecision('Rejected')">Send to Purchaser</button>
             </div>
         </form>
@@ -147,13 +203,16 @@
     });
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const dualRouteApprove = @json(!empty($dualRouteApprove));
+    const linkedRfcCount = @json(isset($linkedPendingRfcs) ? $linkedPendingRfcs->count() : 0);
     let decideInFlight = false;
 
-    function openDecisionModal(type, id, presetDecision) {
+    function openDecisionModal(type, id, presetDecision, routeTo) {
         const form = document.getElementById('decisionForm');
         document.getElementById('targetType').value = type;
         document.getElementById('targetId').value = id;
         document.getElementById('targetDecision').value = presetDecision || '';
+        document.getElementById('routeTo').value = routeTo || 'purchaser';
         if (window.accountingSignaturePanel) window.accountingSignaturePanel.reset();
         else {
             document.getElementById('signatureData').value = '';
@@ -170,7 +229,32 @@
         if (window.resetRevisionImagePicker) window.resetRevisionImagePicker('decisionRevisionImages');
         document.getElementById('approveBtn').classList.toggle('hidden', !isApproved);
         document.getElementById('rejectBtn').classList.toggle('hidden', isApproved);
-        document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';
+
+        const routeHint = document.getElementById('routeHint');
+        if (isApproved && dualRouteApprove) {
+            const both = (routeTo || 'purchaser') === 'purchaser_and_accounting';
+            routeHint.classList.remove('hidden');
+            routeHint.textContent = both
+                ? (linkedRfcCount > 0
+                    ? 'Approves ATP' + (linkedRfcCount === 1 ? ' + linked RFC' : ' + ' + linkedRfcCount + ' linked RFCs') + ' and sends the package to Accounting for DV.'
+                    : 'Sends the approved package to Accounting for DV.')
+                : (linkedRfcCount > 0
+                    ? 'Approves ATP' + (linkedRfcCount === 1 ? ' + linked RFC' : ' + ' + linkedRfcCount + ' linked RFCs') + '. Purchaser keeps the record and can submit to Accounting later.'
+                    : 'Passes the approved ATP to the Purchaser only.');
+            document.getElementById('decisionModalTitle').textContent = both
+                ? (linkedRfcCount > 0 ? 'Approve → Purchaser + Accounting' : 'Pass to Purchaser + Accounting')
+                : (linkedRfcCount > 0 ? 'Approve → Purchaser' : 'Pass to Purchaser');
+            document.getElementById('approveBtn').textContent = both
+                ? (linkedRfcCount > 0 ? 'Confirm approve to both' : 'Confirm pass to both')
+                : (linkedRfcCount > 0 ? 'Confirm approve to Purchaser' : 'Confirm pass to Purchaser');
+        } else {
+            routeHint.classList.add('hidden');
+            document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';
+            document.getElementById('approveBtn').textContent = linkedRfcCount > 0
+                ? (linkedRfcCount === 1 ? 'Approve ATP + RFC' : 'Approve ATP + RFCs')
+                : 'Approve';
+        }
+
         document.getElementById('decisionModal').classList.remove('hidden');
         if (window.lucide) lucide.createIcons();
     }

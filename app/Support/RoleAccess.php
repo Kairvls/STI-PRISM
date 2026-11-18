@@ -34,8 +34,135 @@ class RoleAccess
     public const PORTAL_SESSION_KEY = 'portal_context';
 
     /**
-     * Additional roles are only for Staff in IT Department when primary is
-     * Purchaser (may add Maintenance) or Maintenance (may add Purchaser).
+     * Roles kept in code/DB but dormant: not assignable and portal not reachable.
+     * Supply Officer stays in the codebase while Purchaser owns the ATP path.
+     *
+     * @return array<int, int>
+     */
+    public static function dormantRoleIds(): array
+    {
+        return [self::SUPPLY_OFFICER];
+    }
+
+    /** @deprecated Use dormantRoleIds() */
+    public static function blockedAssignableRoleIds(): array
+    {
+        return self::dormantRoleIds();
+    }
+
+    public static function isPortalDormant(int $roleId): bool
+    {
+        return in_array($roleId, self::dormantRoleIds(), true);
+    }
+
+    /**
+     * Roles limited to one account system-wide (must remove/reassign the holder first).
+     *
+     * @return array<int, int>
+     */
+    public static function singletonRoleIds(): array
+    {
+        return [self::PRESIDENT, self::SCHOOL_ADMIN];
+    }
+
+    public static function isSingletonRole(int $roleId): bool
+    {
+        return in_array($roleId, self::singletonRoleIds(), true);
+    }
+
+    /**
+     * User ids that currently hold $roleId (primary or additional).
+     *
+     * @return array<int, int>
+     */
+    public static function roleHolderUserIds(int $roleId): array
+    {
+        $roleName = WorkflowNotifier::roleNameForId($roleId);
+        if (! is_string($roleName) || $roleName === '') {
+            return [];
+        }
+
+        return WorkflowNotifier::userIdsForRole($roleName);
+    }
+
+    /**
+     * True when a singleton role already has another account.
+     * Pass $exceptUserId when editing so the current holder can keep the role.
+     */
+    public static function singletonRoleTaken(int $roleId, ?int $exceptUserId = null): bool
+    {
+        if (! self::isSingletonRole($roleId)) {
+            return false;
+        }
+
+        foreach (self::roleHolderUserIds($roleId) as $userId) {
+            if ($exceptUserId !== null && (int) $userId === (int) $exceptUserId) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function singletonRoleMessage(int $roleId): string
+    {
+        $label = self::portalMeta()[$roleId]['label'] ?? 'This role';
+
+        return "Only one {$label} account is allowed. Remove or reassign the existing {$label} account first.";
+    }
+
+    public static function isAssignableRoleId(int $roleId, ?int $allowIfCurrent = null): bool
+    {
+        if ($allowIfCurrent !== null && $roleId === $allowIfCurrent) {
+            return true;
+        }
+
+        if (self::isPortalDormant($roleId)) {
+            return false;
+        }
+
+        // allowIfCurrent is the user's current primary role id on edit — when assigning
+        // a different role, still block singleton roles that another user already holds.
+        if (self::singletonRoleTaken($roleId)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function dormantPortalMessage(): string
+    {
+        return 'The School Supply / Material Officer portal is temporarily unavailable. Ask an administrator to assign another role.';
+    }
+
+    /**
+     * Post-login home path, skipping dormant portals. Null = no usable portal.
+     */
+    public static function loginDestination(?object $user = null): ?string
+    {
+        $user = self::user($user);
+        if (! $user) {
+            return null;
+        }
+
+        $primary = self::primaryRoleId($user);
+        if ($primary > 0 && ! self::isPortalDormant($primary)) {
+            return self::dashboardPath($primary);
+        }
+
+        foreach (self::availablePortals($user) as $portal) {
+            return $portal['path'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Additional roles: Staff in IT Department only, when primary is
+     * Administrator, Maintenance, or Purchaser. Pool is Maintenance + Purchaser
+     * (excluding the primary itself).
      *
      * @param  array<int, int|string>  $additional
      * @return array<int, int>
@@ -46,33 +173,50 @@ class RoleAccess
         bool $isStaff,
         bool $isItDepartment
     ): array {
-        $allowedId = self::allowedAdditionalRoleId($primaryRoleId, $isStaff, $isItDepartment);
-        if ($allowedId === null) {
+        $allowed = self::allowedAdditionalRoleIds($primaryRoleId, $isStaff, $isItDepartment);
+        if ($allowed === []) {
             return [];
         }
 
         return collect($additional)
             ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id === $allowedId)
+            ->filter(fn ($id) => in_array($id, $allowed, true))
             ->unique()
             ->values()
             ->all();
     }
 
+    /**
+     * @return array<int, int>
+     */
+    public static function allowedAdditionalRoleIds(
+        int $primaryRoleId,
+        bool $isStaff = true,
+        bool $isItDepartment = true
+    ): array {
+        if (! $isStaff || ! $isItDepartment) {
+            return [];
+        }
+
+        if (! in_array($primaryRoleId, [self::ADMIN, self::MAINTENANCE, self::PURCHASER], true)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            [self::MAINTENANCE, self::PURCHASER],
+            fn (int $id) => $id !== $primaryRoleId
+        ));
+    }
+
+    /** @deprecated Prefer allowedAdditionalRoleIds() */
     public static function allowedAdditionalRoleId(
         int $primaryRoleId,
         bool $isStaff = true,
         bool $isItDepartment = true
     ): ?int {
-        if (! $isStaff || ! $isItDepartment) {
-            return null;
-        }
+        $ids = self::allowedAdditionalRoleIds($primaryRoleId, $isStaff, $isItDepartment);
 
-        return match ($primaryRoleId) {
-            self::PURCHASER => self::MAINTENANCE,
-            self::MAINTENANCE => self::PURCHASER,
-            default => null,
-        };
+        return $ids[0] ?? null;
     }
 
     public static function isItDepartmentName(?string $name): bool
@@ -279,7 +423,7 @@ class RoleAccess
         $meta = self::portalMeta();
 
         foreach (self::roleIds($user) as $roleId) {
-            if (! isset($meta[$roleId])) {
+            if (! isset($meta[$roleId]) || self::isPortalDormant($roleId)) {
                 continue;
             }
             $portals[] = array_merge($meta[$roleId], ['role_id' => $roleId]);
@@ -294,14 +438,14 @@ class RoleAccess
     }
 
     /**
-     * Mobile app portals only (Maintenance).
-     * Purchaser stays web-only; assign Maintenance as additional role for app access.
+     * Mobile app portals: System Administrator and Maintenance only
+     * (primary or additional). Purchaser and other roles stay web-only.
      *
      * @return array<int, array{key: string, label: string, path: string, match: string, role_id: int}>
      */
     public static function mobilePortals(?object $user = null): array
     {
-        $allowed = [self::MAINTENANCE];
+        $allowed = [self::ADMIN, self::MAINTENANCE];
 
         return array_values(array_filter(
             self::availablePortals($user),

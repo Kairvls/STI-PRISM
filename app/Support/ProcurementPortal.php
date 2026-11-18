@@ -9,14 +9,25 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Resolves procurement portal context (prefix, layout, routes).
  *
- * Purchaser: RIS → RFC → RR → Liquidation
- * Supply Officer: ATP create/submit (from Purchaser-sent RIS)
- * Administrators may still open Purchaser pages in the admin shell.
+ * When PURCHASER_OWNS_ATP is true (active path):
+ *   Purchaser: RIS → ATP → payment path → RFC → SA → RR → Liquidation
+ *   Supply Officer ATP create/release remains in code for later re-enable.
+ *
+ * When PURCHASER_OWNS_ATP is false (legacy):
+ *   Purchaser: RIS → RFC → RR → Liquidation
+ *   Supply Officer: ATP create/submit (from Purchaser-sent RIS)
+ *
  * School Administrator approves ATP / RFC; Accounting reviews Liquidation;
  * Receiving still reviews RR.
  */
 class ProcurementPortal
 {
+    /**
+     * Active path: Purchaser creates/submits ATP.
+     * Set false to restore Supply Officer as ATP author without deleting Supply code.
+     */
+    public const PURCHASER_OWNS_ATP = true;
+
     public const PURCHASER = 'purchaser';
 
     public const MAINTENANCE = 'maintenance';
@@ -66,8 +77,35 @@ class ProcurementPortal
             return false;
         }
 
-        return RoleAccess::hasRole(self::SUPPLY_OFFICER_ROLE_ID, $user)
-            || RoleAccess::isAdmin($user);
+        if (RoleAccess::hasRole(self::SUPPLY_OFFICER_ROLE_ID, $user)
+            || RoleAccess::isAdmin($user)) {
+            return true;
+        }
+
+        // Active path: Purchaser (and maintenance procurement actors) create ATP.
+        if (self::PURCHASER_OWNS_ATP && self::userCanAccessProcurement($user)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the current request context may mutate ATP records.
+     * Purchaser path when PURCHASER_OWNS_ATP; Supply Officer URL context always kept for later.
+     */
+    public static function userCanMutateAtp(?object $user = null): bool
+    {
+        $user = $user ?? Auth::user();
+        if (! $user || ! self::userCanAccessAtpWorkflow($user)) {
+            return false;
+        }
+
+        if (self::isSupplyOfficerContext()) {
+            return true;
+        }
+
+        return self::PURCHASER_OWNS_ATP && self::userCanAccessProcurement($user);
     }
 
     public static function isSupplyOfficerContext(): bool

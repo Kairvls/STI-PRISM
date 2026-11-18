@@ -69,7 +69,7 @@
                     <select name="status" class="{{ $selectClass }} {{ ($status ?? 'all') !== 'all' ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
                         <option value="all" @selected(($status ?? 'all') === 'all')>All statuses</option>
                         @foreach (['Active', 'In Progress', 'Draft', 'Completed', 'Cancelled', 'Archived'] as $opt)
-                            <option value="{{ $opt }}" @selected(($status ?? '') === $opt)>{{ $opt }}</option>
+                            <option value="{{ $opt }}" @selected(($status ?? '') === $opt)>{{ \App\Support\ProcurementDraftLabel::status($opt) }}</option>
                         @endforeach
                     </select>
                     <select name="year" class="{{ $selectClass }} {{ filled($academicYear ?? null) ? 'si-filter-active' : '' }}" onchange="this.form.submit()">
@@ -133,7 +133,7 @@
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h2 class="truncate text-base font-semibold text-slate-950">{{ $campaign->campaign_title }}</h2>
                                         <span class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 {{ $statusTone }}">
-                                            {{ $campaign->campaign_status }}
+                                            {{ \App\Support\ProcurementDraftLabel::status($campaign->campaign_status) }}
                                         </span>
                                     </div>
                                     <p class="mt-1 text-sm text-slate-500">
@@ -193,7 +193,7 @@
                         </div>
                         <p class="mt-4 text-sm font-semibold text-slate-900">No semester inspections yet</p>
                         @if ($canManage)
-                        <p class="mt-1 text-sm text-slate-500">Create a campaign to check all school equipment for the semester.</p>
+                        <p class="mt-1 text-sm text-slate-500">Check all school equipment for the semester.</p>
                         <button
                             type="button"
                             onclick="window.dispatchEvent(new CustomEvent('open-create-campaign'))"
@@ -203,7 +203,7 @@
                             Create campaign
                         </button>
                         @else
-                        <p class="mt-1 text-sm text-slate-500">Campaigns started by Maintenance will appear here.</p>
+                        <p class="mt-1 text-sm text-slate-500">Maintenance campaigns appear here.</p>
                         @endif
                     </div>
                 @endforelse

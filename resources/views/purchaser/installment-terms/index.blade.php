@@ -30,7 +30,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-medium text-slate-500">Months / RFCs</label>
-                <input type="number" name="term_months" value="{{ old('term_months', 3) }}" min="1" max="60" required class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#0025cc]">
+                <input type="number" name="term_months" value="{{ old('term_months', 3) }}" min="1" max="12" inputmode="numeric" required class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#0025cc]" oninput="this.value = String(this.value || '').replace(/\\D/g, '').slice(0, 2); if (Number(this.value) > 12) this.value = '12';">
             </div>
             <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001db3]">
                 Add term
@@ -55,7 +55,7 @@
                                     @csrf
                                     @method('PUT')
                                     <input type="text" name="term_name" value="{{ $term->term_name }}" required maxlength="120" class="h-9 min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none focus:border-[#0025cc]">
-                                    <input type="number" name="term_months" value="{{ $term->term_months }}" min="1" max="60" required class="h-9 w-20 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none focus:border-[#0025cc]">
+                                    <input type="number" name="term_months" value="{{ $term->term_months }}" min="1" max="12" inputmode="numeric" required class="h-9 w-20 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none focus:border-[#0025cc]" oninput="this.value = String(this.value || '').replace(/\\D/g, '').slice(0, 2); if (Number(this.value) > 12) this.value = '12';">
                                     <label class="inline-flex items-center gap-1.5 text-xs text-slate-600">
                                         <input type="checkbox" name="term_is_active" value="1" @checked((int) $term->term_is_active === 1) class="rounded border-slate-300 text-[#0025cc]">
                                         Active
@@ -106,7 +106,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-medium text-slate-500">Days</label>
-                <input type="number" name="interval_days" value="{{ old('interval_days', 15) }}" min="1" max="365" required class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#0025cc]">
+                <input type="number" name="interval_days" value="{{ old('interval_days', 15) }}" min="1" max="365" inputmode="numeric" required class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#0025cc]" oninput="this.value = String(this.value || '').replace(/\D/g, '').slice(0, 3); if (Number(this.value) > 365) this.value = '365';">
             </div>
             <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001db3]">
                 Add interval
@@ -131,7 +131,7 @@
                                     @csrf
                                     @method('PUT')
                                     <input type="text" name="interval_name" value="{{ $interval->interval_name }}" required maxlength="120" class="h-9 min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none focus:border-[#0025cc]">
-                                    <input type="number" name="interval_days" value="{{ $interval->interval_days }}" min="1" max="365" required class="h-9 w-20 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none focus:border-[#0025cc]">
+                                    <input type="number" name="interval_days" value="{{ $interval->interval_days }}" min="1" max="365" inputmode="numeric" required class="h-9 w-20 rounded-lg border border-slate-200 bg-white px-2.5 text-sm outline-none focus:border-[#0025cc]" oninput="this.value = String(this.value || '').replace(/\D/g, '').slice(0, 3); if (Number(this.value) > 365) this.value = '365';">
                                     <label class="inline-flex items-center gap-1.5 text-xs text-slate-600">
                                         <input type="checkbox" name="interval_is_active" value="1" @checked((int) $interval->interval_is_active === 1) class="rounded border-slate-300 text-[#0025cc]">
                                         Active

@@ -3,8 +3,9 @@
     @include('partials.status-pill', ['status' => $value])
 --}}
 @php
-    $statusText = trim((string) ($status ?? ''));
-    $statusKey = strtolower($statusText);
+    $statusRaw = trim((string) ($status ?? ''));
+    $statusText = \App\Support\ProcurementDraftLabel::status($statusRaw);
+    $statusKey = strtolower($statusRaw !== '' ? $statusRaw : $statusText);
     $statusTone = match (true) {
         $statusKey === '' => 'bg-slate-100 text-slate-500 ring-slate-200',
         str_contains($statusKey, 'reject') || str_contains($statusKey, 'cancel') || str_contains($statusKey, 'overdue')

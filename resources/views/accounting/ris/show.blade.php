@@ -113,7 +113,7 @@
                 </div>
                 @if ($attachments->isNotEmpty())
                     <div class="acc-attachments">
-                        <h3>Canvas</h3>
+                        <h3>Canvass</h3>
                         <ul>
                             @foreach ($attachments as $file)
                                 <li>
@@ -126,8 +126,8 @@
                     </div>
                 @else
                     <div class="acc-attachments">
-                        <h3>Canvas</h3>
-                        <p class="text-sm text-slate-500">No Canvas attached to this RIS.</p>
+                        <h3>Canvass</h3>
+                        <p class="text-sm text-slate-500">No Canvass attached to this RIS.</p>
                     </div>
                 @endif
             </div>

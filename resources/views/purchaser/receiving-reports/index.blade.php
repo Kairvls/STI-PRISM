@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Receiving Reports')
-@section('page-subtitle', 'Create receiving reports after check pickup. Official Receipt (OR) applies to Cash Advance RFCs only.')
+@section('page-subtitle', 'After check pickup. OR is for Cash Advance only.')
 
 @section('content')
 
@@ -176,8 +176,15 @@
             </a>
         </nav>
 
-        @unless($archiveView)
-            <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            @include('layouts.partials.export-pdf-button', [
+                'exportUrl' => route(($pp ?? 'purchaser').'.rr.export-pdf', array_filter([
+                    'view' => !empty($archiveView) ? 'archive' : null,
+                    'search' => request('search') ?: null,
+                    'status' => request('status') ?: null,
+                ])),
+            ])
+            @unless($archiveView)
                 <button
                     type="button"
                     @click="emptyOpen = true; $nextTick(() => window.lucide && window.lucide.createIcons())"
@@ -194,8 +201,8 @@
                     <i data-lucide="plus" class="h-4 w-4"></i>
                     Create RR
                 </button>
-            </div>
-        @endunless
+            @endunless
+        </div>
     </div>
 
 
@@ -330,22 +337,25 @@
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <p class="font-semibold text-gray-900">{{ $rr->receiving_report_form_number ?: '—' }}</p>
-                                            @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
-                                                @include('partials.ris-urgency-badge', ['urgent' => true, 'size' => 'sm', 'title' => 'Urgent RIS'])
-                                            @endif
+                                            @include('partials.ris-urgency-badge', [
+                                                'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
+                                                'size' => 'sm',
+                                                'title' => 'Inherited from linked RIS',
+                                            ])
                                             @if($rrFundLabel && $rrFundLabel !== 'Not chosen')
                                                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset {{ $rrIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $rrFundLabel }}</span>
                                             @endif
                                         </div>
-                                        <p class="mt-0.5 text-xs text-gray-400">
-                                            Record #{{ $rr->receiving_report_id }}
-                                            @if(($rr->open_back_orders ?? 0) > 0)
-                                                <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">{{ $rr->receiving_report_status === 'Incomplete' ? '' : 'Incomplete · ' }}{{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }}</span>
-                                            @endif
-                                            @if(($rr->replacement_rows ?? 0) > 0)
-                                                <span class="ml-1 rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700">{{ $rr->replacement_rows }} replacement row{{ $rr->replacement_rows === 1 ? '' : 's' }}</span>
-                                            @endif
-                                        </p>
+                                        @if(($rr->open_back_orders ?? 0) > 0 || ($rr->replacement_rows ?? 0) > 0)
+                                            <p class="mt-0.5 text-xs text-gray-400">
+                                                @if(($rr->open_back_orders ?? 0) > 0)
+                                                    <span class="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">{{ $rr->receiving_report_status === 'Incomplete' ? '' : 'Incomplete · ' }}{{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }}</span>
+                                                @endif
+                                                @if(($rr->replacement_rows ?? 0) > 0)
+                                                    <span class="ml-1 rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700">{{ $rr->replacement_rows }} replacement row{{ $rr->replacement_rows === 1 ? '' : 's' }}</span>
+                                                @endif
+                                            </p>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -498,10 +508,11 @@
             x-on:click.self="createOpen = false; modalFullscreen = false"
             class="flex min-h-full w-full justify-center"
         >
+            @php $rrCreateEmpty = $eligibleRfcs->isEmpty(); @endphp
             <div
                 @click.stop
                 class="w-full bg-white transition-[max-width,border-radius,margin] duration-200"
-                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
+                :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto {{ $rrCreateEmpty ? 'max-w-md' : 'max-w-5xl' }} rounded-xl shadow-2xl'"
             >
                 <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                     <div class="flex items-center gap-3">
@@ -513,14 +524,16 @@
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
-                        @include('purchaser.partials.modal-fullscreen-button')
+                        @unless($rrCreateEmpty)
+                            @include('purchaser.partials.modal-fullscreen-button')
+                        @endunless
                         <button type="button" @click="createOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
                     </div>
                 </div>
-                @if($eligibleRfcs->isEmpty())
-                    <div class="p-6 text-sm text-gray-600">
+                @if($rrCreateEmpty)
+                    <div class="px-5 py-5 text-sm leading-relaxed text-gray-600 md:px-6">
                         No approved Request for Check with released funds is available. Create RR only after Accounting releases the check. Use <strong>Print Empty RR</strong> for a blank paper form.
                     </div>
                 @else
@@ -629,9 +642,10 @@
                                     @endphp
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 id="rr-view-title-{{ $rr->receiving_report_id }}" class="text-lg font-semibold tracking-tight text-slate-900">{{ $rr->receiving_report_form_number }}</h3>
-                                        @if(\App\Support\DocumentUrgency::isUrgent('RR', $rr))
-                                            @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Urgent RIS'])
-                                        @endif
+                                        @include('partials.ris-urgency-badge', [
+                                            'urgent' => \App\Support\DocumentUrgency::isUrgent('RR', $rr),
+                                            'title' => 'Inherited from linked RIS',
+                                        ])
                                         @if($viewFundLabel && $viewFundLabel !== 'Not chosen')
                                             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $viewIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $viewFundLabel }} RR</span>
                                         @endif

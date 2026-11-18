@@ -213,7 +213,7 @@ class BackOrderController extends Controller
 
         $maxRefund = round((float) $bo->back_order_unit_price * (int) $bo->back_order_quantity, 2);
         $request->validate([
-            'back_order_refund_amount' => ['required', 'numeric', 'min:0.01', 'max:999999999.99'],
+            'back_order_refund_amount' => ['required', 'numeric', 'min:0.01', 'max:'.\App\Support\InputLimits::COST],
             'back_order_refund_reference' => ['nullable', 'string', 'max:255'],
             'back_order_remarks' => ['nullable', 'string', 'max:2000'],
         ], [
@@ -264,7 +264,7 @@ class BackOrderController extends Controller
         $request->validate([
             'quantity' => ['required', 'integer', 'min:1', 'max:999999'],
             'damaged_qty' => ['nullable', 'integer', 'min:0', 'lte:quantity'],
-            'unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'unit_price' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'supplier_id' => ['nullable', 'integer', 'exists:suppliers_table,supplier_id'],
             'supplier_name' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],

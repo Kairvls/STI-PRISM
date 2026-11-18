@@ -1154,7 +1154,7 @@
                             <template x-if="cart.length === 0">
                                 <div class="px-4 py-8 text-center">
                                     <p class="text-sm font-medium text-slate-700">Cart is empty</p>
-                                    <p class="mt-1 text-xs text-slate-400">Add chairs, tables, and other items here before creating the borrow.</p>
+                                    <p class="mt-1 text-xs text-slate-400">Add items here before creating the borrow.</p>
                                 </div>
                             </template>
                             <template x-if="cart.length > 0">
@@ -1259,7 +1259,7 @@
                                     class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3.5"
                                 >
                                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Register external borrower</p>
-                                    <p class="text-xs text-slate-500">For outside-school people who borrow often — not one-time guests.</p>
+                                    <p class="text-xs text-slate-500">Frequent outside borrowers — not one-time guests.</p>
                                     <div class="grid gap-3 sm:grid-cols-2">
                                         <div class="sm:col-span-2">
                                             <label for="externalBorrowerName" class="mb-1 block text-xs text-slate-600">Full name <span class="text-red-500">*</span></label>
@@ -1431,7 +1431,7 @@
                     <div class="space-y-4 rounded-2xl bg-indigo-50/50 p-4 ring-1 ring-indigo-100">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-500">Event / activity</p>
-                            <p class="mt-1 text-sm text-slate-600">For big school or city events where STI College Ormoc equipment is borrowed outside campus.</p>
+                            <p class="mt-1 text-sm text-slate-600">School or city events using campus equipment.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">

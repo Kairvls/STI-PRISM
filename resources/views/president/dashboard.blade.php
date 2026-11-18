@@ -251,7 +251,7 @@
                     <button type="button" class="queue-switch is-on" data-history="budget" aria-pressed="true">Budget</button>
                     <button type="button" class="queue-switch" data-history="recent" aria-pressed="false">Recent</button>
                 </div>
-                <a id="presidentHistoryViewAll" href="/president/reports/approved" class="hidden text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
+                <a id="presidentHistoryViewAll" href="{{ route('president.approvals.history') }}" class="hidden text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
             </div>
         </div>
         <div id="presidentHistoryBudget" class="mt-4 divide-y divide-slate-100">

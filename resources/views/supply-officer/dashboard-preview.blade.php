@@ -25,7 +25,7 @@
     </div>
     @if (isset($attachments) && $attachments->isNotEmpty())
         <div class="border-t border-slate-200 bg-white px-5 py-4">
-            <h3 class="text-sm font-semibold text-slate-900">Canvas</h3>
+            <h3 class="text-sm font-semibold text-slate-900">Canvass</h3>
             <ul class="mt-2 space-y-1.5">
                 @foreach ($attachments as $file)
                     <li>

@@ -1,6 +1,6 @@
 @extends('layouts.supply-officer-layout')
 
-@section('title', 'Canvas + RIS')
+@section('title', 'Canvass + RIS')
 
 @push('styles')
 @include('partials.ris-signature-overlay-styles')
@@ -43,7 +43,7 @@
         <div>
             <a href="{{ route('supply-officer.incoming-ris') }}" class="text-sm text-gray-500 hover:text-[#0025cc]">← Back to Incoming RIS</a>
             <h1 class="mt-2 text-2xl font-semibold text-gray-950">{{ $formNo }}</h1>
-            <p class="mt-1 text-sm text-gray-500">Approved Canvas + RIS — reference while creating Authority to Purchase</p>
+            <p class="mt-1 text-sm text-gray-500">Reference for creating ATP.</p>
             @if ($requestNo !== '')
                 <div class="mt-2">
                     @include('partials.procurement-request-no', [
@@ -85,7 +85,7 @@
 
     @if (isset($attachments) && $attachments->isNotEmpty())
         <div class="print-hidden rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <h2 class="text-sm font-semibold text-gray-900">Canvas</h2>
+            <h2 class="text-sm font-semibold text-gray-900">Canvass</h2>
             <ul class="mt-2 space-y-1.5">
                 @foreach ($attachments as $file)
                     <li>

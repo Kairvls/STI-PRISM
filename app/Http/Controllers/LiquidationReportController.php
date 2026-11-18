@@ -16,6 +16,7 @@ use App\Support\PurchaserDocumentAccess;
 use App\Support\ReviewerAssignment;
 use App\Support\RfcAtpLinks;
 use App\Support\WorkflowNotifier;
+use App\Support\LiquidationDeadline;
 use App\Support\ProcurementDraftLabel;
 use App\Support\ProcurementPortal;
 
@@ -50,6 +51,11 @@ class LiquidationReportController extends Controller
         if ($request->filled('status')) {
             if ($request->status === 'Submitted') {
                 $query->whereIn('liquidation_reports_table.liquidation_report_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval']);
+            } elseif ($request->status === 'Overdue') {
+                // In preparation is never overdue; only returned revisions past the 15-day deadline.
+                $query->where('liquidation_reports_table.liquidation_report_status', 'Minor Revision')
+                    ->whereNotNull('liquidation_reports_table.liquidation_report_submission_deadline')
+                    ->whereDate('liquidation_reports_table.liquidation_report_submission_deadline', '<', now()->toDateString());
             } else {
                 $query->where('liquidation_reports_table.liquidation_report_status', $request->status);
             }
@@ -90,11 +96,31 @@ class LiquidationReportController extends Controller
         $attachments = $this->attachmentsFor($reports->getCollection()->pluck('liquidation_report_id'));
         $savedSignatures = \App\Support\UserSignatureLibrary::forUser((int) auth()->id());
 
+        $overdueBag = LiquidationDeadline::syncAndCollectForUser((int) auth()->id());
+        LiquidationDeadline::ensureNotifications((int) auth()->id(), $overdueBag);
+
+        // Refresh open rows on this page so deadline / days_lapse match what we just synced.
+        $overdueIds = collect($overdueBag['liquidations'])->pluck('liquidation_report_id')->map(fn ($id) => (int) $id)->all();
+        $reports->setCollection($reports->getCollection()->map(function ($row) use ($overdueBag) {
+            foreach ($overdueBag['liquidations'] as $overdue) {
+                if ((int) $overdue->liquidation_report_id === (int) $row->liquidation_report_id) {
+                    $row->liquidation_report_submission_deadline = $overdue->liquidation_report_submission_deadline;
+                    $row->liquidation_report_days_lapse = $overdue->liquidation_report_days_lapse;
+                    break;
+                }
+            }
+
+            return $row;
+        }));
+
         return view('purchaser.liquidation-reports.index', compact(
             'reports', 'archiveView', 'summary', 'eligibleRrs', 'rrPrefill', 'items', 'attachments', 'savedSignatures'
         ) + [
             'selectedRrId' => $request->query('selected_rr'),
             'viewLiqId' => $viewLiqId ?: null,
+            'overdueLiquidations' => $overdueBag['liquidations'],
+            'overduePendingRrs' => $overdueBag['pending_rrs'],
+            'overdueIds' => $overdueIds,
         ]);
     }
 
@@ -224,7 +250,10 @@ class LiquidationReportController extends Controller
                 'liquidation_report_submitted_at' => now(),
                 'liquidation_report_date_submitted' => now()->toDateString(),
                 'liquidation_report_submitted_by_date' => now()->toDateString(),
-                'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
+                'liquidation_report_days_lapse' => LiquidationDeadline::daysLapsed(
+                    $liq->liquidation_report_submission_deadline,
+                    now()->toDateString()
+                ),
                 'liquidation_report_updated_at' => now(),
             ];
             if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_form_number')) {
@@ -347,21 +376,21 @@ class LiquidationReportController extends Controller
             'liquidation_report_employee_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'liquidation_report_cheque_number' => ['nullable', 'string', 'max:100'],
             'liquidation_report_purpose' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
-            'liquidation_report_amount_advance' => [$isDraft ? 'nullable' : 'required', 'numeric', 'min:0'],
+            'liquidation_report_amount_advance' => [$isDraft ? 'nullable' : 'required', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'liquidation_report_date_released' => ['nullable', 'date'],
             'liquidation_report_charge_to_account' => ['nullable', 'string', 'max:255'],
             'liquidation_report_activity_end_date' => ['nullable', 'date'],
             'liquidation_report_submission_deadline' => ['nullable', 'date'],
             'liquidation_report_date_submitted' => ['nullable', 'date'],
-            'liquidation_report_other_income' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'liquidation_report_other_income' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'liquidation_report_cash_returned_or_no' => ['nullable', 'string', 'max:100'],
             'liquidation_report_submitted_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'liquidation_report_submitted_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:2000000'],
             'items' => ['nullable', 'array', 'max:20'],
             'items.*.particulars' => ['nullable', 'string', 'max:2000'],
-            'items.*.amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'items.*.actual_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'items.*.actual_total' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'items.*.amount' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
+            'items.*.actual_amount' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
+            'items.*.actual_total' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'items.*.ref_no' => ['nullable', 'string', 'max:100'],
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
@@ -378,19 +407,30 @@ class LiquidationReportController extends Controller
             ? ($wasRevision ? 'Minor Revision' : 'Draft')
             : ($wasRevision ? 'Resubmitted' : 'Submitted');
         $submittedDate = $validated['liquidation_report_date_submitted'] ?? ($isDraft ? null : $now->toDateString());
+        $activityEnd = $validated['liquidation_report_activity_end_date'] ?? null;
+        $dateReleased = $validated['liquidation_report_date_released'] ?? null;
+        // In preparation: do not start the 15-day clock from create date — only from activity end / release.
+        $deadline = LiquidationDeadline::resolveDeadline(
+            $activityEnd,
+            $dateReleased,
+            null
+        );
+        $daysAsOf = $isDraft ? null : ($submittedDate ?: $now->toDateString());
 
         $row = [
-            'liquidation_report_receiving_report_id' => $validated['liquidation_report_receiving_report_id'] ?? ($existing->liquidation_report_receiving_report_id ?? null),
+            'liquidation_report_receiving_report_id' => $validated['liquidation_report_receiving_report_id'] ?? ($existing?->liquidation_report_receiving_report_id ?? null),
             'liquidation_report_employee_name' => $validated['liquidation_report_employee_name'] ?? null,
             'liquidation_report_cheque_number' => $validated['liquidation_report_cheque_number'] ?? null,
             'liquidation_report_purpose' => $validated['liquidation_report_purpose'] ?? null,
             'liquidation_report_amount_advance' => $validated['liquidation_report_amount_advance'] ?? null,
-            'liquidation_report_date_released' => $validated['liquidation_report_date_released'] ?? null,
+            'liquidation_report_date_released' => $dateReleased,
             'liquidation_report_charge_to_account' => $validated['liquidation_report_charge_to_account'] ?? null,
-            'liquidation_report_activity_end_date' => $validated['liquidation_report_activity_end_date'] ?? null,
-            'liquidation_report_submission_deadline' => $validated['liquidation_report_submission_deadline'] ?? null,
+            'liquidation_report_activity_end_date' => $activityEnd,
+            'liquidation_report_submission_deadline' => $deadline,
             'liquidation_report_date_submitted' => $submittedDate,
-            'liquidation_report_days_lapse' => $this->daysLapsed($validated['liquidation_report_submission_deadline'] ?? null, $submittedDate),
+            'liquidation_report_days_lapse' => $isDraft
+                ? null
+                : LiquidationDeadline::daysLapsed($deadline, $daysAsOf),
             'liquidation_report_other_income' => $validated['liquidation_report_other_income'] ?? null,
             'liquidation_report_cash_returned_or_no' => $validated['liquidation_report_cash_returned_or_no'] ?? null,
             'liquidation_report_submitted_by_signature' => \App\Support\RisWorkflow::drawnOrName(
@@ -399,9 +439,9 @@ class LiquidationReportController extends Controller
             ),
             'liquidation_report_submitted_by_date' => $submittedDate,
             'liquidation_report_status' => $status,
-            'liquidation_report_review_stage' => $isDraft ? ($existing->liquidation_report_review_stage ?? null) : 'accounting',
-            'liquidation_report_submitted_by' => $isDraft ? ($existing->liquidation_report_submitted_by ?? null) : auth()->id(),
-            'liquidation_report_submitted_at' => $isDraft ? ($existing->liquidation_report_submitted_at ?? null) : $now,
+            'liquidation_report_review_stage' => $isDraft ? ($existing?->liquidation_report_review_stage ?? null) : 'accounting',
+            'liquidation_report_submitted_by' => $isDraft ? ($existing?->liquidation_report_submitted_by ?? null) : auth()->id(),
+            'liquidation_report_submitted_at' => $isDraft ? ($existing?->liquidation_report_submitted_at ?? null) : $now,
             'liquidation_report_is_archived' => 0,
             'liquidation_report_updated_at' => $now,
         ];
@@ -530,16 +570,6 @@ class LiquidationReportController extends Controller
         }
 
         return null;
-    }
-
-    private function daysLapsed($deadline, $submitted): ?int
-    {
-        if (!$deadline || !$submitted) {
-            return null;
-        }
-        $submittedAt = \Carbon\Carbon::parse($submitted);
-        $deadlineAt = \Carbon\Carbon::parse($deadline);
-        return $submittedAt->greaterThan($deadlineAt) ? $submittedAt->diffInDays($deadlineAt) : 0;
     }
 
     private function storeAttachments(Request $request, $id): void

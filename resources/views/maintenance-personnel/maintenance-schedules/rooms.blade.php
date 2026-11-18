@@ -245,7 +245,7 @@
                                         <p class="mt-4 text-sm font-semibold text-slate-900">No room inspections match these filters</p>
                                     @else
                                         <p class="mt-4 text-sm font-semibold text-slate-900">No room inspections scheduled yet</p>
-                                        <p class="mt-1 text-sm text-slate-500">Schedule a recurring check for classrooms, labs and offices.</p>
+                                        <p class="mt-1 text-sm text-slate-500">Recurring checks for rooms and offices.</p>
                                         <button type="button" @click="openCreate()" class="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white">
                                             <i data-lucide="plus" class="h-4 w-4"></i>
                                             Schedule room inspection
@@ -345,7 +345,7 @@
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
                     <div>
                         <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule Room Maintenance</h2>
-                        <p class="mt-1 text-sm text-slate-500">Pick rooms, choose departments inside each, then set a schedule per room.</p>
+                        <p class="mt-1 text-sm text-slate-500">Pick rooms, departments, then set schedules.</p>
                     </div>
                     <button type="button" @click="closeAll()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>

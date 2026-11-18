@@ -236,7 +236,7 @@ class UserSignatureLibrary
 
         $cleanLabel = trim((string) $label);
         if ($cleanLabel === '') {
-            $cleanLabel = 'Signature '.now()->format('d/m/Y H:i');
+            $cleanLabel = 'Signature '.now()->format('m/d/Y H:i');
         }
         $cleanLabel = Str::limit($cleanLabel, 120, '');
 

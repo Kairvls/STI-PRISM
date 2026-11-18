@@ -210,7 +210,7 @@
             <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div>
                     <h3 class="text-base font-semibold text-slate-950">Register borrower</h3>
-                    <p class="mt-0.5 text-sm text-slate-500">Save an outside borrower (other school, city office, partner) so they can be selected on future loans.</p>
+                    <p class="mt-0.5 text-sm text-slate-500">Save outside borrowers for future loans.</p>
                 </div>
                 <button type="button" onclick="closeRegisterBorrowerModal()" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <i data-lucide="x" class="h-5 w-5"></i>

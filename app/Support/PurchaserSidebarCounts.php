@@ -27,7 +27,8 @@ class PurchaserSidebarCounts
      *     back_orders: int,
      *     back_orders_rfc: int,
      *     back_orders_ca: int,
-     *     liq: int
+     *     liq: int,
+     *     liq_overdue: int
      * }
      */
     public static function counts(): array
@@ -51,6 +52,7 @@ class PurchaserSidebarCounts
             'back_orders_rfc' => $backOrders['rfc'],
             'back_orders_ca' => $backOrders['ca'],
             'liq' => self::ownedCount('liquidation_reports_table', 'liquidation_report_id', 'liquidation_report_status', 'liquidation_report_is_archived', 'liq', true),
+            'liq_overdue' => LiquidationDeadline::overdueCountForUser((int) (auth()->id() ?? 0)),
         ];
     }
 

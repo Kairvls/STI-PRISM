@@ -64,21 +64,42 @@
 
     <div class="print-hidden flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm">
         <span class="self-center text-xs font-medium uppercase tracking-wide text-slate-400">Request</span>
-        <a
-            href="{{ route('accounting.dv.package.rfc', $rfcId) }}{{ request()->query('edit_dv') ? '?edit_dv='.(int) request()->query('edit_dv') : '' }}"
-            class="rounded-lg px-2.5 py-1 font-medium {{ ($docType ?? '') === 'rfc' ? 'bg-white text-[#0025cc] shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900' }}"
-        >RFC</a>
-        @foreach($atps as $atpRow)
+        @php
+            $navRfc = \App\Support\RequestExplorer::viewUrlFor('rfc', (int) $rfcId);
+            $isCurrentRfc = ($docType ?? '') === 'rfc';
+        @endphp
+        @if($navRfc)
             <a
-                href="{{ route('accounting.dv.package.atp', [$rfcId, $atpRow->authority_purchase_id]) }}{{ request()->query('edit_dv') ? '?edit_dv='.(int) request()->query('edit_dv') : '' }}"
-                class="rounded-lg px-2.5 py-1 font-medium {{ ($docType ?? '') === 'atp' && (int) ($atp->authority_purchase_id ?? 0) === (int) $atpRow->authority_purchase_id ? 'bg-white text-[#0025cc] shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900' }}"
-            >{{ $atpRow->authority_purchase_form_number ?: 'ATP' }}</a>
+                href="{{ $navRfc }}"
+                @if(! $isCurrentRfc) target="_blank" rel="noopener noreferrer" @endif
+                class="rounded-lg px-2.5 py-1 font-medium {{ $isCurrentRfc ? 'bg-white text-[#0025cc] shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900' }}"
+            >RFC</a>
+        @endif
+        @foreach($atps as $atpRow)
+            @php
+                $navAtp = \App\Support\RequestExplorer::viewUrlFor('atp', (int) $atpRow->authority_purchase_id);
+                $isCurrentAtp = ($docType ?? '') === 'atp' && (int) ($atp->authority_purchase_id ?? 0) === (int) $atpRow->authority_purchase_id;
+            @endphp
+            @if($navAtp)
+                <a
+                    href="{{ $navAtp }}"
+                    @if(! $isCurrentAtp) target="_blank" rel="noopener noreferrer" @endif
+                    class="rounded-lg px-2.5 py-1 font-medium {{ $isCurrentAtp ? 'bg-white text-[#0025cc] shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900' }}"
+                >{{ $atpRow->authority_purchase_form_number ?: 'ATP' }}</a>
+            @endif
         @endforeach
         @foreach($risList as $risRow)
-            <a
-                href="{{ route('accounting.dv.package.ris', [$rfcId, $risRow->ris_id]) }}{{ request()->query('edit_dv') ? '?edit_dv='.(int) request()->query('edit_dv') : '' }}"
-                class="rounded-lg px-2.5 py-1 font-medium {{ ($docType ?? '') === 'ris' && (int) ($ris->ris_id ?? 0) === (int) $risRow->ris_id ? 'bg-white text-[#0025cc] shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900' }}"
-            >Canvas + RIS {{ \App\Support\RisWorkflow::formNumber($risRow) }}</a>
+            @php
+                $navRis = \App\Support\RequestExplorer::viewUrlFor('ris', (int) $risRow->ris_id);
+                $isCurrentRis = ($docType ?? '') === 'ris' && (int) ($ris->ris_id ?? 0) === (int) $risRow->ris_id;
+            @endphp
+            @if($navRis)
+                <a
+                    href="{{ $navRis }}"
+                    @if(! $isCurrentRis) target="_blank" rel="noopener noreferrer" @endif
+                    class="rounded-lg px-2.5 py-1 font-medium {{ $isCurrentRis ? 'bg-white text-[#0025cc] shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white hover:text-slate-900' }}"
+                >Canvass + RIS {{ \App\Support\RisWorkflow::formNumber($risRow) }}</a>
+            @endif
         @endforeach
     </div>
 
@@ -109,7 +130,7 @@
 
     @if(($docType ?? '') === 'ris' && isset($attachments) && $attachments->isNotEmpty())
         <div class="print-hidden rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <h2 class="text-sm font-semibold text-slate-900">Canvas</h2>
+            <h2 class="text-sm font-semibold text-slate-900">Canvass</h2>
             <ul class="mt-2 space-y-1.5">
                 @foreach($attachments as $file)
                     <li>

@@ -377,6 +377,35 @@ class ProcurementRecordPackageController extends Controller
         return view('procurement-records.document-view', $payload);
     }
 
+    /**
+     * Role-agnostic paper preview for pipeline / Request No. "Open" links.
+     * Any signed-in portal role (except dormant Supply Officer-only) may open documents they can reach.
+     */
+    public function sharedPreviewDocument(string $type, int $docId)
+    {
+        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true), 404);
+        abort_unless(\App\Support\RequestExplorer::userCanOpenDocuments(), 403);
+
+        $atpId = ProcurementRecordCompiler::resolveAtpIdForDocument($type, $docId);
+        $atpRow = $atpId
+            ? DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->first()
+            : null;
+
+        if ($atpId && $atpRow) {
+            ProcurementRecordCompiler::assertDocumentBelongsToPackage($atpId, $type, $docId);
+        }
+
+        $package = (object) [
+            'package_authority_purchase_id' => $atpId,
+            'package_payment_path' => $atpRow->authority_purchase_payment_path ?? null,
+        ];
+
+        $payload = $this->loadDocumentViewPayload($type, $docId, $package);
+        $payload['type'] = $type;
+
+        return view('procurement-records.document-view', $payload);
+    }
+
     public function accountingViewDocument($packageId, $type, $docId)
     {
         return $this->viewDocument((int) $packageId, (string) $type, (int) $docId, 'accounting');

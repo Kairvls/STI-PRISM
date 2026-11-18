@@ -247,7 +247,7 @@
             <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div>
                     <h3 class="text-base font-semibold text-slate-950">Add event name</h3>
-                    <p class="mt-0.5 text-sm text-slate-500">Max 50 characters. Appears in the Borrow Equipment picker.</p>
+                    <p class="mt-0.5 text-sm text-slate-500">Max 50 characters. Shown in borrow picker.</p>
                 </div>
                 <button type="button" onclick="document.getElementById('addEventNameModal')?.classList.replace('flex','hidden')" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <i data-lucide="x" class="h-5 w-5"></i>
@@ -287,7 +287,7 @@
             <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div>
                     <h3 class="text-base font-semibold text-slate-950">Add event type</h3>
-                    <p class="mt-0.5 text-sm text-slate-500">Max 50 characters. Appears in the Borrow Equipment picker.</p>
+                    <p class="mt-0.5 text-sm text-slate-500">Max 50 characters. Shown in borrow picker.</p>
                 </div>
                 <button type="button" onclick="document.getElementById('addEventTypeModal')?.classList.replace('flex','hidden')" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <i data-lucide="x" class="h-5 w-5"></i>

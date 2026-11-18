@@ -34,7 +34,7 @@
                         <div class="pr-list-main">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="pr-list-ref">{{ $pkgRef }}</span>
-                                <span class="pr-badge {{ $statusClass }}">{{ $status }}</span>
+                                <span class="pr-badge {{ $statusClass }}">{{ \App\Support\ProcurementDraftLabel::status($status) }}</span>
                             </div>
                             <div class="pr-list-meta">
                                 <span>

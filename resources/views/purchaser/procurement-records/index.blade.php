@@ -1,7 +1,7 @@
 @extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @section('page-title', 'Compiled Records')
-@section('page-subtitle', 'Submit completed workflow document checklists to Accounting.')
+@section('page-subtitle', 'Submit completed checklists to Accounting.')
 
 @section('content')
 @php
@@ -116,8 +116,18 @@
     }"
 >
     <div class="pr-hero">
-        <p class="pr-hero-kicker">Purchasing Workflow</p>
-        <h1 class="pr-hero-title">Compiled Records</h1>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="pr-hero-kicker">Purchasing Workflow</p>
+                <h1 class="pr-hero-title">Compiled Records</h1>
+            </div>
+            @include('layouts.partials.export-pdf-button', [
+                'exportUrl' => route(($pp ?? 'purchaser').'.procurement-records.export-pdf', array_filter([
+                    'view' => !empty($archiveView) ? 'archive' : null,
+                    'search' => request('search') ?: null,
+                ])),
+            ])
+        </div>
     </div>
 
     <section class="pr-section">

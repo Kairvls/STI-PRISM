@@ -125,17 +125,23 @@
                 const file = event.target.files && event.target.files[0];
                 if (!file) return;
                 try {
-                    const dataUrl = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    });
+                    const dataUrl = window.PrismSignatureImage && window.PrismSignatureImage.fromFile
+                        ? await window.PrismSignatureImage.fromFile(file)
+                        : await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        });
                     this.resetPad();
                     this.setSignature(dataUrl || '', 'upload');
                     this.uploadName = file.name || 'Uploaded signature';
                 } catch (err) {
-                    this.signatureError = 'Could not read that signature file.';
+                    this.uploadName = '';
+                    if (this.$refs.upload) this.$refs.upload.value = '';
+                    this.signatureError = (err && err.message)
+                        ? err.message
+                        : 'Use a clear dark-ink signature on light / white bond paper.';
                 }
             },
             useDifferent() {
@@ -467,18 +473,11 @@
                     </div>
 
                     <div>
-                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Assign to School Administrator <span class="text-red-500">*</span></label>
-                        @php
-                            $atpSaReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN);
-                            $atpSaAutoId = \App\Support\ReviewerAssignment::preferredId($atpSaReviewers);
-                        @endphp
-                        <select name="assigned_reviewer_id" required class="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300">
-                            <option value="">Select School Administrator…</option>
-                            @foreach($atpSaReviewers as $reviewer)
-                                <option value="{{ $reviewer['id'] }}" @selected($atpSaAutoId !== null && (int) $reviewer['id'] === (int) $atpSaAutoId)>{{ $reviewer['name'] }}</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1.5 text-xs text-gray-400">Only the selected School Administrator will receive this ATP for review.</p>
+                        @include('partials.assign-reviewer-field', [
+                            'role' => \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                            'label' => 'School Administrator',
+                            'hint' => 'Only the selected School Administrator will receive this ATP for review.',
+                        ])
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">

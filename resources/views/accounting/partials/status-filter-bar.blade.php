@@ -20,6 +20,9 @@
     $dateTitle = $dateTitle ?? 'Filter by submitted date';
     $hasDate = $dateName && $dateValue !== '';
     $exportUrl = $exportUrl ?? null;
+    $urgencyName = $urgencyName ?? null;
+    $urgencyValue = $urgencyValue ?? '';
+    $urgencyOnChange = $urgencyOnChange ?? null;
 @endphp
 <div class="border-b border-gray-100 px-5 py-4">
     <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -33,7 +36,8 @@
                     $tabParams = array_filter(array_merge(
                         [$queryKey => $key, $searchName => $searchValue ?: null],
                         $extraHidden,
-                        ($dateName && $dateValue !== '') ? [$dateName => $dateValue] : []
+                        ($dateName && $dateValue !== '') ? [$dateName => $dateValue] : [],
+                        ($urgencyName && $urgencyValue !== '') ? [$urgencyName => $urgencyValue] : []
                     ), fn ($v) => $v !== null && $v !== '');
                     $tabHref = $baseUrl.(str_contains($baseUrl, '?') ? '&' : '?').http_build_query($tabParams);
                 @endphp
@@ -78,6 +82,14 @@
                     <input type="hidden" name="{{ $hk }}" value="{{ $hv }}">
                 @endif
             @endforeach
+
+            @if($urgencyName)
+                @include('partials.urgency-filter-dropdown', [
+                    'urgencyName' => $urgencyName,
+                    'urgencyValue' => $urgencyValue,
+                    'urgencyOnChange' => $urgencyOnChange,
+                ])
+            @endif
 
             @if($dateName)
                 <div class="relative shrink-0" data-status-date-filter>

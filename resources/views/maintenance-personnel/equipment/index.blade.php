@@ -19,6 +19,8 @@
         $selectable = $canTransfer && ! $showHistory && ! $showReplacementArrived;
         $acquisitionReady = \App\Support\EquipmentAcquisition::ready();
         $acquisitionSuppliers = \App\Support\EquipmentAcquisition::supplierOptions();
+        $equipmentBrands = \App\Support\EquipmentBrands::options();
+        $equipmentModels = \App\Support\EquipmentModels::options();
         $acquisitionPeople = $isStockPage ? \App\Support\Custodians::assignable() : collect();
         $transferNeedsApproval = $canTransfer && \App\Support\TransferRequests::requiresApproval();
         $pendingTransferIds = $canTransfer ? \App\Support\TransferRequests::pendingEquipmentIds() : [];
@@ -1012,12 +1014,12 @@
                                         <button
                                             type="button"
                                             onclick='openEquipmentModal(@json(\App\Support\LayoutEquipmentPayload::fromRow($item, $eqImageUrl($item->equipment_image))))'
-                                            class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-slate-200 bg-white px-2 text-slate-600 transition-all duration-200 hover:gap-1.5 hover:bg-slate-50 hover:px-2.5 hover:text-slate-900"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                                             aria-label="View"
                                             title="View"
+                                            data-tooltip="View"
                                         >
-                                            <i data-lucide="eye" class="h-4 w-4 shrink-0"></i>
-                                            <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[4rem] group-hover/action:opacity-100">View</span>
+                                            <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
 
                                         @if ($canTransfer && isset($pendingTransferIds[(int) $item->equipment_id]))
@@ -1040,12 +1042,12 @@
                                                     {{ json_encode($item->equipment_tracking_mode ?? 'Individual') }},
                                                     {{ (int) ($item->equipment_quantity ?? 1) }}
                                                 )"
-                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-sky-200 bg-sky-50 px-2 text-sky-800 transition-all duration-200 hover:gap-1.5 hover:bg-sky-100 hover:px-2.5"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
                                                 aria-label="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
                                                 title="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
+                                                data-tooltip="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
                                             >
-                                                <i data-lucide="arrow-right-left" class="h-3.5 w-3.5 shrink-0"></i>
-                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[9rem] group-hover/action:opacity-100">{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}</span>
+                                                <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
                                             </button>
                                         @endif
 
@@ -1093,12 +1095,12 @@
                                                 {{ json_encode(\App\Support\EquipmentAcquisition::formPayload($item)) }}
 
                                             )"
-                                            class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg bg-[#0025cc] px-2 text-white transition-all duration-200 hover:gap-1.5 hover:bg-[#001db3] hover:px-2.5"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
                                             aria-label="Edit"
                                             title="Edit"
+                                            data-tooltip="Edit"
                                         >
-                                            <i data-lucide="edit-3" class="h-4 w-4 shrink-0"></i>
-                                            <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[4rem] group-hover/action:opacity-100">Edit</span>
+                                            <i data-lucide="edit-3" class="h-4 w-4"></i>
                                         </button>
 
                                         @if (($item->equipment_inventory_status ?? '') === 'For Replacement')
@@ -1108,12 +1110,12 @@
                                                     {{ (int) $item->equipment_id }},
                                                     {{ json_encode($item->equipment_name) }}
                                                 )"
-                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-blue-200 bg-blue-50 px-2 text-blue-700 transition-all duration-200 hover:gap-1.5 hover:bg-blue-100 hover:px-2.5"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
                                                 aria-label="Mark as Replaced"
                                                 title="Mark as Replaced"
+                                                data-tooltip="Mark as Replaced"
                                             >
-                                                <i data-lucide="replace" class="h-3.5 w-3.5 shrink-0"></i>
-                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[8rem] group-hover/action:opacity-100">Mark replaced</span>
+                                                <i data-lucide="replace" class="h-3.5 w-3.5"></i>
                                             </button>
                                         @elseif (($item->equipment_inventory_status ?? '') === 'Replaced')
                                             <button
@@ -1123,12 +1125,12 @@
                                                     {{ json_encode($item->equipment_name) }},
                                                     {{ json_encode($item->room_name ?? '') }}
                                                 )"
-                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg bg-[#e32626] px-2 text-white transition-all duration-200 hover:gap-1.5 hover:bg-red-700 hover:px-2.5"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
                                                 aria-label="Dispose"
                                                 title="Dispose"
+                                                data-tooltip="Dispose"
                                             >
-                                                <i data-lucide="archive-x" class="h-4 w-4 shrink-0"></i>
-                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[5rem] group-hover/action:opacity-100">Dispose</span>
+                                                <i data-lucide="archive-x" class="h-4 w-4"></i>
                                             </button>
                                         @endif
                                         @endif
@@ -1457,12 +1459,12 @@
                                             <button
                                                 type="button"
                                                 onclick='openEquipmentModal(@json($movePayload))'
-                                                class="group/action inline-flex h-9 min-w-9 items-center justify-center gap-0 overflow-hidden rounded-lg border border-slate-200 bg-white px-2 text-slate-600 transition-all duration-200 hover:gap-1.5 hover:bg-slate-50 hover:px-2.5 hover:text-slate-900"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                                                 aria-label="View"
                                                 title="View"
+                                                data-tooltip="View"
                                             >
-                                                <i data-lucide="eye" class="h-4 w-4 shrink-0"></i>
-                                                <span class="max-w-0 overflow-hidden whitespace-nowrap text-xs font-semibold opacity-0 transition-all duration-200 group-hover/action:max-w-[4rem] group-hover/action:opacity-100">View</span>
+                                                <i data-lucide="eye" class="h-4 w-4"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -1649,15 +1651,43 @@
                         </div>
                         <div>
                             <label for="edit_brand" class="{{ $eqLabel }}">Brand name</label>
-                            <input id="edit_brand" type="text" name="equipment_brand_name" maxlength="{{ \App\Support\InputLimits::BRAND }}" class="{{ $eqField }}" />
+                            <select
+                                id="edit_brand"
+                                name="equipment_brand_name"
+                                data-searchable="1"
+                                data-search-placeholder="Search brands…"
+                                data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
+                                data-add-label="Add new brand"
+                                data-add-placeholder="New brand name"
+                                class="{{ $eqField }}"
+                            >
+                                <option value="">Select brand</option>
+                                @foreach ($equipmentBrands as $brandOption)
+                                    <option value="{{ $brandOption }}">{{ $brandOption }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div>
                             <label for="edit_model" class="{{ $eqLabel }}">Model</label>
-                            <input id="edit_model" type="text" name="equipment_model" maxlength="{{ \App\Support\InputLimits::MODEL }}" class="{{ $eqField }}" />
+                            <select
+                                id="edit_model"
+                                name="equipment_model"
+                                data-searchable="1"
+                                data-search-placeholder="Search models…"
+                                data-add-url="{{ url('/admin/inventory/models/quick-add') }}"
+                                data-add-label="Add new model"
+                                data-add-placeholder="New model name"
+                                class="{{ $eqField }}"
+                            >
+                                <option value="">Select model</option>
+                                @foreach ($equipmentModels as $modelOption)
+                                    <option value="{{ $modelOption }}">{{ $modelOption }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div>
                             <label for="edit_serial" class="{{ $eqLabel }}">Serial number</label>
-                            <input id="edit_serial" type="text" name="equipment_serial_number" maxlength="{{ \App\Support\InputLimits::SERIAL }}" class="{{ $eqField }}" />
+                            <input id="edit_serial" type="text" name="equipment_serial_number" maxlength="{{ \App\Support\InputLimits::SERIAL }}" placeholder="e.g. SN-ABC/12+34" class="{{ $eqField }}" />
                         </div>
                         <div>
                             <label for="edit_purchase_date" class="{{ $eqLabel }}">Purchased</label>
@@ -1693,7 +1723,7 @@
                                 type="number"
                                 name="equipment_useful_life_years"
                                 min="1"
-                                max="50"
+                                max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
                                 step="1"
                                 placeholder="Default 5"
                                 class="{{ $eqField }}"
@@ -1791,9 +1821,24 @@
 
             document.getElementById("edit_asset_tag").value = assetTag;
 
-            document.getElementById("edit_brand").value = brand;
-
-            document.getElementById("edit_model").value = model;
+            (function setCatalogSelect(id, value) {
+                const select = document.getElementById(id);
+                if (!select) return;
+                const label = String(value || '').trim();
+                if (label && !Array.from(select.options).some((opt) => opt.value === label)) {
+                    select.add(new Option(label, label));
+                }
+                select.value = label;
+            })("edit_brand", brand);
+            (function setCatalogSelect(id, value) {
+                const select = document.getElementById(id);
+                if (!select) return;
+                const label = String(value || '').trim();
+                if (label && !Array.from(select.options).some((opt) => opt.value === label)) {
+                    select.add(new Option(label, label));
+                }
+                select.value = label;
+            })("edit_model", model);
 
             document.getElementById("edit_serial").value = serial;
 
@@ -2493,7 +2538,10 @@
                                 name="residual_value"
                                 type="number"
                                 min="0"
+                                max="{{ \App\Support\InputLimits::COST }}"
                                 step="0.01"
+                                inputmode="decimal"
+                                data-money
                                 placeholder="Optional salvage / residual amount"
                                 class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                             />

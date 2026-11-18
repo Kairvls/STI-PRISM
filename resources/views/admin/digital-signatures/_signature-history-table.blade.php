@@ -24,11 +24,13 @@
 
             <tr class="transition hover:bg-gray-50/70 {{ $isDimmed ? 'bg-gray-50/50 text-gray-500' : '' }}">
                 <td>
+                    @php $historyRisNumber = \App\Support\RisWorkflow::formNumber($history); @endphp
                     <div
                         class="truncate text-sm font-semibold {{ $isDimmed ? 'text-gray-500' : 'text-gray-900' }}"
-                        title="{{ \App\Support\RisWorkflow::formNumber($history) }}"
+                        data-tip="{{ $historyRisNumber }}"
+                        data-truncate-tip="{{ $historyRisNumber }}"
                     >
-                        {{ \App\Support\RisWorkflow::formNumber($history) }}
+                        {{ $historyRisNumber !== '' ? $historyRisNumber : '—' }}
                     </div>
                 </td>
 
@@ -40,27 +42,24 @@
                 </td>
 
                 <td>
-                    <div
-                        class="truncate text-sm {{ $isDimmed ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ \App\Support\RisWorkflow::sourceLabel($history) }}"
-                    >
-                        {{ \App\Support\RisWorkflow::sourceLabel($history) }}
-                        @if(!empty($history->ris_request_type))
-                            <div class="mt-0.5 truncate text-[11px] text-gray-400">{{ \App\Support\RisWorkflow::requestTypeLabel($history) }}</div>
-                        @endif
-                    </div>
+                    @include('admin.partials.ris-equipment-cell', [
+                        'ris' => $history,
+                        'muted' => $isDimmed,
+                    ])
                     @include('admin.partials.ris-attachments', ['ris' => $history])
                 </td>
 
                 <td>
+                    @php $historyRequester = \App\Support\RisWorkflow::requesterName($history); @endphp
                     <div
                         class="truncate text-sm font-medium {{ $isDimmed ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ \App\Support\RisWorkflow::requesterName($history) }}"
+                        data-tip="{{ $historyRequester }}"
+                        data-truncate-tip="{{ $historyRequester }}"
                     >
-                        {{ \App\Support\RisWorkflow::requesterName($history) }}
+                        {{ $historyRequester }}
                     </div>
-                    <div class="mt-0.5 truncate text-[11px] text-gray-400" title="Date the RIS was submitted">
-                        {{ $history->ris_requested_by_date ? \Carbon\Carbon::parse($history->ris_requested_by_date)->format('d/m/Y') : 'N/A' }}
+                    <div class="mt-0.5 truncate text-[11px] text-gray-400" data-tip="Date the RIS was submitted">
+                        {{ $history->ris_requested_by_date ? \Carbon\Carbon::parse($history->ris_requested_by_date)->format('m/d/Y') : 'N/A' }}
                     </div>
                 </td>
 
@@ -77,7 +76,8 @@
                             @if ($directReason !== '')
                                 <p
                                     class="mt-1 truncate text-[11px] leading-snug text-slate-600"
-                                    title="{{ $directReason }}"
+                                    data-tip="{{ $directReason }}"
+                                    data-truncate-tip="{{ $directReason }}"
                                 >
                                     <span class="font-semibold text-slate-500">Reason:</span>
                                     {{ \Illuminate\Support\Str::limit($directReason, 48) }}
@@ -89,7 +89,8 @@
                                     target="_blank"
                                     rel="noopener"
                                     class="mt-1 inline-flex max-w-full items-center gap-1 truncate text-[11px] font-medium text-sky-700 hover:underline"
-                                    title="{{ $directProofName !== '' ? $directProofName : 'View proof' }}"
+                                    data-tip="{{ $directProofName !== '' ? $directProofName : 'View proof' }}"
+                                    data-truncate-tip="{{ $directProofName !== '' ? $directProofName : 'View proof' }}"
                                 >
                                     <svg class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>

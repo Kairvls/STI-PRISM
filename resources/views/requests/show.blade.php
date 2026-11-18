@@ -2,7 +2,7 @@
 
 @section('title', 'Request '.$requestNo)
 @section('page-title', 'Request '.$requestNo)
-@section('page-subtitle', 'Pipeline and documents under this Request No.')
+@section('page-subtitle', 'Documents under this Request No.')
 
 @section('content')
 @php
@@ -20,9 +20,9 @@
                 $pathHint = is_array($explorer) ? ($explorer['payment_path'] ?? null) : null;
                 $subtitle = match (true) {
                     \App\Support\ProcurementPaymentPath::requiresLiquidation($pathHint)
-                        => 'Cash Advance: Canvas + RIS → ATP → funding request → RR → Liquidation Report.',
+                        => 'Cash Advance: Canvass + RIS → ATP → funding request → RR → Liquidation Report.',
                     \App\Support\ProcurementPaymentPath::endsAtReceivingReport($pathHint)
-                        => \App\Support\ProcurementPaymentPath::label($pathHint).': Canvas + RIS → ATP → funding request → DV → Receiving Report.',
+                        => \App\Support\ProcurementPaymentPath::label($pathHint).': Canvass + RIS → ATP → funding request → DV → Receiving Report.',
                     default
                         => 'Direct Payment / Cash Installment end at Receiving Report; Cash Advance ends at Liquidation Report.',
                 };
@@ -105,6 +105,8 @@
                             </p>
                             @if($exists && ! empty($stage['label']))
                                 <p class="mt-0.5 max-w-[9.5rem] break-all text-center text-xs font-semibold tabular-nums text-slate-800" title="{{ $stage['label'] }}">{{ $stage['label'] }}</p>
+                            @else
+                                <p class="mt-0.5 text-center text-xs text-slate-400">-</p>
                             @endif
                         </div>
                     @endforeach
@@ -131,7 +133,7 @@
                                     @endif
                                 </p>
                             @else
-                                <p class="mt-0.5 text-sm text-slate-400">Not started yet</p>
+                                <p class="mt-0.5 text-sm text-slate-400">-</p>
                             @endif
                         </div>
                         @if(! empty($stage['exists']) && ! empty($stage['view_url']))
@@ -142,9 +144,9 @@
                                 class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001db3]"
                             >Open</a>
                         @elseif(! empty($stage['exists']))
-                            <span class="text-xs text-slate-400">No open link in this portal</span>
+                            <span class="text-xs text-slate-400">-</span>
                         @else
-                            <span class="inline-flex h-9 items-center rounded-lg border border-dashed border-gray-200 px-3 text-xs text-gray-400">Pending</span>
+                            <span class="inline-flex h-9 items-center rounded-lg border border-dashed border-gray-200 px-3 text-xs text-gray-400">-</span>
                         @endif
                     </li>
                 @endforeach

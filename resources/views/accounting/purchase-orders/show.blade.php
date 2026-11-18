@@ -16,9 +16,10 @@
             <a href="/school-admin/purchase-orders?status=incoming" class="text-sm font-medium text-blue-700 hover:underline">← Back to Purchase Orders</a>
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-xl font-semibold text-slate-900">{{ $label }}</h1>
-                @if(\App\Support\DocumentUrgency::isUrgent('PO', $order->purchase_order_id))
-                    @include('partials.ris-urgency-badge', ['urgent' => true, 'title' => 'Includes an ATP from an urgent RIS'])
-                @endif
+                @include('partials.ris-urgency-badge', [
+                    'urgent' => \App\Support\DocumentUrgency::isUrgent('PO', $order->purchase_order_id),
+                    'title' => 'Inherited from linked RIS',
+                ])
             </div>
             <p class="mt-1 text-sm text-slate-500">{{ $order->purchase_order_status }} · {{ $linked->count() }} ATP(s) · ₱{{ number_format((float) ($order->po_total_amount ?? 0), 2) }}</p>
         </div>

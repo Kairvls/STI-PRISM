@@ -19,7 +19,17 @@ class EquipmentSchedules
      */
     public static function nextDateAfter(string $frequency, ?string $scheduledFor): ?string
     {
-        $step = match ($frequency) {
+        // Accept mobile "Semi-Annual" as well as web "Semi Annual".
+        $normalized = match (strtolower(str_replace(['-', '_'], ' ', trim($frequency)))) {
+            'weekly' => 'Weekly',
+            'monthly' => 'Monthly',
+            'quarterly' => 'Quarterly',
+            'semi annual' => 'Semi Annual',
+            'annual', 'yearly' => 'Annual',
+            default => $frequency,
+        };
+
+        $step = match ($normalized) {
             'Weekly' => fn (CarbonInterface $d) => $d->addWeeks(1),
             'Monthly' => fn (CarbonInterface $d) => $d->addMonthsNoOverflow(1),
             'Quarterly' => fn (CarbonInterface $d) => $d->addMonthsNoOverflow(3),

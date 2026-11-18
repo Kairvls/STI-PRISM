@@ -9,18 +9,26 @@
             return '';
         }
 
+        let bestId = '';
+        let bestLen = 0;
+
         for (const rule of payload.rules || []) {
             const except = rule.except || [];
             if (except.some((item) => lower.includes(item))) {
                 continue;
             }
 
-            if ((rule.needles || []).some((needle) => lower.includes(needle))) {
-                return String(payload.ids[rule.category] || '');
+            for (const needle of (rule.needles || [])) {
+                const n = String(needle || '').toLowerCase().trim();
+                if (!n || !lower.includes(n) || n.length <= bestLen) {
+                    continue;
+                }
+                bestLen = n.length;
+                bestId = String(payload.ids[rule.category] || '');
             }
         }
 
-        return '';
+        return bestId;
     };
 
     window.bindEquipmentCategoryAutodetect = function (nameInput, categorySelect) {

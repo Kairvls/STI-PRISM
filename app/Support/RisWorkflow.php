@@ -14,6 +14,9 @@ class RisWorkflow
     public const DIRECTLY_APPROVED = 'Directly Approved';
     public const PRESIDENT_REJECTED = 'Rejected by the President';
     public const PRESIDENT_REJECTED_LEGACY = 'Rejected by President';
+    public const RETURNED_BY_PRESIDENT = 'Returned by the President';
+    public const PRESIDENT_REVISION = 'President Revision';
+    public const MINOR_REVISION = 'Minor Revision';
     public const APPROVED_LEGACY = 'Approved';
     public const REQUEST_TYPE_REPLACEMENT = 'Replacement Procurement';
     public const REQUEST_TYPE_NEW = 'New Procurement';
@@ -38,6 +41,26 @@ class RisWorkflow
         return $value === self::URGENCY_URGENT
             ? self::URGENCY_URGENT
             : self::URGENCY_NON_URGENT;
+    }
+
+    /**
+     * Query param helper: returns Urgent / Non-Urgent, or null for "All urgency".
+     */
+    public static function urgencyFilter(?string $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return in_array($value, self::urgencyOptions(), true) ? $value : null;
+    }
+
+    public static function applyUrgencyFilter($query, ?string $urgency, string $table = 'requisition_issue_slip_table')
+    {
+        $urgency = self::urgencyFilter($urgency);
+        if ($urgency === null || ! Schema::hasColumn($table, 'ris_urgency')) {
+            return $query;
+        }
+
+        return $query->where($table.'.ris_urgency', $urgency);
     }
 
     public static function urgencyLabel(?object $ris = null, ?string $value = null): string
@@ -183,6 +206,109 @@ class RisWorkflow
         return self::isAccepted($ris);
     }
 
+    /**
+     * True when the President has soft-returned or hard-rejected this RIS at least once.
+     * After that, School Administrator may Forward again but not Approve Directly.
+     *
+     * @var array<int, bool>
+     */
+    private static array $presidentRevisionTouched = [];
+
+    public static function wasReturnedByPresidentForRevision(object $ris): bool
+    {
+        $status = (string) ($ris->ris_status ?? '');
+        if (
+            $status === self::RETURNED_BY_PRESIDENT
+            || $status === self::PRESIDENT_REVISION
+            || self::isPresidentRejected($ris)
+        ) {
+            return true;
+        }
+
+        $id = (int) ($ris->ris_id ?? 0);
+        if ($id < 1) {
+            return false;
+        }
+
+        if (array_key_exists($id, self::$presidentRevisionTouched)) {
+            return self::$presidentRevisionTouched[$id];
+        }
+
+        $touched = false;
+
+        if (Schema::hasTable('approval_logs_table')) {
+            try {
+                $touched = DB::table('approval_logs_table')
+                    ->where('approval_log_reference_type', 'RIS')
+                    ->where('approval_log_reference_id', $id)
+                    ->where('approval_log_level', 'President')
+                    ->whereIn('approval_log_approval_status', [
+                        self::RETURNED_BY_PRESIDENT,
+                        self::PRESIDENT_REVISION,
+                        self::PRESIDENT_REJECTED,
+                        self::PRESIDENT_REJECTED_LEGACY,
+                        'Rejected',
+                    ])
+                    ->exists();
+            } catch (\Throwable) {
+                $touched = false;
+            }
+
+            // Legacy / missing President log: Forwarded, then later Admin revision
+            // (SA Pass to Purchaser after a President soft-return).
+            if (! $touched) {
+                try {
+                    $forwardedAt = DB::table('approval_logs_table')
+                        ->where('approval_log_reference_type', 'RIS')
+                        ->where('approval_log_reference_id', $id)
+                        ->where('approval_log_approval_status', self::FORWARDED)
+                        ->orderByDesc('approval_log_approved_at')
+                        ->value('approval_log_approved_at');
+
+                    if ($forwardedAt) {
+                        $touched = DB::table('approval_logs_table')
+                            ->where('approval_log_reference_type', 'RIS')
+                            ->where('approval_log_reference_id', $id)
+                            ->where('approval_log_level', 'Admin')
+                            ->whereIn('approval_log_approval_status', [
+                                self::PRESIDENT_REVISION,
+                                self::RETURNED_BY_PRESIDENT,
+                                self::MINOR_REVISION,
+                            ])
+                            ->where('approval_log_approved_at', '>', $forwardedAt)
+                            ->exists();
+                    }
+                } catch (\Throwable) {
+                    // keep $touched as-is
+                }
+            }
+        }
+
+        if (! $touched && Schema::hasTable('ris_revision_notes_table')) {
+            try {
+                $touched = DB::table('ris_revision_notes_table')
+                    ->where('ris_id', $id)
+                    ->whereIn('ris_revision_type', [
+                        self::PRESIDENT_REVISION,
+                        self::RETURNED_BY_PRESIDENT,
+                    ])
+                    ->exists();
+            } catch (\Throwable) {
+                $touched = false;
+            }
+        }
+
+        self::$presidentRevisionTouched[$id] = $touched;
+
+        return $touched;
+    }
+
+    /** Fresh Accepted RIS only — once President returned it, Forward only. */
+    public static function allowsDirectApprove(object $ris): bool
+    {
+        return self::isAccepted($ris) && ! self::wasReturnedByPresidentForRevision($ris);
+    }
+
     public static function presidentRejectedStatuses(): array
     {
         return [self::PRESIDENT_REJECTED, self::PRESIDENT_REJECTED_LEGACY];
@@ -228,6 +354,73 @@ class RisWorkflow
                         ->whereRaw('TRIM('.$issued.') != ""');
                 });
         });
+    }
+
+    /**
+     * Purchaser RIS list: after drafts/revisions, pin approved RIS that still need ATP creation.
+     * Call after orderOwnUnfinishedFirst, before urgency / date sorts.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    public static function orderNeedsAtpNext($query, string $table = 'requisition_issue_slip_table')
+    {
+        if (! ProcurementPortal::PURCHASER_OWNS_ATP || ! Schema::hasTable('authority_to_purchase_table')) {
+            return $query;
+        }
+
+        $status = $table.'.ris_status';
+        $issued = $table.'.ris_issued_by_signature';
+        $risId = $table.'.ris_id';
+        $hasSplit = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_ris_supplier_split');
+        $hasItems = Schema::hasTable('requisition_issue_slip_items_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id');
+
+        $eligible = "({$status} = ? OR ({$status} IN (?, ?) AND {$issued} IS NOT NULL AND TRIM({$issued}) != ''))";
+
+        $liveAtp = "EXISTS (
+            SELECT 1 FROM authority_to_purchase_table atp
+            WHERE atp.authority_purchase_ris_id = {$risId}
+              AND (atp.authority_purchase_is_archived IS NULL OR atp.authority_purchase_is_archived = 0)
+              AND atp.authority_purchase_status != 'Rejected'
+        )";
+
+        if ($hasSplit && $hasItems) {
+            $fullyCovered = "(
+                EXISTS (
+                    SELECT 1 FROM authority_to_purchase_table atp
+                    WHERE atp.authority_purchase_ris_id = {$risId}
+                      AND (atp.authority_purchase_is_archived IS NULL OR atp.authority_purchase_is_archived = 0)
+                      AND atp.authority_purchase_status != 'Rejected'
+                      AND COALESCE(atp.authority_purchase_ris_supplier_split, 0) = 0
+                )
+                OR (
+                    SELECT COUNT(DISTINCT i.ris_item_supplier_id)
+                    FROM requisition_issue_slip_items_table i
+                    WHERE i.ris_id = {$risId}
+                      AND i.ris_item_supplier_id IS NOT NULL
+                ) > 0
+                AND (
+                    SELECT COUNT(DISTINCT i.ris_item_supplier_id)
+                    FROM requisition_issue_slip_items_table i
+                    WHERE i.ris_id = {$risId}
+                      AND i.ris_item_supplier_id IS NOT NULL
+                ) <= (
+                    SELECT COUNT(*)
+                    FROM authority_to_purchase_table a2
+                    WHERE a2.authority_purchase_ris_id = {$risId}
+                      AND (a2.authority_purchase_is_archived IS NULL OR a2.authority_purchase_is_archived = 0)
+                      AND a2.authority_purchase_status != 'Rejected'
+                      AND COALESCE(a2.authority_purchase_ris_supplier_split, 0) = 1
+                )
+            )";
+        } else {
+            $fullyCovered = "({$liveAtp})";
+        }
+
+        return $query->orderByRaw(
+            "CASE WHEN {$eligible} AND NOT ({$fullyCovered}) THEN 0 ELSE 1 END",
+            [self::DIRECTLY_APPROVED, self::PRESIDENT_APPROVED, self::APPROVED_LEGACY]
+        );
     }
 
     public static function isAwaitingPresident(object $ris): bool
@@ -276,12 +469,37 @@ class RisWorkflow
     }
 
     /**
-     * Can Admin return this RIS to Purchaser for Minor Revision from Sign RIS.
+     * Can Admin relay a President return/reject to the Purchaser (Pass to Purchaser).
+     * Resulting purchaser status is President Revision (origin preserved), not Minor Revision.
      */
     public static function canReturnForRevision(object $ris): bool
     {
+        $status = (string) ($ris->ris_status ?? '');
+
+        // Hard SA Reject stays closed. Soft returns from President open this path.
         return self::isPresidentRejected($ris)
-            || (string) ($ris->ris_status ?? '') === 'Rejected';
+            || $status === self::RETURNED_BY_PRESIDENT;
+    }
+
+    /** Purchaser may edit / resubmit these statuses. */
+    public static function purchaserEditableStatuses(): array
+    {
+        return ['Draft', self::MINOR_REVISION, self::PRESIDENT_REVISION];
+    }
+
+    public static function isPurchaserEditable(object $ris): bool
+    {
+        return in_array((string) ($ris->ris_status ?? ''), self::purchaserEditableStatuses(), true);
+    }
+
+    public static function isReturnedByPresident(object $ris): bool
+    {
+        return (string) ($ris->ris_status ?? '') === self::RETURNED_BY_PRESIDENT;
+    }
+
+    public static function isPresidentRevision(object $ris): bool
+    {
+        return (string) ($ris->ris_status ?? '') === self::PRESIDENT_REVISION;
     }
 
     /**
@@ -403,12 +621,20 @@ class RisWorkflow
             return 'Forwarded to the President by '.$schoolAdmin;
         }
 
-        if ($status === 'Minor Revision') {
-            return 'Revision required — update and resubmit';
+        if ($status === self::MINOR_REVISION) {
+            return 'For revision (School Administrator) — update and resubmit';
+        }
+
+        if ($status === self::PRESIDENT_REVISION) {
+            return 'For revision (President) — update and resubmit';
+        }
+
+        if ($status === self::RETURNED_BY_PRESIDENT) {
+            return 'For revision (President) — School Administrator';
         }
 
         if ($status === 'Rejected') {
-            return 'Rejected — amend and resubmit';
+            return 'Rejected';
         }
 
         if ($status === 'Draft' || $status === '') {
@@ -427,9 +653,9 @@ class RisWorkflow
 
     public static function sourceLabel(object $ris): string
     {
-        $items = trim((string) ($ris->ris_item_names ?? ''));
-        if ($items !== '') {
-            return $items;
+        $names = self::equipmentItemNames($ris);
+        if ($names !== []) {
+            return implode(', ', $names);
         }
 
         $title = trim((string) ($ris->ris_manual_title ?? ''));
@@ -448,6 +674,37 @@ class RisWorkflow
         }
 
         return self::requestTypeLabel($ris);
+    }
+
+    /**
+     * Ordered equipment/item names for a RIS (from attached rows or GROUP_CONCAT fallback).
+     *
+     * @return list<string>
+     */
+    public static function equipmentItemNames(object $ris): array
+    {
+        if (isset($ris->risEquipmentItems)) {
+            $fromRows = collect($ris->risEquipmentItems)
+                ->map(fn ($item) => trim((string) ($item->ris_item_name_description ?? '')))
+                ->filter(fn ($name) => $name !== '' && strcasecmp($name, 'N/A') !== 0)
+                ->values()
+                ->all();
+
+            if ($fromRows !== []) {
+                return $fromRows;
+            }
+        }
+
+        $concat = trim((string) ($ris->ris_item_names ?? ''));
+        if ($concat === '') {
+            return [];
+        }
+
+        return collect(preg_split('/\s*,\s*/', $concat) ?: [])
+            ->map(fn ($name) => trim((string) $name))
+            ->filter(fn ($name) => $name !== '' && strcasecmp($name, 'N/A') !== 0)
+            ->values()
+            ->all();
     }
 
     public static function requestTypeLabel(object $ris): string
@@ -673,6 +930,54 @@ class RisWorkflow
         return self::requesterName($ris, '');
     }
 
+    /**
+     * True when the typed "Requested by" value is a role label, not a person name.
+     */
+    public static function isPlaceholderRequesterName(?string $name): bool
+    {
+        $normalized = strtolower(trim(preg_replace('/\s+/', ' ', (string) $name) ?? ''));
+        if ($normalized === '') {
+            return true;
+        }
+
+        return in_array($normalized, [
+            'purchaser',
+            'mr. purchaser',
+            'mr purchaser',
+            'ms. purchaser',
+            'ms purchaser',
+            'the purchaser',
+        ], true);
+    }
+
+    /**
+     * Printed name for the editable Requested-by field (draft / revision forms).
+     * Prefers the account full name when the stored value is empty or a role placeholder.
+     */
+    public static function editableRequestedByName(?object $ris, ?object $user = null): string
+    {
+        $user = $user ?: \Illuminate\Support\Facades\Auth::user();
+        $stored = trim((string) ($ris->ris_requested_by_signature ?? ''));
+
+        return self::resolvePrintedRequesterName($stored, $user);
+    }
+
+    /**
+     * Prefer a real person name over role placeholders like "Mr. Purchaser".
+     */
+    public static function resolvePrintedRequesterName(?string $typed, ?object $user = null): string
+    {
+        $user = $user ?: \Illuminate\Support\Facades\Auth::user();
+        $authName = trim((string) ($user->user_full_name ?? ''));
+        $typed = trim((string) $typed);
+
+        if ($typed !== '' && ! self::isDrawnSignature($typed) && ! self::isPlaceholderRequesterName($typed)) {
+            return $typed;
+        }
+
+        return $authName !== '' ? $authName : (self::isPlaceholderRequesterName($typed) ? '' : $typed);
+    }
+
     /** @var array<int, string>|null */
     private static ?array $userNames = null;
 
@@ -680,10 +985,28 @@ class RisWorkflow
      * Full name of the account that owns the RIS (creator, then submitter).
      * Falls back to the name typed on the form for legacy rows without an owner.
      */
+    /** Purchaser who owns this RIS (submitter, else creator). */
+    public static function ownerPurchaserId(?object $ris): int
+    {
+        if (! $ris) {
+            return 0;
+        }
+
+        return (int) ($ris->ris_submitted_by ?: ($ris->ris_created_by ?? 0));
+    }
+
     public static function requesterName(?object $ris, string $fallback = '—'): string
     {
         if (!$ris) {
             return $fallback;
+        }
+
+        $ownerId = self::ownerPurchaserId($ris);
+        if ($ownerId > 0) {
+            $ownerName = self::userFullName($ownerId);
+            if ($ownerName !== '') {
+                return $ownerName;
+            }
         }
 
         foreach (['ris_created_by', 'ris_submitted_by'] as $field) {
@@ -694,7 +1017,7 @@ class RisWorkflow
         }
 
         $typed = trim((string) ($ris->ris_requested_by_signature ?? ''));
-        if ($typed !== '' && !self::isDrawnSignature($typed)) {
+        if ($typed !== '' && !self::isDrawnSignature($typed) && !self::isPlaceholderRequesterName($typed)) {
             return $typed;
         }
 
@@ -936,7 +1259,7 @@ class RisWorkflow
                 $purpose .= '. Reason: '.$reason;
             }
 
-            return $purpose;
+            return mb_substr($purpose, 0, \App\Support\InputLimits::PURPOSE);
         }
 
         $purpose = 'Replacement of ' . self::equipmentLabel($source);
@@ -953,17 +1276,14 @@ class RisWorkflow
             $purpose .= '. Reason: ' . $reason;
         }
 
-        return $purpose;
+        return mb_substr($purpose, 0, \App\Support\InputLimits::PURPOSE);
     }
 
     /**
-     * Save Issued quantities for an existing RIS.
-     * Each named item needs an issued quantity of at least 1, and the total
-     * issued for an item cannot be higher than what was requested.
-     *
-     * @param  array<int|string, mixed>  $posted  item id => issued quantity
+     * Ensure the Purchaser already filled Issued on every named item, and that
+     * total Issued per item name does not exceed Requested.
      */
-    public static function applyIssuedQuantities(int $risId, array $posted): ?string
+    public static function assertPurchaserIssuedComplete(int $risId): ?string
     {
         $items = DB::table('requisition_issue_slip_items_table')
             ->where('ris_id', $risId)
@@ -971,21 +1291,19 @@ class RisWorkflow
             ->get();
 
         $groups = [];
-        $updates = [];
+        $named = 0;
 
         foreach ($items as $item) {
             $name = trim((string) ($item->ris_item_name_description ?? ''));
             if ($name === '') {
                 continue;
             }
+            $named++;
 
-            $itemId = (int) $item->ris_item_id;
-            $raw = $posted[$itemId] ?? $posted[(string) $itemId] ?? null;
-            if ($raw === null || $raw === '' || ! is_numeric($raw) || (int) $raw != $raw || (int) $raw < 1) {
-                return '"'.$name.'" needs an Issued quantity of at least 1.';
+            $issued = (int) ($item->ris_quantity_issued ?? 0);
+            if ($issued < 1) {
+                return '"'.$name.'" needs an Issued quantity of at least 1 (filled by the Purchaser).';
             }
-
-            $issued = (int) $raw;
             if ($issued > 9999999) {
                 return '"'.$name.'" Issued quantity can be up to 7 digits only.';
             }
@@ -1003,20 +1321,15 @@ class RisWorkflow
                 $groups[$key]['asked'] = $requested;
             }
             $groups[$key]['allocated'] += $issued;
-
-            $updates[$itemId] = [
-                'ris_quantity_issued' => $issued,
-                'ris_total_amount' => round($issued * (float) ($item->ris_unit_cost ?? 0), 2),
-            ];
         }
 
-        if ($updates === []) {
+        if ($named < 1) {
             return 'This RIS has no items to issue.';
         }
 
         foreach ($groups as $group) {
             if ($group['asked'] < 1) {
-                return '"'.$group['label'].'" needs a requested quantity before Issued can be saved.';
+                return '"'.$group['label'].'" needs a requested quantity before Issued can be accepted.';
             }
             if ($group['allocated'] > $group['asked']) {
                 return '"'.$group['label'].'" is over the requested amount ('
@@ -1024,13 +1337,85 @@ class RisWorkflow
             }
         }
 
-        foreach ($updates as $itemId => $payload) {
-            DB::table('requisition_issue_slip_items_table')
-                ->where('ris_item_id', $itemId)
+        return null;
+    }
+
+    /**
+     * @deprecated Issued is filled by the Purchaser. Prefer assertPurchaserIssuedComplete().
+     * @param  array<int|string, mixed>  $posted
+     */
+    public static function applyIssuedQuantities(int $risId, array $posted = []): ?string
+    {
+        if ($posted !== []) {
+            $items = DB::table('requisition_issue_slip_items_table')
                 ->where('ris_id', $risId)
-                ->update($payload);
+                ->orderBy('ris_item_id')
+                ->get();
+
+            $groups = [];
+            $updates = [];
+
+            foreach ($items as $item) {
+                $name = trim((string) ($item->ris_item_name_description ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+
+                $itemId = (int) $item->ris_item_id;
+                $raw = $posted[$itemId] ?? $posted[(string) $itemId] ?? null;
+                if ($raw === null || $raw === '' || ! is_numeric($raw) || (int) $raw != $raw || (int) $raw < 1) {
+                    return '"'.$name.'" needs an Issued quantity of at least 1.';
+                }
+
+                $issued = (int) $raw;
+                if ($issued > 9999999) {
+                    return '"'.$name.'" Issued quantity can be up to 7 digits only.';
+                }
+
+                $key = mb_strtolower($name);
+                if (! isset($groups[$key])) {
+                    $groups[$key] = [
+                        'label' => $name,
+                        'asked' => 0,
+                        'allocated' => 0,
+                    ];
+                }
+                $requested = (int) ($item->ris_quantity_requested ?? 0);
+                if ($groups[$key]['asked'] < 1 && $requested > 0) {
+                    $groups[$key]['asked'] = $requested;
+                }
+                $groups[$key]['allocated'] += $issued;
+
+                $updates[$itemId] = [
+                    'ris_quantity_issued' => $issued,
+                    'ris_total_amount' => round($issued * (float) ($item->ris_unit_cost ?? 0), 2),
+                ];
+            }
+
+            if ($updates === []) {
+                return 'This RIS has no items to issue.';
+            }
+
+            foreach ($groups as $group) {
+                if ($group['asked'] < 1) {
+                    return '"'.$group['label'].'" needs a requested quantity before Issued can be saved.';
+                }
+                if ($group['allocated'] > $group['asked']) {
+                    return '"'.$group['label'].'" is over the requested amount ('
+                        .$group['allocated'].' issued of '.$group['asked'].' requested).';
+                }
+            }
+
+            foreach ($updates as $itemId => $payload) {
+                DB::table('requisition_issue_slip_items_table')
+                    ->where('ris_item_id', $itemId)
+                    ->where('ris_id', $risId)
+                    ->update($payload);
+            }
+
+            return null;
         }
 
-        return null;
+        return self::assertPurchaserIssuedComplete($risId);
     }
 }
