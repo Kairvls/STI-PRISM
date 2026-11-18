@@ -45,15 +45,10 @@
             pageStyle.id = 'accounting-print-page-style';
             document.head.appendChild(pageStyle);
         }
-        var pageSize = options.page === 'landscape' ? 'A4 landscape' : 'A4 portrait';
-        if (sheet.classList.contains('ris-document') || sheet.classList.contains('ris-print-sheet')) {
-            pageSize = 'landscape';
-        } else if (sheet.classList.contains('rfc-print-sheet') || sheet.classList.contains('liq-print-sheet')) {
-            pageSize = 'A4 landscape';
-        } else if (sheet.classList.contains('atp-print-sheet') || sheet.classList.contains('rr-print-sheet') || sheet.classList.contains('dv-print-sheet')) {
-            pageSize = 'A4 portrait';
-        }
+        // Procurement papers always print A4 portrait; fitPrintPage scales to one sheet when possible.
+        var pageSize = 'A4 portrait';
         pageStyle.textContent = '@media print { @page { size: ' + pageSize + '; margin: 8mm; } }';
+        mount.setAttribute('data-page', 'portrait');
 
         var clone = sheet.cloneNode(true);
         clone.removeAttribute('id');
@@ -102,24 +97,13 @@
         z-index: -1 !important;
     }
 
-    #accounting-print-mount[data-page="landscape"],
-    #accounting-print-mount:has(.rfc-print-sheet),
-    #accounting-print-mount:has(.liq-print-sheet),
-    #accounting-print-mount:has(.ris-document),
-    #accounting-print-mount:has(.ris-print-sheet) {
-        width: 297mm !important;
-    }
-
     #accounting-print-mount .rfc-print-sheet,
-    #accounting-print-mount .liq-print-sheet {
-        width: 297mm !important;
-        min-height: 0 !important;
-        height: auto !important;
-    }
-
+    #accounting-print-mount .liq-print-sheet,
     #accounting-print-mount .ris-document,
-    #accounting-print-mount .ris-print-sheet {
-        width: 11in !important;
+    #accounting-print-mount .ris-print-sheet,
+    #accounting-print-mount .rr-print-sheet,
+    #accounting-print-mount .atp-print-sheet {
+        width: 210mm !important;
         min-height: 0 !important;
         height: auto !important;
     }

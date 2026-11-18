@@ -8,9 +8,10 @@
         * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
         html, body { margin: 0; padding: 0; background: transparent; }
         .ris-document {
-            width: 11in;
-            min-height: 8.5in;
-            padding: 0.35in;
+            width: 210mm;
+            max-width: 210mm;
+            min-height: 0;
+            padding: 8mm 10mm;
             background: white;
             position: relative;
         }
@@ -76,14 +77,14 @@
         /* Modal / screen preview */
         @media screen {
             html, body {
-                width: 11in;
+                width: 210mm;
                 min-height: 0;
                 height: auto;
                 overflow: hidden;
                 background: #fff;
             }
             html:not(.print-measuring) .ris-document {
-                width: 11in;
+                width: 210mm;
                 height: auto;
                 min-height: 0;
                 max-height: none;
@@ -118,17 +119,29 @@
             .ris-document {
                 width: 100% !important;
                 max-width: 100% !important;
-                min-height: auto;
-                height: auto;
+                min-height: 0 !important;
+                height: auto !important;
                 max-height: none;
                 margin: 0;
-                padding: 0.2in;
+                padding: 6mm 8mm;
                 position: relative;
                 overflow: visible !important;
             }
-            .header { margin-top: 24px; }
+            .header { margin-top: 10px; margin-bottom: 6px; }
             .ris-table { width: 100% !important; }
-            @page { size: landscape; margin: 0.25in; }
+            .ris-table th, .ris-table td {
+                height: auto !important;
+                min-height: 0 !important;
+                padding: 3px 4px !important;
+                font-size: 11px !important;
+            }
+            .signatures {
+                margin-top: 10px;
+                gap: 12px;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            @page { size: A4 portrait; margin: 8mm; }
         }
     </style>
     @include('partials.ris-signature-overlay-styles')

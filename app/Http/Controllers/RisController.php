@@ -777,6 +777,11 @@ class RisController extends Controller
             return back()->withInput()->with('error', $splitOverflow);
         }
 
+        $duplicateSupplier = $this->risDuplicateSupplierMessage($items);
+        if ($duplicateSupplier) {
+            return back()->withInput()->with('error', $duplicateSupplier);
+        }
+
 
         // =====================================================
         // 4. STRICT ITEM VALIDATION WHEN SUBMITTING
@@ -1368,6 +1373,11 @@ public function update(Request $request, $risId)
         return $this->backWithEditRisError($risId, $splitOverflow);
     }
 
+    $duplicateSupplier = $this->risDuplicateSupplierMessage($items);
+    if ($duplicateSupplier) {
+        return $this->backWithEditRisError($risId, $duplicateSupplier);
+    }
+
 
     // =====================================================
     // STRICT VALIDATION WHEN SUBMITTING / RESUBMITTING
@@ -1753,6 +1763,11 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 $risId,
                 'Please add at least one RIS item before ' . ($isResubmit ? 'resubmitting.' : 'submitting.')
             );
+        }
+
+        $duplicateSupplier = $this->risDuplicateSupplierMessage($items);
+        if ($duplicateSupplier) {
+            return $this->backWithEditRisError($risId, $duplicateSupplier);
         }
 
         $submitError = $this->validateRisItemsForSubmit($items);
@@ -2148,18 +2163,24 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     private function supplierOptionsForRis(bool $activeOnly = false, $limitIds = null)
     {
+        $select = [
+            'suppliers_table.supplier_id',
+            'suppliers_table.supplier_store_type',
+            'suppliers_table.supplier_is_active',
+            'suppliers_table.supplier_is_blacklisted',
+            'suppliers_table.supplier_blacklist_reason',
+            'physical_suppliers_table.company_name',
+            'online_suppliers_table.shop_name',
+            DB::raw('COALESCE(physical_suppliers_table.contact_person, online_suppliers_table.contact_person) as contact_person'),
+        ];
+        if (Schema::hasColumn('suppliers_table', 'supplier_code')) {
+            $select[] = 'suppliers_table.supplier_code';
+        }
+
         $query = DB::table('suppliers_table')
             ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
             ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
-            ->select(
-                'suppliers_table.supplier_id',
-                'suppliers_table.supplier_store_type',
-                'suppliers_table.supplier_is_active',
-                'suppliers_table.supplier_is_blacklisted',
-                'suppliers_table.supplier_blacklist_reason',
-                'physical_suppliers_table.company_name',
-                'online_suppliers_table.shop_name'
-            );
+            ->select($select);
 
         if ($activeOnly) {
             $query->where('suppliers_table.supplier_is_active', 1);
@@ -2173,7 +2194,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             $query->whereIn('suppliers_table.supplier_id', $ids);
         }
 
-        return $query
+        $rows = $query
             ->orderBy('suppliers_table.supplier_id')
             ->get()
             ->map(function ($supplier) {
@@ -2181,13 +2202,38 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                     ? ($supplier->shop_name ?: 'Online supplier #' . $supplier->supplier_id)
                     : ($supplier->company_name ?: 'Physical supplier #' . $supplier->supplier_id);
 
+                $supplier->base_name = $baseName;
                 $supplier->is_blacklisted = (int) ($supplier->supplier_is_blacklisted ?? 0) === 1;
-                $supplier->display_name = $supplier->is_blacklisted
-                    ? $baseName . ' (Blacklisted)'
-                    : $baseName;
 
                 return $supplier;
             });
+
+        $duplicateKeys = $rows
+            ->groupBy(fn ($s) => mb_strtolower((string) $s->base_name))
+            ->filter(fn ($group) => $group->count() > 1)
+            ->keys()
+            ->all();
+
+        return $rows->map(function ($supplier) use ($duplicateKeys) {
+            $label = $supplier->base_name;
+            if (in_array(mb_strtolower((string) $label), $duplicateKeys, true)) {
+                $contact = trim((string) ($supplier->contact_person ?? ''));
+                $code = trim((string) ($supplier->supplier_code ?? ''));
+                if ($contact !== '') {
+                    $label .= ' · '.$contact;
+                } elseif ($code !== '') {
+                    $label .= ' · '.$code;
+                } else {
+                    $label .= ' · #'.$supplier->supplier_id;
+                }
+            }
+
+            $supplier->display_name = $supplier->is_blacklisted
+                ? $label.' (Blacklisted)'
+                : $label;
+
+            return $supplier;
+        });
     }
 
     private function risItemPayload($risId, array $item): array
@@ -2512,31 +2558,40 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     /**
      * Brands, units, and suppliers already on file for an item name.
-     * Equipment records outweigh older RIS lines. The first id is the default.
+     * Exact equipment history ranks first; same-classification peers expand
+     * suggestions (e.g. Desktop Computer → Monitor/Keyboard brands). Weak
+     * RIS-only pairs that do not fit the item's classification are dropped
+     * (e.g. Door Knob + Acer).
      *
      * @return array<string, array{brand_ids: list<string>, uom_ids: list<string>, supplier_ids: list<string>, brand_id: string, uom_id: string, supplier_id: string}>
      */
     private function itemBrandUnitHints(): array
     {
-        $scores = [];
-        $add = function (string $name, string $kind, string $id, int $weight) use (&$scores): void {
-            $key = mb_strtolower(trim(preg_replace('/\s+/', ' ', $name) ?? ''));
+        $exact = [];
+        $equipmentBacked = [];
+        $addExact = function (string $name, string $kind, string $id, int $weight, bool $fromEquipment = false) use (&$exact, &$equipmentBacked): void {
+            $key = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $name) ?? ''));
             if ($key === '' || $id === '' || $weight < 1) {
                 return;
             }
-            $scores[$key][$kind][$id] = ($scores[$key][$kind][$id] ?? 0) + $weight;
+            $exact[$key][$kind][$id] = ($exact[$key][$kind][$id] ?? 0) + $weight;
+            if ($fromEquipment) {
+                $equipmentBacked[$key][$kind][$id] = true;
+            }
         };
+
+        $brandIds = [];
+        if ($this->brandsTableExists()) {
+            foreach (DB::table('brands_table')->where('brand_status', 'Active')->get(['brand_id', 'brand_name']) as $brand) {
+                $brandIds[mb_strtolower(trim((string) $brand->brand_name))] = (string) $brand->brand_id;
+            }
+        }
 
         if (
             Schema::hasTable('equipment_table')
             && Schema::hasColumn('equipment_table', 'equipment_brand_name')
-            && $this->brandsTableExists()
+            && $brandIds !== []
         ) {
-            $brandIds = [];
-            foreach (DB::table('brands_table')->where('brand_status', 'Active')->get(['brand_id', 'brand_name']) as $brand) {
-                $brandIds[mb_strtolower(trim((string) $brand->brand_name))] = (string) $brand->brand_id;
-            }
-
             $equipmentBrands = DB::table('equipment_table')
                 ->select('equipment_name', 'equipment_brand_name', DB::raw('COUNT(*) as uses'))
                 ->whereNotNull('equipment_name')
@@ -2548,7 +2603,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             foreach ($equipmentBrands as $row) {
                 $brandId = $brandIds[mb_strtolower(trim((string) $row->equipment_brand_name))] ?? null;
                 if ($brandId) {
-                    $add((string) $row->equipment_name, 'brands', $brandId, ((int) $row->uses) * 10);
+                    $addExact((string) $row->equipment_name, 'brands', $brandId, ((int) $row->uses) * 100, true);
                 }
             }
         }
@@ -2562,7 +2617,6 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             : [];
 
         if (Schema::hasTable('equipment_table') && $activeSupplierIds !== []) {
-
             if (Schema::hasColumn('equipment_table', 'equipment_supplier_id')) {
                 $equipmentSuppliers = DB::table('equipment_table')
                     ->select('equipment_name', 'equipment_supplier_id', DB::raw('COUNT(*) as uses'))
@@ -2573,7 +2627,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 foreach ($equipmentSuppliers as $row) {
                     $supplierId = (string) $row->equipment_supplier_id;
                     if (isset($activeSupplierIds[$supplierId])) {
-                        $add((string) $row->equipment_name, 'suppliers', $supplierId, ((int) $row->uses) * 10);
+                        $addExact((string) $row->equipment_name, 'suppliers', $supplierId, ((int) $row->uses) * 100, true);
                     }
                 }
             }
@@ -2582,7 +2636,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 $supplierNames = [];
                 foreach ($this->supplierOptionsForRis(true) as $supplier) {
                     $label = mb_strtolower(trim((string) ($supplier->display_name ?? '')));
-                    $label = trim(str_replace('(blacklisted)', '', $label));
+                    $label = trim(str_ireplace('(blacklisted)', '', $label));
                     if ($label !== '') {
                         $supplierNames[$label] = (string) $supplier->supplier_id;
                     }
@@ -2597,12 +2651,14 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 foreach ($namedSuppliers as $row) {
                     $supplierId = $supplierNames[mb_strtolower(trim((string) $row->equipment_supplier_name))] ?? null;
                     if ($supplierId) {
-                        $add((string) $row->equipment_name, 'suppliers', $supplierId, ((int) $row->uses) * 10);
+                        $addExact((string) $row->equipment_name, 'suppliers', $supplierId, ((int) $row->uses) * 100, true);
                     }
                 }
             }
         }
 
+        $risBrandScores = [];
+        $risSupplierScores = [];
         if (Schema::hasTable('requisition_issue_slip_items_table')) {
             if ($this->risItemsHaveBrandColumn()) {
                 $pastBrands = DB::table('requisition_issue_slip_items_table')
@@ -2612,7 +2668,13 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                     ->groupBy('ris_item_name_description', 'ris_item_brand_id')
                     ->get();
                 foreach ($pastBrands as $row) {
-                    $add((string) $row->ris_item_name_description, 'brands', (string) $row->ris_item_brand_id, (int) $row->uses);
+                    $key = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $row->ris_item_name_description) ?? ''));
+                    $brandId = (string) $row->ris_item_brand_id;
+                    if ($key === '' || $brandId === '') {
+                        continue;
+                    }
+                    $risBrandScores[$key][$brandId] = ($risBrandScores[$key][$brandId] ?? 0) + (int) $row->uses;
+                    $addExact((string) $row->ris_item_name_description, 'brands', $brandId, (int) $row->uses, false);
                 }
             }
 
@@ -2624,7 +2686,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                     ->groupBy('ris_item_name_description', 'ris_item_uom_id')
                     ->get();
                 foreach ($pastUnits as $row) {
-                    $add((string) $row->ris_item_name_description, 'uoms', (string) $row->ris_item_uom_id, (int) $row->uses);
+                    $addExact((string) $row->ris_item_name_description, 'uoms', (string) $row->ris_item_uom_id, (int) $row->uses, false);
                 }
             }
 
@@ -2637,32 +2699,423 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                     ->get();
                 foreach ($pastSuppliers as $row) {
                     $supplierId = (string) $row->ris_item_supplier_id;
-                    if (isset($activeSupplierIds[$supplierId])) {
-                        $add((string) $row->ris_item_name_description, 'suppliers', $supplierId, (int) $row->uses);
+                    if (! isset($activeSupplierIds[$supplierId])) {
+                        continue;
                     }
+                    $key = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $row->ris_item_name_description) ?? ''));
+                    if ($key === '') {
+                        continue;
+                    }
+                    $risSupplierScores[$key][$supplierId] = ($risSupplierScores[$key][$supplierId] ?? 0) + (int) $row->uses;
+                    $addExact((string) $row->ris_item_name_description, 'suppliers', $supplierId, (int) $row->uses, false);
                 }
             }
         }
 
+        $itemCategory = [];
+        $categoryItems = [];
+        $allKeys = array_values(array_unique(array_merge(
+            array_keys($exact),
+            array_keys($risBrandScores),
+            array_keys($risSupplierScores)
+        )));
+
+        // Include catalog / classification names so new computer items still get
+        // Ormocnet-style shop suggestions before they have RIS history.
+        if (Schema::hasTable('items_table')) {
+            foreach (DB::table('items_table')->pluck('item_name') as $itemName) {
+                $key = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $itemName) ?? ''));
+                if ($key !== '') {
+                    $allKeys[] = $key;
+                }
+            }
+        }
+        if (\App\Support\EquipmentCategoryTypes::tableReady()) {
+            foreach (\App\Support\EquipmentCategoryTypes::options() as $type) {
+                $key = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $type->type_name) ?? ''));
+                if ($key !== '') {
+                    $allKeys[] = $key;
+                }
+            }
+        }
+        $allKeys = array_values(array_unique($allKeys));
+
+        foreach ($allKeys as $key) {
+            $categoryId = $this->risHintCategoryId($key);
+            if ($categoryId === null) {
+                continue;
+            }
+            $itemCategory[$key] = $categoryId;
+            $categoryItems[$categoryId][] = $key;
+        }
+
+        $categoryEquipmentBrands = [];
+        $categoryEquipmentSuppliers = [];
+        $supplierCategoryUses = [];
+        foreach ($itemCategory as $key => $categoryId) {
+            // Trust inventory only for classification-wide filtering so a bad
+            // RIS pair (Door Knob + Acer) cannot poison the whole category.
+            foreach (array_keys($equipmentBacked[$key]['brands'] ?? []) as $brandId) {
+                $categoryEquipmentBrands[$categoryId][$brandId] = true;
+            }
+            foreach (array_keys($equipmentBacked[$key]['suppliers'] ?? []) as $supplierId) {
+                $categoryEquipmentSuppliers[$categoryId][$supplierId] = true;
+                $supplierCategoryUses[$supplierId][$categoryId] = ($supplierCategoryUses[$supplierId][$categoryId] ?? 0) + 20;
+            }
+            foreach ($risSupplierScores[$key] ?? [] as $supplierId => $uses) {
+                $supplierId = (string) $supplierId;
+                $supplierCategoryUses[$supplierId][$categoryId] = ($supplierCategoryUses[$supplierId][$categoryId] ?? 0) + (int) $uses;
+            }
+        }
+
+        $supplierPrimaryCategory = [];
+        foreach ($supplierCategoryUses as $supplierId => $byCategory) {
+            arsort($byCategory);
+            $supplierPrimaryCategory[$supplierId] = (int) array_key_first($byCategory);
+        }
+
         $hints = [];
-        foreach ($scores as $key => $data) {
-            $brands = $data['brands'] ?? [];
+        foreach ($allKeys as $key) {
+            $data = $exact[$key] ?? [];
+            $categoryId = $itemCategory[$key] ?? null;
+            $trustedBrandIds = $categoryId !== null
+                ? ($categoryEquipmentBrands[$categoryId] ?? [])
+                : ($equipmentBacked[$key]['brands'] ?? []);
+            $trustedSupplierIds = $categoryId !== null
+                ? ($categoryEquipmentSuppliers[$categoryId] ?? [])
+                : ($equipmentBacked[$key]['suppliers'] ?? []);
+
+            $brands = [];
+            $hasExactEquipmentBrand = ($equipmentBacked[$key]['brands'] ?? []) !== [];
+            $hasTrustedCategoryBrands = $trustedBrandIds !== [];
+
+            // Peer brands from the same classification (Desktop → Monitor ASUS, etc.).
+            if ($categoryId !== null) {
+                foreach ($categoryItems[$categoryId] ?? [] as $peerKey) {
+                    if ($peerKey === $key) {
+                        continue;
+                    }
+                    foreach (array_keys($equipmentBacked[$peerKey]['brands'] ?? []) as $brandId) {
+                        $brands[$brandId] = ($brands[$brandId] ?? 0) + 40;
+                    }
+                    // Strong peer RIS history (Monitor × ASUS) expands suggestions
+                    // for siblings like Desktop Computer without trusting polluted
+                    // one-off pairs from other items.
+                    foreach ($risBrandScores[$peerKey] ?? [] as $brandId => $uses) {
+                        if ((int) $uses >= 2) {
+                            $brands[(string) $brandId] = ($brands[(string) $brandId] ?? 0) + max(8, (int) $uses);
+                        }
+                    }
+                }
+            }
+
+            if ($hasExactEquipmentBrand || $hasTrustedCategoryBrands || $brands !== []) {
+                foreach (($data['brands'] ?? []) as $brandId => $weight) {
+                    $brandId = (string) $brandId;
+                    $isEquipment = isset($equipmentBacked[$key]['brands'][$brandId]);
+                    // Keep equipment-backed or category-trusted brands only.
+                    if (! $isEquipment && ! isset($trustedBrandIds[$brandId]) && ! isset($brands[$brandId])) {
+                        continue;
+                    }
+                    $brands[$brandId] = ($brands[$brandId] ?? 0) + (int) $weight + ($isEquipment ? 1000 : 0);
+                }
+            }
+
+            // Keep this item's own strong RIS brand history (e.g. Monitor × ASUS),
+            // but ignore weak one-off mismatches (Door Knob × Acer at low count).
+            foreach ($risBrandScores[$key] ?? [] as $brandId => $uses) {
+                $uses = (int) $uses;
+                if ($uses >= 3 || ($uses >= 2 && isset($trustedBrandIds[(string) $brandId]))) {
+                    $brands[(string) $brandId] = ($brands[(string) $brandId] ?? 0) + $uses;
+                }
+            }
+
+            $suppliers = [];
+
+            // 1) This item's own inventory + RIS suppliers always win.
+            foreach (array_keys($equipmentBacked[$key]['suppliers'] ?? []) as $supplierId) {
+                $suppliers[$supplierId] = ($suppliers[$supplierId] ?? 0) + 1000;
+            }
+            foreach ($risSupplierScores[$key] ?? [] as $supplierId => $uses) {
+                $suppliers[(string) $supplierId] = ($suppliers[(string) $supplierId] ?? 0) + ((int) $uses * 50);
+            }
+
+            // 2) Same-classification peers (Keyboard/Monitor → Ormocnet for Desktop).
+            if ($categoryId !== null) {
+                foreach ($categoryItems[$categoryId] ?? [] as $peerKey) {
+                    if ($peerKey === $key) {
+                        continue;
+                    }
+                    foreach (array_keys($equipmentBacked[$peerKey]['suppliers'] ?? []) as $supplierId) {
+                        $supplierId = (string) $supplierId;
+                        if (isset($suppliers[$supplierId])) {
+                            $suppliers[$supplierId] += 40;
+                            continue;
+                        }
+                        if ($this->risSupplierFitsCategory($supplierId, $categoryId, $supplierCategoryUses, $supplierPrimaryCategory)
+                            && ! $this->risSupplierNameConflictsCategory($supplierId, $categoryId)) {
+                            $suppliers[$supplierId] = ($suppliers[$supplierId] ?? 0) + 40;
+                        }
+                    }
+                    foreach ($risSupplierScores[$peerKey] ?? [] as $supplierId => $uses) {
+                        $supplierId = (string) $supplierId;
+                        if ((int) $uses < 2) {
+                            continue;
+                        }
+                        if (isset($suppliers[$supplierId])) {
+                            $suppliers[$supplierId] += max(10, (int) $uses);
+                            continue;
+                        }
+                        if ($this->risSupplierFitsCategory($supplierId, $categoryId, $supplierCategoryUses, $supplierPrimaryCategory)
+                            && ! $this->risSupplierNameConflictsCategory($supplierId, $categoryId)) {
+                            $suppliers[$supplierId] = ($suppliers[$supplierId] ?? 0) + max(10, (int) $uses);
+                        }
+                    }
+                }
+
+                // 3) Active computer/electronics shops for Computer Equipment even
+                // before they appear on this exact item (Ormocnet, EasyPC, …).
+                foreach ($this->risCategoryShopSupplierIds($categoryId, $activeSupplierIds) as $supplierId => $boost) {
+                    $suppliers[$supplierId] = ($suppliers[$supplierId] ?? 0) + $boost;
+                }
+            }
+
             $uoms = $data['uoms'] ?? [];
-            $suppliers = $data['suppliers'] ?? [];
             arsort($brands);
             arsort($uoms);
             arsort($suppliers);
+
+            // Auto-pick only when exactly one suggestion exists — otherwise
+            // leave blank so the purchaser chooses from the filtered list.
+            $defaultBrand = count($brands) === 1 ? (string) array_key_first($brands) : '';
+            $defaultSupplier = count($suppliers) === 1 ? (string) array_key_first($suppliers) : '';
+
             $hints[$key] = [
                 'brand_ids' => array_map('strval', array_keys($brands)),
                 'uom_ids' => array_map('strval', array_keys($uoms)),
                 'supplier_ids' => array_map('strval', array_keys($suppliers)),
-                'brand_id' => (string) (array_key_first($brands) ?? ''),
+                'brand_id' => $defaultBrand,
                 'uom_id' => (string) (array_key_first($uoms) ?? ''),
-                'supplier_id' => (string) (array_key_first($suppliers) ?? ''),
+                'supplier_id' => $defaultSupplier,
             ];
         }
 
         return $hints;
+    }
+
+    /**
+     * True when a supplier belongs with this classification (or has no
+     * conflicting primary category — e.g. keep Ormocnet on computers, drop
+     * furniture-primary shops from computer suggestions).
+     *
+     * @param  array<string, array<int, int>>  $supplierCategoryUses
+     * @param  array<string, int>  $supplierPrimaryCategory
+     */
+    private function risSupplierFitsCategory(
+        string $supplierId,
+        int $categoryId,
+        array $supplierCategoryUses,
+        array $supplierPrimaryCategory
+    ): bool {
+        if ($supplierId === '') {
+            return false;
+        }
+
+        $usesHere = (int) ($supplierCategoryUses[$supplierId][$categoryId] ?? 0);
+        if ($usesHere > 0) {
+            return true;
+        }
+
+        $primary = $supplierPrimaryCategory[$supplierId] ?? null;
+        if ($primary === null) {
+            return true;
+        }
+
+        return $primary === $categoryId;
+    }
+
+    /**
+     * Active suppliers whose names look like shops for this classification
+     * (computer/electronics shops for Computer Equipment, hardware for furniture).
+     *
+     * @param  array<string, true>  $activeSupplierIds
+     * @return array<string, int> supplier_id => boost
+     */
+    private function risCategoryShopSupplierIds(int $categoryId, array $activeSupplierIds): array
+    {
+        $needles = $this->risCategoryShopNeedles($categoryId);
+        if ($needles === [] || ! Schema::hasTable('suppliers_table')) {
+            return [];
+        }
+
+        $boosts = [];
+        foreach ($this->supplierOptionsForRis(true) as $supplier) {
+            $id = (string) ($supplier->supplier_id ?? '');
+            if ($id === '' || ! isset($activeSupplierIds[$id])) {
+                continue;
+            }
+            if ($this->risSupplierNameConflictsCategory($id, $categoryId)) {
+                continue;
+            }
+            $label = $this->risSupplierHintLabel($id, $supplier);
+            foreach ($needles as $needle) {
+                if ($needle !== '' && str_contains($label, $needle)) {
+                    $boosts[$id] = 35;
+                    break;
+                }
+            }
+        }
+
+        return $boosts;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function risCategoryShopNeedles(int $categoryId): array
+    {
+        static $categoryKeywords = null;
+        if ($categoryKeywords === null) {
+            $categoryKeywords = [];
+            foreach (\App\Support\EquipmentCategoryTypes::options() as $type) {
+                $cid = (int) $type->equipment_category_id;
+                $categoryName = mb_strtolower((string) $type->equipment_category_name);
+                if (str_contains($categoryName, 'computer')) {
+                    $categoryKeywords[$cid] = ['computer', 'pc', 'tech', 'laptop', 'gadget', 'electronics', 'octagon', 'greenware', 'ormocnet', 'easypc'];
+                } elseif (str_contains($categoryName, 'furniture')) {
+                    $categoryKeywords[$cid] = ['furniture', 'depot', 'foam', 'home', 'wilcon', 'hardware'];
+                } elseif (str_contains($categoryName, 'audio') || str_contains($categoryName, 'visual')) {
+                    $categoryKeywords[$cid] = ['electronics', 'appliance', 'av', 'tech'];
+                }
+            }
+        }
+
+        return $categoryKeywords[$categoryId] ?? [];
+    }
+
+    /**
+     * Furniture-named shops should not headline Computer Equipment suggestions
+     * (and the reverse), unless they already appear on this exact item.
+     */
+    private function risSupplierNameConflictsCategory(string $supplierId, int $categoryId): bool
+    {
+        $label = $this->risSupplierHintLabel($supplierId);
+        if ($label === '') {
+            return false;
+        }
+
+        $categoryName = '';
+        foreach (\App\Support\EquipmentCategoryTypes::options() as $type) {
+            if ((int) $type->equipment_category_id === $categoryId) {
+                $categoryName = mb_strtolower((string) $type->equipment_category_name);
+                break;
+            }
+        }
+
+        if (str_contains($categoryName, 'computer')) {
+            return str_contains($label, 'furniture')
+                || str_contains($label, 'foam')
+                || (str_contains($label, 'wilcon') && ! str_contains($label, 'computer'));
+        }
+
+        if (str_contains($categoryName, 'furniture')) {
+            return str_contains($label, 'computer')
+                || str_contains($label, 'ormocnet')
+                || str_contains($label, 'easypc')
+                || str_contains($label, 'octagon')
+                || str_contains($label, 'greenware');
+        }
+
+        return false;
+    }
+
+    private function risSupplierHintLabel(string $supplierId, $supplierRow = null): string
+    {
+        static $labels = null;
+        if ($labels === null) {
+            $labels = [];
+            foreach ($this->supplierOptionsForRis(true) as $row) {
+                $id = (string) ($row->supplier_id ?? '');
+                if ($id === '') {
+                    continue;
+                }
+                $label = mb_strtolower(trim((string) ($row->base_name ?? $row->display_name ?? '')));
+                $labels[$id] = trim(str_ireplace('(blacklisted)', '', $label));
+            }
+        }
+
+        if ($supplierRow !== null) {
+            $label = mb_strtolower(trim((string) ($supplierRow->base_name ?? $supplierRow->display_name ?? '')));
+            $label = trim(str_ireplace('(blacklisted)', '', $label));
+            if ($label !== '') {
+                $labels[$supplierId] = $label;
+
+                return $label;
+            }
+        }
+
+        return $labels[$supplierId] ?? '';
+    }
+
+    /**
+     * Classification id for RIS hint peers (Computer Equipment, Furniture, …).
+     */
+    private function risHintCategoryId(string $itemName): ?int
+    {
+        $name = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $itemName) ?? ''));
+        if ($name === '') {
+            return null;
+        }
+
+        $detected = \App\Support\EquipmentCategoryTypes::detectType($name);
+        if ($detected) {
+            return (int) $detected->equipment_category_id;
+        }
+
+        if (! \App\Support\EquipmentCategoryTypes::tableReady()) {
+            return null;
+        }
+
+        static $needleMap = null;
+        if ($needleMap === null) {
+            $needleMap = [];
+            $computerCategoryId = null;
+            $furnitureCategoryId = null;
+            foreach (\App\Support\EquipmentCategoryTypes::options() as $type) {
+                $categoryId = (int) $type->equipment_category_id;
+                $categoryName = mb_strtolower((string) $type->equipment_category_name);
+                if (str_contains($categoryName, 'computer')) {
+                    $computerCategoryId = $categoryId;
+                }
+                if (str_contains($categoryName, 'furniture')) {
+                    $furnitureCategoryId = $categoryId;
+                }
+                foreach (\App\Support\EquipmentCategoryTypes::needlesFor((string) $type->type_name, $type->type_aliases ?? null) as $needle) {
+                    if ($needle !== '') {
+                        $needleMap[$needle] = $categoryId;
+                    }
+                }
+            }
+            foreach (['desktop', 'desktop computer', 'laptop', 'notebook', 'system unit', 'cpu', 'pc'] as $alias) {
+                if ($computerCategoryId) {
+                    $needleMap[$alias] = $computerCategoryId;
+                }
+            }
+            foreach (['door knob', 'doorknob', 'knob', 'curtain', 'chair', 'table'] as $alias) {
+                if ($furnitureCategoryId) {
+                    $needleMap[$alias] = $furnitureCategoryId;
+                }
+            }
+            uksort($needleMap, fn ($a, $b) => mb_strlen((string) $b) <=> mb_strlen((string) $a));
+        }
+
+        foreach ($needleMap as $needle => $categoryId) {
+            if ($needle !== '' && str_contains($name, (string) $needle)) {
+                return (int) $categoryId;
+            }
+        }
+
+        return null;
     }
 
     private function uomTableExists(): bool
@@ -2760,39 +3213,58 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         return $query->select($select)->get();
     }
 
-    private function risNormalizedItemName($name): string
-    {
-        return mb_strtolower(trim((string) $name));
-    }
-
     private function risItemSplitOverflowMessage($items): ?string
     {
-        $groups = [];
-
-        foreach ($items as $item) {
-            $key = $this->risNormalizedItemName($item['name_description'] ?? '');
-            if ($key === '') {
+        // Each line is independent (same item name + different supplier = separate).
+        // Do not pool issued qty across rows that share a name.
+        foreach ($items as $index => $item) {
+            $label = trim((string) ($item['name_description'] ?? ''));
+            if ($label === '') {
                 continue;
             }
-            $groups[$key][] = $item;
-        }
 
-        foreach ($groups as $rows) {
-            $asked = (int) ($rows[0]['quantity_requested'] ?? 0);
+            $asked = (int) ($item['quantity_requested'] ?? 0);
             if ($asked < 1) {
                 continue;
             }
 
-            $allocated = 0;
-            foreach ($rows as $row) {
-                $allocated += (int) ($row['quantity_issued'] ?? 0);
+            $issued = (int) ($item['quantity_issued'] ?? 0);
+            if ($issued > $asked) {
+                $rowNumber = $index + 1;
+
+                return "Item {$rowNumber} \"{$label}\" is over the requested amount ({$issued} issued of {$asked} requested).";
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Same item may repeat when brand or supplier differs.
+     * Block only when item + brand + supplier are all the same on another row.
+     */
+    private function risDuplicateSupplierMessage($items): ?string
+    {
+        $seen = [];
+
+        foreach ($items as $index => $item) {
+            $row = $this->normalizeRisItemForValidation($item);
+            $label = $row['name_description'];
+            $brandId = trim((string) ($row['brand_id'] ?? ''));
+            $supplierId = trim((string) ($row['supplier_id'] ?? ''));
+            if ($label === '' || $brandId === '' || $supplierId === '') {
+                continue;
             }
 
-            if ($allocated > $asked) {
-                $label = trim((string) ($rows[0]['name_description'] ?? 'Item'));
+            $key = mb_strtolower($label).'|'.$brandId.'|'.$supplierId;
+            if (isset($seen[$key])) {
+                $rowNumber = $index + 1;
+                $otherRow = $seen[$key];
 
-                return "\"{$label}\" is over the requested amount ({$allocated} issued of {$asked} requested).";
+                return "Item {$rowNumber} \"{$label}\" with this brand and supplier already exists on item {$otherRow}. Use a different brand or supplier, or combine quantities into one row.";
             }
+
+            $seen[$key] = $index + 1;
         }
 
         return null;
@@ -3333,8 +3805,6 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
 
     private function validateRisItemsForSubmit($items): ?string
     {
-        $seenNames = [];
-
         foreach ($items as $index => $item) {
             $row = $this->normalizeRisItemForValidation($item);
             $rowNumber = $index + 1;
@@ -3344,15 +3814,12 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 return "Item {$rowNumber} needs an item description.";
             }
 
-            $key = $this->risNormalizedItemName($name);
-            $isFirstOfGroup = !isset($seenNames[$key]);
-            $seenNames[$key] = true;
-
-            if ($isFirstOfGroup && blank($row['quantity_requested'])) {
+            // Every supplier line is its own item — require qty/cost on each row.
+            if (blank($row['quantity_requested'])) {
                 return "Item {$rowNumber} needs a Quantity Requested.";
             }
 
-            if ($isFirstOfGroup && (int) $row['quantity_requested'] < 1) {
+            if ((int) $row['quantity_requested'] < 1) {
                 return "Item {$rowNumber} Quantity Requested must be at least 1.";
             }
 
@@ -3373,7 +3840,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 return "Item {$rowNumber} needs an Issued quantity of at least 1.";
             }
 
-            if ($isFirstOfGroup && ($row['unit_cost'] === null || $row['unit_cost'] === '' || (float) $row['unit_cost'] <= 0)) {
+            if ($row['unit_cost'] === null || $row['unit_cost'] === '' || (float) $row['unit_cost'] <= 0) {
                 return "Item {$rowNumber} needs a unit cost greater than 0.";
             }
         }

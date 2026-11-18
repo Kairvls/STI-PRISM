@@ -1281,7 +1281,8 @@ class RisWorkflow
 
     /**
      * Ensure the Purchaser already filled Issued on every named item, and that
-     * total Issued per item name does not exceed Requested.
+     * each line's Issued does not exceed that line's Requested (same item name
+     * from different suppliers are separate lines).
      */
     public static function assertPurchaserIssuedComplete(int $risId): ?string
     {
@@ -1290,7 +1291,6 @@ class RisWorkflow
             ->orderBy('ris_item_id')
             ->get();
 
-        $groups = [];
         $named = 0;
 
         foreach ($items as $item) {
@@ -1308,33 +1308,18 @@ class RisWorkflow
                 return '"'.$name.'" Issued quantity can be up to 7 digits only.';
             }
 
-            $key = mb_strtolower($name);
-            if (! isset($groups[$key])) {
-                $groups[$key] = [
-                    'label' => $name,
-                    'asked' => 0,
-                    'allocated' => 0,
-                ];
-            }
             $requested = (int) ($item->ris_quantity_requested ?? 0);
-            if ($groups[$key]['asked'] < 1 && $requested > 0) {
-                $groups[$key]['asked'] = $requested;
+            if ($requested < 1) {
+                return '"'.$name.'" needs a requested quantity before Issued can be accepted.';
             }
-            $groups[$key]['allocated'] += $issued;
+            if ($issued > $requested) {
+                return '"'.$name.'" is over the requested amount ('
+                    .$issued.' issued of '.$requested.' requested).';
+            }
         }
 
         if ($named < 1) {
             return 'This RIS has no items to issue.';
-        }
-
-        foreach ($groups as $group) {
-            if ($group['asked'] < 1) {
-                return '"'.$group['label'].'" needs a requested quantity before Issued can be accepted.';
-            }
-            if ($group['allocated'] > $group['asked']) {
-                return '"'.$group['label'].'" is over the requested amount ('
-                    .$group['allocated'].' issued of '.$group['asked'].' requested).';
-            }
         }
 
         return null;
@@ -1352,7 +1337,6 @@ class RisWorkflow
                 ->orderBy('ris_item_id')
                 ->get();
 
-            $groups = [];
             $updates = [];
 
             foreach ($items as $item) {
@@ -1372,19 +1356,14 @@ class RisWorkflow
                     return '"'.$name.'" Issued quantity can be up to 7 digits only.';
                 }
 
-                $key = mb_strtolower($name);
-                if (! isset($groups[$key])) {
-                    $groups[$key] = [
-                        'label' => $name,
-                        'asked' => 0,
-                        'allocated' => 0,
-                    ];
-                }
                 $requested = (int) ($item->ris_quantity_requested ?? 0);
-                if ($groups[$key]['asked'] < 1 && $requested > 0) {
-                    $groups[$key]['asked'] = $requested;
+                if ($requested < 1) {
+                    return '"'.$name.'" needs a requested quantity before Issued can be saved.';
                 }
-                $groups[$key]['allocated'] += $issued;
+                if ($issued > $requested) {
+                    return '"'.$name.'" is over the requested amount ('
+                        .$issued.' issued of '.$requested.' requested).';
+                }
 
                 $updates[$itemId] = [
                     'ris_quantity_issued' => $issued,
@@ -1394,16 +1373,6 @@ class RisWorkflow
 
             if ($updates === []) {
                 return 'This RIS has no items to issue.';
-            }
-
-            foreach ($groups as $group) {
-                if ($group['asked'] < 1) {
-                    return '"'.$group['label'].'" needs a requested quantity before Issued can be saved.';
-                }
-                if ($group['allocated'] > $group['asked']) {
-                    return '"'.$group['label'].'" is over the requested amount ('
-                        .$group['allocated'].' issued of '.$group['asked'].' requested).';
-                }
             }
 
             foreach ($updates as $itemId => $payload) {

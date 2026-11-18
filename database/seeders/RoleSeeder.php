@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class RoleSeeder extends Seeder
 {
     public const ROLES = [
-        1 => 'Administrator',
+        1 => 'System Administrator',
         2 => 'Maintenance Personnel',
         3 => 'Purchaser',
         4 => 'President',

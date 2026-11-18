@@ -8,11 +8,7 @@
     @php
         $paper = $paper ?? null;
         // Match Purchaser / Accounting browser print orientation.
-        $pageSize = match ($paper) {
-            'rfc', 'liq' => 'A4 landscape',
-            'atp', 'rr', 'dv' => 'A4 portrait',
-            default => 'A4 portrait',
-        };
+        $pageSize = 'A4 portrait';
         $sheetSelector = match ($paper) {
             'atp' => '.atp-print-sheet',
             'rfc' => '.rfc-print-sheet',
@@ -37,16 +33,10 @@
         /* Same sheet sizing cues as purchaser-print-sheet-helper / accounting print. */
         .atp-print-sheet,
         .rr-print-sheet,
-        .dv-print-sheet {
-            width: 100%;
-            max-width: 100%;
-            box-shadow: none !important;
-            background: #fff !important;
-        }
-
+        .dv-print-sheet,
         .rfc-print-sheet,
         .liq-print-sheet {
-            width: 297mm;
+            width: 210mm;
             max-width: 100%;
             min-height: 0;
             height: auto;

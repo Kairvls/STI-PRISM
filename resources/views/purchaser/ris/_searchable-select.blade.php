@@ -19,6 +19,12 @@
         'supplier' => 'Show all suppliers',
         default => '',
     };
+    $limitedHint = match ($limitKind) {
+        'brand' => 'Suggested for this item',
+        'supplier' => 'Suggested for this item',
+        'uom' => 'Suggested for this item',
+        default => '',
+    };
     $placeholder = $placeholder ?? 'Select';
     $namePrefix = $namePrefix ?? 'ris_items';
     $textAlign = $textAlign ?? 'center';
@@ -107,6 +113,13 @@
                 No matches
             </li>
             @if ($limitKind !== '')
+                <li
+                    x-show="risKnownLimited(item, @js($limitKind))"
+                    class="border-t border-gray-100 px-2.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-400"
+                    x-cloak
+                >
+                    {{ $limitedHint }}
+                </li>
                 <li x-show="risKnownLimited(item, @js($limitKind))" class="border-t border-gray-100">
                     <button
                         type="button"

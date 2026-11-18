@@ -363,7 +363,7 @@ class RoleAccess
         return [
             self::ADMIN => [
                 'key' => 'admin',
-                'label' => 'Administrator',
+                'label' => 'System Administrator',
                 'path' => '/admin/dashboard',
                 'match' => 'admin',
             ],

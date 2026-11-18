@@ -4,7 +4,10 @@ namespace App\Http\Requests;
 
 use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class SupplierRequest extends FormRequest
 {
@@ -85,6 +88,29 @@ class SupplierRequest extends FormRequest
         ]);
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $isPhysical = $this->input('supplier_store_type') === 'Physical Store';
+            $field = $isPhysical ? 'company_name' : 'shop_name';
+            $name = trim((string) $this->input($field, ''));
+            if ($name === '') {
+                return;
+            }
+
+            if ($this->displayNameTaken($name, $this->currentSupplierId())) {
+                $validator->errors()->add(
+                    $field,
+                    'A supplier named “'.$name.'” already exists. Use a different name, or edit the existing supplier.'
+                );
+            }
+        });
+    }
+
     public function attributes(): array
     {
         return [
@@ -99,5 +125,48 @@ class SupplierRequest extends FormRequest
             'supplier_check_name' => 'check name',
             'supplier_logo' => 'brand logo',
         ];
+    }
+
+    private function currentSupplierId(): ?int
+    {
+        $routeId = $this->route('supplier');
+        if ($routeId === null || $routeId === '') {
+            return null;
+        }
+
+        return (int) $routeId;
+    }
+
+    /**
+     * True when another supplier already uses this display name
+     * (Physical company_name or Online shop_name), case-insensitive.
+     */
+    private function displayNameTaken(string $name, ?int $ignoreSupplierId = null): bool
+    {
+        $key = mb_strtolower($name);
+
+        if (Schema::hasTable('physical_suppliers_table')) {
+            $physical = DB::table('physical_suppliers_table')
+                ->whereRaw('LOWER(company_name) = ?', [$key]);
+            if ($ignoreSupplierId) {
+                $physical->where('supplier_id', '!=', $ignoreSupplierId);
+            }
+            if ($physical->exists()) {
+                return true;
+            }
+        }
+
+        if (Schema::hasTable('online_suppliers_table')) {
+            $online = DB::table('online_suppliers_table')
+                ->whereRaw('LOWER(shop_name) = ?', [$key]);
+            if ($ignoreSupplierId) {
+                $online->where('supplier_id', '!=', $ignoreSupplierId);
+            }
+            if ($online->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

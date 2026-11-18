@@ -216,18 +216,11 @@
                     <tbody>
                         @php
                             $rowCount = max(8, $items->count());
-                            $issuedAskedByName = [];
                         @endphp
                         @for($i = 0; $i < $rowCount; $i++)
                             @php
                                 $item = $items->get($i);
                                 $itemName = trim((string) ($item->ris_item_name_description ?? ''));
-                                $itemKey = mb_strtolower($itemName);
-                                $rowAsked = (int) ($item->ris_quantity_requested ?? 0);
-                                if ($itemKey !== '' && $rowAsked > 0 && !isset($issuedAskedByName[$itemKey])) {
-                                    $issuedAskedByName[$itemKey] = $rowAsked;
-                                }
-                                $groupAsked = $issuedAskedByName[$itemKey] ?? $rowAsked;
                                 $issuedQty = (int) ($item->ris_quantity_issued ?? 0);
                                 $amountBasis = $issuedQty > 0 ? $issuedQty : (float) ($item->ris_quantity_requested ?? 0);
                                 $lineAmount = isset($item->ris_unit_cost)
@@ -1173,7 +1166,6 @@
         var inputs = scope.querySelectorAll('[data-issued-input]');
         // Issued is filled by the Purchaser; skip client check when there are no inputs.
         if (!inputs.length) return '';
-        var groups = {};
         var message = '';
         for (var i = 0; i < inputs.length; i++) {
             var input = inputs[i];
@@ -1194,27 +1186,17 @@
                 input.classList.add('text-red-700');
                 if (!message) message = '"' + label + '" Issued quantity can be up to 7 digits only.';
             }
-            var key = input.getAttribute('data-item-key') || label;
-            var asked = Number(input.getAttribute('data-group-asked') || 0);
-            if (!groups[key]) groups[key] = { asked: asked, allocated: 0, label: label, inputs: [] };
-            if (asked > groups[key].asked) groups[key].asked = asked;
-            groups[key].allocated += Number(value);
-            groups[key].inputs.push(input);
-            if (amountCell) {
-                amountCell.textContent = formatIssuedMoney(Number(value) * Number(input.getAttribute('data-unit-cost') || 0));
-            }
-        }
-        var keys = Object.keys(groups);
-        for (var k = 0; k < keys.length; k++) {
-            var group = groups[keys[k]];
-            if (group.asked > 0 && group.allocated > group.asked) {
-                group.inputs.forEach(function (overInput) {
-                    var overRow = overInput.closest('tr');
-                    if (overRow) overRow.classList.add('ris-issued-over');
-                });
+            // Each line is independent (same name / different supplier = separate).
+            var asked = Number(input.getAttribute('data-row-asked') || input.getAttribute('data-group-asked') || 0);
+            var issued = Number(value);
+            if (asked > 0 && issued > asked) {
+                if (row) row.classList.add('ris-issued-over');
                 if (!message) {
-                    message = '"' + group.label + '" is over the requested amount (' + group.allocated + ' issued of ' + group.asked + ' requested).';
+                    message = '"' + label + '" is over the requested amount (' + issued + ' issued of ' + asked + ' requested).';
                 }
+            }
+            if (amountCell) {
+                amountCell.textContent = formatIssuedMoney(issued * Number(input.getAttribute('data-unit-cost') || 0));
             }
         }
         return message;

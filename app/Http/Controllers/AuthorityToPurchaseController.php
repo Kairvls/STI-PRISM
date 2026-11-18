@@ -422,7 +422,12 @@ class AuthorityToPurchaseController extends Controller
             ->first();
 
         if (!$ris || !$this->risIsEligibleForAtp($ris)) {
-            return back()->withInput()->with('error', 'Only approved RIS records sent by the Purchaser may be used to create ATP.');
+            $error = 'Only approved RIS records sent by the Purchaser may be used to create ATP.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $error], 422);
+            }
+
+            return back()->withInput()->with('error', $error);
         }
 
         $check = AtpRisSuppliers::checkSupplierForRis(
@@ -430,6 +435,10 @@ class AuthorityToPurchaseController extends Controller
             isset($validated['authority_purchase_supplier_id']) ? (int) $validated['authority_purchase_supplier_id'] : null
         );
         if ($check['error']) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $check['error']], 422);
+            }
+
             return back()->withInput()->with('error', $check['error']);
         }
         $supplierSplit = $check['split'];
@@ -445,7 +454,7 @@ class AuthorityToPurchaseController extends Controller
             $this->assertSubmitReadyItems($items);
         }
 
-        return DB::transaction(function () use ($validated, $items, $isDraft, $receivedSig, $risId, $supplierSplit) {
+        return DB::transaction(function () use ($request, $validated, $items, $isDraft, $receivedSig, $risId, $supplierSplit) {
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -497,6 +506,28 @@ class AuthorityToPurchaseController extends Controller
             $message = $isDraft
                 ? ProcurementDraftLabel::flashCreated('Authority to Purchase')
                 : 'Authority to Purchase submitted successfully.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                $redirect = null;
+                if (
+                    $isDraft
+                    && ProcurementPortal::PURCHASER_OWNS_ATP
+                    && ! ProcurementPortal::isSupplyOfficerContext()
+                ) {
+                    $redirect = ProcurementPortal::route('atp.index', [
+                        'view_atp' => $authorityPurchaseId,
+                        'choose_path' => 1,
+                    ]);
+                    $message .= ' Choose a payment path, prepare the funding request, then submit both for School Administrator review.';
+                }
+
+                return response()->json([
+                    'ok' => true,
+                    'id' => (int) $authorityPurchaseId,
+                    'message' => $message,
+                    'redirect' => $redirect,
+                ]);
+            }
 
             if (
                 $isDraft

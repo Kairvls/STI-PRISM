@@ -56,8 +56,11 @@
     }
 
     #purchaser-print-mount .rfc-print-sheet,
-    #purchaser-print-mount .liq-print-sheet {
-        width: 297mm !important;
+    #purchaser-print-mount .liq-print-sheet,
+    #purchaser-print-mount .ris-print-sheet,
+    #purchaser-print-mount .rr-print-sheet,
+    #purchaser-print-mount .atp-print-sheet {
+        width: 210mm !important;
         min-height: 0 !important;
         height: auto !important;
     }

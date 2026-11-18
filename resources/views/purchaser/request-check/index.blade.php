@@ -1184,7 +1184,7 @@
 <style>
     [x-cloak] { display: none !important; }
     @media print {
-        @page { size: A4 landscape; margin: 8mm; }
+        @page { size: A4 portrait; margin: 8mm; }
         .rfc-print-active { background: #fff !important; }
     }
 </style>

@@ -84,10 +84,12 @@
             '.prism-money-wrap.prism-money-wrap--compact .prism-money-prefix{left:0.2rem;font-size:0.75rem;}',
             '.prism-money-input{padding-left:1.75rem !important;}',
             '.prism-money-wrap.prism-money-wrap--compact .prism-money-input{padding-left:1rem !important;}',
-            '.prism-money-wrap.prism-money-wrap--right .prism-money-prefix{left:auto;right:0.75rem;}',
-            '.prism-money-wrap.prism-money-wrap--right .prism-money-input{padding-left:0.75rem !important;padding-right:1.75rem !important;}',
-            '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right .prism-money-prefix{right:0.2rem;}',
-            '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right .prism-money-input{padding-right:1rem !important;}',
+            // Right-aligned money still shows ₱ before the digits (₱ 5008.00), not after.
+            '.prism-money-wrap.prism-money-wrap--right{display:flex;align-items:center;justify-content:flex-end;gap:0.2rem;}',
+            '.prism-money-wrap.prism-money-wrap--right .prism-money-prefix{position:static;left:auto;right:auto;top:auto;transform:none;flex:0 0 auto;}',
+            '.prism-money-wrap.prism-money-wrap--right .prism-money-input{padding-left:0 !important;padding-right:0.15rem !important;flex:0 1 auto;width:7.25rem;max-width:calc(100% - 1.1rem);min-width:0;}',
+            '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right{gap:0.12rem;}',
+            '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right .prism-money-input{width:6.5rem;padding-right:0.1rem !important;}',
         ].join('');
         document.head.appendChild(style);
     }

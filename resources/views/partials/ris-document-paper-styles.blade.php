@@ -3,8 +3,8 @@
     <style>
         * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
         .ris-document {
-            width: 11in;
-            min-height: 8.5in;
+            width: 210mm;
+            min-height: 0;
             padding: 0.35in;
             background: white;
             position: relative;
@@ -105,28 +105,35 @@
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         @media print {
+            @page { size: A4 portrait; margin: 8mm; }
             .ris-document {
                 width: 100% !important;
                 max-width: none !important;
                 min-height: 0 !important;
                 height: auto !important;
-                padding: 0.2in !important;
+                padding: 6mm 8mm !important;
                 margin: 0 !important;
             }
-            .ris-document .school { font-size: 20px !important; }
-            .ris-document .title { font-size: 22px !important; }
-            .ris-document .number { font-size: 14px !important; }
-            .ris-document .line { min-width: 220px !important; }
+            .ris-document .school { font-size: 16px !important; }
+            .ris-document .title { font-size: 17px !important; }
+            .ris-document .number { font-size: 12px !important; }
+            .ris-document .line { min-width: 160px !important; }
             .ris-document .ris-table th,
             .ris-document .ris-table td {
-                height: 36px !important;
-                min-height: 36px !important;
-                padding: 8px 6px !important;
-                font-size: 13px !important;
+                height: auto !important;
+                min-height: 0 !important;
+                padding: 3px 4px !important;
+                font-size: 11px !important;
                 vertical-align: middle !important;
             }
-            .ris-document .signatures { gap: 24px !important; font-size: 14px !important; }
-            .ris-document .purpose { font-size: 15px !important; }
+            .ris-document .signatures {
+                margin-top: 10px !important;
+                gap: 12px !important;
+                font-size: 12px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            .ris-document .purpose { font-size: 12px !important; margin-top: 8px !important; }
         }
     </style>
     @endpush

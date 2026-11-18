@@ -91,6 +91,15 @@
         installmentIntervalError: '',
         risSplit: false,
         risChoiceTick: 0,
+        atpSelectedKeys: [],
+        atpCarouselIndex: 0,
+        atpDrafts: {},
+        atpBatchSaving: false,
+        atpPurchaserOwns: {{ $atpPurchaserOwns ? 'true' : 'false' }},
+        risPickerOpen: false,
+        risPickerQuery: '',
+        risPickerShowAll: false,
+        risPickerLimit: 10,
 
         init() {
             this.$watch('viewOpen', (open) => {
@@ -103,7 +112,19 @@
                 if (!open && window.purDialog) {
                     window.purDialog.clearDeepLink(['create', 'selected_ris', 'selected_supplier']);
                 }
+                if (open) {
+                    this.$nextTick(() => this.bootAtpSelectionFromSelect());
+                }
             });
+            try {
+                const flash = sessionStorage.getItem('atp_flash_success');
+                if (flash) {
+                    sessionStorage.removeItem('atp_flash_success');
+                    this.$nextTick(() => {
+                        if (window.purToast) window.purToast(flash, 'success');
+                    });
+                }
+            } catch (e) {}
             // One-shot deep links (?create=1, ?selected_ris=): open Create once, then strip so refresh stays on the list.
             this.clearOneShotAtpCreateQuery();
             const bootOpen = Number(this.installmentBoot?.openId || 0);
@@ -637,25 +658,372 @@
             const tick = this.risChoiceTick;
             const select = this.$refs.risSelect;
             if (!select || tick === undefined) return [];
-            const current = select.selectedOptions[0];
-            const risId = current ? (current.dataset.risId || '') : '';
+            const risId = this.currentRisId();
             if (!risId) return [];
+            const selected = this.atpSelectedKeys || [];
             return Array.from(select.options).filter(function (opt) {
                 return opt.dataset.risId === risId && opt.value;
             }).map(function (opt) {
                 return {
                     key: opt.dataset.key,
                     label: opt.dataset.chip || opt.textContent.trim(),
-                    active: opt.selected
+                    active: selected.indexOf(opt.dataset.key) !== -1
                 };
             });
         },
 
-        chooseRisOption(key) {
+        currentRisId() {
+            const select = this.$refs.risSelect;
+            if (!select) return '';
+            const fromKeys = (this.atpSelectedKeys || [])[0];
+            if (fromKeys) {
+                const opt = Array.from(select.options).find((o) => o.dataset.key === fromKeys);
+                if (opt && opt.dataset.risId) return opt.dataset.risId;
+            }
+            const current = select.selectedOptions[0];
+            return current ? (current.dataset.risId || '') : '';
+        },
+
+        currentAtpKey() {
+            const keys = this.atpSelectedKeys || [];
+            if (!keys.length) return '';
+            const idx = Math.max(0, Math.min(this.atpCarouselIndex || 0, keys.length - 1));
+            return keys[idx] || '';
+        },
+
+        currentAtpChipLabel() {
+            const key = this.currentAtpKey();
+            if (!key) return '';
+            const choice = this.risChoices().find((c) => c.key === key);
+            return choice ? choice.label : key;
+        },
+
+        bootAtpSelectionFromSelect() {
             const select = this.$refs.risSelect;
             if (!select) return;
-            select.value = key;
-            this.applyRisPrefill(key);
+            const option = select.selectedOptions[0];
+            const key = option && option.value ? (option.dataset.key || option.value) : '';
+            if (!key) {
+                this.atpSelectedKeys = [];
+                this.atpCarouselIndex = 0;
+                return;
+            }
+            if (!(this.atpSelectedKeys || []).length) {
+                this.atpSelectedKeys = [key];
+                this.atpCarouselIndex = 0;
+            }
+            this.risChoiceTick = (this.risChoiceTick || 0) + 1;
+            this.syncRisSplit();
+        },
+
+        onRisSelectChange(key) {
+            this.atpDrafts = {};
+            this.atpSelectedKeys = key ? [key] : [];
+            this.atpCarouselIndex = 0;
+            this.applyRisPrefill(key || '');
+        },
+
+        risPickerOptions() {
+            const select = this.$refs.risSelect;
+            if (!select) return [];
+            return Array.from(select.options).filter(function (opt) {
+                return !!opt.value;
+            }).map(function (opt) {
+                return {
+                    key: opt.dataset.key || opt.value,
+                    label: (opt.textContent || '').trim(),
+                    chip: opt.dataset.chip || '',
+                    risId: opt.dataset.risId || '',
+                    split: opt.dataset.split === '1',
+                };
+            });
+        },
+
+        filteredRisPickerOptions() {
+            const q = String(this.risPickerQuery || '').trim().toLowerCase();
+            const opts = this.risPickerOptions();
+            if (!q) return opts;
+            return opts.filter(function (opt) {
+                const hay = String(opt.label || '') + ' ' + String(opt.chip || '') + ' ' + String(opt.risId || '');
+                return hay.toLowerCase().indexOf(q) !== -1;
+            });
+        },
+
+        visibleRisPickerOptions() {
+            const opts = this.filteredRisPickerOptions();
+            if (this.risPickerShowAll) return opts;
+            const limit = this.risPickerLimit || 10;
+            return opts.slice(0, limit);
+        },
+
+        risPickerHiddenCount() {
+            const total = this.filteredRisPickerOptions().length;
+            const limit = this.risPickerLimit || 10;
+            if (this.risPickerShowAll || total <= limit) return 0;
+            return total - limit;
+        },
+
+        risPickerSelectedLabel() {
+            const select = this.$refs.risSelect;
+            const opt = select ? select.selectedOptions[0] : null;
+            if (!opt || !opt.value) return 'Select approved RIS';
+            return (opt.textContent || '').trim();
+        },
+
+        toggleRisPicker() {
+            this.risPickerOpen = !this.risPickerOpen;
+            if (this.risPickerOpen) {
+                this.risPickerQuery = '';
+                this.risPickerShowAll = false;
+                this.$nextTick(() => {
+                    const el = this.$refs.risPickerSearch;
+                    if (el) el.focus({ preventScroll: true });
+                });
+            }
+        },
+
+        closeRisPicker() {
+            this.risPickerOpen = false;
+            this.risPickerQuery = '';
+            this.risPickerShowAll = false;
+        },
+
+        pickRisOption(key) {
+            const select = this.$refs.risSelect;
+            if (!select) return;
+            select.value = key || '';
+            this.closeRisPicker();
+            this.onRisSelectChange(key || '');
+        },
+
+        toggleAtpChoice(key) {
+            if (!key) return;
+            const select = this.$refs.risSelect;
+            if (!select) return;
+            const keys = Array.isArray(this.atpSelectedKeys) ? [...this.atpSelectedKeys] : [];
+            const idx = keys.indexOf(key);
+            if (idx !== -1) {
+                if (keys.length === 1) return; // keep at least one ATP selected
+                this.snapshotAtpDraft(this.currentAtpKey());
+                keys.splice(idx, 1);
+                this.atpSelectedKeys = keys;
+                if (this.atpCarouselIndex >= keys.length) {
+                    this.atpCarouselIndex = keys.length - 1;
+                }
+                this.goAtpSlide(this.atpCarouselIndex, true);
+                return;
+            }
+            this.snapshotAtpDraft(this.currentAtpKey());
+            keys.push(key);
+            this.atpSelectedKeys = keys;
+            this.goAtpSlide(keys.length - 1, true);
+        },
+
+        chooseRisOption(key) {
+            this.toggleAtpChoice(key);
+        },
+
+        snapshotAtpDraft(key) {
+            const form = this.$refs.createForm;
+            if (!form || !key) return;
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            const items = [];
+            const rowsRoot = form.querySelector('[data-doc-rows]');
+            const rowCount = rowsRoot ? rowsRoot.querySelectorAll('tr[data-doc-row]').length : 8;
+            for (let i = 0; i < rowCount; i++) {
+                items.push({
+                    quantity: (form.querySelector('[name=\'items[' + i + '][quantity]\']') || {}).value || '',
+                    unit: (form.querySelector('[name=\'items[' + i + '][unit]\']') || {}).value || '',
+                    description: (form.querySelector('[name=\'items[' + i + '][description]\']') || {}).value || '',
+                    unit_price: (form.querySelector('[name=\'items[' + i + '][unit_price]\']') || {}).value || '',
+                    amount_display: (form.querySelector('[name=\'items[' + i + '][amount_display]\']') || {}).value || '',
+                });
+            }
+            const supplierSelect = form.querySelector('[data-atp-supplier]');
+            const locked = form.querySelector('input[data-locked-supplier]');
+            this.atpDrafts[key] = {
+                supplier_id: (locked && locked.value) || (supplierSelect && supplierSelect.value) || '',
+                date: (form.querySelector('[name=\'authority_purchase_date\']') || {}).value || '',
+                received_by: (form.querySelector('[name=\'authority_purchase_received_by_name\']') || {}).value || '',
+                signature: (form.querySelector('[name=\'authority_purchase_received_by_signature\']') || {}).value || '',
+                form_number: (form.querySelector('[name=\'authority_purchase_form_number\']') || {}).value || '',
+                po_no: (form.querySelector('[name=\'authority_purchase_reference_po_no\']') || {}).value || '',
+                items,
+            };
+        },
+
+        restoreAtpDraft(key) {
+            if (!key) return;
+            const draft = this.atpDrafts[key];
+            if (!draft) {
+                this.applyRisPrefill(key);
+                return;
+            }
+            const form = this.$refs.createForm;
+            if (!form) return;
+            const select = this.$refs.risSelect;
+            if (select) select.value = key;
+            const risIdInput = this.$refs.risIdInput;
+            const option = select ? select.selectedOptions[0] : null;
+            if (risIdInput) {
+                risIdInput.value = option && option.dataset.risId ? option.dataset.risId : '';
+            }
+            this.syncRisSplit();
+
+            const setVal = (name, value) => {
+                const el = form.querySelector('[name=\'' + name + '\']');
+                if (el) {
+                    el.value = value ?? '';
+                    el.dispatchEvent(new Event('input'));
+                    el.dispatchEvent(new Event('change'));
+                }
+            };
+            setVal('authority_purchase_date', draft.date);
+            setVal('authority_purchase_received_by_name', draft.received_by);
+            setVal('authority_purchase_received_by_signature', draft.signature);
+            setVal('authority_purchase_form_number', draft.form_number);
+            setVal('authority_purchase_reference_po_no', draft.po_no);
+
+            if (draft.supplier_id) {
+                const supplierSelect = form.querySelector('[data-atp-supplier]');
+                if (supplierSelect) {
+                    supplierSelect.disabled = false;
+                    supplierSelect.value = draft.supplier_id;
+                    supplierSelect.dispatchEvent(new Event('change'));
+                }
+            }
+
+            const prefillItems = Array.isArray(draft.items) ? draft.items : [];
+            const rowsRoot = form.querySelector('[data-doc-rows]');
+            const rowTotal = (rowsRoot && window.docRows)
+                ? window.docRows.fit(rowsRoot, prefillItems.length).length
+                : Math.max(8, prefillItems.length);
+            for (let i = 0; i < rowTotal; i++) {
+                const item = prefillItems[i] || {};
+                const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
+                const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
+                const desc = form.querySelector('[name=\'items[' + i + '][description]\']');
+                const price = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
+                const amount = form.querySelector('[name=\'items[' + i + '][amount_display]\']');
+                if (qty) qty.value = item.quantity ?? '';
+                if (unit) {
+                    unit.value = item.unit ?? '';
+                    unit.dispatchEvent(new Event('input'));
+                }
+                if (desc) desc.value = item.description ?? '';
+                if (price) price.value = item.unit_price ?? '';
+                if (amount) amount.value = item.amount_display ?? '';
+            }
+            const data = this.risPrefill[String(key)] || { supplier_id: draft.supplier_id, items: draft.items };
+            this.lockFetchedRis(data);
+            this.risChoiceTick = (this.risChoiceTick || 0) + 1;
+        },
+
+        goAtpSlide(index, skipSnapshot) {
+            const keys = this.atpSelectedKeys || [];
+            if (!keys.length) return;
+            const next = Math.max(0, Math.min(index, keys.length - 1));
+            if (!skipSnapshot) {
+                this.snapshotAtpDraft(this.currentAtpKey());
+            }
+            this.atpCarouselIndex = next;
+            const key = keys[next];
+            const select = this.$refs.risSelect;
+            if (select) select.value = key;
+            this.restoreAtpDraft(key);
+        },
+
+        atpCarouselPrev() {
+            if ((this.atpCarouselIndex || 0) <= 0) return;
+            this.goAtpSlide(this.atpCarouselIndex - 1);
+        },
+
+        atpCarouselNext() {
+            const max = (this.atpSelectedKeys || []).length - 1;
+            if ((this.atpCarouselIndex || 0) >= max) return;
+            this.goAtpSlide(this.atpCarouselIndex + 1);
+        },
+
+        async submitSelectedAtps(event) {
+            const keys = this.atpSelectedKeys || [];
+            const form = this.$refs.createForm;
+            if (!form) return;
+            if (keys.length <= 1) {
+                return; // allow native submit
+            }
+            event.preventDefault();
+            if (this.atpBatchSaving) return;
+            this.atpBatchSaving = true;
+            try {
+                if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                    window.purchaserDocumentSignature.flush();
+                }
+                this.snapshotAtpDraft(this.currentAtpKey());
+                const saveAction = (form.querySelector('input[name=save_action]') || {}).value || 'draft';
+                const action = form.getAttribute('action');
+                const createdIds = [];
+                let lastMessage = '';
+                let lastRedirect = '';
+
+                for (let i = 0; i < keys.length; i++) {
+                    const key = keys[i];
+                    this.goAtpSlide(i, true);
+                    if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                        window.purchaserDocumentSignature.flush();
+                    }
+                    const fd = new FormData(form);
+                    fd.set('save_action', saveAction);
+                    const res = await fetch(action, {
+                        method: 'POST',
+                        body: fd,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || data.ok === false) {
+                        let msg = data.message || data.error || '';
+                        if (!msg && data.errors) {
+                            const first = Object.values(data.errors).flat();
+                            msg = first[0] || '';
+                        }
+                        if (!msg) msg = 'Could not save ATP ' + (i + 1) + ' of ' + keys.length + '.';
+                        if (window.purToast) window.purToast(msg, 'error');
+                        else alert(msg);
+                        this.atpBatchSaving = false;
+                        return;
+                    }
+                    if (data.id) createdIds.push(data.id);
+                    if (data.message) lastMessage = data.message;
+                    if (data.redirect) lastRedirect = data.redirect;
+                }
+
+                const count = createdIds.length;
+                const flash = lastMessage
+                    || (count + ' Authority to Purchase draft' + (count === 1 ? '' : 's') + ' saved.');
+                if (lastRedirect && count === 1) {
+                    window.location = lastRedirect;
+                    return;
+                }
+                const params = new URLSearchParams();
+                if (createdIds[0]) {
+                    params.set('view_atp', String(createdIds[0]));
+                    if (saveAction === 'draft' && this.atpPurchaserOwns) {
+                        params.set('choose_path', '1');
+                    }
+                }
+                const base = window.location.pathname;
+                window.location = base + (params.toString() ? ('?' + params.toString()) : '');
+                try { sessionStorage.setItem('atp_flash_success', flash + (count > 1 ? ' (' + count + ' ATPs)' : '')); } catch (e) {}
+            } catch (err) {
+                if (window.purToast) window.purToast('Could not save the selected ATPs. Please try again.', 'error');
+                else alert('Could not save the selected ATPs. Please try again.');
+                this.atpBatchSaving = false;
+            }
         },
 
         lockSupplierField(form, locked, supplierId) {
@@ -713,10 +1081,21 @@
         },
 
         applyRisPrefill(key) {
-            const option = this.$refs.risSelect ? this.$refs.risSelect.selectedOptions[0] : null;
+            const select = this.$refs.risSelect;
+            if (select && key) {
+                select.value = key;
+            }
+            const option = select ? select.selectedOptions[0] : null;
             const risIdInput = this.$refs.risIdInput;
             if (risIdInput) {
                 risIdInput.value = option && option.dataset.risId ? option.dataset.risId : '';
+            }
+            if (key && (!(this.atpSelectedKeys || []).length || (this.atpSelectedKeys || []).indexOf(key) === -1)) {
+                // Single-path / first load: seed carousel selection.
+                if (!(this.atpSelectedKeys || []).length) {
+                    this.atpSelectedKeys = key ? [key] : [];
+                    this.atpCarouselIndex = 0;
+                }
             }
             this.risChoiceTick = (this.risChoiceTick || 0) + 1;
             this.syncRisSplit();
@@ -787,12 +1166,17 @@
                 bindDocSig('atp-create', 'Received by signature');
                 const risOption = $refs.risSelect ? $refs.risSelect.selectedOptions[0] : null;
                 if ({{ old('authority_purchase_ris_id') !== null ? 'true' : 'false' }}) {
+                    bootAtpSelectionFromSelect();
                     syncRisSplit();
                     if (risOption && risOption.dataset.key && risPrefill[risOption.dataset.key]) {
                         lockFetchedRis(risPrefill[risOption.dataset.key]);
                     }
                 } else if ('{{ $selectedRisId ?? '' }}' && risOption && risOption.dataset.key) {
+                    atpSelectedKeys = [risOption.dataset.key];
+                    atpCarouselIndex = 0;
                     applyRisPrefill(risOption.dataset.key);
+                } else {
+                    bootAtpSelectionFromSelect();
                 }
             });
         }
@@ -1473,7 +1857,14 @@
                     method="POST"
                     action="{{ route(($pp ?? 'purchaser').'.atp.store') }}"
                     x-ref="createForm"
-                    x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
+                    x-on:submit="
+                        if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                            window.purchaserDocumentSignature.flush();
+                        }
+                        if ((atpSelectedKeys || []).length > 1) {
+                            submitSelectedAtps($event);
+                        }
+                    "
                 >
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
@@ -1499,7 +1890,7 @@
                                     }
                                 }
                             @endphp
-                            <div class="mb-4">
+                            <div class="relative mb-4">
                                 @php
                                     $selectedRisNumeric = '';
                                     foreach ($risOptions as $opt) {
@@ -1517,8 +1908,10 @@
                                 <select
                                     x-ref="risSelect"
                                     required
-                                    x-on:change="applyRisPrefill($event.target.selectedOptions[0]?.dataset.key || '')"
-                                    class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
+                                    tabindex="-1"
+                                    aria-hidden="true"
+                                    class="pointer-events-none absolute left-0 top-0 h-px w-px overflow-hidden opacity-0"
+                                    x-on:change="onRisSelectChange($event.target.selectedOptions[0]?.dataset.key || '')"
                                 >
                                     <option value="">Select approved RIS</option>
                                     @foreach($risOptions as $opt)
@@ -1532,32 +1925,190 @@
                                         >{{ $opt['label'] }}</option>
                                     @endforeach
                                 </select>
+                                <div class="relative mt-1" x-on:keydown.escape.window="if (risPickerOpen) closeRisPicker()">
+                                    <button
+                                        type="button"
+                                        x-on:click="toggleRisPicker()"
+                                        x-bind:aria-expanded="risPickerOpen ? 'true' : 'false'"
+                                        class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-gray-300 bg-white px-3 text-left text-sm text-slate-800 shadow-sm transition hover:border-slate-400"
+                                    >
+                                        <span
+                                            class="min-w-0 flex-1 truncate"
+                                            x-bind:class="($refs.risSelect && $refs.risSelect.value) ? 'text-slate-800' : 'text-slate-400'"
+                                            x-text="risPickerSelectedLabel()"
+                                        ></span>
+                                        <svg class="h-4 w-4 shrink-0 text-slate-400 transition" x-bind:class="risPickerOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
+                                        </svg>
+                                    </button>
+                                    <div
+                                        x-show="risPickerOpen"
+                                        x-cloak
+                                        x-transition
+                                        x-on:click.outside="closeRisPicker()"
+                                        class="absolute left-0 right-0 top-full z-[80] mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                                    >
+                                        <div class="border-b border-slate-100 p-2">
+                                            <div class="relative">
+                                                <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/>
+                                                </svg>
+                                                <input
+                                                    type="text"
+                                                    x-ref="risPickerSearch"
+                                                    x-model="risPickerQuery"
+                                                    x-on:input="risPickerShowAll = false"
+                                                    x-on:keydown.escape.stop="closeRisPicker()"
+                                                    placeholder="Search RIS, item, or supplier..."
+                                                    class="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-sm text-slate-800 outline-none focus:border-slate-300 focus:bg-white"
+                                                >
+                                            </div>
+                                        </div>
+                                        <ul class="max-h-64 overflow-y-auto py-1">
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    x-on:click="pickRisOption('')"
+                                                    class="flex w-full px-3 py-2 text-left text-sm text-slate-500 hover:bg-slate-50"
+                                                    x-bind:class="!($refs.risSelect && $refs.risSelect.value) ? 'bg-slate-50 font-medium text-slate-800' : ''"
+                                                >
+                                                    Select approved RIS
+                                                </button>
+                                            </li>
+                                            <template x-for="opt in visibleRisPickerOptions()" :key="opt.key">
+                                                <li>
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="pickRisOption(opt.key)"
+                                                        class="flex w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
+                                                        x-bind:class="($refs.risSelect && $refs.risSelect.value === opt.key) ? 'bg-blue-50 font-medium text-[#0025cc]' : ''"
+                                                    >
+                                                        <span class="min-w-0 flex-1 break-words" x-text="opt.label"></span>
+                                                    </button>
+                                                </li>
+                                            </template>
+                                            <li
+                                                x-show="filteredRisPickerOptions().length === 0"
+                                                class="px-3 py-3 text-sm text-slate-400"
+                                            >
+                                                No matches
+                                            </li>
+                                            <li x-show="risPickerHiddenCount() > 0" class="border-t border-slate-100">
+                                                <button
+                                                    type="button"
+                                                    x-on:click="risPickerShowAll = true"
+                                                    class="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-[#0025cc] hover:bg-slate-50"
+                                                >
+                                                    <span>
+                                                        Show
+                                                        <span x-text="risPickerHiddenCount()"></span>
+                                                        more
+                                                    </span>
+                                                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
+                                                    </svg>
+                                                </button>
+                                            </li>
+                                            <li x-show="risPickerShowAll && filteredRisPickerOptions().length > (risPickerLimit || 10)" class="border-t border-slate-100">
+                                                <button
+                                                    type="button"
+                                                    x-on:click="risPickerShowAll = false"
+                                                    class="flex w-full px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
+                                                >
+                                                    Show less
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <div x-show="risSplit && risChoices().length > 1" x-cloak class="mt-2 flex flex-wrap gap-2">
                                     <template x-for="choice in risChoices()" :key="choice.key">
                                         <button
                                             type="button"
-                                            x-on:click="chooseRisOption(choice.key)"
-                                            x-text="choice.label"
-                                            x-bind:class="choice.active ? 'border-[#0025cc] bg-blue-50 text-[#0025cc]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'"
-                                            class="rounded-lg border px-3 py-1.5 text-left text-xs font-semibold"
-                                        ></button>
+                                            x-on:click="toggleAtpChoice(choice.key)"
+                                            x-bind:aria-pressed="choice.active ? 'true' : 'false'"
+                                            x-bind:class="choice.active ? 'border-[#0025cc] bg-blue-50 text-[#0025cc] ring-1 ring-[#0025cc]/40' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'"
+                                            class="inline-flex max-w-full items-center gap-1.5 rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition"
+                                        >
+                                            <span
+                                                class="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border"
+                                                x-bind:class="choice.active ? 'border-[#0025cc] bg-[#0025cc] text-white' : 'border-slate-300 bg-white text-transparent'"
+                                                aria-hidden="true"
+                                            >
+                                                <svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 6.5 5 9l4.5-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                            </span>
+                                            <span class="min-w-0 truncate" x-text="choice.label"></span>
+                                        </button>
                                     </template>
                                 </div>
                                 <p x-show="risSplit" x-cloak class="mt-1.5 text-xs text-slate-500">
-                                    This RIS buys from more than one supplier, so each supplier gets its own ATP. Choose the other item above to create its ATP.
+                                    This RIS buys from more than one supplier, so each selected supplier gets its own ATP.
+                                    Select one or more above — a carousel opens for each ATP.
                                 </p>
                             </div>
 
-                        @include('partials.authority-to-purchase-paper', [
-                            'editable' => true,
-                            'atp' => null,
-                            'items' => collect(),
-                            'suppliers' => $suppliers,
-                            'signKey' => 'atp-create',
-                            'suggestedAtpFormNumber' => $suggestedAtpFormNumber ?? '0001',
-                        ])
+                        <div x-show="!risSplit || (atpSelectedKeys || []).length">
+                            <div
+                                x-show="risSplit && (atpSelectedKeys || []).length > 1"
+                                x-cloak
+                                class="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm"
+                            >
+                                <button
+                                    type="button"
+                                    x-on:click="atpCarouselPrev()"
+                                    x-bind:disabled="atpCarouselIndex <= 0 || atpBatchSaving"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    aria-label="Previous ATP"
+                                >
+                                    <i data-lucide="chevron-left" class="h-4 w-4"></i>
+                                </button>
+                                <div class="min-w-0 flex-1 text-center">
+                                    <p class="text-xs font-semibold text-slate-800">
+                                        ATP
+                                        <span x-text="(atpCarouselIndex || 0) + 1"></span>
+                                        of
+                                        <span x-text="(atpSelectedKeys || []).length"></span>
+                                    </p>
+                                    <p class="truncate text-[11px] text-slate-500" x-text="currentAtpChipLabel()"></p>
+                                </div>
+                                <button
+                                    type="button"
+                                    x-on:click="atpCarouselNext()"
+                                    x-bind:disabled="atpCarouselIndex >= ((atpSelectedKeys || []).length - 1) || atpBatchSaving"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    aria-label="Next ATP"
+                                >
+                                    <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                                </button>
+                            </div>
 
-                        <div id="purSigSlot-atp-create" class="mt-4 w-full"></div>
+                            @include('partials.authority-to-purchase-paper', [
+                                'editable' => true,
+                                'atp' => null,
+                                'items' => collect(),
+                                'suppliers' => $suppliers,
+                                'signKey' => 'atp-create',
+                                'suggestedAtpFormNumber' => $suggestedAtpFormNumber ?? '0001',
+                            ])
+
+                            <div
+                                x-show="risSplit && (atpSelectedKeys || []).length > 1"
+                                x-cloak
+                                class="mt-3 flex items-center justify-center gap-1.5"
+                            >
+                                <template x-for="(key, idx) in (atpSelectedKeys || [])" :key="'dot-' + key">
+                                    <button
+                                        type="button"
+                                        x-on:click="goAtpSlide(idx)"
+                                        x-bind:aria-label="'Go to ATP ' + (idx + 1)"
+                                        x-bind:class="idx === atpCarouselIndex ? 'bg-[#0025cc] w-5' : 'bg-slate-300 hover:bg-slate-400 w-2.5'"
+                                        class="h-2.5 rounded-full transition-all"
+                                    ></button>
+                                </template>
+                            </div>
+
+                            <div id="purSigSlot-atp-create" class="mt-4 w-full"></div>
+                        </div>
                     </div>
 
                     <div data-atp-form-errors hidden></div>
@@ -1568,9 +2119,22 @@
                         <button
                             type="submit"
                             onclick="this.form.querySelector('input[name=save_action]').value='draft'"
-                            class="{{ $atpPurchaserOwns ? 'rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800' : 'rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100' }}"
+                            x-bind:disabled="atpBatchSaving || (risSplit && !(atpSelectedKeys || []).length)"
+                            class="{{ $atpPurchaserOwns ? 'rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50' : 'rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50' }}"
                         >
-                            {{ $atpPurchaserOwns ? 'Save & Choose Payment Path' : \App\Support\ProcurementDraftLabel::SAVE }}
+                            <span x-show="!atpBatchSaving">
+                                <span x-show="(atpSelectedKeys || []).length > 1" x-cloak>
+                                    {{ $atpPurchaserOwns ? 'Save' : \App\Support\ProcurementDraftLabel::SAVE }}
+                                    <span x-text="(atpSelectedKeys || []).length"></span> ATPs
+                                    @if($atpPurchaserOwns)
+                                        &amp; Choose Path
+                                    @endif
+                                </span>
+                                <span x-show="(atpSelectedKeys || []).length <= 1">
+                                    {{ $atpPurchaserOwns ? 'Save & Choose Payment Path' : \App\Support\ProcurementDraftLabel::SAVE }}
+                                </span>
+                            </span>
+                            <span x-show="atpBatchSaving" x-cloak>Saving ATPs…</span>
                         </button>
                         @if($atpIsSupplyPortal)
                             <button
@@ -1579,7 +2143,9 @@
                                 data-atp-edit-form="atp-create-form"
                                 data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.store') }}"
                                 data-atp-number="this new ATP"
-                                class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                x-bind:disabled="atpBatchSaving || ((atpSelectedKeys || []).length > 1)"
+                                x-bind:title="(atpSelectedKeys || []).length > 1 ? 'Save selected ATPs as drafts first, then submit each one' : ''"
+                                class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
                             >
                                 Submit to School Administrator
                             </button>

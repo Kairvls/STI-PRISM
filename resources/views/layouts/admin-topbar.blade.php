@@ -376,10 +376,10 @@
                      .hidden { display:none !important }, which permanently
                      hides the name/role/chevron on ATP & RFC pages. --}}
                 <div class="admin-topbar-profile-meta min-w-0">
-                    <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
+                    <p class="max-w-[180px] truncate text-sm font-medium text-slate-900">
                         {{ $topbarUser->user_full_name }}
                     </p>
-                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
+                    <p class="mt-0.5 max-w-[180px] truncate text-xs text-slate-500">
                         {{ \App\Support\RoleAccess::primaryRoleLabel($topbarUser) }}
                     </p>
                 </div>

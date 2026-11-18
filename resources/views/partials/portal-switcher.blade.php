@@ -14,7 +14,7 @@
         type="button"
         id="portalSwitcherBtn"
         onclick="togglePortalSwitcher(event)"
-        class="flex h-10 max-w-[190px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left transition hover:bg-slate-50"
+        class="flex h-10 max-w-[230px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left transition hover:bg-slate-50"
         aria-haspopup="true"
         aria-expanded="false"
         title="Switch portal"
