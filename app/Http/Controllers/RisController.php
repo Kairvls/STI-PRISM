@@ -3604,7 +3604,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 if ($name !== null && $name !== '') {
                     $names[] = (string) $name;
                     $qty = (int) ($qtys[(string) $id] ?? 0);
-                    $labeled[] = $qty > 0 ? ((string) $name).' ×'.$qty : (string) $name;
+                    $labeled[] = $qty > 1 ? ((string) $name).' ×'.$qty : (string) $name;
                 }
             }
             $item->brand_ids = $ids;

@@ -1,0 +1,40 @@
+/* Instant feedback while a sidebar / portal module is loading */
+#prismSidebarNavProgress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483000;
+    width: 100%;
+    height: 2px;
+    pointer-events: none;
+    opacity: 0;
+    background: transparent;
+}
+
+#prismSidebarNavProgress > span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #0025cc 0%, #3b82f6 55%, #93c5fd 100%);
+    box-shadow: 0 0 8px rgba(0, 37, 204, 0.35);
+    transition: width 0.35s ease;
+}
+
+#prismSidebarNavProgress.is-active {
+    opacity: 1;
+}
+
+#prismSidebarNavProgress.is-active > span {
+    width: 72%;
+    transition: width 8s cubic-bezier(0.1, 0.4, 0.2, 1);
+}
+
+#prismSidebarNavProgress.is-done > span {
+    width: 100%;
+    transition: width 0.2s ease;
+}
+
+html.prism-nav-leaving #sidebar a[href],
+html.prism-nav-leaving [data-portal-switcher] a[href] {
+    pointer-events: none;
+}

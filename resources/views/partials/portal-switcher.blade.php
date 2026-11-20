@@ -72,6 +72,11 @@
 
         menu.classList.toggle('hidden');
         if (btn) btn.setAttribute('aria-expanded', menu.classList.contains('hidden') ? 'false' : 'true');
+        if (!menu.classList.contains('hidden') && window.PrismSidebarNavFast && typeof window.PrismSidebarNavFast.warm === 'function') {
+            menu.querySelectorAll('a[href]').forEach(function (anchor) {
+                window.PrismSidebarNavFast.warm(anchor.href);
+            });
+        }
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
             window.lucide.createIcons();
         }

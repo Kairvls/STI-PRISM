@@ -1116,7 +1116,8 @@
             const max = Math.max(1, Number(limit) || 1);
             return this.normalizeRisBrandIds(item).slice(0, max).map((id) => {
                 const qty = this.risBrandQty(item, id);
-                return this.risBrandLabelForId(id) + ' ×' + qty;
+                const label = this.risBrandLabelForId(id);
+                return qty > 1 ? (label + ' ×' + qty) : label;
             });
         },
         risBrandOverflowCount(item, limit) {

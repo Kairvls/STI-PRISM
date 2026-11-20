@@ -1349,8 +1349,16 @@ class RisWorkflow
         }
 
         $name = trim((string) ($item->brand_name ?? ''));
-        if ($name === '' || str_contains($name, '×')) {
-            return $name;
+        if ($name === '') {
+            return '';
+        }
+
+        // Stored labels may already include multipliers (e.g. "Acer ×1, ASUS ×2").
+        // Drop redundant ×1; keep ×N only when the count is greater than 1.
+        if (str_contains($name, '×')) {
+            $cleaned = preg_replace('/\s*×\s*1\b/u', '', $name);
+
+            return trim(preg_replace('/\s{2,}/u', ' ', (string) $cleaned));
         }
 
         $raw = $item->ris_item_brand_quantities ?? ($item->brand_qtys ?? null);
@@ -1364,6 +1372,6 @@ class RisWorkflow
             $qty = max(1, (int) reset($raw));
         }
 
-        return $name.' ×'.$qty;
+        return $qty > 1 ? $name.' ×'.$qty : $name;
     }
 }

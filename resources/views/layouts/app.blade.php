@@ -991,8 +991,10 @@
     </script>
 
     <link rel="stylesheet" href="{{ asset('css/list-soft-nav.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/sidebar-nav-fast.css') }}">
     <script src="{{ asset('js/auto-filter.js') }}" defer></script>
     <script src="{{ asset('js/list-soft-nav.js') }}" defer></script>
+    <script src="{{ asset('js/sidebar-nav-fast.js') }}" defer></script>
     <script src="{{ asset('js/input-limits.js') }}" defer></script>
     <script src="{{ asset('js/signature-image.js') }}?v=2" defer></script>
     <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
