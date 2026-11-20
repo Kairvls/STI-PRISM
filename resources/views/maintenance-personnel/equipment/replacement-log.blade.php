@@ -19,7 +19,7 @@
             <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
             <p>
                 Tracks how each replacement was fulfilled: a stock swap (including computer-set part swaps),
-                a procurement request to the Purchaser, or marked Replaced with no successor so it can be disposed.
+                a procurement request to the Purchaser, or marked Replaced with no successor. Defective or Damaged units can then be disposed from Equipment Disposal.
             </p>
         </div>
 

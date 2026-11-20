@@ -9421,12 +9421,27 @@ toggleRoomBtn.addEventListener('click', function () {
             refreshIcons();
         }
 
-        function enterPhase2(employeeId) {
-            gate.hidden = true;
-            reportForm.hidden = false;
+        function enterPhase2(employeeId, payload) {
+            const intent = window.__pinGateIntent || "report";
+            window.__pinGateIntent = "report";
+
             gatePin.value = "";
             setPinVisible(false);
             setMessage(gateMessage, "");
+
+            if (intent === "borrow") {
+                gate.hidden = true;
+                reportForm.hidden = true;
+                clearPhase2Resume();
+                refreshIcons();
+                if (typeof window.onTeacherBorrowVerified === "function") {
+                    window.onTeacherBorrowVerified(payload || { reporter_employee_id: employeeId });
+                }
+                return;
+            }
+
+            gate.hidden = true;
+            reportForm.hidden = false;
             if (employeeInput) {
                 employeeInput.value = employeeId;
                 employeeInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -9440,6 +9455,11 @@ toggleRoomBtn.addEventListener('click', function () {
 
         window.reporterGateReset = function () {
             postJson("/reporter/exit").catch(() => {});
+            showPhase1(true);
+        };
+
+        // Reset gate UI without ending the PIN session (used when handing off to Borrow).
+        window.reporterGateResetSilent = function () {
             showPhase1(true);
         };
 
@@ -9491,7 +9511,7 @@ toggleRoomBtn.addEventListener('click', function () {
             try {
                 const result = await postJson("/reporter/verify", { employee_id: employeeId, pin: pin });
                 if (result.ok && result.data.success) {
-                    enterPhase2(result.data.reporter_employee_id);
+                    enterPhase2(result.data.reporter_employee_id, result.data);
                     return;
                 }
                 const code = result.data && result.data.code;

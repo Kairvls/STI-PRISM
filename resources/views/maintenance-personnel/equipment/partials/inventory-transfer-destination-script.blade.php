@@ -84,6 +84,14 @@
 
             const nameEl = row.querySelector('[data-item-name]');
             if (nameEl) nameEl.textContent = item.name || 'Equipment';
+            const tagEl = row.querySelector('[data-item-tag]');
+            if (tagEl) tagEl.textContent = item.tag || 'No Asset Tag';
+            const metaEl = row.querySelector('[data-item-meta]');
+            if (metaEl) {
+                const category = item.category || 'Uncategorized';
+                const qty = item.qty === undefined || item.qty === null || item.qty === '' ? '1' : String(item.qty);
+                metaEl.textContent = category + ' · Qty ' + qty;
+            }
             const idInput = row.querySelector('[data-equipment-id]');
             if (idInput) idInput.value = String(item.id);
 

@@ -143,7 +143,7 @@ class RoomTimeline
             'id' => (int) $row->room_id,
             'name' => (string) $row->room_name,
             'type' => (string) ($row->room_type ?: 'Room'),
-            'status' => (string) ($row->room_status ?: RoomStatuses::NORMAL),
+            'status' => (string) ($row->room_status ?: RoomStatuses::AVAILABLE),
             'floor' => (string) ($row->floor_level ?: ''),
             'building' => (string) ($row->building_name ?: ''),
             'created_at' => self::dateString($row->room_created_at ?? null),
@@ -155,7 +155,7 @@ class RoomTimeline
     private static function emptySummary(): array
     {
         return [
-            'status' => RoomStatuses::NORMAL,
+            'status' => RoomStatuses::AVAILABLE,
             'open_reports' => 0,
             'times_reported' => 0,
             'equipment_count' => 0,
@@ -168,7 +168,7 @@ class RoomTimeline
     private static function summary(int $roomId, array $room): array
     {
         $summary = self::emptySummary();
-        $summary['status'] = $room['status'] ?? RoomStatuses::NORMAL;
+        $summary['status'] = $room['status'] ?? RoomStatuses::AVAILABLE;
 
         if (Schema::hasTable('equipment_table')) {
             $summary['equipment_count'] = (int) DB::table('equipment_table')

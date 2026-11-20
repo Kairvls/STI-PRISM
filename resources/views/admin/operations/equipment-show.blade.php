@@ -107,11 +107,6 @@
                             {{ $inventory }}
                         </span>
                     @endif
-
-                    <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {{ $equipment->equipment_is_borrowable ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-600' }}">
-                        <i data-lucide="{{ $equipment->equipment_is_borrowable ? 'package-check' : 'package-x' }}" class="h-3.5 w-3.5"></i>
-                        {{ $equipment->equipment_is_borrowable ? 'Borrowable' : 'Not borrowable' }}
-                    </span>
                 </div>
             </div>
 
@@ -264,12 +259,6 @@
                     <div class="rounded-2xl bg-slate-50 px-4 py-3">
                         <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
                         <p class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_quantity) }}</p>
-                    </div>
-                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
-                        <p class="mt-1 text-sm font-semibold text-slate-900">
-                            {{ $equipment->equipment_is_borrowable ? 'Yes' : 'No' }}
-                        </p>
                     </div>
                 </div>
             </section>

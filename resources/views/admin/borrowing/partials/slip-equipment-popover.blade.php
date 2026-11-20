@@ -12,9 +12,11 @@
     $eventType = trim((string) ($primary->borrowing_event_type ?? ''));
     $assetTag = trim((string) ($primary->equipment_asset_tag ?? ''));
     $statusPills = [
+        'Pending' => 'bg-amber-50 text-amber-800',
         'Borrowed' => 'bg-sky-50 text-sky-700',
         'Returned' => 'bg-emerald-50 text-emerald-700',
         'Overdue' => 'bg-rose-50 text-rose-700',
+        'Denied' => 'bg-slate-200 text-slate-700',
     ];
 @endphp
 

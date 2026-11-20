@@ -697,6 +697,8 @@ Route::middleware(['auth', 'admin'])
         Route::post('/borrowing/event-names/{id}/archive', [MaintenanceController::class, 'archiveEventName'])->whereNumber('id')->name('borrowing.event-names.archive');
         Route::post('/borrowing/event-names/{id}/restore', [MaintenanceController::class, 'restoreEventName'])->whereNumber('id')->name('borrowing.event-names.restore');
         Route::post('/borrowing/store', [MaintenanceController::class, 'storeBorrowing'])->name('borrowing.store');
+        Route::post('/borrowing/accept', [MaintenanceController::class, 'acceptOnlineBorrowing'])->name('borrowing.accept');
+        Route::post('/borrowing/deny', [MaintenanceController::class, 'denyOnlineBorrowing'])->name('borrowing.deny');
         Route::post('/borrowing/external-borrowers', [MaintenanceController::class, 'storeExternalBorrower'])->name('borrowing.external-borrowers.store');
         Route::post('/borrowing/return', [MaintenanceController::class, 'returnEquipment'])->name('borrowing.return');
         Route::post('/borrowing/{id}/archive', [MaintenanceController::class, 'archiveBorrowing'])->name('borrowing.archive');
@@ -875,6 +877,16 @@ Route::middleware(['auth', 'admin'])
             '/settings/system-settings',
             [AdminController::class, 'systemSettings']
         )->name('settings.system-settings');
+
+        Route::get(
+            '/settings/borrow-fees',
+            [AdminController::class, 'borrowFees']
+        )->name('settings.borrow-fees');
+
+        Route::post(
+            '/settings/borrow-fees',
+            [AdminController::class, 'updateBorrowFees']
+        )->name('settings.borrow-fees.update');
 
         // ==========================================
         // QUICK ACCESS MODAL CONTENT (AJAX)
@@ -1503,6 +1515,21 @@ Route::post(
     [ReporterController::class, 'selfFixed']
 )->middleware('throttle:20,1');
 
+Route::get(
+    '/reporter/borrow/bootstrap',
+    [ReporterController::class, 'borrowBootstrap']
+)->middleware('throttle:30,1')->name('reporter.borrow.bootstrap');
+
+Route::get(
+    '/reporter/borrow/status',
+    [ReporterController::class, 'borrowStatus']
+)->middleware('throttle:30,1')->name('reporter.borrow.status');
+
+Route::post(
+    '/reporter/borrow',
+    [ReporterController::class, 'storeTeacherBorrowing']
+)->middleware('throttle:10,1')->name('reporter.borrow.store');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -1639,6 +1666,11 @@ Route::get(
     '/maintenance/equipment/inventory',
     [MaintenanceController::class, 'equipmentInventory']
 );
+
+Route::post(
+    '/maintenance/equipment/inventory/status/{id}',
+    [MaintenanceController::class, 'updateEquipmentStatus']
+)->whereNumber('id');
 
 Route::get(
     '/maintenance/equipment/inventory/export-pdf',

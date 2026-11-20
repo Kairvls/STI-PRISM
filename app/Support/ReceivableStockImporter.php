@@ -137,7 +137,6 @@ class ReceivableStockImporter
                     'equipment_purchase_date' => $purchaseDate,
                     'equipment_acquired_date' => now()->toDateString(),
                     'equipment_purchase_cost' => $unitCost !== null ? round($unitCost * $qty, 2) : null,
-                    'equipment_is_borrowable' => 0,
                     'equipment_placement_zone' => 'Holding',
                     'equipment_current_location' => 'Holding',
                     'equipment_position_x' => 50,

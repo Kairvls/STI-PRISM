@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Services\MaintenanceReportService;
 use App\Support\ComputerSetQrCodes;
 use App\Support\ComputerSets;
+use App\Support\EquipmentConditions;
+use App\Support\EquipmentInventoryStatuses;
 use App\Support\EquipmentSchedules;
 use App\Support\EquipmentTimeline;
 use Illuminate\Http\Request;
@@ -813,6 +815,23 @@ class MobileMaintenanceController extends Controller
 
             ], 404);
 
+        }
+
+        $alreadyDisposed = ($equipment->equipment_inventory_status ?? '') === EquipmentInventoryStatuses::DISPOSED;
+
+        if ($alreadyDisposed) {
+            $validated['condition_status'] = $equipment->equipment_condition_status;
+            $validated['inventory_status'] = $equipment->equipment_inventory_status;
+        } elseif (
+            ($validated['condition_status'] ?? '') === EquipmentConditions::DISPOSED
+            || ($validated['inventory_status'] ?? '') === EquipmentInventoryStatuses::DISPOSED
+            || ! in_array($validated['condition_status'], EquipmentConditions::ASSIGNABLE, true)
+            || ! in_array($validated['inventory_status'], EquipmentInventoryStatuses::ASSIGNABLE, true)
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Disposal is handled in Equipment Disposal. Set the condition to Defective or Damaged, then dispose it there.',
+            ], 422);
         }
 
         // =====================================================

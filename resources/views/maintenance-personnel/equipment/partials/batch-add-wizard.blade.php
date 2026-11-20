@@ -190,14 +190,8 @@
                                     <option value="Under Maintenance">Under Maintenance</option>
                                     <option value="Defective">Defective</option>
                                     <option value="Damaged">Damaged</option>
-                                    <option value="Disposed">Disposed</option>
                                 </select>
                             </div>
-                            <label class="flex h-11 items-center justify-between self-end rounded-xl bg-white px-3.5 ring-1 ring-slate-200/80">
-                                <span class="text-sm font-medium text-slate-900">Borrowable</span>
-                                <input type="checkbox" x-model="line.borrowable" class="peer sr-only">
-                                <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
-                            </label>
                             <div>
                                 <label class="{{ $bLabel }}">Brand</label>
                                 <input type="text" x-model="line.brand" placeholder="e.g. Dell" class="{{ $bField }}" />
@@ -442,7 +436,6 @@
             cost: '',
             warranty: '',
             useful_life_years: '',
-            borrowable: false,
             destination_room_id: '0',
             custodian_id: '',
             asset_tag: '',
@@ -625,7 +618,7 @@
             duplicateLine(i) {
                 const source = this.lines[i];
                 const copy = blankLine();
-                ['name', 'category_id', 'categoryManual', 'tracking', 'quantity', 'condition', 'brand', 'model', 'cost', 'warranty', 'useful_life_years', 'borrowable', 'destination_room_id', 'custodian_id']
+                ['name', 'category_id', 'categoryManual', 'tracking', 'quantity', 'condition', 'brand', 'model', 'cost', 'warranty', 'useful_life_years', 'destination_room_id', 'custodian_id']
                     .forEach((field) => { copy[field] = source[field]; });
                 source.open = false;
                 this.lines.splice(i + 1, 0, copy);
@@ -797,7 +790,6 @@
                         cost: line.cost !== '' ? line.cost : null,
                         warranty: line.warranty || null,
                         useful_life_years: line.useful_life_years || null,
-                        borrowable: !!line.borrowable,
                         destination_room_id: Number(line.destination_room_id) || 0,
                         custodian_id: line.tracking === 'Individual' ? (Number(line.custodian_id) || null) : null,
                         asset_tag: line.tracking === 'Bulk' ? (line.asset_tag || null) : null,

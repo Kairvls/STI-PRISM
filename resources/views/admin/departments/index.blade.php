@@ -776,7 +776,7 @@
                 <button type="button" @click="open = false" class="inline-flex h-10 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
                 <button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
                     <i data-lucide="save" class="h-4 w-4"></i>
-                    <span x-text="form.id ? 'Save changes' : 'Add department'"></span>
+                    <span x-text="form.id ? 'Save changes' : 'Save'"></span>
                 </button>
             </div>
         </form>

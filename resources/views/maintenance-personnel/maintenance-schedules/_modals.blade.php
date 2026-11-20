@@ -515,7 +515,10 @@
                             type="number"
                             name="downtime_hours"
                             min="0"
+                            max="{{ \App\Support\InputLimits::HOURS }}"
                             step="0.25"
+                            inputmode="decimal"
+                            data-decimal
                             placeholder="0"
                             class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                         />

@@ -165,11 +165,7 @@ class InfrastructureController extends Controller
 
         $wizardCampus = $this->buildWizardCampusData($campus);
 
-        $usedAssetTags = DB::table('equipment_table')
-            ->whereNotNull('equipment_asset_tag')
-            ->where('equipment_asset_tag', '!=', '')
-            ->whereNotIn('equipment_inventory_status', ['Disposed'])
-            ->pluck('equipment_asset_tag');
+        $usedAssetTags = collect(\App\Support\EquipmentIdentity::reservedAssetTags());
 
         $requestedFloorId = (int) $request->integer('floor');
         $requestedRoomId = (int) $request->integer('room');
@@ -869,16 +865,6 @@ class InfrastructureController extends Controller
             ],
         ]);
 
-        $totalSubmittedRooms = collect($validated['floors'] ?? [])->sum(function ($floor) {
-            return count($floor['rooms'] ?? []);
-        });
-
-        if ($totalSubmittedRooms < 1) {
-            throw ValidationException::withMessages([
-                'floors' => ['Add at least one room before saving campus updates.'],
-            ])->errorBag('campusWizard');
-        }
-
         DB::transaction(function () use ($validated): void {
             $roomsHasCreatedAt = Schema::hasColumn('rooms_table', 'created_at');
             $roomsHasUpdatedAt = Schema::hasColumn('rooms_table', 'updated_at');
@@ -1038,7 +1024,7 @@ class InfrastructureController extends Controller
                             'equipment_quantity' => $equipment['quantity'],
                             'equipment_condition_status' => $equipment['condition'],
                             'equipment_inventory_status' => $equipment['condition'] === 'Under Maintenance' ? 'Under Maintenance' : 'Active',
-                            'equipment_current_location' => $equipment['zone'], 'equipment_is_borrowable' => false,
+                            'equipment_current_location' => $equipment['zone'],
 
                             'equipment_position_x' => $position['x'],
 
@@ -1059,6 +1045,46 @@ class InfrastructureController extends Controller
                         $equipmentId = DB::table('equipment_table')->insertGetId($values);
                         EquipmentQrCodes::assignIfEligible((int) $equipmentId);
                     }
+                }
+            }
+
+            // Drop empty floors that were removed from the wizard selection.
+            $orphanFloorIds = $existingFloors
+                ->pluck('floor_id')
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $floorId) => in_array($floorId, $processedFloorIds, true))
+                ->values()
+                ->all();
+
+            if ($orphanFloorIds !== []) {
+                $floorsWithRooms = DB::table('rooms_table')
+                    ->whereIn('room_floor_id', $orphanFloorIds)
+                    ->when(
+                        Schema::hasColumn('rooms_table', 'room_is_archived'),
+                        fn ($q) => $q->where(function ($query) {
+                            $query->where('room_is_archived', false)->orWhereNull('room_is_archived');
+                        })
+                    )
+                    ->distinct()
+                    ->pluck('room_floor_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+
+                $emptyOrphanIds = array_values(array_diff($orphanFloorIds, $floorsWithRooms));
+
+                if ($emptyOrphanIds !== []) {
+                    if (
+                        Schema::hasTable('campus_setup_settings_table')
+                        && Schema::hasColumn('campus_setup_settings_table', 'default_floor_id')
+                    ) {
+                        CampusSetupSetting::query()
+                            ->whereIn('default_floor_id', $emptyOrphanIds)
+                            ->update(['default_floor_id' => null]);
+                    }
+
+                    DB::table('floors_table')
+                        ->whereIn('floor_id', $emptyOrphanIds)
+                        ->delete();
                 }
             }
 
@@ -1855,11 +1881,6 @@ class InfrastructureController extends Controller
                 'max:'.\App\Support\InputLimits::SERIAL,
             ],
 
-            'equipment_is_borrowable' => [
-                'nullable',
-                'boolean',
-            ],
-
             'items' => [
                 'nullable',
                 'array',
@@ -1972,11 +1993,6 @@ class InfrastructureController extends Controller
             $validated['equipment_condition_status']
         );
 
-        $borrowable = filter_var(
-            $validated['equipment_is_borrowable'] ?? false,
-            FILTER_VALIDATE_BOOLEAN
-        );
-
         // =====================================
         // Default position from selected placement zone
         // =====================================
@@ -2019,8 +2035,6 @@ class InfrastructureController extends Controller
 
             $position,
 
-            $borrowable,
-
             $intakeMeta,
 
             $detailColumns,
@@ -2048,7 +2062,6 @@ class InfrastructureController extends Controller
                     'equipment_warranty_expiration' => $validated['equipment_warranty_expiration'] ?? null,
                     'equipment_asset_tag' => $validated['equipment_asset_tag'] ?? null,
                     'equipment_serial_number' => $validated['equipment_serial_number'] ?? null,
-                    'equipment_is_borrowable' => $borrowable,
                     'equipment_current_location' => $defaultZone,
                     'equipment_inventory_status' => $defaultInventoryStatus,
                     'equipment_position_x' => $position['x'],
@@ -2099,7 +2112,6 @@ class InfrastructureController extends Controller
                         ?? ($validated['equipment_asset_tag'] ?? null),
                     'equipment_serial_number' => $item['equipment_serial_number']
                         ?? ($validated['equipment_serial_number'] ?? null),
-                    'equipment_is_borrowable' => $borrowable,
                     'equipment_current_location' => $itemZone,
                     'equipment_inventory_status' => $inventoryStatus,
                     'equipment_position_x' => $itemPosition['x'],
@@ -2472,7 +2484,7 @@ class InfrastructureController extends Controller
         bool $withHistory = false
     ): void {
         $layoutStatus = (string) (data_get($layout, 'dashboard_status') ?? BuildingLayout3D::STATUS_NORMAL);
-        $layoutLabel = (string) (data_get($layout, 'dashboard_label') ?? RoomStatuses::NORMAL);
+        $layoutLabel = (string) (data_get($layout, 'dashboard_label') ?? BuildingLayout3D::LABEL_NORMAL);
         $statusColor = (string) (data_get($layout, 'status_color') ?? RoomStatusPalette::colorForStatus($layoutStatus));
 
         $room->layout_status = $layoutStatus;

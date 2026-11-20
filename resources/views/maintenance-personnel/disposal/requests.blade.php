@@ -97,15 +97,9 @@
                                 </td>
                                 <td class="px-5 py-4">
                                     <p class="max-w-xs text-sm text-slate-800">{{ $row->disposal_request_reason }}</p>
-                                    <p class="mt-1 text-xs text-slate-500">
-                                        {{ $row->disposal_request_method ?: 'No method' }}
-                                        @if ($row->disposal_request_location)
-                                            · {{ $row->disposal_request_location }}
-                                        @endif
-                                        @if ($row->disposal_request_residual_value !== null)
-                                            · ₱{{ number_format((float) $row->disposal_request_residual_value, 2) }} residual
-                                        @endif
-                                    </p>
+                                    @if ($row->disposal_request_location)
+                                        <p class="mt-1 text-xs text-slate-500">{{ $row->disposal_request_location }}</p>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-4">
                                     <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 {{ $statusStyles[$row->disposal_request_status] ?? $statusStyles['Cancelled'] }}">

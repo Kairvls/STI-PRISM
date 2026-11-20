@@ -741,9 +741,6 @@ class QRController extends Controller
                 'warranty_expiration' =>
                     $equipment->equipment_warranty_expiration,
 
-                'borrowable' =>
-                    (bool) $equipment->equipment_is_borrowable,
-
             ],
 
         ]);

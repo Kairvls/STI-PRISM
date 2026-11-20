@@ -634,7 +634,7 @@
                                         type="button"
                                         @click.stop="if(!editMode) selectedRoom={{ $room->room_id }}"
                                         
-                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
+                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ \App\Support\RoomStatuses::normalize($room->room_status ?? null) === \App\Support\RoomStatuses::UNAVAILABLE ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
                                         data-label-orientation="{{ $labelOrientation }}"
@@ -1903,6 +1903,8 @@
                     wizardHasLocalChanges: false,
                     wizardBaselineFloorSignature: '',
                     step3Mode: 'fast',
+                    addRoomsEnabled: false,
+                    saveConfirmOpen: false,
                     step3ValidationAttempted: false,
                     step3InlineErrors: {},
                     step4InlineErrors: [],
@@ -1916,6 +1918,7 @@
                             ->map(fn ($items) => $items->pluck('room_name')->filter()->values()->all())
                             ->toArray()
                     ),
+                    customFloorNumber: null,
                     form: Object.assign(
                         {
                             building_name: "",
@@ -1926,9 +1929,7 @@
 
                             setup_locked: false,
 
-                            minFloor: 2,
-
-                            maxFloor: 3,
+                            selectedFloorNumbers: [],
 
                             floors: [],
                         },
@@ -1945,6 +1946,20 @@
                     },
                     get isWizardSetupLocked() {
                         return !!this.form.setup_locked && !this.wizardSetupUnlocked;
+                    },
+                    get sortedSelectedFloorNumbers() {
+                        return this.normalizeSelectedFloorNumbers(
+                            this.form.selectedFloorNumbers || [],
+                        );
+                    },
+                    get selectedFloorSummary() {
+                        const count = this.sortedSelectedFloorNumbers.length;
+
+                        if (!count) {
+                            return "None added";
+                        }
+
+                        return count === 1 ? "1 occupied floor" : `${count} occupied floors`;
                     },
                     openUnlockSetupPrompt() {
                         if (!this.canManageCampusSetup) {
@@ -2020,25 +2035,23 @@
                     init() {
                         window.infrastructure = this;
 
+                        if (!Array.isArray(this.form.selectedFloorNumbers)) {
+                            this.form.selectedFloorNumbers = [];
+                        }
+
                         if (this.form.floors.length === 0) {
                             this.generateFloors();
                         } else {
-                            const numbers = this.form.floors.map((floor) => {
-                                return parseInt(floor.level);
-                            });
-
-                            this.form.minFloor = Math.min(...numbers);
-
-                            this.form.maxFloor = Math.max(...numbers);
+                            this.syncSelectedFloorsFromForm();
                         }
 
-                        this.$watch("form.minFloor", () => {
-                            this.generateFloors();
-                        });
-
-                        this.$watch("form.maxFloor", () => {
-                            this.generateFloors();
-                        });
+                        this.$watch(
+                            "form.selectedFloorNumbers",
+                            () => {
+                                this.generateFloors();
+                            },
+                            { deep: true },
+                        );
 
                         this.$watch("selectedRoom", () => {
                             this.roomRotationInput = this.getSelectedRoomRotation();
@@ -3519,7 +3532,7 @@
 
                         if (this.step === 1) {
                             if (this.isWizardSetupLocked) {
-                                this.step = Math.min(4, this.step + 1);
+                                this.step = Math.min(3, this.step + 1);
                                 return;
                             }
 
@@ -3531,28 +3544,13 @@
                                 return;
                             }
 
-                            const min = Number(this.form.minFloor);
-                            const max = Number(this.form.maxFloor);
-
-                            if (!Number.isFinite(min) || !Number.isFinite(max)) {
-                                this.toast = "Enter valid floor numbers first.";
-                                setTimeout(() => (this.toast = ""), 3000);
-                                return;
-                            }
-
-                            let safeMin = Math.max(1, Math.min(30, Math.trunc(min)));
-                            let safeMax = Math.max(1, Math.min(30, Math.trunc(max)));
-
-                            if (safeMin > safeMax) {
-                                [safeMin, safeMax] = [safeMax, safeMin];
-                            }
-
-                            this.form.minFloor = safeMin;
-                            this.form.maxFloor = safeMax;
+                            this.form.selectedFloorNumbers = this.normalizeSelectedFloorNumbers(
+                                this.form.selectedFloorNumbers || [],
+                            );
                             this.generateFloors();
 
                             if (!this.form.floors.length) {
-                                this.toast = "No floors were generated. Check your floor range.";
+                                this.toast = "Add at least one occupied floor before continuing.";
                                 setTimeout(() => (this.toast = ""), 3000);
                                 return;
                             }
@@ -3563,20 +3561,10 @@
                             );
                         }
 
-                        if (this.step === 3) {
-                            this.step3ValidationAttempted = true;
-
-                            if (!this.validateStep3Entries()) {
-                                this.toast = 'Please fix the highlighted fields in Step 3.';
-                                setTimeout(() => (this.toast = ''), 3000);
-                                return;
-                            }
-                        }
-
-                        this.step = Math.min(4, this.step + 1);
+                        this.step = Math.min(3, this.step + 1);
                     },
                     goToWizardStep(target) {
-                        const boundedTarget = Math.max(1, Math.min(4, Number(target) || 1));
+                        const boundedTarget = Math.max(1, Math.min(3, Number(target) || 1));
 
                         if (boundedTarget <= this.step) {
                             this.step = boundedTarget;
@@ -3592,20 +3580,195 @@
                             }
                         }
                     },
+                    openSaveConfirm() {
+                        if (!this.canManageCampusSetup) {
+                            this.toast = "You do not have permission to manage campus setup.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        if (!this.validateBeforeSaveConfirm()) {
+                            this.toast = this.step4InlineErrors[0] || "Unable to save. Fix validation issues first.";
+                            setTimeout(() => (this.toast = ""), 3200);
+                            return;
+                        }
+
+                        this.saveConfirmOpen = true;
+                        this.$nextTick(() => this.refreshCampusWizardIcons());
+                    },
+                    closeSaveConfirm() {
+                        this.saveConfirmOpen = false;
+                    },
+                    confirmSaveCampus() {
+                        if (!this.validateBeforeSaveConfirm()) {
+                            this.toast = this.step4InlineErrors[0] || "Unable to save. Fix validation issues first.";
+                            setTimeout(() => (this.toast = ""), 3200);
+                            return;
+                        }
+
+                        const formEl = this.$refs.campusWizardForm;
+
+                        if (!formEl) {
+                            this.toast = "Unable to submit campus form.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        this.saveConfirmOpen = false;
+                        this.submitCampusWizard({
+                            target: formEl,
+                            preventDefault() {},
+                        });
+                    },
+                    normalizeSelectedFloorNumbers(values) {
+                        return [...new Set(
+                            (Array.isArray(values) ? values : [])
+                                .map((value) => Number(value))
+                                .filter((value) => Number.isFinite(value))
+                                .map((value) => Math.trunc(value))
+                                .filter((value) => value >= 1 && value <= 30),
+                        )].sort((a, b) => a - b);
+                    },
+                    parseFloorNumber(level) {
+                        const parsed = parseInt(String(level || ""), 10);
+
+                        return Number.isFinite(parsed) ? parsed : null;
+                    },
+                    syncSelectedFloorsFromForm() {
+                        const numbers = (this.form.floors || [])
+                            .map((floor) => this.parseFloorNumber(floor.level))
+                            .filter((value) => value !== null);
+
+                        this.form.selectedFloorNumbers = this.normalizeSelectedFloorNumbers(numbers);
+                    },
+                    isFloorSelected(floorNumber) {
+                        return this.sortedSelectedFloorNumbers.includes(Number(floorNumber));
+                    },
+                    findWizardFloor(floorNumber) {
+                        const level = this.floorLabel(floorNumber);
+
+                        return (this.form.floors || []).find((item) => item.level === level) || null;
+                    },
+                    floorHasRooms(floorNumber) {
+                        const floor = this.findWizardFloor(floorNumber);
+
+                        if (Array.isArray(floor?.rooms) && floor.rooms.length > 0) {
+                            return true;
+                        }
+
+                        if (!floor?.id) {
+                            return false;
+                        }
+
+                        const existingNames =
+                            this.existingRoomNamesByFloor?.[String(floor.id)] || [];
+
+                        return Array.isArray(existingNames) && existingNames.length > 0;
+                    },
+                    floorAlreadyExists(floorNumber) {
+                        const floor = this.findWizardFloor(floorNumber);
+
+                        return !!floor?.id;
+                    },
+                    floorIsProtected(floorNumber) {
+                        return this.floorHasRooms(floorNumber);
+                    },
+                    clampCustomFloorInput() {
+                        const raw = this.customFloorNumber;
+
+                        if (raw === null || raw === undefined || raw === "") {
+                            return;
+                        }
+
+                        const value = Number(raw);
+
+                        if (!Number.isFinite(value)) {
+                            this.customFloorNumber = null;
+                            return;
+                        }
+
+                        const truncated = Math.trunc(value);
+
+                        if (truncated > 30) {
+                            this.customFloorNumber = 30;
+                            this.toast = "Floor number is capped at 30.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        if (truncated < 1) {
+                            this.customFloorNumber = 1;
+                            this.toast = "Floor number must be at least 1.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                        }
+                    },
+                    removeOccupiedFloor(floorNumber) {
+                        if (this.isWizardSetupLocked) {
+                            return;
+                        }
+
+                        const value = Number(floorNumber);
+
+                        if (!Number.isFinite(value)) {
+                            return;
+                        }
+
+                        if (this.floorHasRooms(value)) {
+                            this.toast = "Can't remove — this floor already has rooms.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        const safeValue = Math.trunc(value);
+                        const current = this.normalizeSelectedFloorNumbers(
+                            this.form.selectedFloorNumbers || [],
+                        );
+
+                        this.form.selectedFloorNumbers = current.filter(
+                            (item) => item !== safeValue,
+                        );
+                    },
+                    addCustomFloor() {
+                        if (this.isWizardSetupLocked) {
+                            return;
+                        }
+
+                        this.clampCustomFloorInput();
+
+                        const value = Number(this.customFloorNumber);
+
+                        if (!Number.isFinite(value)) {
+                            this.toast = "Enter a floor number between 1 and 30.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        const safeValue = Math.trunc(value);
+
+                        if (safeValue < 1 || safeValue > 30) {
+                            this.toast = "Floor number must be between 1 and 30.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        if (this.isFloorSelected(safeValue)) {
+                            this.toast = `${this.floorLabel(safeValue)} is already occupied.`;
+                            setTimeout(() => (this.toast = ""), 3000);
+                            this.customFloorNumber = null;
+                            return;
+                        }
+
+                        this.form.selectedFloorNumbers = this.normalizeSelectedFloorNumbers([
+                            ...(this.form.selectedFloorNumbers || []),
+                            safeValue,
+                        ]);
+
+                        this.customFloorNumber = null;
+                    },
                     generateFloors() {
-                        const min = Number(this.form.minFloor);
-                        const max = Number(this.form.maxFloor);
-
-                        if (!Number.isFinite(min) || !Number.isFinite(max)) {
-                            return;
-                        }
-
-                        const safeMin = Math.max(1, Math.min(30, Math.trunc(min)));
-                        const safeMax = Math.max(1, Math.min(30, Math.trunc(max)));
-
-                        if (safeMin > safeMax) {
-                            return;
-                        }
+                        const selectedNumbers = this.normalizeSelectedFloorNumbers(
+                            this.form.selectedFloorNumbers || [],
+                        );
 
                         const activeFloorLevel = this.activeWizardFloor?.level || null;
                         const existingFloors = {};
@@ -3614,27 +3777,19 @@
                             existingFloors[floor.level] = floor;
                         });
 
-                        const newFloors = [];
-
-                        for (
-                            let floorNumber = safeMin;
-                            floorNumber <= safeMax;
-                            floorNumber++
-                        ) {
+                        const newFloors = selectedNumbers.map((floorNumber) => {
                             const level = this.floorLabel(floorNumber);
 
                             if (existingFloors[level]) {
-                                newFloors.push(existingFloors[level]);
-                            } else {
-                                newFloors.push({
-                                    id: null,
-
-                                    level,
-
-                                    rooms: [],
-                                });
+                                return existingFloors[level];
                             }
-                        }
+
+                            return {
+                                id: null,
+                                level,
+                                rooms: [],
+                            };
+                        });
 
                         this.form.floors = newFloors;
                         this.wizardHasLocalChanges = true;
@@ -3683,7 +3838,7 @@
 
                             type: "Lecture Room",
 
-                            status: "Normal",
+                            status: "Available",
 
                             equipment: [],
                         });
@@ -3730,7 +3885,7 @@
                             client_key: `quick-room-${++this.wizardRoomKey}`,
                             name: '',
                             type: 'Lecture Room',
-                            status: 'Normal',
+                            status: 'Available',
                             equipment: [],
                         });
 
@@ -3972,18 +4127,25 @@
 
                         return !hasError;
                     },
-                    validateStep4BeforeSubmit() {
+                    validateBeforeSaveConfirm() {
                         this.clearStep4InlineErrors();
 
-                        if (this.countDraftRooms() === 0) {
-                            this.step4InlineErrors.push('Add at least one room before saving campus updates.');
+                        if (!(this.form.floors || []).length) {
+                            this.step4InlineErrors.push('Add at least one occupied floor before saving.');
                         }
 
-                        if (!this.validateStep3Entries()) {
-                            this.step4InlineErrors.push('Please fix highlighted room/equipment errors before saving.');
+                        if (this.addRoomsEnabled) {
+                            this.step3ValidationAttempted = true;
+
+                            if (!this.validateStep3Entries()) {
+                                this.step4InlineErrors.push('Please fix highlighted room/equipment errors before saving.');
+                            }
                         }
 
                         return this.step4InlineErrors.length === 0;
+                    },
+                    validateStep4BeforeSubmit() {
+                        return this.validateBeforeSaveConfirm();
                     },
                     submitCampusWizard(event) {
                         if (!this.canManageCampusSetup) {
@@ -3992,9 +4154,15 @@
                             return;
                         }
 
+                        if (!this.addRoomsEnabled) {
+                            (this.form.floors || []).forEach((floor) => {
+                                floor.rooms = [];
+                            });
+                        }
+
                         this.pruneIgnorableWizardDrafts();
 
-                        if (!this.validateStep4BeforeSubmit()) {
+                        if (!this.validateBeforeSaveConfirm()) {
                             this.toast = 'Unable to save. Review inline validation badges.';
                             setTimeout(() => (this.toast = ''), 3200);
                             return;
@@ -4049,7 +4217,7 @@
                                 appendHidden(`floors[${fi}][rooms][${ri}][id]`, room.id ?? '');
                                 appendHidden(`floors[${fi}][rooms][${ri}][name]`, roomName);
                                 appendHidden(`floors[${fi}][rooms][${ri}][type]`, room.type || 'Lecture Room');
-                                appendHidden(`floors[${fi}][rooms][${ri}][status]`, room.status || 'Normal');
+                                appendHidden(`floors[${fi}][rooms][${ri}][status]`, room.status || 'Available');
 
                                 (room.equipment || []).forEach((eq, ei) => {
                                     const eqName = String(eq.name || '').trim();
@@ -4093,9 +4261,7 @@
 
                                     setup_locked: false,
 
-                                    minFloor: 2,
-
-                                    maxFloor: 3,
+                                    selectedFloorNumbers: [],
 
                                     floors: [],
                                 },
@@ -4114,15 +4280,7 @@
                                 })),
                             }));
 
-                            if (this.form.floors.length > 0) {
-                                const numbers = this.form.floors.map((floor) =>
-                                    parseInt(floor.level),
-                                );
-
-                                this.form.minFloor = Math.min(...numbers);
-
-                                this.form.maxFloor = Math.max(...numbers);
-                            }
+                            this.syncSelectedFloorsFromForm();
 
                             this.wizardFloorIndex = 0;
                             this.wizardHasLocalChanges = false;
@@ -4142,9 +4300,9 @@
                     },
 
                     openCampusWizard() {
-                        this.step = (String(this.form.building_name || '').trim() || (this.form.floors || []).length > 0)
-                            ? 2
-                            : 1;
+                        this.step = 1;
+                        this.addRoomsEnabled = false;
+                        this.saveConfirmOpen = false;
 
                         this.wizardOpen = true;
 

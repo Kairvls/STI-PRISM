@@ -37,12 +37,6 @@
 
     if (! $compact) {
         $summaryRows[] = ['label' => 'Qty', 'value' => $item->equipment_quantity ?? null];
-        if (isset($item->equipment_is_borrowable)) {
-            $summaryRows[] = [
-                'label' => 'Borrowable',
-                'value' => ((int) $item->equipment_is_borrowable) === 1 ? 'Yes' : 'No',
-            ];
-        }
     }
 
     $filledSummaryRows = collect($summaryRows)->filter(
@@ -61,12 +55,6 @@
         ['label' => 'Warranty expiration', 'value' => $na($formatDate($item->equipment_warranty_expiration ?? null))],
         ['label' => 'Room', 'value' => $na($item->room_name ?? null)],
         ['label' => 'Zone', 'value' => $na($zone)],
-        [
-            'label' => 'Borrowable',
-            'value' => isset($item->equipment_is_borrowable)
-                ? (((int) $item->equipment_is_borrowable) === 1 ? 'Yes' : 'No')
-                : '—',
-        ],
     ];
 
     $isStorageRoom = \App\Support\RoomCategories::isStorageType($item->room_type ?? null);

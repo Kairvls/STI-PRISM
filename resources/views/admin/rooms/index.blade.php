@@ -30,7 +30,14 @@
 
     @if (!($historyRoom ?? null))
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end">
-        <form method="POST" action="{{ route('admin.rooms.merge') }}">
+        <form
+            method="POST"
+            action="{{ route('admin.rooms.merge') }}"
+            data-pur-confirm="Rooms with the same name on the same floor will be merged. This cannot be undone."
+            data-pur-confirm-title="Merge duplicate rooms?"
+            data-pur-confirm-ok="Merge"
+            data-pur-confirm-kind="caution"
+        >
             @csrf
             <button
                 type="submit"
@@ -456,15 +463,13 @@
                         @php
                             $status = \App\Support\RoomStatuses::normalize($room->room_status ?? null);
                             $statusClass = match ($status) {
-                                \App\Support\RoomStatuses::NORMAL => 'bg-emerald-50 text-emerald-700',
-                                \App\Support\RoomStatuses::UNDER_MAINTENANCE => 'bg-amber-50 text-amber-700',
-                                \App\Support\RoomStatuses::CRITICAL => 'bg-rose-50 text-rose-700',
+                                \App\Support\RoomStatuses::AVAILABLE => 'bg-emerald-50 text-emerald-700',
+                                \App\Support\RoomStatuses::UNAVAILABLE => 'bg-rose-50 text-rose-700',
                                 default => 'bg-slate-100 text-slate-600',
                             };
                             $statusDotClass = match ($status) {
-                                \App\Support\RoomStatuses::NORMAL => 'bg-emerald-500',
-                                \App\Support\RoomStatuses::UNDER_MAINTENANCE => 'bg-amber-500',
-                                \App\Support\RoomStatuses::CRITICAL => 'bg-rose-500',
+                                \App\Support\RoomStatuses::AVAILABLE => 'bg-emerald-500',
+                                \App\Support\RoomStatuses::UNAVAILABLE => 'bg-rose-500',
                                 default => 'bg-slate-400',
                             };
                         @endphp
@@ -629,15 +634,13 @@
                         @php
                             $status = \App\Support\RoomStatuses::normalize($room->room_status ?? null);
                             $statusClass = match ($status) {
-                                \App\Support\RoomStatuses::NORMAL => 'bg-emerald-50 text-emerald-700',
-                                \App\Support\RoomStatuses::UNDER_MAINTENANCE => 'bg-amber-50 text-amber-700',
-                                \App\Support\RoomStatuses::CRITICAL => 'bg-rose-50 text-rose-700',
+                                \App\Support\RoomStatuses::AVAILABLE => 'bg-emerald-50 text-emerald-700',
+                                \App\Support\RoomStatuses::UNAVAILABLE => 'bg-rose-50 text-rose-700',
                                 default => 'bg-slate-100 text-slate-600',
                             };
                             $statusDotClass = match ($status) {
-                                \App\Support\RoomStatuses::NORMAL => 'bg-emerald-500',
-                                \App\Support\RoomStatuses::UNDER_MAINTENANCE => 'bg-amber-500',
-                                \App\Support\RoomStatuses::CRITICAL => 'bg-rose-500',
+                                \App\Support\RoomStatuses::AVAILABLE => 'bg-emerald-500',
+                                \App\Support\RoomStatuses::UNAVAILABLE => 'bg-rose-500',
                                 default => 'bg-slate-400',
                             };
                             $roomImage = filled($room->room_image ?? null)
@@ -798,9 +801,9 @@
 
 @php
     $departments = $departments ?? collect();
-    $oldRooms = old('rooms', [['room_name' => '', 'room_floor_id' => '', 'room_type' => 'Lecture Room', 'room_status' => 'Normal', 'department_ids' => []]]);
+    $oldRooms = old('rooms', [['room_name' => '', 'room_floor_id' => '', 'room_type' => 'Lecture Room', 'room_status' => 'Available', 'department_ids' => []]]);
     if (! is_array($oldRooms) || count($oldRooms) === 0) {
-        $oldRooms = [['room_name' => '', 'room_floor_id' => '', 'room_type' => 'Lecture Room', 'room_status' => 'Normal', 'department_ids' => []]];
+        $oldRooms = [['room_name' => '', 'room_floor_id' => '', 'room_type' => 'Lecture Room', 'room_status' => 'Available', 'department_ids' => []]];
     }
 @endphp
 
@@ -813,6 +816,10 @@
         action="{{ route('admin.rooms.store') }}"
         method="POST"
         class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
+        data-pur-confirm="New rooms will be added to the campus. Double-check names, floors, and types before saving."
+        data-pur-confirm-title="Save rooms?"
+        data-pur-confirm-ok="Save"
+        data-pur-confirm-close="1"
     >
         @csrf
         <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
@@ -888,9 +895,8 @@
                             <div>
                                 <label class="{{ $eqLabel }} lg:hidden">Status</label>
                                 <select name="rooms[{{ $i }}][room_status]" class="{{ $eqField }} add-room-status">
-                                    <option value="Normal" @selected(($row['room_status'] ?? 'Normal') === 'Normal')>Normal</option>
-                                    <option value="Under Maintenance" @selected(($row['room_status'] ?? '') === 'Under Maintenance')>Under Maintenance</option>
-                                    <option value="Critical" @selected(($row['room_status'] ?? '') === 'Critical')>Critical</option>
+                                    <option value="Available" @selected((\App\Support\RoomStatuses::normalize($row['room_status'] ?? null)) === 'Available')>Available</option>
+                                    <option value="Unavailable" @selected((\App\Support\RoomStatuses::normalize($row['room_status'] ?? null)) === 'Unavailable')>Unavailable</option>
                                 </select>
                             </div>
                             <div class="flex items-center justify-end lg:justify-center">
@@ -927,7 +933,7 @@
             <div class="flex items-center gap-2">
                 <button type="button" onclick="closeAddRoomModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
                 <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800" @disabled($floors->isEmpty())>
-                    Add rooms
+                    Save
                 </button>
             </div>
         </div>
@@ -972,9 +978,8 @@
             <div>
                 <label class="{{ $eqLabel }} lg:hidden">Status</label>
                 <select name="rooms[__INDEX__][room_status]" class="{{ $eqField }} add-room-status">
-                    <option value="Normal" selected>Normal</option>
-                    <option value="Under Maintenance">Under Maintenance</option>
-                    <option value="Critical">Critical</option>
+                    <option value="Available" selected>Available</option>
+                    <option value="Unavailable">Unavailable</option>
                 </select>
             </div>
             <div class="flex items-center justify-end lg:justify-center">
@@ -999,6 +1004,10 @@
         id="editRoomForm"
         method="POST"
         class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
+        data-pur-confirm="Your changes to this room will be saved."
+        data-pur-confirm-title="Save room changes?"
+        data-pur-confirm-ok="Save changes"
+        data-pur-confirm-close="1"
     >
         @csrf
         <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
@@ -1054,9 +1063,8 @@
                 <div>
                     <label for="edit_room_status" class="{{ $eqLabel }}">Status</label>
                     <select id="edit_room_status" name="room_status" class="{{ $eqField }}">
-                        <option value="Normal">Normal</option>
-                        <option value="Under Maintenance">Under Maintenance</option>
-                        <option value="Critical">Critical</option>
+                        <option value="Available">Available</option>
+                        <option value="Unavailable">Unavailable</option>
                     </select>
                 </div>
             </div>
@@ -1099,7 +1107,15 @@
                     Room types table is missing. Run <code class="font-mono text-xs">php artisan migrate</code> to enable CRUD.
                 </div>
             @else
-                <form action="{{ route('admin.rooms.types.store') }}" method="POST" class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <form
+                    action="{{ route('admin.rooms.types.store') }}"
+                    method="POST"
+                    class="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                    data-pur-confirm="This room type will be available when adding or editing rooms."
+                    data-pur-confirm-title="Add room type?"
+                    data-pur-confirm-ok="Add"
+                    data-pur-confirm-close="1"
+                >
                     @csrf
                     <p class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Add type</p>
                     <div class="grid gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto]">
@@ -1141,16 +1157,10 @@
                             @forelse ($managedRoomTypes as $type)
                                 <tr class="align-top {{ $type->room_type_is_archived ? 'bg-slate-50/60' : '' }}">
                                     <td class="px-4 py-3">
-                                        <form id="edit-room-type-{{ $type->room_type_id }}" action="{{ route('admin.rooms.types.update', $type->room_type_id) }}" method="POST" class="space-y-2">
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="text" name="room_type_name" required maxlength="120" value="{{ $type->room_type_name }}" class="{{ $eqField }}">
-                                            <input type="text" name="room_type_label" maxlength="120" value="{{ $type->room_type_label }}" placeholder="Label (optional)" class="{{ $eqField }}">
-                                            <label class="inline-flex items-center gap-2 text-xs text-slate-600">
-                                                <input type="checkbox" name="room_type_is_storage" value="1" class="h-3.5 w-3.5 rounded border-slate-300 text-[#0025cc]" @checked($type->room_type_is_storage)>
-                                                Storage / stockroom type
-                                            </label>
-                                        </form>
+                                        <p class="text-sm font-semibold text-slate-900">{{ $type->room_type_name }}</p>
+                                        @if (filled($type->room_type_label) && $type->room_type_label !== $type->room_type_name)
+                                            <p class="mt-0.5 text-xs text-slate-500">{{ $type->room_type_label }}</p>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ (int) $type->rooms_count }}</td>
                                     <td class="px-4 py-3">
@@ -1167,28 +1177,60 @@
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex flex-wrap items-center justify-end gap-1.5">
-                                            <button type="submit" form="edit-room-type-{{ $type->room_type_id }}" class="inline-flex h-8 items-center rounded-lg bg-[#0025cc] px-2.5 text-xs font-semibold text-white hover:bg-[#001db3]">Save</button>
-                                            <form action="{{ route('admin.rooms.types.archive', $type->room_type_id) }}" method="POST">
-                                                @csrf
-                                                @if ($type->room_type_is_archived)
+                                            @if ($type->room_type_is_archived)
+                                                <form
+                                                    action="{{ route('admin.rooms.types.archive', $type->room_type_id) }}"
+                                                    method="POST"
+                                                    data-pur-confirm="{{ $type->room_type_name }} will be available again when adding or editing rooms."
+                                                    data-pur-confirm-title="Restore room type?"
+                                                    data-pur-confirm-ok="Restore"
+                                                    data-pur-confirm-kind="archive"
+                                                >
+                                                    @csrf
                                                     <input type="hidden" name="restore" value="1">
                                                     <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Restore</button>
-                                                @else
+                                                </form>
+                                            @endif
+                                            @php $typeInUse = (int) $type->rooms_count > 0; @endphp
+                                            <div
+                                                class="relative inline-flex {{ $typeInUse ? 'group/delete' : '' }}"
+                                                @if ($typeInUse)
+                                                    title="Can't delete — rooms exist for this type."
+                                                @endif
+                                            >
+                                                <form
+                                                    action="{{ route('admin.rooms.types.destroy', $type->room_type_id) }}"
+                                                    method="POST"
+                                                    @unless ($typeInUse)
+                                                        data-pur-confirm="{{ $type->room_type_name }} will be permanently removed. Only unused types can be deleted."
+                                                        data-pur-confirm-title="Delete room type?"
+                                                        data-pur-confirm-ok="Delete"
+                                                        data-pur-confirm-danger="1"
+                                                    @endunless
+                                                >
+                                                    @csrf
+                                                    @method('DELETE')
                                                     <button
                                                         type="submit"
-                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
-                                                        title="Archive"
-                                                        aria-label="Archive"
+                                                        class="inline-flex h-8 items-center rounded-lg border px-2.5 text-xs font-semibold transition {{ $typeInUse
+                                                            ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                                                            : 'border-rose-200 bg-white text-rose-600 hover:bg-rose-50' }}"
+                                                        @disabled($typeInUse)
+                                                        aria-disabled="{{ $typeInUse ? 'true' : 'false' }}"
+                                                        @if ($typeInUse)
+                                                            aria-label="Can't delete — rooms exist for this type."
+                                                        @endif
+                                                    >Delete</button>
+                                                </form>
+                                                @if ($typeInUse)
+                                                    <span
+                                                        role="tooltip"
+                                                        class="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden w-max max-w-[14rem] rounded-lg bg-slate-900 px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-white shadow-lg group-hover/delete:block"
                                                     >
-                                                        <i data-lucide="archive" class="h-4 w-4"></i>
-                                                    </button>
+                                                        Can't delete — rooms exist for this type.
+                                                    </span>
                                                 @endif
-                                            </form>
-                                            <form action="{{ route('admin.rooms.types.destroy', $type->room_type_id) }}" method="POST" onsubmit="return confirm('Delete this room type? Only unused types can be deleted.')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="inline-flex h-8 items-center rounded-lg border border-rose-200 bg-white px-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50" @disabled((int) $type->rooms_count > 0)>Delete</button>
-                                            </form>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -1645,7 +1687,12 @@
         document.getElementById('edit_room_type').value = room.room_type || 'Lecture Room';
         const deptPicker = document.querySelector('#editRoomForm [data-dept-picker]');
         setDeptPickerValues(deptPicker, room.department_ids || []);
-        document.getElementById('edit_room_status').value = room.room_status || 'Normal';
+        const statusSelect = document.getElementById('edit_room_status');
+        const rawStatus = room.room_status || 'Available';
+        const normalizedStatus = ['Unavailable', 'Critical', 'Under Maintenance', 'Maintenance Needed'].includes(rawStatus)
+            ? 'Unavailable'
+            : 'Available';
+        statusSelect.value = normalizedStatus;
         const modal = document.getElementById('editRoomModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');

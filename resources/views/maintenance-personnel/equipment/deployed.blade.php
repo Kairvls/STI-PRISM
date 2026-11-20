@@ -104,7 +104,7 @@
             onclick="openDeployedBatchDispose()"
             disabled
             data-pur-tip-title="Dispose selected"
-            data-pur-tip="Move selected Replaced deployed units into Disposal. Units still For Replacement must be marked Replaced first."
+            data-pur-tip="Move selected Defective or Damaged units into Equipment Disposal."
             data-pur-tip-accent="#fb7185"
             class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 transition disabled:cursor-not-allowed enabled:border-[#e32626] enabled:bg-[#e32626] enabled:text-white enabled:hover:bg-red-700"
         >
@@ -296,7 +296,8 @@
                                 && ! $item->open_loan
                                 && ! $item->transfer_pending
                                 && ! $item->disposal_pending;
-                            $canDisposeRow = ($item->equipment_inventory_status ?? null) === 'Replaced'
+                            $canDisposeRow = \App\Support\EquipmentConditions::isDisposable($item->equipment_condition_status ?? null)
+                                && ($item->equipment_inventory_status ?? null) !== 'Disposed'
                                 && ! $item->open_loan
                                 && ! $item->transfer_pending
                                 && ! $item->disposal_pending;
@@ -309,6 +310,10 @@
                                         class="deployed-unit-checkbox h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
                                         value="{{ $item->equipment_id }}"
                                         data-label="{{ $unitLabel }}"
+                                        data-name="{{ $item->equipment_name }}"
+                                        data-tag="{{ $item->equipment_asset_tag }}"
+                                        data-category="{{ $item->equipment_category_name }}"
+                                        data-qty="{{ (int) ($item->equipment_quantity ?? 1) }}"
                                         data-transferable="{{ $canTransferRow ? '1' : '0' }}"
                                         data-disposable="{{ $canDisposeRow ? '1' : '0' }}"
                                         aria-label="Select {{ $unitLabel }}"
@@ -444,7 +449,7 @@
                                             data-label="{{ $unitLabel }}"
                                             class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
                                             data-pur-tip-title="Mark as Replaced"
-                                            data-pur-tip="No successor will be installed. Closes For Replacement so this unit can be disposed."
+                                            data-pur-tip="No successor will be installed. Closes For Replacement. Dispose it from Equipment Disposal if the condition is Defective or Damaged."
                                             data-pur-tip-accent="#60a5fa"
                                             aria-label="Mark {{ $unitLabel }} as Replaced"
                                         >
@@ -457,6 +462,7 @@
                                             data-id="{{ $item->equipment_id }}"
                                             data-label="{{ $unitLabel }}"
                                             data-room="{{ $item->room_name }}"
+                                            data-room-id="{{ (int) ($item->equipment_room_id ?? 0) }}"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
                                             data-pur-tip-title="{{ $disposalNeedsApproval ? 'Request disposal' : 'Dispose equipment' }}"
                                             data-pur-tip="{{ $disposalNeedsApproval ? 'Ask the Administrator to move this replaced deployed unit into Disposal' : 'Move this replaced deployed unit into Disposal' }}"
@@ -778,7 +784,7 @@
     </div>
 </div>
 
-{{-- Dispose a unit marked Replaced --}}
+{{-- Dispose a Defective or Damaged unit --}}
 <div
     id="deployedDisposeModal"
     class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
@@ -795,7 +801,7 @@
                     @if ($disposalNeedsApproval)
                         The Administrator has to approve this first. Once approved, the equipment moves to the Disposal module.
                     @else
-                        Only units marked Replaced. Disposing moves them to the Disposal module until they are restored there.
+                        Only Defective or Damaged equipment. Disposing moves them to Equipment Disposal until they are restored there.
                     @endif
                 </p>
             </div>
@@ -830,47 +836,23 @@
                 </div>
 
                 <div>
-                    <label for="deployedDisposeMethod" class="mb-2 block text-sm font-medium text-slate-700">Method</label>
+                    <label for="deployedDisposeLocation" class="mb-2 block text-sm font-medium text-slate-700">Location <span class="text-red-500">*</span></label>
                     <select
-                        id="deployedDisposeMethod"
-                        name="method"
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                    >
-                        <option value="">Select method (optional)</option>
-                        <option value="Scrap">Scrap</option>
-                        <option value="Donate">Donate</option>
-                        <option value="Sell / Auction">Sell / Auction</option>
-                        <option value="Return to supplier">Return to supplier</option>
-                        <option value="Destroy">Destroy</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="deployedDisposeResidual" class="mb-2 block text-sm font-medium text-slate-700">Residual value (?)</label>
-                    <input
-                        id="deployedDisposeResidual"
-                        name="residual_value"
-                        type="number"
-                        min="0"
-                        max="{{ \App\Support\InputLimits::COST }}"
-                        step="0.01"
-                        inputmode="decimal"
-                        data-money
-                        placeholder="Optional salvage / residual amount"
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                    >
-                </div>
-
-                <div>
-                    <label for="deployedDisposeLocation" class="mb-2 block text-sm font-medium text-slate-700">Location</label>
-                    <input
                         id="deployedDisposeLocation"
-                        name="location"
-                        type="text"
-                        maxlength="255"
-                        placeholder="Area / room"
+                        name="room_id"
+                        required
+                        data-searchable="1"
+                        data-search-placeholder="Search rooms…"
                         class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                     >
+                        <option value="">Select room</option>
+                        @foreach ($disposalRooms as $room)
+                            <option value="{{ $room->room_id }}">
+                                {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1.5 text-[11px] leading-4 text-slate-500">The equipment is transferred to this room.</p>
                 </div>
             </div>
 
@@ -956,7 +938,10 @@
 
         const items = selected.map((box) => ({
             id: box.value,
-            name: box.dataset.label || 'Equipment',
+            name: box.dataset.name || box.dataset.label || 'Equipment',
+            tag: box.dataset.tag || '',
+            category: box.dataset.category || '',
+            qty: box.dataset.qty || '1',
         }));
 
         document.getElementById('deployedBatchCount').textContent = String(items.length);
@@ -1018,11 +1003,11 @@
         }
     }
 
-    function resetDeployedDisposeForm(location) {
-        document.getElementById('deployedDisposeReason').value = 'Marked for disposal (Replaced).';
-        document.getElementById('deployedDisposeMethod').value = '';
-        document.getElementById('deployedDisposeResidual').value = '';
-        document.getElementById('deployedDisposeLocation').value = location || '';
+    function resetDeployedDisposeForm(roomId) {
+        document.getElementById('deployedDisposeReason').value = '';
+        if (window.setEqSelectValue) {
+            setEqSelectValue('deployedDisposeLocation', roomId ? String(roomId) : '');
+        }
     }
 
     function openDeployedMarkReplaced(button) {
@@ -1037,7 +1022,7 @@
         document.getElementById('deployedDisposeEquipmentId').value = button.dataset.id;
         document.getElementById('deployedDisposeTitle').textContent = @json($disposalNeedsApproval ? 'Request disposal' : 'Dispose equipment');
         document.getElementById('deployedDisposeEquipmentName').textContent = button.dataset.label || 'Equipment';
-        resetDeployedDisposeForm(button.dataset.room);
+        resetDeployedDisposeForm(button.dataset.roomId);
         showDeployedModal('deployedDisposeModal');
     }
 

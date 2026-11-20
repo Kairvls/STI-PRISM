@@ -26,9 +26,58 @@ class EquipmentConditions
         self::DISPOSED,
     ];
 
+    /**
+     * Conditions that can be chosen when adding or editing equipment.
+     * Disposed is set only by the Equipment Disposal module.
+     *
+     * @var list<string>
+     */
+    public const ASSIGNABLE = [
+        self::GOOD,
+        self::UNDER_MAINTENANCE,
+        self::DEFECTIVE,
+        self::DAMAGED,
+    ];
+
+    /**
+     * Conditions that may be sent to Equipment Disposal.
+     *
+     * @var list<string>
+     */
+    public const DISPOSABLE = [
+        self::DEFECTIVE,
+        self::DAMAGED,
+    ];
+
+    /**
+     * Conditions that cannot be borrowed. Under Maintenance is also an inventory status.
+     *
+     * @var list<string>
+     */
+    public const NOT_BORROWABLE = [
+        self::UNDER_MAINTENANCE,
+        self::DEFECTIVE,
+        self::DAMAGED,
+    ];
+
     public static function ruleIn(): string
     {
         return 'in:'.implode(',', self::ALL);
+    }
+
+    public static function assignableRule(): string
+    {
+        return 'in:'.implode(',', self::ASSIGNABLE);
+    }
+
+    public static function isDisposable(?string $condition): bool
+    {
+        return in_array((string) $condition, self::DISPOSABLE, true);
+    }
+
+    public static function blocksBorrowing(?string $condition): bool
+    {
+        return in_array((string) $condition, self::NOT_BORROWABLE, true);
     }
 
     /**

@@ -1591,15 +1591,12 @@
 
             <div class="nav-actions">
                 @guest
-                    <button type="button" onclick="openReportModal()"
-                            class="hidden md:inline lg:hidden text-sm font-semibold bg-transparent border-0 cursor-pointer whitespace-nowrap"
-                            style="color:var(--ink);">
-                        Report
-                    </button>
-                    <button type="button" onclick="openReportModal()"
-                            class="hidden lg:inline text-sm font-semibold bg-transparent border-0 cursor-pointer whitespace-nowrap"
-                            style="color:var(--ink);">
-                        Make Report
+                    <button type="button"
+                            onclick="openRequestChooser()"
+                            class="btn-yellow nav-signin border-0 cursor-pointer hidden lg:inline-flex items-center"
+                            aria-haspopup="dialog"
+                            aria-controls="requestChooserModal">
+                        Request
                     </button>
                     <button type="button" onclick="openLoginModal()"
                             class="btn-blue nav-signin border-0 cursor-pointer hidden lg:inline-flex items-center">
@@ -1629,6 +1626,10 @@
         <a href="#features" class="mobile-nav-link" data-mobile-nav>Features</a>
         @guest
             <div class="mobile-nav-actions">
+                <button type="button" onclick="closeMobileNav(); openBorrowModal();"
+                        class="mobile-nav-cta mobile-nav-cta--ghost">
+                    Borrow equipment
+                </button>
                 <button type="button" onclick="closeMobileNav(); openReportModal();"
                         class="mobile-nav-cta mobile-nav-cta--primary">
                     Make Report
@@ -1989,6 +1990,30 @@
             </a>
         </div>
     </div>
+
+    <div id="requestChooserModal"
+         class="hidden fixed inset-0 z-50 flex items-start justify-center px-4 pt-6 sm:pt-10 bg-[#0b1220]/70 p-4"
+         role="dialog"
+         aria-modal="true"
+         aria-label="Choose a request">
+        <div class="modal-animation modal-panel relative w-[19rem] rounded-lg px-4 pb-5 pt-12">
+            <button type="button" onclick="closeRequestChooser()" class="modal-close" aria-label="Close">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+            <div class="flex flex-col gap-3">
+                <button type="button"
+                        onclick="closeRequestChooser(); openReportModal();"
+                        class="btn-yellow inline-flex w-full items-center justify-center border-0 cursor-pointer rounded-full px-6 py-3.5 text-sm font-semibold">
+                    Make Report
+                </button>
+                <button type="button"
+                        onclick="closeRequestChooser(); openBorrowModal();"
+                        class="btn-blue inline-flex w-full items-center justify-center border-0 cursor-pointer rounded-full px-6 py-3.5 text-sm font-semibold">
+                    Borrow equipment
+                </button>
+            </div>
+        </div>
+    </div>
     @endguest
 
     <div id="reportModal"
@@ -1999,6 +2024,8 @@
             @include('reporter.partials.report-form')
         </div>
     </div>
+
+    @include('landing.partials.teacher-borrow-modal')
 
     <div
         id="reportIdleWarningModal"
@@ -2247,22 +2274,47 @@
         }
 
         const loginChooserModal = document.getElementById('loginChooserModal');
+        const requestChooserModal = document.getElementById('requestChooserModal');
         const reportModal = document.getElementById('reportModal');
+        const teacherBorrowModal = document.getElementById('teacherBorrowModal');
 
-        function closeAllModals() {
-            if (loginChooserModal) loginChooserModal.classList.add('hidden');
-            if (reportModal && !reportModal.classList.contains('hidden')) {
-                closeReportModal();
-            } else if (reportModal) {
-                reportModal.classList.add('hidden');
-                reportModal.classList.remove('is-expanded');
-                syncReportModalExpandUi();
+        function closeAllModals(exceptModal) {
+            if (loginChooserModal && loginChooserModal !== exceptModal) {
+                loginChooserModal.classList.add('hidden');
+            }
+            if (requestChooserModal && requestChooserModal !== exceptModal) {
+                requestChooserModal.classList.add('hidden');
+            }
+            if (
+                teacherBorrowModal
+                && teacherBorrowModal !== exceptModal
+                && !teacherBorrowModal.classList.contains('hidden')
+            ) {
+                if (typeof window.closeTeacherBorrowModal === 'function') {
+                    window.closeTeacherBorrowModal({ keepSession: true });
+                } else {
+                    teacherBorrowModal.classList.add('hidden');
+                }
+            }
+            if (reportModal && reportModal !== exceptModal) {
+                if (!reportModal.classList.contains('hidden')) {
+                    // Hide only — do not end PIN session when handing off to Borrow.
+                    if (typeof window.stopReportModalIdleWatch === 'function') {
+                        window.stopReportModalIdleWatch();
+                    }
+                    reportModal.classList.add('hidden');
+                    reportModal.classList.remove('is-expanded');
+                    syncReportModalExpandUi();
+                } else {
+                    reportModal.classList.remove('is-expanded');
+                    syncReportModalExpandUi();
+                }
             }
         }
 
         function showModal(modal) {
             if (!modal) return;
-            closeAllModals();
+            closeAllModals(modal);
             if (typeof closeMobileNav === 'function') closeMobileNav();
             if (typeof closeFaqChat === 'function') closeFaqChat();
             modal.classList.remove('hidden');
@@ -2273,7 +2325,7 @@
         function hideModal(modal) {
             if (!modal) return;
             modal.classList.add('hidden');
-            const otherOpen = [loginChooserModal, reportModal].some(function (el) {
+            const otherOpen = [loginChooserModal, requestChooserModal, reportModal, teacherBorrowModal].some(function (el) {
                 return el && el !== modal && !el.classList.contains('hidden');
             });
             if (!otherOpen) {
@@ -2281,6 +2333,9 @@
                 document.documentElement.classList.remove('overflow-hidden');
             }
         }
+
+        window.showModal = showModal;
+        window.hideModal = hideModal;
 
         function syncReportModalExpandUi() {
             if (!reportModal) return;
@@ -2309,10 +2364,21 @@
         };
 
         function openLoginModal() { showModal(loginChooserModal); }
+        function openRequestChooser() { showModal(requestChooserModal); }
+        function closeRequestChooser() { hideModal(requestChooserModal); }
+        window.openRequestChooser = openRequestChooser;
+        window.closeRequestChooser = closeRequestChooser;
         function openLoginChooser() { showModal(loginChooserModal); }
         function closeLoginChooser() { hideModal(loginChooserModal); }
+        function openBorrowModal() {
+            openReportModal({ forBorrow: true });
+        }
+        window.openBorrowModal = openBorrowModal;
         function openReportModal(options) {
             options = options || {};
+            if (!options.resume) {
+                window.__pinGateIntent = options.forBorrow ? 'borrow' : 'report';
+            }
             if (reportModal) reportModal.classList.remove('is-expanded');
             // Make Report → always phase 1. Refresh resume passes { resume: true }.
             if (!options.resume && typeof window.reporterGateReset === 'function') {
@@ -2324,7 +2390,9 @@
                 window.startReportModalIdleWatch();
             }
         }
+        window.openReportModal = openReportModal;
         function closeReportModal() {
+            window.__pinGateIntent = 'report';
             if (typeof window.clearReportPhase2Mark === 'function') {
                 window.clearReportPhase2Mark();
             } else if (typeof window.clearReportDraft === 'function') {
@@ -2332,6 +2400,9 @@
             }
             if (typeof window.stopReportModalIdleWatch === 'function') {
                 window.stopReportModalIdleWatch();
+            }
+            if (typeof window.reporterGateReset === 'function') {
+                window.reporterGateReset();
             }
             if (reportModal) reportModal.classList.remove('is-expanded');
             hideModal(reportModal);
@@ -2493,6 +2564,12 @@
         if (loginChooserModal) {
             loginChooserModal.addEventListener('click', (e) => {
                 if (e.target === loginChooserModal) closeLoginChooser();
+            });
+        }
+
+        if (requestChooserModal) {
+            requestChooserModal.addEventListener('click', (e) => {
+                if (e.target === requestChooserModal) closeRequestChooser();
             });
         }
 

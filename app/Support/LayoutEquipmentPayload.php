@@ -19,6 +19,8 @@ class LayoutEquipmentPayload
             'condition' => $row->equipment_condition_status ?? null,
             'inventory_status' => $row->equipment_inventory_status ?? null,
             'asset_tag' => $row->equipment_asset_tag ?? null,
+            'unit_tags' => EquipmentIdentity::unitTags($row),
+            'unit_profiles' => EquipmentIdentity::unitProfiles($row),
             'serial_number' => $row->equipment_serial_number ?? null,
             'brand' => $row->equipment_brand_name ?? null,
             'model' => $row->equipment_model ?? null,
@@ -37,7 +39,6 @@ class LayoutEquipmentPayload
                 && $row->equipment_useful_life_years !== ''
                     ? (int) $row->equipment_useful_life_years
                     : null,
-            'is_borrowable' => (bool) ($row->equipment_is_borrowable ?? false),
             'qr_code' => $row->equipment_qr_code ?? null,
             'room_name' => $row->room_name ?? null,
             'room_type' => $row->room_type ?? null,
@@ -68,6 +69,8 @@ class LayoutEquipmentPayload
             'condition' => $equipment->equipment_condition_status,
             'inventory_status' => $equipment->equipment_inventory_status,
             'asset_tag' => $equipment->equipment_asset_tag,
+            'unit_tags' => EquipmentIdentity::unitTags($equipment),
+            'unit_profiles' => EquipmentIdentity::unitProfiles($equipment),
             'serial_number' => $equipment->equipment_serial_number,
             'brand' => $equipment->equipment_brand_name,
             'model' => $equipment->equipment_model,
