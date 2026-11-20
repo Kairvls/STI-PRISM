@@ -28,7 +28,7 @@
             type="submit"
             class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
         >
-            Accept &amp; continue
+            Reviewed &amp; continue
         </button>
     </form>
 </div>

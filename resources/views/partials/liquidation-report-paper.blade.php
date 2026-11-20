@@ -3,7 +3,7 @@
     $liq = $liq ?? null;
     $rows = ($rows ?? collect())->values();
     $oldItems = old('items');
-    $fmt = fn ($v) => $v === null || $v === '' ? '' : number_format((float) $v, 2);
+    $fmt = fn ($v) => \App\Support\Money::format($v);
 @endphp
 
 <div @if(!empty($printId)) id="{{ $printId }}" @endif class="liq-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 py-8 text-[12px] leading-relaxed text-black shadow {{ $printClass ?? '' }}">

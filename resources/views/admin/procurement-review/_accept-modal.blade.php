@@ -49,15 +49,6 @@
                             —
                         </p>
                     </div>
-
-                    <div class="flex gap-2.5 rounded-xl border border-sky-100 bg-sky-50/80 px-3.5 py-2.5">
-                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"></path>
-                        </svg>
-                        <p class="text-xs leading-relaxed text-sky-900/80">
-                            Accepting does not approve the purchase. You will decide on Ready to Sign next.
-                        </p>
-                    </div>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
@@ -73,7 +64,7 @@
                         id="acceptRisSubmitBtn"
                         class="rounded-xl bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
                     >
-                        Accept &amp; continue
+                        Reviewed &amp; continue
                     </button>
                 </div>
             </form>
@@ -124,7 +115,7 @@
             'This moves the RIS to Ready to Sign for Direct Approve or Pass to President.',
             refLabel || window.risFormNumberLabel(risId),
             detailLabel || 'Ready to accept for Ready to Sign.',
-            'Accept & continue'
+            'Reviewed & continue'
         );
 
         modal.classList.remove('hidden');
@@ -165,7 +156,7 @@
             'Selected requests will move to Ready to Sign for Direct Approve or Pass to President.',
             count === 1 ? ('1 request selected') : (count + ' requests selected'),
             'Ready to accept for Ready to Sign.',
-            count === 1 ? 'Accept & continue' : ('Accept ' + count + ' & continue')
+            count === 1 ? 'Reviewed & continue' : ('Review ' + count + ' & continue')
         );
 
         modal.classList.remove('hidden');

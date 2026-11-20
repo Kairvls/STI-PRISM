@@ -155,10 +155,17 @@
                 <option value="">Select Supplier</option>
                 @foreach($suppliers as $supplier)
                     @php
-                        $label = $supplier->supplier_store_type === 'Physical Store'
-                            ? $supplier->company_name
-                            : $supplier->shop_name;
                         $flagged = (int) ($supplier->supplier_is_blacklisted ?? 0) === 1;
+                        $label = trim((string) ($supplier->display_name ?? ''));
+                        if ($label === '') {
+                            $label = $supplier->supplier_store_type === 'Physical Store'
+                                || $supplier->supplier_store_type === 'Physical'
+                                ? ($supplier->company_name ?: 'Supplier')
+                                : ($supplier->shop_name ?: $supplier->company_name ?: 'Supplier');
+                            if ($flagged && ! str_contains($label, '(Blacklisted)')) {
+                                $label .= ' (Blacklisted)';
+                            }
+                        }
                     @endphp
                     <option
                         value="{{ $supplier->supplier_id }}"
@@ -166,7 +173,7 @@
                         data-reason="{{ e($supplier->supplier_blacklist_reason ?? '') }}"
                         {{ (string) $supplierId === (string) $supplier->supplier_id ? 'selected' : '' }}
                     >
-                        {{ $label }}{{ $flagged ? ' (Blacklisted)' : '' }}
+                        {{ $label }}
                     </option>
                 @endforeach
             </select>
@@ -224,7 +231,7 @@
                         $price = is_array($row) ? ($row['unit_price'] ?? '') : ($item->atp_unit_price ?? '');
                         $amount = is_array($row)
                             ? ($row['amount_display'] ?? '')
-                            : ($item ? number_format((float) $item->atp_amount, 2) : '');
+                            : ($item ? \App\Support\Money::format($item->atp_amount) : '');
                     @endphp
                     @include('partials.authority-to-purchase-item-row', ['i' => $i, 'qty' => $qty, 'unit' => $unit, 'desc' => $desc, 'price' => $price, 'amount' => $amount, 'lockRow' => $i < $risLineCount])
                 @endfor
@@ -251,8 +258,8 @@
                             <td class="border border-black text-center">{{ $item->atp_quantity }}</td>
                             <td class="border border-black text-center">{{ $item->atp_unit }}</td>
                             <td class="border border-black px-2">{{ $item->atp_description }}</td>
-                            <td class="border border-black px-2 text-right">{{ number_format($item->atp_unit_price, 2) }}</td>
-                            <td class="border border-black px-2 text-right">{{ number_format($item->atp_amount, 2) }}</td>
+                            <td class="border border-black px-2 text-right">{{ \App\Support\Money::format($item->atp_unit_price) }}</td>
+                            <td class="border border-black px-2 text-right">{{ \App\Support\Money::format($item->atp_amount) }}</td>
                         </tr>
                     @else
                         <tr>
@@ -269,7 +276,7 @@
                     <td colspan="3" class="border border-black">&nbsp;</td>
                     <td class="border border-black px-2 text-right font-bold">TOTAL</td>
                     <td class="border border-black px-2 text-right font-bold">
-                        {{ $items->isNotEmpty() ? number_format($atpTotal, 2) : '' }}
+                        {{ $items->isNotEmpty() ? \App\Support\Money::format($atpTotal) : '' }}
                     </td>
                 </tr>
             @endif

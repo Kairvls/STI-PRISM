@@ -124,10 +124,50 @@
             const rows = [];
             let currentGroup = null;
 
-            Array.from(select.options).forEach(function (option) {
-                const group = option.parentElement && option.parentElement.tagName === 'OPTGROUP'
-                    ? option.parentElement
-                    : null;
+            const optionEntries = Array.from(select.options).map(function (option) {
+                return {
+                    option: option,
+                    group: option.parentElement && option.parentElement.tagName === 'OPTGROUP'
+                        ? option.parentElement
+                        : null,
+                };
+            });
+
+            // Keep placeholders (empty value) first; sort the rest A–Z within each group.
+            const groupBuckets = new Map();
+            optionEntries.forEach(function (entry) {
+                const key = entry.group || '__root__';
+                if (!groupBuckets.has(key)) {
+                    groupBuckets.set(key, []);
+                }
+                groupBuckets.get(key).push(entry);
+            });
+            const sortedEntries = [];
+            groupBuckets.forEach(function (bucket) {
+                const placeholders = [];
+                const choices = [];
+                bucket.forEach(function (entry) {
+                    if (String(entry.option.value || '') === '') {
+                        placeholders.push(entry);
+                    } else {
+                        choices.push(entry);
+                    }
+                });
+                choices.sort(function (a, b) {
+                    return String(a.option.text || '').localeCompare(
+                        String(b.option.text || ''),
+                        undefined,
+                        { sensitivity: 'base' }
+                    );
+                });
+                placeholders.concat(choices).forEach(function (entry) {
+                    sortedEntries.push(entry);
+                });
+            });
+
+            sortedEntries.forEach(function (entry) {
+                const option = entry.option;
+                const group = entry.group;
                 if (group && group !== currentGroup) {
                     const header = document.createElement('div');
                     header.className = 'px-3.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400';

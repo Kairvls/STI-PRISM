@@ -564,6 +564,7 @@ class BackOrderController extends Controller
                 'suppliers_table.supplier_id',
                 DB::raw("COALESCE(physical_suppliers_table.company_name, online_suppliers_table.shop_name, 'Unnamed supplier') as supplier_name")
             )
+            ->orderByRaw('LOWER(COALESCE(physical_suppliers_table.company_name, online_suppliers_table.shop_name, \'Unnamed supplier\')) ASC')
             ->orderBy('supplier_name')
             ->get();
     }

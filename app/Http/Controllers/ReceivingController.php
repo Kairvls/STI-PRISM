@@ -823,7 +823,7 @@ class ReceivingController extends Controller
             ->pad(8, null);
 
         $stamp = (string) ($ris->ris_updated_at ?? $ris->ris_status ?? $risId);
-        $html = \App\Support\CachedFormPreview::html('receiving-ris-print:'.$risId.':'.$stamp, function () use ($ris, $risItems) {
+        $html = \App\Support\CachedFormPreview::html('receiving-ris-print:'.$risId.':'.$stamp.':v7', function () use ($ris, $risItems) {
             return view('admin.ris.print', [
                 'ris' => $ris,
                 'risItems' => $risItems,

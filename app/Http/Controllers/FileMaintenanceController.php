@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemSubCategory;
 use App\Models\Uom;
+use App\Support\EquipmentBrands;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -44,7 +45,10 @@ class FileMaintenanceController extends Controller
                 $query->where('brand_status', $request->status);
             }
 
-            $data['brands'] = $query->orderBy('brand_name')->paginate(10)->withQueryString();
+            // Shared catalog with Admin Equipment Catalog (same brands_table).
+            $brands = $query->orderBy('brand_name')->paginate(10)->withQueryString();
+            $brands->setCollection(EquipmentBrands::attachUsageFlags($brands->getCollection()));
+            $data['brands'] = $brands;
             $data['summary'] = [
                 'total' => Brand::count(),
                 'active' => Brand::where('brand_status', 'Active')->count(),

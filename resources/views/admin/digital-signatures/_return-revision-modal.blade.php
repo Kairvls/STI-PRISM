@@ -99,7 +99,7 @@
                     @include('admin.partials.revision-image-picker', ['pickerId' => 'returnRevisionImages'])
                     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs text-slate-700">
-                            Approved by and Issued by signatures will be cleared. The assigned Purchaser edits under For revision (School Administrator), then resubmits.
+                            Approved by and Issued by are cleared. The Purchaser then edits under For revision (President) and resubmits.
                         </p>
                     </div>
                 </div>

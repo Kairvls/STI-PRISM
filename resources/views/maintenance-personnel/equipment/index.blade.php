@@ -1051,7 +1051,8 @@
                                             </button>
                                         @endif
 
-                                        @if ($canManage)
+                                        {{-- Edit is Inventory-only; All Equipment (admin) is view / dispose. --}}
+                                        @if ($canManage && $isStockPage)
                                         <button
                                             type="button"
                                             onclick="openEditEquipmentModal(
@@ -1102,7 +1103,9 @@
                                         >
                                             <i data-lucide="edit-3" class="h-4 w-4"></i>
                                         </button>
+                                        @endif
 
+                                        @if ($canManage)
                                         @if (($item->equipment_inventory_status ?? '') === 'For Replacement')
                                             <button
                                                 type="button"
@@ -2021,13 +2024,52 @@
                 .classList.remove("flex");
         }
 
+        function clearInventoryDisposeReasonError() {
+            const reason = document.getElementById("inventoryDisposeReason");
+            const reasonError = document.getElementById("inventoryDisposeReasonError");
+            if (reason) {
+                reason.classList.remove("border-rose-400", "ring-4", "ring-rose-100");
+            }
+            if (reasonError) {
+                reasonError.textContent = "";
+                reasonError.classList.add("hidden");
+            }
+        }
+
+        function resetInventoryDisposeForm() {
+            const reason = document.getElementById("inventoryDisposeReason");
+            const method = document.getElementById("inventoryDisposeMethod");
+            const location = document.getElementById("inventoryDisposeLocation");
+            if (reason) reason.value = "";
+            if (method) method.value = "";
+            if (location) location.value = "";
+            clearInventoryDisposeReasonError();
+        }
+
+        function setInventoryDisposeLocation(roomName) {
+            const location = document.getElementById("inventoryDisposeLocation");
+            if (!location) return;
+
+            const target = String(roomName || "").trim();
+            if (!target) {
+                location.value = "";
+                return;
+            }
+
+            const match = Array.from(location.options).find(function (option) {
+                return String(option.value || "").trim() === target
+                    || String(option.textContent || "").trim() === target;
+            });
+            location.value = match ? match.value : "";
+        }
+
         function openInventoryDisposeModal(equipmentId, equipmentName, roomName) {
             document.getElementById("inventoryDisposeIds").innerHTML = "";
             document.getElementById("inventoryDisposeEquipmentId").value = equipmentId;
             document.getElementById("inventoryDisposeTitle").textContent = "Dispose equipment";
             document.getElementById("inventoryDisposeEquipmentName").textContent = equipmentName || "Equipment";
-            document.getElementById("inventoryDisposeLocation").value = roomName || "";
-            document.getElementById("inventoryDisposeReason").value = "";
+            resetInventoryDisposeForm();
+            setInventoryDisposeLocation(roomName);
             showInventoryDisposeModal();
         }
 
@@ -2058,8 +2100,7 @@
             const nameBox = document.getElementById("inventoryDisposeEquipmentName");
             nameBox.innerHTML = "";
             nameBox.appendChild(list);
-            document.getElementById("inventoryDisposeLocation").value = "";
-            document.getElementById("inventoryDisposeReason").value = "";
+            resetInventoryDisposeForm();
             showInventoryDisposeModal();
         }
 
@@ -2083,9 +2124,17 @@
             const modal = document.getElementById("inventoryDisposeModal");
             modal.classList.remove("hidden");
             modal.classList.add("flex");
+            document.body.style.overflow = "hidden";
 
             if (window.lucide) {
                 window.lucide.createIcons();
+            }
+
+            const reason = document.getElementById("inventoryDisposeReason");
+            if (reason) {
+                setTimeout(function () {
+                    reason.focus();
+                }, 40);
             }
         }
 
@@ -2093,7 +2142,36 @@
             const modal = document.getElementById("inventoryDisposeModal");
             modal.classList.add("hidden");
             modal.classList.remove("flex");
+            document.body.style.overflow = "";
         }
+
+        function validateInventoryDisposeForm(event) {
+            const reason = document.getElementById("inventoryDisposeReason");
+            const reasonError = document.getElementById("inventoryDisposeReasonError");
+            if (!reason) return true;
+
+            const value = String(reason.value || "").trim();
+            if (value !== "") {
+                clearInventoryDisposeReasonError();
+                return true;
+            }
+
+            event.preventDefault();
+            reason.classList.add("border-rose-400", "ring-4", "ring-rose-100");
+            if (reasonError) {
+                reasonError.textContent = "Enter a reason for disposal.";
+                reasonError.classList.remove("hidden");
+            }
+            reason.focus();
+            return false;
+        }
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key !== "Escape") return;
+            const modal = document.getElementById("inventoryDisposeModal");
+            if (!modal || modal.classList.contains("hidden")) return;
+            closeInventoryDisposeModal();
+        });
 
         function openInventoryTransferToModal(equipmentId, equipmentName, roomName, assetTag, trackingMode, quantity) {
             document.getElementById("inventoryTransferEquipmentId").value = equipmentId;
@@ -2461,6 +2539,7 @@
     <div
         id="inventoryDisposeModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeInventoryDisposeModal()"
     >
         <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
             <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
@@ -2472,7 +2551,7 @@
                         Dispose equipment
                     </h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Only units marked Replaced can be moved into Disposal. This is permanent until restored from Disposal.
+                        Only units marked Replaced. Disposing moves them to the Disposal module until they are restored there.
                     </p>
                 </div>
                 <button
@@ -2485,80 +2564,70 @@
                 </button>
             </div>
 
-            <form action="{{ $disposeAction }}" method="POST">
+            <form action="{{ $disposeAction }}" method="POST" novalidate onsubmit="return validateInventoryDisposeForm(event)">
                 @csrf
                 <input type="hidden" name="equipment_id" id="inventoryDisposeEquipmentId" value="" />
                 <div id="inventoryDisposeIds"></div>
 
-                <div class="border-y border-slate-100 px-6 py-5">
-                    <div class="space-y-5">
-                        <div>
-                            <p class="mb-1 text-sm font-medium text-slate-700">Equipment</p>
-                            <div id="inventoryDisposeEquipmentName" class="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></div>
-                        </div>
+                <div class="max-h-[60vh] space-y-5 overflow-y-auto border-y border-slate-100 px-6 py-5">
+                    <div>
+                        <p class="mb-1 text-sm font-medium text-slate-700">Equipment</p>
+                        <div id="inventoryDisposeEquipmentName" class="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></div>
+                    </div>
 
-                        <div>
-                            <label for="inventoryDisposeReason" class="mb-2 block text-sm font-medium text-slate-700">
-                                Reason <span class="text-red-500">*</span>
-                            </label>
-                            <textarea
-                                id="inventoryDisposeReason"
-                                name="reason"
-                                rows="3"
-                                required
-                                placeholder="Why is this equipment being disposed?"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            ></textarea>
-                        </div>
+                    <div>
+                        <label for="inventoryDisposeReason" class="mb-2 block text-sm font-medium text-slate-700">
+                            Reason <span class="text-red-500">*</span>
+                        </label>
+                        <textarea
+                            id="inventoryDisposeReason"
+                            name="reason"
+                            rows="3"
+                            required
+                            maxlength="1000"
+                            placeholder="Why is this equipment being disposed?"
+                            oninput="clearInventoryDisposeReasonError()"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        ></textarea>
+                        <p id="inventoryDisposeReasonError" class="mt-1.5 hidden text-xs font-medium text-rose-600"></p>
+                    </div>
 
-                        <div>
-                            <label for="inventoryDisposeMethod" class="mb-2 block text-sm font-medium text-slate-700">
-                                Method
-                            </label>
-                            <select
-                                id="inventoryDisposeMethod"
-                                name="method"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                                <option value="">Select method (optional)</option>
-                                <option value="Scrap">Scrap</option>
-                                <option value="Donate">Donate</option>
-                                <option value="Sell / Auction">Sell / Auction</option>
-                                <option value="Return to supplier">Return to supplier</option>
-                                <option value="Destroy">Destroy</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label for="inventoryDisposeMethod" class="mb-2 block text-sm font-medium text-slate-700">
+                            Method
+                        </label>
+                        <select
+                            id="inventoryDisposeMethod"
+                            name="method"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            <option value="">Select method (optional)</option>
+                            <option value="Scrap">Scrap</option>
+                            <option value="Donate">Donate</option>
+                            <option value="Sell / Auction">Sell / Auction</option>
+                            <option value="Return to supplier">Return to supplier</option>
+                            <option value="Destroy">Destroy</option>
+                        </select>
+                    </div>
 
-                        <div>
-                            <label for="inventoryDisposeResidual" class="mb-2 block text-sm font-medium text-slate-700">
-                                Residual value (₱)
-                            </label>
-                            <input
-                                id="inventoryDisposeResidual"
-                                name="residual_value"
-                                type="number"
-                                min="0"
-                                max="{{ \App\Support\InputLimits::COST }}"
-                                step="0.01"
-                                inputmode="decimal"
-                                data-money
-                                placeholder="Optional salvage / residual amount"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
-                        </div>
-
-                        <div>
-                            <label for="inventoryDisposeLocation" class="mb-2 block text-sm font-medium text-slate-700">
-                                Location
-                            </label>
-                            <input
-                                id="inventoryDisposeLocation"
-                                name="location"
-                                type="text"
-                                placeholder="Area / room"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
-                        </div>
+                    <div>
+                        <label for="inventoryDisposeLocation" class="mb-2 block text-sm font-medium text-slate-700">
+                            Location
+                        </label>
+                        <select
+                            id="inventoryDisposeLocation"
+                            name="location"
+                            data-searchable="1"
+                            data-search-placeholder="Search locations…"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            <option value="">Select location (optional)</option>
+                            @foreach (($rooms ?? collect()) as $room)
+                                <option value="{{ $room->room_name }}">
+                                    {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
 

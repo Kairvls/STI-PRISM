@@ -54,6 +54,11 @@ trait FormExporterHelpers
         return number_format((float) $value, $decimals);
     }
 
+    protected function money($value): string
+    {
+        return \App\Support\Money::format($value);
+    }
+
     protected function companyName(): string
     {
         return 'STI COLLEGE ORMOC, INC.';

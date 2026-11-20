@@ -42,47 +42,73 @@ class CashInstallmentPlanner
             return collect();
         }
 
-        return DB::table('installment_day_intervals_table')
-            ->where('interval_is_active', 1)
+        $query = DB::table('installment_day_intervals_table')
+            ->where('interval_is_active', 1);
+
+        if (Schema::hasColumn('installment_day_intervals_table', 'interval_unit')) {
+            $query->orderByRaw("CASE interval_unit WHEN 'days' THEN 0 WHEN 'monthly' THEN 1 WHEN 'quarterly' THEN 2 WHEN 'semiannual' THEN 3 WHEN 'annual' THEN 4 ELSE 9 END");
+        }
+
+        return $query
             ->orderBy('interval_days')
             ->orderBy('interval_name')
             ->get();
     }
 
+    public static function intervalUnit(object $interval): string
+    {
+        $unit = (string) ($interval->interval_unit ?? 'days');
+
+        return in_array($unit, ['days', 'monthly', 'quarterly', 'semiannual', 'annual'], true)
+            ? $unit
+            : 'days';
+    }
+
+    public static function shiftDate(string $anchor, string $unit, int $intervalDays, int $steps): string
+    {
+        $cursor = \Carbon\Carbon::parse($anchor)->startOfDay();
+        if ($steps < 1) {
+            return $cursor->toDateString();
+        }
+
+        return match ($unit) {
+            'monthly' => $cursor->addMonths($steps)->toDateString(),
+            'quarterly' => $cursor->addMonths(3 * $steps)->toDateString(),
+            'semiannual' => $cursor->addMonths(6 * $steps)->toDateString(),
+            'annual' => $cursor->addYears($steps)->toDateString(),
+            default => $cursor->addDays(max(1, $intervalDays) * $steps)->toDateString(),
+        };
+    }
+
     /**
-     * Fill installment due dates from an anchor date + day interval.
-     * Downpayment keeps the anchor; installment N = anchor + (N × days).
-     * Without downpayment, installment 1 = anchor and later rows add the interval.
+     * Fill installment due dates from an anchor date and a payment interval.
+     * Downpayment keeps the anchor. Later rows step by days, months, quarter, half-year, or year.
      *
      * @param  list<array{kind: string, sequence: int, amount: float, due_date: string|null, label: string}>  $schedule
      * @return list<array{kind: string, sequence: int, amount: float, due_date: string|null, label: string}>
      */
-    public static function applyIntervalDates(array $schedule, ?string $anchorDate, int $intervalDays): array
+    public static function applyIntervalDates(array $schedule, ?string $anchorDate, int $intervalDays, string $unit = 'days'): array
     {
         $anchor = self::normalizeDate($anchorDate);
-        if ($anchor === null || $intervalDays < 1 || $schedule === []) {
+        if ($anchor === null || $schedule === []) {
+            return $schedule;
+        }
+        if ($unit === 'days' && $intervalDays < 1) {
             return $schedule;
         }
 
         $hasDownpayment = ($schedule[0]['kind'] ?? '') === 'downpayment';
-        $cursor = \Carbon\Carbon::parse($anchor)->startOfDay();
 
         foreach ($schedule as $i => $row) {
             if ($hasDownpayment && $i === 0) {
-                $schedule[$i]['due_date'] = $cursor->toDateString();
+                $schedule[$i]['due_date'] = $anchor;
                 continue;
             }
 
-            if ($hasDownpayment) {
-                $schedule[$i]['due_date'] = $cursor->copy()
-                    ->addDays($intervalDays * (int) ($row['sequence'] ?? ($i)))
-                    ->toDateString();
-                continue;
-            }
-
-            // No downpayment: first installment uses the anchor, then +interval each.
-            $offset = max(0, ((int) ($row['sequence'] ?? ($i + 1))) - 1);
-            $schedule[$i]['due_date'] = $cursor->copy()->addDays($intervalDays * $offset)->toDateString();
+            $steps = $hasDownpayment
+                ? (int) ($row['sequence'] ?? $i)
+                : max(0, ((int) ($row['sequence'] ?? ($i + 1))) - 1);
+            $schedule[$i]['due_date'] = self::shiftDate($anchor, $unit, $intervalDays, $steps);
         }
 
         return $schedule;
@@ -111,18 +137,11 @@ class CashInstallmentPlanner
     }
 
     /**
-     * How many installment RFCs a term spans, given an optional day-count interval.
-     * Example: 3 months + every 15 days → floor(90 / 15) = 6.
-     * Without an interval, the month count is used as the installment count.
+     * Installment count is the number of payments typed on the plan.
      */
-    public static function installmentCount(int $months, int $intervalDays = 0): int
+    public static function installmentCount(int $count): int
     {
-        $months = max(1, $months);
-        if ($intervalDays > 0) {
-            return max(1, (int) floor(($months * 30) / $intervalDays));
-        }
-
-        return $months;
+        return max(1, min(36, $count));
     }
 
     /**
@@ -134,13 +153,12 @@ class CashInstallmentPlanner
     public static function buildSchedule(
         float $total,
         float $downpayment,
-        int $months,
-        array $dates = [],
-        int $intervalDays = 0
+        int $installmentCount,
+        array $dates = []
     ): array {
         $total = round($total, 2);
         $downpayment = round(max(0, $downpayment), 2);
-        $count = self::installmentCount($months, $intervalDays);
+        $count = self::installmentCount($installmentCount);
 
         if ($total <= 0) {
             throw new InvalidArgumentException('ATP total must be greater than zero.');
@@ -201,7 +219,7 @@ class CashInstallmentPlanner
      */
     public static function create(
         int $atpId,
-        int $termId,
+        int $installmentCount,
         float $downpayment,
         array $dates = [],
         ?int $dayIntervalId = null
@@ -219,32 +237,30 @@ class CashInstallmentPlanner
             throw new InvalidArgumentException('A funding request or installment plan already exists for this ATP.');
         }
 
-        $term = DB::table('installment_terms_table')
-            ->where('term_id', $termId)
-            ->where('term_is_active', 1)
-            ->first();
-        if (! $term) {
-            throw new InvalidArgumentException('Select a valid installment term.');
-        }
+        $count = self::installmentCount($installmentCount);
 
         $interval = null;
         $intervalDays = 0;
+        $intervalUnit = 'days';
         if ($dayIntervalId) {
             $interval = DB::table('installment_day_intervals_table')
                 ->where('interval_id', $dayIntervalId)
                 ->where('interval_is_active', 1)
                 ->first();
             if (! $interval) {
-                throw new InvalidArgumentException('Select a valid day-count interval.');
+                throw new InvalidArgumentException('Select a valid payment interval.');
             }
+            $intervalUnit = self::intervalUnit($interval);
             $intervalDays = (int) $interval->interval_days;
+            if ($intervalUnit === 'days' && $intervalDays < 1) {
+                throw new InvalidArgumentException('Select a valid payment interval.');
+            }
         }
 
-        $months = (int) $term->term_months;
         $total = self::atpTotal($atpId);
-        $schedule = self::buildSchedule($total, $downpayment, $months, $dates, $intervalDays);
+        $schedule = self::buildSchedule($total, $downpayment, $count, $dates);
 
-        if ($intervalDays > 0) {
+        if ($interval) {
             $anchor = null;
             foreach ($dates as $date) {
                 $normalized = self::normalizeDate(is_string($date) ? $date : null);
@@ -263,7 +279,7 @@ class CashInstallmentPlanner
             if ($anchor < now()->toDateString()) {
                 throw new InvalidArgumentException('Start / downpayment date must be today or a future date.');
             }
-            $schedule = self::applyIntervalDates($schedule, $anchor, $intervalDays);
+            $schedule = self::applyIntervalDates($schedule, $anchor, $intervalDays, $intervalUnit);
         } else {
             foreach ($schedule as $row) {
                 $due = self::normalizeDate($row['due_date'] ?? null);
@@ -281,10 +297,9 @@ class CashInstallmentPlanner
 
         return DB::transaction(function () use (
             $atpId,
-            $term,
             $interval,
             $intervalDays,
-            $months,
+            $count,
             $total,
             $downpayment,
             $schedule,
@@ -305,8 +320,8 @@ class CashInstallmentPlanner
             $remaining = round($total - round(max(0, $downpayment), 2), 2);
             $planPayload = [
                 'authority_purchase_id' => $atpId,
-                'term_id' => (int) $term->term_id,
-                'plan_months' => $months,
+                'term_id' => null,
+                'plan_months' => $count,
                 'plan_atp_total' => $total,
                 'plan_downpayment' => round(max(0, $downpayment), 2),
                 'plan_remaining' => $remaining,

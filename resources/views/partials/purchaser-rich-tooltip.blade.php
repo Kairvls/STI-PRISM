@@ -26,7 +26,7 @@
         color: #fff;
     }
     #purRichTip [data-tip-dot] { width: 6px; height: 6px; border-radius: 9999px; background: var(--pur-tip-accent, #60a5fa); }
-    #purRichTip [data-tip-body] { margin-top: 4px; font-size: 11.5px; line-height: 1.45; color: #cbd5e1; }
+    #purRichTip [data-tip-body] { margin-top: 4px; font-size: 11.5px; line-height: 1.45; color: #cbd5e1; white-space: pre-line; }
     #purRichTip [data-tip-note] {
         margin-top: 6px;
         padding-top: 6px;

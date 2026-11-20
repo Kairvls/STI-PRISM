@@ -8,7 +8,7 @@
             @endphp
             <div class="flex min-h-7 flex-wrap items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-2">
-                    <h2 class="text-sm font-semibold leading-none text-slate-950">3 nearest lifespan broadcasts</h2>
+                    <h2 class="text-sm font-semibold leading-none text-slate-950">Latest equipment lifespan overdue</h2>
                     <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($lifespanTotal) }}</span>
                     <button type="button" id="lifespanDueBell" class="relative inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-rose-50 hover:text-rose-700" title="Equipment that reached its lifespan" aria-label="Equipment that reached its lifespan">
                         <i data-lucide="bell" class="h-4 w-4"></i>
@@ -19,11 +19,6 @@
                 </div>
                 <a href="{{ $lifespanIndexUrl ?? route('admin.lifespan-broadcasts.index') }}" class="text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
             </div>
-            @if ($lifespanDueCount > 0)
-                <p class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
-                    {{ $lifespanDueCount === 1 ? '1 equipment has reached the end of its useful life.' : number_format($lifespanDueCount).' equipment have reached the end of their useful life.' }} A replacement is suggested. Open the bell to see the date, then check stock before a procurement replacement request.
-                </p>
-            @endif
             <div class="mt-3 divide-y divide-slate-100">
                 @forelse ($lifespanRows as $index => $row)
                     <button type="button" data-lifespan-open="{{ $index }}" class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-slate-50">
@@ -42,13 +37,13 @@
                         @endif
                     </button>
                 @empty
-                    <p class="py-8 text-center text-xs font-medium text-slate-400">No equipment nearing the end of its useful life</p>
+                    <p class="py-8 text-center text-xs font-medium text-slate-400">No equipment past its useful life</p>
                 @endforelse
             </div>
             <script type="application/json" id="lifespanPreviewData">@json($lifespanRows->values())</script>
             <script type="application/json" id="lifespanDueData">@json($lifespanDue->values())</script>
             @if ($lifespanTotal > $lifespanRows->count())
-                <p class="mt-2 text-xs text-slate-500">{{ $lifespanRows->count() }} nearest of {{ number_format($lifespanTotal) }}</p>
+                <p class="mt-2 text-xs text-slate-500">{{ $lifespanRows->count() }} of {{ number_format($lifespanTotal) }} past useful life</p>
             @endif
         </section>
 

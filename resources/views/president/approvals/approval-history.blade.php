@@ -39,14 +39,6 @@
             <p class="text-xs font-medium text-slate-500">Rejected</p>
             <p class="mt-2 text-2xl font-semibold text-slate-900" id="summaryRejectedCount">{{ number_format($summary['rejected_count']) }}</p>
         </div>
-        <div class="pm-kpi-card">
-            <p class="text-xs font-medium text-slate-500">Approved value</p>
-            <p class="mt-2 text-xl font-semibold text-slate-900" id="summaryApprovedAmount">₱{{ number_format((float) $summary['approved_amount'], 2) }}</p>
-        </div>
-        <div class="pm-kpi-card">
-            <p class="text-xs font-medium text-slate-500">Rejected value</p>
-            <p class="mt-2 text-xl font-semibold text-slate-900" id="summaryRejectedAmount">₱{{ number_format((float) $summary['rejected_amount'], 2) }}</p>
-        </div>
     </div>
 
     <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
@@ -139,7 +131,6 @@
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Request No.</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Decision</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
-                        <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>
                         <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
                     </tr>
                 </thead>

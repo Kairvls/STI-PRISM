@@ -19,7 +19,7 @@
             <span>Overview</span>
         </a>
 
-        <div class="menu-title" id="approvals-section">APPROVALS</div>
+        <div class="menu-title" id="procurement-section">PROCUREMENT</div>
         @php
             $presCounts = \App\Support\PresidentSidebarCounts::counts();
             $navCount = 'menu-count';
@@ -36,25 +36,12 @@
         </a>
 
         <a
-            href="{{ route('president.dv.index') }}"
-            class="menu-item {{ request()->is('president/disbursement-vouchers*') ? 'active' : '' }} mt-1"
-            id="dv-approvals-section"
-        >
-            <i class="h-5 w-5" data-lucide="file-text"></i>
-            <span>Disbursement Vouchers</span>
-            @if($presCounts['dv'] > 0)
-                <span class="{{ $navCount }}" title="{{ $presCounts['dv'] }} not viewed yet">{{ $presCounts['dv'] }}</span>
-            @endif
-        </a>
-
-        <div class="menu-title" id="records-section">RECORDS & ARCHIVES</div>
-        <a
             href="/president/direct-approvals"
             class="menu-item {{ request()->is('president/direct-approvals*') ? 'active' : '' }}"
             id="direct-approvals-section"
         >
             <i class="h-5 w-5" data-lucide="shield-check"></i>
-            <span>School Administrator Direct Approvals</span>
+            <span>School Administrator RIS Direct Approvals</span>
             @if($presCounts['direct'] > 0)
                 <span class="{{ $navCount }}" title="{{ $presCounts['direct'] }} not viewed yet">{{ $presCounts['direct'] }}</span>
             @endif

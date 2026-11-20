@@ -28,7 +28,6 @@
                     <th class="px-4 py-3">RFC No.</th>
                     <th class="px-4 py-3">ATP</th>
                     <th class="px-4 py-3">Payee</th>
-                    <th class="px-4 py-3">Amount</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
@@ -43,7 +42,6 @@
                         <td class="px-4 py-4 font-medium">{{ $rfc->request_check_form_number }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->authority_purchase_form_number ?? '—' }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
-                        <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}</td>
                         <td class="px-4 py-4">@include('partials.status-pill', ['status' => $rfc->request_check_status])</td>
                         <td class="px-4 py-4">
                             <div class="flex flex-wrap gap-2">
@@ -74,7 +72,6 @@
     <div>{{ $rfcs->links() }}</div>
 
     @foreach($rfcs as $rfc)
-        @php $rfcFiles = $attachments->get($rfc->request_check_id, collect()); @endphp
         <div x-show="viewOpen && selectedRfc === {{ $rfc->request_check_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
             <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
             <div class="relative flex min-h-full items-center justify-center p-4">

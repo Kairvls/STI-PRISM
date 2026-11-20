@@ -15,7 +15,7 @@
         .ris-document .signature-box { position: relative; }
         .ris-document .signature-line { position: relative; border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
     </style>
-    <div class="bg-white p-3 sm:p-5">
+    <div class="overflow-x-auto bg-white p-3 sm:p-5">
         @include('partials.ris-document-paper', [
             'ris' => $ris,
             'risItems' => $risItems ?? collect(),

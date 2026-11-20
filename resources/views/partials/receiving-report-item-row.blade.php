@@ -60,98 +60,13 @@
     </td>
     <td class="border border-black">
         @if($cellsEditable)
-            <div
-                class="relative min-w-0"
-                x-data="{
-                    value: @js((string) $unit),
-                    options: @js($uomNames->all()),
-                    open: false,
-                    query: '',
-                    get filtered() {
-                        const list = this.value && !this.options.includes(this.value)
-                            ? [this.value, ...this.options]
-                            : this.options;
-                        const q = this.query.trim().toLowerCase();
-                        return q ? list.filter((opt) => opt.toLowerCase().includes(q)) : list;
-                    },
-                    toggle() {
-                        this.open = !this.open;
-                        this.query = '';
-                        if (this.open) this.$nextTick(() => this.$refs.search.focus({ preventScroll: true }));
-                    },
-                    pick(opt) {
-                        this.value = opt;
-                        this.open = false;
-                        this.query = '';
-                    }
-                }"
-                x-on:keydown.escape.stop="open = false"
-            >
-                <input
-                    type="hidden"
-                    name="items[{{ $i }}][unit]"
-                    value="{{ $unit }}"
-                    x-bind:value="value"
-                    x-on:input="value = $event.target.value"
-                >
-                <button
-                    type="button"
-                    x-on:click.stop="toggle()"
-                    class="flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[12px] outline-none focus:ring-0"
-                    x-bind:aria-expanded="open.toString()"
-                >
-                    <span class="min-w-0 flex-1 truncate" x-bind:class="value ? '' : 'text-gray-400'" x-text="value || 'Unit'">{{ $unit }}</span>
-                    <svg class="h-3 w-3 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
-                    </svg>
-                </button>
-                <div
-                    x-show="open"
-                    x-cloak
-                    x-transition
-                    x-on:click.outside="open = false"
-                    class="absolute left-0 top-full z-[80] mt-0.5 w-max min-w-[7rem] max-w-[16rem] overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-lg"
-                >
-                    <div class="border-b border-gray-100 p-1.5">
-                        <input
-                            type="text"
-                            x-ref="search"
-                            x-model="query"
-                            x-on:click.stop
-                            x-on:keydown.enter.prevent="filtered.length && pick(filtered[0])"
-                            placeholder="Search..."
-                            maxlength="{{ \App\Support\InputLimits::SHORT }}"
-                            class="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] text-gray-800 outline-none focus:border-gray-300 focus:bg-white"
-                        >
-                    </div>
-                    <ul class="max-h-[10.5rem] overflow-y-auto py-1">
-                        <li>
-                            <button
-                                type="button"
-                                x-on:click="pick('')"
-                                class="flex w-full px-2.5 py-1.5 text-left text-[11px] text-gray-500 hover:bg-gray-50"
-                                x-bind:class="!value ? 'bg-slate-50 font-medium text-slate-800' : ''"
-                            >
-                                Select unit
-                            </button>
-                        </li>
-                        <template x-for="opt in filtered" :key="opt">
-                            <li>
-                                <button
-                                    type="button"
-                                    x-on:click="pick(opt)"
-                                    class="flex w-full px-2.5 py-1.5 text-left text-[11px] text-gray-800 hover:bg-gray-50"
-                                    x-bind:class="value === opt ? 'bg-slate-50 font-medium' : ''"
-                                    x-text="opt"
-                                ></button>
-                            </li>
-                        </template>
-                        <li x-show="filtered.length === 0" class="px-2.5 py-2 text-[11px] text-gray-400">
-                            No matches
-                        </li>
-                    </ul>
-                </div>
-            </div>
+            @include('partials.procurement-uom-select', [
+                'unit' => $unit,
+                'inputName' => 'items['.$i.'][unit]',
+                'uomNames' => $uomNames,
+                'pp' => $pp ?? null,
+                'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[12px] outline-none focus:ring-0',
+            ])
         @else
             {{ $unit }}
         @endif
@@ -159,6 +74,7 @@
     <td class="border border-black text-left px-2">
         @if($cellsEditable)
             <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="h-7 w-full border-0 bg-transparent outline-none">
+            <input type="hidden" name="items[{{ $i }}][equipment_id]" value="" data-rr-equipment-id>
             <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" placeholder="Remarks for missing / damaged units" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
             @if($backOrderId !== '' && $backOrderId !== null)
                 <input type="hidden" name="items[{{ $i }}][back_order_id]" value="{{ $backOrderId }}">

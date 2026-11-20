@@ -12,7 +12,7 @@
                 fit.style.margin = '0';
 
                 var sheet = fit.querySelector(
-                    '.rfc-print-sheet, .liq-print-sheet, .atp-print-sheet, .rr-print-sheet, .dv-print-sheet, .ris-document, .acc-paper'
+                    '.ris-original-form, .rfc-print-sheet, .liq-print-sheet, .atp-print-sheet, .rr-print-sheet, .dv-print-sheet, .ris-document, .acc-paper'
                 ) || fit.firstElementChild;
                 if (!sheet) return;
 
@@ -24,8 +24,9 @@
 
                 // Review pages scroll with the main page: fit width only, keep full height.
                 var outerScroll = !!viewer.closest('.acc-page--review');
+                var purchaserSheet = !!(sheet.classList && sheet.classList.contains('ris-original-form'));
                 var scale;
-                if (outerScroll) {
+                if (outerScroll || purchaserSheet) {
                     scale = Math.min(availW / docW, 1);
                 } else {
                     var availH = Math.max(140, stage.clientHeight - pad);
@@ -36,7 +37,12 @@
                 fit.style.width = docW + 'px';
                 fit.style.height = docH + 'px';
                 fit.style.transform = 'scale(' + scale + ')';
-                if (outerScroll) {
+                if (purchaserSheet) {
+                    stage.style.overflow = 'auto';
+                    stage.style.alignItems = 'flex-start';
+                    stage.style.justifyContent = 'center';
+                }
+                if (outerScroll || purchaserSheet) {
                     // Keep the sheet centered in the gray stage; collapse unused layout space below.
                     var xGap = (docW * (scale - 1)) / 2;
                     var yGap = docH * (scale - 1);

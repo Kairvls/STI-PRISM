@@ -161,7 +161,7 @@
                         @forelse($reports as $rr)
                             @php
                                 $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
-                                $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
+                                $displayStatus = \App\Support\ProcurementStatus::label($rr->receiving_report_status, 'rr');
                                 $requestNo = trim((string) ($rr->receiving_report_request_no ?? $rr->request_check_request_no ?? ''));
                             @endphp
                             <tr class="transition hover:bg-slate-50/70">
@@ -184,7 +184,7 @@
                                 </td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? '-' }}</td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->receiving_report_received_from ?? '-' }}</td>
-                                <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $displayStatus])</td>
+                                <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $displayStatus, 'doc' => 'rr'])</td>
                                 <td class="px-5 py-4">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button
@@ -238,7 +238,7 @@
                 @forelse($reports as $rr)
                     @php
                         $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
-                        $displayStatus = in_array($rr->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Delivered' : $rr->receiving_report_status;
+                        $displayStatus = \App\Support\ProcurementStatus::label($rr->receiving_report_status, 'rr');
                         $requestNo = trim((string) ($rr->receiving_report_request_no ?? $rr->request_check_request_no ?? ''));
                         $actionsHtml = '<button type="button" @click="openView('.$rr->receiving_report_id.'); fetch(\''.route('receiving.rr.start-review', $rr->receiving_report_id).'\', {method:\'POST\', headers:{\'X-CSRF-TOKEN\':\''.csrf_token().'\',\'Accept\':\'application/json\'}})" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">View</button>'
                             .'<button type="button" @click="printRr('.$rr->receiving_report_id.')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
@@ -321,6 +321,11 @@
                             </button>
                         </div>
                     </div>
+                    @include('partials.document-lineage', [
+                        'lineage' => \App\Support\DocumentLineage::forRr((int) $rr->receiving_report_id),
+                        'currentType' => 'RR',
+                        'statusHint' => \App\Support\DocumentLineage::reviewHint($rr->receiving_report_status ?? null, null, 'rr'),
+                    ])
                     <div class="bg-gray-100 p-6">
                         @include('partials.receiving-report-paper', ['editable' => false, 'rr' => $rr, 'rows' => $rrItems, 'printId' => 'rr-print-'.$rr->receiving_report_id])
                     </div>

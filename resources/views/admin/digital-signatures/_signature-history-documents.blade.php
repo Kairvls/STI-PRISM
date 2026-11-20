@@ -5,7 +5,6 @@
             <th>Request No.</th>
             <th>Details</th>
             <th>Status</th>
-            <th class="text-right">Amount</th>
             <th>Date</th>
             <th class="text-center">Actions</th>
         </tr>
@@ -23,7 +22,6 @@
                 </td>
                 <td class="text-sm text-gray-700">{{ $row->detail }}</td>
                 <td class="text-sm text-gray-700">{{ $row->status }}</td>
-                <td class="text-right text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) $row->amount, 2) }}</td>
                 <td class="whitespace-nowrap text-sm text-gray-600">
                     {{ $row->decided_at ? \Carbon\Carbon::parse($row->decided_at)->format('m/d/Y') : '—' }}
                 </td>

@@ -1,11 +1,5 @@
 @forelse ($records as $row)
     @php
-        $mono = match (true) {
-            in_array($row->status, ['Approved', 'Completed'], true) => 'bg-blue-50 text-blue-800 ring-blue-300',
-            in_array($row->status, ['Funds released', 'Released'], true) => 'bg-emerald-50 text-emerald-700 ring-emerald-300',
-            in_array($row->status, ['Rejected'], true) => 'bg-rose-50 text-rose-800 ring-rose-300',
-            default => 'bg-slate-100 text-slate-700 ring-slate-200',
-        };
         $typeIcon = match ($row->type) {
             'ATP' => 'file-check-2',
             'Request Check' => 'clipboard-list',
@@ -28,13 +22,8 @@
             </a>
         </td>
         <td class="px-5 py-4 text-gray-600">{{ $row->related ?? '—' }}</td>
-        <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
-            {{ $row->amount !== null ? '₱'.number_format((float) $row->amount, 2) : '—' }}
-        </td>
         <td class="px-5 py-4">
-            <span class="inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold leading-tight ring-1 {{ $mono }}">
-                {{ $row->status }}
-            </span>
+            @include('accounting.partials.status-badge', ['status' => $row->status])
         </td>
         <td class="whitespace-nowrap px-5 py-4 text-gray-600">
             {{ $row->when ? \Carbon\Carbon::parse($row->when)->format('M d, Y g:i A') : '—' }}

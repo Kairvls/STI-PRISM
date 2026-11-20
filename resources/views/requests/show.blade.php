@@ -63,7 +63,7 @@
                 </div>
                 <div class="text-right text-sm text-slate-500">
                     @if(! empty($explorer['payment_path_label']))
-                        <p>Payment: <span class="font-medium text-slate-700">{{ $explorer['payment_path_label'] }}</span></p>
+                        <p>Payment Method: <span class="font-medium text-slate-700">{{ $explorer['payment_path_label'] }}</span></p>
                     @endif
                     @if(! empty($explorer['funds']['label']))
                         <p class="mt-1">Funds: <span class="font-medium text-slate-700">{{ $explorer['funds']['label'] }}</span></p>
@@ -104,7 +104,17 @@
                                 {{ $stageLabels[$key] ?? strtoupper($key) }}
                             </p>
                             @if($exists && ! empty($stage['label']))
-                                <p class="mt-0.5 max-w-[9.5rem] break-all text-center text-xs font-semibold tabular-nums text-slate-800" title="{{ $stage['label'] }}">{{ $stage['label'] }}</p>
+                                @if(! empty($stage['view_url']))
+                                    <a
+                                        href="{{ $stage['view_url'] }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="mt-0.5 max-w-[9.5rem] break-all text-center text-xs font-semibold tabular-nums text-[#0025cc] hover:underline"
+                                        title="Open {{ $stage['label'] }}"
+                                    >{{ $stage['label'] }}</a>
+                                @else
+                                    <p class="mt-0.5 max-w-[9.5rem] break-all text-center text-xs font-semibold tabular-nums text-slate-800" title="{{ $stage['label'] }}">{{ $stage['label'] }}</p>
+                                @endif
                             @else
                                 <p class="mt-0.5 text-center text-xs text-slate-400">-</p>
                             @endif

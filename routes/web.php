@@ -35,8 +35,6 @@ use App\Http\Controllers\ItemCategoryController;
 use App\Http\Controllers\ItemSubCategoryController;
 use App\Http\Controllers\FileMaintenanceController;
 use App\Http\Controllers\AccountSettingsController;
-use App\Http\Controllers\DisbursementVoucherController;
-
 /*
 |--------------------------------------------------------------------------
 | LANDING PAGE
@@ -205,6 +203,11 @@ $schoolAdminModuleRoutes = function () {
         '/procurement-review/ris/{ris}/forward-attachment',
         [AdminController::class, 'downloadForwardAttachment']
     )->whereNumber('ris')->name('procurement-review.ris.forward-attachment');
+
+    Route::get(
+        '/procurement-review/ris/{ris}/forward-attachment/{attachment}',
+        [AdminController::class, 'downloadForwardAttachmentFile']
+    )->whereNumber('ris')->where('attachment', '[0-9]+|legacy')->name('procurement-review.ris.forward-attachment.file');
 
     Route::get(
         '/procurement-review/ris/{ris}/print',
@@ -1039,15 +1042,6 @@ Route::middleware(['auth', 'school_admin'])
             ->whereNumber(['id', 'attachmentId'])
             ->name('rfc.attachment');
 
-        Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'schoolAdminIndex'])->name('dv.index');
-        Route::get('/disbursement-vouchers/export-pdf', [DisbursementVoucherController::class, 'exportSchoolAdminPdf'])->name('dv.export-pdf');
-        Route::get('/disbursement-vouchers/{id}/preview', [DisbursementVoucherController::class, 'previewDvForm'])
-            ->whereNumber('id')
-            ->name('dv.preview');
-        Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'schoolAdminShow'])->whereNumber('id')->name('dv.show');
-        Route::post('/disbursement-vouchers/{id}/approve', [DisbursementVoucherController::class, 'approve'])->whereNumber('id')->name('dv.approve');
-        Route::post('/disbursement-vouchers/{id}/revise', [DisbursementVoucherController::class, 'revise'])->whereNumber('id')->name('dv.revise');
-
         Route::get('/revision-images/{revisionId}/{index}', [\App\Http\Controllers\DocumentRevisionImageController::class, 'show'])
             ->whereNumber(['revisionId', 'index'])
             ->name('document-revision-image');
@@ -1101,6 +1095,11 @@ Route::middleware(['auth', 'supply_officer'])
         Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
         Route::get('/authority-to-purchase/{id}/export-xlsx', [AuthorityToPurchaseController::class, 'exportExcel'])->name('atp.export-xlsx');
         Route::get('/authority-to-purchase/{id}/export-docx', [AuthorityToPurchaseController::class, 'exportWord'])->name('atp.export-docx');
+
+        // Catalog quick-add used by ATP Unit dropdown (same as Purchaser RIS/ATP/RR).
+        Route::post('/uom/quick-store', [\App\Http\Controllers\UomController::class, 'quickStore'])->name('uom.quick-store');
+        Route::post('/brands/quick-store', [\App\Http\Controllers\BrandController::class, 'quickStore'])->name('brands.quick-store');
+        Route::post('/items/quick-store', [\App\Http\Controllers\ItemController::class, 'quickStore'])->name('items.quick-store');
 
         Route::post(
             '/reviewer-reassign/{type}/{id}',
@@ -2419,7 +2418,7 @@ Route::middleware([
         )->name('dashboard');
 
         Route::get('/dashboard/preview/{type}/{id}', [PresidentController::class, 'dashboardPreview'])
-            ->where('type', 'atp|dv')
+            ->where('type', 'atp')
             ->whereNumber('id')
             ->name('dashboard.preview');
 
@@ -2453,6 +2452,11 @@ Route::middleware([
         )->whereNumber('ris')->name('ris.forward-attachment');
 
         Route::get(
+            '/ris/{ris}/forward-attachment/{attachment}',
+            [PresidentController::class, 'downloadForwardAttachmentFile']
+        )->whereNumber('ris')->where('attachment', '[0-9]+|legacy')->name('ris.forward-attachment.file');
+
+        Route::get(
             '/approvals/digital-signature',
             [PresidentController::class, 'digitalSignature']
         )->name('approvals.digital-signature');
@@ -2476,11 +2480,6 @@ Route::middleware([
         Route::get('/procurement-records/{package}/export/{type}/{docId}/{format}', [ProcurementRecordPackageController::class, 'presidentExportDocument'])->name('procurement-records.export');
         Route::get('/procurement-records/{package}/attachments/{attachmentId}', [ProcurementRecordPackageController::class, 'presidentDownloadAttachment'])->name('procurement-records.attachment');
         Route::get('/procurement-records/{id}', [ProcurementRecordPackageController::class, 'presidentShow'])->name('procurement-records.show');
-
-        Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'presidentIndex'])->name('dv.index');
-        Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'presidentShow'])->whereNumber('id')->name('dv.show');
-        Route::post('/disbursement-vouchers/{id}/approve', [DisbursementVoucherController::class, 'presidentApprove'])->whereNumber('id')->name('dv.approve');
-        Route::post('/disbursement-vouchers/{id}/revise', [DisbursementVoucherController::class, 'presidentRevise'])->whereNumber('id')->name('dv.revise');
 
         // =====================================================
         // APPROVAL DECISION ENDPOINTS
@@ -2629,7 +2628,7 @@ Route::middleware(['auth', 'accounting'])
 
         Route::get('/dashboard', [AccountingController::class, 'dashboard']);
         Route::get('/dashboard/preview/{type}/{id}', [AccountingController::class, 'dashboardPreview'])
-            ->where('type', 'dv|rfc|liq|atp')
+            ->where('type', 'rfc|liq|atp')
             ->whereNumber('id')
             ->name('accounting.dashboard.preview');
 
@@ -2652,31 +2651,9 @@ Route::middleware(['auth', 'accounting'])
         Route::get('/request-check/{id}', fn ($id) => redirect('/school-admin/request-check/'.$id))->whereNumber('id');
         Route::get('/ris/{id}', fn ($id) => redirect('/school-admin/ris/'.$id))->whereNumber('id');
 
-        Route::get('/disbursement-vouchers', [DisbursementVoucherController::class, 'index'])->name('accounting.dv.index');
-        Route::post('/disbursement-vouchers/from-package', [DisbursementVoucherController::class, 'createFromPackage'])->name('accounting.dv.from-package');
-        Route::get('/disbursement-vouchers/package/{rfcId}/rfc', [DisbursementVoucherController::class, 'viewPackageRfc'])
-            ->whereNumber('rfcId')
-            ->name('accounting.dv.package.rfc');
-        Route::get('/disbursement-vouchers/package/{rfcId}/atp/{atpId}', [DisbursementVoucherController::class, 'viewPackageAtp'])
-            ->whereNumber('rfcId')
-            ->whereNumber('atpId')
-            ->name('accounting.dv.package.atp');
-        Route::get('/disbursement-vouchers/package/{rfcId}/ris/{risId}', [DisbursementVoucherController::class, 'viewPackageRis'])
-            ->whereNumber('rfcId')
-            ->whereNumber('risId')
-            ->name('accounting.dv.package.ris');
-        Route::get('/disbursement-vouchers/package/{rfcId}/ris/{risId}/attachments/{attachmentId}', [DisbursementVoucherController::class, 'downloadPackageRisAttachment'])
-            ->whereNumber('rfcId')
-            ->whereNumber('risId')
-            ->whereNumber('attachmentId')
-            ->name('accounting.dv.package.ris.attachment');
-        Route::get('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'show'])->whereNumber('id')->name('accounting.dv.show');
-        Route::put('/disbursement-vouchers/{id}', [DisbursementVoucherController::class, 'update'])->whereNumber('id')->name('accounting.dv.update');
-        Route::post('/disbursement-vouchers/{id}/submit', [DisbursementVoucherController::class, 'submit'])->whereNumber('id')->name('accounting.dv.submit');
-        Route::post('/disbursement-vouchers/{id}/submit-president', [DisbursementVoucherController::class, 'submitToPresident'])->whereNumber('id')->name('accounting.dv.submit-president');
-        Route::post('/disbursement-vouchers/{id}/release-check', [DisbursementVoucherController::class, 'releaseCheck'])->whereNumber('id')->name('accounting.dv.release-check');
-        Route::post('/disbursement-vouchers/{id}/collect-check', [DisbursementVoucherController::class, 'collectCheck'])->whereNumber('id')->name('accounting.dv.collect-check');
-
+        Route::get('/approved-packages', [AccountingController::class, 'approvedPackages'])->name('accounting.approved-packages.index');
+        Route::post('/approved-packages/{id}/check-release', [AccountingController::class, 'markCheckReady'])->whereNumber('id')->name('accounting.approved-packages.check-release');
+        Route::post('/approved-packages/{id}/check-released', [AccountingController::class, 'markCheckReleased'])->whereNumber('id')->name('accounting.approved-packages.check-released');
         Route::get('/liquidation-reports', [AccountingController::class, 'liquidationReports'])->name('accounting.liq.index');
         Route::get('/liquidation-reports/{id}', [AccountingController::class, 'showLiquidation']);
         Route::post('/liquidation-reports/{id}/approve', [AccountingController::class, 'approveLiquidation']);

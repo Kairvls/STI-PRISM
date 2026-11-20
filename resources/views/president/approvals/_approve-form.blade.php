@@ -39,14 +39,27 @@
     .president-ris-form .ris-items-table tbody td {
         height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle;
     }
-    .president-ris-form .ris-item-column { width: 24%; }
-    .president-ris-form .ris-brand-column { width: 12%; }
-    .president-ris-form .ris-unit-column { width: 10%; }
-    .president-ris-form .ris-quantity-header { width: 23%; }
-    .president-ris-form .ris-requested-column { width: 11%; font-size: 11px !important; }
-    .president-ris-form .ris-issued-column { width: 12%; font-size: 11px !important; }
-    .president-ris-form .ris-unit-cost-column { width: 17%; }
-    .president-ris-form .ris-amount-column { width: 20%; }
+    .president-ris-form .ris-item-column { width: 20%; }
+    .president-ris-form .ris-brand-column { width: 10%; }
+    .president-ris-form .ris-unit-column { width: 7%; }
+    .president-ris-form .ris-supplier-column { width: 14%; }
+    .president-ris-form .ris-quantity-header { width: 20%; }
+    .president-ris-form .ris-requested-column,
+    .president-ris-form .ris-issued-column { width: 10%; font-size: 11px !important; white-space: nowrap; }
+    .president-ris-form .ris-unit-cost-column,
+    .president-ris-form .ris-amount-column { width: 15%; }
+    .president-ris-form .ris-purpose-lined-wrap { position: relative; }
+    .president-ris-form .ris-purpose-lined-wrap .ris-purpose-label {
+        position: absolute; left: 0; top: 0; z-index: 1;
+        padding-right: 12px; background: #fff; line-height: 31px;
+    }
+    .president-ris-form .ris-purpose-input {
+        display: block; width: 100%; height: 62px; min-height: 62px; max-height: 62px;
+        padding: 0; font-size: 12px; line-height: 31px; text-indent: 5.75rem;
+        white-space: pre-wrap; overflow: hidden; border: 0; color: #000;
+        background-color: transparent;
+        background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 30px, #1f2937 30px, #1f2937 31px);
+    }
     .president-ris-form .ris-purpose-area { margin-top: 31px; }
     .president-ris-form .ris-purpose-label { font-size: 13px; font-weight: 700; }
     .president-ris-form .ris-purpose-line-row { display: flex; margin-top: 29px; }
@@ -175,6 +188,11 @@
 </style>
 @include('partials.ris-signature-overlay-styles')
 
+@include('partials.document-lineage', [
+    'lineage' => \App\Support\DocumentLineage::forRis((int) $ris->ris_id, $ris),
+    'currentType' => 'RIS',
+    'statusHint' => \App\Support\DocumentLineage::reviewHintForRis($ris),
+])
 <form
     id="presidentApproveForm"
     method="POST"
@@ -204,6 +222,7 @@
                             <th rowspan="2" class="ris-item-column">ITEM</th>
                             <th rowspan="2" class="ris-brand-column">BRAND</th>
                             <th rowspan="2" class="ris-unit-column">UNIT</th>
+                            <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
                             <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                             <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                             <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -229,22 +248,22 @@
                             @endphp
                             <tr>
                                 <td class="president-ris-locked">{{ $itemName }}</td>
-                                <td class="text-center president-ris-locked">{{ $item?->brand_name ?? '' }}</td>
+                                <td class="text-center president-ris-locked">{{ $item ? \App\Support\RisWorkflow::brandPaperLabel($item) : '' }}</td>
                                 <td class="text-center president-ris-locked">{{ $item?->uom_name ?? '' }}</td>
+                                <td class="president-ris-locked">{{ $item?->supplier_display_name ?? '' }}</td>
                                 <td class="text-center president-ris-locked">{{ $item->ris_quantity_requested ?? '' }}</td>
                                 <td class="text-center president-ris-locked">{{ $item->ris_quantity_issued ?? '' }}</td>
-                                <td class="text-right president-ris-locked">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
-                                <td class="text-right president-ris-locked">{{ $lineAmount !== null ? number_format($lineAmount, 2) : '' }}</td>
+                                <td class="text-right president-ris-locked">{{ isset($item->ris_unit_cost) ? \App\Support\Money::format($item->ris_unit_cost) : '' }}</td>
+                                <td class="text-right president-ris-locked">{{ $lineAmount !== null ? \App\Support\Money::format($lineAmount) : '' }}</td>
                             </tr>
                         @endfor
                     </tbody>
                 </table>
 
                 <div class="ris-purpose-area president-ris-locked">
-                    <div class="ris-purpose-label">PURPOSE</div>
-                    <div class="ris-purpose-line-row">
-                        <div class="ris-purpose-spacer"></div>
-                        <div class="ris-purpose-line">{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? '') }}</div>
+                    <div class="ris-purpose-lined-wrap">
+                        <div class="ris-purpose-label">PURPOSE</div>
+                        <div class="ris-purpose-input">{{ trim((string) ($ris->ris_purpose_description ?: ($ris->ris_manual_description ?? ''))) !== '' ? ($ris->ris_purpose_description ?: $ris->ris_manual_description) : ' ' }}</div>
                     </div>
                 </div>
 
@@ -337,9 +356,6 @@
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-900">President signature <span class="text-red-500">*</span></h4>
-                    <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                        Pick a saved signature, draw one, or upload. It overlays <strong>Approved by</strong> on the form above.
-                    </p>
                 </div>
                 <div id="paSignBadge" class="hidden inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                     Signature added
@@ -494,9 +510,6 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">Sign the RIS</h3>
-                    <p class="mt-1.5 text-sm leading-6 text-slate-500">
-                        Sign over your printed name. This overlays <strong>Approved by</strong>.
-                    </p>
                 </div>
                 <button type="button" id="paCloseSignPad" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

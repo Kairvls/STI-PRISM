@@ -94,7 +94,110 @@ class EquipmentBrands
             $query->where('brand_name', 'like', '%'.$search.'%');
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        $paginator = $query->paginate($perPage)->withQueryString();
+        $paginator->setCollection(
+            self::attachUsageFlags($paginator->getCollection())
+        );
+
+        return $paginator;
+    }
+
+    /**
+     * Mark brands referenced by equipment or RIS items as in use.
+     *
+     * @param  Collection<int, Brand|object>  $brands
+     * @return Collection<int, Brand|object>
+     */
+    public static function attachUsageFlags(Collection $brands): Collection
+    {
+        if ($brands->isEmpty()) {
+            return $brands;
+        }
+
+        $ids = $brands->pluck('brand_id')->map(fn ($id) => (int) $id)->filter()->values();
+        $nameKeys = $brands
+            ->mapWithKeys(function ($brand) {
+                $key = mb_strtolower(trim((string) ($brand->brand_name ?? '')));
+
+                return $key !== '' ? [$key => (int) $brand->brand_id] : [];
+            });
+
+        $usedIds = [];
+
+        if (
+            Schema::hasTable('equipment_table')
+            && Schema::hasColumn('equipment_table', 'equipment_brand_name')
+            && $nameKeys->isNotEmpty()
+        ) {
+            $equipmentNames = DB::table('equipment_table')
+                ->whereNotNull('equipment_brand_name')
+                ->where('equipment_brand_name', '!=', '')
+                ->distinct()
+                ->pluck('equipment_brand_name');
+
+            foreach ($equipmentNames as $name) {
+                $key = mb_strtolower(trim((string) $name));
+                if ($key !== '' && $nameKeys->has($key)) {
+                    $usedIds[$nameKeys[$key]] = true;
+                }
+            }
+        }
+
+        if (
+            Schema::hasTable('requisition_issue_slip_items_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+            && $ids->isNotEmpty()
+        ) {
+            DB::table('requisition_issue_slip_items_table')
+                ->whereIn('ris_item_brand_id', $ids->all())
+                ->distinct()
+                ->pluck('ris_item_brand_id')
+                ->each(function ($id) use (&$usedIds) {
+                    $usedIds[(int) $id] = true;
+                });
+        }
+
+        if (
+            Schema::hasTable('requisition_issue_slip_items_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_ids')
+            && $ids->isNotEmpty()
+        ) {
+            DB::table('requisition_issue_slip_items_table')
+                ->whereNotNull('ris_item_brand_ids')
+                ->pluck('ris_item_brand_ids')
+                ->each(function ($json) use (&$usedIds, $ids) {
+                    $decoded = is_string($json) ? json_decode($json, true) : $json;
+                    if (! is_array($decoded)) {
+                        return;
+                    }
+                    foreach ($decoded as $brandId) {
+                        $id = (int) $brandId;
+                        if ($id > 0 && $ids->contains($id)) {
+                            $usedIds[$id] = true;
+                        }
+                    }
+                });
+        }
+
+        return $brands->map(function ($brand) use ($usedIds) {
+            $brand->in_use = isset($usedIds[(int) $brand->brand_id]);
+
+            return $brand;
+        });
+    }
+
+    public static function isInUse(int $brandId): bool
+    {
+        if (! self::tableReady() || $brandId < 1) {
+            return false;
+        }
+
+        $brand = Brand::query()->find($brandId);
+        if (! $brand) {
+            return false;
+        }
+
+        return (bool) (self::attachUsageFlags(collect([$brand]))->first()->in_use ?? false);
     }
 
     public static function update(int $brandId, string $name, string $status = 'Active'): void
@@ -104,6 +207,13 @@ class EquipmentBrands
         }
 
         $brand = Brand::findOrFail($brandId);
+
+        if (self::isInUse($brandId)) {
+            throw ValidationException::withMessages([
+                'name' => 'Cannot edit this brand because it is already in use.',
+            ]);
+        }
+
         $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
         $max = self::maxLength();
 
@@ -140,13 +250,9 @@ class EquipmentBrands
 
         $brand = Brand::findOrFail($brandId);
 
-        if (
-            Schema::hasTable('requisition_issue_slip_items_table')
-            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
-            && DB::table('requisition_issue_slip_items_table')->where('ris_item_brand_id', $brand->brand_id)->exists()
-        ) {
+        if (self::isInUse($brandId)) {
             throw ValidationException::withMessages([
-                'name' => 'Cannot delete this brand because it is used on one or more RIS items.',
+                'name' => 'Cannot delete this brand because it is already in use.',
             ]);
         }
 

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Concerns;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -32,12 +31,6 @@ trait ManagesUserProfile
                 Rule::unique('users_table', 'user_email_address')->ignore($user->user_id, 'user_id'),
             ],
             'user_contact_number' => ['nullable', 'string', 'max:40'],
-            'user_username' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::unique('users_table', 'user_username')->ignore($user->user_id, 'user_id'),
-            ],
             'user_profile_picture' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_profile_picture' => ['nullable', 'boolean'],
         ]);
@@ -46,7 +39,6 @@ trait ManagesUserProfile
             'user_full_name' => $validated['user_full_name'],
             'user_email_address' => $validated['user_email_address'],
             'user_contact_number' => $validated['user_contact_number'] ?? null,
-            'user_username' => $validated['user_username'],
         ]);
 
         if ($request->boolean('remove_profile_picture')) {
@@ -67,23 +59,11 @@ trait ManagesUserProfile
 
     protected function saveUserPassword(Request $request, string $redirectTo): RedirectResponse
     {
-        $validated = $request->validate([
-            'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
-        $user = Auth::user();
-
-        if (!Hash::check($validated['current_password'], $user->user_password)) {
-            return back()
-                ->withErrors(['current_password' => 'The current password is incorrect.'])
-                ->withInput();
-        }
-
-        $user->user_password = Hash::make($validated['password']);
-        $user->save();
-
-        return redirect($redirectTo)->with('success', 'Password updated.');
+        // Staff sign-in is Microsoft 365 / Entra. Local password changes are not used.
+        return redirect($redirectTo)->with(
+            'error',
+            'Passwords are managed in Microsoft 365. Use your Microsoft account security settings to change your password or MFA.'
+        );
     }
 
     protected function deleteStoredProfilePicture(?string $path): void

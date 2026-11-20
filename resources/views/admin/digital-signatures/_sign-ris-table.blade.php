@@ -10,8 +10,7 @@
             <th class="w-[12%]">Request No.</th>
             <th class="w-[24%]">Equipment</th>
             <th class="w-[15%]">Requested By</th>
-            <th class="w-[9%]">Status</th>
-            <th class="w-[9%] text-right">Amount</th>
+            <th class="w-[18%]">Status</th>
             <th class="w-[18%] text-center">Actions</th>
         </tr>
     </thead>
@@ -97,27 +96,21 @@
                     @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
                 </td>
 
-                <td
-                    class="min-w-0 text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ $rowDimmed ? 'text-gray-500' : 'text-gray-900' }}"
-                    title="Total computed amount of this RIS"
-                >
-                    ₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 2) }}
-                </td>
-
                 <td class="text-center">
                     <div class="inline-flex items-center justify-center gap-1.5">
-                        <button
-                            type="button"
-                            onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')"
-                            title="Preview this RIS form"
-                            aria-label="Preview RIS"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                        >
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                            </svg>
-                        </button>
+                        @if($awaitingSign && $risCanAct)
+                            <button
+                                type="button"
+                                onclick="window.openCoSignModal('{{ $ris->ris_id }}')"
+                                title="Sign Issued by"
+                                aria-label="Sign Issued by"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"></path>
+                                </svg>
+                            </button>
+                        @endif
 
                         @if($needsDecision && $risCanAct)
                             @php
@@ -170,20 +163,6 @@
 
                         @include('admin.partials.ris-president-remarks-button', ['ris' => $ris])
 
-                        @if($awaitingSign && $risCanAct)
-                            <button
-                                type="button"
-                                onclick="window.openCoSignModal('{{ $ris->ris_id }}')"
-                                title="Sign Issued by on this President-approved RIS"
-                                aria-label="Sign Issued by"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001fa8]"
-                            >
-                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"></path>
-                                </svg>
-                            </button>
-                        @endif
-
                         @if($isPresidentRejected && $risCanAct)
                             <button
                                 type="button"
@@ -199,6 +178,19 @@
                                 </svg>
                             </button>
                         @endif
+
+                        <button
+                            type="button"
+                            onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')"
+                            title="View RIS"
+                            aria-label="View RIS"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                        >
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
                     </div>
                 </td>
             </tr>

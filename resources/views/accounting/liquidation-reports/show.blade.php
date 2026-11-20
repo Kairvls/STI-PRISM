@@ -13,7 +13,7 @@
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $liq->liquidation_report_form_number ?? ('LIQ-'.$liq->liquidation_report_id) }}</h1>
-                @include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])
+                @include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status, 'doc' => 'liq'])
                 @include('partials.ris-urgency-badge', [
                     'urgent' => \App\Support\DocumentUrgency::isUrgent('LIQ', $liq->liquidation_report_id),
                     'title' => 'Inherited from linked RIS',
@@ -45,6 +45,11 @@
         </div>
     </div>
 
+    @include('partials.document-lineage', [
+        'lineage' => \App\Support\DocumentLineage::forLiq((int) $liq->liquidation_report_id),
+        'currentType' => 'LIQ',
+        'statusHint' => \App\Support\DocumentLineage::reviewHint($liq->liquidation_report_status ?? null, $liq->liquidation_report_review_stage ?? null, 'liq'),
+    ])
     <div class="acc-review-body">
         <div class="acc-review-grid">
             <div>

@@ -12,7 +12,7 @@
         $procurementCards = [
             [
                 'label' => 'All',
-                'hint' => '₱'.number_format((float) ($allRisAmount ?? 0), 2),
+                'hint' => '',
                 'value' => number_format($allRis ?? ($risRecords->total() ?? 0)),
                 'tag' => 'button',
                 'filterKey' => 'all',
@@ -21,8 +21,8 @@
                 'title' => 'Show all RIS records, including completed work',
             ],
             [
-                'label' => 'Pending Accept',
-                'hint' => '₱'.number_format((float) ($pendingRisAmount ?? 0), 2),
+                'label' => 'Pending review',
+                'hint' => '',
                 'value' => number_format($pendingRis ?? 0),
                 'tag' => 'button',
                 'filterKey' => 'pending',
@@ -32,7 +32,7 @@
             ],
             [
                 'label' => 'Returned for Revision',
-                'hint' => '₱'.number_format((float) ($revisionRisAmount ?? 0), 2),
+                'hint' => '',
                 'value' => number_format($revisionRis ?? 0),
                 'tag' => 'button',
                 'filterKey' => 'revision',
@@ -45,7 +45,7 @@
         $sectionTitle = match ($filter) {
             'all' => 'All RIS',
             'revision' => 'Returned for Revision',
-            default => 'Pending Accept',
+            default => 'Pending review',
         };
     @endphp
 

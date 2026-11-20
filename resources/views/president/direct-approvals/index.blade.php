@@ -78,7 +78,6 @@
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved by</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reason</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
-                        <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Amount</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
                         <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
                     </tr>
@@ -586,21 +585,25 @@
         if (!iframe) return;
 
         var isFs = modal && modal.dataset.fullscreen === '1';
-        var docW = 11 * 96;
+        var docW = 1095;
         var docH = 0;
 
         try {
             var doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
             if (!doc || !doc.body) return;
 
-            doc.documentElement.style.cssText = 'height:auto!important;min-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;';
-            doc.body.style.cssText = 'height:auto!important;min-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;background:#fff;';
+            doc.documentElement.style.cssText = 'height:auto!important;min-height:0!important;overflow:visible!important;margin:0!important;padding:0!important;';
+            doc.body.style.cssText = 'height:auto!important;min-height:0!important;overflow:visible!important;margin:0!important;padding:0!important;background:#fff;';
 
-            var root = doc.querySelector('.ris-document') || doc.body;
-            if (root && root.style) {
+            var root = doc.querySelector('.ris-original-form') || doc.querySelector('.ris-document') || doc.body;
+            var purchaserSheet = !!(root.classList && root.classList.contains('ris-original-form'));
+            if (root && root.style && !purchaserSheet) {
                 root.style.minHeight = '0';
                 root.style.height = 'auto';
             }
+
+            var measuredW = Math.ceil((root.getBoundingClientRect && root.getBoundingClientRect().width) || root.scrollWidth || 0);
+            if (measuredW >= 280 && measuredW <= 1600) docW = measuredW;
 
             docH = Math.ceil(
                 Math.max(

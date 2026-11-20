@@ -321,8 +321,8 @@ class LiquidationReportExporter
         $this->wordPair($meta, 'Employee Name', $liq->liquidation_report_employee_name ?? '', 'Date Of Activity End', $this->d($liq->liquidation_report_activity_end_date ?? null));
         $this->wordPair($meta, 'Cheque Number', $liq->liquidation_report_cheque_number ?? '', 'Deadline For The Liquidation Submission', $this->d($liq->liquidation_report_submission_deadline ?? null));
         $this->wordPair($meta, 'Purpose', $liq->liquidation_report_purpose ?? '', 'Date Submitted', $this->d($liq->liquidation_report_date_submitted ?? null));
-        $this->wordPair($meta, 'Amount', $this->n($liq->liquidation_report_amount_advance ?? null), 'No. Of Days Lapsed', (string) ($liq->liquidation_report_days_lapse ?? ''));
-        $this->wordPair($meta, 'Date Released', $this->d($liq->liquidation_report_date_released ?? null), 'Other Income', $this->n($liq->liquidation_report_other_income ?? null));
+        $this->wordPair($meta, 'Amount', $this->money($liq->liquidation_report_amount_advance ?? null), 'No. Of Days Lapsed', (string) ($liq->liquidation_report_days_lapse ?? ''));
+        $this->wordPair($meta, 'Date Released', $this->d($liq->liquidation_report_date_released ?? null), 'Other Income', $this->money($liq->liquidation_report_other_income ?? null));
         $this->wordPair($meta, 'Charge to Expense/Refundable Account', $liq->liquidation_report_charge_to_account ?? '', '', '');
 
         $section->addTextBreak(1);
@@ -377,10 +377,10 @@ class LiquidationReportExporter
 
             $table->addRow();
             $table->addCell(2600)->addText((string) ($item->liquidation_item_particulars ?? ''), $bodyFont);
-            $table->addCell(1100)->addText($this->n($amt), $bodyFont, $right);
-            $table->addCell(1100)->addText($this->n($actual), $bodyFont, $right);
-            $table->addCell(1100)->addText($this->n($total), $bodyFont, $right);
-            $table->addCell(1000)->addText($this->n($variance), $bodyFont, $right);
+            $table->addCell(1100)->addText($this->money($amt), $bodyFont, $right);
+            $table->addCell(1100)->addText($this->money($actual), $bodyFont, $right);
+            $table->addCell(1100)->addText($this->money($total), $bodyFont, $right);
+            $table->addCell(1000)->addText($this->money($variance), $bodyFont, $right);
             $table->addCell(1600)->addText((string) ($item->liquidation_item_ref_no ?? ''), $bodyFont, $center);
         }
 
@@ -397,18 +397,18 @@ class LiquidationReportExporter
 
         $table->addRow();
         $table->addCell(2600)->addText('Total Cash Advance', ['bold' => true, 'size' => 9]);
-        $table->addCell(1100)->addText($items->isNotEmpty() ? $this->n($totalAdvance) : '', ['bold' => true, 'size' => 9], $right);
+        $table->addCell(1100)->addText($items->isNotEmpty() ? $this->money($totalAdvance) : '', ['bold' => true, 'size' => 9], $right);
         $table->addCell(1100)->addText('Total Actual Expense', ['bold' => true, 'size' => 9]);
-        $table->addCell(1100)->addText($items->isNotEmpty() ? $this->n($totalActual) : '', ['bold' => true, 'size' => 9], $right);
+        $table->addCell(1100)->addText($items->isNotEmpty() ? $this->money($totalActual) : '', ['bold' => true, 'size' => 9], $right);
         $table->addCell(1000)->addText('', $bodyFont);
         $table->addCell(1600)->addText('', $bodyFont);
 
         $section->addTextBreak(1);
         $section->addText('Note:', ['bold' => true, 'size' => 10]);
-        $section->addText('Amount Advanced: ' . $this->n($liq->liquidation_report_summary_amt_advanced ?? null), ['size' => 10]);
-        $section->addText('Total Actual Expense: ' . $this->n($liq->liquidation_report_summary_actual_expense ?? null), ['size' => 10]);
+        $section->addText('Amount Advanced: ' . $this->money($liq->liquidation_report_summary_amt_advanced ?? null), ['size' => 10]);
+        $section->addText('Total Actual Expense: ' . $this->money($liq->liquidation_report_summary_actual_expense ?? null), ['size' => 10]);
         $section->addText(
-            'Balance: ' . $this->n($liq->liquidation_report_summary_balance ?? null)
+            'Balance: ' . $this->money($liq->liquidation_report_summary_balance ?? null)
             . '          Cash Returned Under OR#: ' . ($liq->liquidation_report_cash_returned_or_no ?? ''),
             ['size' => 10]
         );

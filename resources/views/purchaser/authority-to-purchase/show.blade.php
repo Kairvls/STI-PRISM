@@ -130,8 +130,8 @@
                             <td class="px-3 py-2">{{ $item->atp_description ?? '—' }}</td>
                             <td class="px-3 py-2 text-right">{{ $item->atp_quantity ?? '—' }}</td>
                             <td class="px-3 py-2 text-right">{{ $item->atp_unit ?? '—' }}</td>
-                            <td class="px-3 py-2 text-right">{{ $item->atp_unit_price !== null ? number_format($item->atp_unit_price, 2) : '—' }}</td>
-                            <td class="px-3 py-2 text-right">{{ $item->atp_amount !== null ? number_format($item->atp_amount, 2) : '—' }}</td>
+                            <td class="px-3 py-2 text-right">{{ $item->atp_unit_price !== null ? \App\Support\Money::format($item->atp_unit_price, '—') : '—' }}</td>
+                            <td class="px-3 py-2 text-right">{{ $item->atp_amount !== null ? \App\Support\Money::format($item->atp_amount, '—') : '—' }}</td>
                         </tr>
                     @endforeach
                     @if($items->isEmpty())

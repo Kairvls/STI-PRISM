@@ -206,11 +206,6 @@
                                     <span class="block truncate text-[10.5px] text-slate-400">Qty {{ $qty }}</span>
                                 @endif
                             </span>
-                            @if ($amount !== null)
-                                <span class="shrink-0 text-[10px] font-medium tabular-nums text-slate-500">
-                                    ₱{{ number_format($amount, 2) }}
-                                </span>
-                            @endif
                         </span>
                     @endforeach
                 </span>

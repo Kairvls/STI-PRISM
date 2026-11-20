@@ -627,6 +627,7 @@ class ReceivingReportController extends Controller
             'items.*.condition_remarks' => ['nullable', 'string', 'max:500'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.article' => ['nullable', 'string', 'max:2000'],
+            'items.*.equipment_id' => ['nullable', 'integer', 'exists:equipment_table,equipment_id'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'items.*.supplier_id' => ['nullable', 'integer', 'exists:suppliers_table,supplier_id'],
             'items.*.supplier_name' => ['nullable', 'string', 'max:255'],
@@ -921,6 +922,16 @@ class ReceivingReportController extends Controller
                 'receiving_report_item_article' => $article,
             ];
 
+            if (
+                Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')
+                && ! empty($row['equipment_id'])
+            ) {
+                $equipmentId = (int) $row['equipment_id'];
+                $itemRow['receiving_report_item_equipment_id'] = $equipmentId > 0
+                    && DB::table('equipment_table')->where('equipment_id', $equipmentId)->exists()
+                    ? $equipmentId
+                    : null;
+            }
             if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_unit_price')) {
                 $itemRow['receiving_report_item_unit_price'] = isset($row['unit_price']) && $row['unit_price'] !== ''
                     ? (float) $row['unit_price']
@@ -1312,6 +1323,7 @@ class ReceivingReportController extends Controller
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name'
             )
+            ->orderByRaw("LOWER(COALESCE(physical_suppliers_table.company_name, online_suppliers_table.shop_name, '')) ASC")
             ->orderBy('suppliers_table.supplier_id')
             ->get();
     }
@@ -1370,6 +1382,54 @@ class ReceivingReportController extends Controller
     }
 
     /**
+     * Released checks appear only for the purchaser who started that flow
+     * (RIS, otherwise ATP, otherwise the RFC itself).
+     */
+    private function scopeReleasedRfcToActingPurchaser($query): void
+    {
+        if (! PurchaserDocumentAccess::isProcurementActor()) {
+            return;
+        }
+
+        $userId = (int) auth()->id();
+        $query->where(function ($owned) use ($userId) {
+            $owned->where('request_check_table.request_check_submitted_by', $userId)
+                ->orWhere('request_check_table.request_check_requested_by_user_id', $userId);
+
+            if (! Schema::hasTable('authority_to_purchase_table')) {
+                return;
+            }
+
+            $owned->orWhereExists(function ($atp) use ($userId) {
+                $atp->select(DB::raw(1))
+                    ->from('authority_to_purchase_table as flow_atp')
+                    ->whereColumn(
+                        'flow_atp.authority_purchase_id',
+                        'request_check_table.request_check_authority_purchase_id'
+                    )
+                    ->where(function ($who) use ($userId) {
+                        $who->where('flow_atp.authority_purchase_created_by', $userId)
+                            ->orWhere('flow_atp.authority_purchase_submitted_by', $userId);
+
+                        if (! Schema::hasTable('requisition_issue_slip_table')) {
+                            return;
+                        }
+
+                        $who->orWhereExists(function ($ris) use ($userId) {
+                            $ris->select(DB::raw(1))
+                                ->from('requisition_issue_slip_table as flow_ris')
+                                ->whereColumn('flow_ris.ris_id', 'flow_atp.authority_purchase_ris_id')
+                                ->where(function ($risWho) use ($userId) {
+                                    $risWho->where('flow_ris.ris_created_by', $userId)
+                                        ->orWhere('flow_ris.ris_submitted_by', $userId);
+                                });
+                        });
+                    });
+            });
+        });
+    }
+
+    /**
      * One row per (funding request, ATP) pair that still needs a Receiving Report.
      * A funding request covering several ATPs (Purchase Order) yields one row per ATP.
      */
@@ -1385,6 +1445,8 @@ class ReceivingReportController extends Controller
         if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
             $query->whereNotNull('request_check_table.request_check_funds_released_at');
         }
+
+        $this->scopeReleasedRfcToActingPurchaser($query);
 
         $rfcs = $query
             ->select(
@@ -1422,6 +1484,7 @@ class ReceivingReportController extends Controller
                 'authority_to_purchase_table.authority_purchase_form_number',
                 'authority_to_purchase_table.authority_purchase_payment_path',
                 'authority_to_purchase_table.authority_purchase_supplier_id',
+                'authority_to_purchase_table.authority_purchase_ris_id',
                 'physical_suppliers_table.company_name',
                 'physical_suppliers_table.company_address',
                 'online_suppliers_table.shop_name',
@@ -1500,12 +1563,33 @@ class ReceivingReportController extends Controller
     {
         $prefill = [];
         $atpIds = collect($eligibleRfcs)->pluck('authority_purchase_id')->filter();
+        $risIds = collect($eligibleRfcs)->pluck('authority_purchase_ris_id')->filter()->unique()->values();
+        $canvases = collect();
+        if (Schema::hasTable('ris_attachments_table') && $risIds->isNotEmpty()) {
+            $canvases = DB::table('ris_attachments_table')
+                ->whereIn('ris_id', $risIds)
+                ->orderBy('ris_attachment_id')
+                ->get(['ris_attachment_id', 'ris_id', 'ris_attachment_original_name'])
+                ->groupBy('ris_id');
+        }
 
         $atpItems = DB::table('authority_to_purchase_items_table')
             ->whereIn('authority_purchase_id', $atpIds)
             ->orderBy('atp_item_id')
             ->get()
             ->groupBy('authority_purchase_id');
+
+        $equipmentByName = collect();
+        if (Schema::hasTable('equipment_table') && Schema::hasColumn('equipment_table', 'equipment_name')) {
+            $equipmentByName = DB::table('equipment_table')
+                ->orderBy('equipment_id')
+                ->get(['equipment_id', 'equipment_name'])
+                ->mapWithKeys(function ($row) {
+                    $name = mb_strtolower(trim((string) $row->equipment_name));
+
+                    return $name !== '' ? [$name => (int) $row->equipment_id] : [];
+                });
+        }
 
         foreach ($eligibleRfcs as $rfc) {
             $from = $rfc->supplier_store_type === 'Physical Store'
@@ -1517,6 +1601,8 @@ class ReceivingReportController extends Controller
             ) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
             $rows = [];
             foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(50) as $index => $item) {
+                $article = trim((string) ($item->atp_description ?? ''));
+                $equipmentId = $equipmentByName->get(mb_strtolower($article));
                 $rows[] = [
                     'quantity' => $item->atp_quantity,
                     'ordered_qty' => $item->atp_quantity,
@@ -1525,10 +1611,37 @@ class ReceivingReportController extends Controller
                     'unit' => $item->atp_unit,
                     'article' => $item->atp_description,
                     'unit_price' => $item->atp_unit_price,
+                    'equipment_id' => $equipmentId ?: null,
                     'supplier_id' => $path === ProcurementPaymentPath::CASH_ADVANCE ? null : $rfc->authority_purchase_supplier_id,
                     'supplier_name' => $path === ProcurementPaymentPath::CASH_ADVANCE ? '' : $from,
                 ];
             }
+            $references = [];
+            $risId = (int) ($rfc->authority_purchase_ris_id ?? 0);
+            $files = $canvases->get($risId, $canvases->get((string) $risId, collect()));
+            foreach ($files as $file) {
+                $name = trim((string) ($file->ris_attachment_original_name ?? ''));
+                $references[] = [
+                    'label' => $name !== '' ? 'Canvass: '.$name : 'Canvass',
+                    'url' => \App\Support\ProcurementPortal::route('ris.attachments.preview', $file->ris_attachment_id),
+                ];
+            }
+            if ($risId > 0) {
+                $references[] = [
+                    'label' => 'RIS',
+                    'url' => route('procurement.documents.preview', ['type' => 'ris', 'id' => $risId]),
+                ];
+            }
+            if (! empty($rfc->authority_purchase_id)) {
+                $references[] = [
+                    'label' => 'ATP',
+                    'url' => route('procurement.documents.preview', ['type' => 'atp', 'id' => (int) $rfc->authority_purchase_id]),
+                ];
+            }
+            $references[] = [
+                'label' => 'RFC',
+                'url' => route('procurement.documents.preview', ['type' => 'rfc', 'id' => (int) $rfc->request_check_id]),
+            ];
             $prefill[(string) $rfc->funding_key] = [
                 'received_from' => $from,
                 'address' => $rfc->company_address ?? '',
@@ -1538,6 +1651,7 @@ class ReceivingReportController extends Controller
                     ? (float) $rfc->request_check_amount_figures
                     : null,
                 'items' => $rows,
+                'references' => $references,
             ];
         }
 

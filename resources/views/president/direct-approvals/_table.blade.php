@@ -68,9 +68,6 @@
             </span>
         </td>
         <td class="px-2 py-4 text-sm text-gray-700">{{ $dateLabel }}</td>
-        <td class="px-2 py-4 text-sm text-center font-semibold text-gray-800">
-            ₱{{ number_format($row->total_amount ?? 0, 2) }}
-        </td>
         <td class="px-2 py-4 text-sm">
             @if ($requestUrl)
                 <a

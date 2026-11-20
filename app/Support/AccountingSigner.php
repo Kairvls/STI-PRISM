@@ -11,9 +11,6 @@ class AccountingSigner
     /** Printed designation under Accounting signatures on paper forms. */
     public const SIGNATURE_TITLE = 'Accountant';
 
-    /** Role under "Approved by:" on Request for Check paper (School Administrator). */
-    public const RFC_APPROVED_BY_TITLE = 'Administrator';
-
     public static function currentUserName(): string
     {
         $user = Auth::user();

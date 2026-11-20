@@ -542,7 +542,7 @@
                         <th>Additional roles</th>
                         <th>Procurement</th>
                         <th>Status</th>
-                        <th>Last active</th>
+                        <th>Last online</th>
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -668,21 +668,23 @@
                                     >
                                         <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
-                                    <button type="button"
-                                        onclick="openEditRolesModal(this)"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
-                                        title="Edit roles"
-                                        data-user-id="{{ $user->user_id }}"
-                                        data-full-name="{{ $user->user_full_name }}"
-                                        data-primary-role="{{ (int) $user->user_role_id }}"
-                                        data-role-ids="{{ implode(',', $allRoleIds) }}"
-                                        data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
-                                        data-is-admin="{{ $isAdminUser ? '1' : '0' }}"
-                                        data-is-staff="{{ $isStaffUser ? '1' : '0' }}"
-                                        data-is-it-department="{{ $isItDepartmentUser ? '1' : '0' }}"
-                                    >
-                                        <i data-lucide="pencil" class="h-4 w-4 pointer-events-none"></i>
-                                    </button>
+                                    @if (count($extraNames))
+                                        <button type="button"
+                                            onclick="openEditRolesModal(this)"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
+                                            title="Edit additional roles"
+                                            data-user-id="{{ $user->user_id }}"
+                                            data-full-name="{{ $user->user_full_name }}"
+                                            data-primary-role="{{ (int) $user->user_role_id }}"
+                                            data-role-ids="{{ implode(',', $allRoleIds) }}"
+                                            data-can-procurement="{{ $canProcurement ? '1' : '0' }}"
+                                            data-is-admin="{{ $isAdminUser ? '1' : '0' }}"
+                                            data-is-staff="{{ $isStaffUser ? '1' : '0' }}"
+                                            data-is-it-department="{{ $isItDepartmentUser ? '1' : '0' }}"
+                                        >
+                                            <i data-lucide="pencil" class="h-4 w-4 pointer-events-none"></i>
+                                        </button>
+                                    @endif
                                     <button type="button"
                                         onclick="openEditEmailModal(this)"
                                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
@@ -1036,9 +1038,6 @@
                                 >{{ $role->role_name }}{{ $createRoleTaken ? ' - already assigned' : '' }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-1.5 text-xs text-gray-500">
-                            School Administrator and President are limited to one account each. Remove or reassign the existing account before creating another.
-                        </p>
                     </div>
                     <div id="createAdditionalRolesSection" class="hidden">
                         <label class="pur-label">Additional roles <span class="font-normal text-gray-400">(optional)</span></label>
@@ -1101,10 +1100,7 @@
                                 >{{ $role->role_name }}{{ $editRoleTaken ? ' - already assigned' : '' }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-1.5 text-xs text-gray-500">
-                            School Administrator and President stay one-per-system. Keep the current holder, or free the role first.
-                        </p>
-                        <p id="editAdminPrimaryHint" class="mt-1.5 hidden text-xs text-gray-500">Administrator primary is locked. IT Staff may add Maintenance or Purchaser.</p>
+                        <p id="editRolesHint" class="mt-1.5 hidden text-xs text-gray-500"></p>
                     </div>
                     <div id="editAdditionalRolesSection" class="hidden">
                         <label class="pur-label">Additional roles</label>
@@ -1118,12 +1114,12 @@
                                 @endif
                             @endforeach
                         </div>
-                        <p id="editAdditionalRolesHint" class="mt-1.5 text-xs text-gray-500">Staff in IT may add Maintenance or Purchaser.</p>
+                        <p id="editAdditionalRolesHint" class="mt-1.5 hidden text-xs text-gray-500"></p>
                     </div>
                 </div>
                 <div class="pur-modal-footer">
                     <button type="button" class="pur-btn-secondary" onclick="closeEditRolesModal()">Cancel</button>
-                    <button type="submit" class="pur-btn-primary">Save Roles</button>
+                    <button type="submit" id="editRolesSaveBtn" class="pur-btn-primary">Save Roles</button>
                 </div>
             </form>
         </div>
@@ -1501,9 +1497,8 @@
         if (section) section.classList.toggle('hidden', !eligible);
         if (list) list.classList.toggle('hidden', !eligible);
         if (hint) {
-            hint.textContent = eligible
-                ? 'Staff in IT may add Maintenance or Purchaser.'
-                : 'Needs Staff + IT, with Admin, Maintenance, or Purchaser primary.';
+            hint.textContent = '';
+            hint.classList.add('hidden');
         }
 
         document.querySelectorAll(rowSelector).forEach(function (row) {
@@ -1681,9 +1676,11 @@
         var subtitle = document.getElementById('editRolesSubtitle');
         if (subtitle) subtitle.textContent = 'Roles for ' + (btn.getAttribute('data-full-name') || 'user');
         var isAdminTarget = btn.getAttribute('data-is-admin') === '1';
+        var currentPrimary = btn.getAttribute('data-primary-role') || '';
+        var primaryRoleId = parseInt(currentPrimary, 10) || 0;
+        var lockPrimary = isAdminTarget || primaryRoleId === 2 || primaryRoleId === 3;
         var primary = document.getElementById('editPrimaryRole');
         if (primary) {
-            var currentPrimary = btn.getAttribute('data-primary-role') || '';
             // Block-listed roles stay hidden unless this user already holds them.
             primary.querySelectorAll('.edit-primary-role-option').forEach(function (opt) {
                 var assignable = opt.getAttribute('data-assignable') === '1';
@@ -1692,8 +1689,8 @@
                 opt.disabled = !assignable && !keepCurrent;
             });
             primary.value = currentPrimary;
-            primary.disabled = isAdminTarget;
-            // Disabled fields are not submitted — mirror primary for Admin edits.
+            primary.disabled = lockPrimary;
+            // Disabled fields are not submitted — mirror primary when locked.
             var locked = document.getElementById('editPrimaryRoleLocked');
             if (!locked && form) {
                 locked = document.createElement('input');
@@ -1703,8 +1700,8 @@
                 form.appendChild(locked);
             }
             if (locked) {
-                if (isAdminTarget) {
-                    locked.value = '1';
+                if (lockPrimary) {
+                    locked.value = String(currentPrimary || (isAdminTarget ? '1' : ''));
                     locked.disabled = false;
                 } else {
                     locked.value = '';
@@ -1712,16 +1709,49 @@
                 }
             }
         }
-        var hint = document.getElementById('editAdminPrimaryHint');
-        if (hint) hint.classList.toggle('hidden', !isAdminTarget);
+        var rolesHint = document.getElementById('editRolesHint');
+        if (rolesHint) {
+            if (lockPrimary) {
+                rolesHint.textContent = 'Primary role is locked. You can remove additional roles.';
+                rolesHint.classList.remove('hidden');
+            } else {
+                rolesHint.textContent = '';
+                rolesHint.classList.add('hidden');
+            }
+        }
         editUserIsStaff = btn.getAttribute('data-is-staff') === '1';
         editUserItDepartment = btn.getAttribute('data-is-it-department') === '1';
         var ids = (btn.getAttribute('data-role-ids') || '').split(',').filter(Boolean);
-        document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
-            var roleId = cb.value;
-            cb.checked = ids.indexOf(roleId) !== -1 && roleId !== (primary ? primary.value : '');
-        });
+        var extraIds = ids.filter(function (id) { return id !== String(currentPrimary); });
+
         syncEditAdditionalRolesVisibility();
+
+        // Re-apply current extras after matrix sync (it may clear/hide them).
+        // Edit modal must always show existing additional roles so they can be removed.
+        document.querySelectorAll('.edit-additional-role').forEach(function (cb) {
+            var roleId = String(cb.value || '');
+            var isExtra = extraIds.indexOf(roleId) !== -1;
+            cb.checked = isExtra;
+            cb.disabled = false;
+            var row = cb.closest('.edit-additional-role-row');
+            if (row && isExtra) {
+                row.classList.remove('hidden');
+            }
+        });
+
+        var section = document.getElementById('editAdditionalRolesSection');
+        var list = document.getElementById('editAdditionalRolesList');
+        if (extraIds.length) {
+            if (section) section.classList.remove('hidden');
+            if (list) list.classList.remove('hidden');
+        }
+
+        var saveBtn = document.getElementById('editRolesSaveBtn');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            saveBtn.title = '';
+        }
         var modal = mountUserModal(document.getElementById('editRolesModal'));
         if (modal) modal.classList.remove('hidden');
     };

@@ -7,7 +7,7 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('accounting/dashboard') => ['Dashboard', ''],
-                request()->is('accounting/disbursement-vouchers*') => ['Disbursement Vouchers', 'From approved request package. Blank form available.'],
+                request()->is('accounting/approved-packages*') => ['ATP + RFC', 'Approved by the School Administrator'],
                 request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', ''],
                 request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', ''],
                 request()->is('accounting/notifications*') => ['Alerts', ''],

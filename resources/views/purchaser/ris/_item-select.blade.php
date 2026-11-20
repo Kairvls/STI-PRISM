@@ -20,7 +20,7 @@
         x-bind:value="item.name_description"
     >
     <div
-        x-show="item._sourceLocked"
+        x-show="item._sourceLocked && !item._revisionLocked"
         class="{{ $triggerClass }} flex cursor-not-allowed items-center gap-1 text-left text-gray-800"
         x-bind:title="'From replacement request: ' + String(item.name_description || '').trim()"
     >
@@ -31,22 +31,23 @@
         <span class="min-w-0 flex-1 truncate" x-text="String(item.name_description || '').trim()"></span>
     </div>
     <button
-        x-show="!item._sourceLocked"
+        x-show="!item._sourceLocked || item._revisionLocked"
         type="button"
-        x-on:click.stop="toggleRisSelect('itemOptions-' + index)"
+        x-on:click.stop="!item._revisionLocked && toggleRisSelect('itemOptions-' + index)"
         class="{{ $triggerClass }} flex items-center justify-between gap-0.5 text-left"
-        x-bind:class="String(item.name_description || '').trim() ? 'text-gray-800' : 'text-gray-400'"
+        x-bind:class="item._revisionLocked ? 'cursor-not-allowed bg-gray-50 text-gray-600' : (String(item.name_description || '').trim() ? 'text-gray-800' : 'text-gray-400')"
         x-bind:title="String(item.name_description || '').trim()"
-        x-bind:aria-expanded="isRisSelectOpen('itemOptions-' + index).toString()"
+        x-bind:aria-expanded="(!item._revisionLocked && isRisSelectOpen('itemOptions-' + index)).toString()"
+        x-bind:aria-disabled="(!!item._revisionLocked).toString()"
     >
         <span class="min-w-0 flex-1 truncate" x-text="String(item.name_description || '').trim() || @js($placeholder)"></span>
-        <svg class="h-3 w-3 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <svg x-show="!item._revisionLocked" class="h-3 w-3 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/>
         </svg>
     </button>
 
     <div
-        x-show="isRisSelectOpen('itemOptions-' + index)"
+        x-show="!item._revisionLocked && !item._sourceLocked && isRisSelectOpen('itemOptions-' + index)"
         x-cloak
         x-transition
         x-on:click.outside="closeRisSelect()"

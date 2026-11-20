@@ -87,7 +87,6 @@ class RfcFormExporter
         $sheet->mergeCells('C15:D15');
         $sheet->setCellValue('C15', $approved);
         $sheet->getStyle('C15:D15')->applyFromArray($bottom);
-        $sheet->setCellValue('C16', \App\Support\AccountingSigner::RFC_APPROVED_BY_TITLE);
 
         foreach (['A' => 16, 'B' => 28, 'C' => 16, 'D' => 28] as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
@@ -154,10 +153,6 @@ class RfcFormExporter
             ->addText((string) ($rfc->request_check_requested_by ?? ''), ['size' => 11], ['alignment' => Jc::CENTER]);
         $sigs->addCell(6000, ['borderBottomSize' => 6, 'borderBottomColor' => '000000'])
             ->addText($this->plainName($rfc->request_check_approved_by_signature ?? $rfc->request_check_approved_by_admin ?? ''), ['size' => 11], ['alignment' => Jc::CENTER]);
-        $sigs->addRow();
-        $sigs->addCell(6000)->addText('');
-        $sigs->addCell(6000)->addText(\App\Support\AccountingSigner::RFC_APPROVED_BY_TITLE, ['size' => 10], ['alignment' => Jc::CENTER]);
-
         $filename = (($rfc->request_check_form_number ?? '') ?: 'blank-rfc') . '.docx';
         $tmp = tempnam(sys_get_temp_dir(), 'rfc');
         $phpWord->save($tmp, 'Word2007');

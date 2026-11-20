@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -16,10 +16,20 @@
             position: relative;
         }
         .header { position: relative; margin-top: 24px; margin-bottom: 10px; text-align: center; }
-        .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
-        .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
-        .line { display: inline-block; min-width: 220px; border-bottom: 1px solid #111827; text-align: center; }
+        .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; padding-right: 12rem; }
+        .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; padding: 0 0.5rem; }
+        .number {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: auto;
+            font-size: 14px;
+            white-space: nowrap;
+            max-width: 46%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .line { display: inline-block; min-width: 180px; max-width: 100%; border-bottom: 1px solid #111827; text-align: center; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
         .ris-table th { text-align: center; font-weight: 700; }
@@ -41,6 +51,8 @@
             line-height: 28px;
             white-space: nowrap;
             overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: break-all;
         }
         .purpose-line-2 { display: block; width: 100%; margin-top: 8px; flex: none; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; position: relative; z-index: 50; page-break-inside: avoid; break-inside: avoid; }
@@ -107,159 +119,19 @@
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
             }
-            @page { size: A4 portrait; margin: 8mm; }
+            @page { size: A4 landscape; margin: 8mm; }
         }
         html.print-measuring .header { margin-top: 24px; margin-bottom: 8px; }
         html.print-measuring .signatures { margin-top: 16px; }
     </style>
     @include('partials.ris-signature-overlay-styles')
     @include('partials.print-fit-page')
-    <script>window.installPrintFit('.ris-document');</script>
+    <script>window.installPrintFit('.ris-original-form');</script>
 </head>
+
 <body>
-
-@php
-    $isDirectlyApproved = ($ris->ris_status ?? '') === 'Directly Approved';
-    $approvedLabel = \App\Support\RisWorkflow::approvedByColumnLabel($ris);
-    $approvedRaw = trim((string) ($ris->ris_approved_by_signature ?? ''));
-    $approvedImage = \App\Support\RisWorkflow::isDrawnSignature($approvedRaw) ? $approvedRaw : '';
-    $approvedName = \App\Support\RisWorkflow::approvedByPrintedName($ris, $presidentName ?? null);
-
-    $issuedRaw = trim((string) ($ris->ris_issued_by_signature ?? ''));
-    $issuedImage = \App\Support\RisWorkflow::isDrawnSignature($issuedRaw) ? $issuedRaw : '';
-    $issuedName = \App\Support\RisWorkflow::issuedByPrintedName($ris);
-    $hasIssued = $issuedRaw !== '';
-
-    $receivedRaw = trim((string) ($ris->ris_received_by_signature ?? ''));
-    $receivedImage = \App\Support\RisWorkflow::isDrawnSignature($receivedRaw) ? $receivedRaw : '';
-    $receivedName = ($receivedImage === '' && $receivedRaw !== '') ? $receivedRaw : '';
-
-    $fullyReleased = $hasIssued && ($isDirectlyApproved || $approvedRaw !== '');
-@endphp
-
-    <main class="ris-document">
-        @if ($isDirectlyApproved)
-            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'ADMIN APPROVED'])
-        @elseif ($fullyReleased)
-            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'APPROVED'])
-        @endif
-
-        <section class="header">
-            <div class="school">STI COLLEGE- ORMOC, INC.</div>
-            <div class="title">REQUISITION AND ISSUE SLIP</div>
-            <div class="number">
-                No.
-                <span class="line">{{ \App\Support\RisWorkflow::formNumber($ris) }}</span>
-            </div>
-        </section>
-
-        <table class="ris-table">
-            <thead>
-                <tr>
-                    <th rowspan="2" class="item-col">ITEM</th>
-                    <th rowspan="2" class="brand-col">BRAND</th>
-                    <th rowspan="2" class="unit-col">UNIT</th>
-                    <th rowspan="2">SUPPLIER</th>
-                    <th colspan="2">QUANTITY</th>
-                    <th rowspan="2" class="cost-col">UNIT COST</th>
-                    <th rowspan="2" class="amount-col">AMOUNT</th>
-                </tr>
-                <tr>
-                    <th class="qty-col">REQUESTED</th>
-                    <th class="qty-col">ISSUED</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for($row = 0; $row < max(8, count($risItems)); $row++)
-                    @php
-                        $item = $risItems[$row] ?? null;
-                    @endphp
-                    <tr>
-                        <td>{{ $item?->ris_item_name_description ?? '' }}</td>
-                        <td style="text-align: center;">{{ $item?->brand_name ?? '' }}</td>
-                        <td style="text-align: center;">{{ $item?->uom_name ?? '' }}</td>
-                        <td>{{ $item?->supplier_display_name ?? '' }}</td>
-                        <td style="text-align: center;">{{ $item?->ris_quantity_requested ?? '' }}</td>
-                        <td style="text-align: center;">{{ $item?->ris_quantity_issued ?? '' }}</td>
-                        <td style="text-align: right;">{{ $item && $item->ris_unit_cost !== null ? number_format($item->ris_unit_cost, 2) : '' }}</td>
-                        <td style="text-align: right;">{{ $item ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0)), 2) : '' }}</td>
-                    </tr>
-                @endfor
-            </tbody>
-        </table>
-
-        @php
-            $purposeRaw = trim((string) ($ris->ris_purpose_description ?? ''));
-            if (preg_match('/\R/u', $purposeRaw)) {
-                $purposeParts = preg_split('/\R/u', $purposeRaw, 2);
-                $purposeLine1 = trim((string) ($purposeParts[0] ?? ''));
-                $purposeLine2 = trim((string) ($purposeParts[1] ?? ''));
-            } elseif (mb_strlen($purposeRaw) > 72) {
-                $cut = mb_strrpos(mb_substr($purposeRaw, 0, 72), ' ');
-                $cut = ($cut === false || $cut < 24) ? 72 : $cut;
-                $purposeLine1 = trim(mb_substr($purposeRaw, 0, $cut));
-                $purposeLine2 = trim(mb_substr($purposeRaw, $cut));
-            } else {
-                $purposeLine1 = $purposeRaw;
-                $purposeLine2 = '';
-            }
-        @endphp
-        <section class="purpose">
-            <div class="purpose-row-1">
-                <div class="purpose-label">PURPOSE</div>
-                <div class="purpose-line">{{ $purposeLine1 }}</div>
-            </div>
-            <div class="purpose-line purpose-line-2">{{ $purposeLine2 }}</div>
-        </section>
-
-        <section class="signatures">
-            <div class="signature-box">
-                <p>Requested by:</p>
-                @include('partials.ris-requested-by-signatory', ['ris' => $ris])
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('m/d/Y') : '' }}</div></div>
-            </div>
-            <div class="signature-box">
-                <p>{{ $approvedLabel }}</p>
-                <div class="signature-line">
-                    @if ($approvedImage !== '')
-                        <img src="{{ $approvedImage }}" alt="{{ rtrim($approvedLabel, ':') }} signature" class="signature-image" />
-                    @endif
-                    @if ($approvedName !== '')
-                        <span class="signature-name">{{ $approvedName }}</span>
-                    @endif
-                </div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('m/d/Y') : '' }}</div></div>
-            </div>
-            <div class="signature-box">
-                <p>Issued by:</p>
-                <div class="signature-line">
-                    @if ($issuedImage !== '')
-                        <img src="{{ $issuedImage }}" alt="Issued by signature" class="signature-image" />
-                    @endif
-                    @if ($issuedName !== '' || ($hasIssued && !$issuedImage))
-                        <span class="signature-name">{{ $issuedName !== '' ? $issuedName : $issuedRaw }}</span>
-                    @endif
-                </div>
-                <div class="date-row">
-                    <span>Date:</span>
-                    <div class="signature-line">
-                        {{ $hasIssued && $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('m/d/Y') : '' }}
-                    </div>
-                </div>
-            </div>
-            <div class="signature-box">
-                <p>Received by:</p>
-                <div class="signature-line">
-                    @if ($receivedImage !== '')
-                        <img src="{{ $receivedImage }}" alt="Received by signature" class="signature-image" />
-                    @endif
-                    @if ($receivedName !== '')
-                        <span class="signature-name">{{ $receivedName }}</span>
-                    @endif
-                </div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('m/d/Y') : '' }}</div></div>
-            </div>
-        </section>
+    <main>
+        @include('partials.ris-purchaser-sheet', ['ris' => $ris, 'risItems' => $risItems ?? ($ris->risItems ?? collect())])
     </main>
 @if (request()->boolean('auto'))
 <script>
@@ -273,4 +145,3 @@
 @endif
 </body>
 </html>
-

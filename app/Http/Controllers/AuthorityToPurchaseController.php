@@ -208,9 +208,14 @@ class AuthorityToPurchaseController extends Controller
             $risChoices = $this->buildRisOptions($this->eligibleRisQuery()->limit(200)->get());
             $risOptions = $risChoices['options'];
             $risPrefill = $risChoices['prefill'];
-            $suppliers = $this->activeSuppliersQuery()->get();
+            $suppliers = AtpRisSuppliers::withDisplayNames($this->activeSuppliersQuery()->get());
             $uomNames = Schema::hasTable('uom_table')
-                ? DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->values()
+                ? DB::table('uom_table')
+                    ->orderByRaw('LOWER(uom_name) ASC')
+                    ->orderBy('uom_name')
+                    ->pluck('uom_name')
+                    ->map(fn ($name) => (string) $name)
+                    ->values()
                 : collect();
         }
 
@@ -237,6 +242,30 @@ class AuthorityToPurchaseController extends Controller
                         'success',
                         'This Canvass + RIS already has an Authority to Purchase. Opening that record instead of creating a duplicate.'
                     );
+            }
+        }
+
+        // Keep split-RIS siblings together on this page so the list can group by RIS.
+        $pageCollection = $atps->getCollection();
+        $risIdsOnPage = $pageCollection
+            ->pluck('authority_purchase_ris_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        if ($risIdsOnPage->isNotEmpty()) {
+            $onPageIds = $pageCollection
+                ->pluck('authority_purchase_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            $siblings = (clone $spotlightQuery)
+                ->whereIn('authority_to_purchase_table.authority_purchase_ris_id', $risIdsOnPage->all())
+                ->whereNotIn('authority_to_purchase_table.authority_purchase_id', $onPageIds)
+                ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
+                ->get();
+            if ($siblings->isNotEmpty()) {
+                $pageCollection = $pageCollection->concat($siblings)->unique('authority_purchase_id')->values();
+                $atps->setCollection($pageCollection);
             }
         }
 
@@ -318,11 +347,14 @@ class AuthorityToPurchaseController extends Controller
         $installmentTerms = CashInstallmentPlanner::activeTerms();
         $installmentDayIntervals = CashInstallmentPlanner::activeDayIntervals();
 
+        $atpGroups = $this->buildAtpListGroups($atps->getCollection(), $atpItems);
+
         return view(
             'purchaser.authority-to-purchase.index',
             compact(
                 'attentionFocus',
                 'atps',
+                'atpGroups',
                 'archiveView',
                 'atpSummary',
                 'risOptions',
@@ -342,6 +374,143 @@ class AuthorityToPurchaseController extends Controller
                 'installmentDayIntervals'
             )
         );
+    }
+
+    /**
+     * Collapse same-RIS ATPs into one expandable list group.
+     * ATPs without an RIS stay as single-row groups.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @param  \Illuminate\Support\Collection<int, \Illuminate\Support\Collection<int, object>>  $atpItems
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function buildAtpListGroups($rows, $atpItems = null)
+    {
+        $atpItems = $atpItems ?? collect();
+
+        $grouped = $rows->groupBy(function ($atp) {
+            $risId = (int) ($atp->authority_purchase_ris_id ?? 0);
+
+            return $risId > 0 ? 'ris-'.$risId : 'atp-'.(int) $atp->authority_purchase_id;
+        });
+
+        return $grouped->map(function ($items, $key) use ($atpItems) {
+            $items = $items->values();
+            $first = $items->first();
+            $risId = (int) ($first->authority_purchase_ris_id ?? 0);
+            $labels = $items->map(function ($atp) {
+                return \App\Support\RisWorkflow::atpStatusLabel($atp);
+            })->unique()->values();
+            $urgent = $items->contains(fn ($atp) => DocumentUrgency::isUrgent('ATP', $atp));
+            $dates = $items
+                ->pluck('authority_purchase_date')
+                ->filter()
+                ->map(fn ($d) => (string) $d)
+                ->sort()
+                ->values();
+
+            return [
+                'key' => (string) $key,
+                'ris_id' => $risId > 0 ? $risId : null,
+                'count' => $items->count(),
+                'atps' => $items,
+                'first' => $first,
+                'request_no' => $first->authority_purchase_request_no ?? null,
+                'ris_label' => $risId > 0
+                    ? RisWorkflow::formNumber($first, $risId)
+                    : '—',
+                'equipment' => $this->atpGroupItemSummary($items, $atpItems, $first),
+                'equipment_items' => $this->atpGroupItemNames($items, $atpItems, $first),
+                'status_labels' => $labels,
+                'status_mixed' => $labels->count() > 1,
+                'urgent' => $urgent,
+                'date' => $dates->last() ?: null,
+                'supplier_total' => (int) ($first->ris_supplier_total ?? 0),
+            ];
+        })->values();
+    }
+
+    /**
+     * Item labels for a RIS/ATP group with quantities summed by description
+     * (e.g. "2 Desktop Computer", "4 Door Knob").
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $atps
+     * @param  \Illuminate\Support\Collection<int, \Illuminate\Support\Collection<int, object>>  $atpItems
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function atpGroupItemNames($atps, $atpItems, object $first)
+    {
+        $fromEquipment = trim((string) (
+            $first->equipment_name
+            ?? $first->report_unlisted_equipment_name
+            ?? ''
+        ));
+        if ($fromEquipment !== '') {
+            return collect([$fromEquipment]);
+        }
+
+        $totals = [];
+        foreach ($atps as $atp) {
+            $lines = $atpItems->get((int) $atp->authority_purchase_id, collect());
+            foreach ($lines as $line) {
+                $desc = trim((string) ($line->atp_description ?? ''));
+                if ($desc === '') {
+                    continue;
+                }
+                $qty = (float) ($line->atp_quantity ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
+                $key = mb_strtolower($desc);
+                if (! isset($totals[$key])) {
+                    $totals[$key] = ['name' => $desc, 'qty' => 0.0];
+                }
+                $totals[$key]['qty'] += $qty;
+            }
+        }
+
+        $labels = collect($totals)->map(function (array $row) {
+            return $this->formatAtpItemQtyLabel($row['qty'], $row['name']);
+        })->values();
+
+        if ($labels->isNotEmpty()) {
+            return $labels;
+        }
+
+        $purpose = trim((string) ($first->ris_purpose_description ?? ''));
+
+        return $purpose !== ''
+            ? collect([\Illuminate\Support\Str::limit($purpose, 48)])
+            : collect();
+    }
+
+    private function formatAtpItemQtyLabel(float $qty, string $name): string
+    {
+        $qtyLabel = fmod($qty, 1.0) === 0.0
+            ? (string) (int) $qty
+            : rtrim(rtrim(number_format($qty, 2, '.', ''), '0'), '.');
+
+        return $qtyLabel.' '.$name;
+    }
+
+    /**
+     * Subtitle under RIS: first item, with "+N more" when there are others.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $atps
+     * @param  \Illuminate\Support\Collection<int, \Illuminate\Support\Collection<int, object>>  $atpItems
+     */
+    private function atpGroupItemSummary($atps, $atpItems, object $first): string
+    {
+        $unique = $this->atpGroupItemNames($atps, $atpItems, $first);
+        if ($unique->isEmpty()) {
+            return 'No line items';
+        }
+
+        if ($unique->count() === 1) {
+            return $unique->first();
+        }
+
+        return $unique->first().' +'.($unique->count() - 1).' more';
     }
 
     public function create(Request $request)
@@ -636,13 +805,6 @@ class AuthorityToPurchaseController extends Controller
 
         $label = ProcurementPaymentPath::label($path);
 
-        // Cash Installment uses its own schedule modal — do not auto-open RFC create.
-        if ($path === ProcurementPaymentPath::CASH_INSTALLMENT) {
-            return redirect(ProcurementPortal::route('atp.index', [
-                'cash_installment' => $id,
-            ]))->with('success', "Payment path set to {$label}. Choose the installment schedule to create the funding requests.");
-        }
-
         return redirect(ProcurementPortal::route('rfc.index', [
             'selected_atp' => $id,
             'funding_type' => $path,
@@ -651,15 +813,14 @@ class AuthorityToPurchaseController extends Controller
     }
 
     /**
-     * Cash Installment: term + day interval + downpayment → draft RFCs
-     * (optional downpayment + duration/interval installments).
+     * Cash Installment: installment count + payment interval + downpayment → draft RFCs.
      */
     public function planCashInstallment(Request $request, $id)
     {
         abort_unless(CashInstallmentPlanner::supported(), 404);
 
         $validated = $request->validate([
-            'term_id' => ['required', 'integer', 'exists:installment_terms_table,term_id'],
+            'installment_count' => ['required', 'integer', 'min:1', 'max:36'],
             'day_interval_id' => ['nullable', 'integer', 'exists:installment_day_intervals_table,interval_id'],
             'downpayment' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'dates' => ['nullable', 'array'],
@@ -687,7 +848,7 @@ class AuthorityToPurchaseController extends Controller
         try {
             $result = CashInstallmentPlanner::create(
                 (int) $id,
-                (int) $validated['term_id'],
+                (int) $validated['installment_count'],
                 (float) ($validated['downpayment'] ?? 0),
                 array_values($validated['dates'] ?? []),
                 isset($validated['day_interval_id']) ? (int) $validated['day_interval_id'] : null

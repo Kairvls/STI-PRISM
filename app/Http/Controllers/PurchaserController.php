@@ -36,10 +36,6 @@ class PurchaserController extends Controller
             ->first(fn ($doc) => (int) $doc->id === $id);
         abort_if(! $owned, 404);
 
-        if ($type === 'ris') {
-            return app(RisController::class)->print($id);
-        }
-
         $payload = app(AdminOperationsController::class)->loadDocumentViewPayload($type, $id);
         $payload['type'] = $type;
         PurchaserDocumentAccess::assertOwns($this->previewOwnerRow($type, $id), $type);
@@ -50,6 +46,7 @@ class PurchaserController extends Controller
     private function previewOwnerRow(string $type, int $id): object
     {
         $row = match ($type) {
+            'ris' => DB::table('requisition_issue_slip_table')->where('ris_id', $id)->first(),
             'atp' => DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->first(),
             'rfc' => DB::table('request_check_table')->where('request_check_id', $id)->first(),
             'rr' => DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first(),

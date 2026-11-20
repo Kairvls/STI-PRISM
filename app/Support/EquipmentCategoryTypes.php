@@ -42,7 +42,89 @@ class EquipmentCategoryTypes
             $query->where('type_is_active', true);
         }
 
-        return $query->get();
+        return self::attachUsageFlags($query->get());
+    }
+
+    /**
+     * Mark types referenced by equipment records as in use.
+     *
+     * @param  Collection<int, object>  $types
+     * @return Collection<int, object>
+     */
+    public static function attachUsageFlags(Collection $types): Collection
+    {
+        if ($types->isEmpty()) {
+            return $types;
+        }
+
+        $usedNames = self::equipmentNameKeys();
+
+        return $types->map(function ($type) use ($usedNames) {
+            $type->in_use = self::matchesUsedName($type, $usedNames);
+
+            return $type;
+        });
+    }
+
+    public static function isInUse(int $typeId): bool
+    {
+        if (! self::tableReady() || $typeId < 1) {
+            return false;
+        }
+
+        $row = DB::table(self::TABLE)->where('type_id', $typeId)->first();
+        if (! $row) {
+            return false;
+        }
+
+        return self::matchesUsedName($row, self::equipmentNameKeys());
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function equipmentNameKeys(): array
+    {
+        if (
+            ! Schema::hasTable('equipment_table')
+            || ! Schema::hasColumn('equipment_table', 'equipment_name')
+        ) {
+            return [];
+        }
+
+        $keys = [];
+        foreach (
+            DB::table('equipment_table')
+                ->whereNotNull('equipment_name')
+                ->where('equipment_name', '!=', '')
+                ->distinct()
+                ->pluck('equipment_name') as $name
+        ) {
+            $key = mb_strtolower(trim((string) $name));
+            if ($key !== '') {
+                $keys[$key] = true;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @param  array<string, true>  $usedNames
+     */
+    private static function matchesUsedName(object $type, array $usedNames): bool
+    {
+        if ($usedNames === []) {
+            return false;
+        }
+
+        foreach (self::needlesFor((string) ($type->type_name ?? ''), $type->type_aliases ?? null) as $needle) {
+            if (isset($usedNames[$needle])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -276,6 +358,12 @@ class EquipmentCategoryTypes
             abort(404);
         }
 
+        if (self::isInUse($typeId)) {
+            throw ValidationException::withMessages([
+                'name' => 'Cannot edit this equipment name because it is already in use.',
+            ]);
+        }
+
         $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
         $max = self::maxLength();
         if ($name === '') {
@@ -306,6 +394,16 @@ class EquipmentCategoryTypes
     {
         if (! self::tableReady()) {
             abort(404);
+        }
+
+        if (! DB::table(self::TABLE)->where('type_id', $typeId)->exists()) {
+            abort(404);
+        }
+
+        if (self::isInUse($typeId)) {
+            throw ValidationException::withMessages([
+                'name' => 'Cannot delete this equipment name because it is already in use.',
+            ]);
         }
 
         DB::table(self::TABLE)->where('type_id', $typeId)->delete();

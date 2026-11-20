@@ -274,6 +274,50 @@
         });
     }, true);
 
+    function purFieldIsDirty(el) {
+        if (!el || el.disabled || el.closest('[data-ris-form-footer], [data-pur-ignore-dirty]')) return false;
+        var type = String(el.type || '').toLowerCase();
+        var name = String(el.name || '');
+        if (type === 'hidden') {
+            if (!name || name === '_token' || name === '_method' || name === 'save_action' || name === 'signature_data' || name === 'copied_from_ris_id' || name === 'source_locked') return false;
+        }
+        if (type === 'radio' || type === 'checkbox') {
+            return el.checked && !el.defaultChecked;
+        }
+        if (type === 'file') return !!(el.files && el.files.length);
+        if (el.tagName === 'SELECT') return String(el.value || '').trim() !== '';
+        var value = String(el.value || '').trim();
+        if (value === '' || value === '0' || value === '0.00' || value === '0.0') return false;
+        if (type === 'hidden' && name.indexOf('supplier_ids') !== -1 && value === '') return false;
+        return value !== String(el.defaultValue || '').trim() || type === 'hidden';
+    }
+
+    window.purFormIsDirty = function (form) {
+        if (!form) return false;
+        var fields = form.querySelectorAll('input, select, textarea');
+        for (var i = 0; i < fields.length; i++) {
+            if (purFieldIsDirty(fields[i])) return true;
+        }
+        return false;
+    };
+
+    window.purGuardFormClose = function (form, done) {
+        if (typeof done !== 'function') return;
+        if (!window.purFormIsDirty(form)) {
+            done();
+            return;
+        }
+        window.purConfirm({
+            title: 'Close this form?',
+            text: 'You already entered details. Closing now will discard them.',
+            confirmText: 'Close form',
+            cancelText: 'Keep editing',
+            kind: 'caution'
+        }).then(function (ok) {
+            if (ok) done();
+        });
+    };
+
     document.addEventListener('click', function (event) {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         var link = event.target.closest && event.target.closest('a[data-pur-confirm][href]');

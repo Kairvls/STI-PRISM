@@ -80,7 +80,6 @@
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->submitted_at ? $rr->submitted_at->format('M d, Y') : '—') }}</span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
                             <span class="text-[11px] font-semibold text-blue-600">Open</span>
                         </span>
                     </button>
@@ -137,7 +136,6 @@
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->total > 0 ? $rr->settled.'/'.$rr->total.' settled' : null) }}</span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
                             <span class="text-[11px] font-semibold text-blue-600">Open</span>
                         </span>
                     </button>
@@ -194,7 +192,6 @@
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->at ? $rr->at->format('M d, Y') : '—') }}</span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
                             <span class="text-[11px] font-semibold text-blue-600">Open</span>
                         </span>
                     </button>
@@ -223,7 +220,6 @@
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->at ? $rr->at->format('M d, Y') : '—') }}</span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($rr->amount ?? 0) }}</span>
                             <span class="text-[11px] font-semibold text-blue-600">Open</span>
                         </span>
                     </button>

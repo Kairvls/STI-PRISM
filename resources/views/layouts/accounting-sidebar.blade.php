@@ -22,16 +22,17 @@
         <div class="menu-title" id="transactions-section">TRANSACTIONS</div>
         @php
             $accCounts = \App\Support\AccountingSidebarCounts::counts();
+            $packageCount = \App\Support\AccountingDashboard::approvedPackageCount();
             $navCount = 'menu-count';
         @endphp
         <a
-            href="{{ route('accounting.dv.index', ['status' => 'all']) }}"
-            class="menu-item {{ request()->is('accounting/disbursement-vouchers*') ? 'active' : '' }}"
+            href="/accounting/approved-packages"
+            class="menu-item {{ request()->is('accounting/approved-packages*') ? 'active' : '' }}"
         >
-            <i class="h-5 w-5" data-lucide="file-spreadsheet"></i>
-            <span>Disbursement Vouchers</span>
-            @if($accCounts['dv'] > 0)
-                <span class="{{ $navCount }}" title="{{ $accCounts['dv'] }} not viewed yet">{{ $accCounts['dv'] }}</span>
+            <i class="h-5 w-5" data-lucide="files"></i>
+            <span>ATP + RFC</span>
+            @if($packageCount > 0)
+                <span class="{{ $navCount }}" title="{{ $packageCount }} approved by the School Administrator">{{ $packageCount }}</span>
             @endif
         </a>
         <a

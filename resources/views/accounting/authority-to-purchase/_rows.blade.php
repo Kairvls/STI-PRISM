@@ -41,9 +41,6 @@
         <td class="px-5 py-4 text-gray-600">
             {{ $row->company_name ?? $row->shop_name ?? '—' }}
         </td>
-        <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
-            {{ $row->atp_total !== null ? '₱'.number_format((float) $row->atp_total, 2) : '—' }}
-        </td>
         <td class="whitespace-nowrap px-5 py-4 text-gray-600">
             @if($row->authority_purchase_submitted_at)
                 {{ \Carbon\Carbon::parse($row->authority_purchase_submitted_at)->format('M j, Y') }}

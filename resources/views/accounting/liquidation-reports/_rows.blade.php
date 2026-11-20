@@ -33,9 +33,6 @@
         </td>
         <td class="px-5 py-4 text-gray-700">{{ $row->receiving_report_form_number ?? '—' }}</td>
         <td class="px-5 py-4 text-gray-600">{{ $row->liquidation_report_employee_name ?? '—' }}</td>
-        <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
-            {{ $row->liquidation_report_amount_advance !== null ? '₱'.number_format((float) $row->liquidation_report_amount_advance, 2) : '—' }}
-        </td>
         <td class="whitespace-nowrap px-5 py-4 text-gray-600">
             <div>{{ $when ? \Carbon\Carbon::parse($when)->format('M d, Y') : '—' }}</div>
             @if ($deadline)
@@ -45,7 +42,7 @@
             @endif
         </td>
         <td class="px-5 py-4">
-            @include('accounting.partials.status-badge', ['status' => $row->liquidation_report_status])
+            @include('accounting.partials.status-badge', ['status' => $row->liquidation_report_status, 'doc' => 'liq'])
         </td>
         <td class="px-5 py-4 text-right">
             <div class="inline-flex items-center justify-end gap-1.5">

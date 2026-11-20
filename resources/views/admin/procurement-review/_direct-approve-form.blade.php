@@ -56,8 +56,20 @@
     .admin-da-ris-form .ris-quantity-header { width: 20%; }
     .admin-da-ris-form .ris-requested-column { width: 10%; font-size: 11px !important; }
     .admin-da-ris-form .ris-issued-column { width: 10%; font-size: 11px !important; }
-    .admin-da-ris-form .ris-unit-cost-column { width: 14%; }
-    .admin-da-ris-form .ris-amount-column { width: 16%; }
+    .admin-da-ris-form .ris-unit-cost-column,
+    .admin-da-ris-form .ris-amount-column { width: 15%; }
+    .admin-da-ris-form .ris-purpose-lined-wrap { position: relative; }
+    .admin-da-ris-form .ris-purpose-lined-wrap .ris-purpose-label {
+        position: absolute; left: 0; top: 0; z-index: 1;
+        padding-right: 12px; background: #fff; line-height: 31px;
+    }
+    .admin-da-ris-form .ris-purpose-input {
+        display: block; width: 100%; height: 62px; min-height: 62px; max-height: 62px;
+        padding: 0; font-size: 12px; line-height: 31px; text-indent: 5.75rem;
+        white-space: pre-wrap; overflow: hidden; border: 0; color: #000;
+        background-color: transparent;
+        background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 30px, #1f2937 30px, #1f2937 31px);
+    }
     .admin-da-ris-form .ris-purpose-area { margin-top: 31px; }
     .admin-da-ris-form .ris-purpose-label { font-size: 13px; font-weight: 700; }
     .admin-da-ris-form .ris-purpose-line-row { display: flex; margin-top: 29px; }
@@ -203,6 +215,11 @@
     data-mode="{{ $mode }}"
 >
     @csrf
+    @include('partials.document-lineage', [
+        'lineage' => \App\Support\DocumentLineage::forRis((int) $ris->ris_id, $ris),
+        'currentType' => 'RIS',
+        'statusHint' => \App\Support\DocumentLineage::reviewHintForRis($ris),
+    ])
     @if ($isCosign)
         <input type="hidden" name="target_id" value="{{ $ris->ris_id }}">
         <input type="hidden" name="decision" value="Approved">
@@ -214,20 +231,16 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto">
         <div class="space-y-4 p-4 md:px-5 md:pt-3 md:pb-4">
-            <div class="flex gap-3 rounded-xl border px-4 py-3 {{ $isForward ? 'border-sky-100 bg-sky-50/90' : ($isCosign ? 'border-slate-200 bg-slate-50' : 'border-emerald-100 bg-emerald-50/80') }}">
-                <svg class="mt-0.5 h-4 w-4 shrink-0 {{ $isForward ? 'text-sky-600' : ($isCosign ? 'text-slate-500' : 'text-emerald-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            @if ($isCosign)
+            <div class="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"></path>
                 </svg>
-                <p class="text-xs leading-relaxed {{ $isForward ? 'text-sky-950/80' : ($isCosign ? 'text-slate-700' : 'text-emerald-950/80') }}">
-                    @if ($isForward)
-                        All RIS details are locked. You may add optional <strong>supporting details</strong> and an attachment for the President. Confirming Passes to President without an Issued by signature. After the President approves, sign Issued by here on Ready to Sign.
-                    @elseif ($isCosign)
-                        The President has already signed <strong>Approved by</strong>. <strong>Sign Issued by</strong> (required) and set its <strong>Date</strong>. Confirming returns this RIS to the Purchaser.
-                    @else
-                        Direct approval bypasses presidential signing. Fill <strong>Issued</strong> for each item (it cannot be higher than Requested), then fill <strong>Checked by</strong> and <strong>Issued by</strong>, <strong>add your signature</strong> (required), provide a <strong>reason</strong> (and optional proof), then confirm. This returns the RIS to the Purchaser, keeps a copy in <strong>Signature History</strong>, and records it for the President.
-                    @endif
+                <p class="text-xs leading-relaxed text-slate-700">
+                    The President has already signed <strong>Approved by</strong>. <strong>Sign Issued by</strong> (required) and set its <strong>Date</strong>. Confirming returns this RIS to the Purchaser.
                 </p>
             </div>
+            @endif
 
             @if ($isDirect)
             <div class="rounded-xl border border-amber-100 bg-white p-4 shadow-sm shadow-slate-900/5">
@@ -236,9 +249,6 @@
                         <h4 class="text-sm font-semibold text-slate-900">
                             Reason for direct approval
                         </h4>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            Required for the President’s record. Explain why this RIS was approved without presidential signing.
-                        </p>
                     </div>
                 </div>
 
@@ -287,9 +297,6 @@
                         <h4 class="text-sm font-semibold text-slate-900">
                             School Administrator supporting details
                         </h4>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            Optional note and attachment for the President explaining why this RIS should be approved. Separate from the Canvass below.
-                        </p>
                     </div>
                 </div>
 
@@ -316,45 +323,95 @@
                     class="mt-1.5 block w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                 >{{ old('forward_details') }}</textarea>
 
-                <label for="forward_attachment" class="mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-sky-200 bg-sky-50/50 px-3.5 py-3 transition hover:border-sky-300 hover:bg-sky-50">
-                    <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-500 ring-1 ring-sky-100">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
-                        </svg>
-                    </span>
-                    <span class="min-w-0 flex-1">
-                        <span class="block text-xs font-medium text-slate-700">Supporting attachment</span>
-                        <span class="mt-0.5 block text-[11px] text-slate-400">Optional · Image, PDF, or Word · max 10 MB</span>
-                        <span id="forward_attachmentName" class="mt-1 hidden block truncate text-[11px] font-medium text-sky-700"></span>
-                    </span>
-                    <span class="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-sky-700">
-                        Choose file
-                    </span>
-                    <input
-                        type="file"
-                        id="forward_attachment"
-                        name="forward_attachment"
-                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,image/*"
-                        class="sr-only"
-                    >
-                </label>
+                <div class="mt-4 rounded-xl border border-dashed border-sky-200 bg-sky-50/50 px-3.5 py-3">
+                    <label for="forward_attachment" class="flex cursor-pointer items-center gap-3">
+                        <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-500 ring-1 ring-sky-100">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                            </svg>
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block text-xs font-medium text-slate-700">Supporting attachments</span>
+                            <span class="mt-0.5 block text-[11px] text-slate-400">Optional · Image, PDF, or Word · max 10 MB each</span>
+                        </span>
+                        <span class="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-sky-700">
+                            Choose files
+                        </span>
+                        <input
+                            type="file"
+                            id="forward_attachment"
+                            name="forward_attachment[]"
+                            multiple
+                            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,image/*"
+                            class="sr-only"
+                        >
+                    </label>
+                    <div id="forwardAttachmentSaved" class="mt-2 space-y-2 empty:mt-0">
+                        @foreach (($forwardAttachments ?? []) as $file)
+                            <div data-forward-file class="flex items-center gap-2 rounded-lg border border-sky-100 bg-white px-3 py-2">
+                                <span class="min-w-0 flex-1 truncate text-[11px] font-medium text-sky-800">{{ $file['name'] }}</span>
+                                <button type="button" data-remove-forward-file class="shrink-0 text-[11px] font-medium text-rose-600 hover:text-rose-700">Remove</button>
+                                <input type="hidden" name="keep_forward_attachment[]" value="{{ $file['key'] }}">
+                            </div>
+                        @endforeach
+                    </div>
+                    <div id="forwardAttachmentPicks" class="mt-2 space-y-2 empty:mt-0"></div>
+                </div>
             </div>
             <script>
             (function () {
                 var input = document.getElementById('forward_attachment');
-                var nameOut = document.getElementById('forward_attachmentName');
-                if (!input) return;
+                var list = document.getElementById('forwardAttachmentPicks');
+                var saved = document.getElementById('forwardAttachmentSaved');
+                if (!input || !list) return;
+                var store = new DataTransfer();
+
+                function render() {
+                    list.innerHTML = '';
+                    Array.from(store.files).forEach(function (file, index) {
+                        var row = document.createElement('div');
+                        row.className = 'flex items-center gap-2 rounded-lg border border-sky-100 bg-white px-3 py-2';
+                        var name = document.createElement('span');
+                        name.className = 'min-w-0 flex-1 truncate text-[11px] font-medium text-sky-800';
+                        name.textContent = file.name;
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'shrink-0 text-[11px] font-medium text-rose-600 hover:text-rose-700';
+                        btn.textContent = 'Remove';
+                        btn.addEventListener('click', function () {
+                            var next = new DataTransfer();
+                            Array.from(store.files).forEach(function (kept, keptIndex) {
+                                if (keptIndex !== index) next.items.add(kept);
+                            });
+                            store = next;
+                            input.files = store.files;
+                            render();
+                        });
+                        row.appendChild(name);
+                        row.appendChild(btn);
+                        list.appendChild(row);
+                    });
+                }
+
                 input.addEventListener('change', function () {
-                    var file = input.files && input.files[0];
-                    if (!nameOut) return;
-                    if (file) {
-                        nameOut.textContent = file.name;
-                        nameOut.classList.remove('hidden');
-                    } else {
-                        nameOut.textContent = '';
-                        nameOut.classList.add('hidden');
-                    }
+                    Array.from(input.files || []).forEach(function (file) {
+                        var duplicate = Array.from(store.files).some(function (kept) {
+                            return kept.name === file.name && kept.size === file.size && kept.lastModified === file.lastModified;
+                        });
+                        if (!duplicate) store.items.add(file);
+                    });
+                    input.files = store.files;
+                    render();
                 });
+
+                if (saved) {
+                    saved.addEventListener('click', function (event) {
+                        var btn = event.target.closest('[data-remove-forward-file]');
+                        if (!btn) return;
+                        var row = btn.closest('[data-forward-file]');
+                        if (row) row.remove();
+                    });
+                }
             })();
             </script>
             @endif
@@ -404,22 +461,21 @@
                             @endphp
                             <tr>
                                 <td class="{{ $lockCell }}">{{ $itemName }}</td>
-                                <td class="text-center {{ $lockCell }}">{{ $item?->brand_name ?? '' }}</td>
+                                <td class="text-center {{ $lockCell }}">{{ $item ? \App\Support\RisWorkflow::brandPaperLabel($item) : '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item?->uom_name ?? '' }}</td>
                                 <td class="{{ $lockCell }}">{{ $item->supplier_display_name ?? '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_requested ?? '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_issued ?? '' }}</td>
-                                <td class="text-right {{ $lockCell }}">{{ isset($item->ris_unit_cost) ? number_format((float) $item->ris_unit_cost, 2) : '' }}</td>
-                                <td class="text-right {{ $lockCell }}">{{ $lineAmount !== null ? number_format($lineAmount, 2) : '' }}</td>
+                                <td class="text-right {{ $lockCell }}">{{ isset($item->ris_unit_cost) ? \App\Support\Money::format($item->ris_unit_cost) : '' }}</td>
+                                <td class="text-right {{ $lockCell }}">{{ $lineAmount !== null ? \App\Support\Money::format($lineAmount) : '' }}</td>
                             </tr>
                         @endfor
                     </tbody>
                 </table>
                 <div class="ris-purpose-area admin-da-locked">
-                    <div class="ris-purpose-label">PURPOSE</div>
-                    <div class="ris-purpose-line-row">
-                        <div class="ris-purpose-spacer"></div>
-                        <div class="ris-purpose-line">{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? '') }}</div>
+                    <div class="ris-purpose-lined-wrap">
+                        <div class="ris-purpose-label">PURPOSE</div>
+                        <div class="ris-purpose-input">{{ trim((string) ($ris->ris_purpose_description ?: ($ris->ris_manual_description ?? ''))) !== '' ? ($ris->ris_purpose_description ?: $ris->ris_manual_description) : ' ' }}</div>
                     </div>
                 </div>
 
@@ -564,13 +620,6 @@
                         <h4 class="text-sm font-semibold text-slate-900">
                             {{ $isDirect ? 'School Administrator signature' : 'Issued by signature' }} <span class="text-red-500">*</span>
                         </h4>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                            @if ($isDirect)
-                                Pick a saved signature, draw one, or upload. It overlays <strong>Checked by</strong> and <strong>Issued by</strong> on the form above.
-                            @else
-                                Pick a saved signature, draw one, or upload. It overlays <strong>Issued by</strong> on the form above.
-                            @endif
-                        </p>
                     </div>
                     <div id="adminDaSignBadge" class="hidden inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                         Signature added
@@ -741,13 +790,6 @@
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <h3 class="text-lg font-bold text-slate-900">Sign the RIS</h3>
-                                <p class="mt-1.5 text-sm leading-6 text-slate-500">
-                                    @if ($isDirect)
-                                        Sign over your printed name. This overlays <strong>Checked by</strong> and <strong>Issued by</strong>.
-                                    @else
-                                        Sign over your printed name. This overlays <strong>Issued by</strong>.
-                                    @endif
-                                </p>
                             </div>
                             <button type="button" id="adminDaCloseSignPad" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -1476,7 +1518,7 @@
     }
 
     function formatMoney(amount) {
-        return Number(amount || 0).toLocaleString('en-US', {
+        return '₱' + Number(amount || 0).toLocaleString('en-PH', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });

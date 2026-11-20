@@ -59,30 +59,7 @@
                             ? \Carbon\Carbon::parse($dateValue)->startOfDay()
                             : null;
                         $age = $since ? (int) $since->diffInDays(now()->startOfDay()) : null;
-                        if ($kind === 'sign') {
-                            $who = \App\Support\RoleHolderLabel::who(
-                                \App\Support\WorkflowNotifier::ROLE_PRESIDENT,
-                                $row->president_name ?? $row->ris_approved_by ?? null,
-                                ''
-                            );
-                            $statusText = $who !== '' ? 'Approved by '.$who : 'Approved by the President';
-                            $badge = 'Ready to sign';
-                            $badgeClass = 'border-blue-200 bg-blue-50 text-blue-700';
-                        } else {
-                            $reviewerName = trim((string) ($row->assigned_reviewer_name ?? ''));
-                            $currentName = trim((string) (auth()->user()->user_full_name ?? ''));
-                            $who = \App\Support\RoleHolderLabel::who(
-                                \App\Support\WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-                                $reviewerName !== '' ? $reviewerName : null,
-                                'the School Administrator'
-                            );
-                            $isYou = strcasecmp($who, 'the School Administrator') === 0
-                                || ($currentName !== '' && strcasecmp($who, $currentName) === 0)
-                                || ($reviewerName !== '' && $currentName !== '' && strcasecmp($reviewerName, $currentName) === 0);
-                            $statusText = 'Under review by '.($isYou ? 'you' : ($who !== '' ? $who : 'the School Administrator'));
-                            $badge = 'Pending accept';
-                            $badgeClass = 'border-amber-200 bg-amber-50 text-amber-700';
-                        }
+                        $statusText = \App\Support\ProcurementStatus::WITH_SCHOOL_ADMINISTRATOR;
                     @endphp
                     <li>
                         <div
@@ -99,17 +76,15 @@
                             <div class="min-w-0">
                                 <div class="flex min-w-0 flex-wrap items-center gap-2">
                                     <p class="text-sm font-semibold text-gray-900">{{ \App\Support\RisWorkflow::formNumber($row) }}</p>
-                                    <span class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold {{ $badgeClass }}">{{ $badge }}</span>
                                 </div>
                                 @if(!blank($row->ris_request_no ?? null))
                                     <p class="mt-0.5">
                                         @include('partials.procurement-request-no', ['requestNo' => $row->ris_request_no, 'inline' => true, 'showLabel' => false])
                                     </p>
                                 @endif
-                                <p class="mt-1 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                             </div>
                             <div class="max-w-[10.5rem] shrink-0 text-right">
-                                <p class="text-[11px] font-semibold leading-4 text-gray-700">{{ $statusText }}</p>
+                                @include('accounting.partials.status-badge', ['status' => $statusText])
                                 @if($age !== null)
                                     <p class="mt-0.5 text-[11px] {{ $age >= 3 ? 'sa-alert font-semibold' : 'text-gray-400' }}">
                                         @if($kind === 'sign')
@@ -170,10 +145,9 @@
                                             @include('partials.procurement-request-no', ['requestNo' => $row->request_no, 'inline' => true, 'showLabel' => false])
                                         </p>
                                     @endif
-                                    <p class="mt-1 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) $row->amount, 2) }}</p>
                                 </div>
                                 <div class="shrink-0 text-right">
-                                    <p class="text-[11px] font-semibold text-gray-700">{{ $row->status }}</p>
+                                    @include('accounting.partials.status-badge', ['status' => \App\Support\ProcurementStatus::WITH_SCHOOL_ADMINISTRATOR])
                                     @if($age !== null)
                                         <p class="mt-0.5 text-[11px] {{ $age >= 3 ? 'sa-alert font-semibold' : 'text-gray-400' }}">
                                             {{ $age === 0 ? 'Today' : $age.'d waiting' }}
@@ -231,7 +205,6 @@
                             @if($requestNo !== '' && $formNumber !== '')
                                 <p class="mt-0.5 text-[11px] text-gray-400">{{ $formNumber }}</p>
                             @endif
-                            <p class="mt-1 text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</p>
                         </div>
                         <div class="min-w-0">
                             <div class="flex items-center">
@@ -403,7 +376,7 @@
             var submitBtn = acceptForm.querySelector('button[type=submit]');
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Accept & continue';
+                submitBtn.textContent = 'Reviewed & continue';
             }
         }
     }

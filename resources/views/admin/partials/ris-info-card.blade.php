@@ -78,10 +78,6 @@
             </span>
         </div>
         <div class="flex gap-2">
-            <span class="w-24 shrink-0 font-semibold text-slate-500">Amount</span>
-            <span class="min-w-0 font-semibold text-slate-900">₱{{ $amount }}</span>
-        </div>
-        <div class="flex gap-2">
             <span class="w-24 shrink-0 font-semibold text-slate-500">Submitted</span>
             <span class="min-w-0 text-slate-800">{{ $dateLabel }}</span>
         </div>
@@ -138,10 +134,12 @@
                 ])
             @endif
         @elseif ($cardMode === 'sign')
-            <button type="button" onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')" title="Preview RIS" aria-label="Preview RIS"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            </button>
+            @if ($awaitingSign)
+                <button type="button" onclick="window.openCoSignModal('{{ $ris->ris_id }}')" title="Sign Issued by" aria-label="Sign Issued by"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white hover:bg-sky-700">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"/></svg>
+                </button>
+            @endif
             @if (\App\Support\RisWorkflow::needsSignDecision($ris) && \App\Support\AdminPortal::canActOnRis())
                 @php
                     $forwardMode = $reforwardToPresident ? 'forward-back' : 'forward';
@@ -179,18 +177,16 @@
                 'ris' => $ris,
                 'btnClass' => 'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900',
             ])
-            @if ($awaitingSign)
-                <button type="button" onclick="window.openCoSignModal('{{ $ris->ris_id }}')" title="Sign Issued by" aria-label="Sign Issued by"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white hover:bg-sky-700">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"/></svg>
-                </button>
-            @endif
             @if ($isPresidentRejected)
                 <button type="button" onclick="window.openReturnRevisionModal('{{ $ris->ris_id }}', {{ (int) $ownerPurchaserId }}, @js($ownerPurchaserName))" data-tip="Pass to Purchaser" data-tip-place="above" title="Pass to Purchaser" aria-label="Pass to Purchaser"
                     class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
             @endif
+            <button type="button" onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')" title="View RIS" aria-label="View RIS"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            </button>
         @else
             <button type="button" onclick="window.openSignatureHistoryPreviewModal('{{ $ris->ris_id }}')" title="Preview RIS" aria-label="Preview RIS"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900">

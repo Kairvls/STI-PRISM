@@ -195,6 +195,7 @@ class RequestForCheckController extends Controller
                 && (count($linked) < 2 || array_diff($linked, $rrAtps) === []);
             $rfc->funds_released = !empty($rfc->request_check_funds_released_at ?? null);
             $rfc->funds_collected = !empty($rfc->request_check_funds_collected_at ?? null);
+            $rfc->check_ready = !empty($rfc->request_check_check_ready_at ?? null);
             $rfc->sent_to_accounting = AccountingHandoff::rfcIsSentToAccounting($rfc);
             $rfc->can_send_to_accounting = AccountingHandoff::purchaserCanSendRfc($rfc);
             $rfc->must_joint_submit = $this->mustUseJointAtpSubmit($rfc);
@@ -243,11 +244,16 @@ class RequestForCheckController extends Controller
         if ($error) {
             return back()->withInput()->with('error', $error);
         }
-        if (! $isDraft && ($redirect = $this->redirectIfJointSubmitRequired($atpIds))) {
-            return $redirect;
+        // Soft-save first when ATP is still in preparation; joint submit runs after from this RFC endpoint.
+        $pendingJointAtpId = null;
+        if (! $isDraft) {
+            $pendingJointAtpId = $this->firstUnsubmittedSoftDraftAtpId($atpIds);
+            if ($pendingJointAtpId) {
+                $isDraft = true;
+            }
         }
 
-        return DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig, $atpIds, $poId) {
+        $id = DB::transaction(function () use ($request, $validated, $isDraft, $fundingType, $requestedSig, $atpIds, $poId) {
             $now = now();
             $user = auth()->user();
             $reviewerId = $isDraft
@@ -298,15 +304,25 @@ class RequestForCheckController extends Controller
                 $this->notifyAccountingRfc($id, $reviewerId);
             }
 
-            $fundLabel = ProcurementPaymentPath::label($fundingType);
-
-            return ProcurementPortal::redirect('rfc.index')->with(
-                'success',
-                $isDraft
-                    ? ProcurementDraftLabel::flashSaved($fundLabel)
-                    : "{$fundLabel} submitted to the School Administrator."
-            );
+            return (int) $id;
         });
+
+        if ($pendingJointAtpId) {
+            return $this->delegateJointSubmitIfRequired([$pendingJointAtpId])
+                ?? ProcurementPortal::redirect('rfc.index')->with(
+                    'success',
+                    ProcurementDraftLabel::flashSaved(ProcurementPaymentPath::label($fundingType))
+                );
+        }
+
+        $fundLabel = ProcurementPaymentPath::label($fundingType);
+
+        return ProcurementPortal::redirect('rfc.index')->with(
+            'success',
+            $isDraft
+                ? ProcurementDraftLabel::flashSaved($fundLabel)
+                : "{$fundLabel} submitted to the School Administrator."
+        );
     }
 
     public function update(Request $request, $id)
@@ -352,11 +368,16 @@ class RequestForCheckController extends Controller
         if ($error) {
             return back()->withInput()->with('error', $error)->with('edit_rfc_id', (int) $id);
         }
-        if (! $isDraft && ($redirect = $this->redirectIfJointSubmitRequired($atpIds))) {
-            return $redirect;
+
+        $pendingJointAtpId = null;
+        if (! $isDraft) {
+            $pendingJointAtpId = $this->firstUnsubmittedSoftDraftAtpId($atpIds);
+            if ($pendingJointAtpId) {
+                $isDraft = true;
+            }
         }
 
-        return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig, $atpIds, $poId) {
+        DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id, $fundingType, $requestedSig, $atpIds, $poId) {
             $now = now();
             $reviewerId = $isDraft
                 ? null
@@ -403,20 +424,46 @@ class RequestForCheckController extends Controller
             if (!$isDraft) {
                 $this->notifyAccountingRfc($id, $reviewerId);
             }
-
-            $fundLabel = ProcurementPaymentPath::label($fundingType);
-
-            return ProcurementPortal::redirect('rfc.index')->with(
-                'success',
-                $isDraft
-                    ? ProcurementDraftLabel::flashUpdated($fundLabel)
-                    : "{$fundLabel} submitted to the School Administrator."
-            );
         });
+
+        if ($pendingJointAtpId) {
+            return $this->delegateJointSubmitIfRequired([$pendingJointAtpId])
+                ?? ProcurementPortal::redirect('rfc.index')->with(
+                    'success',
+                    ProcurementDraftLabel::flashUpdated(ProcurementPaymentPath::label($fundingType))
+                );
+        }
+
+        $fundLabel = ProcurementPaymentPath::label($fundingType);
+
+        return ProcurementPortal::redirect('rfc.index')->with(
+            'success',
+            $isDraft
+                ? ProcurementDraftLabel::flashUpdated($fundLabel)
+                : "{$fundLabel} submitted to the School Administrator."
+        );
     }
 
     public function submit($id)
     {
+        $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
+        if (! $rfc) {
+            return back()->with('error', 'Request for Check not found.');
+        }
+        PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
+        if (! $this->isEditable($rfc)) {
+            return back()->with('error', 'This Request for Check cannot be submitted.');
+        }
+
+        // Purchaser flow: RFC is the submit endpoint — send ATP + funding request together.
+        $atpIdsForGate = RfcAtpLinks::atpIdsFor(
+            (int) $id,
+            (int) ($rfc->request_check_authority_purchase_id ?: 0) ?: null
+        );
+        if ($joint = $this->delegateJointSubmitIfRequired($atpIdsForGate)) {
+            return $joint;
+        }
+
         $reviewerId = ReviewerAssignment::resolve(request(), \App\Support\ProcurementReviewPortal::ROLE);
 
         return DB::transaction(function () use ($id, $reviewerId) {
@@ -427,13 +474,6 @@ class RequestForCheckController extends Controller
             PurchaserDocumentAccess::assertOwns($rfc, 'rfc');
             if (!$this->isEditable($rfc)) {
                 return back()->with('error', 'This Request for Check cannot be submitted.');
-            }
-            $atpIdsForGate = RfcAtpLinks::atpIdsFor(
-                (int) $id,
-                (int) ($rfc->request_check_authority_purchase_id ?: 0) ?: null
-            );
-            if ($redirect = $this->redirectIfJointSubmitRequired($atpIdsForGate)) {
-                return $redirect;
             }
             $missing = [];
             if (!$rfc->request_check_authority_purchase_id) {
@@ -1021,11 +1061,13 @@ class RequestForCheckController extends Controller
     }
 
     /**
-     * Soft-draft ATP (Pending/Draft, not yet submitted) must go with its RFC via joint submit.
+     * Soft-draft ATP must be submitted with its funding request(s).
+     * RFC is the Purchaser UX endpoint — delegate to ATP joint submit.
      *
      * @param  array<int, int>  $atpIds
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\Response|null
      */
-    private function redirectIfJointSubmitRequired(array $atpIds): ?\Illuminate\Http\RedirectResponse
+    private function delegateJointSubmitIfRequired(array $atpIds)
     {
         if (! ProcurementPortal::PURCHASER_OWNS_ATP || ProcurementPortal::isSupplyOfficerContext()) {
             return null;
@@ -1036,11 +1078,36 @@ class RequestForCheckController extends Controller
             return null;
         }
 
-        return ProcurementPortal::redirect('atp.index', ['view_atp' => $atpId])
-            ->with(
-                'error',
-                'Submit ATP + RFC together from Authority to Purchase. Save this funding request in preparation, then use Submit ATP + RFC for Review.'
-            );
+        $response = app(AuthorityToPurchaseController::class)->submit($atpId);
+        if (! $response instanceof \Illuminate\Http\RedirectResponse) {
+            return $response;
+        }
+
+        $error = $response->getSession()->get('error');
+        if ($error) {
+            return $response;
+        }
+
+        $fund = ProcurementPaymentPath::normalize($this->requestFundingType());
+
+        return ProcurementPortal::redirect('rfc.index', array_filter([
+            'fund' => $fund,
+        ]))->with(
+            'success',
+            $response->getSession()->get('success') ?: 'Submitted to the School Administrator.'
+        );
+    }
+
+    private function requestFundingType(): ?string
+    {
+        $posted = request()->input('request_check_funding_type');
+        if (is_string($posted) && $posted !== '') {
+            return $posted;
+        }
+
+        $query = request()->query('fund');
+
+        return is_string($query) && $query !== '' ? $query : null;
     }
 
     /**

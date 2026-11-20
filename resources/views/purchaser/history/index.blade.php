@@ -169,7 +169,6 @@
                 </form>
             </div>
 
-            <p class="mt-3 text-3xl font-bold tracking-tight text-slate-900">{{ $peso($summary['approved_spend']) }}</p>
 
             <p class="mt-5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 <i data-lucide="trending-up" class="h-3.5 w-3.5"></i>
@@ -182,9 +181,7 @@
                         $isHighlight = !empty($month['highlight']);
                     @endphp
                     <div class="group/spend-bar relative flex flex-1 flex-col items-center gap-1.5">
-                        <span class="h-4 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500">
-                            {{ $month['amount'] > 0 ? $peso($month['amount']) : '' }}
-                        </span>
+                        <span class="h-4"></span>
                         <div class="relative w-full max-w-[56px] flex-1">
                             <div
                                 class="absolute inset-x-0 bottom-0 rounded-md transition duration-200 {{ $month['amount'] > 0 ? ($isHighlight ? 'bg-[#001fa8] ring-2 ring-[#0025cc]/30' : 'bg-[#0025cc] group-hover/spend-bar:bg-[#001fa8]') : 'bg-slate-100 group-hover/spend-bar:bg-slate-200' }}"
@@ -196,8 +193,7 @@
                             >
                                 <div class="rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-[0_12px_30px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
                                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ $month['label'] }}{{ !empty($filters['year']) ? ' '.$filters['year'] : '' }}</p>
-                                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ $peso($month['amount']) }}</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-500">Approved spend</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-500">Approved purchases</p>
                                 </div>
                                 <span class="mx-auto -mt-px block h-2 w-2 rotate-45 border-b border-r border-slate-200/80 bg-white shadow-[1px_1px_0_rgba(15,23,42,0.04)]"></span>
                             </div>
@@ -435,7 +431,7 @@
                                 <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $shortDate($item->purchase_date) }}</td>
                                 <td class="px-5 py-4">
                                     <div class="flex flex-col items-start gap-1.5">
-                                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $toneClasses[$item->status['tone']] }}">{{ $item->status['label'] }}</span>
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 {{ $toneClasses[$item->status['tone']] }}">{{ $item->status['label'] }}</span>
                                         @if($item->delivery)
                                             <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 {{ $toneClasses[$item->delivery['tone']] }}">
                                                 <i data-lucide="truck" class="h-3 w-3"></i>
@@ -481,7 +477,6 @@
                         <tr class="border-b border-gray-100">
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Document</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Details</th>
-                            <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                             <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
                         </tr>
@@ -505,7 +500,6 @@
                                     'fields' => [
                                         ['label' => 'Document type', 'value' => $doc->type_label],
                                         ['label' => 'Details', 'value' => $doc->title ?: '—'],
-                                        ['label' => 'Amount', 'value' => $peso($doc->amount)],
                                         ['label' => 'Date', 'value' => $shortDate($doc->date)],
                                     ],
                                 ];
@@ -531,9 +525,8 @@
                                 <td class="max-w-[340px] px-5 py-4">
                                     <p class="line-clamp-2 text-gray-700">{{ $doc->title ?: '—' }}</p>
                                 </td>
-                                <td class="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">{{ $peso($doc->amount) }}</td>
                                 <td class="px-5 py-4">
-                                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $toneClasses[$doc->tone] ?? $toneClasses['slate'] }}">{{ $doc->status ?: '—' }}</span>
+                                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 {{ $toneClasses[$doc->tone] ?? $toneClasses['slate'] }}">{{ $doc->status ?: '—' }}</span>
                                     @if($doc->is_archived)
                                         <span class="ml-1 text-[11px] text-gray-400">Archived</span>
                                     @endif
@@ -592,7 +585,6 @@
                                         <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                                             <div class="h-full rounded-full bg-[#0025cc]" style="width: {{ max(2, round(($supplier->spend / $topSpend) * 100)) }}%"></div>
                                         </div>
-                                        <span class="w-28 shrink-0 text-right font-semibold tabular-nums text-gray-900">{{ $peso($supplier->spend) }}</span>
                                     </div>
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $shortDate($supplier->last_purchase) }}</td>
@@ -655,7 +647,7 @@
                     <div class="space-y-4 px-5 py-4" x-show="preview">
                         <div class="flex flex-wrap items-center gap-2">
                             <span
-                                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1"
+                                class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
                                 :class="{
                                     'bg-emerald-50 text-emerald-700 ring-emerald-100': preview?.tone === 'green',
                                     'bg-amber-50 text-amber-700 ring-amber-100': preview?.tone === 'amber',

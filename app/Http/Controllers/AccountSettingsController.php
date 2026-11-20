@@ -10,11 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -37,12 +35,6 @@ class AccountSettingsController extends Controller
         $rules = [
             'user_full_name' => ['required', 'string', 'max:255'],
             'user_contact_number' => PhoneNumber::rules(),
-            'user_username' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::unique('users_table', 'user_username')->ignore($user->user_id, 'user_id'),
-            ],
         ];
 
         if (Schema::hasColumn('users_table', 'user_profile_picture')) {
@@ -79,7 +71,6 @@ class AccountSettingsController extends Controller
         $user->user_full_name = trim($validated['user_full_name']);
         // Office 365 email is admin-managed only (Users module). Ignore any posted value.
         $user->user_contact_number = PhoneNumber::normalizeForStorage($validated['user_contact_number'] ?? null);
-        $user->user_username = trim($validated['user_username']);
 
         $availabilityMessage = null;
         if (UserAvailability::supported()) {
@@ -306,23 +297,13 @@ class AccountSettingsController extends Controller
 
     public function updatePassword(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::defaults()],
-        ]);
-
-        $user = $request->user();
-
-        if (! Hash::check($validated['current_password'], $user->user_password)) {
-            return back()
-                ->withErrors(['current_password' => 'The current password is incorrect.'])
-                ->withInput($request->except(['current_password', 'password', 'password_confirmation']));
-        }
-
-        $user->user_password = Hash::make($validated['password']);
-        $user->save();
-
-        return back()->with('success', 'Password updated successfully.');
+        // Staff sign-in is Microsoft 365 / Entra. Local password changes are not used.
+        return redirect()
+            ->route($this->securityRouteName())
+            ->with(
+                'error',
+                'Passwords are managed in Microsoft 365. Use your Microsoft account security settings to change your password or MFA.'
+            );
     }
 
     private function portal(): string
@@ -395,6 +376,20 @@ class AccountSettingsController extends Controller
             'accounting' => 'accounting.profile',
             'president' => 'president.profile',
             default => 'maintenance.settings.profile',
+        };
+    }
+
+    private function securityRouteName(): string
+    {
+        return match ($this->portal()) {
+            'admin' => 'admin.security',
+            'school-admin' => 'school-admin.security',
+            'receiving' => 'receiving.security',
+            'purchaser' => 'purchaser.security',
+            'supply-officer' => 'supply-officer.security',
+            'accounting' => 'accounting.security',
+            'president' => 'president.security',
+            default => 'maintenance.settings.security',
         };
     }
 

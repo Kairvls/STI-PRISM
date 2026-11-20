@@ -161,7 +161,6 @@
                                     <p class="mt-0.5 truncate text-xs text-slate-500">{{ $row['meta'] }}</p>
                                 </div>
                                 <span class="shrink-0 text-right">
-                                    <span class="block text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount'] ?? 0) }}</span>
                                     <span class="text-[11px] font-semibold text-slate-500">{{ $row['action'] }}</span>
                                 </span>
                             </button>

@@ -17,7 +17,7 @@
         class="flex h-10 max-w-[230px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left transition hover:bg-slate-50"
         aria-haspopup="true"
         aria-expanded="false"
-        title="Switch portal"
+        aria-label="Switch portal"
     >
         <i data-lucide="layout-grid" class="h-4 w-4 shrink-0 text-slate-500"></i>
         <span class="min-w-0 flex-1">
@@ -33,7 +33,7 @@
     >
         <div class="border-b border-slate-100 px-4 py-3">
             <p class="text-xs font-semibold text-slate-900">Your assigned portals</p>
-            <p class="mt-0.5 text-[11px] text-slate-500">Open any role the admin assigned to you.</p>
+            
         </div>
         <div class="p-2">
             @foreach($portalOptions as $portal)

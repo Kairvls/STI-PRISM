@@ -32,6 +32,8 @@
         .name { margin: 8px 0 0; text-align: center; font-size: 14px; font-weight: 600; color: #334155; }
         .name.current { color: #0025cc; }
         .fid { margin: 4px 0 0; max-width: 11rem; text-align: center; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0f172a; overflow-wrap: anywhere; }
+        a.fid { color: #0025cc; text-decoration: none; cursor: pointer; }
+        a.fid:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -63,7 +65,7 @@
                 </div>
                 <div class="meta">
                     @if(! empty($explorer['payment_path_label']))
-                        <p>Payment: <strong>{{ $explorer['payment_path_label'] }}</strong></p>
+                        <p>Payment Method: <strong>{{ $explorer['payment_path_label'] }}</strong></p>
                     @endif
                     @if(! empty($explorer['funds']['label']))
                         <p>Funds: <strong>{{ $explorer['funds']['label'] }}</strong></p>
@@ -88,7 +90,17 @@
                         </div>
                         <p class="name {{ $isCurrent ? 'current' : '' }}">{{ $stageLabels[$key] ?? strtoupper($key) }}</p>
                         @if($exists && ! empty($stage['label']))
-                            <p class="fid" title="{{ $stage['label'] }}">{{ $stage['label'] }}</p>
+                            @if(! empty($stage['view_url']))
+                                <a
+                                    class="fid"
+                                    href="{{ $stage['view_url'] }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Open {{ $stage['label'] }}"
+                                >{{ $stage['label'] }}</a>
+                            @else
+                                <p class="fid" title="{{ $stage['label'] }}">{{ $stage['label'] }}</p>
+                            @endif
                         @endif
                     </div>
                 @endforeach

@@ -26,11 +26,8 @@
 
             <div class="shrink-0 border-b border-slate-100 px-5 pb-2.5 pr-11 pt-3">
                 <h3 id="presidentApproveModalTitle" class="text-base font-semibold tracking-tight text-slate-900">
-                    Approve RIS
+                    Review and Approve RIS
                 </h3>
-                <p id="presidentApproveModalSubtitle" class="mt-0.5 text-sm leading-snug text-slate-500">
-                    Sign Approved by on the RIS form, then confirm.
-                </p>
             </div>
 
             <div id="presidentApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50/40">
@@ -73,15 +70,10 @@
     window.openPresidentApproveModal = function (risId) {
         var modal = document.getElementById('presidentApproveModal');
         var body = document.getElementById('presidentApproveModalBody');
-        var subtitle = document.getElementById('presidentApproveModalSubtitle');
         if (!modal || !body) return;
 
         if (modal.parentElement !== document.body) {
             document.body.appendChild(modal);
-        }
-
-        if (subtitle) {
-            subtitle.textContent = window.risFormNumberLabel(risId) + ' — pick a saved signature, draw, or upload. It overlays Approved by.';
         }
 
         body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>Loading RIS form...</div>';

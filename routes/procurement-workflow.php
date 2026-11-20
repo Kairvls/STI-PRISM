@@ -268,6 +268,7 @@ Route::get('/brands', function () {
     return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'brands']);
 })->name('brands.index');
 Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
+Route::post('/brands/quick-store', [BrandController::class, 'quickStore'])->name('brands.quick-store');
 Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
 Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
 
@@ -283,6 +284,7 @@ Route::get('/uom', function () {
     return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'uom']);
 })->name('uom.index');
 Route::post('/uom', [UomController::class, 'store'])->name('uom.store');
+Route::post('/uom/quick-store', [UomController::class, 'quickStore'])->name('uom.quick-store');
 Route::put('/uom/{uom}', [UomController::class, 'update'])->name('uom.update');
 Route::delete('/uom/{uom}', [UomController::class, 'destroy'])->name('uom.destroy');
 

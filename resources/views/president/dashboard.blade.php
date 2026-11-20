@@ -16,10 +16,6 @@
                 <span id="presidentQueueCount" class="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format((int) ($pendingApprovalsCount ?? 0)) }}</span>
             </div>
             <div class="flex shrink-0 items-center gap-2">
-                <div id="presidentQueueSwitch" class="inline-flex rounded-full bg-slate-100 p-0.5" role="group" aria-label="Waiting for approval">
-                    <button type="button" class="queue-switch is-on" data-queue="ris" aria-pressed="true">RIS</button>
-                    <button type="button" class="queue-switch" data-queue="dv" aria-pressed="false">DV</button>
-                </div>
                 <a id="presidentQueueViewAll" href="/president/approvals" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
             </div>
         </div>
@@ -29,7 +25,6 @@
                     $label = \App\Support\RisWorkflow::formNumber($ris);
                     $date = $ris->ris_created_at ? date('M d, Y', strtotime($ris->ris_created_at)) : '—';
                     $requester = \App\Support\RisWorkflow::requesterName($ris);
-                    $amount = number_format((float) ($ris->total_amount ?? 0), 2);
                 @endphp
                 <div
                     class="cursor-pointer rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40"
@@ -43,7 +38,6 @@
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
                             <p class="mt-0.5 truncate text-[11px] text-gray-500">{{ $requester }} · {{ $date }}</p>
-                            <p class="mt-1 text-xs font-semibold text-blue-700">₱{{ $amount }}</p>
                             @php
                                 $guide = $ris->guide ?? null;
                                 $guideClass = match ($guide['tone'] ?? '') {
@@ -80,37 +74,6 @@
             @endforelse
             @if ($recentRis->isNotEmpty())
                 <p class="mt-3 text-xs text-slate-500">{{ (int) ($pendingApprovalsCount ?? 0) > $recentRis->count() ? $recentRis->count().' latest' : 'Showing '.$recentRis->count().' of '.(int) ($pendingApprovalsCount ?? 0) }}</p>
-            @endif
-        </div>
-        <div id="presidentQueueDv" class="mt-4 hidden divide-y divide-slate-100">
-            @forelse ($pendingDvs ?? [] as $dv)
-                @php
-                    $dvLabel = $dv->dv_form_number ?: 'Disbursement voucher';
-                    $dvWho = $dv->dv_payee ?: ($dv->request_check_payee ?: '—');
-                @endphp
-                <button
-                    type="button"
-                    class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40"
-                    data-dashboard-preview
-                    data-preview-url="{{ route('president.dashboard.preview', ['type' => 'dv', 'id' => $dv->dv_id]) }}"
-                    data-continue-url="{{ route('president.dv.show', $dv->dv_id) }}"
-                    data-continue-label="Open"
-                    data-preview-title="{{ $dvLabel }}"
-                >
-                    <span class="min-w-0">
-                        <span class="block truncate text-xs font-semibold text-gray-900">{{ $dvLabel }}</span>
-                        <span class="block truncate text-[11px] text-gray-500">{{ $dvWho }}</span>
-                    </span>
-                    <span class="shrink-0 text-right">
-                        <span class="block text-xs font-semibold text-gray-900">{{ $peso($dv->dv_amount ?? 0) }}</span>
-                        <span class="text-[11px] font-semibold text-blue-600">Open</span>
-                    </span>
-                </button>
-            @empty
-                <p class="py-8 text-center text-xs font-medium text-gray-500">No disbursement voucher waiting for approval</p>
-            @endforelse
-            @if (collect($pendingDvs ?? [])->isNotEmpty())
-                <p class="mt-3 text-xs text-slate-500">{{ (int) ($pendingDvCount ?? 0) > collect($pendingDvs ?? [])->count() ? collect($pendingDvs ?? [])->count().' latest' : 'Showing '.collect($pendingDvs ?? [])->count().' of '.(int) ($pendingDvCount ?? 0) }}</p>
             @endif
         </div>
     </aside>
@@ -182,7 +145,6 @@
                         <span class="block truncate text-[11px] text-gray-500">{{ $record->ris_form_number ?: '—' }} · {{ \App\Support\ProcurementPaymentPath::label($record->package_payment_path ?? null) }} · {{ $recordDate }}</span>
                     </span>
                     <span class="shrink-0 text-right">
-                        <span class="block text-xs font-semibold text-blue-700">{{ $peso($record->package_amount ?? 0) }}</span>
                         <span class="text-[11px] font-semibold text-blue-600">Open</span>
                     </span>
                 </button>
@@ -225,8 +187,7 @@
             <div class="min-w-0">
                 <h2 id="presidentHistoryTitle" class="text-sm font-bold text-gray-900">Budget you approved</h2>
                 <div id="presidentHistoryBudgetMeta">
-                    <p class="mt-1 text-lg font-semibold tabular-nums text-blue-700">{{ $peso($budget['amount']) }}</p>
-                    <p id="presidentBudgetCaption" class="text-[11px] text-slate-500">{{ (int) $budget['count'] > 6 ? '6 latest of '.(int) $budget['count'] : ((int) $budget['count'].' '.((int) $budget['count'] === 1 ? 'decision' : 'decisions')) }}</p>
+                    <p id="presidentBudgetCaption" class="mt-1 text-[11px] text-slate-500">{{ (int) $budget['count'] > 4 ? '4 latest of '.(int) $budget['count'] : ((int) $budget['count'].' '.((int) $budget['count'] === 1 ? 'decision' : 'decisions')) }}</p>
                 </div>
                 <span id="presidentHistoryCount" class="mt-1 hidden text-[11px] text-slate-500">{{ number_format((int) ($approvedDecisionsCount ?? 0)) }} all decisions approved</span>
             </div>
@@ -259,7 +220,7 @@
                 @php $budgetLabel = \App\Support\RisWorkflow::formNumber($row); @endphp
                 <button
                     type="button"
-                    class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40 {{ $loop->index >= 6 ? 'hidden' : '' }}"
+                    class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40 {{ $loop->index >= 4 ? 'hidden' : '' }}"
                     data-budget-row="{{ $loop->index }}"
                     data-dashboard-preview
                     data-preview-url="{{ route('president.ris.view', $row->ris_id) }}?preview=1"
@@ -271,13 +232,12 @@
                         <span class="block truncate text-xs font-semibold text-gray-900">{{ $budgetLabel }}</span>
                         <span class="text-[11px] text-gray-500">{{ $row->ris_approved_by_date ? date('M d, Y', strtotime($row->ris_approved_by_date)) : '—' }}</span>
                     </span>
-                    <span class="shrink-0 text-xs font-semibold text-blue-700">{{ $peso($row->total_amount) }}</span>
                 </button>
             @empty
                 <p class="py-8 text-center text-xs font-medium text-gray-500">No approved budget in this period</p>
             @endforelse
         </div>
-        @if((int) $budget['count'] > 6)
+        @if((int) $budget['count'] > 4)
             <div id="presidentBudgetTools" class="mt-3 flex items-center justify-between gap-3">
                 <button type="button" id="presidentBudgetToggle" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800">Show all</button>
                 <div id="presidentBudgetPager" class="hidden items-center gap-2 text-xs text-slate-500">
@@ -313,7 +273,6 @@
                             <span class="block truncate text-xs font-semibold text-gray-900">{{ $label }}</span>
                             <span class="text-[11px] text-gray-500">{{ $date }}</span>
                         </span>
-                        <span class="shrink-0 text-xs font-semibold text-blue-700">{{ $peso($ris->total_amount ?? 0) }}</span>
                         @if (!empty($ris->awaiting_notify))
                             <span class="inline-flex shrink-0 items-center rounded-xl bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">Send back</span>
                         @endif
@@ -355,7 +314,6 @@
                             <span class="block truncate text-xs font-semibold text-gray-900">{{ $direct->number }}</span>
                             <span class="block truncate text-[11px] text-gray-500">{{ $direct->approver }} · {{ $direct->at?->format('M d, Y') ?? '—' }}</span>
                         </span>
-                        <span class="shrink-0 text-xs font-semibold text-blue-700">{{ $peso($direct->amount) }}</span>
                     </span>
                 </button>
             @empty
@@ -576,19 +534,13 @@
         var count = document.getElementById('presidentQueueCount');
         var viewAll = document.getElementById('presidentQueueViewAll');
         var panels = {
-            ris: document.getElementById('presidentQueueRis'),
-            dv: document.getElementById('presidentQueueDv')
+            ris: document.getElementById('presidentQueueRis')
         };
         var modes = {
             ris: {
                 title: '3 latest RIS waiting for approval',
                 count: @json(number_format((int) ($pendingApprovalsCount ?? 0))),
                 href: '/president/approvals'
-            },
-            dv: {
-                title: '3 latest DV waiting for approval',
-                count: @json(number_format((int) ($pendingDvCount ?? 0))),
-                href: @json(route('president.dv.index'))
             }
         };
         switcher.addEventListener('click', function (event) {
@@ -701,7 +653,7 @@
                         tooltip: {
                             callbacks: {
                                 label: function (item) {
-                                    return '₱' + Number(item.parsed.y || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    return item.label || '';
                                 }
                             }
                         }
@@ -725,7 +677,7 @@
         if (!list || !toggle) return;
         var rows = Array.prototype.slice.call(list.querySelectorAll('[data-budget-row]'));
         var total = rows.length;
-        var preview = 6;
+        var preview = 4;
         var pageSize = 15;
         var open = false;
         var page = 0;
@@ -883,12 +835,17 @@
             frame.style.transform = 'none';
             frame.style.width = '1400px';
             frame.style.height = '40px';
-            var sheet = doc.querySelector('.ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet');
+            var sheet = doc.querySelector('.ris-original-form, .ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet');
             var root = sheet || doc.body;
-            root.style.minHeight = '0';
-            root.style.height = 'auto';
+            var purchaserSheet = !!(root.classList && root.classList.contains('ris-original-form'));
+            if (!purchaserSheet) {
+                root.style.minHeight = '0';
+                root.style.height = 'auto';
+            }
             var docW = Math.ceil(root.scrollWidth || root.getBoundingClientRect().width || 0);
-            var docH = flowHeight(root, view);
+            var docH = purchaserSheet
+                ? Math.ceil(Math.max(root.scrollHeight || 0, root.getBoundingClientRect().height || 0))
+                : flowHeight(root, view);
             if (docH < 40) docH = Math.ceil(root.scrollHeight || 0);
             if (docW < 40 || docH < 40) return;
             var scale = Math.min(1, Math.max(280, stage.clientWidth - 24) / docW);
@@ -919,7 +876,8 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             hideSkeleton();
-            frame.srcdoc = '';
+            // Empty srcdoc still overrides src in browsers — remove it entirely.
+            frame.removeAttribute('srcdoc');
             frame.src = 'about:blank';
             document.body.style.overflow = '';
         }
@@ -944,7 +902,8 @@
                 frame.srcdoc = cached;
                 requestAnimationFrame(revealPreview);
             } else {
-                frame.srcdoc = '';
+                // srcdoc takes precedence over src even when empty — must remove it.
+                frame.removeAttribute('srcdoc');
                 frame.src = previewUrl;
             }
             modal.classList.remove('hidden');

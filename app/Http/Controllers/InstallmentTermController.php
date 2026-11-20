@@ -21,13 +21,18 @@ class InstallmentTermController extends Controller
             ->orderBy('term_name')
             ->get();
 
-        $dayIntervals = Schema::hasTable('installment_day_intervals_table')
-            ? DB::table('installment_day_intervals_table')
-                ->orderByDesc('interval_is_active')
+        $dayIntervals = collect();
+        if (Schema::hasTable('installment_day_intervals_table')) {
+            $intervalQuery = DB::table('installment_day_intervals_table')
+                ->orderByDesc('interval_is_active');
+            if (Schema::hasColumn('installment_day_intervals_table', 'interval_unit')) {
+                $intervalQuery->orderByRaw("CASE interval_unit WHEN 'days' THEN 0 WHEN 'monthly' THEN 1 WHEN 'quarterly' THEN 2 WHEN 'semiannual' THEN 3 WHEN 'annual' THEN 4 ELSE 9 END");
+            }
+            $dayIntervals = $intervalQuery
                 ->orderBy('interval_days')
                 ->orderBy('interval_name')
-                ->get()
-            : collect();
+                ->get();
+        }
 
         return view('purchaser.installment-terms.index', [
             'terms' => $terms,
@@ -181,8 +186,14 @@ class InstallmentTermController extends Controller
             $name = 'Every '.$days.' days';
         }
 
-        $existing = DB::table('installment_day_intervals_table')
-            ->where('interval_days', $days)
+        $existingQuery = DB::table('installment_day_intervals_table')
+            ->where('interval_days', $days);
+        if (Schema::hasColumn('installment_day_intervals_table', 'interval_unit')) {
+            $existingQuery->where(function ($query) {
+                $query->where('interval_unit', 'days')->orWhereNull('interval_unit');
+            });
+        }
+        $existing = $existingQuery
             ->orderByDesc('interval_is_active')
             ->orderBy('interval_id')
             ->first();
@@ -204,13 +215,20 @@ class InstallmentTermController extends Controller
         }
 
         $now = now();
-        $id = (int) DB::table('installment_day_intervals_table')->insertGetId([
+        $payload = [
             'interval_name' => $name,
             'interval_days' => $days,
             'interval_is_active' => 1,
             'interval_created_at' => $now,
             'interval_updated_at' => $now,
-        ], 'interval_id');
+        ];
+        if (Schema::hasColumn('installment_day_intervals_table', 'interval_unit')) {
+            $payload['interval_unit'] = 'days';
+        }
+        if (Schema::hasColumn('installment_day_intervals_table', 'interval_is_preset')) {
+            $payload['interval_is_preset'] = 0;
+        }
+        $id = (int) DB::table('installment_day_intervals_table')->insertGetId($payload, 'interval_id');
 
         return response()->json([
             'id' => $id,
@@ -231,17 +249,24 @@ class InstallmentTermController extends Controller
         ]);
 
         $now = now();
-        DB::table('installment_day_intervals_table')->insert([
+        $payload = [
             'interval_name' => trim($validated['interval_name']),
             'interval_days' => (int) $validated['interval_days'],
             'interval_is_active' => $request->boolean('interval_is_active', true) ? 1 : 0,
             'interval_created_at' => $now,
             'interval_updated_at' => $now,
-        ]);
+        ];
+        if (Schema::hasColumn('installment_day_intervals_table', 'interval_unit')) {
+            $payload['interval_unit'] = 'days';
+        }
+        if (Schema::hasColumn('installment_day_intervals_table', 'interval_is_preset')) {
+            $payload['interval_is_preset'] = 0;
+        }
+        DB::table('installment_day_intervals_table')->insert($payload);
 
         return redirect()
             ->route('purchaser.installment-terms.index')
-            ->with('success', 'Day-count interval added.');
+            ->with('success', 'Payment interval added.');
     }
 
     public function updateInterval(Request $request, int $interval): RedirectResponse
@@ -250,6 +275,12 @@ class InstallmentTermController extends Controller
 
         $row = DB::table('installment_day_intervals_table')->where('interval_id', $interval)->first();
         abort_unless($row, 404);
+
+        if ((int) ($row->interval_is_preset ?? 0) === 1) {
+            return redirect()
+                ->route('purchaser.installment-terms.index')
+                ->with('error', 'Monthly, quarterly, semiannual, and annual intervals are presets.');
+        }
 
         $validated = $request->validate([
             'interval_name' => ['required', 'string', 'max:120'],
@@ -266,7 +297,7 @@ class InstallmentTermController extends Controller
 
         return redirect()
             ->route('purchaser.installment-terms.index')
-            ->with('success', 'Day-count interval updated.');
+            ->with('success', 'Payment interval updated.');
     }
 
     public function destroyInterval(int $interval): RedirectResponse
@@ -275,6 +306,12 @@ class InstallmentTermController extends Controller
 
         $row = DB::table('installment_day_intervals_table')->where('interval_id', $interval)->first();
         abort_unless($row, 404);
+
+        if ((int) ($row->interval_is_preset ?? 0) === 1) {
+            return redirect()
+                ->route('purchaser.installment-terms.index')
+                ->with('error', 'Preset payment intervals stay on the list.');
+        }
 
         $inUse = Schema::hasTable('cash_installment_plans_table')
             && Schema::hasColumn('cash_installment_plans_table', 'day_interval_id')
@@ -295,6 +332,6 @@ class InstallmentTermController extends Controller
 
         return redirect()
             ->route('purchaser.installment-terms.index')
-            ->with('success', 'Day-count interval deleted.');
+            ->with('success', 'Payment interval deleted.');
     }
 }

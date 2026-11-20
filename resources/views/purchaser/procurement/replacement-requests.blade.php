@@ -521,9 +521,7 @@
                                                         Procurement paperwork has started for this replacement request.
                                                     </p>
                                                 </div>
-                                                <span class="inline-flex max-w-[220px] shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium {{ $risStatusClass }}" title="{{ $risStatusLabel }}">
-                                                    {{ $risStatusLabel }}
-                                                </span>
+                                                @include('accounting.partials.status-badge', ['status' => $risStatusLabel])
                                             </div>
                                         @elseif($request->procurement_request_status === 'Approved')
                                             <div class="mb-5 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">

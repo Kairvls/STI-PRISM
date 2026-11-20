@@ -249,6 +249,10 @@
         }
     };
 
+    window.openCoSignModal = function (risId) {
+        window.openDirectApproveModal(risId, 'cosign');
+    };
+
     window.openDirectApproveModal = function (risId, mode) {
         var modal = document.getElementById('directApproveModal');
         var body = document.getElementById('directApproveModalBody');
@@ -271,10 +275,9 @@
                 : (actionMode === 'cosign' ? 'Sign Issued by' : 'Approve Directly');
         }
         if (subtitle) {
+            subtitle.hidden = actionMode === 'forward';
             subtitle.textContent = actionMode === 'forward'
-                ? (isForwardBack
-                    ? 'This RIS was returned by the President before. Review the updated form, then forward it back. Direct Approve is not available.'
-                    : 'Review the RIS form, then Pass to President. Issued by is signed later on Ready to Sign after approval.')
+                ? ''
                 : (actionMode === 'cosign'
                     ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
                     : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm School Administrator Approval.');

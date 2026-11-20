@@ -13,7 +13,6 @@
                     <th class="px-4 py-2.5">Request No.</th>
                     <th class="px-4 py-2.5">RR</th>
                     <th class="px-4 py-2.5">Employee</th>
-                    <th class="px-4 py-2.5 text-right">Amount</th>
                     <th class="px-4 py-2.5">Status</th>
                     <th class="px-4 py-2.5 text-center">Actions</th>
                 </tr>
@@ -31,8 +30,7 @@
                         </td>
                         <td class="px-4 py-3 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
                         <td class="px-4 py-3 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
-                        <td class="px-4 py-3 text-right tabular-nums text-gray-900">{{ $liq->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$liq->liquidation_report_amount_advance, 2) : '—' }}</td>
-                        <td class="px-4 py-3">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])</td>
+                        <td class="px-4 py-3">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status, 'doc' => ($liq->liquidation_report_review_stage ?? '') === 'admin' || ($liq->liquidation_report_status ?? '') === 'Pending Admin Approval' ? 'rfc' : 'liq'])</td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-1.5">
                                 <button type="button" @click="selectedLiq={{ $liq->liquidation_report_id }}; viewOpen=true; fetch('{{ route('admin.liq.start-review', $liq->liquidation_report_id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">View</button>

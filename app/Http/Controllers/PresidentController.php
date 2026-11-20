@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Support\PresidentApprovalGuide;
 use App\Support\PresidentAttentionSummary;
 use App\Support\PresidentDashboardInsights;
+use App\Support\RisForwardAttachments;
 use App\Support\RisRevisionImages;
 use App\Support\RisWorkflow;
 use Illuminate\Http\Request;
@@ -239,21 +240,6 @@ class PresidentController extends Controller
                 'title' => $atp->authority_purchase_form_number ?: 'Authority to Purchase',
                 'atp' => $atp,
                 'items' => $items,
-            ]);
-        }
-
-        if ($type === 'dv') {
-            abort_unless(Schema::hasTable('disbursement_vouchers_table'), 404);
-            $dv = DB::table('disbursement_vouchers_table')->where('dv_id', $id)->first();
-            abort_if(! $dv, 404);
-            abort_unless(in_array((string) ($dv->dv_status ?? ''), [
-                'With President', 'President Approved', 'Check Released', 'Check Collected', 'Approved',
-            ], true), 404);
-
-            return view('president.dashboard-preview', [
-                'kind' => 'dv',
-                'title' => $dv->dv_form_number ?: 'Disbursement voucher',
-                'dv' => $dv,
             ]);
         }
 
@@ -1011,7 +997,7 @@ class PresidentController extends Controller
                 $rejectReturnTo = ['school_admin'];
             }
 
-            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+            $purchaserId = RisWorkflow::ownerPurchaserId($target);
             if (in_array('purchaser', $rejectReturnTo, true) && $purchaserId <= 0) {
                 return $fail('This RIS has no purchaser to return it to.');
             }
@@ -1135,7 +1121,7 @@ class PresidentController extends Controller
         if ($decision === 'Rejected') {
             $form = RisWorkflow::formNumber($target);
             $rejectNote = trim((string) $remarks);
-            $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
+            $purchaserId = RisWorkflow::ownerPurchaserId($target);
             $rejectReturnTo = array_values(array_intersect(
                 (array) $request->input('return_to', []),
                 ['school_admin', 'purchaser']
@@ -1216,14 +1202,12 @@ class PresidentController extends Controller
 
     /**
      * Soft return for revision (not hard reject).
-     * school_admin → Returned by the President (SA returns to Purchaser later)
-     * school_admin_and_purchaser → President Revision (Purchaser edits directly; SA sees FYI)
+     * Always Returned by the President: School Administrator passes it to the Purchaser (no Issued by on this path).
      */
     public function returnRisForRevision(Request $request)
     {
         $targetId = (int) $request->input('target_id');
         $remarks = trim((string) $request->input('remarks', ''));
-        $route = (string) $request->input('revision_route', '');
 
         $fail = function (string $message, int $code = 422) use ($request) {
             if ($request->ajax() || $request->wantsJson()) {
@@ -1239,10 +1223,6 @@ class PresidentController extends Controller
         if ($remarks === '') {
             return $fail('Please provide revision remarks.');
         }
-        if (! in_array($route, ['school_admin', 'school_admin_and_purchaser'], true)) {
-            return $fail('Choose School Administrator only, or School Administrator & Purchaser.');
-        }
-
         if ($imageError = RisRevisionImages::validationError($request)) {
             return $fail($imageError);
         }
@@ -1259,15 +1239,7 @@ class PresidentController extends Controller
             return $fail('Only RIS records forwarded by Administrator can be returned for revision.');
         }
 
-        $purchaserId = (int) ($target->ris_submitted_by ?: ($target->ris_created_by ?? 0));
-        if ($route === 'school_admin_and_purchaser' && $purchaserId <= 0) {
-            return $fail('This RIS has no purchaser to return it to.');
-        }
-
-        $toPurchaser = $route === 'school_admin_and_purchaser';
-        $newStatus = $toPurchaser
-            ? RisWorkflow::PRESIDENT_REVISION
-            : RisWorkflow::RETURNED_BY_PRESIDENT;
+        $newStatus = RisWorkflow::RETURNED_BY_PRESIDENT;
 
         $images = [];
         $committed = false;
@@ -1280,7 +1252,7 @@ class PresidentController extends Controller
                 );
             }
 
-            DB::transaction(function () use ($targetId, $remarks, $newStatus, $images, $toPurchaser) {
+            DB::transaction(function () use ($targetId, $remarks, $newStatus, $images) {
                 DB::table('requisition_issue_slip_table')
                     ->where('ris_id', $targetId)
                     ->update([
@@ -1339,41 +1311,18 @@ class PresidentController extends Controller
         }
 
         $form = RisWorkflow::formNumber($target);
-        $imageSuffix = count($images) === 0
-            ? ''
-            : ' ('.count($images).' image'.(count($images) === 1 ? '' : 's').' attached)';
 
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-            $toPurchaser
-                ? 'President returned an RIS for revision (Purchaser notified)'
-                : 'President returned an RIS for revision',
-            $form.': '.$remarks.($toPurchaser
-                ? ' Status: For revision (President). Purchaser can edit directly.'
-                : ' Status: For revision (President) — School Administrator. Return it to the Purchaser when ready.'),
+            'President returned an RIS for revision',
+            $form.': '.$remarks.' Pass this RIS back to the Purchaser for revision.',
             'ris_president_revision',
             'RIS',
             $targetId,
             '/school-admin/procurement-review/ris?filter=revision'
         );
 
-        $passedTo = ['School Administrator'];
-
-        if ($toPurchaser && $purchaserId > 0) {
-            WorkflowNotifier::toUser(
-                $purchaserId,
-                WorkflowNotifier::ROLE_PURCHASER,
-                'President returned your RIS for revision',
-                $form.': '.$remarks.$imageSuffix,
-                'ris_president_revision',
-                'RIS',
-                $targetId,
-                '/purchaser/ris'
-            );
-            $passedTo[] = WorkflowNotifier::recipientName($purchaserId, 'the Purchaser');
-        }
-
-        $message = 'RIS returned for revision to '.implode(' and ', $passedTo).'.';
+        $message = 'RIS returned for revision to the School Administrator.';
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -1816,7 +1765,7 @@ class PresidentController extends Controller
         $presidentName = Auth::user()->user_full_name ?? 'President';
         $stamp = (string) ($ris->ris_updated_at ?? $ris->ris_status ?? $ris->ris_id);
         $cacheKey = ($request->boolean('preview') ? 'president-ris-view:' : 'president-ris-print:')
-            .$ris->ris_id.':'.(int) Auth::id().':'.$stamp;
+            .$ris->ris_id.':'.(int) Auth::id().':'.$stamp.':v7';
         $html = \App\Support\CachedFormPreview::html($cacheKey, function () use ($request, $ris, $risItems, $presidentName) {
             if ($request->boolean('preview')) {
                 return view('president.ris.viewer', [
@@ -1863,12 +1812,17 @@ class PresidentController extends Controller
         $forwardDetails = Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')
             ? trim((string) ($record->ris_forward_details ?? ''))
             : '';
-        $forwardAttachmentPath = Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path')
-            ? trim((string) ($record->ris_forward_attachment_path ?? ''))
-            : '';
-        $forwardAttachmentName = Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_name')
-            ? trim((string) ($record->ris_forward_attachment_name ?? ''))
-            : '';
+        $forwardAttachmentRows = RisForwardAttachments::listed($record);
+        $forwardAttachments = array_map(function (array $file) use ($record) {
+            $url = $file['key'] === 'legacy'
+                ? route('president.ris.forward-attachment', $record->ris_id)
+                : route('president.ris.forward-attachment.file', ['ris' => $record->ris_id, 'attachment' => $file['key']]);
+
+            return [
+                'name' => $file['name'],
+                'url' => $url,
+            ];
+        }, $forwardAttachmentRows);
 
         return response()->json([
             'ris_id' => $record->ris_id,
@@ -1887,10 +1841,8 @@ class PresidentController extends Controller
                 'url' => route('president.ris.attachments.preview', $file->ris_attachment_id),
             ]),
             'forward_details' => $forwardDetails !== '' ? $forwardDetails : null,
-            'forward_attachment' => $forwardAttachmentPath !== '' ? [
-                'name' => $forwardAttachmentName !== '' ? $forwardAttachmentName : 'Administrator attachment',
-                'url' => route('president.ris.forward-attachment', $record->ris_id),
-            ] : null,
+            'forward_attachments' => $forwardAttachments,
+            'forward_attachment' => $forwardAttachments[0] ?? null,
             'has_president_signature' => trim((string) ($record->ris_approved_by_signature ?? '')) !== '',
             'is_president_approved' => $isPresidentApproved,
             'admin_notified' => $adminNotified,
@@ -1919,6 +1871,14 @@ class PresidentController extends Controller
             ?: basename($path);
 
         return Storage::disk('public')->response($path, $downloadName);
+    }
+
+    public function downloadForwardAttachmentFile($ris, $attachment)
+    {
+        $file = RisForwardAttachments::find((int) $ris, (string) $attachment);
+        abort_if(! $file || ! Storage::disk('public')->exists($file['path']), 404);
+
+        return Storage::disk('public')->response($file['path'], $file['name']);
     }
 
     public function sendToAdmin($ris)
@@ -2395,6 +2355,39 @@ class PresidentController extends Controller
                 'requisition_issue_slip_items_table.ris_item_brand_id'
             );
             $select[] = 'brands_table.brand_name';
+        }
+
+        if (
+            Schema::hasTable('suppliers_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')
+        ) {
+            $query
+                ->leftJoin(
+                    'suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'requisition_issue_slip_items_table.ris_item_supplier_id'
+                )
+                ->leftJoin(
+                    'physical_suppliers_table',
+                    'physical_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                )
+                ->leftJoin(
+                    'online_suppliers_table',
+                    'online_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                );
+
+            $select[] = DB::raw(
+                "CASE
+                    WHEN suppliers_table.supplier_store_type = 'Online Store'
+                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
+                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
+                END as supplier_display_name"
+            );
         }
 
         return $query->select($select)->get();

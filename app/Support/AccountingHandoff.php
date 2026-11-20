@@ -74,9 +74,9 @@ class AccountingHandoff
             ->update($payload);
 
         $label = $rfc->request_check_form_number ?: ('RFC #'.$rfcId);
-        $title = 'Package ready for DV';
-        $message = $label.' (Canvass + RIS + ATP + RFC) was submitted by the Purchaser. Create a Disbursement Voucher.';
-        $url = '/accounting/disbursement-vouchers?rfc='.$rfcId;
+        $title = 'Funding request with Accounting';
+        $message = $label.' was approved and is with Accounting.';
+        $url = '/accounting/dashboard';
 
         if ($accountingUserId && $accountingUserId > 0) {
             WorkflowNotifier::toUser(

@@ -62,7 +62,66 @@ class RoleAccess
      */
     public static function singletonRoleIds(): array
     {
-        return [self::PRESIDENT, self::SCHOOL_ADMIN];
+        return [self::ADMIN, self::PRESIDENT, self::SCHOOL_ADMIN];
+    }
+
+    /**
+     * System Users table order by primary role.
+     *
+     * @return array<int, int> role_id => sort weight (lower first)
+     */
+    public static function usersListRoleSortWeights(): array
+    {
+        return [
+            self::ADMIN => 10,
+            self::PRESIDENT => 20,
+            self::SCHOOL_ADMIN => 30,
+            self::MAINTENANCE => 40,
+            self::PURCHASER => 50,
+            self::ACCOUNTING => 60,
+            self::RECEIVING => 70,
+            self::SUPPLY_OFFICER => 80,
+        ];
+    }
+
+    /**
+     * Primary-role picker order: multi-assign roles first, one-per-system roles last.
+     *
+     * @return array<int, int> role_id => sort weight (lower first)
+     */
+    public static function assignmentRoleSortWeights(): array
+    {
+        return [
+            self::MAINTENANCE => 10,
+            self::PURCHASER => 20,
+            self::ACCOUNTING => 30,
+            self::RECEIVING => 40,
+            self::SUPPLY_OFFICER => 50,
+            self::ADMIN => 100,
+            self::PRESIDENT => 110,
+            self::SCHOOL_ADMIN => 120,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>|iterable<int, object>  $roles
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public static function sortRolesForAssignment($roles)
+    {
+        $weights = self::assignmentRoleSortWeights();
+
+        return collect($roles)
+            ->sortBy(function ($role) use ($weights) {
+                $id = (int) ($role->role_id ?? 0);
+
+                return [
+                    $weights[$id] ?? 90,
+                    mb_strtolower((string) ($role->role_name ?? '')),
+                    $id,
+                ];
+            })
+            ->values();
     }
 
     public static function isSingletonRole(int $roleId): bool

@@ -7439,7 +7439,13 @@ class MaintenanceController extends Controller
             'status' => ['required', 'in:Active,Inactive'],
         ], [], ['name' => 'brand name']);
 
-        \App\Support\EquipmentBrands::update((int) $id, $validated['name'], $validated['status']);
+        try {
+            \App\Support\EquipmentBrands::update((int) $id, $validated['name'], $validated['status']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()
+                ->route('admin.equipment-categories.index', ['tab' => 'brands'])
+                ->with('error', $e->errors()['name'][0] ?? 'Could not update brand.');
+        }
 
         return redirect()
             ->route('admin.equipment-categories.index', ['tab' => 'brands'])
@@ -7491,11 +7497,17 @@ class MaintenanceController extends Controller
             'active' => ['required', 'boolean'],
         ], [], ['name' => 'model']);
 
-        \App\Support\EquipmentModels::update(
-            (int) $id,
-            $validated['name'],
-            (bool) $validated['active']
-        );
+        try {
+            \App\Support\EquipmentModels::update(
+                (int) $id,
+                $validated['name'],
+                (bool) $validated['active']
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()
+                ->route('admin.equipment-categories.index', ['tab' => 'models'])
+                ->with('error', $e->errors()['name'][0] ?? 'Could not update model.');
+        }
 
         return redirect()
             ->route('admin.equipment-categories.index', ['tab' => 'models'])
@@ -7504,7 +7516,13 @@ class MaintenanceController extends Controller
 
     public function destroyCatalogModel($id)
     {
-        \App\Support\EquipmentModels::delete((int) $id);
+        try {
+            \App\Support\EquipmentModels::delete((int) $id);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()
+                ->route('admin.equipment-categories.index', ['tab' => 'models'])
+                ->with('error', $e->errors()['name'][0] ?? 'Could not delete model.');
+        }
 
         return redirect()
             ->route('admin.equipment-categories.index', ['tab' => 'models'])
@@ -7711,6 +7729,7 @@ class MaintenanceController extends Controller
                 'name' => (string) $row->type_name,
                 'aliases' => (string) ($row->type_aliases ?? ''),
                 'active' => (bool) $row->type_is_active,
+                'in_use' => ! empty($row->in_use),
             ])
             ->values();
 
@@ -7777,12 +7796,20 @@ class MaintenanceController extends Controller
             'aliases' => 'also match',
         ]);
 
-        \App\Support\EquipmentCategoryTypes::update(
-            (int) $typeId,
-            $validated['name'],
-            $validated['aliases'] ?? null,
-            array_key_exists('active', $validated) ? (bool) $validated['active'] : true
-        );
+        try {
+            \App\Support\EquipmentCategoryTypes::update(
+                (int) $typeId,
+                $validated['name'],
+                $validated['aliases'] ?? null,
+                array_key_exists('active', $validated) ? (bool) $validated['active'] : true
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->expectsJson()) {
+                throw $e;
+            }
+
+            return back()->with('error', $e->errors()['name'][0] ?? 'Could not update equipment name.');
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -7804,7 +7831,15 @@ class MaintenanceController extends Controller
             ->first();
         abort_unless($type, 404);
 
-        \App\Support\EquipmentCategoryTypes::delete((int) $typeId);
+        try {
+            \App\Support\EquipmentCategoryTypes::delete((int) $typeId);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->expectsJson()) {
+                throw $e;
+            }
+
+            return back()->with('error', $e->errors()['name'][0] ?? 'Could not remove equipment name.');
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);

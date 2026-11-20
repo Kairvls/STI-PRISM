@@ -74,7 +74,7 @@
         }
     }
 
-    $fmt = fn ($n) => ($n === null || $n === '') ? '' : number_format((float) $n, 2);
+    $fmt = fn ($n) => \App\Support\Money::format($n);
     $acctFreeText = collect($accountLines)
         ->map(fn ($line) => (string) ($line['account'] ?? ''))
         ->implode("\n");

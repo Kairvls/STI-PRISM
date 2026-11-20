@@ -103,7 +103,6 @@
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS Number</th>
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
-                        <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>
                         <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Remarks</th>
                         <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
                     </tr>

@@ -1,53 +1,14 @@
 @php
-    $raw = (string) ($status ?? '—');
-    if (in_array($raw, ['Pending Admin Approval', 'For Admin'], true)) {
-        $raw = 'Waiting for Accounting';
-    }
-    if (in_array($raw, ['Submitted', 'Resubmitted'], true) && !empty($toSa)) {
-        $raw = 'Submitted to SA';
-    }
-    $label = \App\Support\ProcurementDraftLabel::status($raw);
-    $cls = 'bg-slate-100 text-slate-700 ring-slate-200';
-    if (in_array($raw, ['Pending', 'Submitted', 'Submitted to SA', 'Under Review', 'Resubmitted', 'Waiting for funds', 'Waiting for Accounting'], true) || !empty($submitted)) {
-        if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released', 'Checks released', 'Check collected', 'Checks collected'], true)) {
-            // keep approved / collected
-        } elseif (!in_array($raw, ['Rejected', 'Minor Revision'], true)) {
-            // Distinct colors per state: Submitted = green, Under Review = gray, Pending = yellow
-            if ($raw === 'Under Review') {
-                $cls = 'bg-slate-200 text-slate-700 ring-slate-300';
-            } elseif ($raw === 'Pending') {
-                $cls = 'bg-yellow-50 text-yellow-700 ring-yellow-300';
-            } else {
-                $cls = 'bg-emerald-50 text-emerald-700 ring-emerald-300';
-            }
-            if ($raw === 'Pending' && !empty($submitted)) { $label = 'Pending'; }
-        }
-    }
-    if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released', 'Checks released'], true)) {
-        $cls = 'bg-blue-50 text-blue-800 ring-blue-300';
-    }
-    if (in_array($raw, ['Check collected', 'Checks collected', 'Check Collected'], true)) {
-        $cls = 'bg-teal-50 text-teal-800 ring-teal-300';
-    }
-    if (in_array($raw, ['Minor Revision', 'Revision'], true) || ($raw === 'Pending' && empty($submitted) && !empty($revision))) {
-        $cls = 'bg-sky-50 text-sky-800 ring-sky-300';
-        $label = $raw === 'Pending' ? 'Revision required' : $raw;
-    }
-    if ($raw === 'Rejected') {
-        $cls = 'bg-rose-50 text-rose-800 ring-rose-300';
-    }
-    if ($raw === 'Incomplete') {
-        $cls = 'bg-amber-50 text-amber-800 ring-amber-300';
-    }
-    if ($raw === 'Overdue' || ! empty($overdue)) {
-        $cls = 'bg-rose-50 text-rose-800 ring-rose-300';
-        $label = 'Overdue';
-    }
-    if (! empty($displayLabel)) {
-        $label = (string) $displayLabel;
-    }
+    $badgeLabel = \App\Support\ProcurementStatus::label($status ?? '', $doc ?? null, [
+        'submitted' => $submitted ?? null,
+        'revision' => $revision ?? null,
+        'overdue' => ! empty($overdue),
+    ]);
+    $badgeStyle = \App\Support\ProcurementStatus::style($badgeLabel);
+    $wrapLabel = \App\Support\ProcurementStatus::wraps($badgeLabel);
 @endphp
 <span
-    class="acc-status-badge inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold leading-tight ring-1 {{ $cls }}"
-    @if (! empty($displayLabel) && $displayLabel !== $raw) title="{{ $displayLabel }}" @endif
->{{ $label }}</span>
+    class="acc-status-badge max-w-full rounded-full px-2.5 py-1 text-xs font-semibold {{ $wrapLabel ? 'inline-block max-w-[9.5rem] whitespace-normal break-words text-left leading-snug' : 'inline-flex items-center whitespace-nowrap leading-4' }}"
+    style="{{ $badgeStyle }}"
+    data-tip="{{ $badgeLabel }}"
+>{{ $badgeLabel }}</span>

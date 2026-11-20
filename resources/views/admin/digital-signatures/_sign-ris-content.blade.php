@@ -8,10 +8,11 @@
     @php
         $filter = $filter ?? 'for_decision';
         $search = $search ?? '';
+        $isIssuedBy = $filter === 'for_cosign';
         $signRisCards = [
             [
                 'label' => 'All',
-                'hint' => '₱'.number_format((float) ($allAmount ?? 0), 2),
+                'hint' => '',
                 'value' => number_format($allCount ?? 0),
                 'tag' => 'button',
                 'filterKey' => 'all',
@@ -21,23 +22,13 @@
             ],
             [
                 'label' => 'Needs decision',
-                'hint' => '₱'.number_format((float) ($forDecisionAmount ?? 0), 2),
+                'hint' => '',
                 'value' => number_format($forDecisionCount ?? 0),
                 'tag' => 'button',
                 'filterKey' => 'for_decision',
                 'extraClass' => 'sign-ris-filter-card',
                 'active' => $filter === 'for_decision',
                 'title' => 'Accepted RIS ready to Forward or Approve Directly (fresh only)',
-            ],
-            [
-                'label' => 'Awaiting Issued by',
-                'hint' => '₱'.number_format((float) ($forCosignAmount ?? 0), 2),
-                'value' => number_format($forCosignCount ?? 0),
-                'tag' => 'button',
-                'filterKey' => 'for_cosign',
-                'extraClass' => 'sign-ris-filter-card',
-                'active' => $filter === 'for_cosign',
-                'title' => 'President-approved RIS awaiting Issued by',
             ],
         ];
     @endphp
@@ -51,7 +42,7 @@
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
-                        <h2 class="text-base font-semibold text-gray-950">Ready to Sign</h2>
+                        <h2 class="text-base font-semibold text-gray-950">{{ $isIssuedBy ? 'Awaiting Issued by' : 'Ready to Sign' }}</h2>
                         <span
                             id="signRisTotalCount"
                             class="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500"
@@ -59,10 +50,16 @@
                         >{{ $signableRisRecords->total() }} total</span>
                     </div>
                     <p class="mt-1 text-xs text-gray-400">
-                        @if (\App\Support\AdminPortal::canActOnRis())
-                            Direct Approve, Pass to President, return for revision, or sign Issued by after the President approves.
+                        @if ($isIssuedBy)
+                            @if (\App\Support\AdminPortal::canActOnRis())
+                                President-approved RIS waiting for the Issued by signature.
+                            @else
+                                View only. The School Administrator signs Issued by after the President approves.
+                            @endif
+                        @elseif (\App\Support\AdminPortal::canActOnRis())
+                            Direct Approve, Pass to President, or return for revision.
                         @else
-                            View only. The School Administrator Direct Approves, Passes to President, returns, and signs Issued by.
+                            View only. The School Administrator Direct Approves, Passes to President, or returns for revision.
                         @endif
                     </p>
                 </div>
@@ -86,7 +83,8 @@
                 </div>
             </div>
 
-            <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center {{ $isIssuedBy ? 'lg:justify-end' : 'lg:justify-between' }}">
+                @unless ($isIssuedBy)
                 <nav
                     id="signRisFilterSlider"
                     role="tablist"
@@ -111,6 +109,7 @@
                         </button>
                     @endforeach
                 </nav>
+                @endunless
 
                 @include('admin.partials.ris-submitted-date-search', [
                     'search' => $search,

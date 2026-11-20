@@ -23,6 +23,18 @@
             this.bindDocSig('liq-' + id, 'Submitted by signature');
         },
         closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.modalFullscreen = false; this.selectedLiq = null; },
+        guardClose(kind) {
+            const form = kind === 'create'
+                ? this.$refs.createForm
+                : document.querySelector('[data-pur-edit-form=liq][data-open=1]');
+            const finish = () => {
+                if (kind === 'create') this.createOpen = false;
+                else this.editOpen = false;
+                this.modalFullscreen = false;
+            };
+            if (window.purGuardFormClose) { window.purGuardFormClose(form, finish); return; }
+            finish();
+        },
         bindDocSig(key, title) {
             this.$nextTick(() => {
                 if (window.purchaserDocumentSignature) {
@@ -98,7 +110,7 @@
             });
         }
     "
-    @keydown.escape.window="closeAll()"
+    @keydown.escape.window="if (document.getElementById('purConfirmOverlay')) return; if (createOpen) { guardClose('create'); } else if (editOpen) { guardClose('edit'); } else { closeAll(); }"
     class="space-y-6"
 >
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -252,7 +264,7 @@
                     <select id="liq-status" name="status" aria-label="Filter by status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Overdue','Submitted','Minor Revision','Approved','Rejected'] as $s)
-                            <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s === 'Submitted' ? 'In Review' : ($s === 'Overdue' ? 'Overdue' : \App\Support\ProcurementDraftLabel::status($s)) }}</option>
+                            <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::label($s, 'liq') }}</option>
                         @endforeach
                     </select>
 
@@ -287,7 +299,6 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RR</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Employee</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
@@ -325,8 +336,7 @@
                             </td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '-' }}</td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '-' }}</td>
-                            <td class="px-5 py-4 text-right tabular-nums font-medium text-gray-700">{{ $liq->liquidation_report_amount_advance !== null ? '₱'.number_format((float) $liq->liquidation_report_amount_advance, 2) : '-' }}</td>
-                            <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status, 'overdue' => $liqIsOverdue])</td>
+                            <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status, 'doc' => 'liq', 'overdue' => $liqIsOverdue])</td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
@@ -363,16 +373,6 @@
                                                 <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
                                         </form>
-                                    @endif
-                                    @if(
-                                        !$archiveView
-                                        && in_array($liq->liquidation_report_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'], true)
-                                    )
-                                        @include('partials.purchaser-reassign-reviewer', [
-                                            'type' => 'liq',
-                                            'id' => $liq->liquidation_report_id,
-                                            'currentReviewerId' => $liq->liquidation_report_assigned_reviewer_id ?? null,
-                                        ])
                                     @endif
                                     @if($archiveView)
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.restore', $liq->liquidation_report_id) }}">
@@ -532,7 +532,7 @@
         aria-labelledby="liq-create-title"
     >
         <div
-            x-on:click.self="createOpen = false; modalFullscreen = false"
+            x-on:click.self="guardClose('create')"
             class="flex min-h-full w-full justify-center"
         >
             <div
@@ -551,7 +551,7 @@
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         @include('purchaser.partials.modal-fullscreen-button')
-                        <button type="button" @click="createOpen=false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                        <button type="button" @click="guardClose('create')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
                     </div>
@@ -590,7 +590,7 @@
                         ])
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                        <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
                         <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
@@ -742,7 +742,7 @@
                 aria-labelledby="liq-edit-title-{{ $liq->liquidation_report_id }}"
             >
                 <div
-                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    x-on:click.self="guardClose('edit')"
                     class="flex min-h-full w-full justify-center"
                 >
                     <div
@@ -751,6 +751,8 @@
                         :class="modalFullscreen ? 'pur-modal-is-fullscreen my-0 min-h-[100dvh] max-w-none rounded-none shadow-none' : 'my-auto max-w-5xl rounded-xl shadow-2xl'"
                     >
                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.update', $liq->liquidation_report_id) }}" enctype="multipart/form-data"
+                            data-pur-edit-form="liq"
+                            x-bind:data-open="editOpen && selectedLiq === {{ $liq->liquidation_report_id }} ? '1' : '0'"
                             x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
                         >
                             @csrf @method('PUT')
@@ -765,7 +767,7 @@
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
                                     @include('purchaser.partials.modal-fullscreen-button')
-                                    <button type="button" @click="editOpen=false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                    <button type="button" @click="guardClose('edit')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                         <i data-lucide="x" class="h-4 w-4"></i>
                                     </button>
                                 </div>
@@ -807,7 +809,7 @@
                                 </p>
                                 <button
                                     type="button"
-                                    @click="editOpen = false"
+                                    @click="guardClose('edit')"
                                     class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950"
                                 >
                                     Cancel

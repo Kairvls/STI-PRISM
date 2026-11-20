@@ -71,6 +71,12 @@
                 margin: 0 !important;
                 padding: 0.2in !important;
             }
+            .document-viewer-shell .ris-original-form {
+                width: 1095px !important;
+                max-width: none !important;
+                min-height: 845px !important;
+                zoom: 0.85;
+            }
             .document-viewer-shell .atp-print-sheet,
             .document-viewer-shell .rr-print-sheet,
             .document-viewer-shell .rfc-print-sheet,
@@ -101,7 +107,7 @@
     @stack('head')
     @include('partials.ris-signature-overlay-styles')
     @include('partials.print-fit-page')
-    <script>window.installPrintFit('.ris-document, .atp-print-sheet, .rfc-print-sheet, .rr-print-sheet, .liq-print-sheet');</script>
+    <script>window.installPrintFit('.ris-original-form, .ris-document, .atp-print-sheet, .rfc-print-sheet, .rr-print-sheet, .liq-print-sheet');</script>
 </head>
 <body>
     <div class="document-viewer-shell">

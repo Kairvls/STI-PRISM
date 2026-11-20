@@ -66,7 +66,7 @@ class RisWorkflowTest extends TestCase
         $forwarded = $this->ris(['ris_status' => 'Forwarded to President']);
         $this->assertTrue(RisWorkflow::isAwaitingPresident($forwarded));
         $this->assertFalse(RisWorkflow::isEligibleForAtp($forwarded));
-        $this->assertSame('Forwarded to the President by the School Administrator', RisWorkflow::statusLabel($forwarded));
+        $this->assertSame('With President', RisWorkflow::statusLabel($forwarded));
     }
 
     public function test_president_reject_label_is_normalized(): void
@@ -75,14 +75,14 @@ class RisWorkflowTest extends TestCase
             'ris_status' => 'Rejected by President',
         ])));
         $this->assertSame(
-            'Rejected by the President',
+            'Rejected',
             RisWorkflow::statusLabel($this->ris(['ris_status' => 'Rejected by the President']))
         );
     }
 
     public function test_president_approved_without_issued_by_shows_pending_admin_review(): void
     {
-        $this->assertSame('Approved by the President — waiting on the School Administrator release', RisWorkflow::statusLabel($this->ris([
+        $this->assertSame('With School Administrator', RisWorkflow::statusLabel($this->ris([
             'ris_status' => 'Approved by the President',
             'ris_approved_by_signature' => 'data:image/png;base64,abc',
         ])));
@@ -145,9 +145,9 @@ class RisWorkflowTest extends TestCase
 
         $this->assertFalse(RisWorkflow::atpNeedsRevision($draft));
         $this->assertTrue(RisWorkflow::atpNeedsRevision($revision));
-        $this->assertSame('Draft', RisWorkflow::atpStatusLabel($draft));
-        $this->assertSame('Minor Revision', RisWorkflow::atpStatusLabel($revision));
-        $this->assertSame('Submitted', RisWorkflow::atpStatusLabel($submitted));
+        $this->assertSame('In preparation', RisWorkflow::atpStatusLabel($draft));
+        $this->assertSame('For revision', RisWorkflow::atpStatusLabel($revision));
+        $this->assertSame('Sent to the School Administrator', RisWorkflow::atpStatusLabel($submitted));
     }
 
     public function test_drawn_signature_is_stored_when_present(): void

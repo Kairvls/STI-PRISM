@@ -139,6 +139,93 @@
         </a>
 
         <a
+            href="{{ route('purchaser.suppliers.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="truck" class="h-5 w-5"></i>
+            <span>Suppliers</span>
+        </a>
+
+        @php
+            $fmActive = request()->routeIs('purchaser.file-maintenance.*')
+                || request()->routeIs('purchaser.brands.*')
+                || request()->routeIs('purchaser.items.*')
+                || request()->routeIs('purchaser.uom.*')
+                || request()->routeIs('purchaser.categories.*')
+                || request()->routeIs('purchaser.subcategories.*')
+                || request()->routeIs('purchaser.brand-insights*')
+                || request()->routeIs('purchaser.supplier-insights*')
+                || request()->routeIs('purchaser.installment-terms*');
+            $fmTab = request('tab', 'brands');
+            if (request()->routeIs('purchaser.installment-terms*')) {
+                $fmTab = 'installment-terms';
+            } elseif (request()->routeIs('purchaser.supplier-insights*')) {
+                $fmTab = 'supplier-insights';
+            } elseif (request()->routeIs('purchaser.brand-insights*')) {
+                $fmTab = 'brand-insights';
+            } elseif (request()->routeIs('purchaser.brands.*')) {
+                $fmTab = 'brands';
+            } elseif (request()->routeIs('purchaser.items.*')) {
+                $fmTab = 'items';
+            } elseif (request()->routeIs('purchaser.uom.*')) {
+                $fmTab = 'uom';
+            } elseif (request()->routeIs('purchaser.categories.*')) {
+                $fmTab = 'categories';
+            } elseif (request()->routeIs('purchaser.subcategories.*')) {
+                $fmTab = 'subcategories';
+            }
+            $fmLinks = [
+                'supplier-insights' => [
+                    'title' => 'Supplier Insights',
+                    'icon' => 'shield-alert',
+                    'route' => 'purchaser.supplier-insights.index',
+                    'params' => [],
+                ],
+                'brand-insights' => [
+                    'title' => 'Brand Insights',
+                    'icon' => 'trending-down',
+                    'route' => 'purchaser.brand-insights.index',
+                    'params' => [],
+                ],
+                'installment-terms' => [
+                    'title' => 'Payment intervals',
+                    'icon' => 'calendar-range',
+                    'route' => 'purchaser.installment-terms.index',
+                    'params' => [],
+                ],
+                'brands' => ['title' => 'Brands', 'icon' => 'tag'],
+                'items' => ['title' => 'Items', 'icon' => 'package'],
+                'uom' => ['title' => 'UOM', 'icon' => 'ruler'],
+                'categories' => ['title' => 'Categories', 'icon' => 'folders'],
+                'subcategories' => ['title' => 'Sub Categories', 'icon' => 'folder-tree'],
+            ];
+        @endphp
+
+        <div class="menu-group {{ $fmActive ? 'is-open' : '' }}" data-menu-group>
+            <button
+                type="button"
+                class="menu-item menu-group-toggle {{ $fmActive ? 'active-parent' : '' }}"
+                data-menu-group-toggle
+                aria-expanded="{{ $fmActive ? 'true' : 'false' }}"
+            >
+                <i data-lucide="database" class="h-5 w-5"></i>
+                <span>File Maintenance</span>
+                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
+            </button>
+            <div class="menu-sub" @if(! $fmActive) hidden @endif>
+                @foreach($fmLinks as $key => $meta)
+                    <a
+                        href="{{ isset($meta['route']) ? route($meta['route'], $meta['params'] ?? []) : route('purchaser.file-maintenance.index', ['tab' => $key]) }}"
+                        class="menu-sub-item {{ $fmActive && $fmTab === $key ? 'active' : '' }}"
+                    >
+                        <i data-lucide="{{ $meta['icon'] }}" class="h-4 w-4"></i>
+                        <span>{{ $meta['title'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        <a
             href="{{ route('purchaser.procurement.replacement-requests') }}"
             class="menu-item mt-1 {{ request()->routeIs('purchaser.procurement.replacement-requests') ? 'active' : '' }}"
         >
@@ -439,101 +526,6 @@
                     <i data-lucide="history" class="h-4 w-4"></i>
                     <span>Purchase History</span>
                 </a>
-            </div>
-        </div>
-
-        {{-- ===================================================== --}}
-        {{-- FILE MAINTENANCE SECTION --}}
-        {{-- ===================================================== --}}
-
-        <div class="menu-title" id="file-maintenance-section">
-            FILE MAINTENANCE
-        </div>
-
-        <a
-            href="{{ route('purchaser.suppliers.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="truck" class="h-5 w-5"></i>
-            <span>Suppliers</span>
-        </a>
-
-        @php
-            $fmActive = request()->routeIs('purchaser.file-maintenance.*')
-                || request()->routeIs('purchaser.brands.*')
-                || request()->routeIs('purchaser.items.*')
-                || request()->routeIs('purchaser.uom.*')
-                || request()->routeIs('purchaser.categories.*')
-                || request()->routeIs('purchaser.subcategories.*')
-                || request()->routeIs('purchaser.brand-insights*')
-                || request()->routeIs('purchaser.supplier-insights*')
-                || request()->routeIs('purchaser.installment-terms*');
-            $fmTab = request('tab', 'brands');
-            if (request()->routeIs('purchaser.installment-terms*')) {
-                $fmTab = 'installment-terms';
-            } elseif (request()->routeIs('purchaser.supplier-insights*')) {
-                $fmTab = 'supplier-insights';
-            } elseif (request()->routeIs('purchaser.brand-insights*')) {
-                $fmTab = 'brand-insights';
-            } elseif (request()->routeIs('purchaser.brands.*')) {
-                $fmTab = 'brands';
-            } elseif (request()->routeIs('purchaser.items.*')) {
-                $fmTab = 'items';
-            } elseif (request()->routeIs('purchaser.uom.*')) {
-                $fmTab = 'uom';
-            } elseif (request()->routeIs('purchaser.categories.*')) {
-                $fmTab = 'categories';
-            } elseif (request()->routeIs('purchaser.subcategories.*')) {
-                $fmTab = 'subcategories';
-            }
-            $fmLinks = [
-                'supplier-insights' => [
-                    'title' => 'Supplier Insights',
-                    'icon' => 'shield-alert',
-                    'route' => 'purchaser.supplier-insights.index',
-                    'params' => [],
-                ],
-                'brand-insights' => [
-                    'title' => 'Brand Insights',
-                    'icon' => 'trending-down',
-                    'route' => 'purchaser.brand-insights.index',
-                    'params' => [],
-                ],
-                'installment-terms' => [
-                    'title' => 'Installment Terms',
-                    'icon' => 'calendar-range',
-                    'route' => 'purchaser.installment-terms.index',
-                    'params' => [],
-                ],
-                'brands' => ['title' => 'Brands', 'icon' => 'tag'],
-                'items' => ['title' => 'Items', 'icon' => 'package'],
-                'uom' => ['title' => 'UOM', 'icon' => 'ruler'],
-                'categories' => ['title' => 'Categories', 'icon' => 'folders'],
-                'subcategories' => ['title' => 'Sub Categories', 'icon' => 'folder-tree'],
-            ];
-        @endphp
-
-        <div class="menu-group {{ $fmActive ? 'is-open' : '' }}" data-menu-group>
-            <button
-                type="button"
-                class="menu-item menu-group-toggle {{ $fmActive ? 'active-parent' : '' }}"
-                data-menu-group-toggle
-                aria-expanded="{{ $fmActive ? 'true' : 'false' }}"
-            >
-                <i data-lucide="database" class="h-5 w-5"></i>
-                <span>File Maintenance</span>
-                <i data-lucide="chevron-down" class="menu-group-chevron h-4 w-4"></i>
-            </button>
-            <div class="menu-sub" @if(! $fmActive) hidden @endif>
-                @foreach($fmLinks as $key => $meta)
-                    <a
-                        href="{{ isset($meta['route']) ? route($meta['route'], $meta['params'] ?? []) : route('purchaser.file-maintenance.index', ['tab' => $key]) }}"
-                        class="menu-sub-item {{ $fmActive && $fmTab === $key ? 'active' : '' }}"
-                    >
-                        <i data-lucide="{{ $meta['icon'] }}" class="h-4 w-4"></i>
-                        <span>{{ $meta['title'] }}</span>
-                    </a>
-                @endforeach
             </div>
         </div>
 

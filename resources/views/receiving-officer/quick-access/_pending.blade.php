@@ -30,7 +30,6 @@
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Receiving Report</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Items</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Supplier</th>
-                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Value</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Status</th>
                     </tr>
                 </thead>
@@ -44,7 +43,6 @@
                             <td class="px-4 py-3 text-sm font-semibold">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'RR-'.($row->receiving_report_id ?? $row->authority_purchase_id))) }}</td>
                             <td class="px-4 py-3 text-sm">{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 48) }}</td>
                             <td class="px-4 py-3 text-sm">{{ $row->supplier_name }}</td>
-                            <td class="px-4 py-3 text-sm">₱{{ number_format((float) ($row->total_amount ?? 0), 2) }}</td>
                             <td class="px-4 py-3 text-sm">{{ $rowStatus === 'returned' ? 'Returned' : 'Pending' }}</td>
                         </tr>
                     @empty

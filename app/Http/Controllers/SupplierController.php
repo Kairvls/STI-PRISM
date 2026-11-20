@@ -87,7 +87,10 @@ class SupplierController extends Controller
         });
 
         return redirect()
-            ->route(ProcurementPortal::routeName('ris.index'), ['selected_supplier' => $supplierId])
+            ->route(ProcurementPortal::routeName('ris.index'), [
+                'create' => 1,
+                'selected_supplier' => $supplierId,
+            ])
             ->with('success', 'Supplier created successfully. You can now select it for this RIS.');
     }
 

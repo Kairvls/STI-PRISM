@@ -10,9 +10,6 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h4 class="text-sm font-semibold text-slate-900">Purchaser signature <span class="text-red-500">*</span></h4>
-            <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                Pick a saved signature, draw one, or upload. It overlays <strong>Requested by</strong> on the form above.
-            </p>
         </div>
         <div
             x-show="{{ $sigPrefix }}createSignaturePreview"

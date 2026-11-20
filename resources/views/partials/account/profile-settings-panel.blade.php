@@ -49,17 +49,6 @@
             </label>
 
             <label class="block">
-                <span class="text-xs font-semibold text-slate-600">Username</span>
-                <input
-                    type="text"
-                    name="user_username"
-                    value="{{ old('user_username', $user->user_username ?? '') }}"
-                    autocomplete="username"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                >
-            </label>
-
-            <label class="block">
                 <span class="text-xs font-semibold text-slate-600">Employee ID</span>
                 <input
                     type="text"

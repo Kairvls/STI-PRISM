@@ -69,7 +69,7 @@
             <div
                 class="ris-preview-stage relative overflow-hidden bg-slate-100"
                 data-iframe-id="{{ $iframeId }}"
-                style="min-height: 0; width: min(880px, 92vw);"
+                style="min-height: 0; width: min(1112px, 96vw);"
             >
                 <div
                     class="ris-preview-scale-wrap"
@@ -130,11 +130,11 @@
         if (stage) {
             stage.style.height = 'auto';
             stage.style.minHeight = '0';
-            stage.style.width = 'min(880px, 92vw)';
+            stage.style.width = 'min(1112px, 96vw)';
             stage.style.background = '#f1f5f9';
         }
         if (panel && !(modal && modal.dataset.fullscreen === '1')) {
-            panel.style.width = 'min(880px, 92vw)';
+            panel.style.width = 'min(1112px, 96vw)';
             panel.style.height = 'auto';
         }
     }
@@ -280,19 +280,23 @@
         var modal = panel ? panel.closest('[data-ris-preview-root]') : null;
         if (!stage || !wrap || !panel) return;
 
-        var docW = 11 * 96;
-        var docH = 520;
+        var docW = 1095;
+        var docH = 845;
+        var purchaserSheet = false;
 
         try {
             var idoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
             if (idoc && idoc.body) {
                 iframe.style.width = docW + 'px';
                 iframe.style.height = '2400px';
-                var root = idoc.querySelector('.ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet') || idoc.body;
+                var root = idoc.querySelector('.ris-original-form, .ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet') || idoc.body;
+                purchaserSheet = !!(root.classList && root.classList.contains('ris-original-form'));
                 var prevMin = root.style.minHeight;
                 var prevHeight = root.style.height;
-                root.style.minHeight = '0px';
-                root.style.height = 'auto';
+                if (!purchaserSheet) {
+                    root.style.minHeight = '0px';
+                    root.style.height = 'auto';
+                }
                 var view = idoc.defaultView || window;
                 var top = root.getBoundingClientRect().top;
                 var bottom = top;
@@ -306,9 +310,18 @@
                 if (measuredH < 80) {
                     measuredH = Math.ceil(root.scrollHeight || 0);
                 }
+                if (purchaserSheet) {
+                    measuredH = Math.max(
+                        measuredH,
+                        Math.ceil(root.scrollHeight || 0),
+                        Math.ceil(root.getBoundingClientRect().height || 0)
+                    );
+                }
                 var measuredW = Math.ceil(root.getBoundingClientRect().width || root.scrollWidth || 0);
-                root.style.minHeight = prevMin;
-                root.style.height = prevHeight;
+                if (!purchaserSheet) {
+                    root.style.minHeight = prevMin;
+                    root.style.height = prevHeight;
+                }
                 if (measuredW >= 280 && measuredW <= 1600) docW = measuredW;
                 if (measuredH >= 80 && measuredH <= 2400) docH = measuredH;
             }
@@ -321,7 +334,9 @@
         var maxW = Math.max(320, window.innerWidth - pad * 2);
         var maxH = Math.max(240, window.innerHeight - pad * 2 - chrome.headerH - chrome.attachH);
 
-        var scale = Math.min(maxW / docW, maxH / docH, isFs ? 1.5 : 1);
+        var scale = purchaserSheet
+            ? Math.min(maxW / docW, isFs ? 1.5 : 1)
+            : Math.min(maxW / docW, maxH / docH, isFs ? 1.5 : 1);
         if (!isFinite(scale) || scale <= 0.05) scale = 0.5;
 
         var scaledW = Math.max(280, Math.floor(docW * scale));
@@ -381,11 +396,14 @@
             wrap.style.margin = '0';
             wrap.style.boxShadow = 'none';
 
+            var stageH = scaledH;
+            if (purchaserSheet) stageH = Math.min(scaledH, maxH);
             stage.style.flex = 'none';
             stage.style.width = scaledW + 'px';
-            stage.style.height = scaledH + 'px';
-            stage.style.minHeight = scaledH + 'px';
-            stage.style.overflow = 'hidden';
+            stage.style.height = stageH + 'px';
+            stage.style.minHeight = purchaserSheet ? '0' : (scaledH + 'px');
+            stage.style.overflowX = 'hidden';
+            stage.style.overflowY = purchaserSheet && scaledH > stageH + 1 ? 'auto' : 'hidden';
             stage.style.background = '#fff';
             stage.style.display = 'block';
             stage.style.padding = '0';

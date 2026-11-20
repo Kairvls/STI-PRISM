@@ -45,9 +45,6 @@
         <td class="px-5 py-4 text-gray-700">{{ $row->authority_purchase_form_number ?? '—' }}</td>
         <td class="px-5 py-4 text-gray-700">{{ $row->ris_form_number ?? '—' }}</td>
         <td class="px-5 py-4 text-gray-600">{{ $row->request_check_payee ?? '—' }}</td>
-        <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
-            {{ $row->request_check_amount_figures !== null ? '₱'.number_format((float) $row->request_check_amount_figures, 2) : '—' }}
-        </td>
         <td class="whitespace-nowrap px-5 py-4 text-gray-600">
             @if($when)
                 {{ \Carbon\Carbon::parse($when)->format('M j, Y') }}
@@ -57,7 +54,7 @@
             @endif
         </td>
         <td class="px-5 py-4">
-            @include('accounting.partials.status-badge', ['status' => $st])
+            @include('accounting.partials.status-badge', ['status' => $st, 'doc' => 'rfc'])
         </td>
         <td class="px-5 py-4 text-center">
             <div class="inline-flex items-center justify-center gap-1.5">

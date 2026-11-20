@@ -21,13 +21,46 @@
         ? min($risMaxRows, count($sourceItems))
         : min($risMaxRows, max($risDefaultRows, count($sourceItems)));
     for ($i = 0; $i < $createRowCount; $i++) {
+        $bootBrandIds = $sourceItems[$i]['brand_ids'] ?? null;
+        if (! is_array($bootBrandIds)) {
+            $singleBrand = (string) ($sourceItems[$i]['brand_id'] ?? '');
+            $bootBrandIds = $singleBrand !== '' ? [$singleBrand] : [];
+        }
+        $bootBrandIds = array_values(array_filter(array_map('strval', $bootBrandIds), fn ($id) => $id !== ''));
+        $bootBrandQtys = $sourceItems[$i]['brand_qtys'] ?? [];
+        if (! is_array($bootBrandQtys)) {
+            $bootBrandQtys = [];
+        }
+        $bootBrandQtys = collect($bootBrandQtys)
+            ->mapWithKeys(fn ($qty, $id) => [(string) $id => max(1, (int) $qty)])
+            ->all();
+        if ($bootBrandQtys === [] && $bootBrandIds !== []) {
+            $seedQty = max(1, (int) ($sourceItems[$i]['quantity_requested'] ?? 1));
+            $bootBrandQtys = [(string) $bootBrandIds[0] => $seedQty];
+            foreach (array_slice($bootBrandIds, 1) as $extraId) {
+                $bootBrandQtys[(string) $extraId] = 1;
+            }
+        }
+        $bootRequested = array_sum($bootBrandQtys);
+        if ($bootRequested < 1) {
+            $bootRequested = $sourceItems[$i]['quantity_requested'] ?? '';
+        }
+        $bootSupplierIds = $sourceItems[$i]['supplier_ids'] ?? null;
+        if (! is_array($bootSupplierIds)) {
+            $singleSupplier = (string) ($sourceItems[$i]['supplier_id'] ?? '');
+            $bootSupplierIds = $singleSupplier !== '' ? [$singleSupplier] : [];
+        }
+        $bootSupplierIds = array_values(array_filter(array_map('strval', $bootSupplierIds), fn ($id) => $id !== ''));
         $createItemsInit[] = [
             '_uid' => 'create-'.$i,
             'name_description' => $sourceItems[$i]['name_description'] ?? '',
-            'brand_id' => (string) ($sourceItems[$i]['brand_id'] ?? ''),
-            'supplier_id' => (string) ($sourceItems[$i]['supplier_id'] ?? ''),
+            'brand_ids' => $bootBrandIds,
+            'brand_qtys' => $bootBrandQtys,
+            'brand_id' => $bootBrandIds[0] ?? '',
+            'supplier_ids' => $bootSupplierIds,
+            'supplier_id' => $bootSupplierIds[0] ?? '',
             'uom_id' => (string) ($sourceItems[$i]['uom_id'] ?? ''),
-            'quantity_requested' => $sourceItems[$i]['quantity_requested'] ?? '',
+            'quantity_requested' => $bootRequested !== 0 && $bootRequested !== 0.0 ? $bootRequested : ($sourceItems[$i]['quantity_requested'] ?? ''),
             'quantity_issued' => '',
             'unit_cost' => $sourceItems[$i]['unit_cost'] ?? '',
         ];
@@ -45,7 +78,10 @@
                     $createItemsInit[$index] = [
                         '_uid' => 'create-'.$index,
                         'name_description' => '',
+                        'brand_ids' => [],
+                        'brand_qtys' => [],
                         'brand_id' => '',
+                        'supplier_ids' => [],
                         'supplier_id' => '',
                         'uom_id' => '',
                         'quantity_requested' => '',
@@ -80,7 +116,16 @@
         'editRisModal' => $editRisId > 0 ? 'edit-ris-' . $editRisId : null,
         'createRisModal' => $editRisId > 0
             ? false
-            : ($errors->any() || request()->filled('replacement_request') || request()->boolean('create') || $openCreateFromCopy),
+            : (
+                $errors->any()
+                || request()->filled('replacement_request')
+                || request()->boolean('create')
+                || $openCreateFromCopy
+                || request()->filled('selected_supplier')
+            ),
+        'addSupplierModal' => (bool) ($errors->any() && old('_from_ris')),
+        'supplierType' => old('supplier_store_type', 'Physical Store'),
+        'selectedSupplierId' => (string) request('selected_supplier', ''),
         'createItems' => $createItemsInit,
         'risDefaultRows' => $risDefaultRows,
         'risMaxRows' => $risMaxRows,
@@ -162,19 +207,19 @@
 
             return [
                 'id' => (string) $brand->brand_id,
+                'name' => $name,
                 'label' => $avoid ? $name.' (avoid — often defective)' : $name,
                 'caution' => $avoid,
                 'cautionLabel' => 'Avoid',
                 'sort_weight' => $avoid ? 1 : 0,
             ];
-        })->sortBy([
-            ['sort_weight', 'asc'],
-            ['label', 'asc'],
-        ])->values()->map(function ($opt) {
-            unset($opt['sort_weight']);
+        })->sortBy(fn ($opt) => mb_strtolower((string) ($opt['name'] ?? $opt['label'] ?? '')))
+            ->values()
+            ->map(function ($opt) {
+                unset($opt['sort_weight']);
 
-            return $opt;
-        })->all(),
+                return $opt;
+            })->all(),
         'itemHints' => collect($itemHints ?? [])->map(function ($hint) {
             return [
                 'brand_ids' => array_values($hint['brand_ids'] ?? []),
@@ -198,43 +243,27 @@
                 'uom_id' => (string) ($hint['uom_id'] ?? ''),
                 'supplier_id' => (string) ($hint['supplier_id'] ?? ''),
             ];
-        })->values()->all(),
+        })->sortBy(fn ($opt) => mb_strtolower((string) ($opt['label'] ?? '')))->values()->all(),
         'itemQuickStoreUrl' => route(($pp ?? 'purchaser').'.items.quick-store'),
+        'brandQuickStoreUrl' => route(($pp ?? 'purchaser').'.brands.quick-store'),
+        'uomQuickStoreUrl' => route(($pp ?? 'purchaser').'.uom.quick-store'),
         'uomOptions' => collect($uoms ?? [])->map(function ($uom) {
             return [
                 'id' => (string) $uom->uom_id,
                 'label' => (string) $uom->uom_name,
             ];
-        })->values()->all(),
-        'supplierOptions' => collect($activeSuppliers ?? [])->map(function ($supplier) use ($supplierInsightsById) {
-            $id = (int) $supplier->supplier_id;
-            $insight = $supplierInsightsById[$id] ?? null;
-            $blacklisted = (bool) ($supplier->is_blacklisted ?? false);
+        })->sortBy(fn ($opt) => mb_strtolower((string) ($opt['label'] ?? '')))->values()->all(),
+        'supplierOptions' => collect($activeSuppliers ?? [])->map(function ($supplier) {
             $baseName = (string) ($supplier->display_name ?? $supplier->supplier_name ?? 'Supplier');
             $baseName = trim(str_ireplace('(blacklisted)', '', $baseName));
-            $weight = \App\Support\SupplierDeliveryInsights::sortWeight($insight, $blacklisted);
-            $caution = $weight > 0;
-            $notice = $caution
-                ? \App\Support\SupplierDeliveryInsights::noticePayload(
-                    $insight,
-                    (string) ($supplier->supplier_blacklist_reason ?? '')
-                )
-                : null;
 
             return [
-                'id' => (string) $id,
+                'id' => (string) $supplier->supplier_id,
                 'label' => $baseName,
-                'caution' => $caution,
-                'cautionLabel' => 'Caution',
-                'detail' => $notice['detail'] ?? '',
-                'sort_weight' => $weight,
                 'sort_name' => mb_strtolower($baseName),
             ];
-        })->sortBy([
-            ['sort_weight', 'asc'],
-            ['sort_name', 'asc'],
-        ])->values()->map(function ($opt) {
-            unset($opt['sort_weight'], $opt['sort_name']);
+        })->sortBy('sort_name')->values()->map(function ($opt) {
+            unset($opt['sort_name']);
 
             return $opt;
         })->all(),
@@ -259,16 +288,103 @@
         itemRows(form) {
             const rows = {};
             form.querySelectorAll('[name^="ris_items["]').forEach((input) => {
-                const match = input.name.match(/^ris_items\[(\d+)\]\[(.+)\]$/);
+                const match = input.name.match(/^ris_items\[(\d+)\]\[([^\]]+)\](?:\[([^\]]*)\])?$/);
                 if (!match) return;
                 if (!rows[match[1]]) rows[match[1]] = {};
-                rows[match[1]][match[2]] = String(input.value || '').trim();
+                const field = match[2];
+                const nested = match[3];
+                const value = String(input.value || '').trim();
+                if (nested === '') {
+                    if (!Array.isArray(rows[match[1]][field])) rows[match[1]][field] = [];
+                    if (value) rows[match[1]][field].push(value);
+                    return;
+                }
+                if (nested != null) {
+                    if (!rows[match[1]][field] || Array.isArray(rows[match[1]][field])) {
+                        rows[match[1]][field] = {};
+                    }
+                    if (value) rows[match[1]][field][nested] = value;
+                    return;
+                }
+                if (field === 'brand_ids') {
+                    if (!Array.isArray(rows[match[1]][field])) rows[match[1]][field] = [];
+                    if (value) rows[match[1]][field].push(value);
+                    return;
+                }
+                rows[match[1]][field] = value;
             });
             return Object.keys(rows)
                 .sort((a, b) => Number(a) - Number(b))
                 .map((key) => rows[key])
-                .filter((row) => ['name_description', 'brand_id', 'supplier_id', 'uom_id', 'quantity_requested', 'quantity_issued', 'unit_cost']
-                    .some((field) => String(row[field] || '').trim() !== ''));
+                .filter((row) => {
+                    const brands = Array.isArray(row.brand_ids) ? row.brand_ids : [];
+                    const suppliers = Array.isArray(row.supplier_ids) ? row.supplier_ids : [];
+                    return ['name_description', 'brand_id', 'supplier_id', 'uom_id', 'quantity_requested', 'quantity_issued', 'unit_cost']
+                        .some((field) => String(row[field] || '').trim() !== '')
+                        || brands.length > 0
+                        || suppliers.length > 0;
+                });
+        },
+        joinNeeds(needs) {
+            if (needs.length <= 1) return needs[0] || '';
+            if (needs.length === 2) return needs[0] + ' and ' + needs[1];
+            return needs.slice(0, -1).join(', ') + ', and ' + needs[needs.length - 1];
+        },
+        summarize(errors) {
+            const lines = [];
+            const byRow = {};
+            const needLabel = {
+                'an item description': 'an item name',
+                'a Quantity Requested of at least 1': 'a quantity',
+                'a brand': 'a brand',
+                'a unit of measure': 'a unit',
+                'a supplier': 'a supplier',
+                'an Issued quantity of 0 or more': 'an issued quantity',
+                'a unit cost greater than 0': 'a unit cost',
+            };
+            const formLabel = {
+                'Choose whether this procurement is Urgent or Non-Urgent.': 'Choose Urgent or Non-Urgent.',
+                'Purpose is required before submitting.': 'Add a purpose.',
+                'Requested By is required before submitting.': 'Add who requested this.',
+                'Requested By date is required before submitting.': 'Add the request date.',
+                'Requested By date must use MM/DD/YYYY.': 'Use MM/DD/YYYY for the request date.',
+                'Draw or upload your signature before submitting.': 'Add your signature.',
+                'Attach at least one Canvass file (Word, Excel, or PDF) before submitting.': 'Attach a canvass file.',
+                'Add at least one RIS item before submitting.': 'Add at least one item.',
+                'can have at most 3 different suppliers.': 'Use at most 3 suppliers on this item.',
+            };
+            errors.forEach((message) => {
+                const item = String(message).match(/^Item (\d+) needs (.+)\.$/);
+                if (item && needLabel[item[2]]) {
+                    byRow[item[1]] = byRow[item[1]] || [];
+                    byRow[item[1]].push(needLabel[item[2]]);
+                    return;
+                }
+                const issued = String(message).match(/^Item (\d+) Issued quantity cannot be higher than requested\.$/);
+                if (issued) {
+                    byRow[issued[1]] = byRow[issued[1]] || [];
+                    byRow[issued[1]].push('an issued quantity no higher than requested');
+                    return;
+                }
+                lines.push(formLabel[message] || message);
+            });
+            const rows = Object.keys(byRow).sort((a, b) => Number(a) - Number(b));
+            if (!rows.length) return lines;
+            const first = byRow[rows[0]].join('|');
+            const same = rows.every((row) => byRow[row].join('|') === first);
+            if (same && rows.length > 1) {
+                const nums = rows.map(Number);
+                const consecutive = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+                const who = consecutive
+                    ? ('Items ' + nums[0] + '–' + nums[nums.length - 1])
+                    : ('Items ' + nums.join(', '));
+                lines.push(who + ' need ' + this.joinNeeds(byRow[rows[0]]) + '.');
+            } else {
+                rows.forEach((row) => {
+                    lines.push('Item ' + row + ' needs ' + this.joinNeeds(byRow[row]) + '.');
+                });
+            }
+            return lines;
         },
         clear(form) {
             const box = form && form.querySelector('[data-ris-form-errors]');
@@ -286,15 +402,17 @@
                 if (footer) form.insertBefore(box, footer);
                 else form.appendChild(box);
             }
-            box.className = 'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6';
-            box.innerHTML = '<ul class="list-disc space-y-1 pl-4">' + errors.map((message) => {
-                return '<li>' + String(message).replace(/[&<>"']/g, (char) => ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;',
-                }[char])) + '</li>';
+            box.className = 'mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700';
+            const summary = this.summarize(errors);
+            const escape = (message) => String(message).replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            }[char]));
+            box.innerHTML = '<p class="font-semibold">Still needed</p><ul class="mt-1 list-disc space-y-0.5 pl-4">' + summary.map((message) => {
+                return '<li>' + escape(message) + '</li>';
             }).join('') + '</ul>';
             box.hidden = false;
             box.scrollIntoView({ block: 'nearest' });
@@ -329,51 +447,123 @@
             const fileInput = form.querySelector('input[type="file"][name="ris_attachments[]"]');
             const hasNewFile = !!(fileInput && fileInput.files && fileInput.files.length);
             if (!options.hasCanvas && !hasNewFile) {
-                errors.push('Attach a Canvass file (Word, Excel, or PDF) before submitting.');
+                errors.push('Attach at least one Canvass file (Word, Excel, or PDF) before submitting.');
             }
             const items = this.itemRows(form);
             if (!items.length) {
                 errors.push('Add at least one RIS item before submitting.');
             }
             const seenItemBrandSupplier = {};
-            items.forEach((row, index) => {
-                const rowNumber = index + 1;
+            const rowIssues = [];
+            items.forEach((row) => {
                 const name = String(row.name_description || '').trim();
+                const needs = [];
                 if (!name) {
-                    errors.push('Item ' + rowNumber + ' needs an item description.');
+                    rowIssues.push({ name: '', needs: ['an item name'] });
                     return;
                 }
                 const requested = String(row.quantity_requested || '').trim();
-                if (!requested || Number(requested) < 1) {
-                    errors.push('Item ' + rowNumber + ' needs a Quantity Requested of at least 1.');
-                }
-                const brand = String(row.brand_id || '').trim();
-                if (!brand) {
-                    errors.push('Item ' + rowNumber + ' needs a brand.');
-                }
-                if (!String(row.uom_id || '').trim()) {
-                    errors.push('Item ' + rowNumber + ' needs a unit of measure.');
-                }
-                const supplier = String(row.supplier_id || '').trim();
-                if (!supplier) {
-                    errors.push('Item ' + rowNumber + ' needs a supplier.');
-                }
-                if (brand && supplier) {
-                    const trioKey = name.toLowerCase() + '|' + brand + '|' + supplier;
+                if (!requested || Number(requested) < 1) needs.push('a quantity');
+                const brandIds = (Array.isArray(row.brand_ids) && row.brand_ids.length
+                    ? row.brand_ids
+                    : [row.brand_id]).map((id) => String(id || '').trim()).filter(Boolean);
+                if (!brandIds.length) needs.push('a brand');
+                if (!String(row.uom_id || '').trim()) needs.push('a unit');
+                const supplierIds = (Array.isArray(row.supplier_ids) && row.supplier_ids.length
+                    ? row.supplier_ids
+                    : [row.supplier_id]).map((id) => String(id || '').trim()).filter(Boolean);
+                if (!supplierIds.length) needs.push('a supplier');
+                if (brandIds.length && supplierIds.length) {
+                    const brandKey = brandIds.slice().sort().join(',');
+                    const supplierKey = supplierIds.slice().sort().join(',');
+                    const trioKey = name.toLowerCase() + '|' + brandKey + '|' + supplierKey;
                     if (seenItemBrandSupplier[trioKey]) {
                         errors.push(
-                            'Item ' + rowNumber + ' "' + name + '" with this brand and supplier already exists on item '
-                            + seenItemBrandSupplier[trioKey] + '. Use a different brand or supplier, or combine quantities into one row.'
+                            '"' + name + '" already has this brand and supplier on another row. Change the brand or supplier, or combine the quantities.'
                         );
                     } else {
-                        seenItemBrandSupplier[trioKey] = rowNumber;
+                        seenItemBrandSupplier[trioKey] = true;
                     }
                 }
-                const cost = String(row.unit_cost || '').trim();
-                if (!cost || Number(cost) <= 0) {
-                    errors.push('Item ' + rowNumber + ' needs a unit cost greater than 0.');
+                if (options.requireIssued) {
+                    const issuedRaw = String(row.quantity_issued ?? '').trim();
+                    const issuedNum = issuedRaw === '' ? 0 : Number(issuedRaw);
+                    if (!Number.isFinite(issuedNum) || issuedNum < 0) {
+                        needs.push('an issued quantity');
+                    } else if (requested && issuedNum > Number(requested)) {
+                        needs.push('an issued quantity no higher than requested');
+                    }
+                }
+                const issuedForCost = String(row.quantity_issued ?? '').trim();
+                const issuedCount = issuedForCost === '' ? 0 : Number(issuedForCost);
+                const skipCost = options.requireIssued && (!Number.isFinite(issuedCount) || issuedCount <= 0);
+                const costRaw = String(row.unit_cost || '').replace(/,/g, '').trim();
+                if (!skipCost && (!costRaw || Number(costRaw) <= 0)) needs.push('a unit cost');
+                rowIssues.push({ name: name, needs: needs });
+            });
+            let groupStart = 0;
+            while (groupStart < rowIssues.length) {
+                const groupName = rowIssues[groupStart].name;
+                const groupKey = groupName.toLowerCase();
+                let groupEnd = groupStart;
+                while (groupEnd + 1 < rowIssues.length && rowIssues[groupEnd + 1].name.toLowerCase() === groupKey) {
+                    groupEnd++;
+                }
+                const group = rowIssues.slice(groupStart, groupEnd + 1);
+                const missing = group
+                    .map((row, offset) => ({ offset: offset + 1, needs: row.needs }))
+                    .filter((row) => row.needs.length);
+                if (missing.length) {
+                    const label = groupName || 'A blank row';
+                    const same = missing.every((row) => row.needs.join('|') === missing[0].needs.join('|'));
+                    if (!groupName && missing.length > 1 && same) {
+                        errors.push(missing.length + ' blank rows still need an item name.');
+                    } else if (same && missing.length === group.length && group.length > 1) {
+                        errors.push(label + ': ' + group.length + ' rows still need ' + this.joinNeeds(missing[0].needs) + '.');
+                    } else if (group.length === 1) {
+                        errors.push(label + ' still needs ' + this.joinNeeds(missing[0].needs) + '.');
+                    } else {
+                        missing.forEach((row) => {
+                            errors.push(label + ', row ' + row.offset + ' still needs ' + this.joinNeeds(row.needs) + '.');
+                        });
+                    }
+                }
+                groupStart = groupEnd + 1;
+            }
+
+            const suppliersByItem = {};
+            const brandsByItemSupplier = {};
+            items.forEach((row) => {
+                const name = String(row.name_description || '').trim().toLowerCase();
+                const supplierId = String(
+                    (Array.isArray(row.supplier_ids) && row.supplier_ids[0]) || row.supplier_id || ''
+                ).trim();
+                const brandId = String(
+                    (Array.isArray(row.brand_ids) && row.brand_ids[0]) || row.brand_id || ''
+                ).trim();
+                if (name && supplierId) {
+                    suppliersByItem[name] = suppliersByItem[name] || {};
+                    suppliersByItem[name][supplierId] = true;
+                }
+                if (name && supplierId && brandId) {
+                    const key = name + '|' + supplierId;
+                    brandsByItemSupplier[key] = brandsByItemSupplier[key] || {};
+                    brandsByItemSupplier[key][brandId] = true;
                 }
             });
+            Object.keys(suppliersByItem).forEach((name) => {
+                const supplierCount = Object.keys(suppliersByItem[name]).length;
+                if (supplierCount === 1 || supplierCount > 3) {
+                    errors.push('"' + name + '" must have at least 2 and at most 3 different suppliers.');
+                }
+            });
+            Object.keys(brandsByItemSupplier).forEach((key) => {
+                if (Object.keys(brandsByItemSupplier[key]).length > 3) {
+                    const itemName = key.split('|')[0] || 'an item';
+                    errors.push('"' + itemName + '" can have at most 3 different brands for the same supplier.');
+                }
+            });
+
             return errors;
         },
     };
@@ -391,11 +581,31 @@
         submitRisSending: false,
         submitRisEditForm: null,
         closeEditRis(risId, returnToView = false) {
-            this.editRisModal = null;
-            this.editRisFullscreen = false;
-            if (returnToView) {
-                this.openModal = 'ris-' + risId;
+            const form = document.getElementById('edit-ris-form-' + risId);
+            const finish = () => {
+                this.editRisModal = null;
+                this.editRisFullscreen = false;
+                if (returnToView) {
+                    this.openModal = 'ris-' + risId;
+                }
+            };
+            if (window.purGuardFormClose) {
+                window.purGuardFormClose(form, finish);
+                return;
             }
+            finish();
+        },
+        requestCloseCreateRis() {
+            const finish = () => {
+                this.createRisModal = false;
+                this.createRisFullscreen = false;
+            };
+            const form = this.$refs.createRisForm;
+            if (window.purGuardFormClose) {
+                window.purGuardFormClose(form, finish);
+                return;
+            }
+            finish();
         },
         clearRisSubmitErrors(form) {
             window.risSubmitChecks.clear(form);
@@ -436,6 +646,7 @@
                 signature: signature,
                 requireSignature: true,
                 hasCanvas: !!hasAttachments,
+                requireIssued: kind === 'resubmit',
             });
             if (errors.length) {
                 this.showRisSubmitErrors(form, errors);
@@ -472,7 +683,7 @@
             const errors = window.risSubmitChecks.errors(form, {
                 signature: this.createSignaturePreview,
                 requireSignature: true,
-                hasCanvas: !!this.createAttachmentName,
+                hasCanvas: (this.createAttachmentFiles || []).length > 0,
             });
             if (errors.length) {
                 this.showRisSubmitErrors(form, errors);
@@ -735,7 +946,10 @@
                 _uid: 'create-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
                 _sourceLocked: false,
                 name_description: '',
+                brand_ids: [],
+                brand_qtys: {},
                 brand_id: '',
+                supplier_ids: [],
                 supplier_id: '',
                 uom_id: '',
                 quantity_requested: '',
@@ -743,14 +957,207 @@
                 unit_cost: '',
             };
         },
+        normalizeRisSupplierIds(item) {
+            if (!item) return [];
+            if (!Array.isArray(item.supplier_ids)) {
+                const single = String(item.supplier_id || '').trim();
+                item.supplier_ids = single ? [single] : [];
+            }
+            item.supplier_ids = item.supplier_ids.map((id) => String(id)).filter(Boolean);
+            item.supplier_id = item.supplier_ids[0] || '';
+            return item.supplier_ids;
+        },
+        risSupplierSelected(item, id) {
+            return this.normalizeRisSupplierIds(item).includes(String(id));
+        },
+        toggleRisSupplier(item, id) {
+            if (!item) return;
+            const value = String(id);
+            const ids = this.normalizeRisSupplierIds(item);
+            item.supplier_ids = ids.includes(value)
+                ? ids.filter((sid) => sid !== value)
+                : ids.concat([value]);
+            item.supplier_id = item.supplier_ids[0] || '';
+        },
+        risSupplierLabelForId(id) {
+            const found = (this.supplierOptions || []).find((opt) => String(opt.id) === String(id));
+            return found ? found.label : String(id);
+        },
+        risSupplierLabels(item) {
+            return this.normalizeRisSupplierIds(item).map((id) => this.risSupplierLabelForId(id));
+        },
+        risSupplierVisibleLabels(item, limit) {
+            const max = Math.max(1, Number(limit) || 1);
+            return this.risSupplierLabels(item).slice(0, max);
+        },
+        risSupplierOverflowCount(item, limit) {
+            const max = Math.max(1, Number(limit) || 1);
+            return Math.max(0, this.normalizeRisSupplierIds(item).length - max);
+        },
+        itemSupplierWarning(item) {
+            return null;
+        },
+        openRisAddSupplierModal() {
+            this.closeRisSelect();
+            this.supplierType = this.supplierType || 'Physical Store';
+            this.addSupplierModal = true;
+            this.$nextTick(() => {
+                if (window.lucide) window.lucide.createIcons();
+                const phone = document.getElementById('supplier-contact-number');
+                if (phone && window.refreshPrismPhoneInput) window.refreshPrismPhoneInput(phone);
+            });
+        },
+        applySelectedSupplierFromQuery() {
+            const id = String(this.selectedSupplierId || '').trim();
+            if (!id || !Array.isArray(this.createItems) || !this.createItems.length) return;
+            const target = this.createItems.find((row) => !this.normalizeRisSupplierIds(row).length)
+                || this.createItems[0];
+            if (!target) return;
+            if (!this.risSupplierSelected(target, id)) {
+                this.toggleRisSupplier(target, id);
+            }
+            target._showAllSuppliers = true;
+        },
+        normalizeRisBrandIds(item) {
+            if (!item) return [];
+            if (!Array.isArray(item.brand_ids)) {
+                const single = String(item.brand_id || '').trim();
+                item.brand_ids = single ? [single] : [];
+            }
+            item.brand_ids = item.brand_ids.map((id) => String(id)).filter(Boolean);
+            item.brand_id = item.brand_ids[0] || '';
+            if (!item.brand_qtys || typeof item.brand_qtys !== 'object' || Array.isArray(item.brand_qtys)) {
+                const fromArray = Array.isArray(item.brand_qtys) ? item.brand_qtys : [];
+                item.brand_qtys = {};
+                fromArray.forEach((qty, idx) => {
+                    const id = item.brand_ids[idx];
+                    if (id) item.brand_qtys[id] = Math.max(1, Number(qty) || 1);
+                });
+            }
+            return item.brand_ids;
+        },
+        normalizeRisBrandQtys(item) {
+            this.normalizeRisBrandIds(item);
+            if (!item.brand_qtys || typeof item.brand_qtys !== 'object') {
+                item.brand_qtys = {};
+            }
+            const next = {};
+            item.brand_ids.forEach((id) => {
+                const key = String(id);
+                next[key] = Math.max(1, Number(item.brand_qtys[key]) || 1);
+            });
+            item.brand_qtys = next;
+            return item.brand_qtys;
+        },
+        risBrandSelected(item, id) {
+            return this.normalizeRisBrandIds(item).includes(String(id));
+        },
+        risBrandQty(item, id) {
+            this.normalizeRisBrandQtys(item);
+            return item.brand_qtys[String(id)] || 1;
+        },
+        setRisBrandQty(item, id, value) {
+            if (!item) return;
+            this.normalizeRisBrandQtys(item);
+            const key = String(id);
+            let qty = Number(value);
+            if (!Number.isFinite(qty) || qty < 1) qty = 1;
+            if (window.PrismInputLimits && typeof window.PrismInputLimits.clampQty === 'function') {
+                qty = Number(window.PrismInputLimits.clampQty(qty)) || qty;
+            }
+            item.brand_qtys[key] = qty;
+            this.syncRisRequestedFromBrands(item);
+        },
+        risBrandQtyTotal(item) {
+            const qtys = this.normalizeRisBrandQtys(item);
+            return Object.values(qtys).reduce((sum, qty) => sum + (Number(qty) || 0), 0);
+        },
+        syncRisRequestedFromBrands(item) {
+            if (!item) return;
+            const ids = this.normalizeRisBrandIds(item);
+            if (!ids.length) {
+                item.quantity_requested = '';
+                item.brand_qtys = {};
+                return;
+            }
+            this.normalizeRisBrandQtys(item);
+            const total = this.risBrandQtyTotal(item);
+            item.quantity_requested = total > 0 ? total : '';
+        },
+        toggleRisBrand(item, id) {
+            if (!item) return;
+            const value = String(id);
+            const ids = this.normalizeRisBrandIds(item);
+            this.normalizeRisBrandQtys(item);
+            if (ids.includes(value)) {
+                item.brand_ids = ids.filter((bid) => bid !== value);
+                delete item.brand_qtys[value];
+            } else {
+                const seed = (!ids.length && Number(item.quantity_requested) > 0)
+                    ? Number(item.quantity_requested)
+                    : 1;
+                item.brand_ids = ids.concat([value]);
+                item.brand_qtys[value] = Math.max(1, seed);
+            }
+            item.brand_id = item.brand_ids[0] || '';
+            this.syncRisRequestedFromBrands(item);
+        },
+        risBrandLabelForId(id) {
+            const found = (this.brandOptions || []).find((opt) => String(opt.id) === String(id));
+            return found ? (found.name || found.label) : String(id);
+        },
+        risBrandLabels(item) {
+            return this.normalizeRisBrandIds(item).map((id) => {
+                const qty = this.risBrandQty(item, id);
+                return this.risBrandLabelForId(id) + ' · ' + qty;
+            });
+        },
+        risBrandVisibleLabels(item, limit) {
+            const max = Math.max(1, Number(limit) || 1);
+            return this.normalizeRisBrandIds(item).slice(0, max).map((id) => {
+                const qty = this.risBrandQty(item, id);
+                return this.risBrandLabelForId(id) + ' ×' + qty;
+            });
+        },
+        risBrandOverflowCount(item, limit) {
+            const max = Math.max(1, Number(limit) || 1);
+            return Math.max(0, this.normalizeRisBrandIds(item).length - max);
+        },
         addCreateItem() {
             if (this.createItems.length >= this.risMaxRows) return;
             this.createItems.push(this.blankCreateItem());
+            this.notifyRisCanvassChanged();
         },
         removeCreateItem(index) {
             if (this.createItems.length <= 1) return;
             if (this.createItems[index]?._sourceLocked) return;
             this.createItems.splice(index, 1);
+            this.notifyRisCanvassChanged();
+        },
+        clearRisItemData(item) {
+            if (!item || item._sourceLocked || item._revisionLocked) return;
+            item.name_description = '';
+            item.brand_ids = [];
+            item.brand_qtys = {};
+            item.brand_id = '';
+            item.supplier_ids = [];
+            item.supplier_id = '';
+            item.uom_id = '';
+            item.quantity_requested = '';
+            item.quantity_issued = '';
+            item.unit_cost = '';
+            item._brandIds = [];
+            item._uomIds = [];
+            item._supplierIds = [];
+        },
+        clearCreateItemData(index) {
+            const items = this.createItems;
+            const span = this.risItemMergeSpan(items, index);
+            for (let i = index; i < index + span && i < items.length; i++) {
+                this.clearRisItemData(items[i]);
+            }
+            this.notifyRisCanvassChanged();
+            this.risTableEpoch = (Number(this.risTableEpoch) || 0) + 1;
         },
         createRisFullscreen: false,
         editRisFullscreen: false,
@@ -792,11 +1199,16 @@
         },
         filteredRisOptions(optionsKey) {
             const q = String(this.risSelectQuery || '').trim().toLowerCase();
-            const options = this[optionsKey] || [];
-            if (!q) {
-                return options;
+            let options = Array.isArray(this[optionsKey]) ? this[optionsKey].slice() : [];
+            if (q) {
+                options = options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
             }
-            return options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
+            options.sort((a, b) => String(a.label || '').localeCompare(
+                String(b.label || ''),
+                undefined,
+                { sensitivity: 'base' }
+            ));
+            return options;
         },
         risNewItemName: '',
         risNewItemSaving: false,
@@ -838,82 +1250,363 @@
         },
         risHintMeta(kind) {
             return {
-                brand: { flag: '_showAllBrands', ids: '_brandIds', value: 'brand_id', options: 'brandOptions' },
+                brand: { flag: '_showAllBrands', ids: '_brandIds', value: 'brand_id', multi: 'brand_ids', options: 'brandOptions' },
                 uom: { flag: '_showAllUnits', ids: '_uomIds', value: 'uom_id', options: 'uomOptions' },
-                supplier: { flag: '_showAllSuppliers', ids: '_supplierIds', value: 'supplier_id', options: 'supplierOptions' },
+                supplier: { flag: '_showAllSuppliers', ids: '_supplierIds', value: 'supplier_id', multi: 'supplier_ids', options: 'supplierOptions' },
             }[kind] || null;
         },
         applyItemHints(row, overwrite) {
+            if (row?._revisionLocked) return;
             if (!row) return;
             const hint = this.itemHint(row.name_description);
             row._brandIds = hint.brand_ids || [];
             row._uomIds = hint.uom_ids || [];
             row._supplierIds = hint.supplier_ids || [];
+            this.normalizeRisBrandIds(row);
+            this.normalizeRisSupplierIds(row);
 
-            const brandAllowed = row._brandIds.map(String);
-            const supplierAllowed = row._supplierIds.map(String);
             const uomAllowed = row._uomIds.map(String);
 
             if (overwrite) {
+                row.brand_ids = hint.brand_id ? [String(hint.brand_id)] : [];
                 row.brand_id = hint.brand_id || '';
-                row.uom_id = hint.uom_id || '';
-                row.supplier_id = hint.supplier_id || '';
-                row._showAllBrands = false;
+                row.brand_qtys = hint.brand_id
+                    ? { [String(hint.brand_id)]: Math.max(1, Number(row.quantity_requested) || 1) }
+                    : {};
+                // Unit only after brand (row order: Item → Brand → Unit → …).
+                row.uom_id = hint.brand_id && hint.uom_id ? String(hint.uom_id) : '';
+                // Do not auto-fill supplier — canvass needs distinct suppliers per row.
+                row._showAllBrands = true;
                 row._showAllUnits = false;
-                row._showAllSuppliers = false;
-            } else {
-                if (!row.brand_id && hint.brand_id) {
-                    row.brand_id = hint.brand_id;
-                }
-                if (!row.uom_id && hint.uom_id) {
-                    row.uom_id = hint.uom_id;
-                }
-                if (!row.supplier_id && hint.supplier_id) {
-                    row.supplier_id = hint.supplier_id;
-                }
+                row._showAllSuppliers = true;
+            } else if (row.brand_id && !row.uom_id && hint.uom_id) {
+                row.uom_id = hint.uom_id;
             }
 
-            // Drop values that do not belong to this item's predicted set.
-            if (brandAllowed.length && row.brand_id && !brandAllowed.includes(String(row.brand_id))) {
-                row.brand_id = hint.brand_id || '';
-            }
-            if (supplierAllowed.length && row.supplier_id && !supplierAllowed.includes(String(row.supplier_id))) {
-                row.supplier_id = hint.supplier_id || '';
-            }
-            if (uomAllowed.length && row.uom_id && !uomAllowed.includes(String(row.uom_id))) {
+            // Only replace a unit that does not belong to this item when hints are allowed to overwrite.
+            if (overwrite && uomAllowed.length && row.uom_id && !uomAllowed.includes(String(row.uom_id))) {
                 row.uom_id = hint.uom_id || '';
             }
+            if (row.brand_id && (!Array.isArray(row.brand_ids) || !row.brand_ids.length)) {
+                row.brand_ids = [String(row.brand_id)];
+            } else if (Array.isArray(row.brand_ids) && row.brand_ids.length && !row.brand_id) {
+                row.brand_id = String(row.brand_ids[0]);
+            }
+            if (row.supplier_id && (!Array.isArray(row.supplier_ids) || !row.supplier_ids.length)) {
+                row.supplier_ids = [String(row.supplier_id)];
+            } else if (Array.isArray(row.supplier_ids) && row.supplier_ids.length && !row.supplier_id) {
+                row.supplier_id = String(row.supplier_ids[0]);
+            }
+        },
+        risListForItem(item) {
+            if (!item) return null;
+            if (Array.isArray(this.createItems) && this.createItems.indexOf(item) >= 0) return this.createItems;
+            if (Array.isArray(this.editItems) && this.editItems.indexOf(item) >= 0) return this.editItems;
+            return null;
+        },
+        risBrandKey(item) {
+            return String(item?.brand_id || (Array.isArray(item?.brand_ids) ? item.brand_ids[0] : '') || '').trim();
+        },
+        risSlipUniqueSupplierIds(items) {
+            const ids = {};
+            (items || []).forEach((row) => {
+                const sid = this.risSupplierKey(row);
+                if (sid) ids[sid] = true;
+            });
+            return Object.keys(ids);
+        },
+        risItemGroupBounds(items, index) {
+            if (!Array.isArray(items) || !items[index]) return null;
+            const itemKey = this.risItemNameKey(items[index]);
+            if (!itemKey) return null;
+            let start = index;
+            while (start > 0 && this.risItemNameKey(items[start - 1]) === itemKey) start--;
+            let end = start;
+            while (end + 1 < items.length && this.risItemNameKey(items[end + 1]) === itemKey) end++;
+            return { itemKey, start, end };
+        },
+        risUniqueBrandIdsForSupplierInItem(items, index, supplierId, options = {}) {
+            if (!Array.isArray(items) || !items[index]) return [];
+            const bounds = this.risItemGroupBounds(items, index);
+            const sid = String(supplierId || '').trim();
+            if (!bounds || !sid) return [];
+            const movingFrom = String(options.movingFromSupplier || '').trim();
+            const nextBrand = options.nextBrandId != null
+                ? String(options.nextBrandId || '').trim()
+                : this.risBrandKey(items[index]);
+            const brands = {};
+
+            // Brands already on the target supplier (excluding the synced run being moved).
+            for (let i = bounds.start; i <= bounds.end; i++) {
+                const rowSid = this.risSupplierKey(items[i]);
+                if (movingFrom && i >= index && rowSid === movingFrom) {
+                    // This row moves onto the new supplier with its brand.
+                    const bid = this.risBrandKey(items[i]);
+                    if (bid) brands[bid] = true;
+                    continue;
+                }
+                if (i === index) continue;
+                if (rowSid !== sid) continue;
+                const bid = this.risBrandKey(items[i]);
+                if (bid) brands[bid] = true;
+            }
+            if (nextBrand) brands[nextBrand] = true;
+            return Object.keys(brands);
+        },
+        risOptionAllowed(item, field, id) {
+            const value = String(id || '');
+            if (!value) return true;
+            const list = this.risListForItem(item);
+            if (!list) return true;
+            const index = list.indexOf(item);
+            if (index < 0) return true;
+
+            if (field === 'brand_id') {
+                const current = this.risBrandKey(item);
+                if (current === value) return true;
+                const sid = this.risSupplierKey(item);
+                if (!sid) return true;
+                return this.risUniqueBrandIdsForSupplierInItem(list, index, sid, { nextBrandId: value }).length <= 3;
+            }
+
+            if (field === 'supplier_id') {
+                const current = this.risSupplierKey(item);
+                if (current === value) return true;
+                const bounds = this.risItemGroupBounds(list, index);
+                const ids = {};
+                if (bounds) {
+                    for (let i = bounds.start; i <= bounds.end; i++) {
+                        const sid = i === index ? value : this.risSupplierKey(list[i]);
+                        if (sid) ids[sid] = true;
+                    }
+                } else if (value) {
+                    ids[value] = true;
+                }
+                if (Object.keys(ids).length > 3) return false;
+                return this.risUniqueBrandIdsForSupplierInItem(list, index, value, {
+                    nextBrandId: this.risBrandKey(item),
+                }).length <= 3;
+            }
+
+            return true;
+        },
+        risRowHasItem(item) {
+            return !!String(item?.name_description || '').trim();
+        },
+        risRowHasBrand(item) {
+            return !!this.risBrandKey(item);
+        },
+        risRowHasUnit(item) {
+            return !!String(item?.uom_id || '').trim();
+        },
+        risRowHasSupplier(item) {
+            return !!this.risSupplierKey(item);
+        },
+        risRowHasQty(item) {
+            return Number(item?.quantity_requested) > 0;
+        },
+        // Left-to-right unlock: Item → Brand → Unit → Supplier → Qty → Unit cost.
+        risFieldReady(item, field) {
+            if (!item) return false;
+            if (item._revisionLocked && ['brand_id', 'uom_id', 'supplier_id', 'quantity_requested'].includes(field)) {
+                return false;
+            }
+            if (field === 'name_description' || field === 'item') return true;
+            if (field === 'brand_id') return this.risRowHasItem(item);
+            if (field === 'uom_id') return this.risRowHasItem(item) && this.risRowHasBrand(item);
+            if (field === 'supplier_id') {
+                return this.risRowHasItem(item) && this.risRowHasBrand(item) && this.risRowHasUnit(item);
+            }
+            if (field === 'quantity_requested') {
+                return this.risRowHasItem(item)
+                    && this.risRowHasBrand(item)
+                    && this.risRowHasUnit(item)
+                    && this.risRowHasSupplier(item);
+            }
+            if (field === 'unit_cost') {
+                return this.risRowHasItem(item)
+                    && this.risRowHasBrand(item)
+                    && this.risRowHasUnit(item)
+                    && this.risRowHasSupplier(item)
+                    && this.risRowHasQty(item);
+            }
+            return true;
+        },
+        risFieldLockReason(item, field) {
+            if (item?._revisionLocked && ['brand_id', 'uom_id', 'supplier_id', 'quantity_requested'].includes(field)) {
+                return 'Locked on a return for revision';
+            }
+            if (this.risFieldReady(item, field)) return '';
+            if (!this.risRowHasItem(item)) return 'Select an item first';
+            if (!this.risRowHasBrand(item)) return 'Select a brand first';
+            if (!this.risRowHasUnit(item)) return 'Select a unit first';
+            if (!this.risRowHasSupplier(item)) return 'Select a supplier first';
+            if (!this.risRowHasQty(item)) return 'Enter requested quantity first';
+            return 'Complete the previous fields first';
+        },
+        clearRisFieldsAfter(item, afterField) {
+            if (!item) return;
+            const order = ['name_description', 'brand_id', 'uom_id', 'supplier_id', 'quantity_requested', 'unit_cost'];
+            const at = order.indexOf(afterField);
+            if (at < 0) return;
+            const clear = new Set(order.slice(at + 1));
+            // Supplier changes must not wipe quantity or unit cost already typed on the row.
+            if (afterField === 'supplier_id') {
+                clear.delete('quantity_requested');
+                clear.delete('unit_cost');
+            }
+            if (clear.has('brand_id')) {
+                item.brand_id = '';
+                item.brand_ids = [];
+                item.brand_qtys = {};
+            }
+            if (clear.has('uom_id')) item.uom_id = '';
+            if (clear.has('supplier_id')) {
+                item.supplier_id = '';
+                item.supplier_ids = [];
+            }
+            if (clear.has('quantity_requested')) item.quantity_requested = '';
+            if (clear.has('unit_cost')) item.unit_cost = '';
+        },
+        selectRisField(item, field, id) {
+            if (!item) return;
+            if (!this.risFieldReady(item, field)) {
+                this.closeRisSelect();
+                return;
+            }
+            const value = String(id || '');
+            let target = item;
+            if (field === 'supplier_id' && value && value !== this.risSupplierKey(item)) {
+                const list = this.risListForItem(item);
+                const index = list ? list.indexOf(item) : -1;
+                const span = index >= 0 ? this.risSupplierMergeSpan(list, index) : 1;
+                if (span > 1) {
+                    let after = index + span - 1;
+                    while (after > index && list[after] && (list[after]._sourceLocked || list[after]._revisionLocked)) after--;
+                    if (after > index && list[after]) target = list[after];
+                }
+            }
+            if (value && !this.risOptionAllowed(target, field, value)) {
+                this.closeRisSelect();
+                return;
+            }
+            const prev = String(target[field] || '');
+            target[field] = value;
+            if (field === 'brand_id') {
+                item.brand_ids = value ? [value] : [];
+                item.brand_qtys = value
+                    ? { [value]: Math.max(1, Number(item.quantity_requested) || 1) }
+                    : {};
+                // Keep unit, supplier, qty, and cost already entered on this row.
+                if (value && !item.uom_id) {
+                    const hint = this.itemHint(item.name_description);
+                    if (hint.uom_id) item.uom_id = String(hint.uom_id);
+                }
+            }
+            if (field === 'supplier_id') {
+                // A different supplier takes the bottom row of this merge, so the group loses one row.
+                // Quantity and unit cost already entered on the row stay put.
+                target.supplier_ids = value ? [value] : [];
+                const list = this.risListForItem(target);
+                const itemKey = this.risItemMergeKey(target);
+                const grouped = !!(list && itemKey && list.filter((row) => this.risItemMergeKey(row) === itemKey).length > 1);
+                if (grouped) {
+                    setTimeout(() => {
+                        this.risTableEpoch = (Number(this.risTableEpoch) || 0) + 1;
+                    }, 0);
+                }
+            }
+            if (field === 'uom_id') {
+                if (prev !== value) this.clearRisFieldsAfter(item, 'uom_id');
+                const list = this.risListForItem(item);
+                const itemKey = this.risItemMergeKey(item);
+                if (list && itemKey) {
+                    // First unit fills the other rows. A row already given its own unit stays as set.
+                    list.forEach((row) => {
+                        if (row === item) return;
+                        if (this.risItemMergeKey(row) !== itemKey) return;
+                        if (!this.risBrandKey(row)) return;
+                        const current = String(row.uom_id || '');
+                        if (current === '' || current === prev) {
+                            row.uom_id = value;
+                        }
+                    });
+                }
+            }
+            this.closeRisSelect();
+            this.notifyRisCanvassChanged();
         },
         risFieldOptions(optionsKey, item, kind) {
             const q = String(this.risSelectQuery || '').trim().toLowerCase();
-            const options = this[optionsKey] || [];
+            let options = Array.isArray(this[optionsKey]) ? this[optionsKey].slice() : [];
+            // Brand + supplier: always full alphabetical list (no per-item suggestions).
+            const skipSuggestions = kind === 'brand' || kind === 'supplier';
+
             if (q) {
-                return options.filter((opt) => String(opt.label || '').toLowerCase().includes(q));
-            }
-            const meta = this.risHintMeta(kind);
-            if (!meta || item?.[meta.flag]) {
-                return options;
-            }
-            const ids = (item?.[meta.ids] || []).map((id) => String(id));
-            if (!ids.length) {
-                return options;
-            }
-            const allowed = new Set(ids);
-            const current = String(item?.[meta.value] || '');
-            if (current) allowed.add(current);
-            const byId = new Map(options.map((opt) => [String(opt.id), opt]));
-            const ranked = [];
-            ids.forEach((id) => {
-                if (byId.has(id) && allowed.has(id)) {
-                    ranked.push(byId.get(id));
-                    allowed.delete(id);
+                options = options.filter((opt) => {
+                    const label = String(opt.label || '').toLowerCase();
+                    const name = String(opt.name || '').toLowerCase();
+                    return label.includes(q) || name.includes(q);
+                });
+            } else if (!skipSuggestions) {
+                const meta = this.risHintMeta(kind);
+                if (meta && !item?.[meta.flag]) {
+                    const ids = (item?.[meta.ids] || []).map((id) => String(id));
+                    if (ids.length) {
+                        const allowed = new Set(ids);
+                        let currentIds = [];
+                        if (meta.multi === 'brand_ids') {
+                            currentIds = this.normalizeRisBrandIds(item);
+                        } else if (meta.multi === 'supplier_ids') {
+                            currentIds = this.normalizeRisSupplierIds(item);
+                        } else {
+                            currentIds = [String(item?.[meta.value] || '')].filter(Boolean);
+                        }
+                        currentIds.forEach((id) => allowed.add(id));
+                        const byId = new Map(options.map((opt) => [String(opt.id), opt]));
+                        const ranked = [];
+                        const seen = new Set();
+                        ids.forEach((id) => {
+                            if (byId.has(id) && allowed.has(id) && !seen.has(id)) {
+                                ranked.push(byId.get(id));
+                                seen.add(id);
+                            }
+                        });
+                        currentIds.forEach((id) => {
+                            if (byId.has(id) && allowed.has(id) && !seen.has(id)) {
+                                ranked.push(byId.get(id));
+                                seen.add(id);
+                            }
+                        });
+                        if (ranked.length) {
+                            ranked.sort((a, b) => String(a.name || a.label || '').localeCompare(
+                                String(b.name || b.label || ''),
+                                undefined,
+                                { sensitivity: 'base' }
+                            ));
+                            return ranked;
+                        }
+                    }
                 }
-            });
-            // Keep a currently selected value even if it fell out of the ranked set.
-            if (current && allowed.has(current) && byId.has(current)) {
-                ranked.push(byId.get(current));
             }
-            return ranked.length ? ranked : options;
+
+            if (kind === 'brand' || kind === 'supplier' || kind === 'uom' || kind === 'item') {
+                options.sort((a, b) => String(a.name || a.label || '').localeCompare(
+                    String(b.name || b.label || ''),
+                    undefined,
+                    { sensitivity: 'base' }
+                ));
+            }
+            return options;
+        },
+        sortRisCatalogOptions(optionsKey) {
+            const options = Array.isArray(this[optionsKey]) ? this[optionsKey].slice() : [];
+            options.sort((a, b) => String(a.name || a.label || '').localeCompare(
+                String(b.name || b.label || ''),
+                undefined,
+                { sensitivity: 'base' }
+            ));
+            this[optionsKey] = options;
         },
         risKnownLimited(item, kind) {
             const meta = this.risHintMeta(kind);
@@ -922,12 +1615,63 @@
             const all = this[meta.options] || [];
             return ids.length > 0 && ids.length < all.length;
         },
+        parseRisMoney(value) {
+            if (window.PrismInputLimits && typeof window.PrismInputLimits.parseMoney === 'function') {
+                const parsed = window.PrismInputLimits.parseMoney(value);
+                return parsed === null ? 0 : parsed;
+            }
+            const num = Number(String(value ?? '').replace(/,/g, ''));
+            return Number.isFinite(num) ? num : 0;
+        },
+        formatRisMoney(value) {
+            if (value === '' || value === null || value === undefined) return '';
+            if (window.PrismInputLimits && typeof window.PrismInputLimits.formatMoney === 'function') {
+                return window.PrismInputLimits.formatMoney(value);
+            }
+            const num = this.parseRisMoney(value);
+            return num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        risItemTotal(item) {
+            const issued = Number(item?.quantity_issued) || 0;
+            const requested = Number(item?.quantity_requested) || 0;
+            return (issued > 0 ? issued : requested) * this.parseRisMoney(item?.unit_cost);
+        },
         pickRisItem(items, index, label) {
-            if (!items || !items[index] || items[index]._sourceLocked) return;
-            items[index].name_description = String(label || '');
-            this.applyItemHints(items[index], true);
-            this.copySplitUom(items, index);
+            if (!items || !items[index]) return;
+            // A merged item cell belongs to the first line. A different item takes the bottom row, so the group loses one row.
+            const span = this.risItemMergeSpan(items, index);
+            const nextLabel = String(label || '');
+            const nextKey = nextLabel.trim().toLowerCase();
+            const currentKey = this.risItemNameKey(items[index]);
+            let target = index;
+            if (span > 1 && nextKey && nextKey !== currentKey) {
+                let after = index + span - 1;
+                while (after > index && (items[after]._sourceLocked || items[after]._revisionLocked)) after--;
+                if (after <= index) {
+                    this.closeRisSelect();
+                    return;
+                }
+                target = after;
+            }
+            if (!items[target] || items[target]._sourceLocked || items[target]._revisionLocked) return;
+            const rowRef = items[target];
             this.closeRisSelect();
+            rowRef.name_description = nextLabel;
+            // Brand, unit, and supplier already entered on this row stay put.
+            this.applyItemHints(rowRef, false);
+            const mergeKey = nextKey ? this.risItemMergeKey(rowRef) : '';
+            const adjacentSame = (key) => {
+                if (!key) return false;
+                if (target > 0 && this.risItemMergeKey(items[target - 1]) === key) return true;
+                return target + 1 < items.length && this.risItemMergeKey(items[target + 1]) === key;
+            };
+            this.notifyRisCanvassChanged();
+            if (span <= 1 && !adjacentSame(mergeKey)) {
+                return;
+            }
+            setTimeout(() => {
+                this.risTableEpoch = (Number(this.risTableEpoch) || 0) + 1;
+            }, 0);
         },
         async addRisCatalogItem(items, index) {
             if (this.risNewItemSaving || items?.[index]?._sourceLocked) return;
@@ -958,6 +1702,7 @@
                 }
                 if (!this.itemOptions.some((opt) => String(opt.id) === String(data.id))) {
                     this.itemOptions.push({ id: String(data.id), label: String(data.label) });
+                    this.sortRisCatalogOptions('itemOptions');
                 }
                 this.pickRisItem(items, index, data.label);
             } catch (e) {
@@ -966,10 +1711,92 @@
                 this.risNewItemSaving = false;
             }
         },
+        async addRisCatalogOption(kind, item) {
+            if (this.risNewItemSaving || !item) return;
+            const configs = {
+                brand: {
+                    url: this.brandQuickStoreUrl,
+                    optionsKey: 'brandOptions',
+                    field: 'brand_id',
+                    bodyKey: 'brand_name',
+                    emptyMsg: 'Type the new brand name first.',
+                    failMsg: 'Could not add the brand.',
+                },
+                uom: {
+                    url: this.uomQuickStoreUrl,
+                    optionsKey: 'uomOptions',
+                    field: 'uom_id',
+                    bodyKey: 'uom_name',
+                    emptyMsg: 'Type the new unit name first.',
+                    failMsg: 'Could not add the unit.',
+                },
+            };
+            const config = configs[kind];
+            if (!config || !config.url) return;
+
+            const name = String(this.risNewItemName || this.risSelectQuery || '').replace(/\s+/g, ' ').trim();
+            if (!name) {
+                this.risNewItemError = config.emptyMsg;
+                return;
+            }
+
+            this.risNewItemSaving = true;
+            this.risNewItemError = '';
+            try {
+                const res = await fetch(config.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': this.csrfToken(),
+                    },
+                    body: JSON.stringify({ [config.bodyKey]: name }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.id) {
+                    this.risNewItemError = (data.errors && data.errors[config.bodyKey] && data.errors[config.bodyKey][0])
+                        || data.message
+                        || config.failMsg;
+                    return;
+                }
+
+                const options = this[config.optionsKey] || [];
+                if (!options.some((opt) => String(opt.id) === String(data.id))) {
+                    options.push({
+                        id: String(data.id),
+                        name: String(data.label),
+                        label: String(data.label),
+                    });
+                    this[config.optionsKey] = options;
+                    this.sortRisCatalogOptions(config.optionsKey);
+                }
+                if (kind === 'brand') {
+                    const opt = (this.brandOptions || []).find((row) => String(row.id) === String(data.id));
+                    if (opt && !opt.name) opt.name = String(data.label);
+                    this.selectRisField(item, 'brand_id', data.id);
+                    this.risNewItemName = '';
+                    return;
+                }
+                if (kind === 'uom') {
+                    this.selectRisField(item, 'uom_id', data.id);
+                    item._showAllUnits = true;
+                    this.risNewItemName = '';
+                    return;
+                }
+                item[config.field] = String(data.id);
+                this.risNewItemName = '';
+                this.closeRisSelect();
+            } catch (e) {
+                this.risNewItemError = config.failMsg + ' Check your connection and try again.';
+            } finally {
+                this.risNewItemSaving = false;
+            }
+        },
         createSignSubmitting: false,
         createSignPendingSave: false,
-        createAttachmentName: '',
-        createAttachmentUrl: '',
+        createAttachmentFiles: [],
+        createAttachmentPreviews: [],
         createSigUploadName: '',
         createSaveOnUpload: true,
         createSaveOnDraw: true,
@@ -1282,29 +2109,53 @@
         confirmCreateSignature() {
             this.applyCreatePadSignature();
         },
-        onCreateAttachmentsChange(event) {
-            const file = event.target.files && event.target.files[0];
-            if (this.createAttachmentUrl) {
-                URL.revokeObjectURL(this.createAttachmentUrl);
-            }
-            this.createAttachmentName = file ? file.name : '';
-            this.createAttachmentUrl = file ? URL.createObjectURL(file) : '';
+        syncCreateAttachmentInput() {
+            const input = this.$refs.createAttachmentsInput;
+            if (!input || typeof DataTransfer === 'undefined') return;
+            const dt = new DataTransfer();
+            (this.createAttachmentFiles || []).forEach((file) => dt.items.add(file));
+            input.files = dt.files;
+        },
+        refreshCreateAttachmentPreviews() {
+            (this.createAttachmentPreviews || []).forEach((row) => {
+                if (row && row.url) URL.revokeObjectURL(row.url);
+            });
+            this.createAttachmentPreviews = (this.createAttachmentFiles || []).map((file) => ({
+                name: file.name,
+                url: URL.createObjectURL(file),
+                size: file.size || 0,
+            }));
             this.$nextTick(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
+                if (window.lucide) window.lucide.createIcons();
             });
         },
-        viewCreateAttachment() {
-            if (!this.createAttachmentUrl) return;
-            window.open(this.createAttachmentUrl, '_blank', 'noopener');
+        onCreateAttachmentsChange(event) {
+            const added = Array.from((event.target && event.target.files) || []);
+            const merged = [...(this.createAttachmentFiles || [])];
+            added.forEach((file) => {
+                const exists = merged.some((f) => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified);
+                if (!exists) merged.push(file);
+            });
+            this.createAttachmentFiles = merged.slice(0, 10);
+            this.syncCreateAttachmentInput();
+            this.refreshCreateAttachmentPreviews();
+        },
+        viewCreateAttachment(index = 0) {
+            const row = (this.createAttachmentPreviews || [])[index];
+            if (!row || !row.url) return;
+            window.open(row.url, '_blank', 'noopener');
+        },
+        removeCreateAttachment(index) {
+            const next = [...(this.createAttachmentFiles || [])];
+            next.splice(index, 1);
+            this.createAttachmentFiles = next;
+            this.syncCreateAttachmentInput();
+            this.refreshCreateAttachmentPreviews();
         },
         clearCreateAttachments() {
-            this.createAttachmentName = '';
-            if (this.createAttachmentUrl) {
-                URL.revokeObjectURL(this.createAttachmentUrl);
-                this.createAttachmentUrl = '';
-            }
+            this.createAttachmentFiles = [];
+            this.syncCreateAttachmentInput();
+            this.refreshCreateAttachmentPreviews();
             if (this.$refs.createAttachmentsInput) {
                 this.$refs.createAttachmentsInput.value = '';
             }
@@ -1392,12 +2243,272 @@
             return name + '|' + supplier + '|' + String(item?._uid || '');
         },
         risItemBrandSupplierKey(item) {
-            // Uniqueness is item + brand + supplier (same item/supplier OK if brand differs).
+            // Uniqueness is item + brand set + supplier set.
             const name = String(item?.name_description || '').trim().toLowerCase();
-            const brand = String(item?.brand_id || '').trim();
-            const supplier = String(item?.supplier_id || '').trim();
-            if (!name || !brand || !supplier) return '';
-            return name + '|' + brand + '|' + supplier;
+            const brands = (Array.isArray(item?.brand_ids) && item.brand_ids.length
+                ? item.brand_ids
+                : [item?.brand_id]).map((id) => String(id || '').trim()).filter(Boolean).sort().join(',');
+            const suppliers = (Array.isArray(item?.supplier_ids) && item.supplier_ids.length
+                ? item.supplier_ids
+                : [item?.supplier_id]).map((id) => String(id || '').trim()).filter(Boolean).sort().join(',');
+            if (!name || !brands || !suppliers) return '';
+            return name + '|' + brands + '|' + suppliers;
+        },
+        risItemNameKey(item) {
+            return String(item?.name_description || '').trim().toLowerCase();
+        },
+        risItemMergeKey(item) {
+            const name = this.risItemNameKey(item);
+            if (!name) return '';
+            // A new row keeps its own item cell even when the name matches a locked revision line.
+            return (item?._revisionLocked ? 'rev:' : 'new:') + name;
+        },
+        risSameItemAsPrev(items, index) {
+            if (!Array.isArray(items) || index <= 0) return false;
+            const key = this.risItemMergeKey(items[index]);
+            if (!key) return false;
+            return key === this.risItemMergeKey(items[index - 1]);
+        },
+        risItemMergesWithNext(items, index) {
+            if (!Array.isArray(items) || index < 0 || index >= items.length - 1) return false;
+            const key = this.risItemMergeKey(items[index]);
+            if (!key) return false;
+            return key === this.risItemMergeKey(items[index + 1]);
+        },
+        risItemMergeSpan(items, index) {
+            if (!Array.isArray(items) || index < 0 || index >= items.length) return 1;
+            if (this.risSameItemAsPrev(items, index)) return 1;
+            const key = this.risItemMergeKey(items[index]);
+            if (!key) return 1;
+            let span = 1;
+            for (let i = index + 1; i < items.length; i++) {
+                if (this.risItemMergeKey(items[i]) !== key) break;
+                span++;
+            }
+            return span;
+        },
+        risSupplierKey(item) {
+            return String(item?.supplier_id || (Array.isArray(item?.supplier_ids) ? item.supplier_ids[0] : '') || '').trim();
+        },
+        risSameSupplierAsPrev(items, index) {
+            if (!Array.isArray(items) || index <= 0) return false;
+            // Only merge supplier cells inside the same item-name block.
+            if (this.risItemNameKey(items[index]) !== this.risItemNameKey(items[index - 1])) return false;
+            const key = this.risSupplierKey(items[index]);
+            if (!key) return false;
+            return key === this.risSupplierKey(items[index - 1]);
+        },
+        risSupplierMergeSpan(items, index) {
+            if (!Array.isArray(items) || index < 0 || index >= items.length) return 1;
+            if (this.risSameSupplierAsPrev(items, index)) return 1;
+            const itemKey = this.risItemNameKey(items[index]);
+            const key = this.risSupplierKey(items[index]);
+            if (!itemKey || !key) return 1;
+            let span = 1;
+            for (let i = index + 1; i < items.length; i++) {
+                if (this.risItemNameKey(items[i]) !== itemKey) break;
+                if (this.risSupplierKey(items[i]) !== key) break;
+                span++;
+            }
+            return span;
+        },
+        coalesceRisSupplierWithinItemGroup(items, index) {
+            if (!Array.isArray(items) || !items[index]) return;
+            const itemKey = this.risItemMergeKey(items[index]);
+            if (!itemKey) return;
+
+            let start = index;
+            while (start > 0 && this.risItemMergeKey(items[start - 1]) === itemKey) start--;
+            let end = start;
+            while (end + 1 < items.length && this.risItemMergeKey(items[end + 1]) === itemKey) end++;
+
+            const group = items.slice(start, end + 1);
+            const buckets = new Map();
+            const empty = [];
+            const order = [];
+            group.forEach((row) => {
+                const sid = this.risSupplierKey(row);
+                if (!sid) {
+                    empty.push(row);
+                    return;
+                }
+                if (!buckets.has(sid)) {
+                    buckets.set(sid, []);
+                    order.push(sid);
+                }
+                buckets.get(sid).push(row);
+            });
+
+            const rebuilt = [];
+            order.forEach((sid) => {
+                rebuilt.push(...(buckets.get(sid) || []));
+            });
+            rebuilt.push(...empty);
+
+            let changed = rebuilt.length !== group.length;
+            if (!changed) {
+                for (let i = 0; i < rebuilt.length; i++) {
+                    if (rebuilt[i] !== group[i]) {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            if (!changed) return;
+
+            items.splice(start, end - start + 1, ...rebuilt);
+        },
+        coalesceRisItemNameGroup(items, key) {
+            if (!Array.isArray(items) || !key) return;
+            const matched = [];
+            const others = [];
+            let insertAt = 0;
+            let seenFirst = false;
+
+            for (const item of items) {
+                if (this.risItemMergeKey(item) === key) {
+                    if (!seenFirst) {
+                        insertAt = others.length;
+                        seenFirst = true;
+                    }
+                    matched.push(item);
+                } else {
+                    others.push(item);
+                }
+            }
+
+            if (matched.length <= 1) return;
+
+            const rebuilt = others.slice(0, insertAt).concat(matched, others.slice(insertAt));
+            let changed = false;
+            for (let i = 0; i < rebuilt.length; i++) {
+                if (rebuilt[i] !== items[i]) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) return;
+
+            items.splice(0, items.length, ...rebuilt);
+        },
+        coalesceAllRisItemNameGroups(items) {
+            if (!Array.isArray(items) || !items.length) return;
+            const seen = {};
+            for (const item of items) {
+                const key = this.risItemMergeKey(item);
+                if (!key || seen[key]) continue;
+                seen[key] = true;
+                this.coalesceRisItemNameGroup(items, key);
+            }
+        },
+        risItemGroupUniqueSupplierCount(items, index) {
+            if (!Array.isArray(items) || !items[index]) return 0;
+            const itemKey = this.risItemNameKey(items[index]);
+            if (!itemKey) return 0;
+            let start = index;
+            while (start > 0 && this.risItemNameKey(items[start - 1]) === itemKey) start--;
+            let end = start;
+            while (end + 1 < items.length && this.risItemNameKey(items[end + 1]) === itemKey) end++;
+            const ids = {};
+            for (let i = start; i <= end; i++) {
+                const sid = this.risSupplierKey(items[i]);
+                if (sid) ids[sid] = true;
+            }
+            return Object.keys(ids).length;
+        },
+        risCanvassSupplierWarning(items) {
+            if (!Array.isArray(items) || !items.length) return null;
+
+            // One item may have many rows, but only 3 different suppliers across those rows.
+            const seenSupplierItems = {};
+            for (let i = 0; i < items.length; i++) {
+                const itemKey = this.risItemNameKey(items[i]);
+                if (!itemKey || seenSupplierItems[itemKey]) continue;
+                seenSupplierItems[itemKey] = true;
+                const bounds = this.risItemGroupBounds(items, i);
+                if (!bounds) continue;
+                const ids = {};
+                for (let j = bounds.start; j <= bounds.end; j++) {
+                    const sid = this.risSupplierKey(items[j]);
+                    if (sid) ids[sid] = true;
+                }
+                const supplierCount = Object.keys(ids).length;
+                const itemLabel = String(items[i].name_description || '').trim();
+                if (supplierCount === 1 || supplierCount > 3) {
+                    return {
+                        kind: 'suppliers',
+                        label: itemLabel,
+                        count: supplierCount,
+                        tooFew: supplierCount === 1,
+                        tooMany: supplierCount > 3,
+                        message: itemLabel + ' must have at least 2 and at most 3 different suppliers.',
+                    };
+                }
+            }
+
+            // Per supplier under the same item: at most 3 different brands.
+            const seenItems = {};
+            for (let i = 0; i < items.length; i++) {
+                const itemKey = this.risItemNameKey(items[i]);
+                if (!itemKey || seenItems[itemKey]) continue;
+                seenItems[itemKey] = true;
+                let start = i;
+                while (start > 0 && this.risItemNameKey(items[start - 1]) === itemKey) start--;
+                let end = start;
+                while (end + 1 < items.length && this.risItemNameKey(items[end + 1]) === itemKey) end++;
+                const bySupplier = {};
+                for (let j = start; j <= end; j++) {
+                    const sid = this.risSupplierKey(items[j]);
+                    const bid = this.risBrandKey(items[j]);
+                    if (!sid || !bid) continue;
+                    bySupplier[sid] = bySupplier[sid] || {};
+                    bySupplier[sid][bid] = true;
+                }
+                for (const sid of Object.keys(bySupplier)) {
+                    const brandCount = Object.keys(bySupplier[sid]).length;
+                    if (brandCount > 3) {
+                        return {
+                            kind: 'brands',
+                            label: String(items[i].name_description || '').trim(),
+                            count: brandCount,
+                            tooFew: false,
+                            tooMany: true,
+                            message: 'Each supplier under the same item can have at most 3 different brands.',
+                        };
+                    }
+                }
+            }
+            return null;
+        },
+        risHasCanvassSupplierWarning(items) {
+            return !!this.risCanvassSupplierWarning(items);
+        },
+        risTableEpoch: 0,
+        risCanvassRevision: 0,
+        createCanvassWarning: null,
+        editCanvassWarning: null,
+        liveCanvassWarning(items) {
+            // Touch revision so Alpine re-renders the banner after supplier/brand edits.
+            void this.risCanvassRevision;
+            return this.risCanvassSupplierWarning(items);
+        },
+        notifyRisCanvassChanged() {
+            this.risCanvassRevision += 1;
+            const createWarn = this.risCanvassSupplierWarning(this.createItems);
+            this.createCanvassWarning = createWarn ? { ...createWarn } : null;
+            // Prefer the nearest nested editItems scope (edit modal), else parent.
+            let editItems = null;
+            if (Array.isArray(this.editItems)) {
+                editItems = this.editItems;
+            } else if (this.$root && Array.isArray(this.$root.editItems)) {
+                editItems = this.$root.editItems;
+            }
+            if (editItems) {
+                const editWarn = this.risCanvassSupplierWarning(editItems);
+                this.editCanvassWarning = editWarn ? { ...editWarn } : null;
+            } else {
+                this.editCanvassWarning = null;
+            }
         },
         risDuplicateSupplierInfo(items, index) {
             const row = items[index];
@@ -1414,6 +2525,11 @@
         },
         risHasDuplicateSupplier(items) {
             return items.some((_, index) => !!this.risDuplicateSupplierInfo(items, index));
+        },
+        risDuplicateRowNotice(items) {
+            void this.risCanvassRevision;
+            if (!Array.isArray(items) || !this.risHasDuplicateSupplier(items)) return '';
+            return 'The same item, brand, and supplier is on more than one row. Change the brand or supplier, or combine them into one row.';
         },
         risSplitInfo(items, index) {
             const row = items[index];
@@ -1455,11 +2571,21 @@
             el.value = formatted;
         },
         init() {
-            this.createItems.forEach((row) => this.applyItemHints(row, false));
+            this.createItems.forEach((row) => {
+                this.applyItemHints(row, false);
+                if (row.unit_cost !== '' && row.unit_cost != null) {
+                    row.unit_cost = this.formatRisMoney(row.unit_cost);
+                }
+            });
             this.applyReplacementPrefill(false);
             this.createItems.forEach((row) => this.applyItemHints(row, false));
+            this.coalesceAllRisItemNameGroups(this.createItems);
+            this.applySelectedSupplierFromQuery();
+            this.notifyRisCanvassChanged();
+            this.$watch('createItems', () => this.notifyRisCanvassChanged(), { deep: true });
             this.$watch('selectedReplacement', () => {
                 this.applyReplacementPrefill(true);
+                this.notifyRisCanvassChanged();
             });
             if (this.createRisModal || this.editRisModal) {
                 this.seedPurchaserSignatureFromLibrary();
@@ -1471,7 +2597,7 @@
         clearOneShotRisQueryParams() {
             const url = new URL(window.location.href);
             // create=1 is a one-shot deep link: open Create once, then strip so refresh stays on the list.
-            const keys = ['create', 'replacement_request', 'copy_from', 'view_ris', 'ris_id'];
+            const keys = ['create', 'replacement_request', 'copy_from', 'view_ris', 'ris_id', 'selected_supplier'];
             let changed = false;
             keys.forEach((key) => {
                 if (url.searchParams.has(key)) {
@@ -2094,6 +3220,11 @@
             font-size: 12px;
         }
 
+        /* One ITEM name covering every same-item row; Brand→Amount keep their own lines. */
+        td.ris-item-merged-cell {
+            vertical-align: middle;
+        }
+
         /* Column widths matching the original (with brand + unit + supplier) */
         .ris-item-column {
             width: 20%;
@@ -2359,6 +3490,29 @@
         .ris-row-delete-hit:disabled,
         .ris-item-row:has(.ris-row-delete-hit:disabled) .ris-row-delete-x {
             display: none;
+        }
+
+        .ris-line-remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            z-index: 8;
+            display: inline-flex;
+            width: 16px;
+            height: 16px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #fecdd3;
+            border-radius: 999px;
+            background: #fff;
+            color: #be123c;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .ris-line-remove:hover {
+            background: #fff1f2;
         }
 
         .ris-row-delete-x svg {
@@ -2631,7 +3785,7 @@
         x-cloak
         x-show="createRisModal"
         x-transition.opacity
-        x-on:keydown.escape.window="if (createSignModal) { closeCreateSignModal(); } else { createRisModal = false; createRisFullscreen = false }"
+        x-on:keydown.escape.window="if (addSupplierModal) { return; } if (document.getElementById('purConfirmOverlay')) { return; } if (createSignModal) { closeCreateSignModal(); } else { requestCloseCreateRis() }"
         class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50"
         x-bind:class="createRisFullscreen ? 'p-0' : 'p-4 md:p-8'"
         x-effect="window.purDialog && window.purDialog.sync(createRisModal, $el)"
@@ -2641,7 +3795,7 @@
         aria-labelledby="ris-create-title"
     >
         <div
-            x-on:click.self="createRisModal = false; createRisFullscreen = false"
+            x-on:click.self="requestCloseCreateRis()"
             class="flex min-h-full w-full justify-center"
         >
             <div
@@ -2680,7 +3834,7 @@
                             </button>
                             <button
                                 type="button"
-                                x-on:click="createRisModal = false; createRisFullscreen = false"
+                                x-on:click="requestCloseCreateRis()"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-xl border-0 bg-transparent text-gray-400 shadow-none outline-none ring-0 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-0"
                                 aria-label="Close"
                             >
@@ -2841,7 +3995,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <p class="mt-2 text-xs text-gray-500">Select an approved replacement request, or leave this blank for a manual RIS.</p>
+                       
 
                         <div x-show="selectedReplacementData()" class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
@@ -2912,6 +4066,20 @@
                                 </div>
                             </div>
 
+                            <div
+                                data-ris-form-errors
+                                class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+                                @if(!($errors->any() && empty(session('edit_ris')))) hidden @endif
+                            >
+                                @if($errors->any() && empty(session('edit_ris')))
+                                    <p class="font-semibold">Still needed</p>
+                                    <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                                        @foreach($errors->all() as $message)
+                                            <li>{{ $message }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
                             <div class="w-full">
                                 <table class="w-full table-fixed border-collapse border border-gray-800" :class="{ 'ris-delete-mode': createRowDeleteMode }">
                                     <colgroup>
@@ -2936,32 +4104,45 @@
                                         </tr>
                                         <tr>
                                             <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]">Requested <span class="text-red-500">*</span></th>
-                                            <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]">Issued <span class="text-red-500">*</span></th>
+                                            <th class="border border-gray-800 px-0.5 py-1 text-center text-[8px] font-bold uppercase sm:text-[11px]" title="Filled during revision">Issued</th>
                                         </tr>
                                     </thead>
+                                    <template x-for="epoch in [risTableEpoch]" :key="'create-ris-body-' + epoch">
                                     <tbody>
                                         <template x-for="(item, index) in createItems" :key="item._uid || index">
                                             <tr class="ris-item-row" :class="(risSplitInfo(createItems, index)?.overflow || risDuplicateSupplierInfo(createItems, index)) ? 'bg-red-50' : ''">
+                                                <template x-if="!risSameItemAsPrev(createItems, index)">
+                                                    <td
+                                                        class="min-w-0 border border-gray-800 p-0.5 sm:p-1"
+                                                        x-bind:rowspan="risItemMergeSpan(createItems, index)"
+                                                        :class="risItemMergeSpan(createItems, index) > 1 ? 'ris-item-merged-cell' : 'align-top'"
+                                                    >
+                                                        <span class="ris-row-delete-x" style="width: 555.556%;" aria-hidden="true">
+                                                            <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+                                                                <line x1="0" y1="0" x2="100" y2="40" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
+                                                                <line x1="0" y1="40" x2="100" y2="0" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
+                                                            </svg>
+                                                        </span>
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
+                                                        @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
+                                                        <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px] text-red-700" x-show="risDuplicateSupplierInfo(createItems, index)" x-cloak x-text="(() => { const info = risDuplicateSupplierInfo(createItems, index); if (!info) return ''; return '\"' + info.label + '\" with this brand and supplier already exists on item ' + info.otherRow + '. Change the brand or supplier, or combine into one row.'; })()"></p>
+                                                        <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; })()"></p>
+                                                    </td>
+                                                </template>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
-                                                    <span class="ris-row-delete-x" style="width: 555.556%;" aria-hidden="true">
-                                                        <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                                                            <line x1="0" y1="0" x2="100" y2="40" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
-                                                            <line x1="0" y1="40" x2="100" y2="0" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
-                                                        </svg>
-                                                    </span>
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
-                                                    @include('purchaser.ris._item-select', ['listVar' => 'createItems'])
-                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px] text-red-700" x-show="risDuplicateSupplierInfo(createItems, index)" x-cloak x-text="(() => { const info = risDuplicateSupplierInfo(createItems, index); if (!info) return ''; return '\"' + info.label + '\" with this brand and supplier already exists on item ' + info.otherRow + '. Change the brand or supplier, or combine into one row.'; })()"></p>
-                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; })()"></p>
-                                                </td>
-                                                <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
+                                                    <template x-if="risSameItemAsPrev(createItems, index)">
+                                                        <input type="hidden" x-bind:name="`ris_items[${index}][name_description]`" x-bind:value="item.name_description">
+                                                    </template>
                                                     @include('purchaser.ris._searchable-select', [
                                                         'field' => 'brand_id',
                                                         'optionsKey' => 'brandOptions',
                                                         'limitKind' => 'brand',
                                                         'placeholder' => 'Brand',
                                                         'textAlign' => 'center',
+                                                        'panelMinWidth' => 'min-w-[12rem]',
                                                     ])
+                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px] text-red-700" x-show="risSameItemAsPrev(createItems, index) && risDuplicateSupplierInfo(createItems, index)" x-cloak x-text="(() => { const info = risDuplicateSupplierInfo(createItems, index); if (!info) return ''; return '\"' + info.label + '\" with this brand and supplier already exists on item ' + info.otherRow + '. Change the brand or supplier, or combine into one row.'; })()"></p>
+                                                    <p class="mt-1 px-1 text-[10px] leading-4 sm:px-2 sm:text-[11px]" x-show="risSameItemAsPrev(createItems, index) && risSplitInfo(createItems, index)" x-cloak :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'" x-text="(() => { const info = risSplitInfo(createItems, index); if (!info) return ''; return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').'; })()"></p>
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
@@ -2975,37 +4156,76 @@
                                                     ])
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
-                                                <td class="min-w-0 border border-gray-800 p-0.5 align-top sm:p-1">
-                                                    @include('purchaser.ris._searchable-select', [
-                                                        'field' => 'supplier_id',
-                                                        'optionsKey' => 'supplierOptions',
-                                                        'limitKind' => 'supplier',
-                                                        'placeholder' => 'Select supplier',
-                                                        'textAlign' => 'left',
-                                                        'panelMinWidth' => 'min-w-[12rem]',
-                                                    ])
-                                                    @include('purchaser.ris._supplier-warning')
+                                                <template x-if="!risSameSupplierAsPrev(createItems, index)">
+                                                    <td
+                                                        class="min-w-0 border border-gray-800 p-0.5 sm:p-1"
+                                                        x-bind:rowspan="risSupplierMergeSpan(createItems, index)"
+                                                        :class="risSupplierMergeSpan(createItems, index) > 1 ? 'ris-item-merged-cell' : 'align-top'"
+                                                    >
+                                                        @include('purchaser.ris._searchable-select', [
+                                                            'field' => 'supplier_id',
+                                                            'optionsKey' => 'supplierOptions',
+                                                            'limitKind' => 'supplier',
+                                                            'placeholder' => 'Select supplier',
+                                                            'textAlign' => 'left',
+                                                            'panelMinWidth' => 'min-w-[12rem]',
+                                                        ])
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
+                                                    </td>
+                                                </template>
+                                                <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
+                                                    <template x-if="risSameSupplierAsPrev(createItems, index)">
+                                                        <input type="hidden" x-bind:name="`ris_items[${index}][supplier_id]`" x-bind:value="item.supplier_id">
+                                                    </template>
+                                                    <template x-if="risSameSupplierAsPrev(createItems, index) && item.supplier_id">
+                                                        <input type="hidden" x-bind:name="`ris_items[${index}][supplier_ids][]`" x-bind:value="item.supplier_id">
+                                                    </template>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="{{ \App\Support\InputLimits::QTY }}"
+                                                        data-qty
+                                                        x-model="item.quantity_requested"
+                                                        x-on:input="if (!risRowHasQty(item)) item.unit_cost = ''"
+                                                        x-bind:name="`ris_items[${index}][quantity_requested]`"
+                                                        x-bind:readonly="!risFieldReady(item, 'quantity_requested')"
+                                                        x-bind:tabindex="risFieldReady(item, 'quantity_requested') ? 0 : -1"
+                                                        x-bind:title="risFieldLockReason(item, 'quantity_requested')"
+                                                        x-bind:class="risFieldReady(item, 'quantity_requested') ? 'bg-transparent text-gray-800' : 'cursor-not-allowed bg-gray-50 text-gray-400'"
+                                                        class="w-full min-w-0 border-0 px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm"
+                                                    >
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="1" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-model="item.quantity_requested" x-on:input="item.quantity_requested = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_requested)) || item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="w-full min-w-0 border-0 px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-transparent'">
+                                                    {{-- First process: Issued is locked; Purchaser fills it only on revision. --}}
+                                                    <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty readonly tabindex="-1" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-center text-[11px] text-gray-600 outline-none focus:ring-0 sm:text-sm" title="Issued is filled during revision">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-model="item.quantity_issued" x-on:input="item.quantity_issued = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_issued)) || item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-center text-[11px] outline-none focus:ring-0 sm:text-sm" title="Issued cannot be higher than requested">
+                                                    <input
+                                                        type="text"
+                                                        inputmode="decimal"
+                                                        data-money
+                                                        x-model="item.unit_cost"
+                                                        x-on:blur="item.unit_cost = formatRisMoney(item.unit_cost)"
+                                                        x-bind:name="`ris_items[${index}][unit_cost]`"
+                                                        x-bind:readonly="!risFieldReady(item, 'unit_cost')"
+                                                        x-bind:tabindex="risFieldReady(item, 'unit_cost') ? 0 : -1"
+                                                        x-bind:title="risFieldLockReason(item, 'unit_cost')"
+                                                        x-bind:class="risFieldReady(item, 'unit_cost') ? 'bg-transparent text-gray-800' : 'cursor-not-allowed bg-gray-50 text-gray-400'"
+                                                        class="w-full min-w-0 border-0 px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm"
+                                                        placeholder="0.00"
+                                                    >
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                                 <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="number" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" inputmode="decimal" data-money x-model="item.unit_cost" x-on:input="item.unit_cost = (window.PrismInputLimits && PrismInputLimits.clampMoney(item.unit_cost)) || item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="w-full min-w-0 border-0 bg-transparent px-0.5 py-1.5 text-right text-[11px] outline-none focus:ring-0 sm:px-2 sm:text-sm">
-                                                    <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
-                                                </td>
-                                                <td class="min-w-0 border border-gray-800 p-0.5 sm:p-1">
-                                                    <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="(((Number(item.quantity_issued) || 0) > 0 ? (Number(item.quantity_issued) || 0) : (Number(item.quantity_requested) || 0)) * (Number(item.unit_cost) || 0)).toFixed(2)" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
+                                                    <input type="text" readonly tabindex="-1" data-money x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="formatRisMoney(risItemTotal(item))" class="w-full min-w-0 cursor-not-allowed border-0 bg-gray-50 px-0.5 py-1.5 text-right text-[11px] text-gray-500 outline-none focus:ring-0 sm:px-2 sm:text-sm">
                                                     <button type="button" class="ris-row-delete-hit" x-on:click="removeCreateItem(index)" x-bind:disabled="createItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                 </td>
                                             </tr>
                                         </template>
                                     </tbody>
+                                    </template>
                                 </table>
 
                                 <div class="ris-edit-add-row">
@@ -3029,6 +4249,25 @@
                                         x-bind:disabled="createItems.length >= risMaxRows"
                                         x-bind:title="createItems.length >= risMaxRows ? ('Maximum of ' + risMaxRows + ' rows') : 'Add item row'"
                                     >+ Add Item</button>
+                                </div>
+
+                                <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-5 text-slate-700">
+                                    <p class="font-semibold text-slate-900">Note: Minimum of 2 and maximum of 3 suppliers. Each supplier have minimum of 1 and maximum of 3 brands.</p>
+                                    
+                                </div>
+
+                                <div
+                                    x-show="!!risDuplicateRowNotice(createItems)"
+                                    x-cloak
+                                    class="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-[12px] leading-5 text-rose-900"
+                                >
+                                    <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>
+                                    </svg>
+                                    <p>
+                                        <span class="font-semibold">Duplicate row:</span>
+                                        <span x-text="risDuplicateRowNotice(createItems)"></span>
+                                    </p>
                                 </div>
                             </div>
 
@@ -3087,36 +4326,38 @@
                             <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold text-slate-950">Canvass <span class="text-red-500">*</span></p>
-                                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · Word, Excel, or PDF</p>
+                                    <p class="truncate text-[11px] text-slate-500">Required to submit · multiple files · Word, Excel, or PDF · up to 10 · up to 3 suppliers per item</p>
                                 </div>
                             </div>
 
                             <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                                <div x-show="createAttachmentName" class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5" style="display: none;">
-                                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200/80">
-                                        <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                <template x-for="(file, index) in createAttachmentPreviews" :key="'create-canvas-' + index + '-' + file.name">
+                                    <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200/80">
+                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                        </div>
+                                        <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="file.name"></p>
+                                        <button
+                                            type="button"
+                                            x-on:click="viewCreateAttachment(index)"
+                                            class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
+                                        >View</button>
+                                        <button
+                                            type="button"
+                                            x-on:click="removeCreateAttachment(index)"
+                                            class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
+                                        >Remove</button>
                                     </div>
-                                    <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="createAttachmentName"></p>
-                                    <button
-                                        type="button"
-                                        x-show="createAttachmentUrl"
-                                        x-on:click="viewCreateAttachment()"
-                                        class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
-                                    >View</button>
-                                    <button
-                                        type="button"
-                                        x-on:click="clearCreateAttachments()"
-                                        class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
-                                    >Remove</button>
-                                </div>
+                                </template>
 
                                 <label
-                                    x-show="!createAttachmentName"
+                                    x-show="createAttachmentPreviews.length < 10"
                                     class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2.5 transition hover:border-slate-400 hover:bg-slate-50"
                                 >
                                     <input
                                         type="file"
                                         name="ris_attachments[]"
+                                        multiple
                                         accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                         class="sr-only"
                                         x-ref="createAttachmentsInput"
@@ -3126,34 +4367,19 @@
                                         <i data-lucide="upload" class="h-3.5 w-3.5"></i>
                                     </div>
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-xs font-medium text-slate-800">Upload file</p>
-                                        <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
+                                        <p class="text-xs font-medium text-slate-800" x-text="createAttachmentPreviews.length ? 'Add more files' : 'Upload files'"></p>
+                                        <p class="truncate text-[10px] text-slate-500">Multiple files · Word, Excel, or PDF · up to 10</p>
                                     </div>
                                 </label>
                             </div>
                         </div>
                     </div>
 
-                    <div
-                        data-ris-form-errors
-                        @class([
-                            'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6' => $errors->any() && empty(session('edit_ris')),
-                        ])
-                        @if(!($errors->any() && empty(session('edit_ris')))) hidden @endif
-                    >
-                        @if($errors->any() && empty(session('edit_ris')))
-                            <ul class="list-disc space-y-1 pl-4">
-                                @foreach($errors->all() as $message)
-                                    <li>{{ $message }}</li>
-                                @endforeach
-                            </ul>
-                        @endif
-                    </div>
                     <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
                         <p class="mr-auto max-w-sm text-[11px] text-slate-500">
                             Submit sends this to the School Administrator next.
                         </p>
-                        <button type="button" x-on:click="createRisModal = false; createRisFullscreen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                        <button type="button" x-on:click="requestCloseCreateRis()" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
                         <button
@@ -3194,7 +4420,6 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 id="purchaser-ris-sign-title" class="text-lg font-bold text-slate-900">Sign the RIS</h3>
-                    <p class="mt-1.5 text-sm leading-6 text-slate-500">Sign over your printed name. This overlays <strong>Requested by</strong>.</p>
                 </div>
                 <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" x-on:click="closeCreateSignModal()" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
@@ -3367,20 +4592,12 @@
                     @php
                         $risStatusOptions = [
                             '' => 'All statuses',
-                            'Draft' => \App\Support\ProcurementDraftLabel::filterOption(),
-                            'In Review' => 'In Review',
-                            'Submitted' => 'Submitted',
-                            'Under Review' => 'Under Review',
-                            'Minor Revision' => 'For revision (School Administrator)',
-                            'President Revision' => 'For revision (President)',
-                            'Returned by the President' => 'For revision (President) — School Administrator',
-                            'Resubmitted' => 'Resubmitted',
-                            'Approved' => 'Approved',
-                            'Directly Approved' => 'Directly Approved',
-                            'Forwarded to President' => 'Forwarded to the President by the Administrator',
-                            'Approved by the President' => 'Approved by the President',
-                            'Rejected' => 'Rejected',
-                            'Rejected by the President' => 'Rejected by the President',
+                            'Draft' => \App\Support\ProcurementStatus::IN_PREPARATION,
+                            'In Review' => \App\Support\ProcurementStatus::WITH_SCHOOL_ADMINISTRATOR,
+                            'Forwarded to President' => \App\Support\ProcurementStatus::SA_FORWARDED_TO_PRESIDENT,
+                            'For revision' => \App\Support\ProcurementStatus::FOR_REVISION,
+                            'Approved' => \App\Support\ProcurementStatus::APPROVED,
+                            'Rejected' => \App\Support\ProcurementStatus::REJECTED,
                         ];
                         $selectedRisStatus = (string) request('status', '');
                         $risUrgencyOptions = [
@@ -3615,7 +4832,7 @@
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Requested By</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
                         <th class="py-3 pl-3 pr-5 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
@@ -3710,7 +4927,7 @@
                                 @endif
                             </td>
 
-                            <td class="max-w-[11rem] px-3 py-3.5">
+                            <td class="max-w-[11rem] px-3 py-3.5 text-center">
                                 @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
                                 @if($pendingHandover = $handoverOutgoing->get((int) $ris->ris_id))
                                     <p class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
@@ -3772,15 +4989,17 @@
                                         && ($isRejectedRis || ($isApprovedRis && ! empty($ris->has_atp)));
                                 @endphp
                                 <div class="inline-flex items-center justify-end gap-1">
-                                    <button
-                                        type="button"
-                                        x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                        title="View"
-                                        aria-label="View"
-                                    >
-                                        <i data-lucide="eye" class="h-4 w-4"></i>
-                                    </button>
+                                    @unless($isMinorRevisionRis)
+                                        <button
+                                            type="button"
+                                            x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                            title="View"
+                                            aria-label="View"
+                                        >
+                                            <i data-lucide="eye" class="h-4 w-4"></i>
+                                        </button>
+                                    @endunless
                                     <button
                                         type="button"
                                         data-share-doc-type="ris"
@@ -3948,17 +5167,6 @@
                                             </div>
                                             </template>
                                         </div>
-                                    @endif
-
-                                    @if(
-                                        empty($archiveView)
-                                        && in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)
-                                    )
-                                        @include('partials.purchaser-reassign-reviewer', [
-                                            'type' => 'ris',
-                                            'id' => $ris->ris_id,
-                                            'currentReviewerId' => $ris->ris_assigned_reviewer_id ?? null,
-                                        ])
                                     @endif
 
                                     @if(!empty($archiveView))
@@ -4156,7 +5364,7 @@
                                 @foreach($supplierBreakdown as $group)
                                     <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
                                         <div class="min-w-0">
-                                            <p class="truncate text-sm font-medium text-slate-900">
+                                            <p class="text-sm font-medium text-slate-900 break-words" title="{{ $group['name'] }}">
                                                 <span class="mr-1 text-xs font-normal text-slate-400">{{ $group['position'] }}.</span>
                                                 {{ $group['name'] }}
                                             </p>
@@ -4169,7 +5377,7 @@
                                             >
                                                 <i data-lucide="file-check" class="h-3.5 w-3.5"></i>
                                                 {{ $group['atp']->authority_purchase_form_number ?: 'ATP #'.$group['atp']->authority_purchase_id }}
-                                                <span class="font-normal text-green-600">· {{ \App\Support\RisWorkflow::atpStatusLabel($group['atp']) }}</span>
+                                                @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::atpStatusLabel($group['atp'])])
                                             </a>
                                         @elseif(!empty($ris->can_create_atp))
                                             <a
@@ -4229,7 +5437,7 @@
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <p class="text-sm font-semibold text-orange-900">
-                                            {{ $revisionFromPresident ? 'For revision (President)' : 'For revision (School Administrator)' }}
+                                            For revision
                                         </p>
                                         <p class="mt-1 text-xs text-orange-700">This RIS was returned for correction.</p>
                                     </div>
@@ -4296,8 +5504,8 @@
                                         <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
-                                        <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
-                                        <td class="text-right">{{ $item ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0)), 2) : ' ' }}</td>
+                                        <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? \App\Support\Money::format($item->ris_unit_cost) : ' ' }}</td>
+                                        <td class="text-right">{{ $item ? \App\Support\Money::format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))) : ' ' }}</td>
                                     </tr>
                                 @endfor
                             </tbody>
@@ -4581,8 +5789,8 @@
                                         <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
-                                        <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
-                                        <td class="text-right">{{ $item ? number_format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0)), 2) : ' ' }}</td>
+                                        <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? \App\Support\Money::format($item->ris_unit_cost) : ' ' }}</td>
+                                        <td class="text-right">{{ $item ? \App\Support\Money::format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))) : ' ' }}</td>
                                     </tr>
                                 @endfor
                             </tbody>
@@ -4667,7 +5875,7 @@
                 x-cloak
                 x-show="editRisModal === 'edit-ris-{{ $ris->ris_id }}'"
                 x-transition.opacity
-                x-on:keydown.escape.window="if (submitRisConfirm) { return; } if (editRisFullscreen) { editRisFullscreen = false; } else { closeEditRis({{ $ris->ris_id }}) }"
+                x-on:keydown.escape.window="if (addSupplierModal) { return; } if (submitRisConfirm || document.getElementById('purConfirmOverlay')) { return; } if (editRisFullscreen) { editRisFullscreen = false; } else { closeEditRis({{ $ris->ris_id }}) }"
                 class="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50"
                 x-bind:class="editRisFullscreen ? 'p-0' : 'p-4 md:p-8'"
                 x-effect="window.purDialog && window.purDialog.sync(editRisModal === 'edit-ris-{{ $ris->ris_id }}', $el)"
@@ -4678,15 +5886,101 @@
                     class="flex min-h-full w-full justify-center"
                 >
                 @php
+                    $canEditIssuedQty = in_array($ris->ris_status, [
+                        \App\Support\RisWorkflow::MINOR_REVISION,
+                        \App\Support\RisWorkflow::PRESIDENT_REVISION,
+                    ], true);
                     $blankEditItem = [
                         'name_description' => '',
+                        'brand_ids' => [],
+                        'brand_qtys' => [],
                         'brand_id' => '',
+                        'supplier_ids' => [],
                         'supplier_id' => '',
                         'uom_id' => '',
                         'quantity_requested' => '',
                         'quantity_issued' => '',
                         'unit_cost' => '',
                     ];
+                    $normalizeEditSupplierIds = function ($item) {
+                        $ids = null;
+                        if (is_array($item)) {
+                            $ids = $item['supplier_ids'] ?? null;
+                        } elseif (is_object($item)) {
+                            $ids = $item->supplier_ids ?? null;
+                            if (! is_array($ids) && isset($item->ris_item_supplier_ids)) {
+                                $decoded = is_string($item->ris_item_supplier_ids)
+                                    ? json_decode($item->ris_item_supplier_ids, true)
+                                    : $item->ris_item_supplier_ids;
+                                $ids = is_array($decoded) ? $decoded : null;
+                            }
+                        }
+                        if (! is_array($ids)) {
+                            $single = is_array($item)
+                                ? (string) ($item['supplier_id'] ?? '')
+                                : (string) ($item->ris_item_supplier_id ?? $item->supplier_id ?? '');
+                            $ids = $single !== '' ? [$single] : [];
+                        }
+
+                        return array_values(array_filter(array_map('strval', $ids), fn ($id) => $id !== ''));
+                    };
+                    $normalizeEditBrandIds = function ($item) {
+                        $ids = null;
+                        if (is_array($item)) {
+                            $ids = $item['brand_ids'] ?? null;
+                        } elseif (is_object($item)) {
+                            $ids = $item->brand_ids ?? null;
+                            if (! is_array($ids) && isset($item->ris_item_brand_ids)) {
+                                $decoded = is_string($item->ris_item_brand_ids)
+                                    ? json_decode($item->ris_item_brand_ids, true)
+                                    : $item->ris_item_brand_ids;
+                                $ids = is_array($decoded) ? $decoded : null;
+                            }
+                        }
+                        if (! is_array($ids)) {
+                            $single = is_array($item)
+                                ? (string) ($item['brand_id'] ?? '')
+                                : (string) ($item->ris_item_brand_id ?? $item->brand_id ?? '');
+                            $ids = $single !== '' ? [$single] : [];
+                        }
+
+                        return array_values(array_filter(array_map('strval', $ids), fn ($id) => $id !== ''));
+                    };
+                    $normalizeEditBrandQtys = function ($item, array $brandIds) {
+                        $raw = null;
+                        if (is_array($item)) {
+                            $raw = $item['brand_qtys'] ?? null;
+                        } elseif (is_object($item)) {
+                            $raw = $item->brand_qtys ?? null;
+                            if (! is_array($raw) && isset($item->ris_item_brand_quantities)) {
+                                $decoded = is_string($item->ris_item_brand_quantities)
+                                    ? json_decode($item->ris_item_brand_quantities, true)
+                                    : $item->ris_item_brand_quantities;
+                                $raw = is_array($decoded) ? $decoded : null;
+                            }
+                        }
+                        $qtys = [];
+                        if (is_array($raw)) {
+                            foreach ($raw as $id => $qty) {
+                                $qtys[(string) $id] = max(1, (int) $qty);
+                            }
+                        }
+                        if ($qtys === [] && $brandIds !== []) {
+                            $seed = is_array($item)
+                                ? max(1, (int) ($item['quantity_requested'] ?? 1))
+                                : max(1, (int) ($item->ris_quantity_requested ?? 1));
+                            $qtys[(string) $brandIds[0]] = $seed;
+                            foreach (array_slice($brandIds, 1) as $extraId) {
+                                $qtys[(string) $extraId] = 1;
+                            }
+                        }
+                        $filtered = [];
+                        foreach ($brandIds as $id) {
+                            $filtered[(string) $id] = $qtys[(string) $id] ?? 1;
+                        }
+
+                        return $filtered;
+                    };
                     $restoreEditItems = $editRisId > 0
                         && $editRisId === (int) $ris->ris_id
                         && is_array(old('ris_items'));
@@ -4694,13 +5988,23 @@
                         // Keep the exact rows from the last submit attempt (incl. blank slots they added).
                         $editItemsForModal = collect(old('ris_items', []))
                             ->take($risMaxRows)
-                            ->map(function ($item) use ($blankEditItem) {
+                            ->map(function ($item) use ($blankEditItem, $normalizeEditBrandIds, $normalizeEditBrandQtys, $normalizeEditSupplierIds, $canEditIssuedQty) {
+                                $brandIds = $normalizeEditBrandIds($item);
+                                $brandQtys = $normalizeEditBrandQtys($item, $brandIds);
+                                $supplierIds = $normalizeEditSupplierIds($item);
+                                $requested = array_sum($brandQtys);
+
                                 return [
+                                    '_revision_locked' => $canEditIssuedQty && (string) ($item['_revision_locked'] ?? '') === '1',
+                                    'ris_item_id' => (string) ($item['ris_item_id'] ?? ''),
                                     'name_description' => $item['name_description'] ?? '',
-                                    'brand_id' => (string) ($item['brand_id'] ?? ''),
-                                    'supplier_id' => (string) ($item['supplier_id'] ?? ''),
+                                    'brand_ids' => $brandIds,
+                                    'brand_qtys' => $brandQtys,
+                                    'brand_id' => $brandIds[0] ?? '',
+                                    'supplier_ids' => $supplierIds,
+                                    'supplier_id' => $supplierIds[0] ?? '',
                                     'uom_id' => (string) ($item['uom_id'] ?? ''),
-                                    'quantity_requested' => $item['quantity_requested'] ?? '',
+                                    'quantity_requested' => $requested > 0 ? $requested : ($item['quantity_requested'] ?? ''),
                                     'quantity_issued' => $item['quantity_issued'] ?? '',
                                     'unit_cost' => $item['unit_cost'] ?? '',
                                 ] + $blankEditItem;
@@ -4711,13 +6015,23 @@
                         // Saved items, padded with blank paper rows up to the default count.
                         $editItemsForModal = collect($ris->risItems ?? [])
                             ->take($risMaxRows)
-                            ->map(function ($item) {
+                            ->map(function ($item) use ($normalizeEditBrandIds, $normalizeEditBrandQtys, $normalizeEditSupplierIds, $canEditIssuedQty) {
+                                $brandIds = $normalizeEditBrandIds($item);
+                                $brandQtys = $normalizeEditBrandQtys($item, $brandIds);
+                                $supplierIds = $normalizeEditSupplierIds($item);
+                                $requested = array_sum($brandQtys);
+
                                 return [
+                                    '_revision_locked' => (bool) $canEditIssuedQty,
+                                    'ris_item_id' => (string) ($item->ris_item_id ?? ''),
                                     'name_description' => $item->ris_item_name_description ?? '',
-                                    'brand_id' => (string) ($item->ris_item_brand_id ?? ''),
-                                    'supplier_id' => (string) ($item->ris_item_supplier_id ?? ''),
+                                    'brand_ids' => $brandIds,
+                                    'brand_qtys' => $brandQtys,
+                                    'brand_id' => $brandIds[0] ?? (string) ($item->ris_item_brand_id ?? ''),
+                                    'supplier_ids' => $supplierIds,
+                                    'supplier_id' => $supplierIds[0] ?? (string) ($item->ris_item_supplier_id ?? ''),
                                     'uom_id' => (string) ($item->ris_item_uom_id ?? ''),
-                                    'quantity_requested' => $item->ris_quantity_requested ?? '',
+                                    'quantity_requested' => $requested > 0 ? $requested : ($item->ris_quantity_requested ?? ''),
                                     'quantity_issued' => $item->ris_quantity_issued ?? '',
                                     'unit_cost' => $item->ris_unit_cost ?? '',
                                 ];
@@ -4754,8 +6068,13 @@
                             {
                                 _uid: @js('edit-'.(int) $ris->ris_id.'-'.$loop->index.'-'.uniqid()),
                                 _sourceLocked: @js((bool) ($item['_source_locked'] ?? false)),
+                                _revisionLocked: @js((bool) ($item['_revision_locked'] ?? false)),
+                                ris_item_id: @js((string) ($item['ris_item_id'] ?? '')),
                                 name_description: @js($item['name_description'] ?? ''),
+                                brand_ids: @js(array_values($item['brand_ids'] ?? [])),
+                                brand_qtys: @js((object) ($item['brand_qtys'] ?? [])),
                                 brand_id: @js((string) ($item['brand_id'] ?? '')),
+                                supplier_ids: @js(array_values($item['supplier_ids'] ?? [])),
                                 supplier_id: @js((string) ($item['supplier_id'] ?? '')),
                                 uom_id: @js((string) ($item['uom_id'] ?? '')),
                                 quantity_requested: @js($item['quantity_requested'] ?? ''),
@@ -4775,13 +6094,29 @@
                     undoTimer: null,
                     undoRestoring: false,
                     init() {
-                        this.editItems.forEach((row) => this.applyItemHints(row, false));
+                        this.editItems.forEach((row) => {
+                            this.applyItemHints(row, false);
+                            if (row.unit_cost !== '' && row.unit_cost != null) {
+                                row.unit_cost = this.formatRisMoney(row.unit_cost);
+                            }
+                        });
+                        if (typeof this.coalesceAllRisItemNameGroups === 'function') {
+                            this.coalesceAllRisItemNameGroups(this.editItems);
+                        } else if (this.$root && typeof this.$root.coalesceAllRisItemNameGroups === 'function') {
+                            this.$root.coalesceAllRisItemNameGroups(this.editItems);
+                        }
                         this.undoSnapshot = JSON.stringify(this.editItems);
+                        if (typeof this.notifyRisCanvassChanged === 'function') {
+                            this.notifyRisCanvassChanged();
+                        }
                         this.$watch('editItems', () => {
+                            if (typeof this.notifyRisCanvassChanged === 'function') {
+                                this.notifyRisCanvassChanged();
+                            }
                             if (this.undoRestoring) return;
                             clearTimeout(this.undoTimer);
                             this.undoTimer = setTimeout(() => this.commitUndoStep(), 400);
-                        });
+                        }, { deep: true });
                     },
                     commitUndoStep() {
                         clearTimeout(this.undoTimer);
@@ -4808,8 +6143,13 @@
                         return {
                             _uid: 'edit-new-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
                             _sourceLocked: false,
+                            _revisionLocked: false,
+                            ris_item_id: '',
                             name_description: '',
+                            brand_ids: [],
+                            brand_qtys: {},
                             brand_id: '',
+                            supplier_ids: [],
                             supplier_id: '',
                             uom_id: '',
                             quantity_requested: '',
@@ -4820,16 +6160,61 @@
                     addEditItem() {
                         if (this.editItems.length >= this.risMaxRows) return;
                         this.editItems.push(this.blankEditItem());
+                        if (typeof this.notifyRisCanvassChanged === 'function') {
+                            this.notifyRisCanvassChanged();
+                        }
                     },
                     removeEditItem(index) {
                         if (this.editItems.length <= 1) return;
-                        if (this.editItems[index]?._sourceLocked) return;
+                        if (this.editItems[index]?._sourceLocked || this.editItems[index]?._revisionLocked) return;
                         this.editItems.splice(index, 1);
+                        if (typeof this.notifyRisCanvassChanged === 'function') {
+                            this.notifyRisCanvassChanged();
+                        }
+                    },
+                    clearEditItemData(index) {
+                        const items = this.editItems || [];
+                        const name = String(items[index]?.name_description || '').trim().toLowerCase();
+                        let end = index;
+                        if (name) {
+                            while (end + 1 < items.length && String(items[end + 1]?.name_description || '').trim().toLowerCase() === name && !items[end + 1]?._revisionLocked) {
+                                end++;
+                            }
+                        }
+                        for (let i = index; i <= end; i++) {
+                            const item = items[i];
+                            if (!item || item._sourceLocked || item._revisionLocked) continue;
+                            item.name_description = '';
+                            item.brand_ids = [];
+                            item.brand_qtys = {};
+                            item.brand_id = '';
+                            item.supplier_ids = [];
+                            item.supplier_id = '';
+                            item.uom_id = '';
+                            item.quantity_requested = '';
+                            item.quantity_issued = '';
+                            item.unit_cost = '';
+                        }
+                        const root = this.$root;
+                        if (typeof this.notifyRisCanvassChanged === 'function') this.notifyRisCanvassChanged();
+                        else if (root && typeof root.notifyRisCanvassChanged === 'function') root.notifyRisCanvassChanged();
+                        if (root && typeof root.risTableEpoch !== 'undefined') {
+                            root.risTableEpoch = (Number(root.risTableEpoch) || 0) + 1;
+                        }
                     },
                     itemTotal(item) {
-                        const issued = Number(item.quantity_issued) || 0;
-                        const requested = Number(item.quantity_requested) || 0;
-                        return (issued > 0 ? issued : requested) * (Number(item.unit_cost) || 0);
+                        return this.risItemTotal(item);
+                    },
+                    formatRisMoney(value) {
+                        const root = this.$root;
+                        if (root && typeof root.formatRisMoney === 'function') {
+                            return root.formatRisMoney(value);
+                        }
+                        if (window.PrismInputLimits && typeof window.PrismInputLimits.formatMoney === 'function') {
+                            return window.PrismInputLimits.formatMoney(value);
+                        }
+                        const num = Number(String(value ?? '').replace(/,/g, '')) || 0;
+                        return num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     },
                     formatDateInput(event) {
                         const el = event.target;
@@ -4890,6 +6275,7 @@
                     </div>
 
                     <form
+                        id="edit-ris-form-{{ $ris->ris_id }}"
                         method="POST"
                         action="{{ route(($pp ?? 'purchaser').'.ris.update', $ris->ris_id) }}"
                         enctype="multipart/form-data"
@@ -4932,7 +6318,7 @@
                                             <p class="mt-1 text-xs text-orange-700">Correct the issues below, then resubmit to the School Administrator from this form.</p>
                                         </div>
                                         <span class="shrink-0 rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-700">
-                                            {{ $revisionFromPresident ? 'For revision (President)' : 'For revision (School Administrator)' }}
+                                            For revision
                                         </span>
                                     </div>
                                     <div class="mt-4 rounded-lg border border-orange-100 bg-white p-4">
@@ -5009,6 +6395,20 @@
                                         </div>
                                     </div>
 
+                                    <div
+                                        data-ris-form-errors
+                                        class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+                                        @if(!($errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id)) hidden @endif
+                                    >
+                                        @if($errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id)
+                                            <p class="font-semibold">Still needed</p>
+                                            <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                                                @foreach($errors->all() as $message)
+                                                    <li>{{ $message }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </div>
                                     <table
                                         class="ris-items-table"
                                         :class="{ 'ris-delete-mode': rowDeleteMode }"
@@ -5025,71 +6425,109 @@
                                             </tr>
                                             <tr>
                                                 <th class="ris-requested-column">REQUESTED <span class="text-red-500">*</span></th>
-                                                <th class="ris-issued-column">ISSUED <span class="text-red-500">*</span></th>
+                                                <th class="ris-issued-column" @unless($canEditIssuedQty) title="Filled during revision" @endunless>
+                                                    ISSUED
+                                                    @if($canEditIssuedQty)
+                                                        <span class="text-red-500">*</span>
+                                                    @endif
+                                                </th>
                                             </tr>
                                         </thead>
+                                        <template x-for="epoch in [risTableEpoch]" :key="'edit-ris-body-' + epoch">
                                         <tbody>
                                             <template x-for="(item, index) in editItems" :key="item._uid || index">
                                                 <tr
                                                     class="ris-item-row"
                                                     :class="(risSplitInfo(editItems, index)?.overflow || risDuplicateSupplierInfo(editItems, index)) ? 'bg-red-50' : ''"
                                                 >
+                                                    <template x-if="!risSameItemAsPrev(editItems, index)">
+                                                        <td
+                                                            x-bind:rowspan="risItemMergeSpan(editItems, index)"
+                                                            :class="(risItemMergeSpan(editItems, index) > 1 ? 'ris-item-merged-cell ' : '') + (item._revisionLocked ? 'bg-gray-50' : '')"
+                                                        >
+                                                            <div class="ris-edit-item-cell">
+                                                                @include('purchaser.ris._item-select', [
+                                                                    'listVar' => 'editItems',
+                                                                    'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left',
+                                                                ])
+                                                                <p
+                                                                    class="mt-1 text-[11px] leading-4 text-red-700"
+                                                                    x-show="risDuplicateSupplierInfo(editItems, index)"
+                                                                    x-cloak
+                                                                    x-text="(() => {
+                                                                        const info = risDuplicateSupplierInfo(editItems, index);
+                                                                        if (!info) return '';
+                                                                        return '\"' + info.label + '\" with this brand and supplier already exists on item ' + info.otherRow + '. Change the brand or supplier, or combine into one row.';
+                                                                    })()"
+                                                                ></p>
+                                                                <p
+                                                                    class="mt-1 text-[11px] leading-4"
+                                                                    x-show="risSplitInfo(editItems, index)"
+                                                                    x-cloak
+                                                                    :class="risSplitInfo(editItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
+                                                                    x-text="(() => {
+                                                                        const info = risSplitInfo(editItems, index);
+                                                                        if (!info) return '';
+                                                                        return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').';
+                                                                    })()"
+                                                                ></p>
+                                                            </div>
+                                                            <span class="ris-row-delete-x" aria-hidden="true">
+                                                                <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+                                                                    <line x1="0" y1="0" x2="100" y2="40" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
+                                                                    <line x1="0" y1="40" x2="100" y2="0" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
+                                                                </svg>
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                class="ris-row-delete-hit"
+                                                                x-on:click="removeEditItem(index)"
+                                                                x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked"
+                                                                aria-label="Remove item row"
+                                                            ></button>
+                                                        </td>
+                                                    </template>
                                                     <td>
-                                                        <div class="ris-edit-item-cell">
-                                                            @include('purchaser.ris._item-select', [
-                                                                'listVar' => 'editItems',
-                                                                'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left',
-                                                            ])
-                                                            <p
-                                                                class="mt-1 text-[11px] leading-4 text-red-700"
-                                                                x-show="risDuplicateSupplierInfo(editItems, index)"
-                                                                x-cloak
-                                                                x-text="(() => {
-                                                                    const info = risDuplicateSupplierInfo(editItems, index);
-                                                                    if (!info) return '';
-                                                                    return '\"' + info.label + '\" with this brand and supplier already exists on item ' + info.otherRow + '. Change the brand or supplier, or combine into one row.';
-                                                                })()"
-                                                            ></p>
-                                                            <p
-                                                                class="mt-1 text-[11px] leading-4"
-                                                                x-show="risSplitInfo(editItems, index)"
-                                                                x-cloak
-                                                                :class="risSplitInfo(editItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
-                                                                x-text="(() => {
-                                                                    const info = risSplitInfo(editItems, index);
-                                                                    if (!info) return '';
-                                                                    return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').';
-                                                                })()"
-                                                            ></p>
-                                                        </div>
-                                                        <span class="ris-row-delete-x" aria-hidden="true">
-                                                            <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                                                                <line x1="0" y1="0" x2="100" y2="40" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
-                                                                <line x1="0" y1="40" x2="100" y2="0" stroke="#ffffff" stroke-width="0.9" stroke-linecap="butt" vector-effect="non-scaling-stroke"></line>
-                                                            </svg>
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            class="ris-row-delete-hit"
-                                                            x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
-                                                            aria-label="Remove item row"
-                                                        ></button>
-                                                    </td>
-                                                    <td>
+                                                        <template x-if="risSameItemAsPrev(editItems, index)">
+                                                            <input type="hidden" x-bind:name="`ris_items[${index}][name_description]`" x-bind:value="item.name_description">
+                                                        </template>
+                                                        <input type="hidden" x-bind:name="`ris_items[${index}][_revision_locked]`" x-bind:value="item._revisionLocked ? '1' : ''">
+                                                        <input type="hidden" x-bind:name="`ris_items[${index}][ris_item_id]`" x-bind:value="item.ris_item_id || ''">
                                                         @include('purchaser.ris._searchable-select', [
                                                             'field' => 'brand_id',
                                                             'optionsKey' => 'brandOptions',
                                                             'limitKind' => 'brand',
                                                             'placeholder' => 'Brand',
                                                             'textAlign' => 'center',
+                                                            'panelMinWidth' => 'min-w-[12rem]',
                                                             'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-center text-xs',
                                                         ])
+                                                        <p
+                                                            class="mt-1 text-[11px] leading-4 text-red-700"
+                                                            x-show="risSameItemAsPrev(editItems, index) && risDuplicateSupplierInfo(editItems, index)"
+                                                            x-cloak
+                                                            x-text="(() => {
+                                                                const info = risDuplicateSupplierInfo(editItems, index);
+                                                                if (!info) return '';
+                                                                return '\"' + info.label + '\" with this brand and supplier already exists on item ' + info.otherRow + '. Change the brand or supplier, or combine into one row.';
+                                                            })()"
+                                                        ></p>
+                                                        <p
+                                                            class="mt-1 text-[11px] leading-4"
+                                                            x-show="risSameItemAsPrev(editItems, index) && risSplitInfo(editItems, index)"
+                                                            x-cloak
+                                                            :class="risSplitInfo(editItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
+                                                            x-text="(() => {
+                                                                const info = risSplitInfo(editItems, index);
+                                                                if (!info) return '';
+                                                                return 'Issued cannot be more than requested (' + info.allocated + ' of ' + info.asked + ').';
+                                                            })()"
+                                                        ></p>
                                                         <button
                                                             type="button"
                                                             class="ris-row-delete-hit"
                                                             x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
+                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked"
                                                             tabindex="-1"
                                                             aria-label="Remove item row"
                                                         ></button>
@@ -5108,50 +6546,111 @@
                                                             type="button"
                                                             class="ris-row-delete-hit"
                                                             x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
+                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked"
                                                             tabindex="-1"
                                                             aria-label="Remove item row"
                                                         ></button>
                                                     </td>
+                                                    <template x-if="!risSameSupplierAsPrev(editItems, index)">
+                                                        <td
+                                                            x-bind:rowspan="risSupplierMergeSpan(editItems, index)"
+                                                            :class="risSupplierMergeSpan(editItems, index) > 1 ? 'ris-item-merged-cell' : ''"
+                                                        >
+                                                            @include('purchaser.ris._searchable-select', [
+                                                                'field' => 'supplier_id',
+                                                                'optionsKey' => 'supplierOptions',
+                                                                'limitKind' => 'supplier',
+                                                                'placeholder' => 'Select supplier',
+                                                                'textAlign' => 'left',
+                                                                'panelMinWidth' => 'min-w-[12rem]',
+                                                                'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left text-xs',
+                                                            ])
+                                                            <button
+                                                                type="button"
+                                                                class="ris-row-delete-hit"
+                                                                x-on:click="removeEditItem(index)"
+                                                                x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked"
+                                                                tabindex="-1"
+                                                                aria-label="Remove item row"
+                                                            ></button>
+                                                        </td>
+                                                    </template>
                                                     <td>
-                                                        @include('purchaser.ris._searchable-select', [
-                                                            'field' => 'supplier_id',
-                                                            'optionsKey' => 'supplierOptions',
-                                                            'limitKind' => 'supplier',
-                                                            'placeholder' => 'Select supplier',
-                                                            'textAlign' => 'left',
-                                                            'panelMinWidth' => 'min-w-[12rem]',
-                                                            'triggerClass' => 'ris-cell-input flex w-full items-center justify-between gap-0.5 text-left text-xs',
-                                                        ])
-                                                        @include('purchaser.ris._supplier-warning')
-                                                        <button
-                                                            type="button"
-                                                            class="ris-row-delete-hit"
-                                                            x-on:click="removeEditItem(index)"
-                                                            x-bind:disabled="editItems.length === 1 || item._sourceLocked"
-                                                            tabindex="-1"
-                                                            aria-label="Remove item row"
-                                                        ></button>
+                                                        <template x-if="risSameSupplierAsPrev(editItems, index)">
+                                                            <input type="hidden" x-bind:name="`ris_items[${index}][supplier_id]`" x-bind:value="item.supplier_id">
+                                                        </template>
+                                                        <template x-if="risSameSupplierAsPrev(editItems, index) && item.supplier_id">
+                                                            <input type="hidden" x-bind:name="`ris_items[${index}][supplier_ids][]`" x-bind:value="item.supplier_id">
+                                                        </template>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="{{ \App\Support\InputLimits::QTY }}"
+                                                            data-qty
+                                                            x-model="item.quantity_requested"
+                                                            x-bind:name="`ris_items[${index}][quantity_requested]`"
+                                                            @if($canEditIssuedQty)
+                                                                x-bind:readonly="!!item._revisionLocked || !risFieldReady(item, 'quantity_requested')"
+                                                                x-bind:tabindex="(!item._revisionLocked && risFieldReady(item, 'quantity_requested')) ? 0 : -1"
+                                                                x-bind:title="item._revisionLocked ? 'Requested is locked on a return for revision' : risFieldLockReason(item, 'quantity_requested')"
+                                                                x-on:input="if (!item._revisionLocked && !risRowHasQty(item)) item.unit_cost = ''"
+                                                                class="ris-cell-input text-center"
+                                                                x-bind:class="(item._revisionLocked || !risFieldReady(item, 'quantity_requested')) ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : ''"
+                                                            @else
+                                                                x-on:input="if (!risRowHasQty(item)) item.unit_cost = ''"
+                                                                x-bind:readonly="!risFieldReady(item, 'quantity_requested')"
+                                                                x-bind:tabindex="risFieldReady(item, 'quantity_requested') ? 0 : -1"
+                                                                x-bind:title="risFieldLockReason(item, 'quantity_requested')"
+                                                                class="ris-cell-input text-center"
+                                                                x-bind:class="risFieldReady(item, 'quantity_requested') ? '' : 'cursor-not-allowed bg-gray-50 text-gray-400'"
+                                                            @endif
+                                                        >
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-bind:min="String(item.name_description || '').trim() ? 1 : 0" x-model="item.quantity_requested" x-on:input="item.quantity_requested = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_requested)) || item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" x-bind:readonly="!!item._sourceLocked" x-on:keydown="if (item._sourceLocked) $event.preventDefault()" x-bind:tabindex="item._sourceLocked ? -1 : null" class="ris-cell-input text-center" x-bind:class="item._sourceLocked ? 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' : ''">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="{{ \App\Support\InputLimits::QTY }}"
+                                                            data-qty
+                                                            x-model="item.quantity_issued"
+                                                            @if($canEditIssuedQty)
+                                                                x-on:input="item.quantity_issued = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_issued)) || item.quantity_issued"
+                                                            @else
+                                                                readonly
+                                                                tabindex="-1"
+                                                            @endif
+                                                            x-bind:name="`ris_items[${index}][quantity_issued]`"
+                                                            class="ris-cell-input text-center {{ $canEditIssuedQty ? '' : 'pointer-events-none cursor-not-allowed bg-gray-50 text-gray-600' }}"
+                                                            title="{{ $canEditIssuedQty ? 'Issued cannot be higher than requested' : 'Issued is filled during revision' }}"
+                                                        >
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="{{ \App\Support\InputLimits::QTY }}" data-qty x-model="item.quantity_issued" x-on:input="item.quantity_issued = (window.PrismInputLimits && PrismInputLimits.clampQty(item.quantity_issued)) || item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center" title="Issued cannot be higher than requested">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <input
+                                                            type="text"
+                                                            inputmode="decimal"
+                                                            data-money
+                                                            x-model="item.unit_cost"
+                                                            x-on:blur="item.unit_cost = formatRisMoney(item.unit_cost)"
+                                                            x-bind:name="`ris_items[${index}][unit_cost]`"
+                                                            x-bind:readonly="!risFieldReady(item, 'unit_cost')"
+                                                            x-bind:tabindex="risFieldReady(item, 'unit_cost') ? 0 : -1"
+                                                            x-bind:title="risFieldLockReason(item, 'unit_cost')"
+                                                            class="ris-cell-input text-right"
+                                                            x-bind:class="risFieldReady(item, 'unit_cost') ? '' : 'cursor-not-allowed bg-gray-50 text-gray-400'"
+                                                            placeholder="0.00"
+                                                        >
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                     <td>
-                                                        <input type="number" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" inputmode="decimal" data-money x-model="item.unit_cost" x-on:input="item.unit_cost = (window.PrismInputLimits && PrismInputLimits.clampMoney(item.unit_cost)) || item.unit_cost" x-bind:name="`ris_items[${index}][unit_cost]`" class="ris-cell-input text-right">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
-                                                    </td>
-                                                    <td>
-                                                        <input type="text" readonly tabindex="-1" x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="itemTotal(item).toFixed(2)" class="ris-cell-input cursor-not-allowed bg-gray-50 text-right text-gray-500">
-                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked" tabindex="-1" aria-label="Remove item row"></button>
+                                                        <input type="text" readonly tabindex="-1" data-money x-bind:name="`ris_items[${index}][total_amount]`" x-bind:value="formatRisMoney(itemTotal(item))" class="ris-cell-input cursor-not-allowed bg-gray-50 text-right text-gray-500">
+                                                        <button type="button" class="ris-row-delete-hit" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1 || item._sourceLocked || item._revisionLocked" tabindex="-1" aria-label="Remove item row"></button>
                                                     </td>
                                                 </tr>
                                             </template>
                                         </tbody>
+                                        </template>
                                     </table>
 
                                     <div class="ris-edit-add-row">
@@ -5185,6 +6684,25 @@
                                             x-bind:disabled="editItems.length >= risMaxRows"
                                             x-bind:title="editItems.length >= risMaxRows ? ('Maximum of ' + risMaxRows + ' rows') : 'Add item row'"
                                         >+ Add Item</button>
+                                    </div>
+
+                                    <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-5 text-slate-700 print-hidden">
+                                        <p class="font-semibold text-slate-900">Note: Minimum of 2 and maximum of 3 suppliers. Each supplier have minimum of 1 and maximum of 3 brands.</p>
+                                      
+                                    </div>
+
+                                    <div
+                                        x-show="!!risDuplicateRowNotice(editItems)"
+                                        x-cloak
+                                        class="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-[12px] leading-5 text-rose-900 print-hidden"
+                                    >
+                                        <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>
+                                        </svg>
+                                        <p>
+                                            <span class="font-semibold">Duplicate row:</span>
+                                            <span x-text="risDuplicateRowNotice(editItems)"></span>
+                                        </p>
                                     </div>
 
                                     <div class="ris-purpose-area">
@@ -5313,31 +6831,56 @@
                             <div
                                 class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white"
                                 x-data="{
-                                    editAttachmentName: '',
-                                    editAttachmentUrl: '',
-                                    onEditAttachmentsChange(event) {
-                                        const file = event.target.files && event.target.files[0];
-                                        if (this.editAttachmentUrl) {
-                                            URL.revokeObjectURL(this.editAttachmentUrl);
-                                        }
-                                        this.editAttachmentName = file ? file.name : '';
-                                        this.editAttachmentUrl = file ? URL.createObjectURL(file) : '';
+                                    existingCount: {{ (int) $ris->risAttachments->count() }},
+                                    editAttachmentFiles: [],
+                                    editAttachmentPreviews: [],
+                                    syncEditAttachmentInput() {
+                                        const input = this.$refs.editAttachmentsInput;
+                                        if (!input || typeof DataTransfer === 'undefined') return;
+                                        const dt = new DataTransfer();
+                                        (this.editAttachmentFiles || []).forEach((file) => dt.items.add(file));
+                                        input.files = dt.files;
+                                    },
+                                    refreshEditAttachmentPreviews() {
+                                        (this.editAttachmentPreviews || []).forEach((row) => {
+                                            if (row && row.url) URL.revokeObjectURL(row.url);
+                                        });
+                                        this.editAttachmentPreviews = (this.editAttachmentFiles || []).map((file) => ({
+                                            name: file.name,
+                                            url: URL.createObjectURL(file),
+                                        }));
                                         this.$nextTick(() => {
-                                            if (window.lucide) {
-                                                window.lucide.createIcons();
-                                            }
+                                            if (window.lucide) window.lucide.createIcons();
                                         });
                                     },
-                                    viewEditAttachment() {
-                                        if (!this.editAttachmentUrl) return;
-                                        window.open(this.editAttachmentUrl, '_blank', 'noopener');
+                                    onEditAttachmentsChange(event) {
+                                        const added = Array.from((event.target && event.target.files) || []);
+                                        const merged = [...(this.editAttachmentFiles || [])];
+                                        added.forEach((file) => {
+                                            const exists = merged.some((f) => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified);
+                                            if (!exists) merged.push(file);
+                                        });
+                                        const slots = Math.max(0, 10 - (this.existingCount || 0));
+                                        this.editAttachmentFiles = merged.slice(0, slots);
+                                        this.syncEditAttachmentInput();
+                                        this.refreshEditAttachmentPreviews();
+                                    },
+                                    viewEditAttachment(index = 0) {
+                                        const row = (this.editAttachmentPreviews || [])[index];
+                                        if (!row || !row.url) return;
+                                        window.open(row.url, '_blank', 'noopener');
+                                    },
+                                    removeEditAttachment(index) {
+                                        const next = [...(this.editAttachmentFiles || [])];
+                                        next.splice(index, 1);
+                                        this.editAttachmentFiles = next;
+                                        this.syncEditAttachmentInput();
+                                        this.refreshEditAttachmentPreviews();
                                     },
                                     clearEditAttachments() {
-                                        this.editAttachmentName = '';
-                                        if (this.editAttachmentUrl) {
-                                            URL.revokeObjectURL(this.editAttachmentUrl);
-                                            this.editAttachmentUrl = '';
-                                        }
+                                        this.editAttachmentFiles = [];
+                                        this.syncEditAttachmentInput();
+                                        this.refreshEditAttachmentPreviews();
                                         if (this.$refs.editAttachmentsInput) {
                                             this.$refs.editAttachmentsInput.value = '';
                                         }
@@ -5349,16 +6892,16 @@
                                         <p class="text-sm font-semibold text-slate-950">Canvass <span class="text-red-500">*</span></p>
                                         <p class="truncate text-[11px] text-slate-500">
                                             @if($ris->risAttachments->isNotEmpty())
-                                                Current file on file · replace by uploading a new one
+                                                {{ $ris->risAttachments->count() }} file{{ $ris->risAttachments->count() === 1 ? '' : 's' }} on file · add more (up to 10) · up to 3 suppliers per item
                                             @else
-                                                Required to submit · 1 file · Word, Excel, or PDF
+                                                Required to submit · multiple files · Word, Excel, or PDF · up to 10 · up to 3 suppliers per item
                                             @endif
                                         </p>
                                     </div>
                                 </div>
 
                                 <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                                    @forelse($ris->risAttachments->take(1) as $attachment)
+                                    @forelse($ris->risAttachments as $attachment)
                                         @php
                                             $ext = strtolower(pathinfo($attachment->ris_attachment_original_name, PATHINFO_EXTENSION));
                                             $isExcel = in_array($ext, ['xls', 'xlsx'], true);
@@ -5371,10 +6914,7 @@
                                                     : ($isWord ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-500'));
                                             $fileIcon = $isExcel ? 'file-spreadsheet' : (($isWord || $isPdf) ? 'file-text' : 'paperclip');
                                         @endphp
-                                        <div
-                                            class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5"
-                                            x-show="!editAttachmentName"
-                                        >
+                                        <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
                                             <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md {{ $fileIconClass }}">
                                                 <i data-lucide="{{ $fileIcon }}" class="h-3.5 w-3.5"></i>
                                             </div>
@@ -5396,43 +6936,45 @@
                                     @empty
                                     @endforelse
 
-                                    <div x-show="editAttachmentName" x-cloak class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
-                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200/80">
-                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                    <template x-for="(file, index) in editAttachmentPreviews" :key="'edit-canvas-{{ $ris->ris_id }}-' + index + '-' + file.name">
+                                        <div class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5">
+                                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200/80">
+                                                <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+                                            </div>
+                                            <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="file.name"></p>
+                                            <button
+                                                type="button"
+                                                x-on:click="viewEditAttachment(index)"
+                                                class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
+                                            >View</button>
+                                            <button
+                                                type="button"
+                                                x-on:click="removeEditAttachment(index)"
+                                                class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
+                                            >Remove</button>
                                         </div>
-                                        <p class="min-w-0 flex-1 truncate text-xs font-medium text-slate-800" x-text="editAttachmentName"></p>
-                                        <button
-                                            type="button"
-                                            x-show="editAttachmentUrl"
-                                            x-on:click="viewEditAttachment()"
-                                            class="shrink-0 text-[11px] font-medium text-[#0025cc] transition hover:underline"
-                                        >View</button>
-                                        <button
-                                            type="button"
-                                            x-on:click="clearEditAttachments()"
-                                            class="shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-slate-800"
-                                        >Remove</button>
-                                    </div>
+                                    </template>
 
                                     <label
-                                        x-show="!editAttachmentName"
+                                        x-show="(existingCount + editAttachmentPreviews.length) < 10"
                                         x-cloak
                                         class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2.5 transition hover:border-slate-400 hover:bg-slate-50"
                                     >
                                         <input
                                             type="file"
                                             name="ris_attachments[]"
+                                            multiple
                                             accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                             class="sr-only"
                                             x-ref="editAttachmentsInput"
                                             x-on:change="onEditAttachmentsChange($event)"
                                         >
                                         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-500 transition group-hover:border-slate-400 group-hover:text-slate-800">
-                                            <i data-lucide="{{ $ris->risAttachments->isNotEmpty() ? 'refresh-cw' : 'upload' }}" class="h-3.5 w-3.5"></i>
+                                            <i data-lucide="upload" class="h-3.5 w-3.5"></i>
                                         </div>
                                         <div class="min-w-0 flex-1">
-                                            <p class="text-xs font-medium text-slate-800">{{ $ris->risAttachments->isNotEmpty() ? 'Replace file' : 'Upload file' }}</p>
-                                            <p class="truncate text-[10px] text-slate-500">One file only · Word, Excel, or PDF</p>
+                                            <p class="text-xs font-medium text-slate-800">{{ $ris->risAttachments->isNotEmpty() ? 'Add more files' : 'Upload files' }}</p>
+                                            <p class="truncate text-[10px] text-slate-500">Multiple files · Word, Excel, or PDF · up to 10</p>
                                         </div>
                                     </label>
                                 </div>
@@ -5440,21 +6982,6 @@
                         </div>
 
                         {{-- EDIT ACTION BUTTONS — Submit opens a second dialog to pick School Admin --}}
-                        <div
-                            data-ris-form-errors
-                            @class([
-                                'mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-6' => $errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id,
-                            ])
-                            @if(!($errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id)) hidden @endif
-                        >
-                            @if($errors->any() && (int) session('edit_ris', 0) === (int) $ris->ris_id)
-                                <ul class="list-disc space-y-1 pl-4">
-                                    @foreach($errors->all() as $message)
-                                        <li>{{ $message }}</li>
-                                    @endforeach
-                                </ul>
-                            @endif
-                        </div>
                         <div data-ris-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                             <p
                                 x-show="risHasBlockingRowIssue(editItems)"
@@ -5505,7 +7032,7 @@
                             @endif
                         </div>
                     </form>
-                    @foreach($ris->risAttachments->take(1) as $removeAttachment)
+                    @foreach($ris->risAttachments as $removeAttachment)
                         <form
                             id="remove-canvas-{{ $removeAttachment->ris_attachment_id }}"
                             method="POST"
@@ -5725,6 +7252,12 @@
     </div>
     </template>
 
+    @include('purchaser.suppliers._add-modal', [
+        'formAction' => route(($pp ?? 'purchaser').'.suppliers.quick-store'),
+        'modalZ' => 'z-[280]',
+        'fromRis' => true,
+    ])
+
 </div>
 
 
@@ -5754,21 +7287,25 @@
         if (!quantityRequested || !unitCost || !amount) return;
 
         const quantity = Number(quantityRequested.value) || 0;
-        const cost = Number(unitCost.value) || 0;
-
-        amount.value = (quantity * cost).toFixed(2);
+        const cost = (window.PrismInputLimits && typeof window.PrismInputLimits.parseMoney === 'function')
+            ? (window.PrismInputLimits.parseMoney(unitCost.value) || 0)
+            : (Number(String(unitCost.value || '').replace(/,/g, '')) || 0);
+        const total = quantity * cost;
+        amount.value = (window.PrismInputLimits && typeof window.PrismInputLimits.formatMoney === 'function')
+            ? window.PrismInputLimits.formatMoney(total)
+            : total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     });
 
     // =====================================================
-    // RIS ITEMS: LIMIT REQUESTED / ISSUED / UNIT COST TO 7 DIGITS
-    // Unit cost keeps up to 2 decimal places after the 7 whole digits.
+    // RIS ITEMS: LIMIT REQUESTED / ISSUED TO 7 DIGITS
+    // Unit cost / amount digit limits + currency format are handled by PrismInputLimits
+    // (8 whole digits max; commas are display-only and do not count).
     // =====================================================
     (function () {
         const MAX_DIGITS = 7;
         const selector = [
             'input[name^="ris_items"][name$="[quantity_requested]"]',
             'input[name^="ris_items"][name$="[quantity_issued]"]',
-            'input[name^="ris_items"][name$="[unit_cost]"]',
         ].join(',');
 
         document.addEventListener('keydown', function (event) {
@@ -5786,13 +7323,7 @@
             const value = String(input.value || '');
             if (value === '') return;
 
-            const allowDecimals = /\[unit_cost\]$/.test(input.name);
-            const parts = value.replace(/[^\d.]/g, '').split('.');
-            let next = parts[0].slice(0, MAX_DIGITS);
-            if (allowDecimals && parts.length > 1) {
-                next += '.' + parts.slice(1).join('').slice(0, 2);
-            }
-
+            const next = value.replace(/[^\d]/g, '').slice(0, MAX_DIGITS);
             if (next !== value) {
                 input.value = next;
             }
@@ -5868,7 +7399,7 @@
 
 <style>
     @media print {
-        @page { size: A4 portrait; margin: 8mm; }
+        @page { size: A4 landscape; margin: 8mm; }
         .ris-print-active {
             background: #fff !important;
             border: 0 !important;

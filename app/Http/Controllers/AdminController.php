@@ -22,6 +22,7 @@ use App\Support\PersonNames;
 use App\Support\RisWorkflow;
 use App\Support\ReviewerAssignment;
 use App\Support\UserSignatureLibrary;
+use App\Support\RisForwardAttachments;
 use App\Support\RisRevisionImages;
 use App\Support\WorkflowNotifier;
 use App\Support\ComputerSets;
@@ -649,15 +650,15 @@ class AdminController extends Controller
 
 
     // =====================================================
-    // SORTING — urgent first; pending queue = oldest waiting; else latest activity
+    // SORTING — urgent first; pending = newest-on-top stack; else latest activity
     // =====================================================
 
-    $useOldestWaiting = $filter === 'pending'
+    $useStackOrder = $filter === 'pending'
         || $focus === AdminAttentionSummary::FOCUS_PENDING_REVIEW;
 
     $risRecords = RisWorkflow::orderUrgentFirst($query);
-    $risRecords = $useOldestWaiting
-        ? $this->applyRisOldestWaitingOrder($risRecords)
+    $risRecords = $useStackOrder
+        ? $this->applyRisStackOrder($risRecords)
         : $this->applyRisLatestActivityOrder($risRecords);
 
     $risRecords = $risRecords
@@ -787,7 +788,7 @@ class AdminController extends Controller
 
         $query = RisWorkflow::orderUrgentFirst($query);
         $query = $filter === 'pending'
-            ? $this->applyRisOldestWaitingOrder($query)
+            ? $this->applyRisStackOrder($query)
             : $this->applyRisLatestActivityOrder($query);
 
         $rows = $query->limit(1000)->get()->map(function ($ris) {
@@ -995,7 +996,7 @@ class AdminController extends Controller
     $presidentRejectedAmount = (clone $baseQuery)->where($presidentRejectedQuery)->sum('ris_items_sum.ris_calculated_total');
     $allAmount = (clone $baseQuery)->sum('ris_items_sum.ris_calculated_total');
 
-    // Landing default: Needs decision → Awaiting Issued by → All
+    // Landing default stays on Reviewed RIS. Awaiting Issued by is its own phase tab.
     // Legacy filter=pending without focus also uses this cascade.
     if (
         $focus === ''
@@ -1005,13 +1006,7 @@ class AdminController extends Controller
             || $filter === 'pending'
         )
     ) {
-        if ($forDecisionCount > 0) {
-            $filter = 'for_decision';
-        } elseif ($forCosignCount > 0) {
-            $filter = 'for_cosign';
-        } else {
-            $filter = 'all';
-        }
+        $filter = $forDecisionCount > 0 ? 'for_decision' : 'all';
     } elseif ($filter === '') {
         $filter = 'for_decision';
     }
@@ -1213,7 +1208,7 @@ class AdminController extends Controller
         $document = strtolower($request->query('doc', 'ris'));
         $submittedDate = $this->normalizeRisSubmittedDateQuery($request);
 
-        if (! in_array($document, ['ris', 'atp', 'rfc', 'dv'], true)) {
+        if (! in_array($document, ['ris', 'atp', 'rfc'], true)) {
             $document = 'ris';
         }
 
@@ -1702,7 +1697,7 @@ class AdminController extends Controller
         }
 
         if (!RisWorkflow::isPresidentApproved($target)) {
-            return back()->with('error', 'Only RIS records approved by the President can be signed by Administrator.');
+            return back()->with('error', 'Only RIS records approved by the President can be signed (Issued by) by Administrator.');
         }
 
         if (RisWorkflow::hasIssuedBy($target)) {
@@ -1718,13 +1713,13 @@ class AdminController extends Controller
         if ($decision === 'Approved') {
             $issuedSignature = $this->resolveIssuedBySignature($request, trim($adminName));
             if (!RisWorkflow::isDrawnSignature($issuedSignature)) {
-                return back()->with('error', 'Please add your Issued by signature before returning this RIS to the Purchaser.');
+                return back()->with('error', 'Please add your Issued by signature before continuing.');
             }
 
             $updateValues['ris_issued_by_signature'] = $issuedSignature;
             $updateValues['ris_issued_by_date'] = $issuedDate;
         } else {
-            return back()->with('error', 'Only signing Issued by is supported for President-approved RIS.');
+            return back()->with('error', 'Only signing Issued by is supported here.');
         }
 
         DB::table('requisition_issue_slip_table')
@@ -1746,20 +1741,33 @@ class AdminController extends Controller
             // ignore logging failures
         }
 
-        WorkflowNotifier::toUser(
-            $target->ris_submitted_by,
-            WorkflowNotifier::ROLE_PURCHASER,
-            'RIS approved',
-            RisWorkflow::formNumber($target) . ' was approved. You may create an ATP.',
-            'ris_approved',
-            'RIS',
-            (int) $targetId,
-            '/purchaser/ris'
-        );
+        $ownerPurchaserId = RisWorkflow::ownerPurchaserId($target);
+        if (
+            $ownerPurchaserId > 0
+            && Schema::hasColumn('requisition_issue_slip_table', 'ris_submitted_by')
+            && (int) ($target->ris_submitted_by ?? 0) !== $ownerPurchaserId
+        ) {
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $targetId)
+                ->update(['ris_submitted_by' => $ownerPurchaserId]);
+        }
+
+        if ($ownerPurchaserId > 0) {
+            WorkflowNotifier::toUser(
+                $ownerPurchaserId,
+                WorkflowNotifier::ROLE_PURCHASER,
+                'RIS approved',
+                RisWorkflow::formNumber($target) . ' was approved. You may create an ATP.',
+                'ris_approved',
+                'RIS',
+                (int) $targetId,
+                '/purchaser/ris'
+            );
+        }
 
         return redirect()
             ->to(AdminPortal::route('digital-signatures.sign-ris'))
-            ->with('success', 'Successfully sent to ' . WorkflowNotifier::recipientName($target->ris_submitted_by, 'the Purchaser') . '.');
+            ->with('success', 'Successfully sent to ' . WorkflowNotifier::recipientName($ownerPurchaserId, 'the Purchaser') . '.');
     }
 
     public function returnRisToPurchaser($risId)
@@ -1832,9 +1840,7 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
-            if (
-                ! RisWorkflow::canReturnForRevision($ris)
-            ) {
+            if (! RisWorkflow::canReturnForRevision($ris)) {
                 return back()->with('error', 'Only President-returned or rejected RIS records can be returned for revision.');
             }
 
@@ -1871,6 +1877,7 @@ class AdminController extends Controller
 
             // Preserve presidential origin: SA is only relaying a President return/reject.
             // Purchaser should see "For revision by President", not a normal SA Minor Revision.
+            // Issued by is not signed on soft-return — clear any leftover signature fields.
             $revisionStatus = RisWorkflow::PRESIDENT_REVISION;
 
             $update = [
@@ -2028,7 +2035,17 @@ class AdminController extends Controller
                 'users_table.user_role_id',
                 'roles_table.role_name'
             )
-            ->orderBy('users_table.user_full_name');
+            // Dormant portals (e.g. School Supply Officer) are not shown as system users.
+            ->whereNotIn('users_table.user_role_id', \App\Support\RoleAccess::dormantRoleIds());
+
+        $roleOrder = \App\Support\RoleAccess::usersListRoleSortWeights();
+        $fieldIds = array_keys($roleOrder);
+        if ($fieldIds !== []) {
+            $query->orderByRaw(
+                'FIELD(users_table.user_role_id, '.implode(',', array_map('intval', $fieldIds)).')'
+            );
+        }
+        $query->orderBy('users_table.user_full_name');
 
         if (Schema::hasColumn('users_table', 'user_profile_picture')) {
             $query->addSelect('users_table.user_profile_picture');
@@ -2066,7 +2083,12 @@ class AdminController extends Controller
 
         $users = $query->get();
         $roles = Schema::hasTable('roles_table')
-            ? DB::table('roles_table')->orderBy('role_id')->get()
+            ? \App\Support\RoleAccess::sortRolesForAssignment(
+                DB::table('roles_table')
+                    ->whereNotIn('role_id', \App\Support\RoleAccess::dormantRoleIds())
+                    ->orderBy('role_id')
+                    ->get()
+            )
             : collect();
 
         $extraRolesByUser = [];
@@ -2712,10 +2734,16 @@ class AdminController extends Controller
 
         $primaryRoleId = (int) $request->input('primary_role');
         $currentPrimaryRoleId = (int) ($user->user_role_id ?? 0);
+        $primaryLocked = $targetIsAdmin || in_array($currentPrimaryRoleId, [
+            \App\Support\RoleAccess::MAINTENANCE,
+            \App\Support\RoleAccess::PURCHASER,
+        ], true);
 
-        // Admin accounts keep Administrator as primary; additional roles still allowed when Staff + IT.
-        if ($targetIsAdmin) {
-            $primaryRoleId = 1;
+        // Admin / Maintenance / Purchaser keep primary fixed; additional roles may be cleared or updated.
+        if ($primaryLocked) {
+            $primaryRoleId = $currentPrimaryRoleId > 0
+                ? $currentPrimaryRoleId
+                : ($targetIsAdmin ? \App\Support\RoleAccess::ADMIN : $primaryRoleId);
         } elseif ($primaryRoleId <= 0 || $primaryRoleId === 1) {
             return redirect('/admin/users')->with('error', 'Please select a valid primary role.');
         } elseif (
@@ -2740,12 +2768,24 @@ class AdminController extends Controller
             : \App\Support\RoleAccess::isStaffEmployeeId((string) ($user->user_employee_id ?? ''));
         $isItDepartment = \App\Support\RoleAccess::personIsItDepartment($person);
 
-        $additionalRoles = \App\Support\RoleAccess::filterAllowedAdditionalRoles(
-            $primaryRoleId,
-            (array) $request->input('additional_roles', []),
-            $isStaff,
-            $isItDepartment
-        );
+        $requestedAdditional = collect((array) $request->input('additional_roles', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0 && $id !== $primaryRoleId)
+            ->unique()
+            ->values()
+            ->all();
+
+        // Allow clearing extras even when the Staff/IT matrix would otherwise block adds.
+        if ($requestedAdditional === []) {
+            $additionalRoles = [];
+        } else {
+            $additionalRoles = \App\Support\RoleAccess::filterAllowedAdditionalRoles(
+                $primaryRoleId,
+                $requestedAdditional,
+                $isStaff,
+                $isItDepartment
+            );
+        }
 
         $allRoles = collect($additionalRoles)->push($primaryRoleId)->unique()->values()->all();
         $hasPurchaser = in_array(\App\Support\RoleAccess::PURCHASER, $allRoles, true);
@@ -3591,6 +3631,16 @@ class AdminController extends Controller
 
         abort_if(!$ris, 404, 'RIS not found.');
 
+        if (in_array((string) ($ris->ris_status ?? ''), [
+            RisWorkflow::ACCEPTED,
+            RisWorkflow::FORWARDED,
+            RisWorkflow::PRESIDENT_APPROVED,
+            RisWorkflow::DIRECTLY_APPROVED,
+            RisWorkflow::APPROVED_LEGACY,
+        ], true)) {
+            $this->fillIssuedFromRequestedOnAccept((int) $risId);
+        }
+
         $risItems = $this->loadRisItemsWithLookups((int) $risId)->pad(10, null);
 
         $presidentName = null;
@@ -3616,7 +3666,7 @@ class AdminController extends Controller
         }
 
         $stamp = (string) ($ris->ris_updated_at ?? $ris->ris_status ?? $risId);
-        $html = \App\Support\CachedFormPreview::html('ris-print:'.$risId.':'.$stamp, function () use ($ris, $risItems, $presidentName) {
+        $html = \App\Support\CachedFormPreview::html('ris-print:'.$risId.':'.$stamp.':v9', function () use ($ris, $risItems, $presidentName) {
             return view('admin.ris.print', [
                 'ris' => $ris,
                 'risItems' => $risItems,
@@ -3680,15 +3730,18 @@ class AdminController extends Controller
         return DB::transaction(function () use ($request, $risId) {
             $validated = $request->validate([
                 'forward_details' => ['nullable', 'string', 'max:2000'],
-                'forward_attachment' => [
-                    'nullable',
+                'forward_attachment' => ['nullable', 'array', 'max:'.RisForwardAttachments::MAX_FILES],
+                'forward_attachment.*' => [
                     'file',
                     'max:10240',
                     'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx',
                 ],
+                'keep_forward_attachment' => ['nullable', 'array'],
+                'keep_forward_attachment.*' => ['string', 'max:40'],
             ], [], [
                 'forward_details' => 'forward details',
-                'forward_attachment' => 'attachment',
+                'forward_attachment' => 'attachments',
+                'forward_attachment.*' => 'attachment',
             ]);
 
             $presidentId = ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_PRESIDENT);
@@ -3707,11 +3760,20 @@ class AdminController extends Controller
             $adminName = Auth::user()->user_full_name ?? 'Administrator';
             $forwardDetails = trim((string) ($validated['forward_details'] ?? ''));
 
-            $attachmentFile = $request->hasFile('forward_attachment') ? $request->file('forward_attachment') : null;
-            $attachmentDir = 'ris-forward-attachments/' . $risId;
-            $attachmentHash = $attachmentFile ? $attachmentFile->hashName() : null;
-            $attachmentPath = $attachmentFile ? $attachmentDir . '/' . $attachmentHash : null;
-            $attachmentName = $attachmentFile ? $attachmentFile->getClientOriginalName() : null;
+            $uploaded = $request->file('forward_attachment', []);
+            if ($uploaded instanceof \Illuminate\Http\UploadedFile) {
+                $uploaded = [$uploaded];
+            }
+            $uploaded = array_values(array_filter((array) $uploaded));
+            $keepKeys = array_values(array_filter(array_map(
+                'strval',
+                (array) $request->input('keep_forward_attachment', [])
+            )));
+            if (count($keepKeys) + count($uploaded) > RisForwardAttachments::MAX_FILES) {
+                throw ValidationException::withMessages([
+                    'forward_attachment' => 'You can attach up to '.RisForwardAttachments::MAX_FILES.' supporting files.',
+                ]);
+            }
 
             // Forward only: Approved by stays empty for the President.
             // Issued by is signed later on Sign RIS after President approval.
@@ -3729,12 +3791,6 @@ class AdminController extends Controller
             if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_details')) {
                 $forwardPayload['ris_forward_details'] = $forwardDetails !== '' ? $forwardDetails : null;
             }
-            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_path')) {
-                $forwardPayload['ris_forward_attachment_path'] = $attachmentPath;
-            }
-            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_forward_attachment_name')) {
-                $forwardPayload['ris_forward_attachment_name'] = $attachmentName;
-            }
 
             try {
                 DB::table('requisition_issue_slip_table')
@@ -3747,18 +3803,15 @@ class AdminController extends Controller
                 );
             }
 
-            if ($attachmentFile && !$attachmentFile->storeAs($attachmentDir, $attachmentHash, 'public')) {
-                // Throwing rolls the forward back so the RIS never points at a missing file.
-                throw new \RuntimeException('Could not save the forward attachment. Please try again.');
-            }
+            $attachmentNames = RisForwardAttachments::sync((int) $risId, $keepKeys, $uploaded);
 
             $presidentName = WorkflowNotifier::recipientName($presidentId, 'the President');
             $logRemarks = 'RIS forwarded to '.$presidentName.' by ' . $adminName . '.';
             if ($forwardDetails !== '') {
                 $logRemarks .= ' Details: ' . $forwardDetails;
             }
-            if ($attachmentName) {
-                $logRemarks .= ' Attachment: ' . $attachmentName . '.';
+            if ($attachmentNames !== []) {
+                $logRemarks .= ' Attachments: ' . implode(', ', $attachmentNames) . '.';
             }
 
             try {
@@ -3908,9 +3961,10 @@ class AdminController extends Controller
         try {
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
-                ->update([
+                ->update(array_filter([
                     'ris_status' => RisWorkflow::ACCEPTED,
-                ]);
+                    'ris_updated_at' => Schema::hasColumn('requisition_issue_slip_table', 'ris_updated_at') ? now() : null,
+                ], fn ($value) => $value !== null));
         } catch (\Throwable $e) {
             return 'Could not accept this RIS. Run database migrations so "Accepted" is a valid status.';
         }
@@ -3929,7 +3983,55 @@ class AdminController extends Controller
             // Ignore logging failures
         }
 
+        // Accept means the submitted lines are fine. The purchaser can only
+        // enter Issued after a return for revision, so copy Requested into Issued.
+        $this->fillIssuedFromRequestedOnAccept($risId);
+
         return true;
+    }
+
+    /**
+     * On a first accept, Issued was never entered. Set it to Requested.
+     * A resubmit after revision already has the purchaser's Issued values.
+     */
+    private function fillIssuedFromRequestedOnAccept(int $risId): void
+    {
+        if (! Schema::hasTable('requisition_issue_slip_items_table')
+            || ! Schema::hasColumn('requisition_issue_slip_items_table', 'ris_quantity_issued')
+            || ! Schema::hasColumn('requisition_issue_slip_items_table', 'ris_quantity_requested')) {
+            return;
+        }
+
+        $returnedForRevision = Schema::hasTable('ris_revision_notes_table')
+            && DB::table('ris_revision_notes_table')
+                ->where('ris_id', $risId)
+                ->whereIn('ris_revision_type', [
+                    RisWorkflow::MINOR_REVISION,
+                    RisWorkflow::PRESIDENT_REVISION,
+                ])
+                ->exists();
+
+        if ($returnedForRevision) {
+            return;
+        }
+
+        $items = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->get();
+
+        foreach ($items as $item) {
+            $requested = max(0, (int) ($item->ris_quantity_requested ?? 0));
+            $update = ['ris_quantity_issued' => $requested];
+
+            if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_total_amount')) {
+                $unitCost = (float) ($item->ris_unit_cost ?? 0);
+                $update['ris_total_amount'] = round($requested * $unitCost, 2);
+            }
+
+            DB::table('requisition_issue_slip_items_table')
+                ->where('ris_item_id', $item->ris_item_id)
+                ->update($update);
+        }
     }
 
     public function directApproveForm(Request $request, $risId)
@@ -3969,6 +4071,7 @@ class AdminController extends Controller
         }
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+        $forwardAttachments = $mode === 'forward' ? RisForwardAttachments::listed($ris) : [];
 
         return view('admin.procurement-review._direct-approve-form', [
             'ris' => $ris,
@@ -3976,6 +4079,7 @@ class AdminController extends Controller
             'mode' => $mode,
             'supportingDocuments' => $supportingDocuments,
             'savedSignatures' => $savedSignatures,
+            'forwardAttachments' => $forwardAttachments,
         ]);
     }
 
@@ -4199,16 +4303,30 @@ class AdminController extends Controller
                 ->where('ris_id', $risId)
                 ->update($updatePayload);
 
-            WorkflowNotifier::toUser(
-                $ris->ris_submitted_by,
-                WorkflowNotifier::ROLE_PURCHASER,
-                'RIS approved by Administrator',
-                RisWorkflow::formNumber($ris) . ' was approved. You may create an ATP.',
-                'ris_approved',
-                'RIS',
-                (int) $risId,
-                '/purchaser/ris'
-            );
+            // Always return to the purchaser who owns this RIS (submitter, else creator).
+            $ownerPurchaserId = RisWorkflow::ownerPurchaserId($ris);
+            if (
+                $ownerPurchaserId > 0
+                && Schema::hasColumn('requisition_issue_slip_table', 'ris_submitted_by')
+                && (int) ($ris->ris_submitted_by ?? 0) !== $ownerPurchaserId
+            ) {
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->update(['ris_submitted_by' => $ownerPurchaserId]);
+            }
+
+            if ($ownerPurchaserId > 0) {
+                WorkflowNotifier::toUser(
+                    $ownerPurchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'RIS approved by Administrator',
+                    RisWorkflow::formNumber($ris) . ' was approved. You may create an ATP.',
+                    'ris_approved',
+                    'RIS',
+                    (int) $risId,
+                    '/purchaser/ris'
+                );
+            }
 
             WorkflowNotifier::toRole(
                 WorkflowNotifier::ROLE_PRESIDENT,
@@ -4255,7 +4373,7 @@ class AdminController extends Controller
                 ->with(
                     'success',
                     'Directly approved and sent to '
-                        . WorkflowNotifier::recipientName($ris->ris_submitted_by, 'the Purchaser')
+                        . WorkflowNotifier::recipientName($ownerPurchaserId, 'the Purchaser')
                         . '. A copy stays in Signature History and is recorded for the President.'
                 );
         });
@@ -4312,6 +4430,14 @@ class AdminController extends Controller
             ?: basename($path);
 
         return Storage::disk('public')->response($path, $downloadName);
+    }
+
+    public function downloadForwardAttachmentFile($risId, $attachment)
+    {
+        $file = RisForwardAttachments::find((int) $risId, (string) $attachment);
+        abort_if(! $file || ! Storage::disk('public')->exists($file['path']), 404);
+
+        return Storage::disk('public')->response($file['path'], $file['name']);
     }
 
     // =====================================================
@@ -5539,6 +5665,24 @@ public function rejectRis(Request $request, $risId)
         }
 
         return $query->orderByDesc($table . '.ris_id');
+    }
+
+    /**
+     * Newest submitted on top, after the urgency sort. Same columns as the waiting queue, reversed.
+     */
+    private function applyRisStackOrder($query)
+    {
+        $table = 'requisition_issue_slip_table';
+
+        foreach (['ris_submitted_at', 'ris_requested_by_date', 'ris_created_at'] as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                return $query
+                    ->orderByRaw("IFNULL({$table}.{$column}, '1970-01-01 00:00:00') DESC")
+                    ->orderByDesc($table.'.ris_id');
+            }
+        }
+
+        return $query->orderByDesc($table.'.ris_id');
     }
 
     /**

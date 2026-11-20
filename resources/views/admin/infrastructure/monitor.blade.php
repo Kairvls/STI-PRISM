@@ -814,7 +814,7 @@
                                 data-floor-panel="{{ $floor->floor_id }}"
                                 @click="
                                     if (!$event.target.closest('.room-block')) {
-                                        selectedRoom = null;
+                                        clearRoomSelection();
                                     }
                                 "
                             >
@@ -878,7 +878,10 @@
                                         data-hover-title="{{ e($hoverTitle) }}"
                                         x-show="roomMatchesTypeFilter(@js($room->room_type ?: 'Room'))"
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $layoutStatus === 'critical' ? 'critical-room' : '' }}"
-                                        :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
+                                        :class="{
+                                            'cursor-move rounded-lg': editMode,
+                                            'ring-2 ring-[#07319C]': isRoomSelected({{ $room->room_id }}),
+                                        }"
                                         data-size="large"
                                         data-label-orientation="{{ $labelOrientation }}"
                                         data-id="{{ $room->room_id }}"
@@ -2933,6 +2936,8 @@
                 return {
                     activeFloor: initialFloor || null,
                     selectedRoom: null,
+                    selectedRoomIds: [],
+                    _keepMultiRoomSelection: false,
                     roomHoverTip: {
                         visible: false,
                         x: 0,
@@ -4109,6 +4114,15 @@
                         });
 
                         this.$watch("selectedRoom", (roomId) => {
+                            if (!this._keepMultiRoomSelection) {
+                                const n = Number(roomId);
+                                if (!roomId || !Number.isFinite(n) || n <= 0) {
+                                    this.selectedRoomIds = [];
+                                } else if (!this.selectedRoomIds.map(Number).includes(n)) {
+                                    this.selectedRoomIds = [n];
+                                }
+                            }
+
                             this.roomRotationInput = this.getSelectedRoomRotation();
                             this.syncSelectedRoomControl();
 
@@ -4126,7 +4140,12 @@
                             this.loadRoomInspector(roomId);
                         });
 
-                        this.$watch("editMode", () => {
+                        this.$watch("editMode", (enabled) => {
+                            if (!enabled && this.selectedRoom) {
+                                this.selectedRoomIds = [Number(this.selectedRoom)];
+                            } else if (!enabled) {
+                                this.selectedRoomIds = [];
+                            }
                             this.hideRoomHoverTip();
                             this.$nextTick(() => this.updateRotateHandlePlacement());
                             this.syncAllRoomBlockVisuals();
@@ -5577,7 +5596,71 @@
                             return;
                         }
 
+                        this.selectSingleRoom(nextId);
+                    },
+
+                    isRoomSelected(roomId) {
+                        const id = Number(roomId);
+                        if (!Number.isFinite(id) || id <= 0) {
+                            return false;
+                        }
+                        return this.selectedRoomIds.map(Number).includes(id);
+                    },
+
+                    clearRoomSelection() {
+                        this._keepMultiRoomSelection = false;
+                        this.selectedRoomIds = [];
+                        this.selectedRoom = null;
+                    },
+
+                    selectSingleRoom(roomId) {
+                        const nextId = Number(roomId);
+                        if (!Number.isFinite(nextId) || nextId <= 0) {
+                            this.clearRoomSelection();
+                            return;
+                        }
+                        this._keepMultiRoomSelection = false;
+                        this.selectedRoomIds = [nextId];
                         this.selectedRoom = nextId;
+                    },
+
+                    toggleRoomInSelection(roomId) {
+                        const nextId = Number(roomId);
+                        if (!Number.isFinite(nextId) || nextId <= 0) {
+                            return;
+                        }
+
+                        const ids = this.selectedRoomIds
+                            .map(Number)
+                            .filter((id) => Number.isFinite(id) && id > 0);
+                        const index = ids.indexOf(nextId);
+
+                        this._keepMultiRoomSelection = true;
+                        if (index >= 0) {
+                            ids.splice(index, 1);
+                            this.selectedRoomIds = ids;
+                            if (Number(this.selectedRoom) === nextId) {
+                                this.selectedRoom = ids[0] ?? null;
+                            }
+                        } else {
+                            ids.push(nextId);
+                            this.selectedRoomIds = ids;
+                            this.selectedRoom = nextId;
+                        }
+                        this._keepMultiRoomSelection = false;
+                    },
+
+                    setPrimaryRoomKeepingSelection(roomId) {
+                        const nextId = Number(roomId);
+                        if (!Number.isFinite(nextId) || nextId <= 0) {
+                            return;
+                        }
+                        this._keepMultiRoomSelection = true;
+                        if (!this.selectedRoomIds.map(Number).includes(nextId)) {
+                            this.selectedRoomIds = [...this.selectedRoomIds.map(Number), nextId];
+                        }
+                        this.selectedRoom = nextId;
+                        this._keepMultiRoomSelection = false;
                     },
 
                     openRoomInspector(roomId) {
@@ -5587,7 +5670,7 @@
                             return;
                         }
 
-                        this.selectedRoom = nextId;
+                        this.selectSingleRoom(nextId);
                         this.roomTapStamp = { id: null, at: 0 };
 
                         if (!this.drawerOpen) {
@@ -7859,6 +7942,35 @@
                             y: Math.min(Math.max(0, y), maxY),
                         };
                     },
+                    clampGroupDragDelta(items, dx, dy) {
+                        let limitedDx = dx;
+                        let limitedDy = dy;
+
+                        items.forEach((item) => {
+                            const el = item.el;
+                            const parent = el.parentElement;
+                            const width = Number(el.dataset.width) || el.offsetWidth || 0;
+                            const height = Number(el.dataset.height) || el.offsetHeight || 0;
+                            const maxX = Math.max(
+                                0,
+                                (parent?.clientWidth || this.blueprint?.width || width) - width,
+                            );
+                            const maxY = Math.max(
+                                0,
+                                (parent?.clientHeight || this.blueprint?.height || height) - height,
+                            );
+
+                            const minDx = -item.originX;
+                            const maxDx = maxX - item.originX;
+                            const minDy = -item.originY;
+                            const maxDy = maxY - item.originY;
+
+                            limitedDx = Math.min(Math.max(limitedDx, minDx), maxDx);
+                            limitedDy = Math.min(Math.max(limitedDy, minDy), maxDy);
+                        });
+
+                        return { dx: limitedDx, dy: limitedDy };
+                    },
                     computeRoomResize(state, pointer) {
                         const dx = pointer.x - state.pointer.x;
                         const dy = pointer.y - state.pointer.y;
@@ -8020,11 +8132,32 @@
 
                         drag.raf = 0;
 
-                        const next = this.clampRoomPosition(drag.el, drag.x, drag.y);
+                        const items = Array.isArray(drag.items) && drag.items.length
+                            ? drag.items
+                            : null;
 
-                        drag.x = next.x;
-                        drag.y = next.y;
-                        this.applyRoomDragVisual(drag.el, next.x, next.y);
+                        if (items) {
+                            const rawDx = drag.x - drag.originX;
+                            const rawDy = drag.y - drag.originY;
+                            const limited = this.clampGroupDragDelta(items, rawDx, rawDy);
+
+                            drag.x = drag.originX + limited.dx;
+                            drag.y = drag.originY + limited.dy;
+
+                            items.forEach((item) => {
+                                const nextX = item.originX + limited.dx;
+                                const nextY = item.originY + limited.dy;
+                                item.x = nextX;
+                                item.y = nextY;
+                                this.applyRoomDragVisual(item.el, nextX, nextY);
+                            });
+                        } else {
+                            const next = this.clampRoomPosition(drag.el, drag.x, drag.y);
+                            drag.x = next.x;
+                            drag.y = next.y;
+                            this.applyRoomDragVisual(drag.el, next.x, next.y);
+                        }
+
                         if (this.selectedRoom === Number(drag.el.dataset.id)) {
                             this.updateRotateHandlePlacement();
                         }
@@ -8043,24 +8176,30 @@
 
                         this.flushRoomDrag();
 
-                        const el = drag.el;
-                        const x = Math.round(drag.x);
-                        const y = Math.round(drag.y);
-                        const rotation = Number(el.dataset.rotation || 0);
+                        const items = Array.isArray(drag.items) && drag.items.length
+                            ? drag.items
+                            : [{ el: drag.el, x: drag.x, y: drag.y }];
 
-                        el.dataset.x = x;
-                        el.dataset.y = y;
-                        el.style.left = x + "px";
-                        el.style.top = y + "px";
-                        el.style.transform = `rotate(${rotation}deg)`;
-                        el.style.willChange = "";
-                        el.classList.remove("is-dragging");
+                        items.forEach((item) => {
+                            const el = item.el;
+                            const x = Math.round(item.x ?? drag.x);
+                            const y = Math.round(item.y ?? drag.y);
+                            const rotation = Number(el.dataset.rotation || 0);
+
+                            el.dataset.x = x;
+                            el.dataset.y = y;
+                            el.style.left = x + "px";
+                            el.style.top = y + "px";
+                            el.style.transform = `rotate(${rotation}deg)`;
+                            el.style.willChange = "";
+                            el.classList.remove("is-dragging");
+                        });
 
                         this.roomDrag = null;
                         this.dropLayoutUndoIfUnchanged();
                         this.layoutDirty = true;
 
-                        if (this.selectedRoom === Number(el.dataset.id)) {
+                        if (this.selectedRoom === Number(drag.el.dataset.id)) {
                             this.syncSelectedRoomControl();
                         }
 
@@ -8075,6 +8214,11 @@
                             .on("tap", (event) => {
 
                                 if (!this.editMode) return;
+
+                                // Drag end can still emit tap — keep the multi-selection intact.
+                                if (event.interaction?.pointerWasMoved || this.roomDrag) {
+                                    return;
+                                }
 
                                 // Do not preventDefault — it suppresses native dblclick.
                                 if (this.roomPaintMode) {
@@ -8091,6 +8235,15 @@
                                     return;
                                 }
 
+                                const original = event.originalEvent || event;
+                                const multiKey = !!(original.shiftKey || original.ctrlKey || original.metaKey);
+
+                                if (multiKey) {
+                                    this.toggleRoomInSelection(nextId);
+                                    this.roomTapStamp = { id: nextId, at: Date.now() };
+                                    return;
+                                }
+
                                 const now = Date.now();
                                 const prevAt = Number(this.roomTapStamp.at || 0);
                                 const sameRoom = Number(this.roomTapStamp.id) === nextId;
@@ -8099,7 +8252,7 @@
                                 // Same physical click often emits two tap events;
                                 // ignore the duplicate so one click cannot open the drawer.
                                 if (sameRoom && dt < 120) {
-                                    this.selectedRoom = nextId;
+                                    this.selectSingleRoom(nextId);
                                     return;
                                 }
 
@@ -8110,7 +8263,7 @@
                                 }
 
                                 // First tap: select only
-                                this.selectedRoom = nextId;
+                                this.selectSingleRoom(nextId);
                                 this.roomTapStamp = { id: nextId, at: now };
                             })
                             .draggable({
@@ -8125,31 +8278,80 @@
                                         }
 
                                         const el = event.target.closest?.(".room-block") || event.target;
+                                        const roomId = Number(el.dataset.id);
                                         const originX = parseFloat(el.dataset.x) || 0;
                                         const originY = parseFloat(el.dataset.y) || 0;
                                         const zoom = this.getLayoutZoom();
                                         const canvasRect = this.$refs.blueprintCanvas?.getBoundingClientRect();
                                         const pointer = this.getCanvasPointer(event, canvasRect, zoom);
+                                        const original = event.originalEvent || event;
+                                        const multiKey = !!(original.shiftKey || original.ctrlKey || original.metaKey);
 
                                         if (this.roomDrag?.raf) {
                                             cancelAnimationFrame(this.roomDrag.raf);
                                         }
 
-                                        el.classList.add("is-dragging");
-                                        el.style.willChange = "transform";
-                                        this.selectedRoom = Number(el.dataset.id);
+                                        if (multiKey) {
+                                            if (!this.isRoomSelected(roomId)) {
+                                                this.toggleRoomInSelection(roomId);
+                                            } else {
+                                                this.setPrimaryRoomKeepingSelection(roomId);
+                                            }
+                                        } else if (this.isRoomSelected(roomId) && this.selectedRoomIds.length > 1) {
+                                            this.setPrimaryRoomKeepingSelection(roomId);
+                                        } else {
+                                            this.selectSingleRoom(roomId);
+                                        }
+
+                                        const groupIds = this.selectedRoomIds
+                                            .map(Number)
+                                            .filter((id) => Number.isFinite(id) && id > 0);
+                                        const floorPanel = el.closest?.("[data-floor-panel]") || el.parentElement;
+                                        const items = groupIds
+                                            .map((id) => {
+                                                const node = floorPanel?.querySelector?.(`.room-block[data-id="${id}"]`)
+                                                    || document.querySelector(`.room-block[data-id="${id}"]`);
+                                                if (!node) return null;
+                                                return {
+                                                    el: node,
+                                                    id,
+                                                    originX: parseFloat(node.dataset.x) || 0,
+                                                    originY: parseFloat(node.dataset.y) || 0,
+                                                    x: parseFloat(node.dataset.x) || 0,
+                                                    y: parseFloat(node.dataset.y) || 0,
+                                                };
+                                            })
+                                            .filter(Boolean);
+
+                                        const dragItems = items.length > 1 ? items : null;
+
+                                        (dragItems || [{ el }]).forEach((item) => {
+                                            item.el.classList.add("is-dragging");
+                                            item.el.style.willChange = "transform";
+                                        });
+
                                         this.captureLayoutUndo();
                                         this.roomDrag = {
                                             el,
                                             x: originX,
                                             y: originY,
+                                            originX,
+                                            originY,
                                             grabX: pointer.x - originX,
                                             grabY: pointer.y - originY,
                                             canvasRect,
                                             zoom,
                                             raf: 0,
+                                            items: dragItems,
                                         };
-                                        this.applyRoomDragVisual(el, originX, originY);
+
+                                        if (dragItems) {
+                                            dragItems.forEach((item) => {
+                                                this.applyRoomDragVisual(item.el, item.originX, item.originY);
+                                            });
+                                        } else {
+                                            this.applyRoomDragVisual(el, originX, originY);
+                                        }
                                     },
                                     move: (event) => {
                                         if (!this.roomDrag) {

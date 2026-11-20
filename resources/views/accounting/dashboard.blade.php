@@ -14,10 +14,13 @@
     $plural = fn (int $n, string $word) => $n.' '.($n === 1 ? $word : Str::plural($word));
 
     $typeLinks = [
-        'dv' => route('accounting.dv.index'),
+        'package' => route('accounting.approved-packages.index'),
         'liq' => route('accounting.liq.index', ['focus' => 'liq-review']),
     ];
-    $typeShort = ['dv' => 'Disbursement voucher', 'liq' => 'Liquidation report'];
+    $typeShort = [
+        'package' => 'ATP + RFC',
+        'liq' => 'Liquidation report',
+    ];
     $reviewTabs = $d['queueByType'];
     $activeReview = collect($reviewTabs)->filter(fn ($group) => ($group['count'] ?? 0) > 0)->keys()->first()
         ?? array_key_first($reviewTabs);
@@ -25,13 +28,6 @@
     $overdue = (int) ($deadlines['overdue'] ?? 0);
     $dueToday = (int) ($deadlines['due_today'] ?? 0);
     $dueWeek = (int) ($deadlines['this_week'] ?? 0);
-
-    $received = (float) ($financialSummary['received'] ?? 0);
-    $releasedTotal = (float) ($financialSummary['released'] ?? 0);
-    $liquidated = (float) ($financialSummary['liquidated'] ?? 0);
-    $awaiting = max(0, $received - $releasedTotal);
-
-    $chartMonths = $fundsReleasedChart['months'] ?? [];
 @endphp
 
 <div class="acx space-y-6">
@@ -71,7 +67,6 @@
                                     <th class="px-6 py-3 font-medium">Number</th>
                                     <th class="py-3 pr-4 font-medium max-md:hidden">From</th>
                                     <th class="py-3 pr-4 font-medium max-sm:hidden">Waiting</th>
-                                    <th class="py-3 pr-4 text-right font-medium">Amount</th>
                                     <th class="py-3 pr-6"></th>
                                 </tr>
                             </thead>
@@ -97,7 +92,6 @@
                                             @if($item->related)<span class="block truncate text-xs text-slate-400">{{ $item->related }}</span>@endif
                                         </td>
                                         <td class="whitespace-nowrap py-3.5 pr-4 text-xs max-sm:hidden {{ $item->slow ? 'font-medium text-amber-600' : 'text-slate-500' }}">{{ $item->waiting ?: '—' }}</td>
-                                        <td class="whitespace-nowrap py-3.5 pr-4 text-right font-medium tabular-nums text-slate-900">{{ $item->amount !== null ? $peso($item->amount) : '—' }}</td>
                                         <td class="whitespace-nowrap py-3.5 pr-6 text-right">
                                             <span class="text-xs font-medium text-[#0025cc]">{{ $item->action }}</span>
                                         </td>
@@ -158,101 +152,6 @@
         </div>
     </section>
 
-    <section class="grid gap-6 xl:grid-cols-3">
-        <div class="acx-card p-6 xl:col-span-2">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h2 class="acx-h text-base font-semibold">Money released</h2>
-                    <p class="mt-0.5 text-xs text-slate-500">From released request checks</p>
-                    <div id="fundsChartBasis" class="mt-2 flex flex-wrap gap-1.5">
-                        @foreach(($fundsReleasedChart['basis'] ?? []) as $part)
-                            @if((int) ($part['count'] ?? 0) > 0)
-                                <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#15803d]">
-                                    {{ $part['label'] }}
-                                    <span class="font-medium tabular-nums">{{ $peso($part['amount']) }}</span>
-                                </span>
-                            @endif
-                        @endforeach
-                    </div>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <p class="text-lg font-semibold tabular-nums text-slate-900" id="fundsChartTotal">{{ $peso($fundsReleasedChart['total'] ?? 0) }}</p>
-                        <p class="text-[11px] text-slate-400" id="fundsChartReleases">{{ $plural((int) ($fundsReleasedChart['releases'] ?? 0), 'release') }}</p>
-                    </div>
-                    <select id="fundsChartYear" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 outline-none transition focus:border-[#0025cc]" aria-label="Select chart year">
-                        @foreach($chartYears as $y)
-                            <option value="{{ $y }}" @selected((int) $y === (int) $chartYear)>{{ $y }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="relative mt-6 h-[240px]">
-                <canvas id="fundsReleasedChart"></canvas>
-            </div>
-        </div>
-
-        <div class="acx-card flex flex-col p-6">
-            <h2 class="acx-h text-base font-semibold">Where the money stands</h2>
-
-            @php
-                $fundPaths = $financialSummary['paths'] ?? ['approved' => [], 'released' => [], 'waiting' => []];
-                $paidShare = $received > 0 ? min(100, (int) round(($releasedTotal / $received) * 100)) : 0;
-                $paidBar = $paidShare >= 100 ? '#0025cc' : ($paidShare >= 50 ? '#eab308' : '#dc2626');
-            @endphp
-
-            <div class="mt-5 space-y-4 text-sm">
-                <div>
-                    <div class="flex items-baseline gap-2">
-                        <p class="font-medium text-slate-900">Approved checks</p>
-                        <span class="acx-leader"></span>
-                        <p class="tabular-nums text-slate-900">{{ $peso($received) }}</p>
-                    </div>
-                    @include('accounting.partials.fund-path-pills', ['parts' => $fundPaths['approved'] ?? []])
-                </div>
-                <div>
-                    <div class="flex items-baseline gap-2">
-                        <p class="font-medium text-slate-900">Already paid out</p>
-                        <span class="acx-leader"></span>
-                        <p class="tabular-nums text-slate-900">{{ $peso($releasedTotal) }}</p>
-                    </div>
-                    @include('accounting.partials.fund-path-pills', ['parts' => $fundPaths['released'] ?? []])
-                </div>
-                <div class="border-t border-slate-200 pt-3">
-                    <div class="flex items-baseline gap-2">
-                        <p class="font-medium text-slate-900">Waiting to be paid</p>
-                        <span class="acx-leader"></span>
-                        <p class="font-semibold tabular-nums text-[#0025cc]">{{ $peso($awaiting) }}</p>
-                    </div>
-                    <div class="mt-3">
-                        <div class="flex h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <span style="width: {{ $paidShare }}%; background: {{ $paidBar }};"></span>
-                        </div>
-                        <p class="mt-1 text-[11px] text-slate-400">{{ $paidShare }}% of approved checks have been paid out.</p>
-                    </div>
-                </div>
-            </div>
-
-            <p class="mt-6 text-sm font-semibold text-slate-900">Cash Advance still out</p>
-            <div class="mt-3 space-y-4 text-sm">
-                <div>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-slate-700">Reported and approved</p>
-                        <span class="acx-leader"></span>
-                        <p class="tabular-nums text-slate-900">{{ $peso($liquidated) }}</p>
-                    </div>
-                </div>
-                <div>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-slate-700">Still with the purchaser</p>
-                        <span class="acx-leader"></span>
-                        <p class="tabular-nums {{ $d['cashAdvanceAmount'] > 0 ? 'font-semibold text-amber-600' : 'text-slate-900' }}">{{ $peso($d['cashAdvanceAmount']) }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
     {{-- Cash advances · decisions --}}
     <section class="grid gap-6 lg:grid-cols-2">
         <div id="cash-advances" class="acx-card flex scroll-mt-24 flex-col">
@@ -271,7 +170,6 @@
                             <span class="block truncate text-xs text-slate-400">{{ $ca->kind }} · {{ $ca->payee }}</span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-sm tabular-nums text-slate-900">{{ $peso($ca->amount) }}</span>
                             <span class="block text-[11px] {{ $ca->liquidation_status ? 'text-[#0025cc]' : ($ca->days >= 14 ? 'font-medium text-amber-600' : 'text-slate-400') }}">
                                 {{ $ca->liquidation_status ? 'Report '.Str::lower($ca->liquidation_status) : ($ca->days === 0 ? 'Released today' : 'Released '.$plural($ca->days, 'day').' ago') }}
                             </span>
@@ -346,122 +244,6 @@
     .acx .acx-leader { flex: 1 1 auto; min-width: 1rem; border-bottom: 1px dotted #cbd5e1; transform: translateY(-4px); }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const canvas = document.getElementById('fundsReleasedChart');
-        const yearSelect = document.getElementById('fundsChartYear');
-        if (!canvas || typeof Chart === 'undefined') return;
-
-        const ACCENT = '#0025cc';
-        const REST = '#93c5fd';
-        let months = @json($chartMonths);
-        let year = Number(@json((int) $chartYear));
-        let chart = null;
-
-        function peso(value) {
-            return '₱' + Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        function renderBasis(parts) {
-            const el = document.getElementById('fundsChartBasis');
-            if (!el) return;
-            el.innerHTML = (parts || []).filter(function (part) { return Number(part.count || 0) > 0; }).map(function (part) {
-                const label = document.createElement('span');
-                label.className = 'inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#15803d]';
-                label.textContent = part.label + ' ';
-                const amount = document.createElement('span');
-                amount.className = 'font-medium tabular-nums';
-                amount.textContent = peso(part.amount);
-                label.appendChild(amount);
-                return label.outerHTML;
-            }).join('');
-        }
-
-        function barColors() {
-            return months.map(function () { return REST; });
-        }
-
-        function build() {
-            if (chart) chart.destroy();
-            chart = new Chart(canvas, {
-                type: 'bar',
-                data: {
-                    labels: months.map(m => m.month_label),
-                    datasets: [{
-                        label: 'Money released',
-                        data: months.map(m => Number(m.released || 0)),
-                        backgroundColor: barColors(),
-                        hoverBackgroundColor: ACCENT,
-                        borderRadius: 4,
-                        borderSkipped: false,
-                        maxBarThickness: 28,
-                    }],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#0f172a',
-                            padding: 10,
-                            cornerRadius: 8,
-                            displayColors: false,
-                            callbacks: {
-                                label(context) {
-                                    const m = months[context.dataIndex] || {};
-                                    return [
-                                        'Released  ' + peso(m.released),
-                                        'Releases  ' + (m.count || 0),
-                                        'Average   ' + peso(m.average),
-                                    ];
-                                },
-                            },
-                        },
-                    },
-                    scales: {
-                        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
-                        y: {
-                            beginAtZero: true,
-                            border: { display: false },
-                            grid: { color: '#f1f5f9' },
-                            ticks: { color: '#94a3b8', font: { size: 11 }, callback: peso, maxTicksLimit: 5 },
-                        },
-                    },
-                },
-            });
-        }
-
-        build();
-
-        if (yearSelect) {
-            yearSelect.addEventListener('change', async function () {
-                const url = new URL(window.location.href);
-                url.searchParams.set('year', yearSelect.value);
-                url.searchParams.set('partial', 'funds_chart');
-                try {
-                    const res = await fetch(url.pathname + url.search, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                    });
-                    const data = await res.json();
-                    months = Array.isArray(data.months) ? data.months : [];
-                    year = Number(data.year || yearSelect.value);
-                    const releases = data.releases || 0;
-                    document.getElementById('fundsChartTotal').textContent = peso(data.total);
-                    document.getElementById('fundsChartReleases').textContent = releases + (releases === 1 ? ' release' : ' releases');
-                    renderBasis(data.basis);
-                    build();
-                    url.searchParams.delete('partial');
-                    window.history.replaceState({}, '', url.pathname + url.search);
-                } catch (err) {
-                    console.error(err);
-                }
-            });
-        }
-    });
-</script>
 <script>
     (function () {
         const modal = document.getElementById('accountingDashboardPreview');

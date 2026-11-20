@@ -74,7 +74,6 @@
                 <tr class="border-b border-gray-100">
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS Number</th>
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
-                    <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Decision Date</th>
                     <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
                 </tr>
@@ -86,18 +85,13 @@
                         $totalAmount = number_format((float)($row->total_amount ?? 0), 2);
                         $decisionDate = $row->decided_at ?? $row->ris_created_at ?? null;
                         $formattedDate = $decisionDate ? date('F d, Y', strtotime($decisionDate)) : '—';
-                        $statusLower = strtolower($row->ris_status ?? '');
-                        $statusBadge = $statusLower === 'approved'
-                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : 'bg-slate-100 text-slate-800 border-slate-200';
                         $remarks = $row->remarks ?? null;
                     @endphp
                     <tr class="border-b border-gray-100 decision-row transition-all duration-200 slide-up" style="animation-delay: {{ $loop->index * 0.03 }}s">
                         <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $reference }}</td>
                         <td class="px-3 py-4 text-sm">
-                            <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-semibold border {{ $statusBadge }}">{{ $row->ris_status ?? '—' }}</span>
+                            @include('admin.partials.ris-status-badge', ['ris' => $row])
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-700">₱{{ $totalAmount }}</td>
                         <td class="px-3 py-4 text-sm text-gray-700 whitespace-nowrap">{{ $formattedDate }}</td>
                         <td class="px-3 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">

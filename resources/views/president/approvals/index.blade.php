@@ -132,8 +132,8 @@
                 <h2 id="reviewRisNumber">RIS</h2>
                 <p class="doc-meta">
                     <span id="reviewRequester">—</span><span>·</span>
-                    <span id="reviewDateSubmitted">—</span><span>·</span>
-                    <span id="reviewAmount">—</span>
+                    <span id="reviewDateSubmitted">—</span>
+                    <span id="reviewAmount" class="hidden">—</span>
                 </p>
             </div>
             <div class="doc-head-actions">
@@ -364,21 +364,10 @@
                 <label>Revision remarks <span class="text-red-500">*</span></label>
                 <textarea name="remarks" id="presidentRevisionRemarks" rows="3" required placeholder="Describe what needs to be revised."></textarea>
             </div>
-            <div class="mt-4">
-                <label>Pass this RIS to <span class="text-red-500">*</span></label>
-                <p class="hint" style="margin:4px 0 8px;font-size:0.75rem;color:#64748b;">Choose one path.</p>
-                <div class="space-y-2">
-                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-700">
-                        <input type="radio" name="revision_route" value="school_admin" id="revisionRouteAdmin" class="mt-0.5" checked>
-                        <span class="font-medium text-slate-900">School Administrator only</span>
-                    </label>
-                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
-                        <input type="radio" name="revision_route" value="school_admin_and_purchaser" id="revisionRouteBoth" class="mt-0.5">
-                        <span class="font-medium text-slate-900">School Administrator &amp; Purchaser</span>
-                    </label>
-                </div>
-                <p id="presidentRevisionRouteError" class="mt-2 hidden text-xs text-rose-600">Select a destination.</p>
-            </div>
+            <input type="hidden" name="revision_route" value="school_admin">
+            <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                This goes to the School Administrator only. They sign <strong>Issued by</strong>, then return the RIS to the Purchaser.
+            </p>
             <div class="mt-4">
                 @include('admin.partials.revision-image-picker', ['pickerId' => 'presidentRevisionImages'])
             </div>
@@ -846,7 +835,9 @@
                 }
 
                 const details = (data.forward_details || '').trim();
-                const adminFile = data.forward_attachment || null;
+                const adminFiles = (data.forward_attachments && data.forward_attachments.length)
+                    ? data.forward_attachments
+                    : (data.forward_attachment ? [data.forward_attachment] : []);
                 let hasInfo = false;
 
                 if (details) {
@@ -855,7 +846,8 @@
                     hasInfo = true;
                 }
 
-                if (adminFile && adminFile.url) {
+                adminFiles.forEach(function (adminFile) {
+                    if (!adminFile || !adminFile.url) return;
                     const link = document.createElement('a');
                     link.href = adminFile.url;
                     link.target = '_blank';
@@ -865,7 +857,7 @@
                     link.setAttribute('data-tip', 'Open admin attachment');
                     list.appendChild(link);
                     hasInfo = true;
-                }
+                });
 
                 empty.classList.toggle('hidden', hasInfo);
             })
@@ -1125,10 +1117,6 @@
         document.getElementById('presidentRevisionTargetId').value = id;
         const remarks = document.getElementById('presidentRevisionRemarks');
         if (remarks) remarks.value = '';
-        const adminOnly = document.getElementById('revisionRouteAdmin');
-        if (adminOnly) adminOnly.checked = true;
-        const routeError = document.getElementById('presidentRevisionRouteError');
-        if (routeError) routeError.classList.add('hidden');
         document.getElementById('presidentRevisionSubtitle').textContent = window.risFormNumberLabel(id);
         if (typeof window.resetRevisionImagePicker === 'function') {
             window.resetRevisionImagePicker('presidentRevisionImages');
@@ -1159,13 +1147,6 @@
             remarksField?.focus();
             return;
         }
-        const route = form.querySelector('input[name="revision_route"]:checked');
-        const routeError = document.getElementById('presidentRevisionRouteError');
-        if (!route) {
-            if (routeError) routeError.classList.remove('hidden');
-            return;
-        }
-        if (routeError) routeError.classList.add('hidden');
         decideInFlight = true;
         fetch(form.action, {
             method: 'POST',

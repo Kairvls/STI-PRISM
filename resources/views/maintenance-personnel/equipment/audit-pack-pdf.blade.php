@@ -30,7 +30,7 @@
         <tr><td><strong>Status</strong></td><td>{{ $equipment['inventory_status'] ?: '—' }} / {{ $equipment['condition_status'] ?: '—' }}</td></tr>
         <tr><td><strong>Current room</strong></td><td>{{ $equipment['room_name'] ?: '—' }}</td></tr>
         <tr><td><strong>Supplier</strong></td><td>{{ $equipment['supplier_name'] ?: '—' }}</td></tr>
-        <tr><td><strong>Purchase cost</strong></td><td>{{ $equipment['purchase_cost'] !== null ? 'PHP '.number_format($equipment['purchase_cost'], 2) : '—' }}</td></tr>
+        <tr><td><strong>Purchase cost</strong></td><td>{{ \App\Support\Money::format($equipment['purchase_cost'] ?? null, '—') }}</td></tr>
         <tr><td><strong>Lot</strong></td><td>{{ $equipment['stock_lot_code'] ?: '—' }}</td></tr>
     </table>
 

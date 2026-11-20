@@ -24,6 +24,11 @@
             return !!(data && data.payment_path === this.cashAdvancePath);
         },
 
+        referencesFor(fundingKey) {
+            const data = this.rfcPrefill[String(fundingKey || '')];
+            return (data && Array.isArray(data.references)) ? data.references : [];
+        },
+
         fundingLabel(fundingKey) {
             const data = this.rfcPrefill[String(fundingKey || '')];
             if (!data) return '';
@@ -74,6 +79,18 @@
             });
         },
         closeAll() { this.createOpen = false; this.viewOpen = false; this.editOpen = false; this.emptyOpen = false; this.modalFullscreen = false; this.selectedRr = null; },
+        guardClose(kind) {
+            const form = kind === 'create'
+                ? this.$refs.createForm
+                : document.querySelector('[data-pur-edit-form=rr][data-open=1]');
+            const finish = () => {
+                if (kind === 'create') this.createOpen = false;
+                else this.editOpen = false;
+                this.modalFullscreen = false;
+            };
+            if (window.purGuardFormClose) { window.purGuardFormClose(form, finish); return; }
+            finish();
+        },
 
         applyRfcPrefill(fundingKey) {
             this.selectedFundingKey = String(fundingKey || '');
@@ -122,6 +139,8 @@
                     unit.dispatchEvent(new Event('input', { bubbles: true }));
                 }
                 if (article) article.value = item.article ?? '';
+                const equipment = form.querySelector('[name=\'items[' + i + '][equipment_id]\']');
+                if (equipment) equipment.value = item.equipment_id ? String(item.equipment_id) : '';
                 if (unitPrice) unitPrice.value = item.unit_price ?? '';
                 if (supplier && item.supplier_id) supplier.value = item.supplier_id;
             }
@@ -155,7 +174,7 @@
             });
         }
     "
-    @keydown.escape.window="closeAll()"
+    @keydown.escape.window="if (document.getElementById('purConfirmOverlay')) return; if (createOpen) { guardClose('create'); } else if (editOpen) { guardClose('edit'); } else { closeAll(); }"
     class="space-y-6"
 >
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -270,7 +289,7 @@
                     <select id="rr-status" name="status" aria-label="Filter by status" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Incomplete','Completed','Returned'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status === 'Submitted' ? 'In Review' : \App\Support\ProcurementDraftLabel::status($status) }}</option>
+                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::label($status, 'rr') }}</option>
                         @endforeach
                     </select>
 
@@ -369,7 +388,7 @@
                             <td class="px-5 py-4 text-gray-600">{{ $rr->receiving_report_received_from ?: '—' }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $rr->receiving_report_date ? \Carbon\Carbon::parse($rr->receiving_report_date)->format('M d, Y') : '—' }}</td>
                             <td class="px-5 py-4">
-                                @include('accounting.partials.status-badge', ['status' => $rr->receiving_report_status])
+                                @include('accounting.partials.status-badge', ['status' => $rr->receiving_report_status, 'doc' => 'rr'])
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
@@ -415,16 +434,6 @@
                                                 <i data-lucide="send" class="h-4 w-4"></i>
                                             </button>
                                         </form>
-                                    @endif
-                                    @if(
-                                        !$archiveView
-                                        && in_array($rr->receiving_report_status, ['Submitted', 'Under Review', 'Resubmitted'], true)
-                                    )
-                                        @include('partials.purchaser-reassign-reviewer', [
-                                            'type' => 'rr',
-                                            'id' => $rr->receiving_report_id,
-                                            'currentReviewerId' => $rr->receiving_report_assigned_reviewer_id ?? null,
-                                        ])
                                     @endif
                                     @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                                         @if(!$rr->has_liq)
@@ -505,7 +514,7 @@
         aria-labelledby="rr-create-title"
     >
         <div
-            x-on:click.self="createOpen = false; modalFullscreen = false"
+            x-on:click.self="guardClose('create')"
             class="flex min-h-full w-full justify-center"
         >
             @php $rrCreateEmpty = $eligibleRfcs->isEmpty(); @endphp
@@ -527,7 +536,7 @@
                         @unless($rrCreateEmpty)
                             @include('purchaser.partials.modal-fullscreen-button')
                         @endunless
-                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                        <button type="button" @click="guardClose('create')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
                     </div>
@@ -537,7 +546,13 @@
                         No approved Request for Check with released funds is available. Create RR only after Accounting releases the check. Use <strong>Print Empty RR</strong> for a blank paper form.
                     </div>
                 @else
-                    <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rr.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                    <form
+                        method="POST"
+                        action="{{ route(($pp ?? 'purchaser').'.rr.store') }}"
+                        enctype="multipart/form-data"
+                        x-ref="createForm"
+                        x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
+                    >
                         @csrf
                         <input type="hidden" name="save_action" value="draft">
                         <div class="bg-slate-100 p-3 md:p-5">
@@ -560,6 +575,15 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                <div class="mt-3" x-show="referencesFor(selectedFundingKey).length" x-cloak>
+                                    <p class="text-xs font-medium text-slate-700">Approved reference</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-500">Canvass, RIS, ATP, and RFC already approved. Open them while you create this Receiving Report.</p>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <template x-for="ref in referencesFor(selectedFundingKey)" :key="ref.url">
+                                            <a :href="ref.url" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0025cc] hover:bg-slate-50" x-text="ref.label"></a>
+                                        </template>
+                                    </div>
+                                </div>
                                 <p class="mt-1.5 text-xs text-slate-500" x-show="selectedFundingKey && isCashAdvance(selectedFundingKey)" x-cloak>
                                     Cash Advance RR — Official Receipt (OR) details are required.
                                 </p>
@@ -581,13 +605,46 @@
                             ])
                             <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                         </div>
-                        <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                            <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                        <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                            <p class="mr-auto max-w-sm text-[11px] text-slate-500">
+                                Submit sends this Receiving Report to the Receiving Officer next.
+                            </p>
+                            <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                                 Cancel
                             </button>
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
-                                <i data-lucide="check" class="h-4 w-4"></i>
+                            <button
+                                type="submit"
+                                onclick="this.form.querySelector('input[name=save_action]').value='draft'"
+                                class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                            >
                                 {{ \App\Support\ProcurementDraftLabel::SAVE }}
+                            </button>
+                            <button
+                                type="button"
+                                onclick="(function (btn) {
+                                    var form = btn.form;
+                                    if (!form || !window.purConfirm) {
+                                        if (form) {
+                                            form.querySelector('input[name=save_action]').value = 'submit';
+                                            form.requestSubmit ? form.requestSubmit() : form.submit();
+                                        }
+                                        return;
+                                    }
+                                    window.purConfirm({
+                                        title: 'Submit RR',
+                                        text: 'Submit this Receiving Report for review by the Receiving Officer?',
+                                        confirmText: 'Submit',
+                                        kind: 'submit'
+                                    }).then(function (ok) {
+                                        if (!ok) return;
+                                        form.querySelector('input[name=save_action]').value = 'submit';
+                                        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                                        else form.submit();
+                                    });
+                                })(this)"
+                                class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                            >
+                                Submit to Receiving Officer
                             </button>
                         </div>
                     </form>
@@ -766,7 +823,7 @@
                 aria-labelledby="rr-edit-title-{{ $rr->receiving_report_id }}"
             >
                 <div
-                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    x-on:click.self="guardClose('edit')"
                     class="flex min-h-full w-full justify-center"
                 >
                     <div
@@ -802,7 +859,7 @@
                             </div>
                             <div class="flex shrink-0 items-center gap-1">
                                 @include('purchaser.partials.modal-fullscreen-button')
-                                <button type="button" @click="editOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <button type="button" @click="guardClose('edit')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                     <i data-lucide="x" class="h-4 w-4"></i>
                                 </button>
                             </div>
@@ -811,6 +868,8 @@
                             method="POST"
                             action="{{ route(($pp ?? 'purchaser').'.rr.update', $rr->receiving_report_id) }}"
                             enctype="multipart/form-data"
+                            data-pur-edit-form="rr"
+                            x-bind:data-open="editOpen && selectedRr === {{ $rr->receiving_report_id }} ? '1' : '0'"
                             x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
                         >
                             @csrf
@@ -823,15 +882,11 @@
                             </div>
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
                                 <p class="mr-auto max-w-md text-xs text-gray-500">
-                                    @if($rr->receiving_report_status === 'Minor Revision')
-                                        Save your corrections here, then use <strong>⋮ → Resubmit to Receiving Officer</strong> in the list.
-                                    @else
-                                        Save your changes here (including signature), then use the <strong>Send</strong> action in the list to submit to the Receiving Officer.
-                                    @endif
+                                    Submit sends this Receiving Report to the Receiving Officer next.
                                 </p>
                                 <button
                                     type="button"
-                                    @click="editOpen = false; modalFullscreen = false"
+                                    @click="guardClose('edit')"
                                     class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950"
                                 >
                                     Cancel
@@ -842,6 +897,36 @@
                                     class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                 >
                                     Save Changes
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="(function (btn) {
+                                        var form = btn.form;
+                                        var isResubmit = {{ $rr->receiving_report_status === 'Minor Revision' ? 'true' : 'false' }};
+                                        if (!form || !window.purConfirm) {
+                                            if (form) {
+                                                form.querySelector('input[name=save_action]').value = 'submit';
+                                                form.requestSubmit ? form.requestSubmit() : form.submit();
+                                            }
+                                            return;
+                                        }
+                                        window.purConfirm({
+                                            title: isResubmit ? 'Resubmit RR' : 'Submit RR',
+                                            text: isResubmit
+                                                ? 'Resubmit this Receiving Report for review?'
+                                                : 'Submit this Receiving Report for review by the Receiving Officer?',
+                                            confirmText: isResubmit ? 'Resubmit' : 'Submit',
+                                            kind: 'submit'
+                                        }).then(function (ok) {
+                                            if (!ok) return;
+                                            form.querySelector('input[name=save_action]').value = 'submit';
+                                            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                                            else form.submit();
+                                        });
+                                    })(this)"
+                                    class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                >
+                                    {{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit to Receiving Officer' : 'Submit to Receiving Officer' }}
                                 </button>
                             </div>
                         </form>

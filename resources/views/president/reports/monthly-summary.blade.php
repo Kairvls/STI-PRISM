@@ -34,9 +34,9 @@
             <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
                 <i data-lucide="wallet" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-slate-600">Approved Value</p>
+            <p class="text-xs font-medium text-slate-600">Approved</p>
         </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">₱{{ number_format((float)($insights['approved_amount'] ?? 0), 2) }}</p>
+        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ number_format((int)($insights['approved_count'] ?? 0)) }}</p>
     </div>
 
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
@@ -44,9 +44,9 @@
             <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
                 <i data-lucide="wallet" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-slate-600">Rejected Value</p>
+            <p class="text-xs font-medium text-slate-600">Rejected</p>
         </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">₱{{ number_format((float)($insights['rejected_amount'] ?? 0), 2) }}</p>
+        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ number_format((int)($insights['rejected_count'] ?? 0)) }}</p>
     </div>
 
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
@@ -135,8 +135,6 @@
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Received</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
-                        <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved Value</th>
-                        <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected Value</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -146,8 +144,6 @@
                             <td class="px-4 py-4 text-center text-sm font-semibold text-gray-900">{{ $row['total'] ?? ($row['approved'] + $row['rejected'] + $row['pending']) }}</td>
                             <td class="px-4 py-4 text-center text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
                             <td class="px-4 py-4 text-center text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
-                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
                         </tr>
                     @empty
                         <tr>
@@ -236,8 +232,6 @@
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Received</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
-                        <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved Value</th>
-                        <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected Value</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -247,8 +241,6 @@
                             <td class="px-4 py-4 text-center text-sm font-semibold text-gray-900">{{ $row['total'] ?? ($row['approved'] + $row['rejected'] + $row['pending']) }}</td>
                             <td class="px-4 py-4 text-center text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
                             <td class="px-4 py-4 text-center text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
-                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
                         </tr>
                     @empty
                         <tr>

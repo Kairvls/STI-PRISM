@@ -137,21 +137,6 @@
             </div>
 
             <div>
-                <label for="user_username" class="mb-1.5 block text-xs font-semibold text-slate-600">
-                    Username <span class="text-red-500">*</span>
-                </label>
-                <input
-                    id="user_username"
-                    name="user_username"
-                    type="text"
-                    value="{{ old('user_username', $user->user_username) }}"
-                    required
-                    maxlength="100"
-                    class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                >
-            </div>
-
-            <div>
                 <label for="user_employee_id" class="mb-1.5 block text-xs font-semibold text-slate-600">
                     Employee ID
                 </label>

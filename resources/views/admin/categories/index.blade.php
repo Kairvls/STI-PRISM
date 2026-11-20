@@ -166,7 +166,7 @@
                         <th
                             class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
                         >
-                            Equipment Assigned
+                            Assigned units
                         </th>
 
 
@@ -264,7 +264,7 @@
                                     </span>
                                     <span class="min-w-0">
                                         <span class="block text-sm font-medium text-slate-800">
-                                            {{ $typeCount === 1 ? 'equipment name' : 'equipment names' }}
+                                            {{ $typeCount === 1 ? 'equipment' : 'equipments' }}
                                         </span>
                                         <span class="block text-[11px] text-slate-400">Manage list · helps auto-predict</span>
                                     </span>
@@ -291,7 +291,7 @@
                                     <span
                                         class="text-sm text-slate-500"
                                     >
-                                        {{ $category->equipment_count == 1 ? 'equipment' : 'equipment records' }}
+                                        {{ $category->equipment_count == 1 ? 'unit' : 'units' }}
                                     </span>
 
                                 </div>
@@ -351,28 +351,29 @@
                                 >
 
 
+                                    @php $categoryInUse = (int) ($category->equipment_count ?? 0) > 0; @endphp
+
                                     {{-- ===================================================== --}}
                                     {{-- EDIT BUTTON --}}
                                     {{-- ===================================================== --}}
 
                                     <button
                                         type="button"
-
-                                        @click='openEditModal(
-                                            @json($category->equipment_category_id),
-                                            @json($category->equipment_category_name)
-                                        )'
-
-                                        data-tooltip="Edit category"
-
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        @if ($categoryInUse)
+                                            disabled
+                                            aria-disabled="true"
+                                            data-tooltip="In use — cannot edit"
+                                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-slate-200 text-slate-400"
+                                        @else
+                                            @click='openEditModal(
+                                                @json($category->equipment_category_id),
+                                                @json($category->equipment_category_name)
+                                            )'
+                                            data-tooltip="Edit category"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        @endif
                                     >
-
-                                        <i
-                                            data-lucide="pencil"
-                                            class="h-4 w-4"
-                                        ></i>
-
+                                        <i data-lucide="pencil" class="h-4 w-4"></i>
                                     </button>
 
 
@@ -383,23 +384,22 @@
 
                                     <button
                                         type="button"
-
-                                        @click='confirmDelete(
-                                            @json($category->equipment_category_id),
-                                            @json($category->equipment_category_name),
-                                            @json((int) $category->equipment_count)
-                                        )'
-
-                                        data-tooltip="Delete category"
-
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
+                                        @if ($categoryInUse)
+                                            disabled
+                                            aria-disabled="true"
+                                            data-tooltip="In use — cannot delete"
+                                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-300"
+                                        @else
+                                            @click='confirmDelete(
+                                                @json($category->equipment_category_id),
+                                                @json($category->equipment_category_name),
+                                                @json((int) $category->equipment_count)
+                                            )'
+                                            data-tooltip="Delete category"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
+                                        @endif
                                     >
-
-                                        <i
-                                            data-lucide="trash-2"
-                                            class="h-4 w-4"
-                                        ></i>
-
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
                                     </button>
 
 
@@ -550,10 +550,16 @@
                                 <p class="mt-0.5 text-xs text-slate-400">Brand ID: {{ $brand->brand_id }}</p>
                             </td>
                             <td class="px-6 py-4">
-                                @if (strcasecmp((string) $brand->brand_status, 'Active') === 0)
+                                @php $brandInUse = ! empty($brand->in_use); @endphp
+                                @if ($brandInUse)
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
                                         <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                        Active
+                                        In Use
+                                    </span>
+                                @elseif (strcasecmp((string) $brand->brand_status, 'Active') === 0)
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-500">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                                        Unused
                                     </span>
                                 @else
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-500">
@@ -566,19 +572,38 @@
                                 <div class="flex items-center justify-end gap-2">
                                     <button
                                         type="button"
-                                        @click='openBrandEdit(@json($brand->brand_id), @json($brand->brand_name), @json($brand->brand_status))'
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                        title="Edit brand"
+                                        @if ($brandInUse)
+                                            disabled
+                                            aria-disabled="true"
+                                            title="In use — cannot edit"
+                                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-slate-200 text-slate-400"
+                                        @else
+                                            @click='openBrandEdit(@json($brand->brand_id), @json($brand->brand_name), @json($brand->brand_status))'
+                                            title="Edit brand"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        @endif
                                     >
                                         <i data-lucide="pencil" class="h-4 w-4"></i>
                                     </button>
-                                    <form method="POST" action="{{ route('admin.equipment-categories.brands.destroy', $brand->brand_id) }}" onsubmit="return confirm('Delete brand {{ addslashes($brand->brand_name) }}?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700" title="Delete brand">
+                                    @if ($brandInUse)
+                                        <button
+                                            type="button"
+                                            disabled
+                                            aria-disabled="true"
+                                            title="In use — cannot delete"
+                                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-300"
+                                        >
                                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                                         </button>
-                                    </form>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.equipment-categories.brands.destroy', $brand->brand_id) }}" onsubmit="return confirm('Delete brand {{ addslashes($brand->brand_name) }}?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700" title="Delete brand">
+                                                <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -614,10 +639,16 @@
                                 <p class="mt-0.5 text-xs text-slate-400">Model ID: {{ $modelRow->model_id }}</p>
                             </td>
                             <td class="px-6 py-4">
-                                @if ($modelRow->model_is_active)
+                                @php $modelInUse = ! empty($modelRow->in_use); @endphp
+                                @if ($modelInUse)
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
                                         <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                        Active
+                                        In Use
+                                    </span>
+                                @elseif ($modelRow->model_is_active)
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-500">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                                        Unused
                                     </span>
                                 @else
                                     <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-500">
@@ -630,19 +661,38 @@
                                 <div class="flex items-center justify-end gap-2">
                                     <button
                                         type="button"
-                                        @click='openModelEdit(@json($modelRow->model_id), @json($modelRow->model_name), @json((bool) $modelRow->model_is_active))'
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                        title="Edit model"
+                                        @if ($modelInUse)
+                                            disabled
+                                            aria-disabled="true"
+                                            title="In use — cannot edit"
+                                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-slate-200 text-slate-400"
+                                        @else
+                                            @click='openModelEdit(@json($modelRow->model_id), @json($modelRow->model_name), @json((bool) $modelRow->model_is_active))'
+                                            title="Edit model"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                        @endif
                                     >
                                         <i data-lucide="pencil" class="h-4 w-4"></i>
                                     </button>
-                                    <form method="POST" action="{{ route('admin.equipment-categories.models.destroy', $modelRow->model_id) }}" onsubmit="return confirm('Delete model {{ addslashes($modelRow->model_name) }}?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700" title="Delete model">
+                                    @if ($modelInUse)
+                                        <button
+                                            type="button"
+                                            disabled
+                                            aria-disabled="true"
+                                            title="In use — cannot delete"
+                                            class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-300"
+                                        >
                                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                                         </button>
-                                    </form>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.equipment-categories.models.destroy', $modelRow->model_id) }}" onsubmit="return confirm('Delete model {{ addslashes($modelRow->model_name) }}?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700" title="Delete model">
+                                                <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -1122,7 +1172,6 @@
                     <p class="mt-1 text-sm text-slate-500">
                         Names listed under
                         <span class="font-medium text-slate-700" x-text="typesCategoryName"></span>
-                        drive inventory auto-predict. Vague words (e.g. Wire) only map here if you add them.
                     </p>
                 </div>
                 <button type="button" @click="closeTypesModal()" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
@@ -1175,7 +1224,16 @@
                             <div class="min-w-0 flex-1">
                                 <template x-if="typesEditId !== row.id">
                                     <div>
-                                        <p class="font-medium text-slate-900" x-text="row.name"></p>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-medium text-slate-900" x-text="row.name"></p>
+                                            <span
+                                                x-show="row.in_use"
+                                                class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                            >
+                                                <span class="h-1 w-1 rounded-full bg-emerald-500"></span>
+                                                In Use
+                                            </span>
+                                        </div>
                                         <p class="mt-0.5 text-xs text-slate-400" x-show="row.aliases" x-text="'Also match: ' + row.aliases"></p>
                                     </div>
                                 </template>
@@ -1191,10 +1249,26 @@
                                 </template>
                             </div>
                             <div class="flex shrink-0 gap-1" x-show="typesEditId !== row.id">
-                                <button type="button" @click="startEditType(row)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#0025cc] hover:bg-blue-50" title="Edit">
+                                <button
+                                    type="button"
+                                    @click="startEditType(row)"
+                                    :disabled="row.in_use"
+                                    :title="row.in_use ? 'In use — cannot edit' : 'Edit'"
+                                    :class="row.in_use
+                                        ? 'inline-flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-lg text-slate-300'
+                                        : 'inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#0025cc] hover:bg-blue-50'"
+                                >
                                     <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
                                 </button>
-                                <button type="button" @click="removeType(row)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50" title="Remove">
+                                <button
+                                    type="button"
+                                    @click="removeType(row)"
+                                    :disabled="row.in_use"
+                                    :title="row.in_use ? 'In use — cannot delete' : 'Remove'"
+                                    :class="row.in_use
+                                        ? 'inline-flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-lg text-slate-300'
+                                        : 'inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50'"
+                                >
                                     <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                                 </button>
                             </div>
@@ -1385,7 +1459,41 @@
                     this.typesSaving = false;
                 }
             },
-            startEditType(row) {
+            typeDialogClasses(danger = false) {
+                return {
+                    popup: 'prism-swal-dialog',
+                    icon: 'prism-swal-dialog__icon',
+                    title: 'prism-swal-dialog__title',
+                    htmlContainer: 'prism-swal-dialog__body',
+                    actions: 'prism-swal-dialog__actions',
+                    confirmButton: danger
+                        ? 'prism-swal-dialog__confirm prism-swal-dialog__confirm--danger'
+                        : 'prism-swal-dialog__confirm',
+                    cancelButton: 'prism-swal-dialog__cancel',
+                };
+            },
+            async startEditType(row) {
+                if (row.in_use) return;
+
+                const result = await Swal.fire({
+                    icon: 'question',
+                    title: 'Edit equipment name?',
+                    html:
+                        `You are about to edit <strong>${this.escapeHtml(row.name)}</strong>. ` +
+                        `Continue?`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Edit',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    buttonsStyling: false,
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    customClass: this.typeDialogClasses(false),
+                });
+
+                if (!result.isConfirmed) return;
+
                 this.typesEditId = row.id;
                 this.typesEditName = row.name;
                 this.typesEditAliases = row.aliases || '';
@@ -1397,7 +1505,7 @@
                 this.typesEditAliases = '';
             },
             async saveType(row) {
-                if (this.typesSaving) return;
+                if (this.typesSaving || row.in_use) return;
                 const name = String(this.typesEditName || '').trim();
                 if (!name) {
                     this.typesError = 'Enter the equipment name.';
@@ -1435,9 +1543,27 @@
                 }
             },
             async removeType(row) {
-                if (this.typesSaving) return;
-                const ok = window.confirm('Remove "' + row.name + '" from this classification?');
-                if (!ok) return;
+                if (this.typesSaving || row.in_use) return;
+
+                const result = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Delete equipment name?',
+                    html:
+                        `You are about to delete <strong>${this.escapeHtml(row.name)}</strong> from this classification. ` +
+                        `This action cannot be undone.`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Delete',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    buttonsStyling: false,
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    customClass: this.typeDialogClasses(true),
+                });
+
+                if (!result.isConfirmed) return;
+
                 this.typesSaving = true;
                 this.typesError = '';
                 try {
@@ -1451,7 +1577,10 @@
                         credentials: 'same-origin',
                     });
                     const data = await res.json().catch(() => ({}));
-                    if (!res.ok) throw new Error(data.message || 'Could not remove.');
+                    if (!res.ok) {
+                        const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                        throw new Error(first || data.message || 'Could not remove.');
+                    }
                     await this.openTypesModal(this.typesCategoryId, this.typesCategoryName);
                 } catch (e) {
                     this.typesError = e.message || 'Could not remove.';

@@ -216,8 +216,8 @@ class AtpFormExporter
             $table->addCell(1200)->addText((string) ($item->atp_quantity ?? ''), $body, $c);
             $table->addCell(1200)->addText((string) ($item->atp_unit ?? ''), $body, $c);
             $table->addCell(3600)->addText((string) ($item->atp_description ?? ''), $body);
-            $table->addCell(1500)->addText(isset($item->atp_unit_price) ? number_format((float) $item->atp_unit_price, 2) : '', $body, $right);
-            $table->addCell(1500)->addText(number_format($amount, 2), $body, $right);
+            $table->addCell(1500)->addText(isset($item->atp_unit_price) ? \App\Support\Money::format($item->atp_unit_price) : '', $body, $right);
+            $table->addCell(1500)->addText(\App\Support\Money::format($amount), $body, $right);
         }
         for ($i = $items->count(); $i < 8; $i++) {
             $table->addRow();
@@ -228,7 +228,7 @@ class AtpFormExporter
         if ($items->isNotEmpty()) {
             $table->addRow();
             $table->addCell(7500, ['gridSpan' => 4])->addText('TOTAL', ['bold' => true, 'size' => 9], $right);
-            $table->addCell(1500)->addText(number_format($total, 2), ['bold' => true, 'size' => 9], $right);
+            $table->addCell(1500)->addText(\App\Support\Money::format($total), ['bold' => true, 'size' => 9], $right);
         }
 
         $section->addTextBreak(2);

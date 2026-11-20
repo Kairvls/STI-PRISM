@@ -263,6 +263,9 @@
         if (!tbody || !template || rows(root).length >= l.max) return null;
         var row = template.content.firstElementChild.cloneNode(true);
         tbody.appendChild(row);
+        if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+            window.Alpine.initTree(row);
+        }
         if (root.classList.contains('is-delete-mode')) decorate(row);
         changed(root);
         return row;

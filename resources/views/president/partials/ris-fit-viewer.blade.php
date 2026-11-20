@@ -194,8 +194,8 @@
     @keyframes risModalIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 </style>
 <script>
-    window.RIS_DOC_W = 1056; // 11in @ 96dpi
-    window.RIS_DOC_H = 816;  // 8.5in @ 96dpi fallback
+    window.RIS_DOC_W = 1095;
+    window.RIS_DOC_H = 845;
 
     function syncDocFsButton(modal, isFs) {
         if (!modal) return;
@@ -270,17 +270,23 @@
 
         let docW = window.RIS_DOC_W;
         let docH = window.RIS_DOC_H;
+        let purchaserSheet = false;
         try {
             const idoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
             if (idoc && idoc.body && idoc.readyState === 'complete') {
-                const root = idoc.querySelector('.ris-document') || idoc.body;
+                const root = idoc.querySelector('.ris-original-form') || idoc.querySelector('.ris-document') || idoc.body;
+                purchaserSheet = !!(root.classList && root.classList.contains('ris-original-form'));
                 const measuredH = Math.ceil(Math.max(
                     root.scrollHeight || 0,
                     root.offsetHeight || 0,
                     root.getBoundingClientRect().height || 0
                 ));
-                if (measuredH >= 240 && measuredH <= 2000) {
+                const measuredW = Math.ceil(root.getBoundingClientRect().width || root.scrollWidth || 0);
+                if (measuredH >= 240 && measuredH <= 2400) {
                     docH = measuredH;
+                }
+                if (measuredW >= 280 && measuredW <= 1600) {
+                    docW = measuredW;
                 }
             }
         } catch (e) { /* ignore */ }
@@ -292,7 +298,9 @@
         const maxW = Math.max(320, window.innerWidth - pad);
         const maxH = Math.max(240, window.innerHeight - pad - chromeH);
 
-        let scale = Math.min(maxW / docW, maxH / docH, isFs ? 1.5 : 1);
+        let scale = purchaserSheet
+            ? Math.min(maxW / docW, isFs ? 1.5 : 1)
+            : Math.min(maxW / docW, maxH / docH, isFs ? 1.5 : 1);
         if (!isFinite(scale) || scale <= 0.05) scale = 0.5;
 
         let scaledW = Math.max(280, Math.floor(docW * scale));
@@ -344,11 +352,13 @@
             fit.style.margin = '0';
             fit.style.boxShadow = 'none';
 
+            const stageH = purchaserSheet ? Math.min(scaledH, maxH) : scaledH;
             stage.style.flex = 'none';
             stage.style.width = scaledW + 'px';
-            stage.style.height = scaledH + 'px';
-            stage.style.minHeight = scaledH + 'px';
-            stage.style.overflow = 'hidden';
+            stage.style.height = stageH + 'px';
+            stage.style.minHeight = purchaserSheet ? '0' : (scaledH + 'px');
+            stage.style.overflowX = 'hidden';
+            stage.style.overflowY = purchaserSheet && scaledH > stageH + 1 ? 'auto' : 'hidden';
             stage.style.display = 'block';
             stage.style.padding = '0';
             stage.style.background = '#fff';
@@ -473,7 +483,9 @@
                 }
 
                 var details = (data.forward_details || '').trim();
-                var adminFile = data.forward_attachment || null;
+                var adminFiles = (data.forward_attachments && data.forward_attachments.length)
+                    ? data.forward_attachments
+                    : (data.forward_attachment ? [data.forward_attachment] : []);
                 var hasAdmin = false;
                 if (adminBox && adminList && adminText) {
                     adminList.innerHTML = '';
@@ -485,7 +497,8 @@
                         adminText.textContent = '';
                         adminText.classList.add('hidden');
                     }
-                    if (adminFile && adminFile.url) {
+                    adminFiles.forEach(function (adminFile) {
+                        if (!adminFile || !adminFile.url) return;
                         var adminLink = document.createElement('a');
                         adminLink.href = adminFile.url;
                         adminLink.target = '_blank';
@@ -495,7 +508,7 @@
                         adminLink.setAttribute('data-tip', 'Open admin attachment');
                         adminList.appendChild(adminLink);
                         hasAdmin = true;
-                    }
+                    });
                     adminBox.classList.toggle('hidden', !hasAdmin);
                 }
 

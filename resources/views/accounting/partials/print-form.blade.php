@@ -14,6 +14,7 @@
                 '.acc-viewer-fit .rfc-print-sheet, ' +
                 '.acc-viewer-fit .rr-print-sheet, ' +
                 '.acc-viewer-fit .liq-print-sheet, ' +
+                '.acc-viewer-fit .ris-original-form, ' +
                 '.acc-viewer-fit .ris-document, ' +
                 '.acc-viewer-fit .ris-print-sheet, ' +
                 '.acc-viewer-fit .acc-paper, ' +
@@ -21,6 +22,7 @@
                 '#pkg-print-sheet, ' +
                 '.atp-print-sheet, ' +
                 '.rfc-print-sheet, ' +
+                '.ris-original-form, ' +
                 '.ris-document, ' +
                 '.dv-print-sheet'
             );
@@ -46,7 +48,9 @@
             document.head.appendChild(pageStyle);
         }
         // Procurement papers always print A4 portrait; fitPrintPage scales to one sheet when possible.
-        var pageSize = 'A4 portrait';
+        var pageSize = (sheet.classList && sheet.classList.contains('ris-original-form'))
+            ? 'A4 landscape'
+            : 'A4 portrait';
         pageStyle.textContent = '@media print { @page { size: ' + pageSize + '; margin: 8mm; } }';
         mount.setAttribute('data-page', 'portrait');
 
@@ -99,6 +103,7 @@
 
     #accounting-print-mount .rfc-print-sheet,
     #accounting-print-mount .liq-print-sheet,
+    #accounting-print-mount .ris-original-form,
     #accounting-print-mount .ris-document,
     #accounting-print-mount .ris-print-sheet,
     #accounting-print-mount .rr-print-sheet,
@@ -181,8 +186,15 @@
         }
 
         #accounting-print-mount .ris-document {
-            padding: 0.2in !important;
+            padding: 6mm 8mm !important;
             width: 100% !important;
+            min-height: 0 !important;
+        }
+        #accounting-print-mount .ris-original-form {
+            width: 1095px !important;
+            max-width: none !important;
+            min-height: 845px !important;
+            zoom: 0.85;
         }
 
         .approval-watermark,

@@ -275,6 +275,8 @@ class AtpRisSuppliers
 
     /**
      * Supplier display names for the given ids (active or not).
+     * When several suppliers share the same company/shop name, append contact
+     * person (or supplier code / id) so labels stay unique — same rule as RIS.
      *
      * @param  iterable<int>  $supplierIds
      * @return array<int, string>
@@ -286,24 +288,84 @@ class AtpRisSuppliers
             return [];
         }
 
-        return DB::table('suppliers_table')
+        $select = [
+            'suppliers_table.supplier_id',
+            'suppliers_table.supplier_store_type',
+            'physical_suppliers_table.company_name',
+            'online_suppliers_table.shop_name',
+            DB::raw('COALESCE(physical_suppliers_table.contact_person, online_suppliers_table.contact_person) as contact_person'),
+        ];
+        if (Schema::hasColumn('suppliers_table', 'supplier_code')) {
+            $select[] = 'suppliers_table.supplier_code';
+        }
+
+        $rows = DB::table('suppliers_table')
             ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
             ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
             ->whereIn('suppliers_table.supplier_id', $ids)
-            ->get([
-                'suppliers_table.supplier_id',
-                'suppliers_table.supplier_store_type',
-                'physical_suppliers_table.company_name',
-                'online_suppliers_table.shop_name',
-            ])
-            ->mapWithKeys(fn ($row) => [
-                (int) $row->supplier_id => (string) (
-                    $row->supplier_store_type === 'Online Store'
-                        ? ($row->shop_name ?: 'Online supplier')
-                        : ($row->company_name ?: 'Supplier')
-                ),
-            ])
+            ->get($select)
+            ->map(function ($row) {
+                $base = $row->supplier_store_type === 'Online Store'
+                    ? ($row->shop_name ?: 'Online supplier #'.$row->supplier_id)
+                    : ($row->company_name ?: 'Supplier #'.$row->supplier_id);
+                $row->base_name = (string) $base;
+
+                return $row;
+            });
+
+        $duplicateKeys = $rows
+            ->groupBy(fn ($row) => mb_strtolower((string) $row->base_name))
+            ->filter(fn ($group) => $group->count() > 1)
+            ->keys()
             ->all();
+
+        return $rows
+            ->mapWithKeys(function ($row) use ($duplicateKeys) {
+                $label = (string) $row->base_name;
+                if (in_array(mb_strtolower($label), $duplicateKeys, true)) {
+                    $contact = trim((string) ($row->contact_person ?? ''));
+                    $code = trim((string) ($row->supplier_code ?? ''));
+                    if ($contact !== '') {
+                        $label .= ' · '.$contact;
+                    } elseif ($code !== '') {
+                        $label .= ' · '.$code;
+                    } else {
+                        $label .= ' · #'.$row->supplier_id;
+                    }
+                }
+
+                return [(int) $row->supplier_id => $label];
+            })
+            ->all();
+    }
+
+    /**
+     * Attach unique display_name on supplier rows for selects / labels.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $suppliers
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public static function withDisplayNames(Collection $suppliers): Collection
+    {
+        if ($suppliers->isEmpty()) {
+            return $suppliers;
+        }
+
+        $names = self::supplierNames($suppliers->pluck('supplier_id'));
+
+        return $suppliers->map(function ($supplier) use ($names) {
+            $id = (int) ($supplier->supplier_id ?? 0);
+            $base = $names[$id] ?? (
+                ($supplier->supplier_store_type ?? '') === 'Online Store'
+                    ? ($supplier->shop_name ?: 'Online supplier')
+                    : ($supplier->company_name ?: 'Supplier')
+            );
+            $flagged = (int) ($supplier->supplier_is_blacklisted ?? 0) === 1;
+            $supplier->display_name = $flagged ? $base.' (Blacklisted)' : $base;
+
+            return $supplier;
+        })->sortBy(fn ($supplier) => mb_strtolower((string) ($supplier->display_name ?? '')), SORT_NATURAL)
+            ->values();
     }
 
     private static function liveAtpsQuery()

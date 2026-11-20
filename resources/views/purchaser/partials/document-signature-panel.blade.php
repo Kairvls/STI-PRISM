@@ -9,9 +9,6 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h4 class="text-sm font-semibold text-slate-900"><span id="purDocSignTitle">Purchaser signature</span> <span class="text-red-500">*</span></h4>
-            <p id="purDocSignHint" class="mt-1 text-xs leading-relaxed text-slate-500">
-                Pick a saved signature, draw one, or upload. It overlays your printed name on the form.
-            </p>
         </div>
         <div id="purDocSignBadge" class="hidden inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
             Signature added
@@ -81,7 +78,6 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">Draw your signature</h3>
-                    <p class="mt-1.5 text-sm leading-6 text-slate-500">Sign clearly. This overlays your printed name.</p>
                 </div>
                 <button type="button" id="purDocCloseSignPad" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -93,7 +89,7 @@
                     'hiddenName' => 'pur_doc_pad_scratch',
                     'hiddenId' => 'purDocPadScratch',
                     'label' => 'Digital signature',
-                    'hint' => 'Sign to overlay your printed name.',
+                    'hint' => '',
                     'requiredMessage' => 'Please sign before applying.',
                 ])
             </div>
@@ -163,6 +159,8 @@
     var nameInput = null;
     var linePreview = null;
     var boundKey = null;
+    var onChangeCb = null;
+    var suppressChange = false;
     var previewImg = document.getElementById('purDocSigPreview');
     var printedNameEl = document.getElementById('purDocSigPrintedName');
     var padModal = document.getElementById('purDocSignPadModal');
@@ -256,6 +254,9 @@
                 window.scanSignatureNamePins();
             }
             if (openPadLabel) openPadLabel.textContent = hasSig ? 'Redraw signature' : 'Draw signature';
+            if (!suppressChange && typeof onChangeCb === 'function') {
+                onChangeCb(url);
+            }
         }
         if (!raw) {
             commit('');
@@ -493,6 +494,7 @@
                 if (el && el.parentElement !== document.body) document.body.appendChild(el);
             });
             boundKey = options.key || null;
+            onChangeCb = typeof options.onChange === 'function' ? options.onChange : null;
             sigHidden = options.hiddenId ? document.getElementById(options.hiddenId) : null;
             nameInput = options.nameId ? document.getElementById(options.nameId) : null;
             linePreview = options.previewId ? document.getElementById(options.previewId) : null;
@@ -517,6 +519,7 @@
                 panel.classList.remove('hidden');
             }
             var existing = sigHidden ? String(sigHidden.value || '') : '';
+            suppressChange = true;
             if (existing.indexOf('data:image/') === 0) {
                 applySignature(existing);
             } else if (existing) {
@@ -533,6 +536,7 @@
             } else {
                 applySignature('');
             }
+            suppressChange = false;
         },
         hasSignature: function () {
             var v = sigHidden ? String(sigHidden.value || '').trim() : '';

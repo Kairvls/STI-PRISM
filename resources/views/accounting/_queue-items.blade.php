@@ -17,8 +17,15 @@
             <p class="truncate text-sm font-semibold text-slate-900">{{ $item->ref }}</p>
             <p class="truncate text-[11px] text-slate-500">{{ $item->related }} · {{ $item->who }}</p>
         </div>
-        <span class="acc-feed-money">{{ $item->amount !== null ? '₱'.number_format((float)$item->amount, 2) : '—' }}</span>
-        @include('accounting.partials.status-badge', ['status' => $item->status])
+        @include('accounting.partials.status-badge', [
+            'status' => $item->status,
+            'doc' => match ($item->type ?? '') {
+                'Liquidation' => 'liq',
+                'ATP' => 'atp',
+                'Request Check', 'RFC' => 'rfc',
+                default => null,
+            },
+        ])
         @if ($item->action === 'Release funds')
             <span class="icon-btn" data-tip="Release funds" aria-label="Release funds">
                 <i data-lucide="banknote" class="h-4 w-4"></i>

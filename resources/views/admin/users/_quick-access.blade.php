@@ -9,7 +9,7 @@
                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Username</th>
                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Role</th>
                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Last Active</th>
+                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Last Online</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

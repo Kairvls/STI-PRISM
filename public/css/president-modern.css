@@ -1361,10 +1361,16 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     background: #FFFBEB;
 }
 .recent-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem 0.75rem;
+    display: block;
+    padding: 0;
+}
+.recent-list .pm-queue-table .col-purpose { width: 28%; }
+.recent-list .pm-queue-table .col-status {
+    width: 18%;
+    white-space: normal;
+}
+.recent-list .pm-queue-table tr.is-awaiting-notify td {
+    background: #fffbeb;
 }
 .recent-row {
     display: block;

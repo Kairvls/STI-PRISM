@@ -3,20 +3,61 @@
 namespace App\Http\Controllers;
 
 use App\Models\Brand;
+use App\Support\EquipmentBrands;
+use App\Support\ProcurementPortal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use App\Support\ProcurementPortal;
 
 class BrandController extends Controller
 {
+    public function quickStore(Request $request)
+    {
+        $validated = $request->validate([
+            'brand_name' => ['required', 'string', 'max:'.EquipmentBrands::maxLength()],
+        ]);
+
+        $name = trim(preg_replace('/\s+/u', ' ', (string) $validated['brand_name']) ?? '');
+        if ($name === '') {
+            throw ValidationException::withMessages(['brand_name' => 'Enter a brand name.']);
+        }
+
+        $brand = Brand::query()
+            ->whereRaw('LOWER(brand_name) = ?', [mb_strtolower($name)])
+            ->first();
+        $created = false;
+
+        if ($brand) {
+            if (strcasecmp((string) ($brand->brand_status ?? ''), 'Active') !== 0) {
+                $brand->update([
+                    'brand_status' => 'Active',
+                    'brand_updated_at' => now(),
+                ]);
+            }
+        } else {
+            $now = now();
+            $brand = Brand::create([
+                'brand_name' => $name,
+                'brand_status' => 'Active',
+                'brand_created_at' => $now,
+                'brand_updated_at' => $now,
+            ]);
+            $created = true;
+        }
+
+        return response()->json([
+            'id' => (string) $brand->brand_id,
+            'label' => (string) $brand->brand_name,
+            'created' => $created,
+        ], $created ? 201 : 200);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1', 'max:20'],
-            'items.*.brand_name' => ['required', 'string', 'max:150'],
+            'items.*.brand_name' => ['required', 'string', 'max:'.EquipmentBrands::maxLength()],
             'items.*.brand_status' => ['required', 'in:Active,Inactive'],
         ]);
 
@@ -80,17 +121,23 @@ class BrandController extends Controller
             'brand_name' => [
                 'required',
                 'string',
-                'max:150',
+                'max:'.EquipmentBrands::maxLength(),
                 Rule::unique('brands_table', 'brand_name')->ignore($brand->brand_id, 'brand_id'),
             ],
             'brand_status' => ['required', 'in:Active,Inactive'],
         ]);
 
-        $brand->update([
-            'brand_name' => trim($validated['brand_name']),
-            'brand_status' => $validated['brand_status'],
-            'brand_updated_at' => now(),
-        ]);
+        try {
+            // Same rules as Admin Equipment Catalog (blocks edit when In Use).
+            EquipmentBrands::update(
+                (int) $brand->brand_id,
+                (string) $validated['brand_name'],
+                (string) $validated['brand_status']
+            );
+        } catch (ValidationException $e) {
+            return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'brands'])
+                ->with('error', collect($e->errors())->flatten()->first() ?: 'Unable to update this brand.');
+        }
 
         return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'brands'])->with('success', 'Brand updated successfully.');
     }
@@ -99,17 +146,14 @@ class BrandController extends Controller
     {
         $brand = Brand::findOrFail($brandId);
 
-        if (
-            Schema::hasTable('requisition_issue_slip_items_table')
-            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
-            && DB::table('requisition_issue_slip_items_table')->where('ris_item_brand_id', $brand->brand_id)->exists()
-        ) {
+        try {
+            // Same rules as Admin Equipment Catalog (equipment + RIS usage).
+            EquipmentBrands::delete((int) $brand->brand_id);
+        } catch (ValidationException $e) {
             return redirect()
                 ->route(ProcurementPortal::routeName('file-maintenance.index'), ['tab' => 'brands'])
-                ->with('error', 'Cannot delete this brand because it is used on one or more RIS items.');
+                ->with('error', collect($e->errors())->flatten()->first() ?: 'Unable to delete this brand.');
         }
-
-        $brand->delete();
 
         return ProcurementPortal::redirect('file-maintenance.index', ['tab' => 'brands'])->with('success', 'Brand deleted successfully.');
     }

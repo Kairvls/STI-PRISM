@@ -111,6 +111,13 @@
             box-shadow: none !important;
             overflow: visible !important;
         }
+        #purchaser-print-mount .ris-original-form {
+            width: 1095px !important;
+            max-width: none !important;
+            min-height: 845px !important;
+            height: auto !important;
+            zoom: 0.85;
+        }
 
         #purchaser-print-mount .atp-print-sheet,
         #purchaser-print-mount .rr-print-sheet {

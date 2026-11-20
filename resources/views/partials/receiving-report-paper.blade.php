@@ -78,7 +78,12 @@
     $replacementLabels = \App\Support\BackOrders::replacementLabels($rows);
     $uomNames = $editable
         ? collect($uomNames ?? once(fn () => \Illuminate\Support\Facades\Schema::hasTable('uom_table')
-            ? \Illuminate\Support\Facades\DB::table('uom_table')->orderBy('uom_name')->pluck('uom_name')->map(fn ($name) => (string) $name)->all()
+            ? \Illuminate\Support\Facades\DB::table('uom_table')
+                ->orderByRaw('LOWER(uom_name) ASC')
+                ->orderBy('uom_name')
+                ->pluck('uom_name')
+                ->map(fn ($name) => (string) $name)
+                ->all()
             : []))->values()
         : collect();
     $rrQtyAttrs = 'min="0" max="9999999" step="1" inputmode="numeric"'
@@ -375,7 +380,7 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="text-xs font-medium text-slate-800">Upload Official Receipt</p>
-                            <p class="truncate text-[10px] text-slate-500">One file only · settles the Disbursement Voucher</p>
+                            <p class="truncate text-[10px] text-slate-500">One file only</p>
                         </div>
                     </label>
                 </div>

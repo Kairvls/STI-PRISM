@@ -69,6 +69,6 @@ class ProcurementReviewPortal
     /** Document types reviewed on this portal (not Accounting). */
     public static function ownsDocumentType(string $type): bool
     {
-        return in_array(strtoupper($type), ['ATP', 'PO', 'RFC', 'DV'], true);
+        return in_array(strtoupper($type), ['ATP', 'PO', 'RFC'], true);
     }
 }

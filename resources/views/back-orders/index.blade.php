@@ -262,7 +262,7 @@
                                     <p class="mt-0.5 text-xs text-gray-500">{{ $bo->authority_purchase_form_number }}</p>
                                 @endif
                                 @if($bo->root_rr_status)
-                                    <p class="mt-1">@include('accounting.partials.status-badge', ['status' => $bo->root_rr_status])</p>
+                                    <p class="mt-1">@include('accounting.partials.status-badge', ['status' => $bo->root_rr_status, 'doc' => 'rr'])</p>
                                 @endif
                             </td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-700">

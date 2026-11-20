@@ -10,13 +10,12 @@ use Illuminate\Support\Facades\Schema;
  */
 class AdminPipeline
 {
-    public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'];
+    public const STAGE_ORDER = ['ris', 'atp', 'rfc', 'rr', 'liq'];
 
     public const STAGE_NAMES = [
         'ris' => 'Canvass + RIS',
         'atp' => 'Authority to Purchase',
         'rfc' => 'Request for Check',
-        'dv' => 'Disbursement Voucher',
         'rr' => 'Receiving Report',
         'liq' => 'Liquidation Report',
     ];

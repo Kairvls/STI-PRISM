@@ -164,7 +164,7 @@
             $peopleLinks = [
                 [
                     'url' => route('admin.persons.index'),
-                    'label' => 'Faculty & Staff',
+                    'label' => 'Faculty and Staff Lists',
                     'icon' => 'users',
                     'active' => request()->is('admin/persons*'),
                 ],
@@ -215,7 +215,7 @@
 
             $equipmentGroups = [
                 [
-                    'label' => 'Management',
+                    'label' => 'Equipment Management',
                     'icon' => 'package',
                     'links' => [
                         [
@@ -239,7 +239,7 @@
                         ],
                         [
                             'url' => route('admin.equipment-categories.index'),
-                            'label' => 'Classification',
+                            'label' => 'Equipment Catalog',
                             'icon' => 'tags',
                             'active' => request()->is('admin/equipment/categories*'),
                         ],
@@ -250,6 +250,12 @@
                             'active' => request()->is('admin/qr-tools*'),
                         ],
                         [
+                            'url' => route('admin.property-assignments.index'),
+                            'label' => 'Property Assignment',
+                            'icon' => 'clipboard-signature',
+                            'active' => request()->is('admin/property-assignments*', 'maintenance/property-assignments*'),
+                        ],
+                        [
                             'url' => route('admin.computer-sets.index'),
                             'label' => 'Computer Sets',
                             'icon' => 'monitor',
@@ -258,7 +264,7 @@
                     ],
                 ],
                 [
-                    'label' => 'Operations',
+                    'label' => 'Equipment Operations',
                     'icon' => 'wrench',
                     'links' => [
                         [
@@ -272,12 +278,6 @@
                             'label' => 'Lifespan broadcasts',
                             'icon' => 'hourglass',
                             'active' => request()->is('admin/lifespan-broadcasts*'),
-                        ],
-                        [
-                            'url' => route('admin.property-assignments.index'),
-                            'label' => 'Property Assignment',
-                            'icon' => 'clipboard-signature',
-                            'active' => request()->is('admin/property-assignments*', 'maintenance/property-assignments*'),
                         ],
                         [
                             'url' => route('admin.borrowing.index'),
@@ -308,7 +308,7 @@
                     ],
                 ],
                 [
-                    'label' => 'Monitoring',
+                    'label' => 'Equipment Monitoring',
                     'icon' => 'radar',
                     'links' => [
                         [
@@ -386,7 +386,7 @@
 
         <div class="menu-title" id="monitoring-section">
 
-            EQUIPMENT
+            ASSET MANAGEMENT
 
         </div>
 

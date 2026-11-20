@@ -8,49 +8,16 @@
         $decisionDate = $row->decided_at ?? $row->ris_created_at ?? null;
         $remarks = $row->remarks ?? null;
         $risId = $row->ris_id ?? null;
-
-        $isApproved = \App\Support\RisWorkflow::isPresidentApproved($row);
-        $isRejected = \App\Support\RisWorkflow::isPresidentRejected($row)
-            || in_array((string) ($row->ris_status ?? ''), ['Rejected'], true);
-        $rawStatus = (string) ($row->ris_status ?? '');
-        $statusLower = strtolower($rawStatus);
-
-        if ($isRejected) {
-            $displayStatus = 'Rejected';
-            $statusClass = 'status-rejected';
-        } elseif ($isApproved) {
-            $awaitingNotify = trim((string) ($row->ris_issued_by_signature ?? '')) === '';
-            $displayStatus = $awaitingNotify ? 'Notify Administrator' : 'Approved';
-            $statusClass = $awaitingNotify ? 'status-notify' : 'status-approved';
-        } elseif (
-            \App\Support\RisWorkflow::isAwaitingPresident($row)
-            || in_array($statusLower, ['pending', 'submitted', 'under review', 'resubmitted', 'forwarded to president'], true)
-        ) {
-            $displayStatus = 'Pending';
-            $statusClass = 'status-pending';
-        } else {
-            $displayStatus = \App\Support\RisWorkflow::statusLabel($row);
-            $labelLower = strtolower($displayStatus);
-            if (str_contains($labelLower, 'reject') || $labelLower === 'amend') {
-                $statusClass = 'status-rejected';
-            } elseif (str_contains($labelLower, 'approv')) {
-                $statusClass = 'status-approved';
-            } else {
-                $statusClass = 'status-pending';
-            }
-        }
+        $displayStatus = \App\Support\RisWorkflow::statusLabel($row);
     @endphp
 
     <tr class="border-b border-gray-100 outcome-row transition-all duration-200 hover:bg-slate-50">
         <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $reference }}</td>
         <td class="px-3 py-4 text-sm">
-            <span class="status-pill {{ $statusClass }}">{{ $displayStatus }}</span>
+            @include('accounting.partials.status-badge', ['status' => $displayStatus])
         </td>
         <td class="px-3 py-4 text-sm text-gray-700">
             {{ $decisionDate ? \Carbon\Carbon::parse($decisionDate)->format('F j, Y') : '—' }}
-        </td>
-        <td class="px-3 py-4 text-sm text-center font-semibold text-gray-800">
-            ₱{{ number_format($row->total_amount ?? 0, 2) }}
         </td>
         <td class="px-3 py-4 text-center">
             @if ($remarks)

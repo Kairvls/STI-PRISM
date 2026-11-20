@@ -15,6 +15,7 @@
 
     // All procurement papers print portrait A4. padding matches each form's print CSS.
     var FORMS = [
+        { selector: '.ris-original-form', margin: 8, padding: '4mm 6mm', compact: true, landscape: true },
         { selector: '.ris-document', margin: 8, padding: '6mm 8mm', compact: true },
         { selector: '.ris-print-sheet', margin: 8, padding: '6mm 8mm', compact: true },
         { selector: '.rr-print-sheet', margin: 8, padding: '6mm 10mm', compact: true },
@@ -83,9 +84,27 @@
         var doc = sheet.ownerDocument;
         var root = doc.documentElement;
         var margin = options.marginMm != null ? options.marginMm : (form.margin || DEFAULT_MARGIN);
-        var usableW = A4_W - margin * 2;
-        var usableH = A4_H - margin * 2;
+        var pageW = form.landscape ? A4_H : A4_W;
+        var pageH = form.landscape ? A4_W : A4_H;
+        var usableW = pageW - margin * 2;
+        var usableH = pageH - margin * 2;
         var host = options.host || doc.body;
+
+        if (sheet.classList && sheet.classList.contains('ris-original-form')) {
+            var risStyle = ensureStyle(doc, 'print-fit-page-style');
+            risStyle.textContent = [
+                '@media print {',
+                '  @page { size: A4 landscape; margin: 6mm; }',
+                '  html, body { margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; }',
+                '  .ris-original-form {',
+                '    width: 1095px !important; max-width: none !important; min-height: 845px !important;',
+                '    zoom: 0.85 !important;',
+                '  }',
+                '}'
+            ].join('\n');
+            host.appendChild(risStyle);
+            return risStyle;
+        }
 
         root.classList.add('print-measuring');
         var restore = applyImportant(sheet, {
@@ -117,20 +136,21 @@
         var pageStyle = ensureStyle(doc, 'print-fit-page-style');
         var compactCss = form.compact
             ? (
-                sheet.matches('.ris-document, .ris-print-sheet')
+                sheet.matches('.ris-original-form, .ris-document, .ris-print-sheet')
                     ? [
+                        '.ris-original-form .ris-items-table th, .ris-original-form .ris-items-table td,',
                         '.ris-document .ris-table th, .ris-document .ris-table td,',
                         '.ris-print-sheet table th, .ris-print-sheet table td,',
                         '.ris-document table th, .ris-document table td {',
                         '  height: auto !important; min-height: 0 !important;',
                         '  padding: 3px 4px !important; font-size: 11px !important;',
                         '}',
-                        '.ris-document .signatures, .ris-print-sheet .ris-signatures, .ris-document .ris-signatures {',
+                        '.ris-original-form .ris-signatures, .ris-document .signatures, .ris-print-sheet .ris-signatures, .ris-document .ris-signatures {',
                         '  margin-top: 10px !important; gap: 12px !important;',
                         '  page-break-inside: avoid !important; break-inside: avoid !important;',
                         '}',
-                        '.ris-document .header, .ris-print-sheet .header { margin-top: 8px !important; margin-bottom: 6px !important; }',
-                        '.ris-document .purpose, .ris-print-sheet .ris-purpose-area { margin-top: 8px !important; }'
+                        '.ris-original-form .ris-document-header, .ris-document .header, .ris-print-sheet .header { margin-top: 8px !important; margin-bottom: 6px !important; height: auto !important; }',
+                        '.ris-original-form .ris-purpose-area, .ris-document .purpose, .ris-print-sheet .ris-purpose-area { margin-top: 8px !important; }'
                     ].join('')
                     : [
                         '.rr-print-sheet, .liq-print-sheet, .atp-print-sheet, .rfc-print-sheet {',
@@ -146,11 +166,11 @@
             )
             : '';
 
-        // Portrait A4 always. Scale the sheet when content would otherwise spill
-        // the signature block onto a nearly empty second page.
+        // RIS prints landscape to match the wide purchaser sheet. Other papers stay portrait.
+        // Scale when the signature block would otherwise land alone on a second page.
         pageStyle.textContent = [
             '@media print {',
-            '  @page { size: A4 portrait; margin: ' + margin + 'mm; }',
+            '  @page { size: A4 ' + (form.landscape ? 'landscape' : 'portrait') + '; margin: ' + margin + 'mm; }',
             '  html, body { width: auto !important; height: auto !important; }',
             compactCss,
             '}'

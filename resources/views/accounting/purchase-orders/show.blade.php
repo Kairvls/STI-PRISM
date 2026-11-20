@@ -21,7 +21,7 @@
                     'title' => 'Inherited from linked RIS',
                 ])
             </div>
-            <p class="mt-1 text-sm text-slate-500">{{ $order->purchase_order_status }} · {{ $linked->count() }} ATP(s) · ₱{{ number_format((float) ($order->po_total_amount ?? 0), 2) }}</p>
+            <p class="mt-1 text-sm text-slate-500">{{ $order->purchase_order_status }} · {{ $linked->count() }} ATP(s)</p>
         </div>
     </div>
 
@@ -59,7 +59,6 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="text-sm font-medium tabular-nums text-slate-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</span>
                             <a
                                 href="/school-admin/authority-to-purchase/{{ $atp->authority_purchase_id }}?from_po={{ $order->purchase_order_id }}"
                                 onclick="event.stopPropagation()"

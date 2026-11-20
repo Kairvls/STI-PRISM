@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
 class AccountingDashboard
 {
     public const QUEUE_TYPES = [
-        'dv' => 'Disbursement Vouchers',
+        'package' => 'ATP + RFC',
         'liq' => 'Liquidation Reports',
     ];
 
@@ -80,7 +80,7 @@ class AccountingDashboard
         // ATP / PO / RFC / funds review moved to School Administrator.
         // Accounting queue: incoming DV packages + liquidations.
         return collect()
-            ->merge(self::dvQueue())
+            ->merge(self::approvedPackages())
             ->merge(self::liqQueue())
             ->sort(function ($a, $b) {
                 if ($a->urgent !== $b->urgent) {
@@ -97,6 +97,8 @@ class AccountingDashboard
      */
     private static function dvQueue(): Collection
     {
+        return collect();
+
         if (! Schema::hasTable('request_check_table')
             || ! Schema::hasColumn('request_check_table', 'request_check_sent_to_accounting_at')) {
             return collect();
@@ -261,6 +263,88 @@ class AccountingDashboard
                 url(ProcurementReviewPortal::requestCheck((int) $row->request_check_id))
             );
         });
+    }
+
+    /**
+     * ATP + funding request the School Administrator approved and handed to Accounting.
+     * Funds have not been released yet.
+     */
+    public static function approvedPackageCount(): int
+    {
+        $query = self::approvedPackageQuery();
+
+        return $query ? (int) $query->count() : 0;
+    }
+
+    public static function approvedPackages(): Collection
+    {
+        $query = self::approvedPackageQuery();
+        if (! $query) {
+            return collect();
+        }
+
+        $query->select(
+                'request_check_table.*',
+                'authority_to_purchase_table.authority_purchase_form_number',
+                'authority_to_purchase_table.authority_purchase_id'
+            );
+        DocumentUrgency::select($query, 'RFC');
+        DocumentUrgency::orderUrgentFirst($query, 'RFC');
+        $query->orderByRaw('IFNULL(request_check_table.request_check_date, request_check_table.request_check_updated_at) DESC')
+            ->orderByDesc('request_check_table.request_check_id');
+
+        return $query->get()->map(function ($row) {
+            $rfcId = (int) $row->request_check_id;
+            $fundLabel = ProcurementPaymentPath::label($row->request_check_funding_type ?? null);
+            $atpNo = trim((string) ($row->authority_purchase_form_number ?? ''));
+            $item = self::item(
+                'package',
+                $row->request_check_form_number ?: 'RFC-'.$rfcId,
+                $row->request_check_payee ?: ($row->request_check_requested_by ?: '—'),
+                trim($fundLabel.($atpNo !== '' ? ' · '.$atpNo : '')),
+                null,
+                $row->request_check_sent_to_accounting_at
+                    ?? $row->request_check_approved_at
+                    ?? $row->request_check_updated_at,
+                DocumentUrgency::isUrgent('RFC', $row),
+                'Open',
+                route('accounting.dashboard.preview', ['type' => 'rfc', 'id' => $rfcId])
+            );
+            $item->url = route('procurement.documents.preview', ['type' => 'rfc', 'id' => $rfcId]);
+            $item->preview_url = $item->url;
+            $item->request_no = $row->request_check_request_no ?? null;
+            $item->atp_no = $atpNo !== '' ? $atpNo : null;
+            $item->atp_id = (int) ($row->authority_purchase_id ?? 0);
+            $item->payee = $row->request_check_payee ?: '—';
+            $item->date = $row->request_check_date ?? null;
+            $item->rfc_id = $rfcId;
+            $item->fund_label = $fundLabel;
+            $item->urgent_row = DocumentUrgency::isUrgent('RFC', $row);
+            $item->check_ready = ! empty($row->request_check_check_ready_at ?? null);
+            $item->rfc_preview = $item->url;
+            $item->atp_preview = $item->atp_id > 0
+                ? route('procurement.documents.preview', ['type' => 'atp', 'id' => $item->atp_id])
+                : '';
+
+            return $item;
+        });
+    }
+
+    private static function approvedPackageQuery()
+    {
+        if (! Schema::hasTable('request_check_table') || ! Schema::hasTable('authority_to_purchase_table')) {
+            return null;
+        }
+
+        $query = DB::table('request_check_table');
+        AccountingAttentionSummary::scopeRfcFunds($query);
+
+        return $query->leftJoin(
+            'authority_to_purchase_table',
+            'request_check_table.request_check_authority_purchase_id',
+            '=',
+            'authority_to_purchase_table.authority_purchase_id'
+        )->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
     }
 
     private static function liqQueue(): Collection

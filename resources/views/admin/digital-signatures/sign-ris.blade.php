@@ -10,8 +10,9 @@
 
 <div class="admin-page">
     @include('admin.partials.ris-phase-tabs', [
-        'phase' => 'sign',
-        'readyToSignCount' => (int) ($pendingActionCount ?? 0),
+        'phase' => ($filter ?? '') === 'for_cosign' ? 'issued' : 'sign',
+        'readyToSignCount' => (int) ($forDecisionCount ?? 0),
+        'awaitingIssuedCount' => (int) ($forCosignCount ?? 0),
     ])
     <div id="signRisContentContainer">
         @include('admin.digital-signatures._sign-ris-content')

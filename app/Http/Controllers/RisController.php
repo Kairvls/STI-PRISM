@@ -36,6 +36,12 @@ class RisController extends Controller
 
     private ?bool $risItemsHaveBrandColumn = null;
 
+    private ?bool $risItemsHaveBrandIdsColumn = null;
+
+    private ?bool $risItemsHaveBrandQuantitiesColumn = null;
+
+    private ?bool $risItemsHaveSupplierIdsColumn = null;
+
     private $validUomIds = null;
 
     private $validSupplierIds = null;
@@ -144,7 +150,8 @@ class RisController extends Controller
         } elseif ($request->filled('status')) {
             $statusGroups = $this->risStatusGroups();
             $groupKey = match ($request->status) {
-                'In Review' => 'submitted',
+                'In Review', 'With School Administrator' => 'with_school_administrator',
+                'For revision' => 'revision',
                 'Approved' => 'approved',
                 'Rejected' => 'rejected',
                 default => null,
@@ -336,18 +343,20 @@ class RisController extends Controller
 
         $activeSuppliers = $loadFormDatasets ? $this->activeSuppliersForRis() : collect();
         $uoms = ($loadFormDatasets && $this->uomTableExists())
-            ? DB::table('uom_table')->orderBy('uom_name')->get()
+            ? DB::table('uom_table')->orderByRaw('LOWER(uom_name) ASC')->orderBy('uom_name')->get()
             : collect();
         $brands = ($loadFormDatasets && $this->brandsTableExists())
             ? DB::table('brands_table')
                 ->where('brand_status', 'Active')
+                ->orderByRaw('LOWER(brand_name) ASC')
                 ->orderBy('brand_name')
                 ->get()
             : collect();
         $itemCatalog = ($loadFormDatasets && Schema::hasTable('items_table'))
             ? DB::table('items_table')
                 ->where('item_status', 'Active')
-                ->orderBy('item_id')
+                ->orderByRaw('LOWER(item_name) ASC')
+                ->orderBy('item_name')
                 ->get(['item_id', 'item_name'])
             : collect();
         $itemHints = $loadFormDatasets ? $this->itemBrandUnitHints() : [];
@@ -575,6 +584,25 @@ class RisController extends Controller
                 Schema::hasTable('brands_table') ? 'exists:brands_table,brand_id' : null,
             ])),
 
+            'ris_items.*.brand_ids' => ['nullable', 'array', 'max:20'],
+
+            'ris_items.*.brand_ids.*' => array_values(array_filter([
+                'integer',
+                Schema::hasTable('brands_table') ? 'exists:brands_table,brand_id' : null,
+            ])),
+
+            'ris_items.*.brand_qtys' => ['nullable', 'array', 'max:20'],
+
+            'ris_items.*.brand_qtys.*' => [
+                'integer',
+                'min:1',
+                'max:9999999',
+            ],
+
+            'ris_items.*.supplier_ids' => ['nullable', 'array', 'max:20'],
+
+            'ris_items.*.supplier_ids.*' => $this->activeSupplierRule(),
+
             'ris_items.*.uom_id' => array_values(array_filter([
                 'nullable',
                 'integer',
@@ -675,7 +703,7 @@ class RisController extends Controller
             'ris_attachments' => [
                 'nullable',
                 'array',
-                'max:1',
+                'max:10',
             ],
 
             'ris_attachments.*' => [
@@ -745,7 +773,7 @@ class RisController extends Controller
                 'Unit Cost can be up to 7 digits only.',
 
             'ris_attachments.max' =>
-                'You may upload only 1 supporting document at a time.',
+                'You may upload up to 10 Canvass files per RIS.',
 
             'ris_attachments.*.mimes' =>
                 'Supporting documents must be a Word, Excel, or PDF file.',
@@ -767,7 +795,9 @@ class RisController extends Controller
                     || filled($item['unit_cost'] ?? null)
                     || filled($item['uom_id'] ?? null)
                     || filled($item['brand_id'] ?? null)
-                    || filled($item['supplier_id'] ?? null);
+                    || ! empty($item['brand_ids'] ?? null)
+                    || filled($item['supplier_id'] ?? null)
+                    || ! empty($item['supplier_ids'] ?? null);
 
             })
             ->values();
@@ -797,7 +827,8 @@ class RisController extends Controller
                     );
             }
 
-            $submitError = $this->validateRisItemsForSubmit($items);
+            // First process: Issued qty is locked until revision.
+            $submitError = $this->validateRisItemsForSubmit($items, false);
             if ($submitError) {
                 return back()->withInput()->with('error', $submitError);
             }
@@ -808,6 +839,13 @@ class RisController extends Controller
                     ->with('error', 'Please attach a supporting document (Word, Excel, or PDF) before submitting to Administrator.');
             }
         }
+
+        // Purchaser cannot set Issued on create — only during revision.
+        $items = $items->map(function ($item) {
+            $item['quantity_issued'] = null;
+
+            return $item;
+        })->values();
 
 
         // =====================================================
@@ -996,7 +1034,7 @@ class RisController extends Controller
             // =====================================================
             // 9. SAVE SUPPORTING DOCUMENTS
             // =====================================================
-            $this->storeSingleCanvasAttachment(
+            $this->storeCanvasAttachments(
                 (int) $risId,
                 $request->file('ris_attachments', [])
             );
@@ -1222,11 +1260,35 @@ public function update(Request $request, $risId)
             Schema::hasTable('brands_table') ? 'exists:brands_table,brand_id' : null,
         ])),
 
+        'ris_items.*.brand_ids' => ['nullable', 'array', 'max:20'],
+
+        'ris_items.*.brand_ids.*' => array_values(array_filter([
+            'integer',
+            Schema::hasTable('brands_table') ? 'exists:brands_table,brand_id' : null,
+        ])),
+
+        'ris_items.*.brand_qtys' => ['nullable', 'array', 'max:20'],
+
+        'ris_items.*.brand_qtys.*' => [
+            'integer',
+            'min:1',
+            'max:9999999',
+        ],
+
+        'ris_items.*.supplier_ids' => ['nullable', 'array', 'max:20'],
+
+        'ris_items.*.supplier_ids.*' => $this->activeSupplierRule(),
+
         'ris_items.*.uom_id' => array_values(array_filter([
             'nullable',
             'integer',
             Schema::hasTable('uom_table') ? 'exists:uom_table,uom_id' : null,
         ])),
+
+        'ris_items.*.ris_item_id' => [
+            'nullable',
+            'integer',
+        ],
 
         'ris_items.*.quantity_requested' => [
             'nullable',
@@ -1283,7 +1345,7 @@ public function update(Request $request, $risId)
         'ris_attachments' => [
             'nullable',
             'array',
-            'max:1',
+            'max:10',
         ],
 
         'ris_attachments.*' => [
@@ -1339,6 +1401,9 @@ public function update(Request $request, $risId)
         'ris_items.*.unit_cost.max' =>
             'Unit Cost can be up to 7 digits only.',
 
+        'ris_attachments.max' =>
+            'You may upload up to 10 Canvass files per RIS.',
+
         'ris_attachments.*.mimes' =>
             'Supporting documents must be a Word, Excel, or PDF file.',
 
@@ -1363,12 +1428,21 @@ public function update(Request $request, $risId)
                 || filled($item['unit_cost'] ?? null)
                 || filled($item['uom_id'] ?? null)
                 || filled($item['brand_id'] ?? null)
-                || filled($item['supplier_id'] ?? null);
+                || ! empty($item['brand_ids'] ?? null)
+                || filled($item['supplier_id'] ?? null)
+                || ! empty($item['supplier_ids'] ?? null);
 
         })
-        ->values();
+            ->values();
 
-    $splitOverflow = $this->risItemSplitOverflowMessage($items);
+        if (in_array((string) ($ris->ris_status ?? ''), [
+            RisWorkflow::MINOR_REVISION,
+            RisWorkflow::PRESIDENT_REVISION,
+        ], true)) {
+            $items = $this->restoreRevisionLockedFields((int) $risId, $items);
+        }
+
+        $splitOverflow = $this->risItemSplitOverflowMessage($items);
     if ($splitOverflow) {
         return $this->backWithEditRisError($risId, $splitOverflow);
     }
@@ -1382,13 +1456,27 @@ public function update(Request $request, $risId)
     // =====================================================
     // STRICT VALIDATION WHEN SUBMITTING / RESUBMITTING
     // =====================================================
+    $isRevisionEdit = in_array((string) ($ris->ris_status ?? ''), [
+        RisWorkflow::MINOR_REVISION,
+        RisWorkflow::PRESIDENT_REVISION,
+    ], true);
+
+    // First process (Draft): Issued stays empty. Revision may set Issued.
+    if (! $isRevisionEdit) {
+        $items = $items->map(function ($item) {
+            $item['quantity_issued'] = null;
+
+            return $item;
+        })->values();
+    }
+
     $blockedSubmitMessage = null;
     if (!$isSaveOnly) {
 
         if ($items->isEmpty()) {
             $blockedSubmitMessage = 'Please add at least one RIS item before submitting.';
         } else {
-            $submitError = $this->validateRisItemsForSubmit($items);
+            $submitError = $this->validateRisItemsForSubmit($items, $isRevisionEdit);
             if ($submitError) {
                 $blockedSubmitMessage = $submitError;
             }
@@ -1591,8 +1679,8 @@ public function update(Request $request, $risId)
         }
 
 
-        // One Canvass file per RIS. A new upload replaces the file already on record.
-        $this->storeSingleCanvasAttachment(
+        // Append new Canvass files; existing attachments stay on the RIS.
+        $this->storeCanvasAttachments(
             (int) $risId,
             $request->file('ris_attachments', [])
         );
@@ -1770,7 +1858,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             return $this->backWithEditRisError($risId, $duplicateSupplier);
         }
 
-        $submitError = $this->validateRisItemsForSubmit($items);
+        $submitError = $this->validateRisItemsForSubmit($items, $isResubmit);
         if ($submitError) {
             return $this->backWithEditRisError($risId, $submitError);
         }
@@ -2233,7 +2321,42 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 : $label;
 
             return $supplier;
-        });
+        })->sortBy(fn ($supplier) => mb_strtolower((string) ($supplier->display_name ?? '')), SORT_NATURAL)
+            ->values();
+    }
+
+    /**
+     * On a return for revision, brand, unit, supplier, and requested stay as submitted.
+     * Issued quantity and unit cost still come from the form.
+     */
+    private function restoreRevisionLockedFields(int $risId, $items)
+    {
+        $saved = $this->risItemsWithLookups([$risId])->keyBy(
+            fn ($row) => (string) ($row->ris_item_id ?? '')
+        );
+
+        return $items->map(function ($item) use ($saved) {
+            $row = $saved->get((string) ($item['ris_item_id'] ?? ''));
+            if (! $row) {
+                return $item;
+            }
+
+            $brandIds = $this->decodeStoredBrandIds($row);
+            $supplierIds = $this->decodeStoredSupplierIds($row);
+            $brandId = $brandIds[0] ?? (string) ($row->ris_item_brand_id ?? '');
+            $supplierId = $supplierIds[0] ?? (string) ($row->ris_item_supplier_id ?? '');
+
+            $item['name_description'] = $row->ris_item_name_description ?? ($item['name_description'] ?? '');
+            $item['uom_id'] = (string) ($row->ris_item_uom_id ?? '');
+            $item['brand_id'] = (string) $brandId;
+            $item['brand_ids'] = $brandIds !== [] ? $brandIds : ($brandId !== '' ? [(string) $brandId] : []);
+            $item['brand_qtys'] = $this->decodeStoredBrandQuantities($row);
+            $item['supplier_id'] = (string) $supplierId;
+            $item['supplier_ids'] = $supplierIds !== [] ? $supplierIds : ($supplierId !== '' ? [(string) $supplierId] : []);
+            $item['quantity_requested'] = $row->ris_quantity_requested;
+
+            return $item;
+        })->values();
     }
 
     private function risItemPayload($risId, array $item): array
@@ -2257,11 +2380,36 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         if ($this->risItemsHaveBrandColumn()) {
-            $payload['ris_item_brand_id'] = $this->resolveRisBrandId($item['brand_id'] ?? null);
+            $brandIds = $this->resolveRisBrandIds($item);
+            $brandQtys = $this->resolveRisBrandQuantities($item, $brandIds);
+            $qtyFromBrands = array_sum($brandQtys);
+            if ($qtyFromBrands > 0) {
+                $payload['ris_quantity_requested'] = $qtyFromBrands;
+                $quantityRequested = $qtyFromBrands;
+                $amountBasis = $quantityIssued > 0 ? $quantityIssued : $quantityRequested;
+                $payload['ris_total_amount'] = round($amountBasis * $unitCost, 2);
+            }
+            $payload['ris_item_brand_id'] = $brandIds[0] ?? null;
+            if ($this->risItemsHaveBrandIdsColumn()) {
+                $payload['ris_item_brand_ids'] = $brandIds === []
+                    ? null
+                    : json_encode(array_map('intval', $brandIds));
+            }
+            if ($this->risItemsHaveBrandQuantitiesColumn()) {
+                $payload['ris_item_brand_quantities'] = $brandQtys === []
+                    ? null
+                    : json_encode($brandQtys);
+            }
         }
 
         if ($this->risItemsHaveSupplierColumn()) {
-            $payload['ris_item_supplier_id'] = $this->resolveRisSupplierId($item['supplier_id'] ?? null);
+            $supplierIds = $this->resolveRisSupplierIds($item);
+            $payload['ris_item_supplier_id'] = $supplierIds[0] ?? null;
+            if ($this->risItemsHaveSupplierIdsColumn()) {
+                $payload['ris_item_supplier_ids'] = $supplierIds === []
+                    ? null
+                    : json_encode(array_map('intval', $supplierIds));
+            }
         }
 
         return $payload;
@@ -2278,6 +2426,119 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         return isset($this->validUomIds[(int) $uomId]) ? (int) $uomId : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return list<int>
+     */
+    private function resolveRisBrandIds(array $item): array
+    {
+        $ids = [];
+        foreach ($this->normalizeIncomingBrandIds($item) as $brandId) {
+            $resolved = $this->resolveRisBrandId($brandId);
+            if ($resolved !== null) {
+                $ids[] = $resolved;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return list<string>
+     */
+    private function normalizeIncomingBrandIds(array $item): array
+    {
+        $raw = $item['brand_ids'] ?? null;
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : (preg_split('/\s*,\s*/', $raw) ?: []);
+        }
+        if (! is_array($raw) || $raw === []) {
+            $single = $item['brand_id'] ?? null;
+            $raw = filled($single) ? [$single] : [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($id) => trim((string) $id),
+            $raw
+        ), static fn ($id) => $id !== ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @param  list<int>  $brandIds
+     * @return array<string, int>
+     */
+    private function resolveRisBrandQuantities(array $item, array $brandIds): array
+    {
+        $raw = $item['brand_qtys'] ?? null;
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : null;
+        }
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+
+        $qtys = [];
+        foreach ($brandIds as $brandId) {
+            $key = (string) $brandId;
+            $qty = (int) ($raw[$key] ?? $raw[$brandId] ?? 0);
+            $qtys[$key] = max(1, $qty);
+        }
+
+        return $qtys;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function decodeStoredBrandQuantities(object $item): array
+    {
+        $raw = $item->ris_item_brand_quantities ?? ($item->brand_qtys ?? null);
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : null;
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $qtys = [];
+        foreach ($raw as $id => $qty) {
+            $key = trim((string) $id);
+            if ($key === '') {
+                continue;
+            }
+            $qtys[$key] = max(1, (int) $qty);
+        }
+
+        return $qtys;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function decodeStoredBrandIds(object $item): array
+    {
+        $raw = $item->ris_item_brand_ids ?? ($item->brand_ids ?? null);
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : null;
+        }
+        if (is_array($raw) && $raw !== []) {
+            return array_values(array_filter(array_map(
+                static fn ($id) => trim((string) $id),
+                $raw
+            ), static fn ($id) => $id !== ''));
+        }
+
+        $single = $item->ris_item_brand_id ?? ($item->brand_id ?? null);
+
+        return filled($single) ? [(string) $single] : [];
     }
 
     private function resolveRisBrandId($brandId): ?int
@@ -2307,6 +2568,67 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         return isset($this->validSupplierIds[(int) $supplierId]) ? (int) $supplierId : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return list<int>
+     */
+    private function resolveRisSupplierIds(array $item): array
+    {
+        $ids = [];
+        foreach ($this->normalizeIncomingSupplierIds($item) as $supplierId) {
+            $resolved = $this->resolveRisSupplierId($supplierId);
+            if ($resolved !== null) {
+                $ids[] = $resolved;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return list<string>
+     */
+    private function normalizeIncomingSupplierIds(array $item): array
+    {
+        $raw = $item['supplier_ids'] ?? null;
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : (preg_split('/\s*,\s*/', $raw) ?: []);
+        }
+        if (! is_array($raw) || $raw === []) {
+            $single = $item['supplier_id'] ?? null;
+            $raw = filled($single) ? [$single] : [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($id) => trim((string) $id),
+            $raw
+        ), static fn ($id) => $id !== ''));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function decodeStoredSupplierIds(object $item): array
+    {
+        $raw = $item->ris_item_supplier_ids ?? ($item->supplier_ids ?? null);
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : null;
+        }
+        if (is_array($raw) && $raw !== []) {
+            return array_values(array_filter(array_map(
+                static fn ($id) => trim((string) $id),
+                $raw
+            ), static fn ($id) => $id !== ''));
+        }
+
+        $single = $item->ris_item_supplier_id ?? ($item->supplier_id ?? null);
+
+        return filled($single) ? [(string) $single] : [];
     }
 
     private function activeSupplierRule(): array
@@ -2363,12 +2685,28 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         }
 
         $items = $this->risItemsWithLookups([$copyFromId])->map(function ($item) {
+            $brandIds = $this->decodeStoredBrandIds($item);
+            $brandQtys = $this->decodeStoredBrandQuantities($item);
+            if ($brandQtys === [] && $brandIds !== []) {
+                $seed = max(1, (int) ($item->ris_quantity_requested ?? 1));
+                $brandQtys = [(string) $brandIds[0] => $seed];
+                foreach (array_slice($brandIds, 1) as $extraId) {
+                    $brandQtys[(string) $extraId] = 1;
+                }
+            }
+            $requested = array_sum($brandQtys);
+
+            $supplierIds = $this->decodeStoredSupplierIds($item);
+
             return [
                 'name_description' => (string) ($item->ris_item_name_description ?? ''),
-                'brand_id' => (string) ($item->ris_item_brand_id ?? ''),
-                'supplier_id' => (string) ($item->ris_item_supplier_id ?? ''),
+                'brand_ids' => $brandIds,
+                'brand_qtys' => $brandQtys,
+                'brand_id' => $brandIds[0] ?? (string) ($item->ris_item_brand_id ?? ''),
+                'supplier_ids' => $supplierIds,
+                'supplier_id' => $supplierIds[0] ?? (string) ($item->ris_item_supplier_id ?? ''),
                 'uom_id' => (string) ($item->ris_item_uom_id ?? ''),
-                'quantity_requested' => $item->ris_quantity_requested ?? '',
+                'quantity_requested' => $requested > 0 ? $requested : ($item->ris_quantity_requested ?? ''),
                 'quantity_issued' => $item->ris_quantity_issued ?? '',
                 'unit_cost' => $item->ris_unit_cost ?? '',
             ];
@@ -2497,6 +2835,8 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     {
         return [
             'submitted' => ['Submitted', 'Under Review', 'Resubmitted'],
+            'with_school_administrator' => ['Pending', 'Submitted', 'Under Review', 'Resubmitted', 'Accepted'],
+            'revision' => ['Minor Revision', 'President Revision', 'Returned by the President'],
             'approved' => ['Approved', 'Approved by the President', 'Directly Approved'],
             'rejected' => ['Rejected', 'Rejected by President', 'Rejected by the President'],
         ];
@@ -3138,9 +3478,24 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         return $this->risItemsHaveSupplierColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id');
     }
 
+    private function risItemsHaveSupplierIdsColumn(): bool
+    {
+        return $this->risItemsHaveSupplierIdsColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_ids');
+    }
+
     private function risItemsHaveBrandColumn(): bool
     {
         return $this->risItemsHaveBrandColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id');
+    }
+
+    private function risItemsHaveBrandIdsColumn(): bool
+    {
+        return $this->risItemsHaveBrandIdsColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_ids');
+    }
+
+    private function risItemsHaveBrandQuantitiesColumn(): bool
+    {
+        return $this->risItemsHaveBrandQuantitiesColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_quantities');
     }
 
     private function risItemsWithLookups($risIds)
@@ -3210,7 +3565,102 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             );
         }
 
-        return $query->select($select)->get();
+        $items = $query->select($select)->get();
+
+        return $this->attachRisItemSupplierNames($this->attachRisItemBrandNames($items));
+    }
+
+    /**
+     * Expand multi-brand JSON onto each item as brand_ids / brand_names / joined brand_name.
+     */
+    private function attachRisItemBrandNames($items)
+    {
+        if ($items->isEmpty() || ! Schema::hasTable('brands_table')) {
+            return $items;
+        }
+
+        $allIds = [];
+        foreach ($items as $item) {
+            foreach ($this->decodeStoredBrandIds($item) as $id) {
+                $allIds[(int) $id] = true;
+            }
+        }
+
+        if ($allIds === []) {
+            return $items;
+        }
+
+        $namesById = DB::table('brands_table')
+            ->whereIn('brand_id', array_keys($allIds))
+            ->pluck('brand_name', 'brand_id');
+
+        foreach ($items as $item) {
+            $ids = $this->decodeStoredBrandIds($item);
+            $qtys = $this->decodeStoredBrandQuantities($item);
+            $names = [];
+            $labeled = [];
+            foreach ($ids as $id) {
+                $name = $namesById[(int) $id] ?? null;
+                if ($name !== null && $name !== '') {
+                    $names[] = (string) $name;
+                    $qty = (int) ($qtys[(string) $id] ?? 0);
+                    $labeled[] = $qty > 0 ? ((string) $name).' ×'.$qty : (string) $name;
+                }
+            }
+            $item->brand_ids = $ids;
+            $item->brand_qtys = $qtys;
+            $item->brand_names = $names;
+            if ($labeled !== []) {
+                $item->brand_name = implode(', ', $labeled);
+            } elseif ($names !== []) {
+                $item->brand_name = implode(', ', $names);
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Expand multi-supplier JSON onto each item as supplier_ids / joined supplier_display_name.
+     */
+    private function attachRisItemSupplierNames($items)
+    {
+        if ($items->isEmpty() || ! Schema::hasTable('suppliers_table')) {
+            return $items;
+        }
+
+        $allIds = [];
+        foreach ($items as $item) {
+            foreach ($this->decodeStoredSupplierIds($item) as $id) {
+                $allIds[(int) $id] = true;
+            }
+        }
+
+        if ($allIds === []) {
+            return $items;
+        }
+
+        $namesById = $this->supplierOptionsForRis(false, array_keys($allIds))
+            ->keyBy('supplier_id')
+            ->map(fn ($row) => (string) ($row->display_name ?? ''));
+
+        foreach ($items as $item) {
+            $ids = $this->decodeStoredSupplierIds($item);
+            $names = [];
+            foreach ($ids as $id) {
+                $name = $namesById[(int) $id] ?? null;
+                if ($name !== null && $name !== '') {
+                    $names[] = $name;
+                }
+            }
+            $item->supplier_ids = $ids;
+            $item->supplier_names = $names;
+            if ($names !== []) {
+                $item->supplier_display_name = implode(', ', $names);
+            }
+        }
+
+        return $items;
     }
 
     private function risItemSplitOverflowMessage($items): ?string
@@ -3240,8 +3690,8 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     }
 
     /**
-     * Same item may repeat when brand or supplier differs.
-     * Block only when item + brand + supplier are all the same on another row.
+     * Same item may repeat when brand set or supplier set differs.
+     * Block only when item + brand set + supplier set are all the same on another row.
      */
     private function risDuplicateSupplierMessage($items): ?string
     {
@@ -3250,13 +3700,29 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         foreach ($items as $index => $item) {
             $row = $this->normalizeRisItemForValidation($item);
             $label = $row['name_description'];
-            $brandId = trim((string) ($row['brand_id'] ?? ''));
-            $supplierId = trim((string) ($row['supplier_id'] ?? ''));
-            if ($label === '' || $brandId === '' || $supplierId === '') {
+            $brandIds = array_values(array_filter(array_map(
+                static fn ($id) => trim((string) $id),
+                is_array($row['brand_ids'] ?? null) ? $row['brand_ids'] : []
+            )));
+            if ($brandIds === [] && filled($row['brand_id'] ?? null)) {
+                $brandIds = [trim((string) $row['brand_id'])];
+            }
+            sort($brandIds);
+            $brandKey = implode(',', $brandIds);
+            $supplierIds = array_values(array_filter(array_map(
+                static fn ($id) => trim((string) $id),
+                is_array($row['supplier_ids'] ?? null) ? $row['supplier_ids'] : []
+            )));
+            if ($supplierIds === [] && filled($row['supplier_id'] ?? null)) {
+                $supplierIds = [trim((string) $row['supplier_id'])];
+            }
+            sort($supplierIds);
+            $supplierKey = implode(',', $supplierIds);
+            if ($label === '' || $brandKey === '' || $supplierKey === '') {
                 continue;
             }
 
-            $key = mb_strtolower($label).'|'.$brandId.'|'.$supplierId;
+            $key = mb_strtolower($label).'|'.$brandKey.'|'.$supplierKey;
             if (isset($seen[$key])) {
                 $rowNumber = $index + 1;
                 $otherRow = $seen[$key];
@@ -3271,7 +3737,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     }
 
     /**
-     * Each RIS keeps one Canvass file. Extra copies are removed, and a new upload replaces the current file.
+     * All Canvass attachments for each RIS (kept for the full procurement record).
      */
     private function canvasAttachmentsByRis($risIds)
     {
@@ -3279,26 +3745,17 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             return collect();
         }
 
-        $rows = DB::table('ris_attachments_table')
+        return DB::table('ris_attachments_table')
             ->whereIn('ris_id', $risIds)
-            ->orderByDesc('ris_attachment_id')
-            ->get();
-
-        $kept = [];
-        foreach ($rows as $row) {
-            $risId = (int) $row->ris_id;
-            if (! isset($kept[$risId])) {
-                $kept[$risId] = $row;
-                continue;
-            }
-
-            $this->deleteCanvasAttachmentRow($row);
-        }
-
-        return collect($kept)->groupBy('ris_id');
+            ->orderBy('ris_attachment_id')
+            ->get()
+            ->groupBy('ris_id');
     }
 
-    private function storeSingleCanvasAttachment(int $risId, $incomingFiles): void
+    /**
+     * Store one or more Canvass files on the RIS. New uploads append; existing files stay.
+     */
+    private function storeCanvasAttachments(int $risId, $incomingFiles): void
     {
         if (! Schema::hasTable('ris_attachments_table') || $risId < 1) {
             return;
@@ -3311,36 +3768,35 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             $files = [$files];
         }
 
-        $document = null;
-        foreach ($files as $file) {
-            if ($file && method_exists($file, 'isValid') && $file->isValid()) {
-                $document = $file;
-                break;
-            }
-        }
-
-        if (! $document) {
-            $this->canvasAttachmentsByRis([$risId]);
-
+        $existingCount = (int) DB::table('ris_attachments_table')->where('ris_id', $risId)->count();
+        $maxFiles = 10;
+        $slotsLeft = max(0, $maxFiles - $existingCount);
+        if ($slotsLeft < 1) {
             return;
         }
 
-        $existing = DB::table('ris_attachments_table')->where('ris_id', $risId)->get();
-        foreach ($existing as $row) {
-            $this->deleteCanvasAttachmentRow($row);
+        $stored = 0;
+        foreach ($files as $document) {
+            if ($stored >= $slotsLeft) {
+                break;
+            }
+            if (! $document || ! method_exists($document, 'isValid') || ! $document->isValid()) {
+                continue;
+            }
+
+            $storedPath = $document->store('ris-supporting-documents/'.$risId, 'public');
+
+            DB::table('ris_attachments_table')->insert([
+                'ris_id' => $risId,
+                'ris_attachment_original_name' => $document->getClientOriginalName(),
+                'ris_attachment_path' => $storedPath,
+                'ris_attachment_mime_type' => $document->getClientMimeType(),
+                'ris_attachment_size' => $document->getSize(),
+                'ris_attachment_uploaded_by' => Auth::id(),
+                'ris_attachment_created_at' => now(),
+            ]);
+            $stored++;
         }
-
-        $storedPath = $document->store('ris-supporting-documents/'.$risId, 'public');
-
-        DB::table('ris_attachments_table')->insert([
-            'ris_id' => $risId,
-            'ris_attachment_original_name' => $document->getClientOriginalName(),
-            'ris_attachment_path' => $storedPath,
-            'ris_attachment_mime_type' => $document->getClientMimeType(),
-            'ris_attachment_size' => $document->getSize(),
-            'ris_attachment_uploaded_by' => Auth::id(),
-            'ris_attachment_created_at' => now(),
-        ]);
     }
 
     private function canvasAttachmentForRequest($attachmentId, bool $requireFile = true): array
@@ -3803,7 +4259,7 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
         return false;
     }
 
-    private function validateRisItemsForSubmit($items): ?string
+    private function validateRisItemsForSubmit($items, bool $requireIssued = false): ?string
     {
         foreach ($items as $index => $item) {
             $row = $this->normalizeRisItemForValidation($item);
@@ -3823,24 +4279,50 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 return "Item {$rowNumber} Quantity Requested must be at least 1.";
             }
 
-            if ($this->risItemsHaveBrandColumn() && blank($row['brand_id'])) {
-                return "Item {$rowNumber} needs a brand.";
+            if ($this->risItemsHaveBrandColumn()) {
+                $brandIds = $row['brand_ids'] ?? [];
+                if (! is_array($brandIds) || $brandIds === []) {
+                    $brandIds = filled($row['brand_id'] ?? null) ? [$row['brand_id']] : [];
+                }
+                if ($brandIds === []) {
+                    return "Item {$rowNumber} needs a brand.";
+                }
             }
 
             if ($this->risItemsHaveUomColumn() && blank($row['uom_id'])) {
                 return "Item {$rowNumber} needs a unit of measure.";
             }
 
-            if ($this->risItemsHaveSupplierColumn() && blank($row['supplier_id'])) {
-                return "Item {$rowNumber} needs a supplier.";
+            if ($this->risItemsHaveSupplierColumn()) {
+                $supplierIds = $row['supplier_ids'] ?? [];
+                if (! is_array($supplierIds) || $supplierIds === []) {
+                    $supplierIds = filled($row['supplier_id'] ?? null) ? [$row['supplier_id']] : [];
+                }
+                if ($supplierIds === []) {
+                    return "Item {$rowNumber} needs a supplier.";
+                }
             }
 
-            $issuedRaw = $row['quantity_issued'] ?? null;
-            if ($issuedRaw === null || $issuedRaw === '' || (int) $issuedRaw < 1) {
-                return "Item {$rowNumber} needs an Issued quantity of at least 1.";
+            // Issued is filled on revision only. 0 is allowed when that line is not issued.
+            $requestedQty = is_array($item)
+                ? (int) ($item['quantity_requested'] ?? 0)
+                : (int) ($item->ris_quantity_requested ?? 0);
+            $issuedQty = is_array($item)
+                ? (int) ($item['quantity_issued'] ?? 0)
+                : (int) ($item->ris_quantity_issued ?? 0);
+
+            if ($requireIssued) {
+                if ($issuedQty < 0) {
+                    return "Item {$rowNumber} needs an Issued quantity of 0 or more.";
+                }
+                if ($requestedQty > 0 && $issuedQty > $requestedQty) {
+                    return "Item {$rowNumber} Issued quantity cannot be higher than requested.";
+                }
             }
 
-            if ($row['unit_cost'] === null || $row['unit_cost'] === '' || (float) $row['unit_cost'] <= 0) {
+            $cost = $row['unit_cost'];
+            $skipCost = $requireIssued && $issuedQty <= 0;
+            if (! $skipCost && ($cost === null || $cost === '' || (float) $cost <= 0)) {
                 return "Item {$rowNumber} needs a unit cost greater than 0.";
             }
         }
@@ -3862,6 +4344,15 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                 if ($name === '' && ($qty === '' || $qty === null || (int) $qty === 0)) {
                     $item['quantity_requested'] = null;
                 }
+
+                // Currency inputs may post thousand separators (e.g. 2,222.00).
+                foreach (['unit_cost', 'total_amount'] as $moneyKey) {
+                    if (! array_key_exists($moneyKey, $item) || $item[$moneyKey] === null || $item[$moneyKey] === '') {
+                        continue;
+                    }
+                    $item[$moneyKey] = str_replace(',', '', (string) $item[$moneyKey]);
+                }
+
                 $cost = $item['unit_cost'] ?? null;
                 if ($name === '' && ($cost === '' || $cost === null || (float) $cost <= 0)) {
                     $item['unit_cost'] = null;
@@ -3875,7 +4366,9 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
                     || (filled($item['unit_cost'] ?? null) && (float) $item['unit_cost'] > 0)
                     || filled($item['uom_id'] ?? null)
                     || filled($item['brand_id'] ?? null)
-                    || filled($item['supplier_id'] ?? null);
+                    || ! empty($item['brand_ids'] ?? null)
+                    || filled($item['supplier_id'] ?? null)
+                    || ! empty($item['supplier_ids'] ?? null);
             })
             ->values()
             ->all();
@@ -3886,23 +4379,46 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
     private function normalizeRisItemForValidation(array|object $item): array
     {
         if (is_array($item)) {
+            $brandIds = $this->normalizeIncomingBrandIds($item);
+            $resolvedIds = [];
+            foreach ($brandIds as $brandId) {
+                $resolved = $this->resolveRisBrandId($brandId);
+                if ($resolved !== null) {
+                    $resolvedIds[] = $resolved;
+                }
+            }
+            $brandQtys = $this->resolveRisBrandQuantities($item, $resolvedIds);
+            $qtyFromBrands = array_sum($brandQtys);
+            $supplierIds = $this->normalizeIncomingSupplierIds($item);
+
             return [
                 'name_description' => trim((string) ($item['name_description'] ?? '')),
-                'brand_id' => $item['brand_id'] ?? null,
+                'brand_ids' => $brandIds,
+                'brand_qtys' => $brandQtys,
+                'brand_id' => $brandIds[0] ?? ($item['brand_id'] ?? null),
                 'uom_id' => $item['uom_id'] ?? null,
-                'supplier_id' => $item['supplier_id'] ?? null,
-                'quantity_requested' => $item['quantity_requested'] ?? null,
+                'supplier_ids' => $supplierIds,
+                'supplier_id' => $supplierIds[0] ?? ($item['supplier_id'] ?? null),
+                'quantity_requested' => $qtyFromBrands > 0 ? $qtyFromBrands : ($item['quantity_requested'] ?? null),
                 'quantity_issued' => $item['quantity_issued'] ?? null,
                 'unit_cost' => $item['unit_cost'] ?? null,
             ];
         }
 
+        $brandIds = $this->decodeStoredBrandIds($item);
+        $brandQtys = $this->decodeStoredBrandQuantities($item);
+        $qtyFromBrands = array_sum($brandQtys);
+        $supplierIds = $this->decodeStoredSupplierIds($item);
+
         return [
             'name_description' => trim((string) ($item->ris_item_name_description ?? '')),
-            'brand_id' => $item->ris_item_brand_id ?? null,
+            'brand_ids' => $brandIds,
+            'brand_qtys' => $brandQtys,
+            'brand_id' => $brandIds[0] ?? ($item->ris_item_brand_id ?? null),
             'uom_id' => $item->ris_item_uom_id ?? null,
-            'supplier_id' => $item->ris_item_supplier_id ?? null,
-            'quantity_requested' => $item->ris_quantity_requested ?? null,
+            'supplier_ids' => $supplierIds,
+            'supplier_id' => $supplierIds[0] ?? ($item->ris_item_supplier_id ?? null),
+            'quantity_requested' => $qtyFromBrands > 0 ? $qtyFromBrands : ($item->ris_quantity_requested ?? null),
             'quantity_issued' => $item->ris_quantity_issued ?? null,
             'unit_cost' => $item->ris_unit_cost ?? null,
         ];

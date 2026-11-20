@@ -197,17 +197,6 @@
         </a>
 
         <a
-            href="{{ route('school-admin.dv.index') }}"
-            class="menu-item {{ request()->is('school-admin/disbursement-vouchers*') ? 'active' : '' }}"
-        >
-            <i data-lucide="file-spreadsheet"></i>
-            <span>DV Approvals</span>
-            @if($saCounts['dv'] > 0)
-                <span class="{{ $navCount }}" title="{{ $saCounts['dv'] }} not viewed yet">{{ $saCounts['dv'] }}</span>
-            @endif
-        </a>
-
-        <a
             href="{{ route('school-admin.digital-signatures.history') }}"
             class="menu-item {{ request()->is('school-admin/digital-signatures/history*') ? 'active' : '' }}"
         >

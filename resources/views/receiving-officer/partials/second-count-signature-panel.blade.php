@@ -12,7 +12,6 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h4 class="text-sm font-semibold text-slate-900">{{ $signTitle }} <span class="text-red-500">*</span></h4>
-            <p class="mt-1 text-xs leading-relaxed text-slate-500">{{ $signHint }}</p>
         </div>
         <div id="roSignBadge" class="hidden inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
             Signature added
@@ -110,7 +109,6 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">{{ $padTitle }}</h3>
-                    <p class="mt-1.5 text-sm leading-6 text-slate-500">{{ $padHint }}</p>
                 </div>
                 <button type="button" id="roCloseSignPad" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -124,7 +122,7 @@
                     'hiddenName' => 'ro_pad_scratch',
                     'hiddenId' => 'roPadScratch',
                     'label' => 'Digital signature',
-                    'hint' => $padHint,
+                    'hint' => '',
                     'requiredMessage' => 'Please sign before applying.',
                 ])
             </div>

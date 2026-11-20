@@ -7,7 +7,7 @@ namespace App\Support;
  * Keep UI maxlength/max in sync with these server rules.
  *
  * Policy (system-wide):
- * - Money / amounts: 7 digits before decimal + 2 after (9999999.99)
+ * - Money / amounts: 8 digits before decimal + 2 after (99999999.99); commas are display-only
  * - Other numbers (qty, counts): up to 7 digits (9999999)
  * - Names (person, product, equipment, brand, room…): 30 characters
  * - Purpose / short description fields: 400 characters (~2 RIS lined rows)
@@ -47,11 +47,11 @@ class InputLimits
     /** Digits allowed for integer quantity / count fields. */
     public const QTY_DIGITS = 7;
 
-    /** Max money value: 7 digits before decimal + 2 after (9999999.99). */
-    public const COST = 9999999.99;
+    /** Max money value: 8 digits before decimal + 2 after (99999999.99). */
+    public const COST = 99999999.99;
 
-    /** Digits allowed before the decimal point for money fields. */
-    public const MONEY_WHOLE_DIGITS = 7;
+    /** Digits allowed before the decimal point for money fields (commas do not count). */
+    public const MONEY_WHOLE_DIGITS = 8;
 
     /** Digits allowed after the decimal point for money fields. */
     public const MONEY_DECIMAL_DIGITS = 2;

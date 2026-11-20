@@ -62,10 +62,129 @@ class AccountingController extends Controller
         ]);
     }
 
+    public function approvedPackages()
+    {
+        return view('accounting.approved-packages.index', [
+            'records' => AccountingDashboard::approvedPackages(),
+        ]);
+    }
+
+    public function markCheckReady($id)
+    {
+        $rfc = $this->lockRfc($id);
+        abort_if(! $rfc, 404);
+        if ($rfc->request_check_status !== 'Approved') {
+            return back()->with('error', 'Approve the funding request before releasing the check.');
+        }
+        if (! empty($rfc->request_check_funds_released_at)) {
+            return back()->with('error', 'This check is already released.');
+        }
+        if (! $this->rfcHas('request_check_check_ready_at')) {
+            return back()->with('error', 'Run database migrations so the check-release step can be saved.');
+        }
+        if (! empty($rfc->request_check_check_ready_at)) {
+            return back()->with('error', 'The purchaser was already told this check is ready.');
+        }
+
+        $this->rfcUpdate($id, [
+            'request_check_check_ready_at' => now(),
+            'request_check_check_ready_by' => Auth::id(),
+            'request_check_updated_at' => now(),
+        ]);
+
+        $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+        $purchaserId = $this->purchaserIdForRfc($rfc);
+        $this->log('RFC', (int) $id, 'Approved', 'Check is ready for the purchaser to collect.');
+        if ($purchaserId > 0) {
+            $this->notifyPurchaser(
+                $purchaserId,
+                'Check ready for collection',
+                $label.' is ready. Collect the check from Accounting. The receiving report opens after the check is released.',
+                'rfc_check_ready',
+                'RFC',
+                (int) $id,
+                '/purchaser/request-check'
+            );
+        }
+
+        return back()->with(
+            'success',
+            $label.' is ready for collection. '.WorkflowNotifier::recipientName($purchaserId, 'The Purchaser').' has been notified.'
+        );
+    }
+
+    public function markCheckReleased($id)
+    {
+        $rfc = $this->lockRfc($id);
+        abort_if(! $rfc, 404);
+        if (! $this->rfcHas('request_check_funds_released_at')) {
+            return back()->with('error', 'Funds-release columns are not present on this Request Check table.');
+        }
+        if ($rfc->request_check_status !== 'Approved') {
+            return back()->with('error', 'Approve the funding request before releasing the check.');
+        }
+        if (empty($rfc->request_check_check_ready_at)) {
+            return back()->with('error', 'Tell the purchaser the check is ready before marking it released.');
+        }
+        if (! empty($rfc->request_check_funds_released_at)) {
+            return back()->with('error', 'This check is already released.');
+        }
+
+        $this->rfcUpdate($id, [
+            'request_check_funds_released_at' => now(),
+            'request_check_funds_released_by' => Auth::id(),
+            'request_check_updated_at' => now(),
+        ]);
+
+        $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+        $purchaserId = $this->purchaserIdForRfc($rfc);
+        $this->log('RFC', (int) $id, 'Approved', 'Check released to the purchaser.');
+        if ($purchaserId > 0) {
+            $this->notifyPurchaser(
+                $purchaserId,
+                'Check released',
+                $label.' is released. The approved canvass, RIS, ATP, and RFC are back with you for reference. Create the receiving report from them.',
+                'rfc_funds_released',
+                'RFC',
+                (int) $id,
+                '/purchaser/receiving-reports?selected_rfc='.(int) $id
+            );
+        }
+
+        return back()->with(
+            'success',
+            $label.' is released and sent back to '.WorkflowNotifier::recipientName($purchaserId, 'the Purchaser').' The approved canvass, RIS, ATP, and RFC stay available while they create the receiving report.'
+        );
+    }
+
+    private function purchaserIdForRfc(object $rfc): int
+    {
+        $atpId = (int) ($rfc->request_check_authority_purchase_id ?: 0);
+        if ($atpId > 0 && Schema::hasTable('authority_to_purchase_table')) {
+            $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->first();
+            if ($atp) {
+                $risId = (int) ($atp->authority_purchase_ris_id ?? 0);
+                if ($risId > 0 && Schema::hasTable('requisition_issue_slip_table')) {
+                    $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+                    $risOwner = (int) ($ris->ris_created_by ?? 0) ?: (int) ($ris->ris_submitted_by ?? 0);
+                    if ($risOwner > 0) {
+                        return $risOwner;
+                    }
+                }
+                $atpOwner = (int) ($atp->authority_purchase_created_by ?? 0)
+                    ?: (int) ($atp->authority_purchase_submitted_by ?? 0);
+                if ($atpOwner > 0) {
+                    return $atpOwner;
+                }
+            }
+        }
+
+        return (int) ($rfc->request_check_submitted_by ?: $rfc->request_check_requested_by_user_id ?: 0);
+    }
+
     public function dashboardPreview(string $type, int $id)
     {
         $payload = match ($type) {
-            'dv' => $this->dashboardPreviewDv($id),
             'rfc' => $this->dashboardPreviewRfc($id),
             'liq' => $this->dashboardPreviewLiq($id),
             'atp' => $this->dashboardPreviewAtp($id),
@@ -86,8 +205,10 @@ class AccountingController extends Controller
 
         if ($filter === 'incoming') {
             DocumentUrgency::orderUrgentFirst($query, 'ATP');
-            // Urgent first, then oldest waiting.
-            $records = $query->orderBy('authority_to_purchase_table.authority_purchase_updated_at')
+            // Urgent first, then newest submitted on top.
+            $records = $query
+                ->orderByRaw('IFNULL(authority_to_purchase_table.authority_purchase_submitted_at, authority_to_purchase_table.authority_purchase_updated_at) DESC')
+                ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
                 ->paginate(15)
                 ->withQueryString();
         } else {
@@ -141,7 +262,8 @@ class AccountingController extends Controller
 
         if ($filter === 'incoming') {
             DocumentUrgency::orderUrgentFirst($query, 'ATP');
-            $query->orderBy('authority_to_purchase_table.authority_purchase_updated_at');
+            $query->orderByRaw('IFNULL(authority_to_purchase_table.authority_purchase_submitted_at, authority_to_purchase_table.authority_purchase_updated_at) DESC')
+                ->orderByDesc('authority_to_purchase_table.authority_purchase_id');
         } else {
             $query->orderByDesc('authority_to_purchase_table.authority_purchase_updated_at');
         }
@@ -230,8 +352,18 @@ class AccountingController extends Controller
 
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
         $linkedPendingRfcs = $this->linkedRfcsAwaitingReview((int) $id);
-        $hasLinkedRfcPair = $linkedPendingRfcs->isNotEmpty()
-            || (RfcAtpLinks::latestRfcForAtp((int) $id) !== null);
+        $latestLinkedRfc = RfcAtpLinks::latestRfcForAtp((int) $id);
+        $viewerRfcs = $linkedPendingRfcs->isNotEmpty()
+            ? $linkedPendingRfcs
+            : ($latestLinkedRfc ? collect([$latestLinkedRfc]) : collect());
+        $hasLinkedRfcPair = $viewerRfcs->isNotEmpty();
+        $ris = null;
+        $risItems = collect();
+        $risId = (int) ($atp->authority_purchase_ris_id ?? 0);
+        if ($risId > 0) {
+            $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+            $risItems = $this->risItemsWithLookups([$risId])->values();
+        }
         $dualRouteApprove = ProcurementPortal::PURCHASER_OWNS_ATP && $reviewable;
 
         return view('accounting.authority-to-purchase.show', compact(
@@ -244,6 +376,9 @@ class AccountingController extends Controller
             'savedSignatures',
             'purchaseOrder',
             'linkedPendingRfcs',
+            'viewerRfcs',
+            'ris',
+            'risItems',
             'hasLinkedRfcPair',
             'dualRouteApprove'
         ));
@@ -375,18 +510,15 @@ class AccountingController extends Controller
         $routeTo = 'purchaser';
         $linkedPendingRfcs = collect();
         if (ProcurementPortal::PURCHASER_OWNS_ATP) {
-            $routeTo = in_array($request->input('route_to'), ['purchaser', 'purchaser_and_accounting'], true)
-                ? $request->input('route_to')
-                : 'purchaser';
             $linkedPendingRfcs = $this->linkedRfcsAwaitingReview((int) $id);
+            $routeTo = $linkedPendingRfcs->isNotEmpty()
+                ? 'purchaser_and_accounting'
+                : 'purchaser';
 
-            if ($routeTo === 'purchaser_and_accounting' && $linkedPendingRfcs->isEmpty()) {
+            if ($routeTo === 'purchaser' && $request->input('route_to') === 'purchaser_and_accounting') {
                 $latest = RfcAtpLinks::latestRfcForAtp((int) $id);
-                if (! $latest || ($latest->request_check_status ?? '') !== 'Approved') {
-                    return back()->with(
-                        'error',
-                        'Pass to Accounting requires a linked funding request. Approve with Purchaser only, or ensure the RFC is submitted with this ATP.'
-                    );
+                if ($latest && ($latest->request_check_status ?? '') === 'Approved' && AccountingHandoff::purchaserCanSendRfc($latest)) {
+                    $routeTo = 'purchaser_and_accounting';
                 }
             }
         }
@@ -452,8 +584,8 @@ class AccountingController extends Controller
 
             if ($purchaserUserId > 0) {
                 $notifyMsg = $routeTo === 'purchaser_and_accounting'
-                    ? $form.' was approved. Accounting already has the package for Disbursement Voucher.'
-                    : $form.' was approved. You may submit the funding package to Accounting when ready.';
+                    ? $form.' was approved. The Purchaser has the signed ATP, and the funding request is with Accounting.'
+                    : $form.' was approved and returned to the Purchaser.';
                 $this->notifyPurchaser(
                     $purchaserUserId,
                     'ATP approved',
@@ -506,6 +638,13 @@ class AccountingController extends Controller
 
     public function reviseAtp(Request $request, $id)
     {
+        $message = 'An Authority to Purchase cannot be rejected or returned for revision.';
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(['ok' => false, 'message' => $message], 422);
+        }
+
+        return back()->with('error', $message);
+
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
         if ($imageError = RisRevisionImages::validationError($request)) {
             return $this->revisionImageError($request, $imageError);
@@ -1102,8 +1241,8 @@ class AccountingController extends Controller
             return back()->with('error', 'This Request Check is not awaiting School Administrator review.');
         }
 
-        $routeTo = in_array($request->input('route_to'), ['purchaser', 'purchaser_and_accounting'], true)
-            ? $request->input('route_to')
+        $routeTo = ProcurementPortal::PURCHASER_OWNS_ATP
+            ? 'purchaser_and_accounting'
             : 'purchaser';
 
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
@@ -1181,8 +1320,8 @@ class AccountingController extends Controller
             $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
             'Request Check approved',
             $routeTo === 'purchaser_and_accounting'
-                ? $label.' was approved. Accounting already has the package for Disbursement Voucher.'
-                : $label.' was approved. You may submit to Accounting when ready, then create a Receiving Report after funds.',
+                ? $label.' was approved. You have the signed record, and the funding request is with Accounting.'
+                : $label.' was approved. Create a Receiving Report after funds are released.',
             'rfc_approved',
             'RFC',
             (int) $id,
@@ -1203,6 +1342,13 @@ class AccountingController extends Controller
 
     public function reviseRequestCheck(Request $request, $id)
     {
+        $message = 'A funding request cannot be rejected or returned for revision.';
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(['ok' => false, 'message' => $message], 422);
+        }
+
+        return back()->with('error', $message);
+
         $validated = $request->validate(['remarks' => ['required', 'string', 'max:2000']]);
         if ($imageError = RisRevisionImages::validationError($request)) {
             return $this->revisionImageError($request, $imageError);

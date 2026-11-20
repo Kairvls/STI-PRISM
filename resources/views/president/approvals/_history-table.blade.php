@@ -18,22 +18,13 @@
             @endif
         </td>
         <td class="px-2 py-4 text-sm">
-            @if ($decision === 'Approved' || $decisionLower === 'approved')
-                <span class="status-pill status-approved">Approved</span>
-            @elseif ($decision === 'Rejected' || $decisionLower === 'rejected')
-                <span class="status-pill status-rejected">Rejected</span>
-            @else
-                <span class="status-pill status-pending">{{ $decision }}</span>
-            @endif
+            @include('accounting.partials.status-badge', ['status' => $decision, 'doc' => 'ris'])
         </td>
         <td class="px-2 py-4 text-sm text-gray-700">
             {{ $decidedAt
                 ? \Carbon\Carbon::parse($decidedAt)->format('F j, Y')
                 : '—'
             }}
-        </td>
-        <td class="px-2 py-4 text-sm text-center font-semibold text-gray-800">
-            ₱{{ number_format($row->total_amount ?? 0, 2) }}
         </td>
         <td class="px-2 py-4 text-center">
             @if ($risId)

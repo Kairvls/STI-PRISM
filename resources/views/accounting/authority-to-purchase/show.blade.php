@@ -60,22 +60,12 @@
                 @if(!empty($dualRouteApprove))
                     <button
                         type="button"
-                        onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved', 'purchaser')"
+                        onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved', '{{ $isAtpRfcPackage ? 'purchaser_and_accounting' : 'purchaser' }}')"
                         class="acc-action-btn is-approve"
-                        data-tip="{{ $isAtpRfcPackage ? 'Approve ATP + linked RFC(s) and pass to Purchaser' : 'Approve and pass to Purchaser only' }}"
+                        data-tip="{{ $isAtpRfcPackage ? 'Approve the ATP and funding request, return them to the Purchaser, and send the funding request to Accounting' : 'Approve and pass to Purchaser' }}"
                     >
-                        <i data-lucide="user-check" class="h-4 w-4"></i>
-                        <span>{{ $isAtpRfcPackage ? 'Approve → Purchaser' : 'Pass to Purchaser' }}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved', 'purchaser_and_accounting')"
-                        class="acc-action-btn is-approve"
-                        data-tip="{{ $isAtpRfcPackage ? 'Approve ATP + linked RFC and send package to Accounting' : 'Requires a linked funding request' }}"
-                        @if(! $isAtpRfcPackage) disabled @endif
-                    >
-                        <i data-lucide="building-2" class="h-4 w-4"></i>
-                        <span>{{ $isAtpRfcPackage ? 'Approve → Purchaser + Accounting' : 'Pass to Purchaser + Accounting' }}</span>
+                        <i data-lucide="{{ $isAtpRfcPackage ? 'building-2' : 'user-check' }}" class="h-4 w-4"></i>
+                        <span>{{ $isAtpRfcPackage ? 'Approve → Purchaser + Accounting' : 'Approve → Purchaser' }}</span>
                     </button>
                 @else
                     <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="{{ $packageApproveLabel }}">
@@ -83,12 +73,6 @@
                         <span>{{ $packageApproveLabel }}</span>
                     </button>
                 @endif
-                <button type="button" onclick="openDecisionModal('atp', {{ $atp->authority_purchase_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                </svg>
-                    <span>Return for Revision</span>
-                </button>
             @endif
             <button type="button" class="acc-action-btn" onclick="window.accountingPrintForm({ page: 'portrait', sheetId: 'acc-print-sheet' })" data-tip="Print ATP">
                 <i data-lucide="printer" class="h-4 w-4"></i>
@@ -97,11 +81,19 @@
         </div>
     </div>
 
+    <div data-doc-switcher>
+    @include('partials.document-lineage', [
+        'lineage' => \App\Support\DocumentLineage::forAtp((int) $atp->authority_purchase_id),
+        'currentType' => 'ATP',
+        'switchable' => true,
+        'statusHint' => \App\Support\DocumentLineage::reviewHint(\App\Support\RisWorkflow::atpStatusLabel($atp), null, 'atp'),
+    ])
     <div class="acc-review-body">
         <div class="acc-review-grid">
             <div class="acc-viewer">
                 <div class="acc-viewer-stage">
                     <div class="acc-viewer-fit">
+                        <div data-doc-panel="atp">
                         @include('partials.authority-to-purchase-paper', [
                             'editable' => false,
                             'atp' => $atp,
@@ -109,17 +101,20 @@
                             'printId' => 'acc-print-sheet',
                             'accLiveSign' => !empty($reviewable),
                         ])
-                        @if($isAtpRfcPackage)
-                            <div class="mt-6 print-hidden">
-                                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Linked funding {{ $linkedPendingRfcs->count() === 1 ? 'request' : 'requests' }} (approved with ATP)
-                                </p>
-                                @foreach($linkedPendingRfcs as $linkedRfc)
+                        </div>
+                        @if(!empty($ris))
+                            <div data-doc-panel="ris" hidden>
+                                @include('partials.ris-purchaser-sheet', [
+                                    'ris' => $ris,
+                                    'risItems' => $risItems ?? collect(),
+                                    'printId' => 'acc-ris-print-sheet',
+                                ])
+                            </div>
+                        @endif
+                        @if(($viewerRfcs ?? collect())->isNotEmpty())
+                            <div data-doc-panel="rfc" hidden>
+                                @foreach($viewerRfcs as $linkedRfc)
                                     <div class="mb-6">
-                                        <p class="mb-2 text-sm font-semibold text-slate-800">
-                                            {{ $linkedRfc->request_check_form_number ?: ('RFC #'.$linkedRfc->request_check_id) }}
-                                            <span class="ml-2 text-xs font-medium text-slate-500">{{ $linkedRfc->request_check_status }}</span>
-                                        </p>
                                         @include('partials.request-check-paper', [
                                             'editable' => false,
                                             'rfc' => $linkedRfc,
@@ -143,12 +138,40 @@
                 </div>
             </div>
             <div class="acc-side-stack">
-                @include('accounting.partials.related-docs', ['chain' => $chain, 'current' => 'atp'])
+                @include('accounting.partials.related-docs', ['chain' => $chain, 'current' => 'atp', 'switchable' => true])
                 @include('accounting.partials.history', ['history' => $history])
             </div>
         </div>
     </div>
+    </div>
 </div>
+<script>
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-switch-doc]');
+        if (!button) return;
+        var root = button.closest('[data-doc-switcher]');
+        if (!root) return;
+        var key = button.getAttribute('data-switch-doc');
+        var panel = root.querySelector('[data-doc-panel="' + key + '"]');
+        if (!panel) return;
+        event.preventDefault();
+        root.querySelectorAll('[data-doc-panel]').forEach(function (node) {
+            node.hidden = node.getAttribute('data-doc-panel') !== key;
+        });
+        root.querySelectorAll('[data-switch-doc]').forEach(function (node) {
+            if (node.classList.contains('acc-link')) return;
+            var on = node.getAttribute('data-switch-doc') === key;
+            node.classList.toggle('bg-[#0025cc]', on);
+            node.classList.toggle('text-white', on);
+            node.classList.toggle('ring-[#0025cc]', on);
+            node.classList.toggle('bg-white', !on);
+            node.classList.toggle('text-slate-700', !on);
+            node.classList.toggle('ring-slate-200', !on);
+            if (on) node.setAttribute('aria-current', 'page');
+            else node.removeAttribute('aria-current');
+        });
+    });
+</script>
 
 {{-- Decision modal (President-style) --}}
 <div id="decisionModal" class="confirm-modal hidden">
@@ -236,17 +259,15 @@
             routeHint.classList.remove('hidden');
             routeHint.textContent = both
                 ? (linkedRfcCount > 0
-                    ? 'Approves ATP' + (linkedRfcCount === 1 ? ' + linked RFC' : ' + ' + linkedRfcCount + ' linked RFCs') + ' and sends the package to Accounting for DV.'
-                    : 'Sends the approved package to Accounting for DV.')
-                : (linkedRfcCount > 0
-                    ? 'Approves ATP' + (linkedRfcCount === 1 ? ' + linked RFC' : ' + ' + linkedRfcCount + ' linked RFCs') + '. Purchaser keeps the record and can submit to Accounting later.'
-                    : 'Passes the approved ATP to the Purchaser only.');
+                    ? 'Approves the ATP and linked funding request. The Purchaser keeps the signed ATP, and the funding request goes to Accounting.'
+                    : 'Sends the approved package to the Purchaser and to Accounting.')
+                : 'Approves the ATP and returns it to the Purchaser.';
             document.getElementById('decisionModalTitle').textContent = both
-                ? (linkedRfcCount > 0 ? 'Approve → Purchaser + Accounting' : 'Pass to Purchaser + Accounting')
-                : (linkedRfcCount > 0 ? 'Approve → Purchaser' : 'Pass to Purchaser');
+                ? 'Approve → Purchaser + Accounting'
+                : 'Approve → Purchaser';
             document.getElementById('approveBtn').textContent = both
-                ? (linkedRfcCount > 0 ? 'Confirm approve to both' : 'Confirm pass to both')
-                : (linkedRfcCount > 0 ? 'Confirm approve to Purchaser' : 'Confirm pass to Purchaser');
+                ? 'Confirm approve to both'
+                : 'Confirm approve to Purchaser';
         } else {
             routeHint.classList.add('hidden');
             document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';

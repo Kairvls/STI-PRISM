@@ -5,8 +5,6 @@
 @section('content')
 @php
     $peso = fn ($v) => '₱'.number_format((float) $v, 2);
-    $selectedYear = (int) ($budgetProposalYear ?? now()->year);
-    $usage = ($budgetUsage ?? [])[$selectedYear] ?? null;
 
     $sys = $system ?? [];
     $equipmentTotal = (int) ($sys['equipment_total'] ?? 0);
@@ -15,12 +13,9 @@
     $forReplacement = (int) ($sys['for_replacement'] ?? 0);
     $replaced = (int) ($sys['replaced'] ?? 0);
     $disposed = (int) ($sys['disposed'] ?? 0);
-    $computerSets = (int) ($sys['computer_sets'] ?? 0);
     $rooms = (int) ($sys['rooms'] ?? 0);
     $departments = (int) ($sys['departments'] ?? 0);
     $users = (int) ($sys['users'] ?? 0);
-    $stockSwaps = (int) ($sys['stock_swaps'] ?? 0);
-    $procurementReplacements = (int) ($sys['procurement_replacements'] ?? 0);
 
     $inventoryHref = function (string $path = '') {
         return url('/admin/inventory'.($path !== '' ? '/'.$path : ''));
@@ -30,172 +25,56 @@
 <span class="admin-keep-colors hidden" aria-hidden="true"></span>
 
 <div class="ad-dash mx-3 space-y-5 sm:mx-1 lg:-mx-1">
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {{-- Equipment + maintenance calendar --}}
-        <div class="space-y-5 lg:col-span-2">
-        @include('partials.nearest-lifespan-broadcasts', [
-            'lifespan' => $lists['lifespan'] ?? ['total' => 0, 'rows' => [], 'due' => []],
-            'lifespanIndexUrl' => route('admin.lifespan-broadcasts.index'),
-            'includeLifespanConfirm' => true,
-        ])
+    @php
+        $procurement = $lists['prs'] ?? ['total' => 0, 'rows' => []];
+        $procurementRows = collect($procurement['rows'] ?? []);
+        $procurementTotal = (int) ($procurement['total'] ?? 0);
+        $maintenanceCalendar = \App\Support\AdminDashboardLists::maintenanceCalendar();
+        $switchCards = [
+            ['key' => 'borrows', 'switch' => 'Borrowed', 'title' => 'Latest overdue borrowed', 'href' => route('admin.borrowing.index', ['status' => 'Overdue']), 'empty' => 'No overdue borrowed'],
+            ['key' => 'disposed', 'switch' => 'Disposed', 'title' => 'Latest disposed equipment', 'href' => route('admin.disposal.index'), 'empty' => 'No disposed equipment'],
+        ];
+    @endphp
 
-
-        @php $maintenanceCalendar = \App\Support\AdminDashboardLists::maintenanceCalendar(); @endphp
-        <section class="ad-panel p-5">
-            <div class="flex items-center justify-between gap-3">
-                <h2 class="text-sm font-semibold text-slate-950">Maintenance calendar</h2>
-                <a href="{{ $maintenanceCalendar['href'] }}" class="text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
-                </div>
-            <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <label class="sr-only" for="maintenanceCalendarMonth">Month</label>
-                        <select id="maintenanceCalendarMonth" class="rounded-md border border-slate-200 bg-white py-1 pl-2 pr-7 text-xs font-semibold text-slate-800 focus:border-slate-300 focus:outline-none focus:ring-0"></select>
-                        <label class="sr-only" for="maintenanceCalendarYear">Year</label>
-                        <select id="maintenanceCalendarYear" class="rounded-md border border-slate-200 bg-white py-1 pl-2 pr-7 text-xs font-semibold text-slate-800 focus:border-slate-300 focus:outline-none focus:ring-0"></select>
-                        <button type="button" id="maintenanceCalendarToday" class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-[#0025cc]" title="Back to today" aria-label="Back to today">
-                            <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
-                    </button>
-            </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-500">
-                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>Equipment</span>
-                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-violet-500"></span>Room</span>
-                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Semestral</span>
-                    </div>
-                    <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-slate-400">
-                        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-                </div>
-                    <div id="maintenanceCalendarDays" class="mt-1 grid grid-cols-7 gap-1"></div>
-            </div>
-                <div class="min-w-0 border-t border-slate-100 pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-                    <p id="maintenanceCalendarDate" class="text-sm font-semibold text-slate-900"></p>
-                    <div id="maintenanceCalendarList" class="mt-2 max-h-[13.5rem] divide-y divide-slate-100 overflow-y-auto"></div>
-            </div>
-            </div>
-            <script type="application/json" id="maintenanceCalendarData">@json($maintenanceCalendar)</script>
-        </section>
-        <div id="maintenanceCalendarPreview" class="fixed inset-0 z-[12000] hidden items-start justify-center bg-black/50 px-4 pt-16">
-            <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80">
-                <button type="button" data-calendar-preview-close class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-                <div class="px-6 pb-2 pr-12 pt-6">
-                    <p id="calendarPreviewDate" class="text-sm font-medium text-slate-400"></p>
-                    <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Schedule name</p>
-                    <h3 id="calendarPreviewTitle" class="mt-0.5 text-lg font-semibold tracking-tight text-slate-900"></h3>
-                    <p id="calendarPreviewMeta" class="mt-1 text-base text-slate-500"></p>
-                    <p id="calendarPreviewIdentity" class="mt-1 hidden text-base font-medium text-slate-700"></p>
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <span id="calendarPreviewBadge" class="rounded-full px-2.5 py-0.5 text-sm font-semibold ring-1"></span>
-                        <span id="calendarPreviewStatus" class="rounded-full px-2.5 py-0.5 text-sm font-semibold"></span>
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {{-- Borrowed / Disposed beside procurement --}}
+        <section class="ad-panel flex min-h-0 flex-col p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="admin-list-switch inline-flex rounded-full bg-slate-100 p-0.5" role="group" aria-label="Dashboard lists">
+                    @foreach ($switchCards as $index => $card)
+                        <button type="button" class="ad-switch {{ $index === 0 ? 'is-on' : '' }}" data-admin-list="{{ $card['key'] }}" aria-pressed="{{ $index === 0 ? 'true' : 'false' }}">{{ $card['switch'] }}</button>
+                    @endforeach
                 </div>
             </div>
-                <div class="mt-5 flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-5 py-3.5">
-                    <button type="button" data-calendar-preview-close class="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900">Close</button>
-                    <a id="calendarPreviewGo" href="#" class="rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#001fad]">Go to page</a>
-            </div>
-                </div>
-            </div>
-            </div>
-
-        {{-- Campus + budget --}}
-        <div class="space-y-5">
-        <section class="ad-panel p-5">
-                <h2 class="text-sm font-semibold text-slate-950">Equipment</h2>
+            @foreach ($switchCards as $index => $card)
                 @php
-                    $computerSetPreview = \App\Support\ComputerSets::dashboardPreview();
-                    $propertyPreview = \App\Support\PropertyAssignments::dashboardPreview();
+                    $block = $lists[$card['key']] ?? ['total' => 0, 'rows' => []];
+                    $rows = collect($block['rows'] ?? []);
+                    $total = (int) ($block['total'] ?? 0);
                 @endphp
-                <div class="mt-4 grid grid-cols-1 gap-3">
-                    <button type="button" class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition hover:bg-slate-50" data-computer-sets-open>
-                        <span>
-                            <span class="block text-sm font-semibold text-slate-900">Computer sets</span>
-                            <span class="mt-0.5 block text-xs text-slate-500">Active COMPSET groupings in labs</span>
-                        </span>
-                        <span class="text-sm font-semibold tabular-nums text-slate-900">{{ number_format($computerSets) }}</span>
-                    </button>
-                    <button type="button" class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition hover:bg-slate-50" data-property-assignments-open>
-                        <span>
-                            <span class="block text-sm font-semibold text-slate-900">Property assignment</span>
-                            <span class="mt-0.5 block text-xs text-slate-500">People holding assigned equipment</span>
-                        </span>
-                        <span class="text-sm font-semibold tabular-nums text-slate-900">{{ number_format($propertyPreview['total'] ?? 0) }}</span>
-                    </button>
-                    <button type="button" class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition hover:bg-slate-50" data-replacement-log-open>
-                        <span>
-                            <span class="block text-sm font-semibold text-slate-900">Replacement log</span>
-                            <span class="mt-0.5 block text-xs text-slate-500">{{ number_format($stockSwaps) }} stock · {{ number_format($procurementReplacements) }} procurement</span>
-                            </span>
-                        <i data-lucide="arrow-right" class="h-4 w-4 text-slate-400"></i>
-                        </button>
-                </div>
-                <script type="application/json" id="computerSetsPreviewData">@json($computerSetPreview)</script>
-                <script type="application/json" id="propertyAssignmentsPreviewData">@json($propertyPreview)</script>
-                <script type="application/json" id="replacementLogPreviewData">@json(\App\Support\ReplacementStock::dashboardPreview())</script>
-            </section>
-
-        <section class="ad-panel p-5">
-                <div class="admin-list-switch inline-flex rounded-full bg-slate-100 p-0.5" role="group" aria-label="Budget and procurement">
-                    <button type="button" class="ad-switch is-on" data-admin-list="prs" aria-pressed="true">Procurement</button>
-                    <button type="button" class="ad-switch" data-admin-list="budget" aria-pressed="false">Budget</button>
-                </div>
-                <div data-admin-panel="budget" class="hidden">
-                    <div class="mt-4 flex items-center justify-between gap-3">
-                        <div>
-                            <h2 class="text-sm font-semibold text-slate-950">Budget</h2>
-                            <p class="mt-0.5 text-xs text-slate-500">RIS totals for the selected year.</p>
-                        </div>
-                <form method="GET" action="{{ route('admin.dashboard') }}">
-                    <label for="budget_year" class="sr-only">Budget year</label>
-                    <select id="budget_year" name="budget_year" onchange="this.form.submit()"
-                            class="rounded-md border border-slate-200 bg-white py-1 pl-2.5 pr-7 text-xs font-medium text-slate-700 focus:border-slate-300 focus:outline-none focus:ring-0">
-                        @foreach(($budgetProposalYears ?? collect([(int) now()->year])) as $yearOption)
-                            <option value="{{ $yearOption }}" @selected($selectedYear === (int) $yearOption)>{{ $yearOption }}</option>
-                        @endforeach
-                    </select>
-                </form>
-            </div>
-            <dl class="mt-4 divide-y divide-slate-100">
-                <div class="flex items-center justify-between gap-3 py-3">
-                    <dt class="text-xs text-slate-500">Proposed</dt>
-                    <dd class="text-sm font-semibold tabular-nums text-slate-900">{{ $peso($budgetProposalTotal ?? 0) }}</dd>
-                </div>
-                <div class="flex items-center justify-between gap-3 py-3">
-                    <dt class="text-xs text-slate-500">Approved</dt>
-                    <dd class="text-sm font-semibold tabular-nums text-slate-900">{{ $peso($usage['approved'] ?? 0) }}</dd>
-                </div>
-                <div class="flex items-center justify-between gap-3 py-3">
-                    <dt class="text-xs text-slate-500">Paid</dt>
-                    <dd class="text-sm font-semibold tabular-nums text-slate-900">{{ $peso($usage['released'] ?? 0) }}</dd>
-                </div>
-            </dl>
-                </div>
-                @php
-                    $procurement = $lists['prs'] ?? ['total' => 0, 'rows' => []];
-                    $procurementRows = collect($procurement['rows'] ?? []);
-                    $procurementTotal = (int) ($procurement['total'] ?? 0);
-                @endphp
-                <div data-admin-panel="prs">
+                <div data-admin-panel="{{ $card['key'] }}" class="{{ $index === 0 ? '' : 'hidden' }} flex min-h-0 flex-1 flex-col">
                     <div class="mt-4 flex items-center justify-between gap-3">
                         <div class="flex min-w-0 items-center gap-2">
-                            <h2 class="truncate text-sm font-semibold text-slate-950">3 latest procurement</h2>
-                            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($procurementTotal) }}</span>
+                            <h2 class="text-sm font-semibold text-slate-950">{{ $card['title'] }}</h2>
+                            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($total) }}</span>
                         </div>
-                        <a href="{{ route('admin.procurement-review') }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
+                        <a href="{{ $card['href'] }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
                     </div>
-                    <div class="mt-3 divide-y divide-slate-100">
-                        @forelse ($procurementRows as $row)
-                            @if (!empty($row['preview_url']))
-                                <button type="button" class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-slate-50" data-dashboard-preview data-preview-kind="pipeline" data-preview-url="{{ $row['preview_url'] }}" data-continue-url="{{ $row['href'] }}" data-continue-label="Open" data-preview-title="{{ $row['title'] }}">
+                    <div class="mt-3 min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
+                        @forelse ($rows as $row)
+                            @if ($card['key'] === 'borrows' && !empty($row['preview']))
+                                <button
+                                    type="button"
+                                    class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-slate-50"
+                                    data-borrow-preview="{{ json_encode($row['preview'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) }}"
+                                >
                                     <span class="min-w-0">
-                                        <span class="block truncate text-sm font-semibold text-[#0025cc]">{{ $row['title'] }}</span>
+                                        <span class="block truncate text-sm font-normal text-[#0025cc]">{{ $row['title'] }}</span>
                                         @if (!empty($row['meta']))
                                             <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
                                         @endif
                                     </span>
-                                    @if (array_key_exists('amount', $row))
-                                        <span class="shrink-0 text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount']) }}</span>
-                                    @endif
+                                    <span class="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">{{ $row['badge'] ?? 'Overdue' }}</span>
                                 </button>
                             @else
                                 <a href="{{ $row['href'] }}" class="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50">
@@ -205,98 +84,128 @@
                                             <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
                                         @endif
                                     </span>
-                                    @if (array_key_exists('amount', $row))
-                                        <span class="shrink-0 text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount']) }}</span>
-                                    @endif
                                 </a>
                             @endif
                         @empty
-                            <p class="py-8 text-center text-xs font-medium text-slate-400">No procurement requests</p>
+                            <p class="py-8 text-center text-xs font-medium text-slate-400">{{ $card['empty'] }}</p>
                         @endforelse
                     </div>
-                    @if ($procurementTotal > $procurementRows->count())
-                        <p class="mt-2 text-xs text-slate-500">{{ $procurementRows->count() }} latest of {{ number_format($procurementTotal) }}</p>
+                    @if ($total > $rows->count())
+                        <p class="mt-2 text-xs text-slate-500">{{ $rows->count() }} latest of {{ number_format($total) }}</p>
                     @endif
                 </div>
+            @endforeach
         </section>
+
+        <section class="ad-panel p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-2">
+                    <h2 class="truncate text-sm font-semibold text-slate-950">Latest procurement process</h2>
+                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($procurementTotal) }}</span>
+                </div>
+                <a href="{{ route('admin.procurement-review') }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
+            </div>
+            <div class="mt-3 divide-y divide-slate-100">
+                @forelse ($procurementRows as $row)
+                    @if (!empty($row['preview_url']))
+                        <button type="button" class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-slate-50" data-dashboard-preview data-preview-kind="pipeline" data-preview-url="{{ $row['preview_url'] }}" data-continue-url="{{ $row['href'] }}" data-continue-label="Open" data-preview-title="{{ $row['title'] }}">
+                            <span class="min-w-0">
+                                <span class="block truncate text-sm font-semibold text-[#0025cc]">{{ $row['title'] }}</span>
+                                @if (!empty($row['meta']))
+                                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
+                                @endif
+                            </span>
+                        </button>
+                    @else
+                        <a href="{{ $row['href'] }}" class="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50">
+                            <span class="min-w-0">
+                                <span class="block truncate text-sm font-semibold text-slate-900">{{ $row['title'] }}</span>
+                                @if (!empty($row['meta']))
+                                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
+                                @endif
+                            </span>
+                        </a>
+                    @endif
+                @empty
+                    <p class="py-8 text-center text-xs font-medium text-slate-400">No procurement requests</p>
+                @endforelse
+            </div>
+            @if ($procurementTotal > $procurementRows->count())
+                <p class="mt-2 text-xs text-slate-500">{{ $procurementRows->count() }} latest of {{ number_format($procurementTotal) }}</p>
+            @endif
+        </section>
+    </div>
+
+
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {{-- Maintenance calendar --}}
+        <section class="ad-panel p-5 lg:col-span-2">
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-sm font-semibold text-slate-950">Maintenance calendar</h2>
+                <a href="{{ $maintenanceCalendar['href'] }}" class="text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
+            </div>
+            <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <label class="sr-only" for="maintenanceCalendarMonth">Month</label>
+                        <select id="maintenanceCalendarMonth" class="rounded-md border border-slate-200 bg-white py-1 pl-2 pr-7 text-xs font-semibold text-slate-800 focus:border-slate-300 focus:outline-none focus:ring-0"></select>
+                        <label class="sr-only" for="maintenanceCalendarYear">Year</label>
+                        <select id="maintenanceCalendarYear" class="rounded-md border border-slate-200 bg-white py-1 pl-2 pr-7 text-xs font-semibold text-slate-800 focus:border-slate-300 focus:outline-none focus:ring-0"></select>
+                        <button type="button" id="maintenanceCalendarToday" class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-[#0025cc]" title="Back to today" aria-label="Back to today">
+                            <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-500">
+                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>Equipment</span>
+                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-violet-500"></span>Room</span>
+                        <span class="inline-flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Semestral</span>
+                    </div>
+                    <div class="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-slate-400">
+                        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                    </div>
+                    <div id="maintenanceCalendarDays" class="mt-1 grid grid-cols-7 gap-1"></div>
+                </div>
+                <div class="min-w-0 border-t border-slate-100 pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+                    <p id="maintenanceCalendarDate" class="text-sm font-semibold text-slate-900"></p>
+                    <div id="maintenanceCalendarList" class="mt-2 max-h-[13.5rem] divide-y divide-slate-100 overflow-y-auto"></div>
+                </div>
+            </div>
+            <script type="application/json" id="maintenanceCalendarData">@json($maintenanceCalendar)</script>
+        </section>
+
+        {{-- Lifespan overdue beside calendar --}}
+        <div class="min-w-0">
+            @include('partials.nearest-lifespan-broadcasts', [
+                'lifespan' => $lists['lifespan'] ?? ['total' => 0, 'rows' => [], 'due' => []],
+                'lifespanIndexUrl' => route('admin.lifespan-broadcasts.index'),
+                'includeLifespanConfirm' => true,
+            ])
         </div>
     </div>
 
-    @php
-        $switchCards = [
-            ['key' => 'borrows', 'switch' => 'Borrowed', 'title' => '3 latest overdue borrowed', 'href' => route('admin.borrowing.index', ['status' => 'Overdue']), 'empty' => 'No overdue borrowed'],
-            ['key' => 'schedules', 'switch' => 'Schedules', 'title' => 'Overdue schedules', 'href' => route('admin.operations.schedules', ['filter' => 'overdue']), 'empty' => 'No overdue schedules'],
-            ['key' => 'disposed', 'switch' => 'Disposed', 'title' => '3 latest disposed equipment', 'href' => route('admin.disposal.index'), 'empty' => 'No disposed equipment'],
-        ];
-        $requestCards = [
-            ['key' => 'rooms', 'switch' => 'Rooms', 'title' => 'Rooms reported today', 'href' => route('admin.operations.reports'), 'empty' => 'No reports today'],
-            ['key' => 'transfers', 'switch' => 'Transfers', 'title' => 'Transfer requests for approval', 'href' => route('admin.inventory.transfer-requests'), 'empty' => 'No transfer requests for approval'],
-            ['key' => 'disposals', 'switch' => 'Disposals', 'title' => 'Disposal requests for approval', 'href' => route('admin.disposal.requests'), 'empty' => 'No disposal requests for approval'],
-        ];
-        $switchGroups = [$switchCards, $requestCards];
-    @endphp
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        @foreach ($switchGroups as $group)
-            <section class="ad-panel p-5">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div class="admin-list-switch inline-flex rounded-full bg-slate-100 p-0.5" role="group" aria-label="Dashboard lists">
-                        @foreach ($group as $index => $card)
-                            <button type="button" class="ad-switch {{ $index === 0 ? 'is-on' : '' }}" data-admin-list="{{ $card['key'] }}" aria-pressed="{{ $index === 0 ? 'true' : 'false' }}">{{ $card['switch'] }}</button>
-                        @endforeach
-                    </div>
+    <div id="maintenanceCalendarPreview" class="fixed inset-0 z-[12000] hidden items-start justify-center bg-black/50 px-4 pt-16">
+        <div class="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80">
+            <button type="button" data-calendar-preview-close class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="px-6 pb-2 pr-12 pt-6">
+                <p id="calendarPreviewDate" class="text-sm font-medium text-slate-400"></p>
+                <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Schedule name</p>
+                <h3 id="calendarPreviewTitle" class="mt-0.5 text-lg font-semibold tracking-tight text-slate-900"></h3>
+                <p id="calendarPreviewMeta" class="mt-1 text-base text-slate-500"></p>
+                <p id="calendarPreviewIdentity" class="mt-1 hidden text-base font-medium text-slate-700"></p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <span id="calendarPreviewBadge" class="rounded-full px-2.5 py-0.5 text-sm font-semibold ring-1"></span>
+                    <span id="calendarPreviewStatus" class="rounded-full px-2.5 py-0.5 text-sm font-semibold"></span>
                 </div>
-                @foreach ($group as $index => $card)
-                    @php
-                        $block = $lists[$card['key']] ?? ['total' => 0, 'rows' => []];
-                        $rows = collect($block['rows'] ?? []);
-                        $total = (int) ($block['total'] ?? 0);
-                    @endphp
-                    <div data-admin-panel="{{ $card['key'] }}" class="{{ $index === 0 ? '' : 'hidden' }}">
-                        <div class="mt-4 flex items-center justify-between gap-3">
-                            <div class="flex min-w-0 items-center gap-2">
-                                <h2 class="text-sm font-semibold text-slate-950">{{ $card['title'] }}</h2>
-                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($total) }}</span>
-                            </div>
-                            <a href="{{ $card['href'] }}" class="shrink-0 text-xs font-semibold text-[#0025cc] hover:underline">View all</a>
-                        </div>
-                        <div class="mt-3 divide-y divide-slate-100">
-                            @forelse ($rows as $row)
-                                @if ($card['key'] === 'borrows' && !empty($row['preview']))
-                                    <button
-                                        type="button"
-                                        class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-slate-50"
-                                        data-borrow-preview="{{ json_encode($row['preview'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) }}"
-                                    >
-                                        <span class="min-w-0">
-                                            <span class="block truncate text-sm font-normal text-[#0025cc]">{{ $row['title'] }}</span>
-                                            @if (!empty($row['meta']))
-                                                <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
-                                            @endif
-                                        </span>
-                                        <span class="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">{{ $row['badge'] ?? 'Overdue' }}</span>
-                                    </button>
-                                @else
-                                    <a href="{{ $row['href'] }}" class="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50">
-                                        <span class="min-w-0">
-                                            <span class="block truncate text-sm font-semibold text-slate-900">{{ $row['title'] }}</span>
-                                            @if (!empty($row['meta']))
-                                                <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
-                                            @endif
-                                        </span>
-                                    </a>
-                                @endif
-                            @empty
-                                <p class="py-8 text-center text-xs font-medium text-slate-400">{{ $card['empty'] }}</p>
-                            @endforelse
-                        </div>
-                        @if ($total > $rows->count())
-                            <p class="mt-2 text-xs text-slate-500">{{ $rows->count() }} latest of {{ number_format($total) }}</p>
-                        @endif
-                    </div>
-                @endforeach
-            </section>
-        @endforeach
+            </div>
+            <div class="mt-5 flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-5 py-3.5">
+                <button type="button" data-calendar-preview-close class="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900">Close</button>
+                <a id="calendarPreviewGo" href="#" class="rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#001fad]">Go to page</a>
+            </div>
+        </div>
     </div>
+
 </div>
 
 <style>

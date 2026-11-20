@@ -1,4 +1,4 @@
-@extends($procurementLayout ?? 'layouts.purchaser-layout')
+﻿@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @php
     $atpIsSupplyPortal = \App\Support\ProcurementPortal::isSupplyOfficerContext();
@@ -9,7 +9,7 @@
 @section('page-subtitle', $atpIsSupplyPortal
     ? 'Create from Incoming RIS, submit, then release to Purchaser.'
     : ($atpPurchaserOwns
-        ? 'Create ATP, prepare RFC, then submit both once for School Admin approval.'
+        ? 'Create ATP, choose a payment path, prepare the RFC, then submit ATP + RFC from the funding request.'
         : 'Choose Direct Payment, Cash Installment, or Cash Advance.'))
 
 @section('content')
@@ -27,6 +27,8 @@
             'id' => (int) $i->interval_id,
             'name' => (string) $i->interval_name,
             'days' => (int) $i->interval_days,
+            'unit' => (string) ($i->interval_unit ?? 'days'),
+            'preset' => (int) ($i->interval_is_preset ?? 0) === 1,
         ])->values()->all(),
         'atps' => collect(
             ($atps ?? null) instanceof \Illuminate\Contracts\Pagination\Paginator
@@ -73,6 +75,7 @@
         installmentOpen: false,
         installmentAtpId: null,
         installmentTermId: '',
+        installmentCountInput: '',
         installmentDayIntervalId: '',
         installmentDownpayment: '',
         installmentDates: [],
@@ -94,7 +97,10 @@
         atpSelectedKeys: [],
         atpCarouselIndex: 0,
         atpDrafts: {},
+        atpSharedSignature: '',
+        atpSharedReceivedBy: '',
         atpBatchSaving: false,
+        expandedAtpGroups: {},
         atpPurchaserOwns: {{ $atpPurchaserOwns ? 'true' : 'false' }},
         risPickerOpen: false,
         risPickerQuery: '',
@@ -127,19 +133,11 @@
             } catch (e) {}
             // One-shot deep links (?create=1, ?selected_ris=): open Create once, then strip so refresh stays on the list.
             this.clearOneShotAtpCreateQuery();
-            const bootOpen = Number(this.installmentBoot?.openId || 0);
-            if (bootOpen > 0) {
-                this.openCashInstallment(bootOpen);
-            }
-            const terms = this.installmentBoot?.terms || [];
-            if (terms.length && !this.installmentTermId) {
-                this.installmentTermId = String(terms[0].id);
-            }
             const intervals = this.installmentBoot?.dayIntervals || [];
             if (intervals.length && !this.installmentDayIntervalId) {
                 this.installmentDayIntervalId = String(intervals[0].id);
             }
-            this.$watch('installmentTermId', () => this.$nextTick(() => this.syncInstallmentDates(true)));
+            this.$watch('installmentCountInput', () => this.$nextTick(() => this.syncInstallmentDates(true)));
             this.$watch('installmentDownpayment', () => this.$nextTick(() => this.syncInstallmentDates(true)));
             this.$watch('installmentDayIntervalId', () => this.$nextTick(() => this.syncInstallmentDates(true)));
             this.$watch('installmentDates', () => {
@@ -165,23 +163,27 @@
         installmentAtp() {
             return (this.installmentBoot?.atps || {})[String(this.installmentAtpId || '')] || null;
         },
-        installmentMonths() {
-            const term = (this.installmentBoot?.terms || []).find((t) => String(t.id) === String(this.installmentTermId));
-            return term ? Number(term.months || 0) : 0;
+        selectedInterval() {
+            return (this.installmentBoot?.dayIntervals || []).find((i) => String(i.id) === String(this.installmentDayIntervalId)) || null;
+        },
+        installmentIntervalUnit() {
+            const interval = this.selectedInterval();
+            return interval ? String(interval.unit || 'days') : '';
         },
         installmentIntervalDays() {
-            const interval = (this.installmentBoot?.dayIntervals || []).find((i) => String(i.id) === String(this.installmentDayIntervalId));
-            return interval ? Number(interval.days || 0) : 0;
-        },
-        installmentCountFor(months, intervalDays) {
-            const m = Math.max(0, Number(months || 0));
-            const d = Math.max(0, Number(intervalDays || 0));
-            if (m < 1) return 0;
-            if (d > 0) return Math.max(1, Math.floor((m * 30) / d));
-            return m;
+            const interval = this.selectedInterval();
+            if (!interval || this.installmentIntervalUnit() !== 'days') return 0;
+            return Number(interval.days || 0);
         },
         installmentCount() {
-            return this.installmentCountFor(this.installmentMonths(), this.installmentIntervalDays());
+            const count = Math.floor(Number(this.installmentCountInput || 0));
+            if (!Number.isFinite(count) || count < 1) return 0;
+            return Math.min(36, count);
+        },
+        installmentCountLabel() {
+            const count = this.installmentCount();
+            if (count < 1) return '';
+            return count + ' Installment';
         },
         installmentTotal() {
             return Number(this.installmentAtp()?.total || 0);
@@ -265,15 +267,35 @@
             return value !== '' && value < this.installmentTodayIso();
         },
         addDaysIso(isoDate, days) {
+            return this.shiftIso(isoDate, Number(days || 0), 0);
+        },
+        shiftIso(isoDate, days, months) {
             const parts = String(isoDate || '').split('-').map(Number);
             if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return '';
             const date = new Date(parts[0], parts[1] - 1, parts[2]);
             if (Number.isNaN(date.getTime())) return '';
-            date.setDate(date.getDate() + Number(days || 0));
+            if (months) {
+                const day = date.getDate();
+                date.setDate(1);
+                date.setMonth(date.getMonth() + Number(months));
+                const last = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+                date.setDate(Math.min(day, last));
+            }
+            if (days) date.setDate(date.getDate() + Number(days));
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
             return y + '-' + m + '-' + d;
+        },
+        installmentStepDate(anchor, steps) {
+            const unit = this.installmentIntervalUnit();
+            const n = Number(steps || 0);
+            if (n < 1) return anchor;
+            if (unit === 'monthly') return this.shiftIso(anchor, 0, n);
+            if (unit === 'quarterly') return this.shiftIso(anchor, 0, n * 3);
+            if (unit === 'semiannual') return this.shiftIso(anchor, 0, n * 6);
+            if (unit === 'annual') return this.shiftIso(anchor, 0, n * 12);
+            return this.shiftIso(anchor, this.installmentIntervalDays() * n, 0);
         },
         syncInstallmentDates(forceFill = false) {
             const rows = this.installmentSchedule();
@@ -285,22 +307,22 @@
                 dates = dates.slice(0, need);
             }
 
-            const days = this.installmentIntervalDays();
+            const unit = this.installmentIntervalUnit();
+            const hasInterval = unit === 'days' ? this.installmentIntervalDays() > 0 : unit !== '';
             const hasDown = rows[0]?.kind === 'downpayment';
             const anchor = String(dates[0] || '').trim();
 
-            if (days > 0 && anchor) {
+            if (hasInterval && anchor) {
                 this.installmentAutoDating = true;
                 rows.forEach((row, idx) => {
                     if (idx === 0) {
                         dates[row.dateIndex] = anchor;
                         return;
                     }
-                    if (hasDown) {
-                        dates[row.dateIndex] = this.addDaysIso(anchor, days * Number(row.sequence || idx));
-                    } else {
-                        dates[row.dateIndex] = this.addDaysIso(anchor, days * Math.max(0, Number(row.sequence || (idx + 1)) - 1));
-                    }
+                    const steps = hasDown
+                        ? Number(row.sequence || idx)
+                        : Math.max(0, Number(row.sequence || (idx + 1)) - 1);
+                    dates[row.dateIndex] = this.installmentStepDate(anchor, steps);
                 });
                 this.installmentDates = dates;
                 this.$nextTick(() => { this.installmentAutoDating = false; });
@@ -317,8 +339,8 @@
             this.installmentAtpId = Number(atpId);
             this.installmentDownpayment = '';
             this.installmentDates = [];
-            const terms = this.installmentBoot?.terms || [];
-            this.installmentTermId = terms.length ? String(terms[0].id) : '';
+            this.installmentCountInput = '';
+            this.installmentTermId = '';
             const intervals = this.installmentBoot?.dayIntervals || [];
             this.installmentDayIntervalId = intervals.length ? String(intervals[0].id) : '';
             this.installmentOpen = true;
@@ -341,19 +363,14 @@
         },
         termLabel(term) {
             if (!term) return 'Select term';
-            const months = Number(term.months || 0);
-            const count = this.installmentCountFor(months, this.installmentIntervalDays());
-            return String(term.name || '') + ' · ' + count + ' installment' + (count === 1 ? '' : 's');
+            return String(term.name || '');
         },
         intervalLabel(interval) {
             if (!interval) return 'Manual dates';
-            return String(interval.name || '') + ' · +' + Number(interval.days || 0) + ' days';
+            return String(interval.name || '');
         },
         selectedTerm() {
             return (this.installmentBoot?.terms || []).find((t) => String(t.id) === String(this.installmentTermId)) || null;
-        },
-        selectedInterval() {
-            return (this.installmentBoot?.dayIntervals || []).find((i) => String(i.id) === String(this.installmentDayIntervalId)) || null;
         },
         filteredInstallmentTerms() {
             const q = String(this.installmentTermQuery || '').trim().toLowerCase();
@@ -505,7 +522,9 @@
             return { y: parts[0], m: parts[1], d: parts[2] };
         },
         installmentDateLocked(dateIndex) {
-            return Number(dateIndex) > 0 && this.installmentIntervalDays() > 0;
+            const unit = this.installmentIntervalUnit();
+            const active = unit === 'days' ? this.installmentIntervalDays() > 0 : unit !== '';
+            return Number(dateIndex) > 0 && active;
         },
         openInstallmentPicker(dateIndex) {
             if (this.installmentDateLocked(dateIndex)) return;
@@ -592,6 +611,28 @@
         },
 
 
+        expandAtpGroup(key) {
+            if (!key || this.expandedAtpGroups[key]) return;
+            this.expandedAtpGroups = {
+                ...this.expandedAtpGroups,
+                [key]: true,
+            };
+            this.$nextTick(() => {
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
+
+        toggleAtpGroup(key) {
+            if (!key) return;
+            this.expandedAtpGroups = {
+                ...this.expandedAtpGroups,
+                [key]: !this.expandedAtpGroups[key],
+            };
+            this.$nextTick(() => {
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
+
         openView(id) {
             this.selectedAtp = id;
             this.viewOpen = true;
@@ -616,18 +657,57 @@
         bindDocSig(key, title) {
             this.$nextTick(() => {
                 if (window.purchaserDocumentSignature) {
-                    window.purchaserDocumentSignature.bind({
+                    const multiAtp = key === 'atp-create' && (this.atpSelectedKeys || []).length > 1;
+                    const opts = {
                         key: key,
                         hiddenId: 'purSigImage-' + key,
                         nameId: 'purSigName-' + key,
                         previewId: 'purSigOverlay-' + key,
                         slotId: 'purSigSlot-' + key,
                         title: title || 'Purchaser signature',
-                        hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.'
-                    });
+                        hint: multiAtp
+                            ? 'Sign once — this signature is applied to every ATP in this batch.'
+                            : 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.'
+                    };
+                    if (key === 'atp-create') {
+                        opts.onChange = (dataUrl) => this.onCreateSignatureChange(dataUrl);
+                    }
+                    window.purchaserDocumentSignature.bind(opts);
                 }
                 if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
             });
+        },
+
+        onCreateSignatureChange(dataUrl) {
+            const form = this.$refs.createForm;
+            this.atpSharedSignature = dataUrl || '';
+            this.atpSharedReceivedBy = form
+                ? ((form.querySelector('[name=\'authority_purchase_received_by_name\']') || {}).value || '')
+                : (this.atpSharedReceivedBy || '');
+            this.propagateSignatureToAllAtps();
+        },
+
+        propagateSignatureToAllAtps() {
+            const sig = this.atpSharedSignature || '';
+            const name = this.atpSharedReceivedBy || '';
+            const drafts = this.atpDrafts || {};
+            Object.keys(drafts).forEach((k) => {
+                if (!drafts[k]) return;
+                drafts[k].signature = sig;
+                if (name) drafts[k].received_by = name;
+            });
+        },
+
+        applySharedSignatureToForm() {
+            const form = this.$refs.createForm;
+            if (!form) return;
+            const sig = this.atpSharedSignature || '';
+            const name = this.atpSharedReceivedBy || '';
+            const sigEl = form.querySelector('[name=\'authority_purchase_received_by_signature\']');
+            const nameEl = form.querySelector('[name=\'authority_purchase_received_by_name\']');
+            if (sigEl) sigEl.value = sig;
+            if (nameEl && name) nameEl.value = name;
+            this.bindDocSig('atp-create', 'Received by signature');
         },
 
         closeAll() {
@@ -637,6 +717,22 @@
             this.emptyOpen = false;
             this.modalFullscreen = false;
             this.selectedAtp = null;
+        },
+
+        guardClose(kind) {
+            const form = kind === 'create'
+                ? this.$refs.createForm
+                : document.querySelector('[data-pur-edit-form=atp][data-open=1]');
+            const finish = () => {
+                if (kind === 'create') this.createOpen = false;
+                else this.editOpen = false;
+                this.modalFullscreen = false;
+            };
+            if (window.purGuardFormClose) {
+                window.purGuardFormClose(form, finish);
+                return;
+            }
+            finish();
         },
 
         syncRisSplit() {
@@ -843,15 +939,21 @@
             }
             const supplierSelect = form.querySelector('[data-atp-supplier]');
             const locked = form.querySelector('input[data-locked-supplier]');
+            const receivedBy = (form.querySelector('[name=\'authority_purchase_received_by_name\']') || {}).value || '';
+            const signature = (form.querySelector('[name=\'authority_purchase_received_by_signature\']') || {}).value || '';
             this.atpDrafts[key] = {
                 supplier_id: (locked && locked.value) || (supplierSelect && supplierSelect.value) || '',
                 date: (form.querySelector('[name=\'authority_purchase_date\']') || {}).value || '',
-                received_by: (form.querySelector('[name=\'authority_purchase_received_by_name\']') || {}).value || '',
-                signature: (form.querySelector('[name=\'authority_purchase_received_by_signature\']') || {}).value || '',
+                received_by: receivedBy,
+                signature: signature,
                 form_number: (form.querySelector('[name=\'authority_purchase_form_number\']') || {}).value || '',
                 po_no: (form.querySelector('[name=\'authority_purchase_reference_po_no\']') || {}).value || '',
                 items,
             };
+            // One signature covers every ATP in the multi-supplier batch.
+            this.atpSharedSignature = signature;
+            this.atpSharedReceivedBy = receivedBy || this.atpSharedReceivedBy || '';
+            this.propagateSignatureToAllAtps();
         },
 
         restoreAtpDraft(key) {
@@ -881,8 +983,8 @@
                 }
             };
             setVal('authority_purchase_date', draft.date);
-            setVal('authority_purchase_received_by_name', draft.received_by);
-            setVal('authority_purchase_received_by_signature', draft.signature);
+            setVal('authority_purchase_received_by_name', this.atpSharedReceivedBy || draft.received_by);
+            setVal('authority_purchase_received_by_signature', this.atpSharedSignature || draft.signature);
             setVal('authority_purchase_form_number', draft.form_number);
             setVal('authority_purchase_reference_po_no', draft.po_no);
 
@@ -919,6 +1021,7 @@
             const data = this.risPrefill[String(key)] || { supplier_id: draft.supplier_id, items: draft.items };
             this.lockFetchedRis(data);
             this.risChoiceTick = (this.risChoiceTick || 0) + 1;
+            this.bindDocSig('atp-create', 'Received by signature');
         },
 
         goAtpSlide(index, skipSnapshot) {
@@ -1103,6 +1206,7 @@
             const form = this.$refs.createForm;
             if (!form || !data) {
                 if (form) this.lockFetchedRis(null);
+                this.applySharedSignatureToForm();
                 return;
             }
 
@@ -1142,6 +1246,7 @@
                 }
             }
             this.lockFetchedRis(data);
+            this.applySharedSignatureToForm();
         },
 
         printAtp(id) {
@@ -1184,7 +1289,7 @@
             $nextTick(() => bindDocSig('atp-' + selectedAtp, 'Received by signature'));
         }
     "
-    @keydown.escape.window="if (window.atpSubmitOpen) return; closeAll()"
+    @keydown.escape.window="if (window.atpSubmitOpen || document.getElementById('purConfirmOverlay')) return; if (createOpen) { guardClose('create'); } else if (editOpen) { guardClose('edit'); } else { closeAll(); }"
     class="space-y-6"
 >
 
@@ -1251,7 +1356,7 @@
         $handoverDeclined = \App\Support\DraftHandover::declinedForSender('atp');
         $atpFormLabel = fn ($atp) => $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id);
         $directPaymentConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through Direct Payment? Accounting will process payment to the supplier. Pipeline ends at Receiving Report — no liquidation. This can\'t be changed once the funding request is created.';
-        $cashInstallmentConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through Cash Installment? Accounting will process installment payments to the supplier. Pipeline ends at Receiving Report — no liquidation. This can\'t be changed once the funding request is created.';
+        $cashInstallmentConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through Cash Installment? Accounting will process payment to the supplier. Pipeline ends at Receiving Report — no liquidation. This can\'t be changed once the funding request is created.';
         $cashAdvanceConfirm = fn ($atp) => 'Pay '.$atpFormLabel($atp).' through a Cash Advance? Accounting will release cash to you, and you must liquidate it with receipts after receiving. Pipeline ends at Liquidation Report. This can\'t be changed once the cash advance request is created.';
     @endphp
 
@@ -1303,9 +1408,9 @@
 
                     <select name="status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>{{ \App\Support\ProcurementDraftLabel::filterOption() }}</option>
-                        <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>Submitted</option>
-                        <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>Minor Revision</option>
+                        <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::IN_PREPARATION }}</option>
+                        <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::WITH_SCHOOL_ADMINISTRATOR }}</option>
+                        <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::FOR_REVISION }}</option>
                         <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
                         <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
                     </select>
@@ -1343,7 +1448,7 @@
             <table class="w-full min-w-[1000px] text-sm">
                 <thead class="bg-gray-50/70">
                     <tr class="border-b border-gray-100">
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP No.</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATP / Group</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Supplier</th>
@@ -1353,417 +1458,17 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
-                    @forelse($atps as $atp)
-                        <tr class="transition hover:bg-gray-50/70">
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
-                                        <i data-lucide="file-check-2" class="h-4 w-4"></i>
-                                    </div>
-                                    <div>
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <p class="font-semibold text-gray-900">
-                                                {{ $atp->authority_purchase_form_number ?: '—' }}
-                                            </p>
-                                            @include('partials.ris-urgency-badge', [
-                                                'urgent' => \App\Support\DocumentUrgency::isUrgent('ATP', $atp),
-                                                'size' => 'sm',
-                                                'title' => 'Inherited from linked RIS',
-                                            ])
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-5 py-4">
-                                @include('partials.procurement-request-no', ['requestNo' => $atp->authority_purchase_request_no ?? null, 'inline' => true, 'showLabel' => false])
-                                @if(blank($atp->authority_purchase_request_no ?? null))
-                                    <span class="text-xs text-gray-400">—</span>
-                                @endif
-                            </td>
-                            <td class="px-5 py-4">
-                                <p class="text-sm text-gray-700">{{ \App\Support\RisWorkflow::formNumber($atp, (int) ($atp->authority_purchase_ris_id ?? 0)) }}</p>
-                                <p class="mt-1 text-xs text-gray-400">
-                                    {{ $atp->equipment_name ?? $atp->report_unlisted_equipment_name ?? 'No equipment' }}
-                                </p>
-                            </td>
-                            <td class="px-5 py-4 text-gray-600">
-                                @if($atp->supplier_store_type === 'Physical Store')
-                                    {{ $atp->company_name ?? 'Physical supplier' }}
-                                @else
-                                    {{ $atp->shop_name ?? 'Online supplier' }}
-                                @endif
-                                @if(!empty($atp->ris_supplier_position))
-                                    <p class="mt-1">
-                                        <span
-                                            class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600"
-                                            title="This RIS buys from {{ $atp->ris_supplier_total }} suppliers; each supplier has its own ATP."
-                                        >
-                                            <i data-lucide="split" class="h-3 w-3"></i>
-                                            Supplier {{ $atp->ris_supplier_position }} of {{ $atp->ris_supplier_total }}
-                                        </span>
-                                    </p>
-                                @endif
-                            </td>
-                            <td class="whitespace-nowrap px-5 py-4 text-gray-600">
-                                @if($atp->authority_purchase_date)
-                                    {{ \Carbon\Carbon::parse($atp->authority_purchase_date)->format('M d, Y') }}
-                                @else
-                                    <span class="text-xs text-gray-400">—</span>
-                                @endif
-                            </td>
-                            <td class="px-5 py-4">
-                                @include('accounting.partials.status-badge', [
-                                    'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),
-                                    'submitted' => $atp->authority_purchase_submitted_at,
-                                    'revision' => $atp->authority_purchase_rejection_reason,
-                                ])
-                                @if(!empty($atp->linked_rfc_sent_to_accounting))
-                                    <span class="mt-1 inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
-                                        <i data-lucide="building-2" class="h-3 w-3"></i>
-                                        With Accounting
-                                    </span>
-                                @elseif($atp->authority_purchase_status === 'Approved' && !empty($atp->released_to_purchaser) && !empty($atp->has_rfc) && empty($atp->linked_rfc_sent_to_accounting) && $atpPurchaserOwns)
-                                    <span class="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                                        Approved record
-                                    </span>
-                                @endif
-                                @if(!empty($atp->purchase_order_id) && !empty($atp->purchase_order_label))
-                                    @php
-                                        $poIndexRoute = ($pp ?? 'purchaser').'.purchase-orders.index';
-                                    @endphp
-                                    @if(\Illuminate\Support\Facades\Route::has($poIndexRoute))
-                                        <a
-                                            href="{{ route($poIndexRoute, ['edit_po' => $atp->purchase_order_id]) }}"
-                                            class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100"
-                                        >In {{ $atp->purchase_order_label }}</a>
-                                    @else
-                                        <span class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">In {{ $atp->purchase_order_label }}</span>
-                                    @endif
-                                @endif
-                                @if($pendingHandover = $handoverOutgoing->get((int) $atp->authority_purchase_id))
-                                    <p class="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-700">
-                                        <i data-lucide="hourglass" class="h-3 w-3"></i>
-                                        Waiting for {{ $pendingHandover->to_name ?: 'co-worker' }} to accept
-                                    </p>
-                                @elseif($declinedHandover = $handoverDeclined->get((int) $atp->authority_purchase_id))
-                                    <p class="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-700" title="{{ $declinedHandover->handover_response_note ? 'Reason: '.$declinedHandover->handover_response_note : '' }}">
-                                        <i data-lucide="user-x" class="h-3 w-3"></i>
-                                        Declined by {{ $declinedHandover->to_name ?: 'co-worker' }}
-                                    </p>
-                                @endif
-                            </td>
-                            <td class="px-5 py-4">
-                                <div class="flex flex-wrap items-center justify-end gap-1.5">
-                                    <button
-                                        type="button"
-                                        @click="openView({{ $atp->authority_purchase_id }})"
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                        title="View"
-                                        aria-label="View"
-                                    >
-                                        <i data-lucide="eye" class="h-4 w-4"></i>
-                                    </button>
-
-                                    @php
-                                        $atpIsEditableDraft = ! $atp->authority_purchase_submitted_at
-                                            && $atp->authority_purchase_status === 'Pending'
-                                            && ! $archiveView;
-                                        $atpHandover = ($atpIsEditableDraft && empty($atp->purchase_order_id))
-                                            ? $handoverOutgoing->get((int) $atp->authority_purchase_id)
-                                            : null;
-                                        $atpHasHandoverAction = $atpIsEditableDraft && empty($atp->purchase_order_id);
-                                        $atpSubmitsViaPo = $atpIsEditableDraft
-                                            && ! empty($atp->submits_via_po)
-                                            && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index');
-                                        $atpCanSubmit = $atpIsEditableDraft
-                                            && ! $atpSubmitsViaPo
-                                            && (! $atpPurchaserOwns || ! empty($atp->can_joint_submit) || $atpIsSupplyPortal);
-                                    @endphp
-
-                                    @if($atpIsEditableDraft)
-                                        <button
-                                            type="button"
-                                            @click="openEdit({{ $atp->authority_purchase_id }})"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                            title="Edit"
-                                            aria-label="Edit"
-                                        >
-                                            <i data-lucide="pencil" class="h-4 w-4"></i>
-                                        </button>
-                                    @endif
-
-                                    <div
-                                        class="relative"
-                                        x-data="{ openActions: false, actionsTrigger: null }"
-                                        @keydown.escape.window="openActions = false"
-                                        x-on:scroll.window.capture="openActions = false"
-                                        x-on:resize.window="openActions = false"
-                                    >
-                                        <button
-                                            type="button"
-                                            x-on:click="actionsTrigger = $el; openActions = !openActions"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                            title="More actions"
-                                            aria-label="More actions"
-                                            :aria-expanded="openActions.toString()"
-                                        >
-                                            <i data-lucide="ellipsis" class="h-4 w-4"></i>
-                                        </button>
-                                        <template x-teleport="body">
-                                        <div
-                                            x-show="openActions"
-                                            x-cloak
-                                            x-transition.opacity
-                                            x-effect="openActions && $nextTick(() => { window.lucide && window.lucide.createIcons(); window.purPlaceMenu(actionsTrigger, $el); })"
-                                            @click.outside="if (!actionsTrigger || !actionsTrigger.contains($event.target)) openActions = false"
-                                            class="fixed z-[900] w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
-                                        >
-                                            <button
-                                                type="button"
-                                                data-share-doc-type="atp"
-                                                data-share-doc-id="{{ (int) $atp->authority_purchase_id }}"
-                                                data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('atp', $atp->authority_purchase_form_number ?? null) }}"
-                                                x-on:click="openActions = false"
-                                                class="js-share-document flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                            >
-                                                <i data-lucide="share-2" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                Share to Messages
-                                            </button>
-                                            <button
-                                                type="button"
-                                                x-on:click="openActions = false; window.purchaserPrintSheet ? window.purchaserPrintSheet('atp-print-{{ (int) $atp->authority_purchase_id }}', 'atp-print-active') : window.print()"
-                                                class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                            >
-                                                <i data-lucide="printer" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                Print
-                                            </button>
-
-                                            @if($atpSubmitsViaPo || $atpCanSubmit || $atpHandover || $atpHasHandoverAction)
-                                                <div class="my-1 border-t border-gray-100"></div>
-                                            @endif
-
-                                            @if($atpSubmitsViaPo)
-                                                <a
-                                                    href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['edit_po' => $atp->purchase_order_id]) }}"
-                                                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                >
-                                                    <i data-lucide="file-text" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                    Submit via Purchase Order
-                                                </a>
-                                            @elseif($atpCanSubmit)
-                                                <button
-                                                    type="button"
-                                                    data-atp-submit
-                                                    data-atp-action="{{ route(($pp ?? 'purchaser').'.atp.submit', $atp->authority_purchase_id) }}"
-                                                    data-atp-number="{{ $atp->authority_purchase_form_number ?: (\App\Support\ProcurementDraftLabel::untitledWithId('atp', $atp->authority_purchase_id)) }}"
-                                                    data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
-                                                    x-on:click="openActions = false"
-                                                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                >
-                                                    <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                    {{ $atpPurchaserOwns ? 'Submit ATP + RFC for Review' : 'Submit to School Administrator' }}
-                                                </button>
-                                            @endif
-                                            @if($atpHandover)
-                                                <form method="POST" action="{{ route('purchaser.handovers.cancel', $atpHandover->handover_id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50">
-                                                        <i data-lucide="undo-2" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        Take back from {{ \Illuminate\Support\Str::before($atpHandover->to_name ?: 'co-worker', ' ') }}
-                                                    </button>
-                                                </form>
-                                            @elseif($atpHasHandoverAction)
-                                                <button
-                                                    type="button"
-                                                    x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'atp', id: {{ (int) $atp->authority_purchase_id }}, label: @js(($atp->authority_purchase_form_number ?: \App\Support\ProcurementDraftLabel::untitled('atp')).' · Record #'.$atp->authority_purchase_id) } }))"
-                                                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                >
-                                                    <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                    Pass to
-                                                </button>
-                                            @endif
-                                        </div>
-                                        </template>
-                                    </div>
-
-                                    @if(
-                                        !$archiveView
-                                        && $atp->authority_purchase_status === 'Pending'
-                                        && $atp->authority_purchase_submitted_at
-                                        && empty($atp->purchase_order_id)
-                                    )
-                                        @include('partials.purchaser-reassign-reviewer', [
-                                            'type' => 'atp',
-                                            'id' => $atp->authority_purchase_id,
-                                            'currentReviewerId' => $atp->authority_purchase_assigned_reviewer_id ?? null,
-                                        ])
-                                    @endif
-
-                                    @if(!$archiveView && !empty($atp->can_release_to_purchaser))
-                                        <form method="POST" action="{{ route('supply-officer.atp.release-purchaser', $atp->authority_purchase_id) }}" class="inline">
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                data-pur-confirm="Release {{ $atp->authority_purchase_form_number ?: 'ATP #'.$atp->authority_purchase_id }} (with approved Canvass + RIS) back to the Purchaser for Request for Check?"
-                                                data-pur-confirm-title="Release to Purchaser"
-                                                data-pur-confirm-ok="Release"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700"
-                                                title="Release to Purchaser"
-                                                aria-label="Release to Purchaser"
-                                            >
-                                                <i data-lucide="send" class="h-4 w-4"></i>
-                                            </button>
-                                        </form>
-                                    @elseif(
-                                        !$archiveView
-                                        && empty($atp->has_rfc)
-                                        && !\App\Support\ProcurementPortal::isSupplyOfficerContext()
-                                        && (
-                                            ($atpPurchaserOwns && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true) && empty($atp->authority_purchase_submitted_at))
-                                            || ($atp->authority_purchase_status === 'Approved' && !empty($atp->released_to_purchaser))
-                                        )
-                                    )
-                                        @if(false && !empty($atp->funds_via_po) && !$atp->has_rfc && \Illuminate\Support\Facades\Route::has(($pp ?? 'purchaser').'.purchase-orders.index'))
-                                            <a
-                                                href="{{ route(($pp ?? 'purchaser').'.purchase-orders.index', ['view_po' => $atp->purchase_order_id]) }}"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                title="Fund via {{ $atp->purchase_order_label ?? 'Purchase Order' }}"
-                                                aria-label="Fund via Purchase Order"
-                                            >
-                                                <i data-lucide="shopping-bag" class="h-4 w-4"></i>
-                                            </a>
-                                        @elseif(!$atp->has_rfc)
-                                            @if(empty($atp->authority_purchase_payment_path))
-                                                <div class="flex flex-wrap gap-1.5">
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
-                                                        class="inline"
-                                                        data-pur-confirm="{{ $directPaymentConfirm($atp) }}"
-                                                        data-pur-confirm-title="Use Direct Payment?"
-                                                        data-pur-confirm-ok="Use Direct Payment"
-                                                    >
-                                                        @csrf
-                                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
-                                                        <button
-                                                            type="submit"
-                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-800 transition hover:bg-blue-100"
-                                                            aria-label="Direct Payment"
-                                                            data-pur-tip-title="Direct Payment"
-                                                            data-pur-tip="Accounting pays the supplier directly. Opens the funding request form for this ATP."
-                                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
-                                                            data-pur-tip-accent="#60a5fa"
-                                                        >
-                                                            <i data-lucide="badge-check" class="h-4 w-4"></i>
-                                                        </button>
-                                                    </form>
-                                                        <button
-                                                        type="button"
-                                                        x-on:click="openCashInstallment({{ (int) $atp->authority_purchase_id }})"
-                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100"
-                                                            aria-label="Cash Installment"
-                                                            data-pur-tip-title="Cash Installment"
-                                                        data-pur-tip="Choose installment terms and optional downpayment, then create one RFC per installment (and one for downpayment)."
-                                                        data-pur-tip-note="Ends at Receiving Report — no liquidation. Each RFC gets its own DV / check."
-                                                            data-pur-tip-accent="#a78bfa"
-                                                        >
-                                                            <i data-lucide="calendar-clock" class="h-4 w-4"></i>
-                                                        </button>
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
-                                                        class="inline"
-                                                        data-pur-confirm="{{ $cashAdvanceConfirm($atp) }}"
-                                                        data-pur-confirm-title="Use Cash Advance?"
-                                                        data-pur-confirm-ok="Use Cash Advance"
-                                                    >
-                                                        @csrf
-                                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_ADVANCE }}">
-                                                        <button
-                                                            type="submit"
-                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
-                                                            aria-label="Cash Advance"
-                                                            data-pur-tip-title="Cash Advance"
-                                                            data-pur-tip="Accounting releases cash to you to buy the items. Opens the cash advance form for this ATP."
-                                                            data-pur-tip-note="Ends at Liquidation Report — liquidate with receipts."
-                                                            data-pur-tip-accent="#38bdf8"
-                                                        >
-                                                            <i data-lucide="banknote" class="h-4 w-4"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            @else
-                                                @php
-                                                    $pathLabel = \App\Support\ProcurementPaymentPath::label($atp->authority_purchase_payment_path);
-                                                    $pathKey = \App\Support\ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path)
-                                                        ?? $atp->authority_purchase_payment_path;
-                                                @endphp
-                                                <a
-                                                    href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $pathKey, 'fund' => $pathKey]) }}"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                    title="Create {{ $pathLabel }}"
-                                                    aria-label="Create {{ $pathLabel }}"
-                                                >
-                                                    <i data-lucide="file-plus-2" class="h-4 w-4"></i>
-                                                </a>
-                                            @endif
-                                        @else
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="RFC Created" aria-label="RFC Created">
-                                                <i data-lucide="circle-check" class="h-4 w-4"></i>
-                                            </span>
-                                        @endif
-                                    @endif
-
-                                    @php
-                                        // Hide archive while Supply must release, or Purchaser must create funding.
-                                        $atpNeedsHandoff = ! empty($atp->can_release_to_purchaser)
-                                            || (
-                                                $atp->authority_purchase_status === 'Approved'
-                                                && ! empty($atp->released_to_purchaser)
-                                                && empty($atp->has_rfc)
-                                            );
-                                        $canArchiveAtp = ! $atp->authority_purchase_is_archived
-                                            && ! $atpNeedsHandoff
-                                            && (
-                                                $atp->authority_purchase_status === 'Rejected'
-                                                || ($atp->authority_purchase_status === 'Approved' && ! empty($atp->has_rfc))
-                                            );
-                                    @endphp
-                                    @if($archiveView)
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}">
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
-                                                title="Restore"
-                                                aria-label="Restore"
-                                            >
-                                                <i data-lucide="archive-restore" class="h-4 w-4"></i>
-                                            </button>
-                                        </form>
-                                    @elseif($canArchiveAtp)
-                                        <form
-                                            method="POST"
-                                            action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}"
-                                            data-pur-confirm="Archive this Authority to Purchase?"
-                                            data-pur-confirm-title="Archive ATP"
-                                            data-pur-confirm-ok="Archive"
-                                            data-pur-confirm-kind="archive"
-                                        >
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
-                                                title="Archive"
-                                                aria-label="Archive"
-                                            >
-                                                <i data-lucide="archive" class="h-4 w-4"></i>
-                                            </button>
-                                        </form>
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
+                    @php
+                        $atpGroups = $atpGroups ?? collect();
+                    @endphp
+                    @forelse($atpGroups as $group)
+                        @foreach(($group['atps'] ?? collect()) as $atp)
+                            @include('purchaser.authority-to-purchase._list-row', [
+                                'atp' => $atp,
+                                'isChildRow' => false,
+                                'fallbackRequestNo' => $group['request_no'] ?? null,
+                            ])
+                        @endforeach
                     @empty
                         <tr>
                             <td colspan="7" class="px-6 py-16 text-center">
@@ -1789,6 +1494,8 @@
 
 
 
+
+
     {{-- ========================================================= --}}
     {{-- CREATE ATP MODAL (teleport to body so overlay covers topbar) --}}
     {{-- ========================================================= --}}
@@ -1807,7 +1514,7 @@
         aria-labelledby="atp-create-title"
     >
         <div
-            x-on:click.self="createOpen = false; modalFullscreen = false"
+            x-on:click.self="guardClose('create')"
             class="flex min-h-full w-full justify-center"
         >
             <div
@@ -1826,7 +1533,7 @@
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
                         @include('purchaser.partials.modal-fullscreen-button')
-                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                        <button type="button" @click="guardClose('create')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
                     </div>
@@ -1847,7 +1554,7 @@
                         @endif
                     </div>
                     <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                        <button type="button" @click="createOpen = false; modalFullscreen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                        <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Close
                         </button>
                     </div>
@@ -2037,13 +1744,14 @@
                                             >
                                                 <svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 6.5 5 9l4.5-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                             </span>
-                                            <span class="min-w-0 truncate" x-text="choice.label"></span>
+                                            <span class="min-w-0 whitespace-normal break-words" x-text="choice.label"></span>
                                         </button>
                                     </template>
                                 </div>
                                 <p x-show="risSplit" x-cloak class="mt-1.5 text-xs text-slate-500">
                                     This RIS buys from more than one supplier, so each selected supplier gets its own ATP.
                                     Select one or more above — a carousel opens for each ATP.
+                                    Sign once below and it applies to all selected ATPs.
                                 </p>
                             </div>
 
@@ -2108,12 +1816,21 @@
                             </div>
 
                             <div id="purSigSlot-atp-create" class="mt-4 w-full"></div>
+                            <p
+                                x-show="risSplit && (atpSelectedKeys || []).length > 1"
+                                x-cloak
+                                class="mt-2 text-xs text-slate-500"
+                            >
+                                Signature applies to all
+                                <span x-text="(atpSelectedKeys || []).length"></span>
+                                ATPs in this batch.
+                            </p>
                         </div>
                     </div>
 
                     <div data-atp-form-errors hidden></div>
                     <div data-atp-form-footer class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                        <button type="button" @click="createOpen = false" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
+                        <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
                         <button
@@ -2321,14 +2038,36 @@
                             Close
                         </button>
 
-                        @if(
-                            $atpCanCreate
-                            && !$archiveView
-                            && !$atp->authority_purchase_submitted_at
-                            && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true)
-                            && empty($atp->submits_via_po)
-                            && (! $atpPurchaserOwns || ! empty($atp->can_joint_submit) || $atpIsSupplyPortal)
-                        )
+                        @php
+                            $viewFundingPath = \App\Support\ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path ?? null);
+                            $viewOpenFundingSubmit = $atpPurchaserOwns
+                                && $atpCanCreate
+                                && ! $archiveView
+                                && ! $atp->authority_purchase_submitted_at
+                                && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true)
+                                && empty($atp->submits_via_po)
+                                && ! empty($atp->can_joint_submit)
+                                && ! empty($atp->has_rfc)
+                                && $viewFundingPath;
+                            $viewCanDirectSubmit = $atpCanCreate
+                                && ! $archiveView
+                                && ! $atp->authority_purchase_submitted_at
+                                && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true)
+                                && empty($atp->submits_via_po)
+                                && (! $atpPurchaserOwns || $atpIsSupplyPortal);
+                        @endphp
+                        @if($viewOpenFundingSubmit)
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.rfc.index', [
+                                    'selected_atp' => (int) $atp->authority_purchase_id,
+                                    'funding_type' => $viewFundingPath,
+                                    'fund' => $viewFundingPath,
+                                ]) }}"
+                                class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                            >
+                                Submit on {{ \App\Support\ProcurementPaymentPath::label($viewFundingPath) }}
+                            </a>
+                        @elseif($viewCanDirectSubmit)
                             <button
                                 type="button"
                                 data-atp-submit
@@ -2337,7 +2076,7 @@
                                 data-atp-signature="{{ \App\Support\RisWorkflow::isDrawnSignature((string) ($atp->authority_purchase_received_by_signature ?? '')) ? $atp->authority_purchase_received_by_signature : '' }}"
                                 class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
-                                {{ $atpPurchaserOwns ? 'Submit ATP + RFC for Review' : 'Submit for Review' }}
+                                Submit for Review
                             </button>
                         @endif
 
@@ -2385,15 +2124,24 @@
                                             data-pur-tip-accent="#60a5fa"
                                         >Direct Payment</button>
                                     </form>
+                                    <form
+                                        method="POST"
+                                        action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
+                                        data-pur-confirm="{{ $cashInstallmentConfirm($atp) }}"
+                                        data-pur-confirm-title="Use Cash Installment?"
+                                        data-pur-confirm-ok="Use Cash Installment"
+                                    >
+                                        @csrf
+                                        <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
                                         <button
-                                        type="button"
-                                        x-on:click="openCashInstallment({{ (int) $atp->authority_purchase_id }})"
+                                            type="submit"
                                             class="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 transition hover:bg-violet-100"
                                             data-pur-tip-title="Cash Installment"
-                                        data-pur-tip="Choose installment terms and optional downpayment, then create one RFC per installment (and one for downpayment)."
-                                        data-pur-tip-note="Ends at Receiving Report — no liquidation. Each RFC gets its own DV / check."
+                                            data-pur-tip="Accounting pays the supplier. Opens the funding request form for this ATP."
+                                            data-pur-tip-note="Ends at Receiving Report — no liquidation."
                                             data-pur-tip-accent="#a78bfa"
                                         >Cash Installment</button>
+                                    </form>
                                     <form
                                         method="POST"
                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
@@ -2568,7 +2316,7 @@
                 aria-labelledby="atp-edit-title-{{ $atp->authority_purchase_id }}"
             >
                 <div
-                    x-on:click.self="editOpen = false; modalFullscreen = false"
+                    x-on:click.self="guardClose('edit')"
                     class="flex min-h-full w-full justify-center"
                 >
                     <div
@@ -2586,7 +2334,7 @@
 
                             <div class="flex shrink-0 items-center gap-1">
                                 @include('purchaser.partials.modal-fullscreen-button')
-                                <button type="button" @click="editOpen = false; modalFullscreen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                                <button type="button" @click="guardClose('edit')" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
                                     <i data-lucide="x" class="h-4 w-4"></i>
                                 </button>
                             </div>
@@ -2596,6 +2344,8 @@
                             id="atp-edit-form-{{ $atp->authority_purchase_id }}"
                             method="POST"
                             action="{{ route(($pp ?? 'purchaser').'.atp.update', $atp->authority_purchase_id) }}"
+                            data-pur-edit-form="atp"
+                            x-bind:data-open="editOpen && selectedAtp === {{ $atp->authority_purchase_id }} ? '1' : '0'"
                             x-on:submit="if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') { window.purchaserDocumentSignature.flush(); }"
                         >
 
@@ -2625,7 +2375,7 @@
                                 </p>-->
                                 <button
                                     type="button"
-                                    @click="editOpen = false"
+                                    @click="guardClose('edit')"
                                     class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-950"
                                 >
                                     Cancel
@@ -2637,7 +2387,25 @@
                                 >
                                     Save Changes
                                 </button>
-                                @if($atpCanCreate)
+                                @php
+                                    $editFundingPath = \App\Support\ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path ?? null);
+                                    $editOpenFundingSubmit = $atpPurchaserOwns
+                                        && ! empty($atp->can_joint_submit)
+                                        && ! empty($atp->has_rfc)
+                                        && $editFundingPath;
+                                @endphp
+                                @if($editOpenFundingSubmit)
+                                    <a
+                                        href="{{ route(($pp ?? 'purchaser').'.rfc.index', [
+                                            'selected_atp' => (int) $atp->authority_purchase_id,
+                                            'funding_type' => $editFundingPath,
+                                            'fund' => $editFundingPath,
+                                        ]) }}"
+                                        class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                                    >
+                                        Submit on {{ \App\Support\ProcurementPaymentPath::label($editFundingPath) }}
+                                    </a>
+                                @elseif($atpCanCreate && (! $atpPurchaserOwns || $atpIsSupplyPortal))
                                     <button
                                         type="button"
                                         data-atp-submit
@@ -2667,362 +2435,6 @@
         @include('purchaser.partials.document-signature-panel', ['savedSignatures' => $savedSignatures ?? collect()])
     </div>
 
-    {{-- CASH INSTALLMENT PLAN MODAL --}}
-    <template x-teleport="body">
-        <div
-            x-cloak
-            x-show="installmentOpen"
-            x-on:keydown.escape.window="if (installmentOpen) closeCashInstallment()"
-            class="fixed inset-0 z-[1100] flex items-start justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-[2px] md:p-8"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cash-installment-title"
-        >
-            <div x-on:click.self="closeCashInstallment()" class="flex min-h-full w-full justify-center">
-                <form
-                    method="POST"
-                    x-bind:action="installmentAtp()?.plan_url || '#'"
-                    class="my-auto flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)]"
-                    x-bind:class="(installmentTermSelectOpen || installmentIntervalSelectOpen || installmentPickerOpen !== null) ? 'overflow-visible' : 'overflow-hidden'"
-                    x-on:submit="if (!installmentTermId || installmentSchedule().length === 0 || installmentDownpaymentInvalid()) { $event.preventDefault(); }"
-                >
-                    @csrf
-                    <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 md:px-6">
-                        <div class="min-w-0">
-                            <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-700/80">Cash installment</p>
-                            <h3 id="cash-installment-title" class="mt-0.5 text-lg font-semibold tracking-tight text-slate-950">Plan funding requests</h3>
-                            <p class="mt-1 text-sm text-slate-500" x-text="(installmentAtp()?.number || '') + ' · ' + (installmentAtp()?.supplier || '')"></p>
-                        </div>
-                        <button type="button" x-on:click="closeCashInstallment()" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-900" aria-label="Close">
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
-                    </div>
-
-                    <div
-                        class="min-h-0 flex-1 space-y-5 px-5 py-5 md:px-6"
-                        x-bind:class="(installmentTermSelectOpen || installmentIntervalSelectOpen || installmentPickerOpen !== null) ? 'overflow-visible' : 'overflow-y-auto'"
-                    >
-                        <div class="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-3">
-                            <div>
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">ATP total</p>
-                                <p class="mt-1 text-base font-semibold tabular-nums text-slate-950" x-text="peso(installmentTotal())"></p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Downpayment</p>
-                                <p class="mt-1 text-base font-semibold tabular-nums text-violet-800" x-text="peso(installmentDown())"></p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Remaining</p>
-                                <p class="mt-1 text-base font-semibold tabular-nums text-slate-950" x-text="peso(installmentRemaining())"></p>
-                            </div>
-                        </div>
-
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="relative">
-                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Installment term <span class="text-red-500">*</span></label>
-                                <input type="hidden" name="term_id" x-bind:value="installmentTermId">
-                                <button
-                                    type="button"
-                                    x-on:click="installmentTermSelectOpen ? closeInstallmentTermSelect() : openInstallmentTermSelect()"
-                                    class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                                    x-bind:class="installmentTermSelectOpen ? 'border-violet-400 ring-2 ring-violet-100' : ''"
-                                >
-                                    <span
-                                        class="min-w-0 truncate"
-                                        x-bind:class="selectedTerm() ? 'font-medium text-slate-800' : 'text-slate-400'"
-                                        x-text="termLabel(selectedTerm())"
-                                    ></span>
-                                    <svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-                                </button>
-                                <div
-                                    x-show="installmentTermSelectOpen"
-                                    x-cloak
-                                    x-transition.opacity.duration.120ms
-                                    x-on:click.outside="closeInstallmentTermSelect()"
-                                    class="absolute left-0 right-0 z-[90] mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10"
-                                >
-                                    <div class="border-b border-slate-100 p-1.5">
-                                        <input
-                                            type="text"
-                                            x-model="installmentTermQuery"
-                                            x-on:keydown.escape.stop="closeInstallmentTermSelect()"
-                                            placeholder="Search terms..."
-                                            class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-violet-400"
-                                        >
-                                    </div>
-                                    <ul class="max-h-40 overflow-y-auto py-1">
-                                        <template x-for="term in filteredInstallmentTerms()" :key="'term-opt-' + term.id">
-                                            <li>
-                                                <button
-                                                    type="button"
-                                                    x-on:click="pickInstallmentTerm(term.id)"
-                                                    class="flex w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                                                    x-bind:class="String(installmentTermId) === String(term.id) ? 'bg-violet-50 font-medium text-violet-900' : ''"
-                                                    x-text="termLabel(term)"
-                                                ></button>
-                                            </li>
-                                        </template>
-                                        <li
-                                            x-show="filteredInstallmentTerms().length === 0"
-                                            class="px-3 py-2 text-sm text-slate-400"
-                                        >
-                                            No matching terms — add one below.
-                                        </li>
-                                    </ul>
-                                    <div class="border-t border-slate-100 bg-slate-50 p-2" x-on:click.stop>
-                                        <p class="mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add new term</p>
-                                        <div class="flex items-center gap-1.5">
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="12"
-                                                step="1"
-                                                inputmode="numeric"
-                                                x-model="installmentNewTermMonths"
-                                                x-on:input="installmentNewTermMonths = String(installmentNewTermMonths || '').replace(/\\D/g, '').slice(0, 2); if (Number(installmentNewTermMonths) > 12) installmentNewTermMonths = '12'; if (installmentNewTermMonths === '0') installmentNewTermMonths = '';"
-                                                x-on:keydown.enter.prevent.stop="addInstallmentTermQuick()"
-                                                x-on:keydown.escape.stop="closeInstallmentTermSelect()"
-                                                x-bind:placeholder="String(installmentTermQuery || '').trim() || '1–12'"
-                                                class="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none focus:border-violet-400"
-                                            >
-                                            <button
-                                                type="button"
-                                                x-on:click="addInstallmentTermQuick()"
-                                                x-bind:disabled="installmentTermSaving"
-                                                class="shrink-0 rounded-md bg-[#0025cc] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"
-                                                x-text="installmentTermSaving ? 'Adding…' : 'Add'"
-                                            ></button>
-                                        </div>
-                                        <p class="mt-1 px-0.5 text-[11px] text-red-600" x-show="installmentTermError" x-text="installmentTermError"></p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Day-count interval</label>
-                                <input type="hidden" name="day_interval_id" x-bind:value="installmentDayIntervalId">
-                                <button
-                                    type="button"
-                                    x-on:click="installmentIntervalSelectOpen ? closeInstallmentIntervalSelect() : openInstallmentIntervalSelect()"
-                                    class="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                                    x-bind:class="installmentIntervalSelectOpen ? 'border-violet-400 ring-2 ring-violet-100' : ''"
-                                >
-                                    <span
-                                        class="min-w-0 truncate"
-                                        x-bind:class="selectedInterval() ? 'font-medium text-slate-800' : 'text-slate-500'"
-                                        x-text="intervalLabel(selectedInterval())"
-                                    ></span>
-                                    <svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-                                </button>
-                                <div
-                                    x-show="installmentIntervalSelectOpen"
-                                    x-cloak
-                                    x-transition.opacity.duration.120ms
-                                    x-on:click.outside="closeInstallmentIntervalSelect()"
-                                    class="absolute left-0 right-0 z-[90] mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10"
-                                >
-                                    <div class="border-b border-slate-100 p-1.5">
-                                        <input
-                                            type="text"
-                                            x-model="installmentIntervalQuery"
-                                            x-on:keydown.escape.stop="closeInstallmentIntervalSelect()"
-                                            placeholder="Search intervals..."
-                                            class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm text-slate-800 outline-none focus:border-violet-400"
-                                        >
-                                    </div>
-                                    <ul class="max-h-40 overflow-y-auto py-1">
-                                        <li>
-                                            <button
-                                                type="button"
-                                                x-on:click="pickInstallmentInterval('')"
-                                                class="flex w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                                                x-bind:class="!installmentDayIntervalId ? 'bg-violet-50 font-medium text-violet-900' : ''"
-                                            >
-                                                Manual dates
-                                            </button>
-                                        </li>
-                                        <template x-for="interval in filteredInstallmentIntervals()" :key="'interval-opt-' + interval.id">
-                                            <li>
-                                                <button
-                                                    type="button"
-                                                    x-on:click="pickInstallmentInterval(interval.id)"
-                                                    class="flex w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                                                    x-bind:class="String(installmentDayIntervalId) === String(interval.id) ? 'bg-violet-50 font-medium text-violet-900' : ''"
-                                                    x-text="intervalLabel(interval)"
-                                                ></button>
-                                            </li>
-                                        </template>
-                                        <li
-                                            x-show="filteredInstallmentIntervals().length === 0 && String(installmentIntervalQuery || '').trim() !== ''"
-                                            class="px-3 py-2 text-sm text-slate-400"
-                                        >
-                                            No matching intervals — add one below.
-                                        </li>
-                                    </ul>
-                                    <div class="border-t border-slate-100 bg-slate-50 p-2" x-on:click.stop>
-                                        <p class="mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add new interval</p>
-                                        <div class="flex items-center gap-1.5">
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="365"
-                                                step="1"
-                                                inputmode="numeric"
-                                                x-model="installmentNewIntervalDays"
-                                                x-on:input="installmentNewIntervalDays = String(installmentNewIntervalDays || '').replace(/\\D/g, '').slice(0, 3); if (Number(installmentNewIntervalDays) > 365) installmentNewIntervalDays = '365'; if (installmentNewIntervalDays === '0') installmentNewIntervalDays = '';"
-                                                x-on:keydown.enter.prevent.stop="addInstallmentIntervalQuick()"
-                                                x-on:keydown.escape.stop="closeInstallmentIntervalSelect()"
-                                                x-bind:placeholder="String(installmentIntervalQuery || '').trim() || '1–365'"
-                                                class="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none focus:border-violet-400"
-                                            >
-                                            <button
-                                                type="button"
-                                                x-on:click="addInstallmentIntervalQuick()"
-                                                x-bind:disabled="installmentIntervalSaving"
-                                                class="shrink-0 rounded-md bg-[#0025cc] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"
-                                                x-text="installmentIntervalSaving ? 'Adding…' : 'Add'"
-                                            ></button>
-                                        </div>
-                                        <p class="mt-1 px-0.5 text-[11px] text-red-600" x-show="installmentIntervalError" x-text="installmentIntervalError"></p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Downpayment (optional)</label>
-                                <input
-                                    type="number"
-                                    name="downpayment"
-                                    min="0"
-                                    step="0.01"
-                                    inputmode="decimal"
-                                    data-money
-                                    x-model="installmentDownpayment"
-                                    x-on:input="installmentDownpayment = clampInstallmentDownpayment(installmentDownpayment)"
-                                    x-on:blur="if (installmentDownpayment !== '' && installmentDownpayment !== null) { installmentDownpayment = clampInstallmentDownpayment(window.PrismInputLimits ? window.PrismInputLimits.formatMoney(installmentDownpayment) : installmentDownpayment); }"
-                                    x-bind:max="installmentDownpaymentMax()"
-                                    placeholder="0.00"
-                                    x-bind:aria-invalid="installmentDownpaymentInvalid() ? 'true' : 'false'"
-                                    class="h-10 w-full rounded-lg border bg-white px-3 text-sm outline-none transition"
-                                    x-bind:class="installmentDownpaymentInvalid()
-                                        ? 'border-red-400 text-red-700 focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                                        : 'border-slate-200 text-slate-800 focus:border-violet-400 focus:ring-2 focus:ring-violet-100'"
-                                >
-                                <p
-                                    x-show="installmentDownpaymentInvalid()"
-                                    x-cloak
-                                    class="mt-1.5 text-[11px] font-medium text-red-600"
-                                    x-text="'Downpayment cannot exceed the ATP total (' + peso(installmentTotal()) + ').'"
-                                ></p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="mb-2 flex items-center justify-between gap-2">
-                                <p class="text-sm font-semibold text-slate-900">RFC schedule</p>
-                                <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-800" x-text="installmentSchedule().length + ' RFC' + (installmentSchedule().length === 1 ? '' : 's')"></span>
-                            </div>
-
-                            <div
-                                class="space-y-2 rounded-xl border border-slate-200 bg-white p-2"
-                                x-bind:class="installmentPickerOpen !== null ? 'overflow-visible' : 'max-h-72 overflow-y-auto'"
-                            >
-                                <template x-for="(row, idx) in installmentSchedule()" :key="'sched-' + row.kind + '-' + idx">
-                                    <div class="relative rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5" x-bind:class="installmentPickerOpen === row.dateIndex ? 'z-20' : 'z-0'">
-                                        <div class="flex flex-wrap items-center justify-between gap-2">
-                                            <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-slate-900" x-text="row.label"></p>
-                                                <p class="text-xs font-medium tabular-nums text-violet-800" x-text="peso(row.amount)"></p>
-                                            </div>
-                                            <div class="relative w-full sm:w-48">
-                                                <label class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400" x-text="row.dateIndex === 0 ? (installmentDown() > 0 ? 'Downpayment date' : 'Start date') : 'Due date'"></label>
-                                                <input type="hidden" x-bind:name="'dates[' + row.dateIndex + ']'" x-bind:value="installmentDates[row.dateIndex] || ''">
-                                                <button
-                                                    type="button"
-                                                    x-on:click.stop="openInstallmentPicker(row.dateIndex)"
-                                                    x-bind:disabled="installmentDateLocked(row.dateIndex)"
-                                                    class="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-600"
-                                                    x-bind:class="installmentPickerOpen === row.dateIndex ? 'border-violet-400 ring-2 ring-violet-100' : ''"
-                                                >
-                                                    <span
-                                                        class="min-w-0 truncate"
-                                                        x-bind:class="installmentDates[row.dateIndex] ? 'font-medium text-slate-800' : 'text-slate-400'"
-                                                        x-text="formatIsoDisplay(installmentDates[row.dateIndex]) || 'Select date'"
-                                                    ></span>
-                                                    <svg class="h-3.5 w-3.5 shrink-0 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                        <path d="M8 2v4"/>
-                                                        <path d="M16 2v4"/>
-                                                        <rect width="18" height="18" x="3" y="4" rx="2"/>
-                                                        <path d="M3 10h18"/>
-                                                    </svg>
-                                                </button>
-
-                                                <div
-                                                    x-show="installmentPickerOpen === row.dateIndex"
-                                                    x-cloak
-                                                    x-transition.opacity.duration.150ms
-                                                    x-on:click.outside="closeInstallmentPicker()"
-                                                    class="absolute right-0 top-full z-[80] mt-1.5 w-[17.5rem] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/10"
-                                                >
-                                                    <div class="mb-2 flex items-center justify-between gap-2">
-                                                        <button type="button" x-on:click.stop="shiftInstallmentPickerMonth(-1)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Previous month">
-                                                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
-                                                        </button>
-                                                        <p class="text-sm font-semibold text-slate-900" x-text="installmentPickerTitle()"></p>
-                                                        <button type="button" x-on:click.stop="shiftInstallmentPickerMonth(1)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Next month">
-                                                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-                                                        </button>
-                                                    </div>
-                                                    <div class="mb-1 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                                        <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-                                                    </div>
-                                                    <div class="grid grid-cols-7 gap-1">
-                                                        <template x-for="(cell, cellIdx) in installmentPickerCells()" :key="'ci-cell-' + row.dateIndex + '-' + cellIdx">
-                                                            <div>
-                                                                <button
-                                                                    type="button"
-                                                                    x-show="!cell.empty"
-                                                                    x-bind:disabled="cell.past"
-                                                                    x-on:click.stop="!cell.past && pickInstallmentDate(cell.iso)"
-                                                                    class="flex h-8 w-full items-center justify-center rounded-lg text-sm transition disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                                                                    x-bind:class="{
-                                                                        'bg-violet-700 font-semibold text-white shadow-sm': cell.selected && !cell.past,
-                                                                        'ring-1 ring-violet-300 text-violet-800': cell.today && !cell.selected && !cell.past,
-                                                                        'text-slate-300': cell.past,
-                                                                        'text-slate-700 hover:bg-violet-50': !cell.selected && !cell.past
-                                                                    }"
-                                                                    x-text="cell.day"
-                                                                ></button>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                    <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
-                                                        <button type="button" class="text-xs font-semibold text-slate-500 hover:text-slate-800" x-on:click.stop="clearInstallmentDate(row.dateIndex)">Clear</button>
-                                                        <button type="button" class="text-xs font-semibold text-violet-700 hover:text-violet-900" x-on:click.stop="pickInstallmentDate((() => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); })())">Today</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
-                                <p x-show="!installmentCount()" class="px-2 py-6 text-center text-sm text-slate-400">Choose a term to preview the RFC split.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-5 py-4 md:px-6">
-                        <button type="button" x-on:click="closeCashInstallment()" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
-                        <button
-                            type="submit"
-                            class="inline-flex items-center gap-1.5 rounded-lg bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800"
-                            x-bind:disabled="!installmentTermId || installmentSchedule().length === 0 || installmentDownpaymentInvalid()"
-                        >
-                            <i data-lucide="check" class="h-4 w-4"></i>
-                            Create RFCs in preparation
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </template>
 
 </div>
 

@@ -75,7 +75,7 @@
                     >
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Approved','Rejected','Cancelled'] as $opt)
-                            <option value="{{ $opt }}" @selected(($statusFilter ?? '') === $opt)>{{ \App\Support\ProcurementDraftLabel::status($opt) }}</option>
+                            <option value="{{ $opt }}" @selected(($statusFilter ?? '') === $opt)>{{ \App\Support\ProcurementStatus::label($opt, 'atp') }}</option>
                         @endforeach
                     </select>
                     <button
@@ -103,7 +103,6 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">PO</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATPs</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Updated</th>
                         <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
@@ -186,9 +185,6 @@
                                     <span class="font-medium text-gray-800">{{ $order->atp_display ?? 'No ATPs' }}</span>
                                 @endif
                                 <p class="mt-0.5 text-xs text-gray-400">{{ (int) ($order->atp_count ?? 0) }} of {{ $maxAtps }}</p>
-                            </td>
-                            <td class="px-5 py-4 font-medium tabular-nums text-gray-800">
-                                ₱{{ number_format((float) ($order->po_total_amount ?? 0), 2) }}
                             </td>
                             <td class="px-5 py-4">
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium
@@ -281,13 +277,6 @@
                                             <i data-lucide="banknote" class="h-3.5 w-3.5"></i>
                                             Fund
                                         </button>
-                                    @endif
-                                    @if(!$archiveView && $st === 'Submitted')
-                                        @include('partials.purchaser-reassign-reviewer', [
-                                            'type' => 'po',
-                                            'id' => $order->purchase_order_id,
-                                            'currentReviewerId' => $order->purchase_order_assigned_reviewer_id ?? null,
-                                        ])
                                     @endif
                                     @php
                                         $poNeedsFunding = $st === 'Approved'
@@ -417,7 +406,6 @@
                                 </p>
                             </div>
                             <div class="flex items-center gap-3">
-                                <p class="text-sm font-semibold tabular-nums text-gray-800">₱{{ number_format((float) ($atp->po_total_amount ?? 0), 2) }}</p>
                                 <a
                                     href="{{ route('purchaser.atp.index', ['view_atp' => $atp->authority_purchase_id]) }}"
                                     class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
@@ -432,8 +420,6 @@
                     @endforelse
                 </div>
                 <div class="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
-                    <p class="text-sm text-gray-500">Total</p>
-                    <p class="text-base font-semibold tabular-nums text-gray-950">₱{{ number_format((float) ($order->po_total_amount ?? 0), 2) }}</p>
                 </div>
                 @if(($order->purchase_order_status ?? '') === 'Approved' && !$archiveView)
                     @php
@@ -484,7 +470,7 @@
                                 <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-3">
                                     <div class="min-w-0">
                                         <p class="text-sm font-medium text-gray-900">{{ \App\Support\ProcurementPaymentPath::requiresLiquidation($fundingPath) ? 'Whole Purchase Order' : $group['supplier_name'] }}</p>
-                                        <p class="mt-0.5 text-xs text-gray-500">{{ implode(', ', $group['atp_labels']) }} · ₱{{ number_format((float) $group['amount'], 2) }}</p>
+                                        <p class="mt-0.5 text-xs text-gray-500">{{ implode(', ', $group['atp_labels']) }}</p>
                                     </div>
                                     <a
                                         href="{{ route($pp.'.rfc.index', ['funding_type' => \App\Support\ProcurementPaymentPath::normalize($fundingPath) ?? $fundingPath, 'fund' => \App\Support\ProcurementPaymentPath::normalize($fundingPath) ?? $fundingPath, 'selected_source' => $group['key']]) }}"
@@ -505,7 +491,6 @@
                                         </p>
                                         <p class="mt-0.5 text-xs text-gray-500">
                                             {{ $fr->payee ?: '—' }} · {{ implode(', ', $fr->atp_labels) }}
-                                            @if($fr->amount !== null) · ₱{{ number_format((float) $fr->amount, 2) }} @endif
                                         </p>
                                     </div>
                                     <div class="flex items-center gap-2">

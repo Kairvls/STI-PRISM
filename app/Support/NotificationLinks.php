@@ -117,9 +117,7 @@ class NotificationLinks
         }
 
         if ($role === WorkflowNotifier::ROLE_ACCOUNTING) {
-            return str_contains($stored, 'disbursement-vouchers')
-                ? $stored
-                : '/accounting/disbursement-vouchers?status=incoming&rfc='.$id;
+            return '/accounting/dashboard';
         }
 
         if ($role === WorkflowNotifier::ROLE_PURCHASER) {
@@ -133,13 +131,7 @@ class NotificationLinks
 
     private static function dv(string $role, int $id): ?string
     {
-        return match ($role) {
-            WorkflowNotifier::ROLE_SCHOOL_ADMIN => ProcurementReviewPortal::disbursementVoucher($id),
-            WorkflowNotifier::ROLE_ACCOUNTING => '/accounting/disbursement-vouchers?view_dv='.$id.'&status=approved',
-            WorkflowNotifier::ROLE_PRESIDENT => '/president/disbursement-vouchers/'.$id,
-            WorkflowNotifier::ROLE_PURCHASER => '/purchaser/request-check',
-            default => null,
-        };
+        return null;
     }
 
     private static function po(string $role, int $id): ?string

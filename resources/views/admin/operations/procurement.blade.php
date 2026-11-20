@@ -1,7 +1,7 @@
 @extends('layouts.admin-layout')
 
 @section('title', 'Procurement Monitor')
-@section('page-subtitle', 'Canvass + RIS → ATP → RFC → DV → RR → Liquidation.')
+@section('page-subtitle', 'Canvass + RIS → ATP → RFC → RR → Liquidation.')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
@@ -13,7 +13,6 @@
         'awaiting_admin' => 'Waiting on Administrator',
         'atp' => 'At Authority to Purchase',
         'rfc' => 'At Request for Check',
-        'dv' => 'At Disbursement Voucher',
         'rr' => 'At Receiving Report',
         'liq' => 'At Liquidation Report',
     ];
@@ -195,7 +194,6 @@
                         <th>Procurement Pipeline</th>
                         <th>Latest stop</th>
                         <th>Submitted by</th>
-                        <th>Amount</th>
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -276,7 +274,6 @@
                                 <p class="mt-1 text-xs leading-4 text-gray-500">{{ $latestStatus !== '' ? $latestStatus : '—' }}</p>
                             </td>
                             <td class="text-sm text-gray-600">{{ $row->created_by_name ?: '—' }}</td>
-                            <td class="whitespace-nowrap text-sm font-semibold tabular-nums text-gray-900">₱{{ number_format((float) ($row->ris_calculated_total ?? 0), 2) }}</td>
                             <td class="text-center">
                                 <div class="inline-flex items-center justify-center gap-2 whitespace-nowrap">
                                     @if($requestNo !== '' && ($requestPage = \App\Support\RequestExplorer::showUrl($requestNo)))

@@ -1,8 +1,9 @@
 /**
  * System-wide input max limits.
  * Applies maxlength/max to text-like and number fields.
- * Money fields: max 7 digits before decimal + 2 after (9999999.99),
- * ₱ prefix adornment, and auto .00 formatting on blur.
+ * Money fields: max 8 digits before decimal + 2 after (99999999.99),
+ * commas are display-only and do not count toward the digit limit,
+ * ₱ prefix adornment, and currency formatting on blur (e.g. 12,345,678.00).
  * Names: 30 chars. Purpose / description: 70 chars. Qty / counts: 7 digits.
  * Skips fields with data-no-max-limit.
  */
@@ -42,8 +43,8 @@
     var DEFAULT_NOTES = 500;
     var DEFAULT_NUMBER_MAX = 9999999;
     var QTY_DIGITS = 7;
-    var MONEY_MAX = 9999999.99;
-    var MONEY_WHOLE_DIGITS = 7;
+    var MONEY_MAX = 99999999.99;
+    var MONEY_WHOLE_DIGITS = 8;
     var MONEY_DECIMAL_DIGITS = 2;
 
     var NAME_RULES = [
@@ -87,9 +88,9 @@
             // Right-aligned money still shows ₱ before the digits (₱ 5008.00), not after.
             '.prism-money-wrap.prism-money-wrap--right{display:flex;align-items:center;justify-content:flex-end;gap:0.2rem;}',
             '.prism-money-wrap.prism-money-wrap--right .prism-money-prefix{position:static;left:auto;right:auto;top:auto;transform:none;flex:0 0 auto;}',
-            '.prism-money-wrap.prism-money-wrap--right .prism-money-input{padding-left:0 !important;padding-right:0.15rem !important;flex:0 1 auto;width:7.25rem;max-width:calc(100% - 1.1rem);min-width:0;}',
+            '.prism-money-wrap.prism-money-wrap--right .prism-money-input{padding-left:0 !important;padding-right:0.15rem !important;flex:0 1 auto;width:9.5rem;max-width:calc(100% - 1.1rem);min-width:0;}',
             '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right{gap:0.12rem;}',
-            '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right .prism-money-input{width:6.5rem;padding-right:0.1rem !important;}',
+            '.prism-money-wrap.prism-money-wrap--compact.prism-money-wrap--right .prism-money-input{width:8.5rem;padding-right:0.1rem !important;}',
         ].join('');
         document.head.appendChild(style);
     }
@@ -151,12 +152,103 @@
         return clamped;
     }
 
-    function formatMoneyDecimals(raw) {
+    function parseMoneyNumber(raw) {
         var clamped = clampMoneyNumber(raw);
-        if (clamped === '') return '';
+        if (clamped === '' || clamped === '.') return null;
         var num = Number(clamped);
-        if (!isFinite(num)) return '';
-        return num.toFixed(MONEY_DECIMAL_DIGITS);
+        if (!isFinite(num)) return null;
+        return num;
+    }
+
+    function formatMoneyDecimals(raw) {
+        var num = parseMoneyNumber(raw);
+        if (num === null) return '';
+        return num.toLocaleString('en-PH', {
+            minimumFractionDigits: MONEY_DECIMAL_DIGITS,
+            maximumFractionDigits: MONEY_DECIMAL_DIGITS,
+        });
+    }
+
+    /**
+     * Live currency display: always ends with two cents digits (.00 by default).
+     * Cents stay editable/overwritable; missing cents are padded with 0.
+     */
+    function formatMoneyLive(raw) {
+        var cleaned = String(raw == null ? '' : raw).replace(/,/g, '').replace(/[^\d.]/g, '');
+        if (cleaned === '') return '';
+
+        var parts = cleaned.split('.');
+        var wholeDigits = (parts[0] || '').replace(/\D/g, '').slice(0, MONEY_WHOLE_DIGITS);
+        wholeDigits = wholeDigits.replace(/^0+(?=\d)/, '');
+        var hasDot = parts.length > 1;
+        var decimals = hasDot ? parts.slice(1).join('').replace(/\D/g, '').slice(0, MONEY_DECIMAL_DIGITS) : '';
+
+        var wholeFormatted = wholeDigits === ''
+            ? '0'
+            : Number(wholeDigits).toLocaleString('en-PH');
+
+        // Always keep exactly 2 cents digits visible (.00 unless overwritten).
+        while (decimals.length < MONEY_DECIMAL_DIGITS) {
+            decimals += '0';
+        }
+
+        return wholeFormatted + '.' + decimals;
+    }
+
+    function caretAfterWholeDigits(str, digitCount) {
+        var dot = str.indexOf('.');
+        var end = dot === -1 ? str.length : dot;
+        if (digitCount <= 0) {
+            // "0.00" keeps the caret after the leading 0 so the next digit replaces it.
+            var whole = str.slice(0, end).replace(/,/g, '');
+            if (whole === '0') return end;
+            return 0;
+        }
+        var seen = 0;
+        for (var i = 0; i < end; i++) {
+            if (/\d/.test(str[i])) {
+                seen++;
+                if (seen >= digitCount) return i + 1;
+            }
+        }
+        return end;
+    }
+
+    function caretAfterCentDigits(str, digitCount) {
+        var dot = str.indexOf('.');
+        if (dot === -1) return str.length;
+        if (digitCount <= 0) return dot + 1;
+        var seen = 0;
+        for (var i = dot + 1; i < str.length; i++) {
+            if (/\d/.test(str[i])) {
+                seen++;
+                if (seen >= digitCount) return i + 1;
+            }
+        }
+        return str.length;
+    }
+
+    function moneyCaretContext(value, caret) {
+        var raw = String(value == null ? '' : value);
+        var start = Math.max(0, Math.min(raw.length, caret || 0));
+        var caretNoComma = 0;
+        for (var i = 0; i < start; i++) {
+            if (raw[i] !== ',') caretNoComma++;
+        }
+        var noComma = raw.replace(/,/g, '');
+        var dot = noComma.indexOf('.');
+        var inCents = dot !== -1 && caretNoComma > dot;
+        var left = noComma.slice(0, caretNoComma);
+        var wholeDigitsLeft = (left.split('.')[0] || '').replace(/\D/g, '').length;
+        var centDigitsLeft = inCents
+            ? (left.split('.')[1] || '').replace(/\D/g, '').length
+            : 0;
+
+        return {
+            inCents: inCents,
+            wholeDigitsLeft: wholeDigitsLeft,
+            centDigitsLeft: centDigitsLeft,
+        };
     }
 
     function clampQtyString(raw) {
@@ -239,31 +331,84 @@
         el.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
+    function onMoneyFocus(e) {
+        var el = e.target;
+        if (!el || el.hasAttribute('data-no-max-limit') || el.hasAttribute('readonly') || el.disabled) return;
+        if (el.hasAttribute('data-dv-amount-input')) return;
+
+        var current = String(el.value || '').trim();
+        var next = current === '' ? '0.00' : (formatMoneyDecimals(current) || '0.00');
+        if (next !== el.value) {
+            el.value = next;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Select the peso side so the first digits replace it; .00 stays and can be clicked to overwrite.
+        requestAnimationFrame(function () {
+            try {
+                var dot = String(el.value || '').indexOf('.');
+                if (dot === -1) {
+                    el.select();
+                    return;
+                }
+                el.setSelectionRange(0, dot);
+            } catch (err) {}
+        });
+    }
+
     function onMoneyInput(e) {
         var el = e.target;
         if (!el || el.hasAttribute('data-no-max-limit')) return;
         if (el.hasAttribute('readonly') || el.disabled) return;
 
         var before = el.value;
-        var next = clampMoneyString(before);
+        var start = typeof el.selectionStart === 'number' ? el.selectionStart : before.length;
+        var ctx = moneyCaretContext(before, start);
+        var next = formatMoneyLive(before);
+        if (next === '') {
+            next = '0.00';
+            ctx = { inCents: false, wholeDigitsLeft: 0, centDigitsLeft: 0 };
+        }
         if (next === before) return;
 
-        var start = el.selectionStart;
         el.value = next;
         try {
-            if (typeof start === 'number') {
-                var delta = before.length - next.length;
-                var pos = Math.max(0, start - (delta > 0 ? delta : 0));
-                el.setSelectionRange(pos, pos);
-            }
+            var pos = ctx.inCents
+                ? caretAfterCentDigits(next, ctx.centDigitsLeft)
+                : caretAfterWholeDigits(next, ctx.wholeDigitsLeft);
+            el.setSelectionRange(pos, pos);
         } catch (err) {}
+    }
+
+    function onMoneyKeydown(e) {
+        var el = e.target;
+        if (!el || el.hasAttribute('readonly') || el.disabled) return;
+
+        // Pressing "." jumps into cents so .00 can be overwritten.
+        if (e.key === '.' || e.key === 'Decimal') {
+            e.preventDefault();
+            var formatted = formatMoneyLive(el.value) || '0.00';
+            if (formatted !== el.value) {
+                el.value = formatted;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            var dot = formatted.indexOf('.');
+            try {
+                if (dot !== -1) {
+                    // Select both cent digits so typing replaces .00
+                    el.setSelectionRange(dot + 1, formatted.length);
+                }
+            } catch (err) {}
+        }
     }
 
     function onMoneyBlur(e) {
         var el = e.target;
         if (!el || el.hasAttribute('data-no-max-limit') || el.hasAttribute('readonly') || el.disabled) return;
         if (el.hasAttribute('data-dv-amount-input')) return;
+        // Always normalize to exactly 2 decimal places when leaving the field.
         var next = formatMoneyDecimals(el.value);
+        if (next === '') next = '';
         syncValue(el, next);
     }
 
@@ -292,6 +437,18 @@
     function bindMoneyGuard(el) {
         if (!el || el.__prismMoneyBound) return;
         el.__prismMoneyBound = true;
+
+        // type=number cannot show thousand separators — use text for currency display.
+        if (String(el.getAttribute('type') || '').toLowerCase() === 'number') {
+            el.setAttribute('type', 'text');
+            el.setAttribute('inputmode', 'decimal');
+            el.removeAttribute('step');
+            el.removeAttribute('min');
+            el.removeAttribute('max');
+        }
+
+        el.addEventListener('focus', onMoneyFocus);
+        el.addEventListener('keydown', onMoneyKeydown);
         el.addEventListener('input', onMoneyInput, true);
         el.addEventListener('blur', onMoneyBlur);
         ensurePesoPrefix(el);
@@ -475,6 +632,7 @@
         applyTo: applyTo,
         clampMoney: clampMoneyNumber,
         formatMoney: formatMoneyDecimals,
+        parseMoney: parseMoneyNumber,
         clampQty: clampQtyNumber,
         MONEY_MAX: MONEY_MAX,
         MONEY_WHOLE_DIGITS: MONEY_WHOLE_DIGITS,

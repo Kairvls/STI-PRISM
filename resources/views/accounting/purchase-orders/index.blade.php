@@ -50,7 +50,6 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">PO</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Request No.</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">ATPs</th>
-                        <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
                         <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
@@ -136,9 +135,6 @@
                                     <span class="text-sm text-gray-700">{{ $order->atp_display ?? '—' }}</span>
                                 @endif
                                 <p class="mt-1 text-xs text-gray-400">{{ (int) ($order->atp_count ?? 0) }} ATP(s)</p>
-                            </td>
-                            <td class="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
-                                ₱{{ number_format((float) ($order->po_total_amount ?? 0), 2) }}
                             </td>
                             <td class="px-5 py-4">
                                 @include('accounting.partials.status-badge', [

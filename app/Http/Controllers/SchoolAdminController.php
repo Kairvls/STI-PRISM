@@ -235,8 +235,6 @@ class SchoolAdminController extends Controller
             $queues[] = $this->rfcApprovalQueue();
         }
 
-        $queues[] = $this->dvApprovalQueue();
-
         return $queues;
     }
 
@@ -410,7 +408,7 @@ class SchoolAdminController extends Controller
     {
         $empty = [
             'title' => 'DV — Pending approval',
-            'url' => route('school-admin.dv.index', ['status' => 'incoming']),
+            'url' => '/school-admin/dashboard',
             'total' => 0,
             'empty' => 'No Disbursement Voucher waiting for approval.',
             'rows' => collect(),
@@ -457,7 +455,7 @@ class SchoolAdminController extends Controller
                         'amount' => (float) ($row->dv_amount ?? 0),
                         'date' => $row->dv_submitted_at ?? null,
                         'status' => $this->pendingApprovalLabel($row->assigned_reviewer_name ?? null),
-                        'url' => route('school-admin.dv.show', $row->dv_id),
+                        'url' => '/school-admin/dashboard',
                         'continue_label' => 'Open Pending Approval',
                     ];
                 });

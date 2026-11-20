@@ -12,6 +12,40 @@ use App\Support\ProcurementPortal;
 
 class UomController extends Controller
 {
+    public function quickStore(Request $request)
+    {
+        $validated = $request->validate([
+            'uom_name' => ['required', 'string', 'max:50'],
+        ]);
+
+        $name = trim(preg_replace('/\s+/u', ' ', (string) $validated['uom_name']) ?? '');
+        if ($name === '') {
+            throw ValidationException::withMessages(['uom_name' => 'Enter a unit name.']);
+        }
+
+        $uom = Uom::query()
+            ->whereRaw('LOWER(uom_name) = ?', [mb_strtolower($name)])
+            ->first();
+        $created = false;
+
+        if (! $uom) {
+            $now = now();
+            $uom = Uom::create([
+                'uom_name' => $name,
+                'uom_description' => null,
+                'uom_created_at' => $now,
+                'uom_updated_at' => $now,
+            ]);
+            $created = true;
+        }
+
+        return response()->json([
+            'id' => (string) $uom->uom_id,
+            'label' => (string) $uom->uom_name,
+            'created' => $created,
+        ], $created ? 201 : 200);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

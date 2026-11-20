@@ -357,7 +357,7 @@ class ModuleImportanceNotice
                     ? $ready.' '.Str::plural('ATP', $ready).' need payment path / funding'
                     : $ready.' approved '.Str::plural('ATP', $ready).' need funding',
                 ProcurementPortal::PURCHASER_OWNS_ATP
-                    ? 'Set payment path, prepare RFC, then submit ATP + RFC once to School Admin.'
+                    ? 'Set payment path, prepare RFC, then submit ATP + RFC from the funding request to School Admin.'
                     : 'Set payment path and create funding request.',
                 self::portalRoute('atp.index', ['focus' => PurchaserAttentionSummary::FOCUS_ATP_READY_FOR_RFC]),
                 'banknote',

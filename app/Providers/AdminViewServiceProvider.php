@@ -25,6 +25,8 @@ class AdminViewServiceProvider extends ServiceProvider
             ],
             function ($view) {
                 $adminSidebarPendingRis = 0;
+                $adminSidebarReviewedRis = 0;
+                $adminSidebarAwaitingIssuedBy = 0;
                 $adminSidebarAwaitingCosign = 0;
                 $adminSidebarAmendRis = 0;
                 $attentionTotal = 0;
@@ -42,6 +44,8 @@ class AdminViewServiceProvider extends ServiceProvider
 
                     $view->with(compact(
                         'adminSidebarPendingRis',
+                        'adminSidebarReviewedRis',
+                        'adminSidebarAwaitingIssuedBy',
                         'adminSidebarAwaitingCosign',
                         'adminSidebarAmendRis',
                         'attentionTotal'
@@ -53,6 +57,8 @@ class AdminViewServiceProvider extends ServiceProvider
                 try {
                     $attention = AdminAttentionSummary::counts();
                     $adminSidebarPendingRis = $attention['pendingRis'];
+                    $adminSidebarReviewedRis = $attention['needsDecision'];
+                    $adminSidebarAwaitingIssuedBy = $attention['awaitingIssuedBy'];
                     $adminSidebarAwaitingCosign = $attention['awaitingCosign'];
                     $adminSidebarAmendRis = $attention['amendRis'];
                     $attentionTotal = $attention['attentionTotal'];
@@ -62,6 +68,8 @@ class AdminViewServiceProvider extends ServiceProvider
 
                 $view->with(compact(
                     'adminSidebarPendingRis',
+                    'adminSidebarReviewedRis',
+                    'adminSidebarAwaitingIssuedBy',
                     'adminSidebarAwaitingCosign',
                     'adminSidebarAmendRis',
                     'attentionTotal'

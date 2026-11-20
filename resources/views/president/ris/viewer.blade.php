@@ -15,19 +15,30 @@
             background: white;
             position: relative;
         }
-        .header { position: relative; margin-top: 160px; margin-bottom: 10px; text-align: center; }
-        .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
-        .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-        .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
-        .line { display: inline-block; min-width: 220px; border-bottom: 1px solid #111827; text-align: center; }
+        .header { position: relative; min-height: 78px; margin-top: 8px; margin-bottom: 12px; text-align: center; }
+        .school { font-size: 18px; font-weight: 700; letter-spacing: 0.4px; padding: 0 230px; }
+        .title { margin-top: 6px; font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 800; letter-spacing: 0.6px; padding: 0 230px; }
+        .number { position: absolute; right: 0; bottom: 0; font-size: 13px; white-space: nowrap; }
+        .line { display: inline-block; min-width: 190px; border-bottom: 1px solid #111827; text-align: center; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .ris-table th, .ris-table td { border: 2px solid #374151; height: 28px; padding: 3px 6px; font-size: 13px; vertical-align: top; }
-        .ris-table th { text-align: center; font-weight: 700; }
-        .item-col { width: 26%; }
+        .ris-table th, .ris-table td {
+            border: 1px solid #1f2937;
+            height: 36px;
+            padding: 6px 5px;
+            font-size: 12px;
+            vertical-align: middle;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .ris-table th { text-align: center; font-weight: 700; line-height: 1.15; }
+        .item-col { width: 18%; }
+        .brand-col { width: 12%; }
         .unit-col { width: 8%; }
-        .qty-col { width: 10%; }
+        .supplier-col { width: 16%; }
+        .qty-group { width: 20%; }
+        .qty-col { width: 10%; font-size: 11px; white-space: normal; }
         .cost-col { width: 13%; }
-        .amount-col { width: 15%; }
+        .amount-col { width: 13%; }
         .purpose { margin-top: 8px; font-size: 15px; font-weight: 700; }
         .purpose-row-1 { display: flex; align-items: flex-end; gap: 12px; }
         .purpose-label { flex-shrink: 0; line-height: 28px; }
@@ -89,7 +100,7 @@
             padding: 0;
             height: auto !important;
             min-height: 0 !important;
-            overflow: hidden;
+            overflow: visible;
             background: #fff;
         }
         html.screen-preview .ris-document {
@@ -154,16 +165,16 @@
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
             }
-            @page { size: A4 portrait; margin: 8mm; }
+            @page { size: A4 landscape; margin: 8mm; }
         }
     </style>
     @include('partials.ris-signature-overlay-styles')
     @include('partials.print-fit-page')
-    <script>window.installPrintFit('.ris-document');</script>
+    <script>window.installPrintFit('.ris-original-form');</script>
 </head>
 <body>
     <main>
-        @include('partials.ris-document-paper', compact('ris', 'risItems', 'presidentName', 'isScreenPreview'))
+        @include('partials.ris-purchaser-sheet', ['ris' => $ris, 'risItems' => $risItems])
     </main>
 </body>
 </html>

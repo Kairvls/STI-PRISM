@@ -550,11 +550,14 @@ class AdminDashboardLists
             return ['total' => 0, 'due' => [], 'rows' => []];
         }
 
-        $shown = $ranked->take(3);
+        // Dashboard card: only equipment whose useful life is over (needs replacement).
+        $overdue = $ranked->filter(fn ($row) => (int) ($row->years_remaining ?? 0) <= 0)->values();
+        $shown = $overdue->take(3);
+        $due = self::reachedUsefulLife($ranked, $maintenance);
 
         return [
-            'total' => $ranked->count(),
-            'due' => self::reachedUsefulLife($ranked, $maintenance),
+            'total' => $overdue->count(),
+            'due' => $due,
             'rows' => $shown->map(fn ($row) => self::lifespanPayload($row, $maintenance))->all(),
         ];
     }

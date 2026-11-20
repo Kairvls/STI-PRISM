@@ -71,6 +71,12 @@ class MicrosoftController extends Controller
         $failRedirect = $adminIntent ? route('admin.login') : '/';
 
         try {
+            // Token exchange and Graph /me are two outbound calls. On a slow link each can
+            // take ~15s, which exceeds PHP's 30s limit and dies as an uncaught fatal.
+            if (function_exists('set_time_limit')) {
+                set_time_limit(90);
+            }
+
             $code = (string) request('code', '');
 
             if ($code === '') {
@@ -84,7 +90,10 @@ class MicrosoftController extends Controller
             }
 
             $tenant = config('services.microsoft.tenant', 'common');
-            $tokenResponse = Http::asForm()->post(
+            $tokenResponse = Http::asForm()
+                ->connectTimeout(10)
+                ->timeout(25)
+                ->post(
                 "https://login.microsoftonline.com/{$tenant}/oauth2/v2.0/token",
                 [
                     'client_id' => config('services.microsoft.client_id'),
@@ -114,6 +123,8 @@ class MicrosoftController extends Controller
             }
 
             $graphResponse = Http::withToken($accessToken)
+                ->connectTimeout(10)
+                ->timeout(25)
                 ->acceptJson()
                 ->get('https://graph.microsoft.com/v1.0/me');
 

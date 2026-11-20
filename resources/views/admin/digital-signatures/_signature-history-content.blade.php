@@ -15,13 +15,11 @@
             'ris' => 'RIS',
             'atp' => 'ATP',
             'rfc' => 'RFC',
-            'dv' => 'DV',
         ];
         $documentTitles = [
             'ris' => ['RIS History', 'Complete RIS log, including incomplete and in-progress forms, sorted by latest.'],
             'atp' => ['ATP History', 'Approved and sent-back Authority to Purchase records.'],
             'rfc' => ['RFC History', 'Approved and sent-back Request for Check records.'],
-            'dv' => ['DV History', 'Approved, revised, and released Disbursement Vouchers.'],
         ];
         $historyCards = [
             [

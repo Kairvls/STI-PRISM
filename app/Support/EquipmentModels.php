@@ -96,7 +96,72 @@ class EquipmentModels
             $query->where('model_name', 'like', '%'.$search.'%');
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        $paginator = $query->paginate($perPage)->withQueryString();
+        $paginator->setCollection(
+            self::attachUsageFlags($paginator->getCollection())
+        );
+
+        return $paginator;
+    }
+
+    /**
+     * Mark models referenced by equipment as in use.
+     *
+     * @param  Collection<int, object>  $models
+     * @return Collection<int, object>
+     */
+    public static function attachUsageFlags(Collection $models): Collection
+    {
+        if ($models->isEmpty()) {
+            return $models;
+        }
+
+        $nameKeys = $models->mapWithKeys(function ($model) {
+            $key = mb_strtolower(trim((string) ($model->model_name ?? '')));
+
+            return $key !== '' ? [$key => (int) $model->model_id] : [];
+        });
+
+        $usedIds = [];
+
+        if (
+            Schema::hasTable('equipment_table')
+            && Schema::hasColumn('equipment_table', 'equipment_model')
+            && $nameKeys->isNotEmpty()
+        ) {
+            $equipmentModels = DB::table('equipment_table')
+                ->whereNotNull('equipment_model')
+                ->where('equipment_model', '!=', '')
+                ->distinct()
+                ->pluck('equipment_model');
+
+            foreach ($equipmentModels as $name) {
+                $key = mb_strtolower(trim((string) $name));
+                if ($key !== '' && $nameKeys->has($key)) {
+                    $usedIds[$nameKeys[$key]] = true;
+                }
+            }
+        }
+
+        return $models->map(function ($model) use ($usedIds) {
+            $model->in_use = isset($usedIds[(int) $model->model_id]);
+
+            return $model;
+        });
+    }
+
+    public static function isInUse(int $modelId): bool
+    {
+        if (! self::tableReady() || $modelId < 1) {
+            return false;
+        }
+
+        $row = DB::table(self::TABLE)->where('model_id', $modelId)->first();
+        if (! $row) {
+            return false;
+        }
+
+        return (bool) (self::attachUsageFlags(collect([$row]))->first()->in_use ?? false);
     }
 
     public static function update(int $modelId, string $name, bool $active = true): void
@@ -108,6 +173,12 @@ class EquipmentModels
         $row = DB::table(self::TABLE)->where('model_id', $modelId)->first();
         if (! $row) {
             abort(404);
+        }
+
+        if (self::isInUse($modelId)) {
+            throw ValidationException::withMessages([
+                'name' => 'Cannot edit this model because it is already in use.',
+            ]);
         }
 
         $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
@@ -138,6 +209,16 @@ class EquipmentModels
     {
         if (! self::tableReady()) {
             abort(404);
+        }
+
+        if (! DB::table(self::TABLE)->where('model_id', $modelId)->exists()) {
+            abort(404);
+        }
+
+        if (self::isInUse($modelId)) {
+            throw ValidationException::withMessages([
+                'name' => 'Cannot delete this model because it is already in use.',
+            ]);
         }
 
         DB::table(self::TABLE)->where('model_id', $modelId)->delete();

@@ -30,8 +30,7 @@
             <th class="{{ $risPageHasAcceptable ? 'w-[20%]' : 'w-[24%]' }}">Equipment</th>
             <th class="w-[13%]">Requested By</th>
             <th class="w-[12%]">Status</th>
-            <th class="w-[10%] text-right">Amount</th>
-            <th class="{{ $risPageHasAcceptable ? 'w-[18%]' : 'w-[16%]' }} text-center">Actions</th>
+            <th class="{{ $risPageHasAcceptable ? 'w-[28%]' : 'w-[26%]' }} text-center">Actions</th>
         </tr>
     </thead>
 
@@ -117,13 +116,6 @@
 
                 <td class="min-w-0 align-middle">
                     @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
-                </td>
-
-                <td
-                    class="min-w-0 text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ !$isAcceptable ? 'text-gray-500' : 'text-gray-900' }}"
-                    title="Total computed amount of this RIS"
-                >
-                    ₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 2) }}
                 </td>
 
                 <td class="text-center">

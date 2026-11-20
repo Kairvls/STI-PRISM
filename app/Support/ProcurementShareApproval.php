@@ -166,7 +166,7 @@ class ProcurementShareApproval
                 'ris' => self::risApproveUrl($id, $status),
                 'atp' => self::namedOrPath('school-admin.atp.index', '/school-admin/authority-to-purchase', ['view_atp' => $id]),
                 'rfc' => self::namedOrPath('school-admin.rfc.index', '/school-admin/request-check', ['view_rfc' => $id]),
-                'dv' => self::dvApproveUrl($id, $status, $user),
+                'dv' => null,
                 'rr' => url('/receiving/reports?view_rr='.$id),
                 'liq' => url('/accounting/liquidation-reports/'.$id),
                 default => null,

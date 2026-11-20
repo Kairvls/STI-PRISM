@@ -13,7 +13,7 @@
             </a>
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="acc-page-title">{{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}</h1>
-                @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_collected_at) ? 'Check collected' : (!empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status)])
+                @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_collected_at) ? 'Check collected' : (!empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status), 'doc' => 'rfc'])
                 @include('partials.ris-urgency-badge', [
                     'urgent' => \App\Support\DocumentUrgency::isUrgent('RFC', $rfc->request_check_id),
                     'title' => 'Inherited from linked RIS',
@@ -29,13 +29,9 @@
         <div class="acc-actions">
             @if ($reviewable)
                 @if(!empty($dualRouteApprove))
-                    <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved', 'purchaser')" class="acc-action-btn is-approve" data-tip="Approve and pass to Purchaser only">
-                        <i data-lucide="user-check" class="h-4 w-4"></i>
-                        <span>Pass to Purchaser</span>
-                    </button>
-                    <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved', 'purchaser_and_accounting')" class="acc-action-btn is-approve" data-tip="Approve and send package to Accounting for DV">
+                    <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved', 'purchaser_and_accounting')" class="acc-action-btn is-approve" data-tip="Approve the funding request, return it to the Purchaser, and send it to Accounting">
                         <i data-lucide="building-2" class="h-4 w-4"></i>
-                        <span>Pass to Purchaser + Accounting</span>
+                        <span>Approve → Purchaser + Accounting</span>
                     </button>
                 @else
                     <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Approved')" class="acc-action-btn is-approve" data-tip="Approve request check">
@@ -43,10 +39,6 @@
                         <span>Approve</span>
                     </button>
                 @endif
-                <button type="button" onclick="openDecisionModal('rfc', {{ $rfc->request_check_id }}, 'Rejected')" class="acc-action-btn is-revise" data-tip="Send back to Purchaser for revision">
-                    <i data-lucide="undo-2" class="h-4 w-4"></i>
-                    <span>Request Revision</span>
-                </button>
             @endif
             @if ($releasable)
                 <button type="button" onclick="document.getElementById('releaseFundsModal').classList.remove('hidden')" class="acc-action-btn is-approve" data-tip="Release funds">
@@ -73,11 +65,7 @@
             </div>
 
             <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Amount to release</p>
-                <p class="mt-1 text-2xl font-bold text-blue-700">
-                    {{ $rfc->request_check_amount_figures !== null ? '₱'.number_format((float) $rfc->request_check_amount_figures, 2) : '—' }}
-                </p>
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="text-xs text-slate-500">
                     Payee: {{ $rfc->request_check_payee ?: '—' }}
                     @if (!empty($purchaseOrderLabel))
                         · {{ $purchaseOrderLabel }}
@@ -131,6 +119,11 @@
         </div>
     </div>
 
+    @include('partials.document-lineage', [
+        'lineage' => \App\Support\DocumentLineage::forRfc((int) $rfc->request_check_id, (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null),
+        'currentType' => 'RFC',
+        'statusHint' => \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc'),
+    ])
     <div class="acc-review-body">
         @if (!empty($rfc->request_check_funds_collected_at))
             <div class="acc-note acc-note-ok mb-3">
@@ -156,20 +149,6 @@
                         </div>
                     </div>
                 </div>
-                @if ($attachments->isNotEmpty())
-                    <div class="acc-attachments">
-                        <h3>Supporting documents</h3>
-                        <ul>
-                            @foreach ($attachments as $file)
-                                <li>
-                                    <a href="/school-admin/request-check/{{ $rfc->request_check_id }}/attachments/{{ $file->request_check_attachment_id }}">
-                                        {{ $file->request_check_attachment_original_name }}
-                                    </a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
             </div>
             <div class="acc-side-stack">
                 @include('accounting.partials.related-docs', [
@@ -275,15 +254,10 @@
 
         const routeHint = document.getElementById('routeHint');
         if (isApproved && dualRouteApprove) {
-            const both = (routeTo || 'purchaser') === 'purchaser_and_accounting';
             routeHint.classList.remove('hidden');
-            routeHint.textContent = both
-                ? 'Approves this funding request (and linked ATP if still pending) and sends the package to Accounting for DV.'
-                : 'Approves for the Purchaser only. They can submit to Accounting later.';
-            document.getElementById('decisionModalTitle').textContent = both
-                ? 'Pass to Purchaser + Accounting'
-                : 'Pass to Purchaser';
-            document.getElementById('approveBtn').textContent = both ? 'Confirm pass to both' : 'Confirm pass to Purchaser';
+            routeHint.textContent = 'Approves this funding request and any linked ATP still waiting. The Purchaser keeps the signed record, and the funding request goes to Accounting.';
+            document.getElementById('decisionModalTitle').textContent = 'Approve → Purchaser + Accounting';
+            document.getElementById('approveBtn').textContent = 'Confirm approve to both';
         } else {
             routeHint.classList.add('hidden');
             document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Request revision';

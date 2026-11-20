@@ -219,63 +219,27 @@ class DocumentLineage
      */
     public static function reviewHint(?string $status, ?string $stage = null, ?string $docType = null): ?string
     {
-        $status = (string) $status;
+        $raw = trim((string) $status);
+        if ($raw === '') {
+            return null;
+        }
+
         $docType = $docType ? strtolower($docType) : null;
+        $stage = $stage ? strtolower($stage) : null;
+        $open = in_array($raw, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true);
 
-        if (in_array($status, ['Draft', ''], true)) {
-            return ProcurementDraftLabel::STATUS_LONG;
-        }
-        if ($status === 'Minor Revision' || $status === 'Revision') {
-            return 'Revision required — update and resubmit';
-        }
-        if ($status === 'Completed') {
-            return 'Completed';
-        }
-        if ($status === 'Directly Approved') {
-            return 'Directly approved by the Administrator';
-        }
-        if ($status === 'Approved' || $status === 'President Approved') {
-            return 'Approved';
-        }
-        if ($status === 'With President') {
-            return 'Submitted — waiting on President';
-        }
-        if ($status === 'Under Review') {
-            return 'Under review';
-        }
-        if ($status === 'Incomplete') {
-            return 'Incomplete — waiting for back order items';
-        }
-        if (in_array($status, ['Rejected', 'Returned', RisWorkflow::PRESIDENT_REJECTED, RisWorkflow::PRESIDENT_REJECTED_LEGACY], true)) {
-            return str_contains($status, 'Rejected') ? 'Rejected' : $status;
-        }
-        if ($status === RisWorkflow::FORWARDED) {
-            return 'Submitted — waiting on President';
-        }
-        if ($status === RisWorkflow::PRESIDENT_APPROVED || $status === RisWorkflow::APPROVED_LEGACY) {
-            return 'Approved — waiting on Administrator release';
-        }
-        if ($stage === 'purchaser') {
-            return 'Returned to purchaser — update and resubmit';
-        }
-        if (in_array($status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending', 'Pending Admin Approval'], true)) {
-            if ($stage === 'admin' || $status === 'Pending Admin Approval') {
-                return 'Submitted — waiting on Administrator';
-            }
-            if ($stage === 'receiving' || $docType === 'rr') {
-                return 'Submitted — waiting on Receiving';
-            }
-            if ($docType === 'ris') {
-                return 'Submitted — waiting on Administrator';
-            }
-            if ($docType === 'dv') {
-                return 'Submitted — waiting on School Administrator / President';
-            }
-
-            return 'Submitted — waiting on Accounting';
+        if ($stage === 'purchaser' && $open) {
+            return ProcurementStatus::FOR_REVISION;
         }
 
-        return $status ?: null;
+        $docForLabel = $docType;
+        if ($docType === 'liq' && $stage === 'admin') {
+            $docForLabel = 'rfc';
+        }
+
+        $label = ProcurementStatus::label($raw, $docForLabel);
+
+        return $label === '—' ? null : $label;
     }
 
     /**
@@ -283,35 +247,9 @@ class DocumentLineage
      */
     public static function reviewHintForRis(object $ris): ?string
     {
-        $status = (string) ($ris->ris_status ?? '');
+        $label = RisWorkflow::statusLabel($ris);
 
-        if (in_array($status, ['Draft', ''], true)) {
-            return ProcurementDraftLabel::STATUS_LONG;
-        }
-        if ($status === 'Minor Revision') {
-            return 'Revision required — update and resubmit';
-        }
-        if ($status === 'Rejected' || RisWorkflow::isPresidentRejected($ris)) {
-            return 'Rejected';
-        }
-        if (RisWorkflow::isEligibleForAtp($ris)) {
-            return 'Approved — ready for ATP';
-        }
-        if (RisWorkflow::isPresidentApproved($ris) && !RisWorkflow::hasIssuedBy($ris)) {
-            return 'Approved by '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_PRESIDENT, 'the President')
-                .' — waiting on '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator').' release';
-        }
-        if ($status === RisWorkflow::ACCEPTED) {
-            return 'Accepted — waiting on '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator').' signing decision';
-        }
-        if (RisWorkflow::isAwaitingPresident($ris) || $status === RisWorkflow::FORWARDED) {
-            return 'Submitted — waiting on the President';
-        }
-        if (in_array($status, RisWorkflow::incomingStatuses(), true)) {
-            return 'Submitted — waiting on '.RisWorkflow::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator').' accept';
-        }
-
-        return self::reviewHint($status, null, 'ris');
+        return $label !== '' && $label !== '—' ? $label : null;
     }
 
     private static function emptyChain(): array

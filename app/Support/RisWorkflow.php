@@ -462,6 +462,7 @@ class RisWorkflow
 
     /**
      * President approved, Issued by still blank — Admin must sign on Sign RIS.
+     * Issued by is only required after President approval, not on soft-return for revision.
      */
     public static function needsAdminIssuedBy(object $ris): bool
     {
@@ -470,15 +471,16 @@ class RisWorkflow
 
     /**
      * Can Admin relay a President return/reject to the Purchaser (Pass to Purchaser).
+     * Soft-return does not require Issued by — SA only passes it through.
      * Resulting purchaser status is President Revision (origin preserved), not Minor Revision.
      */
     public static function canReturnForRevision(object $ris): bool
     {
-        $status = (string) ($ris->ris_status ?? '');
+        if (self::isPresidentRejected($ris)) {
+            return true;
+        }
 
-        // Hard SA Reject stays closed. Soft returns from President open this path.
-        return self::isPresidentRejected($ris)
-            || $status === self::RETURNED_BY_PRESIDENT;
+        return self::isReturnedByPresident($ris);
     }
 
     /** Purchaser may edit / resubmit these statuses. */
@@ -590,58 +592,7 @@ class RisWorkflow
 
     public static function statusLabel(object $ris): string
     {
-        $status = (string) ($ris->ris_status ?? '');
-
-        $schoolAdmin = self::roleHolder($ris, WorkflowNotifier::ROLE_SCHOOL_ADMIN, 'the School Administrator');
-        $president = self::roleHolder($ris, WorkflowNotifier::ROLE_PRESIDENT, 'the President');
-
-        if (in_array($status, self::incomingStatuses(), true)) {
-            return 'Under review by '.$schoolAdmin;
-        }
-
-        if ($status === self::ACCEPTED) {
-            return 'Accepted — waiting on '.$schoolAdmin.' signing decision';
-        }
-
-        if ($status === self::DIRECTLY_APPROVED) {
-            return 'Directly approved by '.$schoolAdmin;
-        }
-
-        if (self::isPresidentRejected($ris)) {
-            return self::PRESIDENT_REJECTED;
-        }
-
-        if (self::isPresidentApproved($ris)) {
-            return self::hasIssuedBy($ris)
-                ? self::PRESIDENT_APPROVED
-                : 'Approved by '.$president.' — waiting on '.$schoolAdmin.' release';
-        }
-
-        if ($status === self::FORWARDED || ($status === self::APPROVED_LEGACY && !self::presidentDigitalSignature($ris))) {
-            return 'Forwarded to the President by '.$schoolAdmin;
-        }
-
-        if ($status === self::MINOR_REVISION) {
-            return 'For revision (School Administrator) — update and resubmit';
-        }
-
-        if ($status === self::PRESIDENT_REVISION) {
-            return 'For revision (President) — update and resubmit';
-        }
-
-        if ($status === self::RETURNED_BY_PRESIDENT) {
-            return 'For revision (President) — School Administrator';
-        }
-
-        if ($status === 'Rejected') {
-            return 'Rejected';
-        }
-
-        if ($status === 'Draft' || $status === '') {
-            return ProcurementDraftLabel::STATUS_LONG;
-        }
-
-        return $status !== '' ? $status : 'N/A';
+        return ProcurementStatus::forRis($ris);
     }
 
     public static function requestType(?int $procurementRequestId): string
@@ -732,22 +683,25 @@ class RisWorkflow
     public static function atpStatusLabel(object $atp): string
     {
         if (self::atpNeedsRevision($atp)) {
-            return 'Minor Revision';
+            return ProcurementStatus::FOR_REVISION;
         }
 
         $status = (string) ($atp->authority_purchase_status ?? '');
 
         if ($status === 'Pending') {
             return filled($atp->authority_purchase_submitted_at ?? null)
-                ? 'Under Review'
-                : ProcurementDraftLabel::STATUS;
+                ? ProcurementStatus::SENT_TO_SCHOOL_ADMINISTRATOR
+                : ProcurementStatus::IN_PREPARATION;
         }
 
-        if ($status === 'Directly Approved') {
-            return 'Directly Approved';
+        if ($status === '') {
+            return '—';
         }
 
-        return $status !== '' ? $status : '—';
+        return ProcurementStatus::label($status, 'atp', [
+            'submitted' => $atp->authority_purchase_submitted_at ?? null,
+            'revision' => $atp->authority_purchase_rejection_reason ?? null,
+        ]);
     }
 
     public static function isDrawnSignature(?string $value): bool
@@ -1386,5 +1340,30 @@ class RisWorkflow
         }
 
         return self::assertPurchaserIssuedComplete($risId);
+    }
+
+    public static function brandPaperLabel(?object $item): string
+    {
+        if (! $item) {
+            return '';
+        }
+
+        $name = trim((string) ($item->brand_name ?? ''));
+        if ($name === '' || str_contains($name, '×')) {
+            return $name;
+        }
+
+        $raw = $item->ris_item_brand_quantities ?? ($item->brand_qtys ?? null);
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : null;
+        }
+
+        $qty = 1;
+        if (is_array($raw) && $raw !== []) {
+            $qty = max(1, (int) reset($raw));
+        }
+
+        return $name.' ×'.$qty;
     }
 }

@@ -550,7 +550,7 @@ class RisFormExporter
             return '';
         }
 
-        return number_format((float) $value, 2);
+        return \App\Support\Money::format($value);
     }
 
     protected function d($value, string $format = 'm/d/Y'): string

@@ -30,7 +30,7 @@
         [
             'label' => 'Open RIS',
             'value' => $stats['open_ris'],
-            'meta' => '₱'.number_format((float) ($stats['open_ris_amount'] ?? 0), 2).' open · ₱'.number_format((float) ($stats['pending_admin_ris_amount'] ?? 0), 2).' pending review',
+            'meta' => (int) $stats['open_ris'].' open · '.(int) $stats['awaiting_admin_ris'].' pending review',
             'url' => route('admin.operations.procurement', ['filter' => 'open']),
         ],
     ];
@@ -210,22 +210,6 @@
         </div>
     </div>
 
-    {{-- Money --}}
-    <div class="pur-card">
-        <div class="grid divide-gray-100 sm:grid-cols-2 sm:divide-x">
-            <a href="{{ route('admin.operations.procurement', ['filter' => 'open']) }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Open RIS value</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">₱{{ number_format((float) ($stats['open_ris_amount'] ?? 0), 2) }}</p>
-                <p class="mt-1 text-xs text-gray-500">{{ (int) $stats['open_ris'] }} open procurement record{{ (int) $stats['open_ris'] === 1 ? '' : 's' }}</p>
-            </a>
-            <a href="{{ url('/admin/procurement-review?filter=pending') }}" class="block px-5 py-5 transition hover:bg-gray-50/70">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pending Administrator review</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-950">₱{{ number_format((float) ($stats['pending_admin_ris_amount'] ?? 0), 2) }}</p>
-                <p class="mt-1 text-xs text-gray-500">{{ (int) $stats['awaiting_admin_ris'] }} RIS awaiting accept</p>
-            </a>
-        </div>
-    </div>
-
     {{-- Latest procurement --}}
     <div class="pur-card">
         <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between">
@@ -249,7 +233,6 @@
                         'rr' => 'Receiving',
                         'liq' => 'Liquidation',
                     ];
-                    $amount = (float) ($row->ris_calculated_total ?? 0);
                     $formNo = \App\Support\RisWorkflow::formNumber($row);
                     $hint = $pipeline['current_hint'] ?? (\App\Support\RisWorkflow::statusLabel($row));
                     $readyCount = collect($stages)->filter(fn ($stage) => ! empty($stage['exists']) && ! empty($stage['id']))->count();
@@ -259,7 +242,6 @@
                         <p class="text-sm font-semibold text-gray-950">{{ $formNo }}</p>
                         <p class="mt-1 text-xs text-gray-500">
                             {{ \Illuminate\Support\Str::limit($row->ris_purpose_description ?: 'No purpose noted', 72) }}
-                            · ₱{{ number_format($amount, 2) }}
                             @if(!empty($row->created_by_name))
                                 · {{ $row->created_by_name }}
                             @endif

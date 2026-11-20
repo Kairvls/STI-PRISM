@@ -34,7 +34,7 @@
                 request()->is('purchaser/liquidation-reports*') => ['Liquidation Reports', ''],
                 request()->is('purchaser/supplier-insights*') => ['Supplier Insights', 'Suppliers with delivery or refund issues.'],
                 request()->is('purchaser/brand-insights*') => ['Brand Insights', 'Brands often reported defective.'],
-                request()->is('purchaser/installment-terms*') => ['Installment Terms', 'Month terms for cash installment schedules.'],
+                request()->is('purchaser/installment-terms*') => ['Payment intervals', 'Day intervals and preset payment spacing for cash installments.'],
                 request()->is('purchaser/history*') => ['Purchase History', ''],
                 default => [View::yieldContent('title', 'PaAyo'), ''],
             };

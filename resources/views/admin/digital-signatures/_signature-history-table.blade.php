@@ -10,8 +10,7 @@
             <th class="w-[12%]">Request No.</th>
             <th class="w-[20%]">Equipment</th>
             <th class="w-[13%]">Requested By</th>
-            <th class="w-[23%]">Status</th>
-            <th class="w-[11%] text-right">Amount</th>
+            <th class="w-[34%]">Status</th>
             <th class="w-[9%] text-center">Actions</th>
         </tr>
     </thead>
@@ -100,13 +99,6 @@
                             @endif
                         @endif
                     </div>
-                </td>
-
-                <td
-                    class="text-right text-sm font-semibold whitespace-nowrap tabular-nums {{ $isDimmed ? 'text-gray-500' : 'text-gray-900' }}"
-                    title="Total computed amount of this RIS"
-                >
-                    ₱{{ number_format((float) ($history->ris_calculated_total ?? 0), 2) }}
                 </td>
 
                 <td class="text-center">

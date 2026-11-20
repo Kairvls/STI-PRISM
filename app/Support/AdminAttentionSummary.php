@@ -19,6 +19,8 @@ class AdminAttentionSummary
      *
      * @return array{
      *     pendingRis: int,
+     *     needsDecision: int,
+     *     awaitingIssuedBy: int,
      *     awaitingCosign: int,
      *     amendRis: int,
      *     attentionTotal: int
@@ -31,6 +33,8 @@ class AdminAttentionSummary
         }
 
         $pendingRis = 0;
+        $needsDecision = 0;
+        $awaitingIssuedBy = 0;
         $awaitingCosign = 0;
         $amendRis = 0;
 
@@ -42,11 +46,16 @@ class AdminAttentionSummary
 
             $pendingRis = (int) self::scopePendingRis(clone $reviewBase)->count();
             $amendRis = (int) self::scopeAmendRis(clone $reviewBase)->count();
+            $signBase = DB::table('requisition_issue_slip_table');
+            $needsDecision = (int) (clone $signBase)->where('ris_status', RisWorkflow::ACCEPTED)->count();
+            $awaitingIssuedBy = (int) self::scopeAwaitingIssuedBy(clone $signBase)->count();
             $awaitingCosign = (int) self::scopeAwaitingCosign(DB::table('requisition_issue_slip_table'))->count();
         }
 
         self::$cached = [
             'pendingRis' => $pendingRis,
+            'needsDecision' => $needsDecision,
+            'awaitingIssuedBy' => $awaitingIssuedBy,
             'awaitingCosign' => $awaitingCosign,
             'amendRis' => $amendRis,
             'attentionTotal' => $pendingRis + $awaitingCosign + $amendRis,
