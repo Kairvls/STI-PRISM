@@ -73,11 +73,6 @@
                 {{ $equipment->equipment_inventory_status }}
             </div>
 
-            <div>
-                <strong>Borrowable:</strong>
-                {{ $equipment->equipment_is_borrowable ? 'Yes' : 'No' }}
-            </div>
-
         </div>
 
     </div>

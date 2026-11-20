@@ -193,9 +193,6 @@
                                             <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
                                         @endif
                                     </span>
-                                    @if (array_key_exists('amount', $row))
-                                        <span class="shrink-0 text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount']) }}</span>
-                                    @endif
                                 </button>
                             @else
                                 <a href="{{ $row['href'] }}" class="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50">
@@ -205,9 +202,6 @@
                                             <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $row['meta'] }}</span>
                                         @endif
                                     </span>
-                                    @if (array_key_exists('amount', $row))
-                                        <span class="shrink-0 text-xs font-semibold tabular-nums text-blue-700">{{ $peso($row['amount']) }}</span>
-                                    @endif
                                 </a>
                             @endif
                         @empty

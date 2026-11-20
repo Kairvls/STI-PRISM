@@ -135,7 +135,7 @@ class AdminOperationsController extends Controller
                 DB::table('borrowing_records_table')
                     ->where('borrowing_status', 'Borrowed')
                     ->whereNotNull('borrowing_expected_return_date')
-                    ->whereDate('borrowing_expected_return_date', '<', today())
+                    ->where('borrowing_expected_return_date', '<', now())
                     ->update(['borrowing_status' => 'Overdue']);
 
                 $stats['overdue_borrows'] = DB::table('borrowing_records_table')
@@ -1102,7 +1102,7 @@ class AdminOperationsController extends Controller
                 DB::table('borrowing_records_table')
                     ->where('borrowing_status', 'Borrowed')
                     ->whereNotNull('borrowing_expected_return_date')
-                    ->whereDate('borrowing_expected_return_date', '<', today())
+                    ->where('borrowing_expected_return_date', '<', now())
                     ->update(['borrowing_status' => 'Overdue']);
 
                 $base = DB::table('borrowing_records_table');

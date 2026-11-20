@@ -103,7 +103,7 @@
                         <th>Borrower</th>
                         <th>Borrowed on</th>
                         <th>Due back</th>
-                        <th>Authorized by</th>
+                        <th>Source</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -144,9 +144,10 @@
                                 'actualReturn' => $row->borrowing_actual_return_date,
                                 'purpose' => $row->borrowing_purpose,
                                 'destination' => $row->borrowing_destination_location,
-                                'authorized' => $row->borrowing_authorized_by,
+                                'source' => $row->borrowing_source ?? 'admin',
                                 'remarks' => $row->borrowing_remarks,
                                 'status' => $status,
+                                'rejectionReason' => $row->borrowing_rejection_reason ?? null,
                                 'conditionOut' => $row->borrowing_equipment_condition,
                                 'fromRoom' => $row->borrowed_from_room_name ?? null,
                                 'returnedTo' => $row->returned_to_room_name ?? null,
@@ -184,7 +185,9 @@
                                     <p class="mt-0.5 text-xs {{ $dueNoteClass }}">{{ $dueNote }}</p>
                                 @endif
                             </td>
-                            <td class="text-sm text-gray-600">{{ $row->borrowing_authorized_by ?: '—' }}</td>
+                            <td class="text-sm text-gray-600">
+                                {{ (($row->borrowing_source ?? 'admin') === 'online') ? 'Online' : 'Desk' }}
+                            </td>
                             <td>
                                 <span class="borrow-status {{ $badgeClass }} inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium">
                                     {{ $status }}

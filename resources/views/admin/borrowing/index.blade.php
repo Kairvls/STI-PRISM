@@ -57,14 +57,6 @@
                 Borrowers list
             </a>
 
-            <a
-                href="{{ route('admin.borrowing.event-types') }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="tags" class="h-4 w-4"></i>
-                Event Name - Types
-            </a>
-
             <button
                 type="button"
                 onclick="openBorrowModal()"
@@ -144,19 +136,35 @@
 
 
                 {{-- TOTAL RECORDS --}}
-                <div
-                    class="inline-flex w-fit items-center gap-2
-                        rounded-lg border border-slate-200
-                        bg-slate-50 px-3 py-2
-                        text-xs font-medium text-slate-500"
-                >
-                    <i
-                        data-lucide="package"
-                        class="h-3.5 w-3.5"
-                    ></i>
+                @php
+                    $borrowFeeRates = \App\Support\BorrowingFees::rates();
+                    $canEditBorrowFees = \App\Support\RoleAccess::isAdmin();
+                @endphp
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($canEditBorrowFees)
+                        <button
+                            type="button"
+                            onclick="openBorrowFeesModal()"
+                            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                            <i data-lucide="banknote" class="h-3.5 w-3.5 text-slate-500"></i>
+                            Fees · ₱{{ number_format($borrowFeeRates['late_fee_per_day'], 2) }}/day
+                        </button>
+                    @endif
+                    <div
+                        class="inline-flex w-fit items-center gap-2
+                            rounded-lg border border-slate-200
+                            bg-slate-50 px-3 py-2
+                            text-xs font-medium text-slate-500"
+                    >
+                        <i
+                            data-lucide="package"
+                            class="h-3.5 w-3.5"
+                        ></i>
 
-                    {{ $borrowings->total() }} total
+                        {{ $borrowings->total() }} total
 
+                    </div>
                 </div>
 
             </div>
@@ -199,7 +207,7 @@
 
                             value="{{ request('search') }}"
 
-                            placeholder="Search slip no., event, equipment, borrower, or authorized person..."
+                            placeholder="Search slip no., event, equipment, or borrower..."
 
                             class="h-9 w-full rounded-lg
                                 border border-slate-200
@@ -269,6 +277,13 @@
                             </option>
 
                             <option
+                                value="Pending"
+                                @selected(request('status') === 'Pending')
+                            >
+                                Pending
+                            </option>
+
+                            <option
                                 value="Borrowed"
                                 @selected(request('status') === 'Borrowed')
                             >
@@ -289,6 +304,13 @@
                                 Overdue
                             </option>
 
+                            <option
+                                value="Denied"
+                                @selected(request('status') === 'Denied')
+                            >
+                                Denied
+                            </option>
+
                         </select>
 
 
@@ -300,6 +322,36 @@
                         ></i>
 
                     </div>
+
+                    {{-- ================================================= --}}
+                    {{-- SOURCE FILTER --}}
+                    {{-- ================================================= --}}
+
+                    @if (\Illuminate\Support\Facades\Schema::hasColumn('borrowing_records_table', 'borrowing_source'))
+                    <div class="relative">
+                        <select
+                            name="source"
+                            class="h-9 min-w-[150px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+                            <option value="">All sources</option>
+                            <option value="online" @selected(request('source') === 'online')>Online requests</option>
+                            <option value="admin" @selected(request('source') === 'admin')>Desk / admin</option>
+                        </select>
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+                    </div>
+                    @endif
 
                     {{-- ================================================= --}}
                     {{-- CALENDAR DATE FILTER --}}
@@ -415,6 +467,7 @@
                     @if (
                         request()->filled('search')
                         || request()->filled('status')
+                        || request()->filled('source')
                         || request()->filled('borrower')
                         || request()->filled('date_from')
                         || request()->filled('date_to')
@@ -540,10 +593,14 @@
                                 }
 
                                 $statuses = $slipItems->pluck('borrowing_status')->filter()->values();
-                                if ($statuses->contains('Overdue')) {
+                                if ($statuses->contains('Pending')) {
+                                    $borrowingStatus = 'Pending';
+                                } elseif ($statuses->contains('Overdue')) {
                                     $borrowingStatus = 'Overdue';
                                 } elseif ($statuses->contains('Borrowed')) {
                                     $borrowingStatus = 'Borrowed';
+                                } elseif ($statuses->contains('Denied')) {
+                                    $borrowingStatus = 'Denied';
                                 } elseif ($statuses->contains('Returned')) {
                                     $borrowingStatus = 'Returned';
                                 } else {
@@ -551,14 +608,21 @@
                                 }
 
                                 $statusClass = match ($borrowingStatus) {
+                                    "Pending" => "bg-amber-50 text-amber-800",
                                     "Borrowed" => "bg-sky-50 text-sky-700",
                                     "Returned" => "bg-emerald-50 text-emerald-700",
                                     "Overdue" => "bg-rose-50 text-rose-700",
+                                    "Denied" => "bg-slate-200 text-slate-700",
                                     default => "bg-slate-100 text-slate-600",
                                 };
 
                                 $openSlipItem = $slipItems->first(fn ($item) => in_array($item->borrowing_status, ['Borrowed', 'Overdue'], true));
                                 $allReturned = $slipItems->every(fn ($item) => ($item->borrowing_status ?? '') === 'Returned');
+                                $allPending = $slipItems->isNotEmpty()
+                                    && $slipItems->every(fn ($item) => ($item->borrowing_status ?? '') === 'Pending');
+                                $canDecidePending = $allPending
+                                    && $slipNo !== ''
+                                    && ($record->borrowing_source ?? $slipItems->first()->borrowing_source ?? '') === 'online';
                                 $anyReturnedDate = $slipItems
                                     ->map(fn ($item) => $item->borrowing_actual_return_date ?? null)
                                     ->filter()
@@ -596,6 +660,8 @@
                                         $borrowerOverdue = (int) ($borrowerCaution['overdue'] ?? 0);
                                         $borrowerOpen = (int) ($borrowerCaution['open'] ?? 0);
                                         $borrowerDept = trim((string) ($record->borrowing_borrower_department ?? ''));
+                                        $isOnlineBorrow = ($record->borrowing_source ?? 'admin') === 'online'
+                                            || $slipItems->contains(fn ($item) => ($item->borrowing_source ?? '') === 'online');
                                     @endphp
 
                                     <div class="flex items-center gap-2">
@@ -619,7 +685,7 @@
                                         </div>
 
                                         <div class="min-w-0">
-                                            <div class="flex items-center gap-1.5">
+                                            <div class="flex flex-wrap items-center gap-1.5">
                                                 <span
                                                     class="max-w-[160px] truncate
                                                         text-[13px] font-medium
@@ -627,6 +693,17 @@
                                                 >
                                                     {{ $borrowerName !== '' ? $borrowerName : '—' }}
                                                 </span>
+                                                @if ($isOnlineBorrow)
+                                                    <span
+                                                        class="inline-flex shrink-0 items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100"
+                                                        title="Submitted online from the landing page"
+                                                        data-pur-tip-title="Online borrow"
+                                                        data-pur-tip="Teacher submitted this borrow online. Confirm physical release with Property."
+                                                        data-pur-tip-accent="#4338ca"
+                                                    >
+                                                        Online
+                                                    </span>
+                                                @endif
                                                 @if ($borrowerOverdue > 0)
                                                     <span
                                                         class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-100"
@@ -787,27 +864,58 @@
                                     $canReturn = $openSlipItem && ! $isArchivedRecord;
                                     $canArchive = $allReturned && ! $isArchivedRecord;
                                     $canUnarchive = $isArchivedRecord;
+                                    $slipQuantity = (int) $slipItems->sum(fn ($item) => max(1, (int) ($item->borrowing_quantity ?? 1)));
+                                    $slipNames = $slipItems
+                                        ->map(fn ($item) => trim((string) ($item->equipment_name ?? '')))
+                                        ->filter()
+                                        ->unique()
+                                        ->values();
+                                    $slipEquipment = $slipNames->count() === 1
+                                        ? $slipNames->first()
+                                        : ($slipNames->count() > 1
+                                            ? $slipNames->take(3)->implode(', ').($slipNames->count() > 3 ? ' +'.($slipNames->count() - 3) : '')
+                                            : $actionRecord->equipment_name);
+                                    $slipAssetTag = $slipItems->count() === 1
+                                        ? ($actionRecord->equipment_asset_tag ?? null)
+                                        : null;
+                                    $openReturnItems = $slipItems
+                                        ->filter(fn ($item) => in_array($item->borrowing_status ?? '', ['Borrowed', 'Overdue'], true))
+                                        ->values();
+                                    $slipUniqueness = ($openReturnItems->isNotEmpty() ? $openReturnItems : $slipItems)
+                                        ->flatMap(function ($item) {
+                                            $qty = max(1, (int) ($item->borrowing_quantity ?? 1));
+
+                                            return \App\Support\EquipmentIdentity::borrowedUnitLabels($item, $qty);
+                                        })
+                                        ->values()
+                                        ->all();
+                                    $openReturnQuantity = (int) $openReturnItems->sum(fn ($item) => max(1, (int) ($item->borrowing_quantity ?? 1)));
                                     $viewPayload = [
                                         'id' => $actionRecord->borrowing_record_id,
                                         'slipNo' => $actionRecord->borrowing_transaction_no ?? null,
+                                        'source' => $actionRecord->borrowing_source ?? 'admin',
                                         'eventName' => $actionRecord->borrowing_event_name ?? null,
                                         'eventType' => $actionRecord->borrowing_event_type ?? null,
                                         'eventLocation' => $actionRecord->borrowing_event_location ?? null,
                                         'equipmentId' => $actionRecord->borrowing_equipment_id,
-                                        'equipment' => $actionRecord->equipment_name,
-                                        'assetTag' => $actionRecord->equipment_asset_tag,
-                                        'tracking' => $actionRecord->equipment_tracking_mode,
+                                        'equipment' => $slipEquipment,
+                                        'assetTag' => $slipAssetTag,
+                                        'uniqueness' => $slipUniqueness,
+                                        'tracking' => $slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode,
                                         'borrower' => $actionRecord->borrowing_borrower_name,
                                         'department' => $actionRecord->borrowing_borrower_department,
-                                        'quantity' => $actionRecord->borrowing_quantity,
+                                        'quantity' => $openReturnQuantity > 0
+                                            ? $openReturnQuantity
+                                            : ($slipQuantity > 0 ? $slipQuantity : $actionRecord->borrowing_quantity),
+                                        'returnQuantity' => $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : $actionRecord->borrowing_quantity),
                                         'borrowDate' => $actionRecord->borrowing_date,
                                         'expectedReturn' => $actionRecord->borrowing_expected_return_date,
                                         'actualReturn' => $actionRecord->borrowing_actual_return_date,
                                         'purpose' => $actionRecord->borrowing_purpose,
                                         'destination' => $actionRecord->borrowing_destination_location,
-                                        'authorized' => $actionRecord->borrowing_authorized_by,
                                         'remarks' => $actionRecord->borrowing_remarks,
-                                        'status' => $actionRecord->borrowing_status,
+                                        'status' => $borrowingStatus,
+                                        'rejectionReason' => $actionRecord->borrowing_rejection_reason ?? null,
                                         'conditionOut' => $actionRecord->borrowing_equipment_condition,
                                         'fromRoom' => $actionRecord->borrowed_from_room_name,
                                         'returnedTo' => $actionRecord->returned_to_room_name,
@@ -833,21 +941,66 @@
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
 
+                                        @if ($canDecidePending)
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.borrowing.accept') }}"
+                                                class="inline"
+                                                data-pur-confirm="Accept this online borrow request? Stock will be marked borrowed and ready for release."
+                                                data-pur-confirm-title="Accept online borrow?"
+                                                data-pur-confirm-ok="Accept"
+                                            >
+                                                @csrf
+                                                <input type="hidden" name="slip" value="{{ $slipNo }}">
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                                                    data-tooltip="Accept"
+                                                    aria-label="Accept online borrow"
+                                                    title="Accept"
+                                                >
+                                                    <i data-lucide="check" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.borrowing.deny') }}"
+                                                class="inline"
+                                                onsubmit="return submitDenyOnlineBorrow(event, @js($slipNo));"
+                                            >
+                                                @csrf
+                                                <input type="hidden" name="slip" value="{{ $slipNo }}">
+                                                <input type="hidden" name="reason" value="">
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                                                    data-tooltip="Deny"
+                                                    aria-label="Deny online borrow"
+                                                    title="Deny"
+                                                >
+                                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+
                                         @if ($canReturn)
                                             <button
                                                 type="button"
                                                 onclick="openReturnModal({
                                                     id: {{ (int) $actionRecord->borrowing_record_id }},
-                                                    equipment: @js($actionRecord->equipment_name),
-                                                    assetTag: @js($actionRecord->equipment_asset_tag),
-                                                    tracking: @js($actionRecord->equipment_tracking_mode),
-                                                    quantity: {{ (int) ($actionRecord->borrowing_quantity ?? 1) }},
+                                                    equipment: @js($slipEquipment),
+                                                    assetTag: @js($slipAssetTag),
+                                                    uniqueness: @js($slipUniqueness),
+                                                    tracking: @js($slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode),
+                                                    quantity: {{ $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : (int) ($actionRecord->borrowing_quantity ?? 1)) }},
                                                     fromRoom: @js($actionRecord->borrowed_from_room_name),
+                                                    expectedReturn: @js($actionRecord->borrowing_expected_return_date),
+                                                    status: @js($actionRecord->borrowing_status),
                                                 })"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#0025cc]/25 bg-[#0025cc]/5 text-[#0025cc] transition hover:bg-[#0025cc]/10 hover:text-[#001fa8]"
-                                                data-tooltip="{{ $isMultiSlip ? 'Return next open item' : 'Return' }}"
+                                                data-tooltip="Return"
                                                 aria-label="Return equipment"
-                                                title="{{ $isMultiSlip ? 'Return next open item' : 'Return' }}"
+                                                title="Return"
                                             >
                                                 <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                             </button>
@@ -1082,6 +1235,7 @@
 
                         <div class="relative" @click.outside="open = false">
                             <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
+                            <p class="mb-1.5 text-xs text-slate-400">Only equipment still in inventory. Deployed, under maintenance, damaged, and defective equipment cannot be borrowed. Identical stock is listed once as a bulk item — add it, then set how many to borrow.</p>
                             <div class="flex gap-2">
                                 <div class="relative min-w-0 flex-1">
                                     <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
@@ -1098,14 +1252,6 @@
                                         autocomplete="off"
                                     >
                                 </div>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    :max="selected?.available || 1"
-                                    x-model.number="addQty"
-                                    class="h-11 w-24 rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                    title="Quantity to add"
-                                >
                                 <button
                                     type="button"
                                     @click="addSelected()"
@@ -1122,7 +1268,7 @@
                             >
                                 <div class="max-h-64 overflow-y-auto py-1">
                                     <template x-if="filtered.length === 0">
-                                        <p class="px-3 py-4 text-sm text-slate-400">No matching borrowable equipment.</p>
+                                        <p class="px-3 py-4 text-sm text-slate-400">No matching equipment.</p>
                                     </template>
                                     <template x-for="(item, index) in filtered" :key="item.id">
                                         <button
@@ -1153,7 +1299,7 @@
                         <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
                             <template x-if="cart.length === 0">
                                 <div class="px-4 py-8 text-center">
-                                    <p class="text-sm font-medium text-slate-700">Cart is empty</p>
+                                    <p class="text-sm font-medium text-slate-700">No equipment added</p>
                                     <p class="mt-1 text-xs text-slate-400">Add items here before creating the borrow.</p>
                                 </div>
                             </template>
@@ -1170,13 +1316,14 @@
                                             <div class="flex items-center gap-2">
                                                 <label class="sr-only" :for="'cart-qty-' + line.id">Quantity</label>
                                                 <input
-                                                    type="number"
-                                                    min="1"
-                                                    :max="line.available"
+                                                    type="text"
+                                                    inputmode="numeric"
+                                                    autocomplete="off"
                                                     :id="'cart-qty-' + line.id"
                                                     :name="'items[' + index + '][quantity]'"
-                                                    x-model.number="line.quantity"
-                                                    @change="clampLine(line)"
+                                                    x-model="line.quantity"
+                                                    @input="clampLine(line, false)"
+                                                    @blur="clampLine(line, true)"
                                                     class="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm"
                                                 >
                                                 <span class="text-xs text-slate-400" x-text="'/' + line.available"></span>
@@ -1203,191 +1350,58 @@
                     >
                         <div>
                             <p class="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
-                            
+                            <p class="mt-1 text-sm text-slate-500">Faculty and staff with campus accounts only.</p>
                         </div>
                         <div
                             id="borrowerCautionBanner"
                             class="hidden rounded-xl border px-3.5 py-3 text-sm"
                             role="alert"
                         ></div>
-                        <div class="flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                @click="setMode('registered')"
-                                :class="mode === 'registered' ? 'bg-[#0025cc] text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'"
-                                class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold transition"
-                            >Registered</button>
-                            <button
-                                type="button"
-                                @click="setMode('guest')"
-                                :class="mode === 'guest' ? 'bg-[#0025cc] text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'"
-                                class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold transition"
-                            >Guest / walk-in</button>
-                        </div>
                         <input type="hidden" name="borrowing_borrower_custodian_id" :value="custodianId || ''">
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="sm:col-span-2" x-show="mode === 'registered'" x-cloak>
-                                <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                                    <label for="borrowerRegistered" class="block text-sm text-slate-600">
-                                        Registered borrower <span class="text-red-500">*</span>
-                                    </label>
-                                    <button
-                                        type="button"
-                                        @click="toggleRegister()"
-                                        class="text-xs font-semibold text-[#0025cc] hover:underline"
-                                        x-text="showRegister ? 'Hide registration' : '+ Register external borrower'"
-                                    ></button>
-                                </div>
+                            <div class="sm:col-span-2">
+                                <label for="borrowerRegistered" class="mb-1.5 block text-sm text-slate-600">
+                                    Faculty / staff <span class="text-red-500">*</span>
+                                </label>
                                 <select
                                     id="borrowerRegistered"
                                     x-model="custodianId"
                                     @change="onRegisteredChange()"
-                                    :required="mode === 'registered' && !showRegister"
+                                    required
+                                    data-searchable="1"
+                                    data-search-placeholder="Search faculty or staff…"
                                     class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
                                 >
-                                    <option value="">Select a registered person…</option>
+                                    <option value="">Select faculty or staff…</option>
                                     <template x-for="person in people" :key="person.id">
                                         <option :value="String(person.id)" x-text="person.label"></option>
                                     </template>
                                 </select>
-                                
-                                <p x-show="people.length === 0" class="mt-1.5 text-xs text-amber-700">No registered external borrowers yet. Register one below, open Borrowers list, or use Guest / walk-in.</p>
-
-                                <div
-                                    x-show="showRegister"
-                                    x-cloak
-                                    class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-3.5"
-                                >
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Register external borrower</p>
-                                    <p class="text-xs text-slate-500">Frequent outside borrowers — not one-time guests.</p>
-                                    <div class="grid gap-3 sm:grid-cols-2">
-                                        <div class="sm:col-span-2">
-                                            <label for="externalBorrowerName" class="mb-1 block text-xs text-slate-600">Full name <span class="text-red-500">*</span></label>
-                                            <input
-                                                id="externalBorrowerName"
-                                                type="text"
-                                                x-model="reg.name"
-                                                maxlength="50"
-                                                required
-                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
-                                                placeholder="Borrower full name"
-                                            >
-                                        </div>
-                                        <div class="sm:col-span-2">
-                                            <label for="externalBorrowerOrg" class="mb-1 block text-xs text-slate-600">Organization / company <span class="text-red-500">*</span></label>
-                                            <input
-                                                id="externalBorrowerOrg"
-                                                type="text"
-                                                x-model="reg.organization"
-                                                maxlength="50"
-                                                required
-                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
-                                                placeholder="Outside school / company name"
-                                            >
-                                        </div>
-                                        <div>
-                                            <label for="externalBorrowerPosition" class="mb-1 block text-xs text-slate-600">Role / title</label>
-                                            <input
-                                                id="externalBorrowerPosition"
-                                                type="text"
-                                                x-model="reg.position"
-                                                maxlength="120"
-                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
-                                                placeholder="Optional"
-                                            >
-                                        </div>
-                                        <div>
-                                            <label for="external-borrower-contact" class="mb-1 block text-xs text-slate-600">Contact number</label>
-                                            @include('partials.phone-input', [
-                                                'name' => 'external_borrower_contact_number',
-                                                'value' => '',
-                                                'id' => 'external-borrower-contact',
-                                                'inputClass' => 'h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm text-slate-800 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-slate-900/10',
-                                            ])
-                                        </div>
-                                        <div class="sm:col-span-2">
-                                            <label for="externalBorrowerEmail" class="mb-1 block text-xs text-slate-600">Email</label>
-                                            <input
-                                                id="externalBorrowerEmail"
-                                                type="email"
-                                                x-model="reg.email"
-                                                maxlength="150"
-                                                inputmode="email"
-                                                autocomplete="email"
-                                                pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
-                                                class="h-10 w-full rounded-lg border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-slate-900/10"
-                                                placeholder="name@example.com"
-                                            >
-                                        </div>
-                                    </div>
-                                    <p x-show="regError" x-cloak class="text-xs font-medium text-rose-600" x-text="regError"></p>
-                                    <p x-show="regSuccess" x-cloak class="text-xs font-medium text-emerald-700" x-text="regSuccess"></p>
-                                    <div class="flex justify-end">
-                                        <button
-                                            type="button"
-                                            @click="registerExternal()"
-                                            :disabled="regSaving"
-                                            class="inline-flex h-9 items-center rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-[#001fa8] disabled:opacity-60"
-                                        >
-                                            <span x-show="!regSaving">Save & select</span>
-                                            <span x-show="regSaving" x-cloak>Saving…</span>
-                                        </button>
-                                    </div>
-                                </div>
+                                <p x-show="people.length === 0" class="mt-1.5 text-xs text-amber-700">No active faculty/staff accounts found. Add them under property custodians / faculty &amp; staff first.</p>
                             </div>
-                            <div x-show="mode === 'guest'" x-cloak>
-                                <label for="borrowerName" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrower name <span class="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="borrowerName"
-                                    type="text"
-                                    name="borrowing_borrower_name"
-                                    x-model="guestName"
-                                    @input="updateBorrowerCaution(guestName)"
-                                    :required="mode === 'guest'"
-                                    :disabled="mode !== 'guest'"
-                                    placeholder="Enter guest borrower name"
-                                    maxlength="150"
-                                    autocomplete="off"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-100"
-                                />
-                            </div>
-                            <div x-show="mode === 'registered'" x-cloak>
+                            <div>
                                 <label class="mb-1.5 block text-sm text-slate-600">Borrower name</label>
                                 <input
                                     type="text"
                                     name="borrowing_borrower_name"
                                     x-model="registeredName"
                                     readonly
-                                    :disabled="mode !== 'registered'"
+                                    required
                                     class="h-11 w-full rounded-xl border-0 bg-slate-100 px-3.5 text-sm text-slate-700 outline-none ring-1 ring-slate-200/80"
                                 />
                             </div>
                             <div>
                                 <label for="borrowDepartment" class="mb-1.5 block text-sm text-slate-600">
-                                    Department / organization <span class="text-slate-400">(optional)</span>
+                                    Department <span class="text-slate-400">(optional)</span>
                                 </label>
                                 <input
                                     id="borrowDepartment"
                                     type="text"
                                     name="borrowing_borrower_department"
                                     x-model="department"
-                                    :readonly="mode === 'registered' && !!custodianId"
-                                    placeholder="Department or outside organization"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10 read-only:bg-slate-100"
-                                />
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label for="borrowAuthorizedBy" class="mb-1.5 block text-sm text-slate-600">
-                                    Authorized by <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <input
-                                    id="borrowAuthorizedBy"
-                                    type="text"
-                                    name="borrowing_authorized_by"
-                                    placeholder="Enter authorizing personnel"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                    readonly
+                                    placeholder="Filled from the selected account"
+                                    class="h-11 w-full rounded-xl border-0 bg-slate-100 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400"
                                 />
                             </div>
                         </div>
@@ -1396,12 +1410,12 @@
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schedule</p>
-                            <p class="mt-1 text-sm text-slate-500">One borrow / return window for the whole cart.</p>
+                            <p class="mt-1 text-sm text-slate-500">One borrow / return window (dates) for the whole cart.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <label for="borrowDate" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrow date <span class="text-red-500">*</span>
+                                    Borrow from <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="borrowDate"
@@ -1415,7 +1429,7 @@
                             </div>
                             <div>
                                 <label for="borrowExpectedReturn" class="mb-1.5 block text-sm text-slate-600">
-                                    Expected return <span class="text-red-500">*</span>
+                                    Expected return by <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     id="borrowExpectedReturn"
@@ -1428,110 +1442,23 @@
                         </div>
                     </div>
 
-                    <div class="space-y-4 rounded-2xl bg-indigo-50/50 p-4 ring-1 ring-indigo-100">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-500">Event / activity</p>
-                            <p class="mt-1 text-sm text-slate-600">School or city events using campus equipment.</p>
-                        </div>
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="sm:col-span-2">
-                                <label for="borrowEventName" class="mb-1.5 block text-sm text-slate-600">
-                                    Event name <span class="text-red-500">*</span>
-                                </label>
-                                <select
-                                    id="borrowEventName"
-                                    name="borrowing_event_name"
-                                    required
-                                    data-searchable="1"
-                                    data-search-placeholder="Search event names…"
-                                    data-add-url="{{ route('admin.borrowing.event-names.quick-add') }}"
-                                    data-add-label="Add new event name"
-                                    data-add-placeholder="New event name"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                >
-                                    <option value="" disabled selected>Select event name</option>
-                                    @foreach (($eventNames ?? collect()) as $eventName)
-                                        <option value="{{ $eventName->event_name_label }}">{{ $eventName->event_name_label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="borrowEventType" class="mb-1.5 block text-sm text-slate-600">
-                                    Event type <span class="text-red-500">*</span>
-                                </label>
-                                <select
-                                    id="borrowEventType"
-                                    name="borrowing_event_type"
-                                    required
-                                    data-searchable="1"
-                                    data-search-placeholder="Search event types…"
-                                    data-add-url="{{ route('admin.borrowing.event-types.quick-add') }}"
-                                    data-add-label="Add new event type"
-                                    data-add-placeholder="New event type name"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                >
-                                    <option value="" disabled selected>Select event type</option>
-                                    @foreach (($eventTypes ?? collect()) as $eventType)
-                                        <option value="{{ $eventType->event_type_name }}">{{ $eventType->event_type_name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="borrowEventLocation" class="mb-1.5 block text-sm text-slate-600">
-                                    Event venue / location <span class="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="borrowEventLocation"
-                                    type="text"
-                                    name="borrowing_event_location"
-                                    required
-                                    maxlength="50"
-                                    placeholder="e.g. Ormoc City Plaza, Partner campus"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
-                            <p class="mt-1 text-sm text-slate-500">Optional purpose, destination, and remarks.</p>
+                            <p class="mt-1 text-sm text-slate-500">Why the equipment is needed.</p>
                         </div>
                         <div class="space-y-4">
                             <div>
                                 <label for="borrowPurpose" class="mb-1.5 block text-sm text-slate-600">
-                                    Purpose <span class="text-slate-400">(optional)</span>
+                                    Purpose <span class="text-red-500">*</span>
                                 </label>
                                 <textarea
                                     id="borrowPurpose"
                                     name="borrowing_purpose"
                                     rows="2"
+                                    required
+                                    maxlength="2000"
                                     placeholder="Describe why the equipment is being borrowed"
-                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                ></textarea>
-                            </div>
-                            <div>
-                                <label for="borrowDestination" class="mb-1.5 block text-sm text-slate-600">
-                                    Destination <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <input
-                                    id="borrowDestination"
-                                    type="text"
-                                    name="borrowing_destination_location"
-                                    placeholder="Enter destination location"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
-                            </div>
-                            <div>
-                                <label for="borrowRemarks" class="mb-1.5 block text-sm text-slate-600">
-                                    Remarks <span class="text-slate-400">(optional)</span>
-                                </label>
-                                <textarea
-                                    id="borrowRemarks"
-                                    name="borrowing_remarks"
-                                    rows="2"
-                                    placeholder="Add any additional notes"
                                     class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 ></textarea>
                             </div>
@@ -1552,7 +1479,7 @@
                         <button
                             type="submit"
                             class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
-                            x-text="cart.length ? ('Create borrow · ' + cart.length + ' line' + (cart.length === 1 ? '' : 's')) : 'Create borrowing record'"
+                            x-text="'Confirm borrow'"
                         ></button>
                     </div>
                 </div>
@@ -1574,22 +1501,14 @@
     <!-- RETURN EQUIPMENT MODAL -->
     <!-- ===================================== -->
     <div
-        class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        class="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
     >
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500">
+        <div class="flex shrink-0 items-center justify-between gap-4 border-b border-dashed border-slate-300 px-5 py-3.5">
             <div>
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Borrowing Record
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
+                <h2 class="text-base font-semibold tracking-tight text-slate-950">
                     Return equipment
                 </h2>
             </div>
@@ -1611,6 +1530,8 @@
         <form
             method="POST"
             action="{{ route('admin.borrowing.return') }}"
+            class="flex min-h-0 flex-1 flex-col"
+            onsubmit="return prepareReturnSubmit()"
         >
             @csrf
 
@@ -1623,63 +1544,86 @@
             <!-- ===================================== -->
             <!-- MODAL CONTENT -->
             <!-- ===================================== -->
-            <div class="border-y border-slate-100 px-6 py-5">
+            <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
 
-                <!-- ===================================== -->
-                <!-- EQUIPMENT INFORMATION -->
-                <!-- ===================================== -->
-                <div class="mb-6 rounded-xl border border-slate-200 px-4">
-                    <div class="flex items-center justify-between gap-6 border-b border-slate-100 py-3.5">
-                        <span class="shrink-0 text-sm text-slate-500">Equipment</span>
-                        <span
-                            id="returnEquipmentName"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                        ></span>
+                <div class="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm">
+                    <div class="min-w-0">
+                        <p class="text-[11px] text-slate-400">Equipment</p>
+                        <p id="returnEquipmentName" class="truncate font-medium text-slate-950"></p>
                     </div>
-
-                    <div class="flex items-center justify-between gap-6 border-b border-slate-100 py-3.5">
-                        <span class="shrink-0 text-sm text-slate-500">Asset tag</span>
-                        <span
-                            id="returnEquipmentAssetTag"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                        ></span>
+                    <div class="min-w-0">
+                        <p class="text-[11px] text-slate-400">Still out</p>
+                        <p id="returnEquipmentQty" class="truncate font-medium text-slate-950"></p>
                     </div>
-
-                    <div class="flex items-center justify-between gap-6 border-b border-slate-100 py-3.5">
-                        <span class="shrink-0 text-sm text-slate-500">Tracking</span>
-                        <span
-                            id="returnEquipmentTracking"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                        ></span>
+                    <div class="min-w-0">
+                        <p class="text-[11px] text-slate-400">Tracking</p>
+                        <p id="returnEquipmentTracking" class="truncate font-medium text-slate-950"></p>
                     </div>
-
-                    <div class="flex items-center justify-between gap-6 border-b border-slate-100 py-3.5">
-                        <span class="shrink-0 text-sm text-slate-500">Quantity</span>
-                        <span
-                            id="returnEquipmentQty"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                        ></span>
+                    <div class="min-w-0">
+                        <p class="text-[11px] text-slate-400">Borrowed from</p>
+                        <p id="returnEquipmentFrom" class="truncate font-medium text-slate-950"></p>
                     </div>
-
-                    <div class="flex items-center justify-between gap-6 py-3.5">
-                        <span class="shrink-0 text-sm text-slate-500">Borrowed from</span>
-                        <span
-                            id="returnEquipmentFrom"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                        ></span>
+                    <div class="col-span-2 min-w-0">
+                        <p class="text-[11px] text-slate-400">Uniqueness</p>
+                        <details id="returnUniquenessDetails" class="group mt-1">
+                            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 [&::-webkit-details-marker]:hidden">
+                                <span id="returnUniquenessSummary" class="truncate">—</span>
+                                <i data-lucide="chevron-down" class="h-3.5 w-3.5 shrink-0 text-slate-400 transition group-open:rotate-180"></i>
+                            </summary>
+                            <ul id="returnEquipmentUniqueness" class="mt-1 max-h-28 space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs leading-4 text-slate-700"></ul>
+                        </details>
                     </div>
                 </div>
 
-                <!-- ===================================== -->
-                <!-- RETURN FIELDS -->
-                <!-- ===================================== -->
-                <div class="space-y-5">
+                <div id="returnOverdueNotice" class="mb-3 hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                    This item is overdue.
+                </div>
 
-                    <!-- RETURN TO STORAGE -->
+                <div class="space-y-3">
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="returnQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                Quantity returned
+                            </label>
+                            <input
+                                type="number"
+                                id="returnQuantity"
+                                name="return_quantity"
+                                min="1"
+                                step="1"
+                                inputmode="numeric"
+                                required
+                                oninput="syncReturnQuantities()"
+                                onblur="syncReturnQuantities(true)"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            >
+                            <p id="returnQuantityHint" class="mt-1 text-xs text-slate-400"></p>
+                        </div>
+                        <div>
+                            <label for="returnDamagedQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                Damaged
+                            </label>
+                            <input
+                                type="number"
+                                id="returnDamagedQuantity"
+                                name="damaged_quantity"
+                                min="0"
+                                step="1"
+                                inputmode="numeric"
+                                value="0"
+                                oninput="syncReturnQuantities()"
+                                onblur="syncReturnQuantities(true)"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            >
+                            <p id="returnDamageFeeLabel" class="mt-1 text-xs text-slate-400"></p>
+                        </div>
+                    </div>
+
                     <div>
                         <label
                             for="returnRoom"
-                            class="mb-2 block text-sm font-medium text-slate-700"
+                            class="mb-1.5 block text-sm font-medium text-slate-700"
                         >
                             Return to storage room
                         </label>
@@ -1702,39 +1646,31 @@
                         @endif
                     </div>
 
-                    <!-- CONDITION UPON RETURN -->
-                    <div>
-                        <label
-                            for="returnCondition"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Condition upon return <span class="text-red-500">*</span>
-                        </label>
-
-                        <select
-                            id="returnCondition"
-                            name="return_condition"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="Good">
-                                Good
-                            </option>
-
-                            <option value="Damaged">
-                                Damaged
-                            </option>
-
-                            <option value="For Repair">
-                                For Repair
-                            </option>
-                        </select>
+                    <div class="rounded-xl border border-slate-200 px-3.5 py-2.5">
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <p class="text-[11px] text-slate-400">Days overdue</p>
+                                <p id="returnLateDays" class="font-medium text-slate-950">0</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-slate-400">Late fee</p>
+                                <p id="returnLateFee" class="font-medium text-slate-950">₱0.00</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
+                            <span class="text-slate-500">Damage fee</span>
+                            <span id="returnDamageFee" class="font-medium text-slate-950">₱0.00</span>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
+                            <span class="font-medium text-slate-700">Amount due</span>
+                            <span id="returnFeeTotal" class="text-base font-semibold text-slate-950">₱0.00</span>
+                        </div>
                     </div>
 
                     <!-- RETURN REMARKS -->
                     <div>
                         <div
-                            class="mb-2 flex items-center justify-between gap-4"
+                            class="mb-1.5 flex items-center justify-between gap-4"
                         >
                             <label
                                 for="returnRemarks"
@@ -1751,21 +1687,21 @@
                         <textarea
                             id="returnRemarks"
                             name="remarks"
-                            rows="3"
+                            rows="2"
                             placeholder="Add notes about the equipment condition or return"
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         ></textarea>
                     </div>
                 </div>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
+            <div class="shrink-0 border-t border-dashed border-slate-500"></div>
 
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
             <div
-                class="flex items-center justify-end gap-2 px-6 py-4"
+                class="flex shrink-0 items-center justify-end gap-2 px-5 py-3"
             >
                 <button
                     type="button"
@@ -1786,80 +1722,74 @@
     </div>
 </div>
 
+@if ($canEditBorrowFees ?? false)
+    <div id="borrowFeesModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/40 p-4">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-4">
+                <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Borrowing</p>
+                    <h2 class="mt-0.5 text-lg font-semibold text-slate-950">Borrow fees</h2>
+                </div>
+                <button type="button" onclick="closeBorrowFeesModal()" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+            <form method="POST" action="{{ route('admin.settings.borrow-fees.update') }}">
+                @csrf
+                <div class="space-y-4 px-6 py-5">
+                    <label class="block text-sm font-medium text-slate-700">
+                        Late fee per day
+                        <span class="mt-2 flex overflow-hidden rounded-lg border border-slate-200 focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
+                            <span class="flex items-center bg-slate-50 px-3 text-sm font-semibold text-slate-600">₱</span>
+                            <input
+                                type="text"
+                                inputmode="decimal"
+                                name="late_fee_per_day"
+                                required
+                                data-peso-fee
+                                autocomplete="off"
+                                value="{{ ($borrowFeeRates['late_fee_per_day'] ?? 0) > 0 ? number_format($borrowFeeRates['late_fee_per_day'], 2) : '' }}"
+                                class="w-full border-0 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+                            >
+                        </span>
+                        <span class="mt-1 block text-xs font-normal text-slate-400">Charged for each day past the expected return date.</span>
+                    </label>
+                    <label class="block text-sm font-medium text-slate-700">
+                        Damage fee
+                        <span class="mt-2 flex overflow-hidden rounded-lg border border-slate-200 focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-100">
+                            <span class="flex items-center bg-slate-50 px-3 text-sm font-semibold text-slate-600">₱</span>
+                            <input
+                                type="text"
+                                inputmode="decimal"
+                                name="damage_fee"
+                                required
+                                data-peso-fee
+                                autocomplete="off"
+                                value="{{ ($borrowFeeRates['damage_fee'] ?? 0) > 0 ? number_format($borrowFeeRates['damage_fee'], 2) : '' }}"
+                                class="w-full border-0 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none"
+                            >
+                        </span>
+                        <span class="mt-1 block text-xs font-normal text-slate-400">Added when damage is found during inspection.</span>
+                    </label>
+                </div>
+                <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <button type="button" onclick="closeBorrowFeesModal()" class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fad]">Save fees</button>
+                </div>
+            </form>
+        </div>
+    </div>
+@endif
+
     <script>
         function borrowerPicker(people) {
             const list = Array.isArray(people) ? people : [];
             return {
                 people: list,
-                mode: list.length ? 'registered' : 'guest',
+                mode: 'registered',
                 custodianId: '',
                 registeredName: '',
-                guestName: '',
                 department: '',
-                showRegister: false,
-                regSaving: false,
-                regError: '',
-                regSuccess: '',
-                reg: { name: '', organization: '', position: '', email: '' },
-                setMode(next) {
-                    this.mode = next;
-                    this.showRegister = false;
-                    this.regError = '';
-                    this.regSuccess = '';
-                    if (next === 'registered') {
-                        this.guestName = '';
-                        this.onRegisteredChange();
-                    } else {
-                        this.custodianId = '';
-                        this.registeredName = '';
-                        this.department = '';
-                        if (typeof updateBorrowerCaution === 'function') {
-                            updateBorrowerCaution('');
-                        }
-                    }
-                },
-                toggleRegister() {
-                    this.showRegister = !this.showRegister;
-                    this.regError = '';
-                    this.regSuccess = '';
-                    if (this.showRegister) {
-                        this.$nextTick(() => this.initExternalPhone());
-                    }
-                },
-                initExternalPhone() {
-                    const input = document.getElementById('external-borrower-contact');
-                    if (!input) return;
-                    if (typeof window.initPrismPhoneInput === 'function') {
-                        window.initPrismPhoneInput(input);
-                    }
-                },
-                readExternalPhone() {
-                    const input = document.getElementById('external-borrower-contact');
-                    const storage = document.getElementById('external-borrower-contact-storage');
-                    if (input && typeof window.writePrismPhoneStorage === 'function') {
-                        window.writePrismPhoneStorage(input, input.value || '');
-                    }
-                    const raw = String(storage?.value || input?.value || '').trim();
-                    return raw;
-                },
-                clearExternalPhone() {
-                    const input = document.getElementById('external-borrower-contact');
-                    const storage = document.getElementById('external-borrower-contact-storage');
-                    if (storage) storage.value = '';
-                    if (!input) return;
-                    if (typeof window.writePrismPhoneStorage === 'function') {
-                        window.writePrismPhoneStorage(input, '');
-                    }
-                    const iti = window.PRISM_PHONE_INPUTS && window.PRISM_PHONE_INPUTS.get(input);
-                    if (iti && typeof iti.setNumber === 'function') {
-                        try { iti.setNumber(''); } catch (e) { /* ignore */ }
-                    }
-                    input.value = '';
-                },
-                isValidEmail(value) {
-                    if (!value) return true;
-                    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-                },
                 onRegisteredChange() {
                     const id = Number(this.custodianId || 0);
                     const person = this.people.find((row) => Number(row.id) === id);
@@ -1869,89 +1799,6 @@
                         : '';
                     if (typeof updateBorrowerCaution === 'function') {
                         updateBorrowerCaution(this.registeredName);
-                    }
-                },
-                async registerExternal() {
-                    this.regError = '';
-                    this.regSuccess = '';
-                    const name = String(this.reg.name || '').trim();
-                    const organization = String(this.reg.organization || '').trim();
-                    const position = String(this.reg.position || '').trim();
-                    const email = String(this.reg.email || '').trim();
-                    const contact = this.readExternalPhone();
-
-                    if (!name) {
-                        this.regError = 'Enter the borrower full name.';
-                        return;
-                    }
-                    if (name.length > 50) {
-                        this.regError = 'Full name may not be longer than 50 characters.';
-                        return;
-                    }
-                    if (!organization) {
-                        this.regError = 'Enter the organization or company.';
-                        return;
-                    }
-                    if (organization.length > 50) {
-                        this.regError = 'Organization may not be longer than 50 characters.';
-                        return;
-                    }
-                    if (position.length > 120) {
-                        this.regError = 'Role / title may not be longer than 120 characters.';
-                        return;
-                    }
-                    if (email && !this.isValidEmail(email)) {
-                        this.regError = 'Enter a valid email address.';
-                        return;
-                    }
-                    if (email.length > 150) {
-                        this.regError = 'Email may not be longer than 150 characters.';
-                        return;
-                    }
-
-                    this.regSaving = true;
-                    try {
-                        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                            || document.querySelector('#borrowModal input[name="_token"]')?.value
-                            || '';
-                        const response = await fetch(@js(route('admin.borrowing.external-borrowers.store')), {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': token,
-                                'X-Requested-With': 'XMLHttpRequest',
-                            },
-                            body: JSON.stringify({
-                                full_name: name,
-                                organization,
-                                position: position || null,
-                                contact_number: contact || null,
-                                email: email || null,
-                            }),
-                        });
-                        const data = await response.json().catch(() => ({}));
-                        if (!response.ok) {
-                            const firstError = data?.errors
-                                ? Object.values(data.errors).flat()[0]
-                                : null;
-                            throw new Error(firstError || data.message || 'Could not register borrower.');
-                        }
-                        const borrower = data.borrower;
-                        if (!borrower?.id) {
-                            throw new Error('Registration succeeded but no borrower was returned.');
-                        }
-                        this.people = [borrower, ...this.people.filter((row) => Number(row.id) !== Number(borrower.id))];
-                        this.custodianId = String(borrower.id);
-                        this.onRegisteredChange();
-                        this.showRegister = false;
-                        this.reg = { name: '', organization: '', position: '', email: '' };
-                        this.clearExternalPhone();
-                        this.regSuccess = 'External borrower registered and selected.';
-                    } catch (error) {
-                        this.regError = error?.message || 'Could not register borrower.';
-                    } finally {
-                        this.regSaving = false;
                     }
                 },
             };
@@ -1965,7 +1812,6 @@
                 open: false,
                 highlight: 0,
                 selected: null,
-                addQty: 1,
                 cart: [],
                 pickerError: '',
                 cartError: '',
@@ -1998,7 +1844,6 @@
                     this.open = false;
                     this.highlight = 0;
                     this.selected = null;
-                    this.addQty = 1;
                     this.cart = [];
                     this.pickerError = '';
                     this.cartError = '';
@@ -2007,7 +1852,6 @@
                     this.selected = item;
                     this.query = item.name;
                     this.open = false;
-                    this.addQty = 1;
                     this.pickerError = '';
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
@@ -2025,7 +1869,7 @@
                         this.pickerError = 'Search and select an equipment item first.';
                         return;
                     }
-                    const qty = Math.max(1, Number(this.addQty) || 1);
+                    const qty = 1;
                     if (qty > this.selected.available) {
                         this.pickerError = 'Only ' + this.selected.available + ' available for this item.';
                         return;
@@ -2052,15 +1896,20 @@
                     }
                     this.selected = null;
                     this.query = '';
-                    this.addQty = 1;
                     this.cartError = '';
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
-                clampLine(line) {
-                    let qty = Number(line.quantity) || 1;
-                    if (qty < 1) qty = 1;
-                    if (qty > line.available) qty = line.available;
-                    line.quantity = qty;
+                clampLine(line, finalize = true) {
+                    const digits = String(line.quantity ?? '').replace(/\D/g, '');
+                    const max = Math.max(1, Number(line.available) || 1);
+                    if (digits === '') {
+                        line.quantity = finalize ? 1 : '';
+                        return;
+                    }
+                    let qty = parseInt(digits, 10);
+                    if (qty > max) qty = max;
+                    if (finalize && qty < 1) qty = 1;
+                    line.quantity = qty < 1 ? '' : qty;
                 },
                 removeLine(index) {
                     this.cart.splice(index, 1);
@@ -2095,23 +1944,15 @@
                         }
                     }
 
-                    const borrowerInput = document.querySelector('#borrowModal [name="borrowing_borrower_name"]:not([disabled])')
-                        || document.getElementById('borrowerName');
+                    const borrowerSelect = document.getElementById('borrowerRegistered');
+                    const borrowerInput = document.querySelector('#borrowModal [name="borrowing_borrower_name"]');
                     const borrowerName = String(borrowerInput?.value || '').trim();
-                    if (!borrowerName) {
-                        event.preventDefault();
-                        const target = this.mode === 'registered'
-                            ? document.getElementById('borrowerRegistered')
-                            : document.getElementById('borrowerName');
-                        this.focusInvalidField(target, 'Select or enter a borrower name.');
-                        return;
-                    }
-
-                    if (this.mode === 'registered' && !this.custodianId) {
+                    const custodianId = String(borrowerSelect?.value || '').trim();
+                    if (!custodianId || !borrowerName) {
                         event.preventDefault();
                         this.focusInvalidField(
-                            document.getElementById('borrowerRegistered'),
-                            'Select a registered borrower, or switch to Guest / walk-in.'
+                            borrowerSelect,
+                            'Select a faculty or staff account.'
                         );
                         return;
                     }
@@ -2119,9 +1960,7 @@
                     const requiredFields = [
                         { id: 'borrowDate', message: 'Enter the borrow date.' },
                         { id: 'borrowExpectedReturn', message: 'Enter the expected return date.' },
-                        { id: 'borrowEventName', message: 'Select an event name.' },
-                        { id: 'borrowEventType', message: 'Select an event type.' },
-                        { id: 'borrowEventLocation', message: 'Enter the event venue / location.' },
+                        { id: 'borrowPurpose', message: 'Enter the purpose of this borrow.' },
                     ];
                     for (const field of requiredFields) {
                         const el = document.getElementById(field.id);
@@ -2135,11 +1974,40 @@
 
                     const borrowDate = document.getElementById('borrowDate')?.value || '';
                     const expectedReturn = document.getElementById('borrowExpectedReturn')?.value || '';
-                    if (borrowDate && expectedReturn && expectedReturn < borrowDate) {
+                    const borrowAt = borrowDate ? new Date(borrowDate + 'T00:00:00') : null;
+                    const returnAt = expectedReturn ? new Date(expectedReturn + 'T00:00:00') : null;
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (!borrowAt || Number.isNaN(borrowAt.getTime()) || !returnAt || Number.isNaN(returnAt.getTime())) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowDate'),
+                            'Enter a valid borrow / return date.'
+                        );
+                        return;
+                    }
+                    if (borrowAt < today) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowDate'),
+                            'Borrow date cannot be in the past.'
+                        );
+                        return;
+                    }
+                    if (returnAt < borrowAt) {
                         event.preventDefault();
                         this.focusInvalidField(
                             document.getElementById('borrowExpectedReturn'),
-                            'Expected return cannot be earlier than the borrow date.'
+                            'Expected return must be on or after the borrow date.'
+                        );
+                        return;
+                    }
+                    const maxReturn = new Date(borrowAt.getTime() + (30 * 24 * 60 * 60 * 1000));
+                    if (returnAt > maxReturn) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowExpectedReturn'),
+                            'Expected return cannot be more than 30 days after the borrow date.'
                         );
                         return;
                     }
@@ -2236,6 +2104,13 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
+        function toLocalDateValue(date) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return date.getFullYear()
+                + '-' + pad(date.getMonth() + 1)
+                + '-' + pad(date.getDate());
+        }
+
         function syncBorrowScheduleDates() {
             const borrow = document.getElementById('borrowDate');
             const expected = document.getElementById('borrowExpectedReturn');
@@ -2247,11 +2122,25 @@
                 return;
             }
 
-            // Lock expected-return calendar days before the borrow date (same day still allowed).
             expected.min = borrowValue;
             if (expected.value && expected.value < borrowValue) {
-                expected.value = '';
+                expected.value = borrowValue;
             }
+        }
+
+        function seedBorrowScheduleDefaults() {
+            const borrow = document.getElementById('borrowDate');
+            const expected = document.getElementById('borrowExpectedReturn');
+            if (!borrow || !expected) return;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const later = new Date(today.getTime() + (1 * 24 * 60 * 60 * 1000));
+
+            if (!borrow.value) borrow.value = toLocalDateValue(today);
+            if (!expected.value) expected.value = toLocalDateValue(later);
+            borrow.min = toLocalDateValue(today);
+            syncBorrowScheduleDates();
         }
 
         function openBorrowModal() {
@@ -2260,12 +2149,14 @@
             if (modal._x_dataStack?.[0]?.reset) {
                 modal._x_dataStack[0].reset();
             }
-            const nameInput = document.getElementById('borrowerName');
-            if (nameInput) updateBorrowerCaution(nameInput.value || '');
+            const nameInput = document.querySelector('#borrowModal [name="borrowing_borrower_name"]');
+            if (typeof updateBorrowerCaution === 'function') {
+                updateBorrowerCaution(nameInput?.value || '');
+            }
             modal.classList.remove("hidden");
             modal.classList.add("flex");
             document.body.style.overflow = 'hidden';
-            syncBorrowScheduleDates();
+            seedBorrowScheduleDefaults();
             if (window.lucide) window.lucide.createIcons();
         }
 
@@ -2281,6 +2172,233 @@
             updateBorrowerCaution('');
         }
 
+        window.submitDenyOnlineBorrow = async function (event, slipNo) {
+            event.preventDefault();
+            const form = event.target;
+            let reason = '';
+            if (window.Swal) {
+                const result = await Swal.fire({
+                    title: 'Deny online borrow?',
+                    input: 'textarea',
+                    inputLabel: 'Reason (optional)',
+                    inputPlaceholder: 'Why is this request denied?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Deny request',
+                    confirmButtonColor: '#be123c',
+                    cancelButtonText: 'Cancel',
+                    inputAttributes: { maxlength: 500 },
+                });
+                if (!result.isConfirmed) return false;
+                reason = String(result.value || '').trim();
+            } else {
+                if (!window.confirm('Deny online borrow slip ' + slipNo + '?')) return false;
+                reason = String(window.prompt('Denial reason (optional)', '') || '').trim();
+            }
+            const reasonInput = form.querySelector('input[name="reason"]');
+            if (reasonInput) reasonInput.value = reason;
+            form.submit();
+            return false;
+        };
+
+
+        const borrowFeeRates = @json(\App\Support\BorrowingFees::rates());
+
+        function peso(amount) {
+            const value = Number(amount) || 0;
+            return '₱' + value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function returnDaysLate(expectedReturn) {
+            if (!expectedReturn) return 0;
+            const raw = String(expectedReturn).trim().replace(' ', 'T');
+            const due = new Date(raw);
+            if (Number.isNaN(due.getTime())) return 0;
+            due.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (today <= due) return 0;
+            return Math.round((today - due) / 86400000);
+        }
+
+        let returnUniquenessLines = [];
+
+        function returnOutstanding() {
+            return Math.max(1, Number(document.getElementById('returnModal')?.dataset.outstanding || 1));
+        }
+
+        function readReturnCount(input, fallback, max) {
+            if (!input || String(input.value).trim() === '') return fallback;
+            const value = Math.floor(Number(input.value));
+            if (!Number.isFinite(value)) return fallback;
+            return Math.min(max, Math.max(0, value));
+        }
+
+        function syncReturnQuantities(finalize) {
+            const max = returnOutstanding();
+            const qtyInput = document.getElementById('returnQuantity');
+            const damagedInput = document.getElementById('returnDamagedQuantity');
+            let qty = readReturnCount(qtyInput, finalize ? max : 0, max);
+            if (qty < 1) qty = finalize ? max : 0;
+            if (qtyInput && (finalize || String(qtyInput.value).trim() !== '')) {
+                if (finalize || Number(qtyInput.value) > max || Number(qtyInput.value) < 1) {
+                    qtyInput.value = String(Math.max(1, qty));
+                }
+                qty = Math.max(1, Math.min(max, Math.floor(Number(qtyInput.value) || 1)));
+            }
+            const damagedMax = Math.max(0, qty);
+            let damaged = readReturnCount(damagedInput, 0, damagedMax);
+            if (damagedInput && (finalize || String(damagedInput.value).trim() !== '')) {
+                if (finalize || Number(damagedInput.value) > damagedMax || Number(damagedInput.value) < 0) {
+                    damagedInput.value = String(damaged);
+                }
+                damaged = Math.min(damagedMax, Math.max(0, Math.floor(Number(damagedInput.value) || 0)));
+            }
+            if (qtyInput) qtyInput.max = String(max);
+            if (damagedInput) damagedInput.max = String(damagedMax);
+            renderReturnUniqueness();
+            refreshReturnFees();
+        }
+
+        function renderReturnUniqueness() {
+            const lines = returnUniquenessLines.slice();
+            const uniquenessList = document.getElementById('returnEquipmentUniqueness');
+            const uniquenessSummary = document.getElementById('returnUniquenessSummary');
+            const uniquenessDetails = document.getElementById('returnUniquenessDetails');
+            if (!uniquenessList || !uniquenessSummary) return;
+            const damaged = Math.min(lines.length, readReturnCount(document.getElementById('returnDamagedQuantity'), 0, lines.length));
+            uniquenessList.replaceChildren();
+            lines.forEach((line, index) => {
+                const item = document.createElement('li');
+                item.className = 'break-words';
+                item.textContent = index < damaged ? ('Damaged · ' + line) : line;
+                uniquenessList.appendChild(item);
+            });
+            uniquenessSummary.textContent = lines.length === 1 ? '1 item' : (lines.length + ' items');
+            uniquenessList.classList.remove('hidden');
+            if (uniquenessDetails) {
+                uniquenessDetails.onclick = null;
+                const chevron = uniquenessDetails.querySelector('[data-lucide="chevron-down"], svg');
+                if (chevron) chevron.classList.remove('hidden');
+            }
+        }
+
+        function refreshReturnFees() {
+            const days = Number(document.getElementById('returnModal')?.dataset.lateDays || 0);
+            const perDay = Number(borrowFeeRates.late_fee_per_day || 0);
+            const damageRate = Number(borrowFeeRates.damage_fee || 0);
+            const max = returnOutstanding();
+            const qty = Math.max(1, Math.min(max, readReturnCount(document.getElementById('returnQuantity'), max, max) || max));
+            const damaged = Math.min(qty, readReturnCount(document.getElementById('returnDamagedQuantity'), 0, qty));
+            const lateFee = days * perDay * qty;
+            const damageFee = damaged * damageRate;
+            const daysEl = document.getElementById('returnLateDays');
+            const lateEl = document.getElementById('returnLateFee');
+            const damageLabel = document.getElementById('returnDamageFeeLabel');
+            const damageEl = document.getElementById('returnDamageFee');
+            const totalEl = document.getElementById('returnFeeTotal');
+            const hint = document.getElementById('returnQuantityHint');
+            if (daysEl) daysEl.textContent = String(days);
+            if (lateEl) {
+                lateEl.textContent = peso(lateFee) + (days > 0 && perDay > 0
+                    ? ' (' + qty + ' × ' + days + ' × ' + peso(perDay) + ')'
+                    : '');
+            }
+            if (damageLabel) damageLabel.textContent = peso(damageRate) + ' each';
+            if (damageEl) {
+                damageEl.textContent = peso(damageFee) + (damaged > 0 && damageRate > 0
+                    ? ' (' + damaged + ' × ' + peso(damageRate) + ')'
+                    : '');
+            }
+            if (hint) hint.textContent = 'Up to ' + max + ' still out';
+            if (totalEl) totalEl.textContent = peso(lateFee + damageFee);
+        }
+
+        function prepareReturnSubmit() {
+            syncReturnQuantities(true);
+            const max = returnOutstanding();
+            const qty = Math.floor(Number(document.getElementById('returnQuantity')?.value || 0));
+            const damaged = Math.floor(Number(document.getElementById('returnDamagedQuantity')?.value || 0));
+            if (qty < 1 || qty > max) {
+                window.alert('Enter a return quantity from 1 to ' + max + '.');
+                return false;
+            }
+            if (damaged < 0 || damaged > qty) {
+                window.alert('Damaged quantity cannot be more than the quantity returned.');
+                return false;
+            }
+            return true;
+        }
+
+        function formatPesoFee(input, finalize) {
+            const raw = String(input.value || '').replace(/,/g, '');
+            if (raw.trim() === '') {
+                input.value = '';
+                return;
+            }
+            const cleaned = raw.replace(/[^\d.]/g, '');
+            const dot = cleaned.indexOf('.');
+            let whole = dot === -1 ? cleaned : cleaned.slice(0, dot);
+            let cents = dot === -1 ? null : cleaned.slice(dot + 1).replace(/\./g, '');
+            whole = whole.replace(/^0+(?=\d)/, '').slice(0, 5);
+            if (whole === '') whole = '0';
+            const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            if (finalize) {
+                input.value = grouped + '.' + (cents || '').slice(0, 2).padEnd(2, '0');
+                return;
+            }
+            if (cents === null) {
+                input.value = grouped;
+                return;
+            }
+            input.value = grouped + '.' + cents.slice(0, 2);
+        }
+
+        function bindPesoFeeInputs(root) {
+            const scope = root || document;
+            scope.querySelectorAll('[data-peso-fee]').forEach(function (input) {
+                if (input.dataset.pesoBound === '1') return;
+                input.dataset.pesoBound = '1';
+                input.addEventListener('input', function () {
+                    const end = input.selectionEnd;
+                    const before = input.value.length;
+                    formatPesoFee(input, false);
+                    const delta = input.value.length - before;
+                    const next = Math.max(0, (end || 0) + delta);
+                    input.setSelectionRange(next, next);
+                });
+                input.addEventListener('blur', function () {
+                    formatPesoFee(input, true);
+                });
+                formatPesoFee(input, true);
+            });
+            const form = scope.querySelector('#borrowFeesModal form');
+            if (form && form.dataset.pesoBound !== '1') {
+                form.dataset.pesoBound = '1';
+                form.addEventListener('submit', function () {
+                    form.querySelectorAll('[data-peso-fee]').forEach(function (input) {
+                        formatPesoFee(input, true);
+                        input.value = input.value.replace(/,/g, '');
+                        if (input.value === '') input.value = '0';
+                    });
+                });
+            }
+        }
+
+        function openBorrowFeesModal() {
+            const modal = document.getElementById('borrowFeesModal');
+            if (!modal) return;
+            bindPesoFeeInputs(modal);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeBorrowFeesModal() {
+            const modal = document.getElementById('borrowFeesModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
 
         function openReturnModal(payload) {
             const data = (payload && typeof payload === 'object')
@@ -2290,14 +2408,51 @@
             const tracking = String(data.tracking || '').trim() || 'Individual';
             const qty = Math.max(1, Number(data.quantity || 1));
             const assetTag = String(data.assetTag || '').trim();
+            const uniqueness = Array.isArray(data.uniqueness)
+                ? data.uniqueness.map((line) => String(line || '').trim()).filter(Boolean)
+                : [];
             const fromRoom = String(data.fromRoom || '').trim();
+            const days = returnDaysLate(data.expectedReturn);
+            const overdue = days > 0 || String(data.status || '') === 'Overdue';
 
             document.getElementById("returnBorrowingId").value = data.id || '';
             document.getElementById("returnEquipmentName").innerText = data.equipment || '—';
-            document.getElementById("returnEquipmentAssetTag").innerText = assetTag || 'No asset tag';
+            returnUniquenessLines = uniqueness.length
+                ? uniqueness
+                : [assetTag ? ('Tag ' + assetTag) : 'No asset tag / serial'];
             document.getElementById("returnEquipmentTracking").innerText = tracking;
             document.getElementById("returnEquipmentQty").innerText = String(qty);
             document.getElementById("returnEquipmentFrom").innerText = fromRoom || '—';
+
+            const notice = document.getElementById('returnOverdueNotice');
+            const modal = document.getElementById('returnModal');
+            if (modal) {
+                modal.dataset.lateDays = String(days);
+                modal.dataset.outstanding = String(qty);
+            }
+            if (notice) {
+                notice.classList.toggle('hidden', !overdue);
+                notice.textContent = overdue
+                    ? (days > 0
+                        ? 'This borrow is overdue by ' + days + ' ' + (days === 1 ? 'day' : 'days') + '.'
+                        : 'This borrow is overdue.')
+                    : '';
+            }
+            const qtyInput = document.getElementById('returnQuantity');
+            const damagedInput = document.getElementById('returnDamagedQuantity');
+            if (qtyInput) {
+                qtyInput.max = String(qty);
+                qtyInput.value = String(qty);
+            }
+            if (damagedInput) {
+                damagedInput.max = String(qty);
+                damagedInput.value = '0';
+            }
+            const remarks = document.getElementById('returnRemarks');
+            if (remarks) remarks.value = '';
+            const uniquenessDetails = document.getElementById('returnUniquenessDetails');
+            if (uniquenessDetails) uniquenessDetails.open = false;
+            syncReturnQuantities(true);
 
             document.getElementById("returnModal").classList.remove("hidden");
             document.getElementById("returnModal").classList.add("flex");

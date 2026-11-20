@@ -16,6 +16,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use App\Support\AdminAttentionSummary;
+use App\Support\BorrowingFees;
+use App\Support\RoleAccess;
 use App\Support\AdminPortal;
 use App\Support\BackOrders;
 use App\Support\PersonNames;
@@ -3520,6 +3522,32 @@ class AdminController extends Controller
     public function systemSettings()
     {
         return redirect('/admin/settings/campus-setup-pin');
+    }
+
+    public function borrowFees(): View
+    {
+        abort_unless(RoleAccess::isAdmin(), 403);
+
+        return view('admin.settings.borrow-fees', [
+            'rates' => BorrowingFees::rates(),
+        ]);
+    }
+
+    public function updateBorrowFees(Request $request)
+    {
+        abort_unless(RoleAccess::isAdmin(), 403);
+
+        $validated = $request->validate([
+            'late_fee_per_day' => ['required', 'numeric', 'min:0', 'max:99999.99'],
+            'damage_fee' => ['required', 'numeric', 'min:0', 'max:99999.99'],
+        ]);
+
+        BorrowingFees::saveRates(
+            (float) $validated['late_fee_per_day'],
+            (float) $validated['damage_fee']
+        );
+
+        return back()->with('success', 'Borrow fees updated.');
     }
 
     public function updateCampusSetupPin(Request $request)

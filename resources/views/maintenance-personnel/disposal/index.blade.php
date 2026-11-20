@@ -1147,6 +1147,7 @@
                             >
                                 Equipment <span class="text-red-500">*</span>
                             </label>
+                            <p class="text-xs leading-5 text-slate-500">Only Defective or Damaged equipment can be disposed.</p>
                             <span id="disposeEquipmentCount" class="text-xs font-medium text-slate-400">None selected</span>
                         </div>
 
@@ -1175,13 +1176,14 @@
                                         <span class="block truncate font-medium text-slate-900">{{ $item->equipment_name }}</span>
                                         <span class="block truncate text-xs text-slate-500">
                                             {{ $item->equipment_asset_tag ?: 'No asset tag' }}
+                                            · {{ $item->equipment_condition_status ?: '—' }}
                                             · {{ $item->equipment_room_label ?: 'No room' }}
                                             · {{ $item->equipment_inventory_status ?: '—' }}
                                         </span>
                                     </span>
                                 </label>
                             @empty
-                                <p class="px-3.5 py-6 text-center text-sm text-slate-500">No equipment available to dispose.</p>
+                                <p class="px-3.5 py-6 text-center text-sm text-slate-500">No Defective or Damaged equipment is available to dispose.</p>
                             @endforelse
                             <p id="disposeEquipmentEmpty" class="hidden px-3.5 py-6 text-center text-sm text-slate-500">No equipment matches your search.</p>
                         </div>
@@ -1226,74 +1228,32 @@
                         </select>
                     </div>
 
-                    <div>
-                        <label
-                            for="disposeMethod"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Disposal method
-                        </label>
-                        <select
-                            id="disposeMethod"
-                            name="method"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="">Select method (optional)</option>
-                            <option value="Scrap">Scrap</option>
-                            <option value="Donate">Donate</option>
-                            <option value="Sell / Auction">Sell / Auction</option>
-                            <option value="Return to supplier">Return to supplier</option>
-                            <option value="Destroy">Destroy</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label
-                            for="disposeResidualValue"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Residual value (₱)
-                        </label>
-                        <input
-                            id="disposeResidualValue"
-                            type="number"
-                            name="residual_value"
-                            min="0"
-                            max="{{ \App\Support\InputLimits::COST }}"
-                            step="0.01"
-                            inputmode="decimal"
-                            data-money
-                            placeholder="Optional salvage / residual amount"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        />
-                    </div>
-
                     <!-- ===================================== -->
                     <!-- DISPOSAL AREA -->
                     <!-- ===================================== -->
                     <div>
-                        <div
-                            class="mb-2 flex items-center justify-between gap-4"
+                        <label
+                            for="disposeLocation"
+                            class="mb-2 block text-sm font-medium text-slate-700"
                         >
-                            <label
-                                for="disposeLocation"
-                                class="text-sm font-medium text-slate-700"
-                            >
-                                Disposal area
-                            </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
-                        </div>
-
-                        <input
+                            Location <span class="text-red-500">*</span>
+                        </label>
+                        <select
                             id="disposeLocation"
-                            type="text"
-                            name="location"
-                            placeholder="Enter storage or disposal location"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        />
+                            name="room_id"
+                            required
+                            data-searchable="1"
+                            data-search-placeholder="Search rooms…"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            <option value="">Select room</option>
+                            @foreach ($disposalRooms as $room)
+                                <option value="{{ $room->room_id }}">
+                                    {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1.5 text-[11px] leading-4 text-slate-500">The equipment is transferred to this room.</p>
                     </div>
                 </div>
             </div>
@@ -1832,20 +1792,6 @@
                         "</div>" +
                         '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposal area</p>' +
                         '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.location) + "</p>" +
-                    "</div>" +
-                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
-                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
-                            '<i data-lucide="recycle" class="h-3.5 w-3.5"></i>' +
-                        "</div>" +
-                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Method</p>' +
-                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.method) + "</p>" +
-                    "</div>" +
-                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
-                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
-                            '<i data-lucide="banknote" class="h-3.5 w-3.5"></i>' +
-                        "</div>" +
-                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Residual value</p>' +
-                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + (data.residual && !isNaN(Number(data.residual)) ? ("₱" + Number(data.residual).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : (data.residual ? ("₱" + displayDisposalValue(data.residual)) : "—")) + "</p>" +
                     "</div>" +
                     '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
                         '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +

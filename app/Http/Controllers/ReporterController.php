@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\BorrowingSubmissionService;
 use App\Services\ReportSubmissionService;
 use App\Support\ComputerSets;
+use App\Support\EventNames;
+use App\Support\EventTypes;
 use App\Support\IssueChecks;
 use App\Support\PropertyAssignments;
 use App\Support\ReportGrouping;
@@ -13,6 +16,8 @@ use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ReporterController extends Controller
 {
@@ -366,6 +371,9 @@ class ReporterController extends Controller
             ]]);
         }
 
+        $borrowEventNames = EventNames::options();
+        $borrowEventTypes = EventTypes::options();
+
         return view('landing.index', compact(
             'rooms',
             'equipment',
@@ -387,7 +395,9 @@ class ReporterController extends Controller
             'upcomingSchedules',
             'campusBuildings',
             'yearlyReportTotal',
-            'yearlyReportYear'
+            'yearlyReportYear',
+            'borrowEventNames',
+            'borrowEventTypes'
         ));
     }
 
@@ -801,6 +811,147 @@ class ReporterController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Glad it works now. No report was sent.',
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TEACHER ONLINE BORROWING (PIN session)
+    |--------------------------------------------------------------------------
+    */
+
+    public function borrowBootstrap(Request $request, BorrowingSubmissionService $borrowing)
+    {
+        $reporter = ReporterPins::sessionReporter($request);
+
+        if (! $reporter) {
+            return response()->json([
+                'success' => false,
+                'pin_required' => true,
+                'message' => 'Your verification expired. Enter your employee ID and PIN again.',
+            ], 401);
+        }
+
+        $borrower = $borrowing->borrowerFromReporter($reporter);
+
+        return response()->json([
+            'success' => true,
+            'borrower' => $borrower,
+            'caution' => $borrowing->cautionForReporter($reporter),
+            'equipment' => $borrowing->borrowableCatalog(),
+            'event_names' => EventNames::options()
+                ->map(fn ($row) => (string) $row->event_name_label)
+                ->values()
+                ->all(),
+            'event_types' => EventTypes::options()
+                ->map(fn ($row) => (string) $row->event_type_name)
+                ->values()
+                ->all(),
+        ]);
+    }
+
+    public function storeTeacherBorrowing(Request $request, BorrowingSubmissionService $borrowing)
+    {
+        $reporter = ReporterPins::sessionReporter($request);
+
+        if (! $reporter) {
+            return response()->json([
+                'success' => false,
+                'pin_required' => true,
+                'message' => 'Your verification expired. Enter your employee ID and PIN again.',
+            ], 401);
+        }
+
+        $borrower = $borrowing->borrowerFromReporter($reporter);
+        if (blank($borrower['name'] ?? null)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your reporter profile is missing a name. Ask the administrator to update it.',
+            ], 422);
+        }
+
+        $payload = $request->only([
+            'borrowing_date',
+            'borrowing_expected_return_date',
+            'borrowing_purpose',
+            'borrowing_event_name',
+            'borrowing_event_type',
+            'borrowing_event_location',
+            'items',
+        ]);
+
+        $payload['borrowing_borrower_name'] = $borrower['name'];
+        $payload['borrowing_borrower_department'] = $borrower['department'];
+        $payload['borrowing_borrower_custodian_id'] = $borrower['custodian_id'];
+
+        try {
+            $result = $borrowing->create($payload, (string) $request->ip(), null, 'online');
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first() ?: 'Please check the borrow form and try again.';
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        ReporterPins::endSession($request);
+
+        $lineCount = (int) ($result['line_count'] ?? 0);
+        $slip = $result['slip_no'] ?? null;
+        if ($slip) {
+            \App\Support\BorrowingDecisionMail::sendSubmitted((string) $slip);
+        }
+        $borrowFrom = $result['borrow_from'] ?? ($payload['borrowing_date'] ?? null);
+        $expectedReturn = $result['expected_return'] ?? ($payload['borrowing_expected_return_date'] ?? null);
+        $status = $result['status'] ?? 'Pending';
+
+        $message = $lineCount > 1
+            ? "Your request for {$lineCount} equipment lines was submitted."
+            : 'Your borrow request was submitted.';
+        if ($slip) {
+            $message .= ' Slip '.$slip.'.';
+        }
+        $message .= ' Status: Pending approval.';
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'slip_no' => $slip,
+            'line_count' => $lineCount,
+            'status' => $status,
+            'borrower_name' => $result['borrower_name'] ?? $borrower['name'],
+            'borrow_from' => $borrowFrom,
+            'expected_return' => $expectedReturn,
+            'next_step' => 'Check your employee or school email for your borrow slip. Show that slip when you claim the equipment.',
+        ]);
+    }
+
+    public function borrowStatus(Request $request, BorrowingSubmissionService $borrowing)
+    {
+        $reporter = ReporterPins::sessionReporter($request);
+
+        if (! $reporter) {
+            return response()->json([
+                'success' => false,
+                'pin_required' => true,
+                'message' => 'Your verification expired. Enter your employee ID and PIN again.',
+            ], 401);
+        }
+
+        $borrower = $borrowing->borrowerFromReporter($reporter);
+        $slips = $borrowing->onlineSlipsForReporter($reporter);
+
+        return response()->json([
+            'success' => true,
+            'borrower' => $borrower,
+            'slips' => $slips,
         ]);
     }
 

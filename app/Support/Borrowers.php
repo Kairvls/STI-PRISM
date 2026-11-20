@@ -7,26 +7,35 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Borrowing people — separate from campus faculty/staff (custodians used for property).
- * Registered borrowers are External custodians; history also comes from borrowing_records_table.
+ * Borrowing people — campus faculty/staff (property custodians) who may borrow equipment.
+ * History also comes from borrowing_records_table.
  */
 class Borrowers
 {
     /**
-     * People selectable in the Borrow Equipment "Registered" picker.
-     * External registry only — not the full campus staff directory.
+     * People selectable in the Borrow Equipment picker.
+     * Campus faculty/staff accounts only — not external / walk-in guests.
      *
      * @return Collection<int, array<string, mixed>>
      */
     public static function registeredOptions(): Collection
     {
-        if (! Custodians::tableReady() || ! Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+        if (! Custodians::tableReady()) {
             return collect();
         }
 
-        return Custodians::withDepartment(DB::table('custodians_table as person'))
-            ->where('person.custodian_status', Custodians::STATUS_ACTIVE)
-            ->where('person.custodian_affiliation', Custodians::AFFILIATION_EXTERNAL)
+        $query = Custodians::withDepartment(DB::table('custodians_table as person'))
+            ->where('person.custodian_status', Custodians::STATUS_ACTIVE);
+
+        if (Schema::hasColumn('custodians_table', 'custodian_affiliation')) {
+            $query->where(function ($q) {
+                $q->where('person.custodian_affiliation', Custodians::AFFILIATION_CAMPUS)
+                    ->orWhereNull('person.custodian_affiliation')
+                    ->orWhere('person.custodian_affiliation', '');
+            });
+        }
+
+        return $query
             ->orderBy('person.custodian_full_name')
             ->get([
                 'person.custodian_id',
@@ -42,7 +51,7 @@ class Borrowers
                 'name' => (string) $person->custodian_full_name,
                 'department' => (string) ($person->custodian_department ?? ''),
                 'organization' => (string) ($person->custodian_organization ?? ''),
-                'affiliation' => Custodians::AFFILIATION_EXTERNAL,
+                'affiliation' => (string) ($person->custodian_affiliation ?: Custodians::AFFILIATION_CAMPUS),
                 'position' => (string) ($person->custodian_position ?? ''),
                 'employee_id' => (string) ($person->custodian_employee_id ?? ''),
                 'label' => Custodians::optionLabel($person),

@@ -29,7 +29,7 @@
         x-show="open"
         x-cloak
         x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen) { fullscreen = false; } else { close(); } }"
+        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (reviewOpen) { closeReview(); } else if (fullscreen) { fullscreen = false; } else { close(); } }"
         @if ($errors->hasAny($wizardErrorKeys))
         x-init="
             open = true;
@@ -143,12 +143,6 @@
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
                         </div>
-                        <button
-                            type="button"
-                            class="text-xs font-semibold text-[#0025cc] hover:underline"
-                            @click="setIntakeBasis(intakeBasis === 'non_procurement' ? 'receiving' : 'non_procurement')"
-                            x-text="intakeBasis === 'non_procurement' ? 'Use received RR instead' : 'Non-procurement intake…'"
-                        ></button>
                     </div>
 
                     <div x-show="intakeBasis !== 'non_procurement'" x-cloak class="space-y-3">
@@ -566,7 +560,7 @@
                     </div>
                 </div>
 
-                <div
+                <!-- <div
                     x-show="intakeBasis !== 'non_procurement' && !rrLoading && rrLines.length === 0"
                     x-cloak
                     class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-600 ring-1"
@@ -583,7 +577,7 @@
                         class="inline-flex h-9 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-semibold text-[#0025cc] ring-1 ring-slate-200 transition hover:bg-slate-50"
                         @click="setIntakeBasis('non_procurement')"
                     >Use non-procurement intake</button>
-                </div>
+                </div> -->
                 </div>
                 @endif
                 <div x-show="page === 2" x-cloak>
@@ -660,9 +654,25 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What it is</p>
                         <div>
                             <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
+                            <div
+                                x-show="!manualIntake()"
+                                x-cloak
+                                class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                title="The equipment name comes from the Receiving Report line."
+                            >
+                                <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                    <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                    <span class="truncate" x-text="name || '—'"></span>
+                                </span>
+                                <span class="shrink-0 text-[11px] text-slate-400">From the RR</span>
+                            </div>
+                            <input type="hidden" name="equipment_name" :value="name" :disabled="manualIntake()">
                             <select
                                 id="add_equipment_name"
-                                name="equipment_name"
+                                x-show="manualIntake()"
+                                x-cloak
+                                :name="manualIntake() ? 'equipment_name' : null"
+                                :disabled="!manualIntake()"
                                 x-model="name"
                                 data-searchable="1"
                                 data-search-placeholder="Search equipment…"
@@ -688,7 +698,6 @@
                                 @endforeach
                             </select>
                             <p x-show="errors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.name"></p>
-                            <!--<p x-show="!errors.name" class="mt-1.5 text-xs text-slate-400">From Classification maintenance. To add a new name, pick a classification first.</p>-->
                         </div>
                         <div>
                             <label for="add_equipment_category" class="{{ $eqLabel }}">Classification <span class="text-rose-500">*</span></label>
@@ -716,9 +725,25 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name <span class="text-red-500">*</span></label>
+                                <div
+                                    x-show="!manualIntake() && _brandFromRis"
+                                    x-cloak
+                                    class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                    title="The brand was recorded on the RIS for this equipment."
+                                >
+                                    <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                        <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                        <span class="truncate" x-text="brand || '—'"></span>
+                                    </span>
+                                    <span class="shrink-0 text-[11px] text-slate-400">From the RIS</span>
+                                </div>
+                                <input type="hidden" name="equipment_brand_name" :value="brand" :disabled="manualIntake() || !_brandFromRis">
                                 <select
                                     id="add_equipment_brand"
-                                    name="equipment_brand_name"
+                                    x-show="manualIntake() || !_brandFromRis"
+                                    x-cloak
+                                    :name="(manualIntake() || !_brandFromRis) ? 'equipment_brand_name' : null"
+                                    :disabled="!manualIntake() && _brandFromRis"
                                     x-model="brand"
                                     data-searchable="1"
                                     data-search-placeholder="Search brands…"
@@ -846,7 +871,6 @@
                                     <option value="Under Maintenance">Under Maintenance</option>
                                     <option value="Defective">Defective</option>
                                     <option value="Damaged">Damaged</option>
-                                    <option value="Disposed">Disposed</option>
                                 </select>
                             </div>
                         </div>
@@ -868,11 +892,6 @@
                                     ? 'One quantity pile — you can later transfer part of it to other rooms.'
                                     : 'Creates separate trackable assets (asset tag, serial, QR per unit).')"></p>
                         </div>
-                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
-                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
-                            <input id="add_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
-                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-[#0025cc] after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
-                        </label>
                     </div>
                 </div>
                 @if ($isStockPage)
@@ -905,7 +924,7 @@
                             fetched from
                             <span class="font-semibold text-slate-900" x-text="selectedRrCount + ' RR' + (selectedRrCount === 1 ? '' : 's')"></span>.
                             <span class="font-semibold text-slate-900">Classification is required</span> for every line (Express cannot skip it).
-                            Names come from the RR; brand and model are required for every line.
+                            Names come from the RR. A brand recorded on the RIS stays as recorded. Model is required for every line.
                             Condition is <span class="font-semibold text-slate-900">Good</span> because these are new deliveries.
                         </p>
                     </div>
@@ -949,7 +968,6 @@
                                         <option value="Under Maintenance">Under Maintenance</option>
                                         <option value="Defective">Defective</option>
                                         <option value="Damaged">Damaged</option>
-                                        <option value="Disposed">Disposed</option>
                                     </select>
                                     <button
                                         type="button"
@@ -963,9 +981,23 @@
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
                                     <label class="{{ $eqLabel }}" :for="'multi_name_' + row.id">Equipment name <span class="text-rose-500">*</span></label>
+                                    <div
+                                        x-show="isMultiRr()"
+                                        x-cloak
+                                        class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                        title="The equipment name comes from the Receiving Report line."
+                                    >
+                                        <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                            <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                            <span class="truncate" x-text="row.name || row.article || '—'"></span>
+                                        </span>
+                                        <span class="shrink-0 text-[11px] text-slate-400">From the RR</span>
+                                    </div>
                                     <select
                                         :id="'multi_name_' + row.id"
-                                        name="equipment_name"
+                                        x-show="isMultiManual()"
+                                        x-cloak
+                                        :disabled="!isMultiManual()"
                                         x-model="row.name"
                                         data-searchable="1"
                                         data-search-placeholder="Search equipment…"
@@ -1018,9 +1050,23 @@
                                         <label class="{{ $eqLabel }}" :for="'multi_brand_' + row.id">
                                             <span x-text="hasPieces(row) ? 'Brand (all pcs)' : 'Brand name'"></span> <span class="text-red-500">*</span>
                                         </label>
+                                        <div
+                                            x-show="isMultiRr() && row._brandFromRis"
+                                            x-cloak
+                                            class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                            title="The brand was recorded on the RIS for this equipment."
+                                        >
+                                            <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                                <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                <span class="truncate" x-text="row.brand || '—'"></span>
+                                            </span>
+                                            <span class="shrink-0 text-[11px] text-slate-400">From the RIS</span>
+                                        </div>
                                         <select
                                             :id="'multi_brand_' + row.id"
-                                            name="equipment_brand_name"
+                                            x-show="!isMultiRr() || !row._brandFromRis"
+                                            x-cloak
+                                            :disabled="isMultiRr() && !!row._brandFromRis"
                                             x-model="row.brand"
                                             data-searchable="1"
                                             data-search-placeholder="Search brands…"
@@ -1105,16 +1151,19 @@
                                 <div class="flex flex-wrap items-center justify-between gap-2">
                                     <div class="min-w-0">
                                         <p class="text-sm font-medium text-slate-900">Brand &amp; model per piece</p>
-                                        <p class="text-[11px] text-slate-500" x-text="row.perPiece
-                                            ? 'Fill only the pieces that differ. Blank fields use the brand and model above.'
-                                            : ('All ' + (Number(row.quantity) || 0) + ' pcs use the brand and model above.')"></p>
+                                        <p class="text-[11px] text-slate-500" x-text="isMultiRr() && row._brandFromRis
+                                            ? 'Brand is taken from the RIS. Set a model only on pieces that differ.'
+                                            : (row.perPiece
+                                                ? 'Fill only the pieces that differ. Blank fields use the brand and model above.'
+                                                : ('All ' + (Number(row.quantity) || 0) + ' pcs use the brand and model above.'))"></p>
                                     </div>
                                     <label class="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
                                         <input
                                             type="checkbox"
                                             x-model="row.perPiece"
+                                            :disabled="isMultiRr() && row._brandFromRis && risBrandCount(row) > 1"
                                             @change="syncPieces(row)"
-                                            class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30"
+                                            class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30 disabled:cursor-not-allowed disabled:opacity-40"
                                         >
                                         Different per piece
                                     </label>
@@ -1144,20 +1193,32 @@
                                                     <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500" x-text="'Pc ' + (pieceIndex + 1) + ' of ' + row.pieces.length"></p>
                                                     <span
                                                         class="text-[10px] font-semibold"
-                                                        :class="(piece.brand || piece.model) ? 'text-[#0025cc]' : 'text-slate-400'"
-                                                        x-text="(piece.brand || piece.model) ? 'Custom' : 'Same as all'"
+                                                        :class="((isMultiRr() && row._brandFromRis) ? piece.model : (piece.brand || piece.model)) ? 'text-[#0025cc]' : 'text-slate-400'"
+                                                        x-text="((isMultiRr() && row._brandFromRis) ? piece.model : (piece.brand || piece.model)) ? 'Custom' : 'Same as all'"
                                                     ></span>
                                                 </div>
                                                 <label class="sr-only" :for="'pc_brand_' + row.id + '_' + pieceIndex">Brand</label>
+                                                <div
+                                                    x-show="isMultiRr() && row._brandFromRis"
+                                                    x-cloak
+                                                    class="flex h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700"
+                                                    title="The brand was recorded on the RIS for this equipment."
+                                                >
+                                                    <i data-lucide="lock" class="h-3 w-3 shrink-0 text-slate-400"></i>
+                                                    <span class="truncate" x-text="piece.brand || row.brand || '—'"></span>
+                                                </div>
                                                 <select
                                                     :id="'pc_brand_' + row.id + '_' + pieceIndex"
+                                                    x-show="!(isMultiRr() && row._brandFromRis)"
+                                                    x-cloak
+                                                    :disabled="isMultiRr() && !!row._brandFromRis"
                                                     x-model="piece.brand"
                                                     data-searchable="1"
                                                     data-search-placeholder="Search brands…"
                                                     data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
                                                     data-add-label="Add new brand"
                                                     data-add-placeholder="New brand name"
-                                                    @change="syncCatalogOption($el, piece.brand)"
+                                                    @change="row._piecesManual = true; syncCatalogOption($el, piece.brand)"
                                                     class="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
                                                 >
                                                     <option value="" x-text="row.brand || 'Brand'"></option>
@@ -1187,17 +1248,11 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-                                <p class="text-[11px] text-slate-400" x-text="!rowAllowsBulk(row)
-                                    ? 'Computer Equipment must be Individual (one identity per unit). Use quantity to add many.'
-                                    : (row.tracking === 'Bulk'
-                                        ? 'One quantity pile — you can later transfer part of it to other rooms.'
-                                        : ('Creates ' + (Number(row.quantity) || 0) + ' separate assets, each with its own asset tag and QR.'))"></p>
-                                <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
-                                    <input type="checkbox" x-model="row.borrowable" class="h-4 w-4 rounded border-slate-300 text-[#0025cc] focus:ring-[#0025cc]/30">
-                                    Can be borrowed
-                                </label>
-                            </div>
+                            <p class="mt-3 text-[11px] text-slate-400" x-text="!rowAllowsBulk(row)
+                                ? 'Computer Equipment must be Individual (one identity per unit). Use quantity to add many.'
+                                : (row.tracking === 'Bulk'
+                                    ? 'One quantity pile — you can later transfer part of it to other rooms.'
+                                    : ('Creates ' + (Number(row.quantity) || 0) + ' separate assets, each with its own asset tag and QR.'))"></p>
                         </div>
                     </template>
                     <button
@@ -1374,19 +1429,20 @@
                                             <p class="truncate text-sm font-medium text-slate-900" x-text="row.name || row.article || 'Unnamed item'"></p>
                                             <p class="truncate text-[11px] text-slate-500" x-text="[row.tracking === 'Bulk' ? 'Bulk · ' + row.quantity : (row.quantity + ' units'), row.rr_number].filter(Boolean).join(' · ')"></p>
                                         </div>
-                                        <input
-                                            x-show="isMultiManual()"
-                                            type="number"
-                                            min="0"
-                                            max="{{ \App\Support\InputLimits::COST }}"
-                                            step="0.01"
-                                            inputmode="decimal"
-                                            data-money
-                                            x-model="row.cost"
-                                            placeholder="0.00"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                            :aria-label="'Cost per unit for ' + (row.name || 'item')"
-                                        />
+                                        <template x-if="isMultiManual()">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="{{ \App\Support\InputLimits::COST }}"
+                                                step="0.01"
+                                                inputmode="decimal"
+                                                data-money
+                                                x-model="row.cost"
+                                                placeholder="0.00"
+                                                class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                                :aria-label="'Cost per unit for ' + (row.name || 'item')"
+                                            />
+                                        </template>
                                         <input
                                             type="date"
                                             x-model="row.warranty"
@@ -1409,7 +1465,9 @@
                                     </div>
                                 </template>
                             </div>
-                            <p class="text-xs text-slate-400">Warranty, lifespan, and cost are required. These defaults apply to every unit; change a unit on the Units step only if it differs.</p>
+                            <p class="text-xs text-slate-400" x-text="isMultiManual()
+                                ? 'Warranty, lifespan, and cost are required. These defaults apply to every unit; change a unit on the Units step only if it differs.'
+                                : 'Warranty and lifespan are required. Cost stays the amount on each Receiving Report line. These defaults apply to every unit; change a unit on the Units step only if it differs.'"></p>
                         </div>
                     </div>
                 </div>
@@ -1671,8 +1729,26 @@
                                         </div>
                                     </td>
                                     <td class="px-2 py-2">
-                                        <select
+                                        <div
+                                            x-show="!manualIntake() && _brandFromRis"
+                                            x-cloak
+                                            class="flex h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700"
+                                            title="The brand was recorded on the RIS for this equipment."
+                                        >
+                                            <i data-lucide="lock" class="h-3 w-3 shrink-0 text-slate-400"></i>
+                                            <span class="truncate" x-text="item.equipment_brand_name || brand || '—'"></span>
+                                        </div>
+                                        <input
+                                            type="hidden"
                                             :name="'items[' + index + '][equipment_brand_name]'"
+                                            :value="item.equipment_brand_name || brand"
+                                            :disabled="manualIntake() || !_brandFromRis"
+                                        >
+                                        <select
+                                            x-show="manualIntake() || !_brandFromRis"
+                                            x-cloak
+                                            :name="(manualIntake() || !_brandFromRis) ? ('items[' + index + '][equipment_brand_name]') : null"
+                                            :disabled="!manualIntake() && _brandFromRis"
                                             :id="'unit_brand_' + index"
                                             x-model="item.equipment_brand_name"
                                             data-searchable="1"
@@ -1680,7 +1756,7 @@
                                             data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
                                             data-add-label="Add new brand"
                                             data-add-placeholder="New brand name"
-                                            @change="syncCatalogOption($el, item.equipment_brand_name)"
+                                            @change="item._brandManual = true; syncCatalogOption($el, item.equipment_brand_name)"
                                             class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
                                         >
                                             <option value="">Select brand</option>
@@ -1728,7 +1804,6 @@
                                             <option value="Under Maintenance">Under Maintenance</option>
                                             <option value="Defective">Defective</option>
                                             <option value="Damaged">Damaged</option>
-                                            <option value="Disposed">Disposed</option>
                                         </select>
                                     </td>
                                     <td class="px-2 py-2">
@@ -1977,71 +2052,11 @@
                 </div>
             </div>
 
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 3" x-cloak>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Identity</p>
-                            <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="goToStep('p2')">Edit</button>
-                        </div>
-                        <dl class="mt-3 space-y-2 text-sm">
-                            <template x-for="row in reviewIdentity()" :key="row[0]">
-                                <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                            </template>
-                        </dl>
-                    </section>
-                    @if ($isStockPage)
-                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Source</p>
-                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="goToStep('p1')">Edit</button>
-                            </div>
-                            <dl class="mt-3 space-y-2 text-sm">
-                                <template x-for="row in reviewSource()" :key="row[0]">
-                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                                </template>
-                            </dl>
-                        </section>
-                    @endif
-                    <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purchase &amp; warranty</p>
-                            <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="goToStep('p3')">Edit</button>
-                        </div>
-                        <dl class="mt-3 space-y-2 text-sm">
-                            <template x-for="row in reviewPurchase()" :key="row[0]">
-                                <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                            </template>
-                        </dl>
-                    </section>
-                    <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Placement &amp; accountability</p>
-                            <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="goToStep('p4')">Edit</button>
-                        </div>
-                        <dl class="mt-3 space-y-2 text-sm">
-                            <template x-for="row in reviewPlacement()" :key="row[0]">
-                                <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                            </template>
-                        </dl>
-                    </section>
-                </div>
-            </div>
-
             <div class="flex flex-wrap items-center justify-end gap-2 px-6 py-4">
                 <button type="button" @click="back()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100" x-text="isFirstStep() ? 'Cancel' : 'Back'"></button>
                 <button
                     type="button"
-                    x-show="canSaveNow()"
-                    x-cloak
-                    @click="goToReview()"
-                    class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-                >
-                    Review first
-                </button>
-                <button
-                    type="button"
-                    x-show="step !== 3 && !canSaveNow()"
+                    x-show="!canSaveNow()"
                     @click="next()"
                     class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
                 >
@@ -2060,20 +2075,99 @@
                             ? ('Save ' + multiLines.length + ' items now')
                             : (needsItemStep() ? ('Save ' + items.length + ' assets now') : 'Save now'))"
                 ></button>
-                <button
-                    type="submit"
-                    x-show="step === 3"
-                    x-cloak
-                    :disabled="submitting"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
-                    x-text="submitting
-                        ? 'Saving…'
-                        : (isMulti()
-                            ? ('Add ' + multiLines.length + ' items to inventory')
-                            : (needsItemStep() ? ('Create ' + items.length + ' assets') : {{ json_encode($wizardTitle) }}))"
-                ></button>
             </div>
         </form>
+
+        <div
+            x-show="reviewOpen"
+            x-cloak
+            class="absolute inset-0 z-30 flex items-center justify-center bg-[#0b1220]/50 p-4 sm:p-6"
+            @click.self="closeReview()"
+        >
+            <div class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20" role="dialog" aria-modal="true" aria-labelledby="addEquipmentReviewHeading">
+                <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                    <div class="min-w-0">
+                        <h2 id="addEquipmentReviewHeading" class="text-lg font-semibold tracking-tight text-slate-900">Review</h2>
+                        <p class="mt-1 text-sm text-slate-500">Check everything before saving. These fill the equipment page.</p>
+                    </div>
+                    <button type="button" @click="closeReview()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close review" :disabled="submitting">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+                <div
+                    x-show="formError"
+                    x-cloak
+                    class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
+                >
+                    <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                    <p class="min-w-0 flex-1 leading-relaxed" x-text="formError"></p>
+                </div>
+                <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Identity</p>
+                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p2')">Edit</button>
+                            </div>
+                            <dl class="mt-3 space-y-2 text-sm">
+                                <template x-for="row in reviewIdentity()" :key="row[0]">
+                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
+                                </template>
+                            </dl>
+                        </section>
+                        @if ($isStockPage)
+                            <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Source</p>
+                                    <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p1')">Edit</button>
+                                </div>
+                                <dl class="mt-3 space-y-2 text-sm">
+                                    <template x-for="row in reviewSource()" :key="row[0]">
+                                        <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
+                                    </template>
+                                </dl>
+                            </section>
+                        @endif
+                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purchase &amp; warranty</p>
+                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p3')">Edit</button>
+                            </div>
+                            <dl class="mt-3 space-y-2 text-sm">
+                                <template x-for="row in reviewPurchase()" :key="row[0]">
+                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
+                                </template>
+                            </dl>
+                        </section>
+                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Placement &amp; accountability</p>
+                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p4')">Edit</button>
+                            </div>
+                            <dl class="mt-3 space-y-2 text-sm">
+                                <template x-for="row in reviewPlacement()" :key="row[0]">
+                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
+                                </template>
+                            </dl>
+                        </section>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center justify-end gap-2 px-6 py-4">
+                    <button type="button" @click="closeReview()" :disabled="submitting" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-60">Back</button>
+                    <button
+                        type="button"
+                        @click="confirmReview()"
+                        :disabled="submitting"
+                        class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                        x-text="submitting
+                            ? 'Saving…'
+                            : (isMulti()
+                                ? ('Add ' + multiLines.length + ' items to inventory')
+                                : (needsItemStep() ? ('Create ' + items.length + ' assets') : {{ json_encode($wizardTitle) }}))"
+                    ></button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -2086,6 +2180,8 @@
             const firstPage = isStockPage ? 1 : 2;
             return {
                 open: false,
+                reviewOpen: false,
+                reviewConfirmed: false,
                 step: 1,
                 page: firstPage,
                 furthestStepIndex: 0,
@@ -2147,6 +2243,9 @@
                 submitting: false,
                 purchaseDate: '',
                 purchaseCost: '',
+                brandPresets: [],
+                _brandFromRis: false,
+                _brandManual: false,
                 get rrGroups() {
                     const groups = [];
                     const byKey = {};
@@ -2296,7 +2395,6 @@
                         tracking: 'Individual',
                         condition: 'Good',
                         cost: '',
-                        borrowable: false,
                         warranty: '',
                         useful_life_years: '',
                         perPiece: false,
@@ -2305,7 +2403,6 @@
                     };
                 },
                 startManualMulti() {
-                    const borrowable = document.getElementById('add_equipment_borrowable');
                     const first = this.newManualLine({
                         name: this.name || '',
                         category: this.category ? String(this.category) : '',
@@ -2316,7 +2413,6 @@
                         tracking: this.tracking,
                         condition: this.condition || 'Good',
                         cost: this.purchaseCost || '',
-                        borrowable: !!borrowable?.checked,
                     });
                     this.manualLines = [first, this.newManualLine()];
                     this.clearImage();
@@ -2358,8 +2454,6 @@
                     this.tracking = only.tracking;
                     this.condition = only.condition || 'Good';
                     this.purchaseCost = only.cost || '';
-                    const borrowable = document.getElementById('add_equipment_borrowable');
-                    if (borrowable) borrowable.checked = !!only.borrowable;
                     this.syncAssetTag();
                     this.ensureBrandModelOptions();
                 },
@@ -2449,6 +2543,10 @@
                     this.rrMultiLines = this.selectedRrLines.map((line) => {
                         const id = String(line.id);
                         if (previous[id]) {
+                            const article = String(line.article || '').trim();
+                            if (article) previous[id].name = article;
+                            previous[id].brand_presets = Array.isArray(line.brand_presets) ? line.brand_presets : (previous[id].brand_presets || []);
+                            previous[id]._brandManual = false;
                             this.applyExpressDefaultsToRow(previous[id], false);
                             return previous[id];
                         }
@@ -2468,11 +2566,14 @@
                             category: detected ? String(detected) : '',
                             categoryManual: false,
                             brand: '',
+                            brand_presets: Array.isArray(line.brand_presets) ? line.brand_presets : [],
+                            _brandFromRis: false,
+                            _brandManual: false,
+                            _piecesManual: false,
                             model: '',
                             quantity: max,
                             max,
                             tracking: 'Individual',
-                            borrowable: false,
                             warranty: '',
                             useful_life_years: '',
                             cost: line.unit_cost != null ? String(line.unit_cost) : '',
@@ -2503,10 +2604,45 @@
                     if ((row.cost === '' || row.cost == null) && row.unit_cost != null) {
                         row.cost = String(row.unit_cost);
                     }
+                    this.applyRisBrand(row);
+                },
+                expandedBrandNames(presets) {
+                    const names = [];
+                    (presets || []).forEach((preset) => {
+                        const name = String((preset && preset.name) || '').trim();
+                        if (!name) return;
+                        const count = Math.max(1, Number(preset.quantity) || 1);
+                        for (let i = 0; i < count && names.length < 200; i++) names.push(name);
+                    });
+                    return names;
+                },
+                risBrandCount(row) {
+                    return new Set(this.expandedBrandNames(row?.brand_presets)).size;
+                },
+                applyRisBrand(row) {
+                    const names = this.expandedBrandNames(row.brand_presets);
+                    if (!names.length) return;
+                    const unique = [...new Set(names)];
+                    row.brand = unique.length === 1 ? unique[0] : names[0];
+                    row._brandFromRis = true;
+                    row._brandManual = false;
+                    if (unique.length < 2 || row.tracking !== 'Individual' || Number(row.quantity) <= 1 || row._piecesManual) return;
+                    const qty = Math.min(200, Math.max(1, Number(row.quantity) || 1));
+                    row.perPiece = true;
+                    row.pieces = Array.from({ length: qty }, (_, i) => ({
+                        brand: names[i] || row.brand || '',
+                        model: (row.pieces && row.pieces[i] && row.pieces[i].model) || '',
+                    }));
+                },
+                presetBrandAt(index) {
+                    const names = this.expandedBrandNames(this.brandPresets);
+                    if (new Set(names).size < 2) return '';
+                    return names[index] || names[0] || '';
                 },
                 applyExpressDefaults() {
                     (this.rrMultiLines || []).forEach((row) => this.applyExpressDefaultsToRow(row, true));
                     this.applyRrTrackingLock();
+                    this.ensureBrandModelOptions();
                 },
                 onMultiNameInput(row) {
                     if (row.categoryManual || typeof detectEquipmentCategoryId !== 'function') return;
@@ -2550,19 +2686,25 @@
                     if (!line) {
                         this.purchaseDate = '';
                         this.purchaseCost = '';
+                        this.brandPresets = [];
                         this.applyRrTrackingLock();
                         return;
                     }
-                    if (!String(this.name || '').trim()) {
-                        this.name = line.article || '';
-                        this.onNameInput();
-                    } else {
-                        this.onNameInput();
-                    }
+                    this.name = line.article || '';
+                    this.onNameInput();
                     const qty = Number(line.remaining_qty != null ? line.remaining_qty : line.quantity) || 1;
                     this.quantity = Math.min(200, Math.max(1, qty));
                     this.purchaseDate = line.purchase_date || '';
                     this.purchaseCost = line.unit_cost != null ? String(line.unit_cost) : '';
+                    this.brandPresets = Array.isArray(line.brand_presets) ? line.brand_presets : [];
+                    this._brandManual = false;
+                    if (line.brand) {
+                        this.brand = line.brand;
+                        this._brandFromRis = true;
+                    } else {
+                        this.brand = '';
+                        this._brandFromRis = false;
+                    }
                     if (line.replaces_equipment_id && !this.replacesId) {
                         this.replacesId = String(line.replaces_equipment_id);
                     }
@@ -3129,12 +3271,10 @@
                                 : 'Unique asset tag, serial number, and optional photo per unit.',
                         });
                     }
-                    steps.push({ key: 'review', label: 'Review', hint: 'Check everything before saving. These fill the equipment page.' });
                     return steps;
                 },
                 currentStepKey() {
                     if (this.step === 2) return 'units';
-                    if (this.step === 3) return 'review';
                     return 'p' + this.page;
                 },
                 currentStepIndex() {
@@ -3162,8 +3302,6 @@
                     this.clearErrors();
                     if (key === 'units') {
                         this.step = 2;
-                    } else if (key === 'review') {
-                        this.step = 3;
                     } else {
                         this.step = 1;
                         this.page = Number(key.slice(1));
@@ -3191,7 +3329,6 @@
                             this.goToItems();
                             return;
                         }
-                        // Prefer Save now — Review remains available via “Review first”.
                         this.saveNow();
                         return;
                     }
@@ -3202,14 +3339,7 @@
                 },
                 back() {
                     this.clearErrors();
-                    if (this.step === 3) {
-                        if (this.hasUnitsStep()) {
-                            this.step = 2;
-                        } else {
-                            this.step = 1;
-                            this.page = 4;
-                        }
-                    } else if (this.step === 2) {
+                    if (this.step === 2) {
                         this.step = 1;
                         this.page = 4;
                     } else if (this.page > firstPage) {
@@ -3321,16 +3451,15 @@
                             });
                             if (row) next.useful_life = 'Lifespan for ' + (row.name || row.article) + ' must be a whole number from 1 to ' + lifeMax + ' years.';
                         }
-                        if (!this.isMultiManual()) {
-                            if (this.purchaseCost === '' || this.purchaseCost === null || this.purchaseCost === undefined || !Number.isFinite(Number(this.purchaseCost)) || Number(this.purchaseCost) < 0) {
-                                next.purchase_cost = 'Cost per unit is required.';
-                            }
-                        } else {
-                            const row = this.multiLines.find((line) => (
-                                line.cost === '' || line.cost === null || line.cost === undefined
-                                || !Number.isFinite(Number(line.cost)) || Number(line.cost) < 0
-                            ));
+                        if (this.isMulti()) {
+                            const row = this.multiLines.find((line) => {
+                                const cost = line.cost !== '' && line.cost != null ? line.cost : line.unit_cost;
+                                return cost === '' || cost === null || cost === undefined
+                                    || !Number.isFinite(Number(cost)) || Number(cost) < 0;
+                            });
                             if (row) next.purchase_cost = 'Cost for ' + (row.name || 'an item') + ' is required.';
+                        } else if (this.purchaseCost === '' || this.purchaseCost === null || this.purchaseCost === undefined || !Number.isFinite(Number(this.purchaseCost)) || Number(this.purchaseCost) < 0) {
+                            next.purchase_cost = 'Cost per unit is required.';
                         }
                     }
                     if (page === 4) {
@@ -3499,6 +3628,8 @@
                     this.applyRrTrackingLock();
                 },
                 reset() {
+                    this.reviewOpen = false;
+                    this.reviewConfirmed = false;
                     this.step = 1;
                     this.page = firstPage;
                     this.furthestStepIndex = 0;
@@ -3541,12 +3672,13 @@
                     this.submitting = false;
                     this.purchaseDate = '';
                     this.purchaseCost = '';
+                    this.brandPresets = [];
+                    this._brandFromRis = false;
+                    this._brandManual = false;
                     this.clearAllItemImages();
                     this.items = [];
                     this.clearImage();
                     this.clearErrors();
-                    const borrowable = document.getElementById('add_equipment_borrowable');
-                    if (borrowable) borrowable.checked = false;
                 },
                 show(rrItemId = null, options = {}) {
                     this.reset();
@@ -3614,7 +3746,6 @@
                                 this.categoryName(row.category),
                                 this.hasPieces(row) ? 'Brand/model per piece' : [row.brand, row.model].filter(Boolean).join(' '),
                                 this.isMultiManual() ? row.condition : '',
-                                row.borrowable ? 'Borrowable' : '',
                             ]
                                 .filter(Boolean).join(' · '),
                         ]);
@@ -3629,7 +3760,6 @@
                         ['Brand / model', [this.brand, this.model].filter(Boolean).join(' · ') || '—'],
                         ['Quantity', this.quantity + ' · ' + this.tracking],
                         ['Condition', this.manualIntake() ? this.condition : 'Good (new delivery)'],
-                        ['Can be borrowed', document.getElementById('add_equipment_borrowable')?.checked ? 'Yes' : 'No'],
                     ];
                     if (this.needsItemStep()) {
                         rows.push(['Asset tags / serials', this.items.length + ' units (Units step)']);
@@ -3743,13 +3873,19 @@
                     const previous = this.items || [];
                     const deploying = this.deploying();
 
+                    const lockedBrand = !this.manualIntake() && this._brandFromRis;
                     this.items = Array.from({ length: qty }, (_, i) => {
                         const prev = previous[i] || {};
                         const roomManual = deploying && !!prev._roomManual;
                         return {
                             equipment_asset_tag: prev._tagManual ? prev.equipment_asset_tag : '',
                             equipment_serial_number: prev.equipment_serial_number ?? '',
-                            equipment_brand_name: this.brand || '',
+                            equipment_brand_name: lockedBrand
+                                ? (this.presetBrandAt(i) || this.brand || '')
+                                : (prev._brandManual
+                                    ? (prev.equipment_brand_name || '')
+                                    : (this.presetBrandAt(i) || this.brand || '')),
+                            _brandManual: lockedBrand ? false : !!prev._brandManual,
                             equipment_model: this.model || '',
                             equipment_condition_status: this.manualIntake() ? this.condition : 'Good',
                             equipment_purchase_date: prev._purchaseManual ? (prev.equipment_purchase_date || '') : (this.purchaseDate || ''),
@@ -3817,7 +3953,7 @@
                     this.scrollToTop();
                 },
                 canSaveNow() {
-                    if (this.submitting || this.step === 3) return false;
+                    if (this.submitting) return false;
                     if (this.step === 2) return true;
                     return this.step === 1 && this.page === 4 && !this.hasUnitsStep();
                 },
@@ -3829,21 +3965,33 @@
                     if (!(this.rrMultiLines || []).length) return false;
                     return this.rrMultiLines.every((row) => String(row.category || '').trim() !== '');
                 },
-                goToReview() {
-                    if (this.step === 1) {
-                        if (!this.validatePage(this.page)) return;
-                        if (this.hasUnitsStep()) {
-                            this.goToItems();
-                            return;
-                        }
-                        this.items = [];
-                        this.syncAssetTag();
-                    } else if (this.step === 2) {
-                        if (!(this.isMulti() ? this.validateMultiUnits() : this.validateItems())) return;
+                openReview() {
+                    this.formError = '';
+                    this.reviewOpen = true;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                closeReview() {
+                    if (this.submitting) return;
+                    this.reviewOpen = false;
+                },
+                editFromReview(key) {
+                    if (this.submitting) return;
+                    this.reviewOpen = false;
+                    this.goToStep(key);
+                },
+                confirmReview() {
+                    if (this.submitting || !this.reviewOpen) return;
+                    if (this.isMulti()) {
+                        this.submitMulti();
+                        return;
                     }
-                    this.step = 3;
-                    this.markFurthest();
-                    this.scrollToTop();
+                    this.reviewConfirmed = true;
+                    const form = document.querySelector('#addEquipmentModal form');
+                    if (form) {
+                        form.requestSubmit();
+                    } else {
+                        this.reviewConfirmed = false;
+                    }
                 },
                 async saveNow() {
                     if (this.submitting) return;
@@ -3863,7 +4011,7 @@
                             this.scrollToTop();
                             return;
                         }
-                        await this.submitMulti();
+                        this.openReview();
                         return;
                     }
                     if (!this.validateStep1()) return;
@@ -3879,12 +4027,7 @@
                         this.items = [];
                         this.syncAssetTag();
                     }
-                    this.step = 3;
-                    this.markFurthest();
-                    this.$nextTick(() => {
-                        const form = document.querySelector('#addEquipmentModal form');
-                        if (form) form.requestSubmit();
-                    });
+                    this.openReview();
                 },
                 async expressStock() {
                     if (this.submitting) return;
@@ -4031,7 +4174,6 @@
                         form.append(key + '[quantity]', String(Number(row.quantity)));
                         form.append(key + '[brand]', String(row.brand || '').trim());
                         form.append(key + '[model]', String(row.model || '').trim());
-                        form.append(key + '[borrowable]', row.borrowable ? '1' : '0');
                         form.append(key + '[warranty]', String(row.warranty || this.warranty || ''));
                         form.append(key + '[useful_life_years]', String(
                             row.useful_life_years !== '' && row.useful_life_years != null
@@ -4069,11 +4211,12 @@
                     return form;
                 },
                 prepareSubmit(event) {
-                    if (this.step !== 3) {
+                    if (!this.reviewConfirmed) {
                         event.preventDefault();
-                        this.next();
+                        if (!this.reviewOpen) this.next();
                         return;
                     }
+                    this.reviewConfirmed = false;
                     if (this.isMulti()) {
                         event.preventDefault();
                         this.submitMulti();
@@ -4081,11 +4224,13 @@
                     }
                     if (!this.validateStep1()) {
                         event.preventDefault();
+                        this.reviewOpen = false;
                         return;
                     }
                     if (this.needsItemStep()) {
                         if (!this.validateItems()) {
                             event.preventDefault();
+                            this.reviewOpen = false;
                             this.step = 2;
                             return;
                         }
@@ -4096,9 +4241,13 @@
                 },
                 async submitMulti() {
                     if (this.submitting) return;
-                    if (!this.validateStep1()) return;
+                    if (!this.validateStep1()) {
+                        this.reviewOpen = false;
+                        return;
+                    }
                     if (this.multiLines.some((row) => !Array.isArray(row.units))) this.buildMultiUnits();
                     if (!this.validateMultiUnits()) {
+                        this.reviewOpen = false;
                         this.step = 2;
                         return;
                     }
@@ -4155,7 +4304,6 @@
                         form.append(key + '[brand]', String(row.brand || '').trim());
                         form.append(key + '[model]', String(row.model || '').trim());
                         if (row.cost !== '' && row.cost !== null && row.cost !== undefined) form.append(key + '[cost]', String(row.cost));
-                        form.append(key + '[borrowable]', row.borrowable ? '1' : '0');
                         const warranty = row.warranty || this.warranty;
                         const life = row.useful_life_years || this.usefulLifeYears;
                         if (warranty) form.append(key + '[warranty]', warranty);

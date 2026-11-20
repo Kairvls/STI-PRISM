@@ -4,6 +4,7 @@
  * Money fields: max 7 digits before decimal + 2 after (9999999.99),
  * ₱ prefix adornment, and auto .00 formatting on blur.
  * Names: 30 chars. Purpose / description: 70 chars. Qty / counts: 7 digits.
+ * data-decimal fields: 7 digits before the decimal and 2 after, without a currency prefix.
  * Skips fields with data-no-max-limit.
  */
 (function () {
@@ -112,6 +113,10 @@
             }
         }
         return null;
+    }
+
+    function isDecimalField(el) {
+        return !!(el && el.hasAttribute('data-decimal'));
     }
 
     function isMoneyField(el, rule) {
@@ -289,6 +294,12 @@
         el.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    function bindDecimalGuard(el) {
+        if (!el || el.__prismDecimalBound) return;
+        el.__prismDecimalBound = true;
+        el.addEventListener('input', onMoneyInput, true);
+    }
+
     function bindMoneyGuard(el) {
         if (!el || el.__prismMoneyBound) return;
         el.__prismMoneyBound = true;
@@ -364,6 +375,18 @@
 
         var type = (el.getAttribute('type') || '').toLowerCase();
         if (SKIP_TYPES[type]) {
+            return;
+        }
+
+        if (type === 'number' && isDecimalField(el)) {
+            setNumberMax(el, MONEY_MAX);
+            if (!el.hasAttribute('min')) {
+                el.setAttribute('min', '0');
+            }
+            if (!el.getAttribute('inputmode')) {
+                el.setAttribute('inputmode', 'decimal');
+            }
+            bindDecimalGuard(el);
             return;
         }
 
@@ -460,7 +483,7 @@
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['type', 'name', 'id', 'data-money', 'data-qty'],
+            attributeFilter: ['type', 'name', 'id', 'data-money', 'data-qty', 'data-decimal'],
         });
     }
 

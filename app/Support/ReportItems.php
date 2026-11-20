@@ -161,7 +161,6 @@ class ReportItems
             'equipment_table.equipment_purchase_cost',
             'equipment_table.equipment_acquired_date',
             'equipment_table.equipment_warranty_expiration',
-            'equipment_table.equipment_is_borrowable',
             'equipment_table.equipment_image',
             'equipment_table.equipment_current_location',
         ];

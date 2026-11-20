@@ -149,8 +149,6 @@
 
                 addFullscreen:false,
 
-                addBorrowable:false,
-
                 addErrors:{},
 
                 addFormError:'',
@@ -474,7 +472,6 @@
                     this.addStep = 1;
                     this.addItems = [];
                     this.addFullscreen = false;
-                    this.addBorrowable = false;
                     this.addAssetTagManual = false;
                     this.categoryManual = false;
                     this.applyPlacementZone = '';
@@ -774,8 +771,6 @@
                                     equipment_asset_tag: this.addForm.assetTag || null,
 
                                     equipment_serial_number: this.addForm.serial || null,
-
-                                    equipment_is_borrowable: this.addBorrowable ? 1 : 0,
 
                                     equipment_position_x:position.x,
 
@@ -3357,10 +3352,6 @@
                                                 <div class="min-w-0">
                                                     <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
                                                     <p class="mt-1 text-sm font-medium text-slate-800">{{ $detailNa($item->equipment_quantity ?? 1) }}</p>
-                                                </div>
-                                                <div class="min-w-0">
-                                                    <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
-                                                    <p class="mt-1 text-sm font-medium text-slate-800">{{ !empty($item->equipment_is_borrowable) ? 'Yes' : 'No' }}</p>
                                                 </div>
                                             </div>
                                         </div>

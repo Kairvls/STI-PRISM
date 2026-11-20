@@ -25,3 +25,7 @@ Schedule::command('maintenance:check-semester-inspections')
 Schedule::command('availability:send-leave-reminders')
     ->hourly()
     ->withoutOverlapping();
+
+Schedule::command('borrowing:check-overdue')
+    ->hourly()
+    ->withoutOverlapping();

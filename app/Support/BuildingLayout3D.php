@@ -31,6 +31,13 @@ class BuildingLayout3D
 
     public const COLOR_NORMAL = '#3B82F6';
 
+    /** Live campus-monitor labels (derived from reports / schedules, not room_status). */
+    public const LABEL_CRITICAL = 'Critical';
+
+    public const LABEL_UNDER_MAINTENANCE = 'Under Maintenance';
+
+    public const LABEL_NORMAL = 'Normal';
+
     private const CLOSED_REPORT_STATUSES = ['Resolved', 'Rejected', 'For Replacement', 'Closed / Cancelled'];
 
     public static function floors(): Collection
@@ -135,15 +142,15 @@ class BuildingLayout3D
 
             if ($room->critical_report_count > 0) {
                 $room->dashboard_status = self::STATUS_CRITICAL;
-                $room->dashboard_label = RoomStatuses::CRITICAL;
+                $room->dashboard_label = self::LABEL_CRITICAL;
                 $room->status_color = $palette['critical'];
             } elseif ($room->under_maintenance_scheduled) {
                 $room->dashboard_status = self::STATUS_UNDER_MAINTENANCE;
-                $room->dashboard_label = RoomStatuses::UNDER_MAINTENANCE;
+                $room->dashboard_label = self::LABEL_UNDER_MAINTENANCE;
                 $room->status_color = $palette['under_maintenance'];
             } else {
                 $room->dashboard_status = self::STATUS_NORMAL;
-                $room->dashboard_label = RoomStatuses::NORMAL;
+                $room->dashboard_label = self::LABEL_NORMAL;
                 $room->status_color = $palette['normal'];
             }
 
@@ -243,9 +250,9 @@ class BuildingLayout3D
             'room_inspection_next_date' => $maintenance['next_date'],
             'layout_status' => $layoutStatus,
             'layout_label' => match ($layoutStatus) {
-                self::STATUS_CRITICAL => RoomStatuses::CRITICAL,
-                self::STATUS_UNDER_MAINTENANCE => RoomStatuses::UNDER_MAINTENANCE,
-                default => RoomStatuses::NORMAL,
+                self::STATUS_CRITICAL => self::LABEL_CRITICAL,
+                self::STATUS_UNDER_MAINTENANCE => self::LABEL_UNDER_MAINTENANCE,
+                default => self::LABEL_NORMAL,
             },
             'reports' => $reports,
         ];

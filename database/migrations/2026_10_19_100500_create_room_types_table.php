@@ -26,6 +26,8 @@ return new class extends Migration
             return;
         }
 
+        // Seed the standard catalog, then sync any extra room_type values
+        // already present on rooms_table below.
         $defaults = [
             ['Lecture Room', 'Lecture Room', false],
             ['Computer Laboratory', 'Computer Laboratory', false],
@@ -37,15 +39,6 @@ return new class extends Migration
             ['School Clinic', 'School Clinic', false],
             ['Maintenance', 'Maintenance', false],
             ['Storage / Stockroom', 'Storage / Stockroom', true],
-            ['Hospitality Suite', 'Hospitality Suite', false],
-            ['Canteen', 'Canteen', false],
-            ['Clinic', 'Clinic', false],
-            ['Utility', 'Utility', false],
-            ['Hallway', 'Hallway', false],
-            ['Exit', 'Exit', false],
-            ['Restroom', 'Restroom', false],
-            ['Elevator', 'Elevator', false],
-            ['Stairs', 'Stairs', false],
         ];
 
         $existing = [];

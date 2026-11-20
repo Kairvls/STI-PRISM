@@ -451,7 +451,6 @@ CREATE TABLE `equipment_table` (
   `equipment_width` int NOT NULL DEFAULT '120',
   `equipment_height` int NOT NULL DEFAULT '96',
   `equipment_rotation` smallint NOT NULL DEFAULT '0',
-  `equipment_is_borrowable` tinyint(1) DEFAULT '1',
   `equipment_created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`equipment_id`),
   KEY `equipment_category_id` (`equipment_category_id`),

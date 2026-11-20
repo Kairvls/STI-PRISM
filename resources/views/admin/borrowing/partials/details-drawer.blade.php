@@ -85,13 +85,6 @@
                                     <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-emerald-600"></i>
                                     <span id="viewDestinationMeta" class="truncate">—</span>
                                 </div>
-                                <div class="flex items-center gap-2 text-sm text-slate-600">
-                                    <i data-lucide="shield-check" class="h-3.5 w-3.5 shrink-0 text-violet-600"></i>
-                                    <span class="truncate">
-                                        Authorized by:
-                                        <span id="viewAuthorizedMeta" class="font-medium text-slate-800">—</span>
-                                    </span>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -189,7 +182,7 @@
 
                     <div id="viewTabNotes" class="view-tab-panel hidden space-y-4">
                         <h4 class="text-sm font-semibold text-slate-800">
-                            Purpose & Remarks
+                            Purpose & return notes
                         </h4>
                         <div
                             id="viewNotesRows"
@@ -251,21 +244,38 @@
             const date = new Date(value);
             if (Number.isNaN(date.getTime())) return value;
 
-            return date.toLocaleDateString("en-US", {
+            const hasTime = !/^\d{4}-\d{2}-\d{2}$/.test(String(value).trim())
+                && (date.getHours() !== 0 || date.getMinutes() !== 0 || date.getSeconds() !== 0);
+
+            if (!hasTime) {
+                return date.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                });
+            }
+
+            return date.toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
                 year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
             });
         }
 
         function statusBadgeClass(status) {
             switch (status) {
+                case "Pending":
+                    return "bg-amber-50 text-amber-800";
                 case "Borrowed":
                     return "bg-sky-50 text-sky-700";
                 case "Returned":
                     return "bg-emerald-50 text-emerald-700";
                 case "Overdue":
                     return "bg-rose-50 text-rose-700";
+                case "Denied":
+                    return "bg-slate-200 text-slate-700";
                 default:
                     return "bg-slate-100 text-slate-600";
             }
@@ -314,12 +324,11 @@
             const safeBorrower = record.borrower || "Unknown borrower";
             const safeEquipment = record.equipment || "—";
             const safeDepartment = record.department || "No department";
-            const safeDestination = record.destination || "—";
-            const safeAuthorized = record.authorized || "—";
             const safeStatus = record.status || "Unknown";
+            const safeRejection = record.rejectionReason || "";
             const safePurpose = record.purpose || "—";
-            const safeRemarks = record.remarks || "—";
             const safeSlip = record.slipNo || "";
+            const safeSource = record.source === "online" ? "online" : "admin";
             const safeEvent = record.eventName || "";
             const safeEventType = record.eventType || "";
             const safeEventLocation = record.eventLocation || "";
@@ -335,9 +344,7 @@
                 getBorrowerInitials(safeBorrower);
             document.getElementById("viewEquipmentMeta").textContent = safeEquipment;
             document.getElementById("viewDestinationMeta").textContent =
-                safeDestination;
-            document.getElementById("viewAuthorizedMeta").textContent =
-                safeAuthorized;
+                safeEventLocation || "—";
 
             const statusBadge = document.getElementById("viewStatusBadge");
             statusBadge.textContent = safeStatus;
@@ -355,16 +362,14 @@
                         ? '<span class="font-mono text-sm font-semibold tracking-wide text-slate-800">' + escapeHtml(safeSlip) + '</span>'
                         : "—"
                 ),
-                detailRow("Event", safeEvent ? escapeHtml(safeEvent) + (safeEventType ? '<span class="block text-xs font-normal text-slate-500">' + escapeHtml(safeEventType) + "</span>" : "") : "—"),
-                detailRow("Event venue", escapeHtml(safeEventLocation || "—")),
-                detailRow("Equipment", escapeHtml(safeEquipment) + (record.assetTag ? '<span class="block text-xs font-normal text-slate-500">' + escapeHtml(record.assetTag) + "</span>" : "")),
-                detailRow("Taken from", escapeHtml(record.fromRoom || "—")),
                 detailRow(
-                    "Location now",
-                    isOut
-                        ? '<span class="text-sky-700">Off campus, with the borrower</span>'
-                        : escapeHtml(record.returnedTo ? "Returned to " + record.returnedTo : "Returned"),
+                    "Source",
+                    safeSource === "online"
+                        ? '<span class="inline-flex items-center rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">Online request</span>'
+                        : '<span class="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Desk / admin</span>'
                 ),
+                detailRow("Location", escapeHtml(safeEventLocation || "—")),
+                detailRow("Equipment", escapeHtml(safeEquipment) + (record.assetTag ? '<span class="block text-xs font-normal text-slate-500">' + escapeHtml(record.assetTag) + "</span>" : "")),
                 detailRow("Borrower", escapeHtml(safeBorrower)),
                 detailRow("Department", escapeHtml(safeDepartment)),
                 detailRow(
@@ -373,8 +378,6 @@
                         escapeHtml(quantity || "—") +
                         "</span>"
                 ),
-                detailRow("Destination", escapeHtml(safeDestination)),
-                detailRow("Authorized by", escapeHtml(safeAuthorized)),
                 detailRow(
                     "Status",
                     '<span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium ' +
@@ -383,6 +386,9 @@
                         escapeHtml(safeStatus) +
                         "</span>"
                 ),
+                ...(safeStatus === "Denied" && safeRejection
+                    ? [detailRow("Denial reason", escapeHtml(safeRejection))]
+                    : []),
             ].join("");
 
             document.getElementById("viewScheduleRows").innerHTML = [
@@ -420,12 +426,6 @@
                         "</span>"
                 ),
                 detailRow(
-                    "Remarks",
-                    '<span class="whitespace-pre-wrap text-slate-700">' +
-                        escapeHtml(safeRemarks) +
-                        "</span>"
-                ),
-                detailRow(
                     "Return remarks",
                     '<span class="whitespace-pre-wrap text-slate-700">' +
                         escapeHtml(record.returnRemarks || "—") +
@@ -445,9 +445,12 @@
                             id: recordId,
                             equipment: safeEquipment,
                             assetTag: record.assetTag || '',
+                            uniqueness: Array.isArray(record.uniqueness) ? record.uniqueness : [],
                             tracking: record.tracking || '',
-                            quantity: quantity || 1,
+                            quantity: Number(record.returnQuantity || quantity || 1),
                             fromRoom: record.fromRoom || '',
+                            expectedReturn: record.expectedReturn || '',
+                            status: safeStatus,
                         });
                     }
                     : null;

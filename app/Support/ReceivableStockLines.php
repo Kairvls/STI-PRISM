@@ -68,7 +68,184 @@ class ReceivableStockLines
             return $line;
         })->values();
 
-        return self::flagReplacements($lines);
+        return self::attachRisBrands(self::flagReplacements($lines));
+    }
+
+    /**
+     * Copy the brand recorded on the RIS that this delivery came from.
+     *
+     * @param  Collection<int, object>  $lines
+     * @return Collection<int, object>
+     */
+    private static function attachRisBrands(Collection $lines): Collection
+    {
+        $lines->each(function ($line) {
+            $line->brand = null;
+            $line->brand_presets = [];
+        });
+
+        if (
+            $lines->isEmpty()
+            || ! Schema::hasTable('requisition_issue_slip_items_table')
+            || ! Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+            || ! Schema::hasTable('brands_table')
+        ) {
+            return $lines;
+        }
+
+        $risIdByAtp = [];
+        $atpIds = $lines->pluck('authority_purchase_id')->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        if (
+            $atpIds->isNotEmpty()
+            && Schema::hasTable('authority_to_purchase_table')
+            && Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_ris_id')
+        ) {
+            $risIdByAtp = DB::table('authority_to_purchase_table')
+                ->whereIn('authority_purchase_id', $atpIds->all())
+                ->pluck('authority_purchase_ris_id', 'authority_purchase_id')
+                ->all();
+        }
+
+        $risIds = collect($risIdByAtp)
+            ->map(fn ($id) => (int) $id)
+            ->merge($lines->pluck('ris_id')->map(fn ($id) => (int) $id))
+            ->filter()
+            ->unique()
+            ->values();
+        if ($risIds->isEmpty()) {
+            return $lines;
+        }
+
+        $select = [
+            'i.ris_id',
+            'i.ris_item_name_description',
+            'i.ris_item_brand_id',
+            'b.brand_name',
+            'i.ris_quantity_requested',
+        ];
+        $hasSplits = Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_ids')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_quantities');
+        if ($hasSplits) {
+            $select[] = 'i.ris_item_brand_ids';
+            $select[] = 'i.ris_item_brand_quantities';
+        }
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')) {
+            $select[] = 'i.ris_item_supplier_id';
+        }
+
+        $items = DB::table('requisition_issue_slip_items_table as i')
+            ->leftJoin('brands_table as b', 'b.brand_id', '=', 'i.ris_item_brand_id')
+            ->whereIn('i.ris_id', $risIds->all())
+            ->get($select);
+
+        $brandNames = DB::table('brands_table')
+            ->pluck('brand_name', 'brand_id')
+            ->mapWithKeys(fn ($name, $id) => [(int) $id => $name]);
+        $byRis = $items->groupBy(fn ($item) => (int) $item->ris_id);
+
+        return $lines->map(function ($line) use ($risIdByAtp, $byRis, $brandNames, $hasSplits) {
+            $risId = (int) ($line->ris_id ?? 0);
+            if ($risId <= 0) {
+                $risId = (int) ($risIdByAtp[(int) ($line->authority_purchase_id ?? 0)] ?? 0);
+            }
+            if ($risId <= 0) {
+                return $line;
+            }
+
+            $needle = self::normalizeLabel($line->article ?? '');
+            $candidates = ($byRis->get($risId) ?? collect())
+                ->filter(fn ($item) => self::normalizeLabel($item->ris_item_name_description ?? '') === $needle)
+                ->values();
+
+            if ($candidates->count() > 1 && ! empty($line->supplier_id) && isset($candidates->first()->ris_item_supplier_id)) {
+                $bySupplier = $candidates->filter(
+                    fn ($item) => (int) ($item->ris_item_supplier_id ?? 0) === (int) $line->supplier_id
+                )->values();
+                if ($bySupplier->isNotEmpty()) {
+                    $candidates = $bySupplier;
+                }
+            }
+
+            $item = self::chooseRisItem($candidates, $line);
+            if (! $item) {
+                return $line;
+            }
+
+            $presets = self::brandPresetsForItem($item, $brandNames, $hasSplits);
+            $line->brand_presets = $presets;
+            $line->brand = $presets[0]['name'] ?? null;
+
+            return $line;
+        })->values();
+    }
+
+    /**
+     * @param  Collection<int, object>  $candidates
+     */
+    private static function chooseRisItem(Collection $candidates, object $line): ?object
+    {
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+        if ($candidates->count() === 1) {
+            return $candidates->first();
+        }
+
+        $target = (int) ($line->ordered_qty ?? $line->received_qty ?? $line->quantity ?? 0);
+        $exact = $candidates->filter(fn ($item) => (int) ($item->ris_quantity_requested ?? 0) === $target)->values();
+        if ($exact->count() === 1) {
+            return $exact->first();
+        }
+
+        return $candidates
+            ->sortBy(fn ($item) => abs((int) ($item->ris_quantity_requested ?? 0) - $target))
+            ->first();
+    }
+
+    /**
+     * @param  Collection<int|string, mixed>  $brandNames
+     * @return list<array{name: string, quantity: int}>
+     */
+    private static function brandPresetsForItem(object $item, Collection $brandNames, bool $hasSplits): array
+    {
+        $presets = [];
+        if ($hasSplits) {
+            $ids = json_decode((string) ($item->ris_item_brand_ids ?? ''), true);
+            $quantities = json_decode((string) ($item->ris_item_brand_quantities ?? ''), true);
+            if (is_array($ids)) {
+                foreach ($ids as $id) {
+                    $name = trim((string) ($brandNames[(int) $id] ?? ''));
+                    if ($name === '') {
+                        continue;
+                    }
+                    $quantity = is_array($quantities) ? (int) ($quantities[(string) $id] ?? $quantities[(int) $id] ?? 0) : 0;
+                    $presets[] = ['name' => $name, 'quantity' => max(1, $quantity)];
+                }
+            }
+        }
+
+        if ($presets === []) {
+            $name = trim((string) ($item->brand_name ?? ''));
+            if ($name === '' && ! empty($item->ris_item_brand_id)) {
+                $name = trim((string) ($brandNames[(int) $item->ris_item_brand_id] ?? ''));
+            }
+            if ($name !== '') {
+                $presets[] = [
+                    'name' => $name,
+                    'quantity' => max(1, (int) ($item->ris_quantity_requested ?? 1)),
+                ];
+            }
+        }
+
+        return $presets;
+    }
+
+    private static function normalizeLabel(mixed $value): string
+    {
+        $label = trim((string) $value);
+        $label = preg_replace('/\s+/u', ' ', $label) ?? $label;
+
+        return mb_strtolower($label);
     }
 
     /** Pending RR lines that replace For Replacement / back-order equipment. */

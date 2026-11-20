@@ -18,7 +18,8 @@
     >
         <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-slate-900" data-item-name>Equipment</p>
-            <p class="mt-0.5 text-xs text-slate-500">Set this item's destination</p>
+            <p class="mt-1 truncate text-xs text-slate-400" data-item-tag>No Asset Tag</p>
+            <p class="mt-0.5 truncate text-xs text-slate-400" data-item-meta>Uncategorized · Qty 1</p>
         </div>
         <input type="hidden" name="transfers[__INDEX__][equipment_id]" value="" data-equipment-id>
 

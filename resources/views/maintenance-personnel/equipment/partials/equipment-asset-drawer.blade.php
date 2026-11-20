@@ -48,6 +48,7 @@
     @include('layouts.partials.equipment-layout-icons')
     <script>
         const equipmentModalLifecycleUrl = @json($assetLifecycleUrl ?? url('/maintenance/equipment/lifecycle/__ID__'));
+        const equipmentActiveMeansInStock = @json((bool) ($equipmentActiveMeansInStock ?? false));
         let equipmentModalLifecycleRequest = 0;
         let equipmentModalCurrentAssetTag = '';
 
@@ -69,11 +70,20 @@
             }
         }
 
+        function equipmentInventoryStatusLabel(status) {
+            const raw = status == null ? '' : String(status);
+            if (equipmentActiveMeansInStock && raw === 'Active') {
+                return 'In Stock';
+            }
+            return raw;
+        }
+
         function applyEquipmentStatusBadge(status) {
             const el = document.getElementById('eqAssetModal_status_badge');
             if (!el) return;
 
-            const label = status && String(status).trim() !== '' ? status : 'Unknown';
+            const raw = status && String(status).trim() !== '' ? String(status) : '';
+            const label = raw === '' ? 'Unknown' : equipmentInventoryStatusLabel(raw);
             el.textContent = label;
             el.className = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold';
 
@@ -86,7 +96,7 @@
                 'Disposed': 'bg-rose-50 text-rose-700',
             };
 
-            el.classList.add(...(map[label] || 'bg-slate-100 text-slate-600').split(' '));
+            el.classList.add(...(map[raw] || 'bg-slate-100 text-slate-600').split(' '));
         }
 
         function applyEquipmentConditionBadge(condition) {
@@ -418,24 +428,53 @@
             }
         }
 
+        function toggleEquipmentUnitChooser() {
+            const list = document.getElementById('eqAssetModal_unit_chooser_list');
+            const toggle = document.getElementById('eqAssetModal_unit_chooser_toggle');
+            if (!list || !toggle) return;
+            const open = list.classList.toggle('hidden') === false;
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.querySelector('[data-unit-chevron]')?.classList.toggle('rotate-180', open);
+        }
+
         function openEquipmentModal(asset) {
             if (!asset || typeof asset !== 'object') return;
 
-            equipmentModalCurrentAssetTag = asset.asset_tag || '';
+            const unitTags = Array.isArray(asset.unit_tags)
+                ? asset.unit_tags.map((tag) => String(tag || '').trim()).filter(Boolean)
+                : [];
+            equipmentModalCurrentAssetTag = unitTags.length > 1 ? unitTags.join('\n') : (asset.asset_tag || '');
             const displayName = asset.name || 'Equipment';
 
             setEquipmentModalText('eqAssetModal_drawer_subtitle', `Review ${displayName} information and lifecycle.`);
             setEquipmentModalText('eqAssetModal_profile_name', displayName);
             const assetTag = asset.asset_tag && String(asset.asset_tag).trim() !== '' ? String(asset.asset_tag).trim() : '';
-            setEquipmentModalText('eqAssetModal_meta_tag', assetTag);
+            const tagDetails = document.getElementById('eqAssetModal_tag_details');
+            const tagList = document.getElementById('eqAssetModal_tag_list');
+            const tagSummary = document.getElementById('eqAssetModal_tag_summary');
             const metaTagEl = document.getElementById('eqAssetModal_meta_tag');
-            const metaTagTip = document.getElementById('eqAssetModal_meta_tag_tip');
-            if (metaTagEl) {
+            if (unitTags.length > 1 && tagDetails && tagList && tagSummary && metaTagEl) {
+                metaTagEl.classList.add('hidden');
+                tagDetails.classList.remove('hidden');
+                tagDetails.open = false;
+                tagSummary.textContent = unitTags.length + ' unique IDs';
+                tagList.replaceChildren();
+                unitTags.forEach((tag) => {
+                    const item = document.createElement('li');
+                    item.className = 'break-words';
+                    item.textContent = tag;
+                    tagList.appendChild(item);
+                });
+            } else if (metaTagEl) {
+                metaTagEl.classList.remove('hidden');
+                tagDetails?.classList.add('hidden');
+                setEquipmentModalText('eqAssetModal_meta_tag', assetTag);
                 metaTagEl.setAttribute('title', assetTag);
             }
+            const metaTagTip = document.getElementById('eqAssetModal_meta_tag_tip');
             if (metaTagTip) {
-                metaTagTip.textContent = assetTag;
-                metaTagTip.classList.toggle('group-hover/assettag:block', assetTag !== '');
+                metaTagTip.textContent = unitTags.length > 1 ? unitTags.join('\n') : assetTag;
+                metaTagTip.classList.toggle('group-hover/assettag:block', false);
             }
             setEquipmentModalText('eqAssetModal_meta_serial', asset.serial_number);
             setEquipmentModalText('eqAssetModal_meta_room', asset.room_name);
@@ -446,8 +485,7 @@
             setEquipmentModalText('eqAssetModal_quantity', String(asset.quantity ?? 1));
             setEquipmentModalText('eqAssetModal_tracking_mode', asset.tracking_mode || 'Individual');
             setEquipmentModalText('eqAssetModal_condition', asset.condition);
-            setEquipmentModalText('eqAssetModal_status', asset.inventory_status);
-            setEquipmentModalText('eqAssetModal_borrowable', asset.is_borrowable ? 'Yes' : 'No');
+            setEquipmentModalText('eqAssetModal_status', equipmentInventoryStatusLabel(asset.inventory_status));
             setEquipmentModalText('eqAssetModal_purchase_date', formatEquipmentAssetDate(asset.purchase_date));
             setEquipmentModalText(
                 'eqAssetModal_purchase_cost',
@@ -480,9 +518,39 @@
             switchEquipmentModalTab('overview');
 
             const profileLink = document.getElementById('eqAssetModal_profile_link');
-            if (profileLink) {
-                const baseUrl = (asset.view_url || `/maintenance/equipment/view/${asset.id}`).split('?')[0];
-                const returnParam = encodeURIComponent(window.location.href);
+            const unitChooser = document.getElementById('eqAssetModal_unit_chooser');
+            const unitChooserList = document.getElementById('eqAssetModal_unit_chooser_list');
+            const unitChooserToggle = document.getElementById('eqAssetModal_unit_chooser_toggle');
+            const baseUrl = (asset.view_url || `/maintenance/equipment/view/${asset.id}`).split('?')[0];
+            const returnParam = encodeURIComponent(window.location.href);
+            if (unitTags.length > 1 && profileLink && unitChooser && unitChooserList) {
+                profileLink.classList.add('hidden');
+                unitChooser.classList.remove('hidden');
+                unitChooserList.classList.add('hidden');
+                unitChooserList.replaceChildren();
+                if (unitChooserToggle) {
+                    unitChooserToggle.setAttribute('aria-expanded', 'false');
+                    unitChooserToggle.querySelector('[data-unit-chevron]')?.classList.remove('rotate-180');
+                }
+                const profiles = Array.isArray(asset.unit_profiles) && asset.unit_profiles.length
+                    ? asset.unit_profiles
+                    : unitTags.map((tag) => ({ id: asset.id, tag: tag, synthetic: true }));
+                profiles.forEach((profile) => {
+                    const tag = String(profile.tag || '').trim();
+                    if (!tag) return;
+                    const id = profile.id || asset.id;
+                    const root = baseUrl.replace(/\/\d+$/, '/' + id);
+                    const item = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = `${root}?return=${returnParam}` + (profile.synthetic ? `&unit=${encodeURIComponent(tag)}` : '');
+                    link.className = 'block rounded-lg px-3 py-2 text-xs font-medium text-slate-800 transition hover:bg-white hover:text-[#0025cc]';
+                    link.textContent = tag;
+                    item.appendChild(link);
+                    unitChooserList.appendChild(item);
+                });
+            } else if (profileLink) {
+                profileLink.classList.remove('hidden');
+                unitChooser?.classList.add('hidden');
                 profileLink.href = `${baseUrl}?return=${returnParam}`;
             }
 

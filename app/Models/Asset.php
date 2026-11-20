@@ -36,13 +36,11 @@ class Asset extends Model
         'equipment_width',
         'equipment_height',
         'equipment_rotation',
-        'equipment_is_borrowable',
     ];
 
     protected $casts = [
         'equipment_quantity' => 'integer',
         'equipment_purchase_cost' => 'decimal:2',
-        'equipment_is_borrowable' => 'boolean',
     ];
 
     public function room()

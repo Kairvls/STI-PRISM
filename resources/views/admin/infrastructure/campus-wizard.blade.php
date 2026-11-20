@@ -9,6 +9,7 @@
     @click.self="closeCampusWizard()"
 >
     <form
+        x-ref="campusWizardForm"
         method="POST"
         action="{{ route('admin.infrastructure.campus.store') }}"
         @submit.prevent="submitCampusWizard($event)"
@@ -52,7 +53,7 @@
         </header>
 
         <div
-            class="grid grid-cols-4 border-b border-slate-100 bg-slate-50 px-4 py-3 sm:px-8"
+            class="grid grid-cols-3 border-b border-slate-100 bg-slate-50 px-4 py-3 sm:px-8"
         >
             <template
                 x-for="
@@ -60,8 +61,7 @@
                     [
                         { n: 1, l: 'Structure' },
                         { n: 2, l: 'Floors' },
-                        { n: 3, l: 'Rooms & Equipments' },
-                        { n: 4, l: 'Review' },
+                        { n: 3, l: 'Add room' },
                     ]
                 "
                 :key="item.n"
@@ -158,37 +158,80 @@
                         placeholder="e.g. STI College Ormoc Main Building"
                 /></label>
 
-                <div class="mx-auto mt-6 grid max-w-xl gap-5 md:grid-cols-2">
+                <div class="mx-auto mt-6 max-w-xl">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="text-xs font-bold text-slate-700">
+                            Occupied Floors <span class="text-red-500">*</span>
+                        </label>
+                        <span class="text-[11px] font-medium text-slate-500" x-text="selectedFloorSummary"></span>
+                    </div>
+                    <p class="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        Add only floors the school occupies. Skipped floors are fine for rented buildings.
+                    </p>
 
-                <label class="text-xs font-bold text-slate-700">
-                    Lowest Floor <span class="text-red-500">*</span>
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <label class="block min-w-0 flex-1 text-xs font-bold text-slate-700">
+                            Floor number
+                            <input
+                                type="number"
+                                min="1"
+                                max="30"
+                                step="1"
+                                x-model.number="customFloorNumber"
+                                :disabled="isWizardSetupLocked"
+                                @input="clampCustomFloorInput()"
+                                @keydown.enter.prevent="addCustomFloor()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                                :class="isWizardSetupLocked ? 'bg-slate-100 text-slate-500' : ''"
+                                placeholder="e.g. 4"
+                            >
+                        </label>
+                        <button
+                            type="button"
+                            @click="addCustomFloor()"
+                            :disabled="isWizardSetupLocked"
+                            class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-[#0025cc]/40 hover:text-[#0025cc] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Add floor
+                        </button>
+                    </div>
 
-                    <input
-                        type="number"
-                        min="1"
-                        max="30"
-                        x-model.number="form.minFloor"
-                        :readonly="isWizardSetupLocked"
-                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3"
-                        :class="isWizardSetupLocked ? 'bg-slate-100 text-slate-500' : ''"
-                    >
-                </label>
+                    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Occupied</p>
 
-                <label class="text-xs font-bold text-slate-700">
-                    Highest Floors <span class="text-red-500">*</span>
+                        <template x-if="!(form.selectedFloorNumbers || []).length">
+                            <p class="mt-2 text-sm text-slate-500">No occupied floors yet. Add a floor number above.</p>
+                        </template>
 
-                    <input
-                        type="number"
-                        min="1"
-                        max="30"
-                        x-model.number="form.maxFloor"
-                        :readonly="isWizardSetupLocked"
-                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3"
-                        :class="isWizardSetupLocked ? 'bg-slate-100 text-slate-500' : ''"
-                    >
-                </label>
-
-            </div>
+                        <div
+                            class="mt-2 flex flex-wrap gap-2"
+                            x-show="(form.selectedFloorNumbers || []).length"
+                        >
+                            <template x-for="floorNumber in sortedSelectedFloorNumbers" :key="`occupied-floor-${floorNumber}`">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                                    <span x-text="floorLabel(floorNumber)"></span>
+                                    <button
+                                        type="button"
+                                        @click="removeOccupiedFloor(floorNumber)"
+                                        :disabled="isWizardSetupLocked"
+                                        class="rounded-full px-1 text-base leading-none disabled:cursor-not-allowed disabled:opacity-40"
+                                        :class="floorIsProtected(floorNumber)
+                                            ? 'cursor-not-allowed text-slate-300'
+                                            : 'text-slate-400 hover:text-red-500'"
+                                        :aria-label="floorIsProtected(floorNumber)
+                                            ? `Can't remove — ${floorLabel(floorNumber)} already has rooms`
+                                            : `Remove ${floorLabel(floorNumber)}`"
+                                        :title="floorIsProtected(floorNumber)
+                                            ? `Can't remove — this floor already has rooms.`
+                                            : `Remove ${floorLabel(floorNumber)}`"
+                                    >
+                                        ×
+                                    </button>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <div
@@ -246,11 +289,11 @@
                     <div class="mb-5">
 
                         <h3 class="text-xl font-extrabold">
-                            Generated Floors
+                            Occupied Floors
                         </h3>
 
                         <p class="mt-1 text-sm text-slate-500">
-                            These floors were generated from the number of floors entered in Step 1.
+                            These are the floors the school occupies from Step 1.
                         </p>
 
                     </div>
@@ -320,7 +363,7 @@
                             <p
                                 class="mt-2 text-[11px] font-normal uppercase tracking-wider"
                                 :class="wizardFloorIndex === fi ? 'text-[#0025cc]' : 'text-slate-300'"
-                                x-text="wizardFloorIndex === fi ? 'Selected for step 3' : 'Click to edit this floor'"
+                                x-text="wizardFloorIndex === fi ? 'Selected for Add room' : 'Click to select this floor'"
                             ></p>
                         </button>
                     </template>
@@ -330,10 +373,41 @@
             <section x-show="step === 3" x-cloak>
                 <div class="mb-5">
                     <h3 class="text-xl font-extrabold">
-                        Map rooms and initial assets
+                        Add room
                     </h3>
-                    <p class="mt-1 text-sm text-slate-500">Quick Add for many rooms. Advance Setup for rooms with equipment.</p>
+                    <p class="mt-1 text-sm text-slate-500">Optional. You can save floors now and add rooms later.</p>
                 </div>
+
+                <div class="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <div>
+                        <p class="text-sm font-bold text-slate-900">Add rooms</p>
+                        <p class="mt-0.5 text-xs text-slate-500">Turn on to map rooms and equipment for occupied floors.</p>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        :aria-checked="addRoomsEnabled ? 'true' : 'false'"
+                        @click="addRoomsEnabled = !addRoomsEnabled"
+                        class="relative h-7 w-12 shrink-0 rounded-full transition"
+                        :class="addRoomsEnabled ? 'bg-[#0025cc]' : 'bg-slate-300'"
+                    >
+                        <span
+                            class="absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition"
+                            :class="addRoomsEnabled ? 'translate-x-5' : 'translate-x-0'"
+                        ></span>
+                    </button>
+                </div>
+
+                <div
+                    x-show="!addRoomsEnabled"
+                    x-cloak
+                    class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-center"
+                >
+                    <p class="text-sm font-semibold text-slate-700">Rooms skipped for now</p>
+                    <p class="mt-1 text-xs text-slate-500">Your occupied floors will still be saved. You can add rooms later from Rooms Layout.</p>
+                </div>
+
+                <div x-show="addRoomsEnabled" x-cloak>
                 <div class="mb-5 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
@@ -497,9 +571,8 @@
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][status]`"
                                                     class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                 >
-                                                    <option>Normal</option>
-                                                    <option>Under Maintenance</option>
-                                                    <option>Critical</option>
+                                                    <option>Available</option>
+                                                    <option>Unavailable</option>
                                                 </select>
                                             </label>
 
@@ -628,9 +701,8 @@
                                                     :name="`floors[${wizardFloorIndex}][rooms][${ri}][status]`"
                                                     class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                 >
-                                                    <option>Normal</option>
-                                                    <option>Under Maintenance</option>
-                                                    <option>Critical</option>
+                                                    <option>Available</option>
+                                                    <option>Unavailable</option>
                                                 </select>
                                             </label>
                                             <button
@@ -769,114 +841,6 @@
                     </div>
                 </div>
                 </template>
-            </section>
-
-            <section x-show="step === 4" x-cloak>
-                <div class="mx-auto max-w-2xl">
-                    <div class="text-center">
-                        <span
-                            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"
-                            ><i
-                                data-lucide="clipboard-check"
-                                class="h-8 w-8"
-                            ></i
-                        ></span>
-                        <h3 class="mt-4 text-2xl font-extrabold">
-                            <span x-text="form.setup_locked ? 'Review campus updates' : 'Ready to build the workspace'"></span>
-                        </h3>
-                        <p class="mt-2 text-sm text-slate-500" x-text="form.setup_locked ? 'Your campus changes will be updated in one safe transaction.' : 'Everything below is created together in one safe transaction.'"></p>
-                    </div>
-
-                    <div
-                        x-show="step4InlineErrors.length"
-                        x-cloak
-                        class="mt-4 rounded-xl border border-red-200 bg-red-50/80 p-3"
-                    >
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-red-700">Resolve before saving</p>
-                        <div class="flex flex-wrap gap-2">
-                            <template x-for="(errorMessage, errorIndex) in step4InlineErrors" :key="`step4-error-${errorIndex}`">
-                                <span
-                                    x-text="errorMessage"
-                                    class="inline-flex items-center rounded-full border border-red-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-red-700"
-                                ></span>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="mt-7 rounded-2xl bg-slate-950 p-5 text-white">
-                        <p class="text-xs text-slate-400">Building</p>
-                        <h4
-                            class="mt-1 text-lg font-bold"
-                            x-text="form.building_name || 'Unnamed building'"
-                        ></h4>
-
-                        <div
-                            class="mt-4 grid gap-3"
-                            :class="wizardFloorStructureChanged()
-                                ? 'grid-cols-2'
-                                : (countDraftEquipment() > 0 ? 'grid-cols-2' : 'grid-cols-1')"
-                        >
-                            <div
-                                x-show="wizardFloorStructureChanged()"
-                                x-cloak
-                                class="rounded-xl bg-white/5 p-4"
-                            >
-                                <b class="text-2xl" x-text="form.floors.length"></b>
-                                <p class="text-xs text-slate-400">Floors</p>
-                            </div>
-                            <div class="rounded-xl bg-white/5 p-4">
-                                <b class="text-2xl" x-text="countDraftRooms()"></b>
-                                <p class="text-xs text-slate-400">Rooms to save</p>
-                            </div>
-                            <div
-                                x-show="!wizardFloorStructureChanged() && countDraftEquipment() > 0"
-                                x-cloak
-                                class="rounded-xl bg-white/5 p-4"
-                            >
-                                <b class="text-2xl" x-text="countDraftEquipment()"></b>
-                                <p class="text-xs text-slate-400">Equipment to save</p>
-                            </div>
-                        </div>
-
-                        <div
-                            x-show="wizardReviewRooms().length"
-                            x-cloak
-                            class="mt-4 space-y-2"
-                        >
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                                <span x-text="wizardFloorStructureChanged() ? 'Rooms & equipment included' : 'Added rooms & equipment'"></span>
-                            </p>
-                            <div class="max-h-48 space-y-2 overflow-y-auto pr-1">
-                                <template x-for="(item, idx) in wizardReviewRooms()" :key="`review-room-${idx}-${item.name}`">
-                                    <div class="rounded-xl bg-white/5 px-3.5 py-2.5">
-                                        <div class="flex items-start justify-between gap-3">
-                                            <p class="text-sm font-semibold text-white" x-text="item.name"></p>
-                                            <span class="shrink-0 text-[11px] text-slate-400" x-text="item.floor"></span>
-                                        </div>
-                                        <p
-                                            x-show="item.equipmentCount > 0"
-                                            x-cloak
-                                            class="mt-1 text-xs leading-5 text-slate-300"
-                                            x-text="item.equipmentNames.join(', ')"
-                                        ></p>
-                                        <p
-                                            x-show="item.equipmentCount === 0"
-                                            x-cloak
-                                            class="mt-1 text-xs text-slate-500"
-                                        >No equipment added</p>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <div
-                            x-show="!wizardFloorStructureChanged() && !wizardReviewRooms().length"
-                            x-cloak
-                            class="mt-4 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-slate-300"
-                        >
-                            Floors are unchanged. Add rooms or equipment in Step 3 before saving.
-                        </div>
-                    </div>
                 </div>
             </section>
         </div>
@@ -890,11 +854,10 @@
                 :disabled="step === 1"
                 class="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-950 disabled:opacity-0"
             >
-                
                 Previous
             </button>
             <button
-                x-show="step < 4"
+                x-show="step < 3"
                 type="button"
                 @click="nextWizardStep()"
                 class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-bold text-white"
@@ -902,13 +865,94 @@
                 Continue
             </button>
             <button
-                x-show="step === 4"
-                type="submit"
+                x-show="step === 3"
+                type="button"
+                @click="openSaveConfirm()"
                 class="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-900/15"
             >
-                <span x-text="form.setup_locked ? 'Save campus updates' : 'Create campus workspace'"></span>
+                Save
             </button>
         </footer>
     </form>
+
+    <div
+        x-show="saveConfirmOpen"
+        x-cloak
+        x-transition.opacity
+        class="absolute inset-0 z-[1100] flex items-center justify-center bg-[#0b1220]/60 p-4"
+        role="dialog"
+        aria-modal="true"
+        @click.self="closeSaveConfirm()"
+    >
+        <div
+            @click.stop
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        >
+            <div class="border-b border-slate-100 px-5 py-4">
+                <h3 class="text-base font-extrabold text-slate-950">Confirm save</h3>
+                <p class="mt-1 text-sm text-slate-500">Review the summary, then save your campus changes.</p>
+            </div>
+
+            <div class="space-y-3 px-5 py-4">
+                <div
+                    x-show="step4InlineErrors.length"
+                    x-cloak
+                    class="rounded-xl border border-red-200 bg-red-50/80 p-3"
+                >
+                    <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-red-700">Resolve before saving</p>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="(errorMessage, errorIndex) in step4InlineErrors" :key="`save-error-${errorIndex}`">
+                            <span
+                                x-text="errorMessage"
+                                class="inline-flex items-center rounded-full border border-red-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-red-700"
+                            ></span>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="rounded-2xl bg-slate-950 p-4 text-white">
+                    <p class="text-xs text-slate-400">Building</p>
+                    <h4
+                        class="mt-1 text-lg font-bold"
+                        x-text="form.building_name || 'Unnamed building'"
+                    ></h4>
+                    <div class="mt-4 grid grid-cols-2 gap-3">
+                        <div class="rounded-xl bg-white/5 p-3">
+                            <b class="text-xl" x-text="form.floors.length"></b>
+                            <p class="text-xs text-slate-400">Floors</p>
+                        </div>
+                        <div class="rounded-xl bg-white/5 p-3">
+                            <b class="text-xl" x-text="addRoomsEnabled ? countDraftRooms() : 0"></b>
+                            <p class="text-xs text-slate-400">Rooms to save</p>
+                        </div>
+                    </div>
+                    <p
+                        x-show="!addRoomsEnabled"
+                        x-cloak
+                        class="mt-3 text-xs text-slate-400"
+                    >
+                        Rooms are skipped for this save.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-4">
+                <button
+                    type="button"
+                    @click="closeSaveConfirm()"
+                    class="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    @click="confirmSaveCampus()"
+                    class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white"
+                >
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 </template>

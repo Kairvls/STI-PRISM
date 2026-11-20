@@ -46,6 +46,13 @@
                         class="block cursor-default truncate font-medium text-slate-800"
                         title=""
                     >—</span>
+                    <details id="eqAssetModal_tag_details" class="group/tags hidden">
+                        <summary class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-800 [&::-webkit-details-marker]:hidden">
+                            <span id="eqAssetModal_tag_summary" class="truncate">—</span>
+                            <i data-lucide="chevron-down" class="h-3.5 w-3.5 shrink-0 text-slate-400 transition group-open/tags:rotate-180"></i>
+                        </summary>
+                        <ul id="eqAssetModal_tag_list" class="mt-1 max-h-36 space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs leading-4 text-slate-700"></ul>
+                    </details>
                     <div
                         id="eqAssetModal_meta_tag_tip"
                         role="tooltip"
@@ -150,10 +157,6 @@
                         <span id="eqAssetModal_status" class="text-right text-sm font-medium text-slate-800">—</span>
                     </div>
                     <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
-                        <span class="text-sm text-slate-500">Borrowable</span>
-                        <span id="eqAssetModal_borrowable" class="text-right text-sm font-medium text-slate-800">—</span>
-                    </div>
-                    <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3.5">
                         <span class="text-sm text-slate-500">Purchased</span>
                         <span class="inline-flex items-center gap-1.5 text-right text-sm font-medium text-slate-800">
                             <i data-lucide="calendar" class="h-3.5 w-3.5 text-slate-400"></i>
@@ -254,5 +257,23 @@
             <i data-lucide="external-link" class="h-4 w-4"></i>
             Open full profile
         </a>
+        <div id="eqAssetModal_unit_chooser" class="hidden">
+            <button
+                type="button"
+                id="eqAssetModal_unit_chooser_toggle"
+                onclick="toggleEquipmentUnitChooser()"
+                class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800"
+                aria-expanded="false"
+                aria-controls="eqAssetModal_unit_chooser_list"
+            >
+                <i data-lucide="list" class="h-4 w-4"></i>
+                Choose a unit
+                <i data-lucide="chevron-down" class="h-4 w-4 transition" data-unit-chevron></i>
+            </button>
+            <ul
+                id="eqAssetModal_unit_chooser_list"
+                class="mt-2 hidden max-h-40 space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-slate-50 p-1.5"
+            ></ul>
+        </div>
     </div>
 </div>

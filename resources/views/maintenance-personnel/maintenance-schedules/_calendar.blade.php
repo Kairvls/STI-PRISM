@@ -288,6 +288,16 @@
     $firstName = explode(" ", trim(Auth::user()->user_full_name ?? "there"))[0];
 @endphp
 
+@if ($errors->any())
+    <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <ul class="list-inside list-disc">
+            @foreach ($errors->all() as $message)
+                <li>{{ $message }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
 <div
     :class="calendarFull ? '-mt-5 pt-6' : 'space-y-6'"
     x-data="{

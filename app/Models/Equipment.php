@@ -52,8 +52,6 @@ class Equipment extends Model
 
         'equipment_position_y',
 
-        'equipment_is_borrowable',
-
         'equipment_qr_code',
 
     ];
@@ -67,8 +65,6 @@ class Equipment extends Model
         'equipment_quantity' => 'integer',
 
         'equipment_useful_life_years' => 'integer',
-
-        'equipment_is_borrowable' => 'boolean',
 
     ];
 

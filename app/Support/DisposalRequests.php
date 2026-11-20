@@ -37,7 +37,7 @@ class DisposalRequests
      */
     public static function create(array $equipmentIds, array $details): int
     {
-        return (int) DB::table(self::TABLE)->insertGetId([
+        $row = [
             'disposal_request_equipment_ids' => json_encode(array_values(array_map('intval', $equipmentIds))),
             'disposal_request_reason' => trim((string) $details['reason']),
             'disposal_request_method' => filled($details['method'] ?? null) ? $details['method'] : null,
@@ -48,7 +48,12 @@ class DisposalRequests
             'disposal_request_status' => self::PENDING,
             'disposal_request_requested_by' => Auth::id(),
             'disposal_request_requested_at' => now(),
-        ]);
+        ];
+        if (Schema::hasColumn(self::TABLE, 'disposal_request_room_id')) {
+            $row['disposal_request_room_id'] = ((int) ($details['room_id'] ?? 0)) > 0 ? (int) $details['room_id'] : null;
+        }
+
+        return (int) DB::table(self::TABLE)->insertGetId($row);
     }
 
     public static function find(int $requestId, bool $lock = false): ?object
@@ -82,6 +87,7 @@ class DisposalRequests
             'reason' => (string) $row->disposal_request_reason,
             'method' => $row->disposal_request_method,
             'location' => $row->disposal_request_location,
+            'room_id' => isset($row->disposal_request_room_id) ? (int) $row->disposal_request_room_id : null,
             'residual_value' => $row->disposal_request_residual_value,
         ];
     }

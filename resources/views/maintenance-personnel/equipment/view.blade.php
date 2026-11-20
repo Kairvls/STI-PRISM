@@ -22,6 +22,11 @@
     $condition = $equipment->equipment_condition_status ?? "";
     $inventory = $equipment->equipment_inventory_status ?? "";
     $hasQr = filled($equipment->equipment_qr_code ?? null);
+    $unitTags = \App\Support\EquipmentIdentity::unitTags($equipment);
+    $requestedUnit = trim((string) request('unit', ''));
+    $selectedUnit = in_array($requestedUnit, $unitTags, true) ? $requestedUnit : null;
+    $displayAssetTag = $selectedUnit ?: ($equipment->equipment_asset_tag ?? null);
+    $displayQuantity = $selectedUnit ? 1 : ($equipment->equipment_quantity ?? null);
 
     $conditionClass = match ($condition) {
         "Good" => "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -118,11 +123,6 @@
                                 {{ $inventory }}
                             </span>
                         @endif
-
-                        <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {{ $equipment->equipment_is_borrowable ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-50 text-slate-600' }}">
-                            <i data-lucide="{{ $equipment->equipment_is_borrowable ? 'package-check' : 'package-x' }}" class="h-3.5 w-3.5"></i>
-                            {{ $equipment->equipment_is_borrowable ? "Borrowable" : "Not borrowable" }}
-                        </span>
                     </div>
                 </div>
 
@@ -159,7 +159,7 @@
                         <div class="rounded-2xl bg-slate-50 px-4 py-4 ring-1 ring-slate-200/80">
                             <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Asset tag</p>
                             <p class="mt-1 break-all font-mono text-sm font-semibold tracking-wide text-slate-900">
-                                {{ $na($equipment->equipment_asset_tag) }}
+                                {{ $na($displayAssetTag) }}
                             </p>
                         </div>
 
@@ -216,7 +216,7 @@
                                 <i data-lucide="hash" class="h-4 w-4 text-slate-400"></i>
                                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Quantity</p>
                             </div>
-                            <p class="font-semibold text-slate-900">{{ $na($equipment->equipment_quantity) }}</p>
+                            <p class="font-semibold text-slate-900">{{ $na($displayQuantity) }}</p>
                         </div>
                         <div>
                             <div class="mb-3 flex items-center gap-2">
@@ -287,13 +287,7 @@
                         </div>
                         <div class="rounded-2xl bg-slate-50 px-4 py-3">
                             <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_quantity) }}</p>
-                        </div>
-                        <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-900">
-                                {{ $equipment->equipment_is_borrowable ? "Yes" : "No" }}
-                            </p>
+                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $na($displayQuantity) }}</p>
                         </div>
                     </div>
                 </section>

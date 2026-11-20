@@ -28,7 +28,7 @@ return new class extends Migration
                     $table->decimal('equipment_maintenance_repair_cost', 12, 2)->nullable();
                 }
                 if (! Schema::hasColumn('equipment_maintenance_history_table', 'equipment_maintenance_downtime_hours')) {
-                    $table->decimal('equipment_maintenance_downtime_hours', 8, 2)->nullable();
+                    $table->decimal('equipment_maintenance_downtime_hours', 9, 2)->nullable();
                 }
             });
         }

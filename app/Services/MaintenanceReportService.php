@@ -836,9 +836,6 @@ class MaintenanceReportService
             'room' => $item->room_name ?? null,
             'room_type' => $roomType,
             'zone' => $zone,
-            'borrowable' => isset($item->equipment_is_borrowable)
-                ? ((int) $item->equipment_is_borrowable === 1)
-                : null,
             'placement' => $isStorageRoom ? 'In storage' : 'Deployed',
             'image' => $item->equipment_image ?? null,
             'is_listed' => ! empty($item->report_item_equipment_id),
