@@ -13,12 +13,14 @@ class CanvassWorkflow
     public const STATUS_AWAITING = 'Awaiting for review';
     public const STATUS_REVIEWING = 'Reviewing - Awaiting for approval';
     public const STATUS_RETURNED = 'Returned';
+    public const STATUS_REJECTED = 'Rejected';
     public const STATUS_APPROVED = 'Approved';
     public const STATUS_CONVERTED = 'Converted to RIS';
 
     public const ITEM_PENDING = 'Pending';
     public const ITEM_APPROVED = 'Approved';
     public const ITEM_RETURNED = 'Returned';
+    public const ITEM_REJECTED = 'Rejected';
 
     public const MIN_SUPPLIERS_PER_ITEM = 2;
     public const MAX_SUPPLIERS_PER_ITEM = 3;
@@ -43,6 +45,7 @@ class CanvassWorkflow
             self::STATUS_AWAITING,
             self::STATUS_REVIEWING,
             self::STATUS_RETURNED,
+            self::STATUS_REJECTED,
             self::STATUS_APPROVED,
             self::STATUS_CONVERTED,
         ];
@@ -169,6 +172,10 @@ class CanvassWorkflow
             self::STATUS_RETURNED => [
                 'label' => 'Returned for revision',
                 'class' => 'bg-orange-100 text-orange-800 border-orange-200',
+            ],
+            self::STATUS_REJECTED => [
+                'label' => 'Rejected',
+                'class' => 'bg-rose-600 text-white border-rose-600',
             ],
             self::STATUS_APPROVED => [
                 'label' => 'Approved',
@@ -627,6 +634,9 @@ class CanvassWorkflow
         $atpLinesBySupplier = [];
 
         foreach ($loaded['items'] as $item) {
+            if ((string) ($item->canvass_item_status ?? '') !== self::ITEM_APPROVED) {
+                continue;
+            }
             $itemName = (string) ($item->canvass_item_name ?: $item->catalog_item_name);
             $selectedOffers = $item->selected_offers ?? collect();
             foreach ($selectedOffers as $offer) {

@@ -68,6 +68,9 @@ Route::post(
 Route::get('/canvass', [CanvassController::class, 'index'])->name('canvass.index');
 Route::get('/canvass/create', [CanvassController::class, 'create'])->name('canvass.create');
 Route::post('/canvass', [CanvassController::class, 'store'])->name('canvass.store');
+Route::get('/canvass/attachments/{attachmentId}/preview', [CanvassController::class, 'previewAttachment'])
+    ->whereNumber('attachmentId')
+    ->name('canvass.attachments.preview');
 Route::get('/canvass/attachments/{attachmentId}/download', [CanvassController::class, 'downloadAttachment'])
     ->whereNumber('attachmentId')
     ->name('canvass.attachments.download');

@@ -532,6 +532,25 @@ class CanvassController extends Controller
             ->with('success', 'Draft canvass deleted.');
     }
 
+    public function previewAttachment(int $attachmentId)
+    {
+        $att = DB::table('canvass_attachments_table')
+            ->where('canvass_attachment_id', $attachmentId)
+            ->first();
+        abort_if(! $att, 404);
+
+        $path = (string) $att->canvass_attachment_stored_path;
+        $name = (string) $att->canvass_attachment_original_name;
+
+        $disk = Storage::disk('local')->exists($path)
+            ? 'local'
+            : (Storage::disk('public')->exists($path) ? 'public' : null);
+
+        abort_if(! $disk, 404, 'File not found.');
+
+        return app(RisController::class)->previewStoredFile($path, $name, null, $disk);
+    }
+
     public function downloadAttachment(int $attachmentId)
     {
         $att = DB::table('canvass_attachments_table')

@@ -112,7 +112,10 @@
                         <span class="font-normal text-slate-500">· {{ $item->canvass_item_quantity }} {{ $item->uom_name ?: 'unit(s)' }}</span>
                     </h3>
                 </div>
-                <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $item->canvass_item_status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : ($item->canvass_item_status === 'Returned' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700') }}">
+                <span
+                    class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                    style="{{ $item->canvass_item_status === 'Approved' ? 'background:#dcfce7;color:#166534;' : ($item->canvass_item_status === 'Rejected' ? 'background:#fee2e2;color:#991b1b;' : ($item->canvass_item_status === 'Returned' ? 'background:#fef3c7;color:#92400e;' : 'background:#e2e8f0;color:#334155;')) }}"
+                >
                     {{ $item->canvass_item_status }}
                 </span>
             </div>

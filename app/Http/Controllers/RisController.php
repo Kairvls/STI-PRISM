@@ -2215,10 +2215,10 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
      * Open a stored proof or canvas file in the browser.
      * Images and PDF display directly. Word and Excel render as a page.
      */
-    public function previewStoredFile(string $relativePath, string $name, ?string $downloadUrl = null)
+    public function previewStoredFile(string $relativePath, string $name, ?string $downloadUrl = null, string $disk = 'public')
     {
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        $absolute = Storage::disk('public')->path($relativePath);
+        $absolute = Storage::disk($disk)->path($relativePath);
         $inlineTypes = [
             'pdf' => 'application/pdf',
             'jpg' => 'image/jpeg',
@@ -2226,10 +2226,12 @@ protected function submitOrResubmit($risId, string $mode = 'submit')
             'png' => 'image/png',
             'gif' => 'image/gif',
             'webp' => 'image/webp',
+            'bmp' => 'image/bmp',
+            'avif' => 'image/avif',
         ];
 
         if (isset($inlineTypes[$ext])) {
-            return Storage::disk('public')->response($relativePath, $name, [
+            return Storage::disk($disk)->response($relativePath, $name, [
                 'Content-Type' => $inlineTypes[$ext],
             ], 'inline');
         }
