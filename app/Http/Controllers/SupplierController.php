@@ -86,6 +86,21 @@ class SupplierController extends Controller
             return $this->createSupplier($request);
         });
 
+        if ($request->expectsJson()) {
+            $name = $request->input('supplier_store_type') === 'Online Store'
+                ? trim((string) ($request->input('shop_name') ?: $request->input('supplier_name')))
+                : trim((string) ($request->input('company_name') ?: $request->input('supplier_name')));
+            $contact = trim((string) ($request->input('contact_person') ?? ''));
+
+            return response()->json([
+                'id' => (string) $supplierId,
+                'name' => $name !== '' ? $name : ('Supplier #'.$supplierId),
+                'contact_person' => $contact,
+                'type' => (string) $request->input('supplier_store_type', 'Physical Store'),
+                'blacklisted' => false,
+            ], 201);
+        }
+
         return redirect()
             ->route(ProcurementPortal::routeName('ris.index'), [
                 'create' => 1,

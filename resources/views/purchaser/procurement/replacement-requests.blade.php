@@ -783,10 +783,10 @@
                             Cancel
                         </button>
                         <a
-                            x-bind:href="'{{ route(($pp ?? 'purchaser').'.ris.index') }}?replacement_request=' + createRisModal"
+                            x-bind:href="'{{ route(($pp ?? 'purchaser').'.canvass.create') }}?replacement_request=' + createRisModal"
                             class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
                         >
-                            Continue to RIS
+                            Start Canvass
                         </a>
                     </div>
                 </div>

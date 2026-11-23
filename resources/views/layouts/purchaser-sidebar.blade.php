@@ -288,6 +288,23 @@
         </div>
 
         {{-- ===================================================== --}}
+        {{-- PURCHASE CANVASS --}}
+        {{-- ===================================================== --}}
+        @php
+            $canvassAttention = \App\Support\CanvassWorkflow::purchaserAttentionCount((int) auth()->id());
+        @endphp
+        <a
+            href="{{ route('purchaser.canvass.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.canvass*') ? 'active' : '' }}"
+        >
+            <i data-lucide="scale" class="h-5 w-5"></i>
+            <span>Canvass</span>
+            @if($canvassAttention > 0)
+                <span class="{{ $navCount }}" title="{{ $canvassAttention }} approved or returned">{{ $canvassAttention }}</span>
+            @endif
+        </a>
+
+        {{-- ===================================================== --}}
         {{-- RIS --}}
         {{-- ===================================================== --}}
 

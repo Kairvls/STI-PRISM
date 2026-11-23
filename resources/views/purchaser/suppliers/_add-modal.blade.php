@@ -7,6 +7,7 @@
     $formAction = $formAction ?? route(($pp ?? 'purchaser').'.suppliers.store');
     $modalZ = $modalZ ?? 'z-[200]';
     $fromRis = (bool) ($fromRis ?? false);
+    $ajaxSubmit = (bool) ($ajaxSubmit ?? false);
     $openOnErrors = $errors->any() && ! old('_editing_supplier_id') && (! $fromRis || old('_from_ris'));
 @endphp
 <template x-teleport="body">
@@ -49,7 +50,7 @@
                     </button>
                 </div>
 
-                <form method="POST" action="{{ $formAction }}" enctype="multipart/form-data" class="flex min-h-0 flex-1 flex-col" novalidate>
+                <form method="POST" action="{{ $formAction }}" enctype="multipart/form-data" class="flex min-h-0 flex-1 flex-col" novalidate @if($ajaxSubmit) @submit.prevent="submitQuickSupplier($event)" @endif>
                     @csrf
                     @if ($fromRis)
                         <input type="hidden" name="_from_ris" value="1">
@@ -62,6 +63,12 @@
                     >
 
                     <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 md:px-6">
+                        @if($ajaxSubmit)
+                            <div x-cloak x-show="supplierModalError" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                                <p class="font-semibold">Could not save supplier</p>
+                                <p class="mt-1 text-xs" x-text="supplierModalError"></p>
+                            </div>
+                        @endif
                         @if($openOnErrors)
                             <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
                                 <p class="font-semibold">Could not save supplier</p>

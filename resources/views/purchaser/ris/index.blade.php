@@ -2,7 +2,7 @@
 
 @section("page-title", "Requisition Issue Slip")
 
-@section("page-subtitle", "Canvass + RIS forms.")
+@section("page-subtitle", "RIS records generated from approved canvasses.")
 
 @section("content")
 @include('partials.floating-menu-script')
@@ -10,10 +10,11 @@
 @php
     $oldRisItems = old('ris_items', []);
     $copyPrefill = $risCopyPrefill ?? null;
+    $canvassBoot = $canvassPrefill ?? null;
     $createItemsInit = [];
     $sourceItems = !empty($oldRisItems)
         ? $oldRisItems
-        : (($copyPrefill['items'] ?? []) ?: []);
+        : (($canvassBoot['items'] ?? []) ?: (($copyPrefill['items'] ?? []) ?: []));
     $risDefaultRows = 8;
     $risMaxRows = \App\Support\RisWorkflow::MAX_ITEMS;
     $sourceItems = array_values($sourceItems);
@@ -101,9 +102,10 @@
     }
     $viewRisId = request('view_ris') ?: request('ris_id');
     $openCreateFromCopy = is_array($copyPrefill) && !empty($copyPrefill['copied_from_ris_id']);
+    $openCreateFromCanvass = is_array($canvassBoot) && !empty($canvassBoot['canvass_id']);
     $editRisId = (int) session('edit_ris', 0);
-    $bootPurpose = (string) old('ris_purpose_description', $copyPrefill['purpose'] ?? '');
-    $bootUrgency = (string) old('ris_urgency', $copyPrefill['urgency'] ?? \App\Support\RisWorkflow::URGENCY_NON_URGENT);
+    $bootPurpose = (string) old('ris_purpose_description', $canvassBoot['purpose'] ?? ($copyPrefill['purpose'] ?? ''));
+    $bootUrgency = (string) old('ris_urgency', $canvassBoot['urgency'] ?? ($copyPrefill['urgency'] ?? \App\Support\RisWorkflow::URGENCY_NON_URGENT));
     if ($requestedSource && $bootPurpose === '') {
         $bootPurpose = \App\Support\RisWorkflow::replacementPurpose($requestedSource);
     }
@@ -121,6 +123,7 @@
                 || request()->filled('replacement_request')
                 || request()->boolean('create')
                 || $openCreateFromCopy
+                || $openCreateFromCanvass
                 || request()->filled('selected_supplier')
             ),
         'addSupplierModal' => (bool) ($errors->any() && old('_from_ris')),
@@ -132,8 +135,10 @@
         'purposeText' => $bootPurpose,
         'urgencyLevel' => $bootUrgency,
         'copiedFromRisId' => (int) old('copied_from_ris_id', $copyPrefill['copied_from_ris_id'] ?? 0) ?: null,
+        'fromCanvassId' => (int) old('ris_canvass_id', $canvassBoot['canvass_id'] ?? 0) ?: null,
+        'fromCanvassNumber' => (string) ($canvassBoot['canvass_number'] ?? ''),
         'createSignaturePreview' => (function () use ($editRisId, $risRecords, $savedSignatures) {
-            $posted = (string) old('signature_data', '');
+            $posted = (string) old('signature_data', $canvassBoot['purchaser_signature'] ?? '');
             if ($posted !== '' && str_starts_with($posted, 'data:image/')) {
                 return $posted;
             }
@@ -165,7 +170,7 @@
                 'preview_url' => (string) ($item->preview_url ?? ''),
             ];
         })->values()->all(),
-        'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', '')),
+        'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', $canvassBoot['procurement_request_id'] ?? '')),
         'lockedReplacement' => request()->filled('replacement_request') || (string) old('source_locked') === '1',
         'supplierWarnings' => collect($activeSuppliers ?? [])->mapWithKeys(function ($supplier) use ($supplierInsightsById) {
             $id = (int) $supplier->supplier_id;
@@ -2598,7 +2603,7 @@
         clearOneShotRisQueryParams() {
             const url = new URL(window.location.href);
             // create=1 is a one-shot deep link: open Create once, then strip so refresh stays on the list.
-            const keys = ['create', 'replacement_request', 'copy_from', 'view_ris', 'ris_id', 'selected_supplier'];
+            const keys = ['create', 'replacement_request', 'copy_from', 'from_canvass', 'view_ris', 'ris_id', 'selected_supplier'];
             let changed = false;
             keys.forEach((key) => {
                 if (url.searchParams.has(key)) {
@@ -2796,15 +2801,6 @@
                 >
                     <i data-lucide="printer" class="h-4 w-4"></i>
                     Print Empty RIS
-                </button>
-
-                <button
-                    type="button"
-                    x-on:click="openCreateRis()"
-                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                >
-                    <i data-lucide="plus" class="h-4 w-4"></i>
-                    Create RIS
                 </button>
         @endunless
         </div>
@@ -3809,6 +3805,7 @@
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
                     <input type="hidden" name="copied_from_ris_id" x-bind:value="copiedFromRisId || ''">
+                    <input type="hidden" name="ris_canvass_id" x-bind:value="fromCanvassId || ''">
                     <input type="hidden" name="signature_data" id="purchaserRisSignatureData" value="{{ old('signature_data') }}" x-bind:value="createSignaturePreview">
 
                     {{-- HEADER --}}
