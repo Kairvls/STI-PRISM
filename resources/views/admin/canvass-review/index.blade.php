@@ -1,7 +1,7 @@
 @extends('layouts.admin-layout')
 
-@section('page-title', 'Canvass Review')
-@section('page-subtitle', 'Compare supplier & brand quotations, select winning offers per item, and authorize ATP & RIS.')
+@section('page-title', 'Canvass Review & Approvals')
+@section('page-subtitle', 'Compare supplier quotations, finalize offers, then Direct Approve or forward to the President.')
 
 @section('content')
 @php
@@ -13,66 +13,79 @@
     ])->values()->all();
 
     $filterMeta = [
-        'all' => ['label' => 'All Requests', 'count' => $counts['all']],
+        'all' => ['label' => 'All', 'count' => $counts['all']],
         'pending' => ['label' => 'Pending Review', 'count' => $counts['pending']],
         'approved' => ['label' => 'Approved', 'count' => $counts['approved']],
         'returned' => ['label' => 'Returned', 'count' => $counts['returned']],
         'rejected' => ['label' => 'Rejected', 'count' => $counts['rejected'] ?? 0],
     ];
-    $activeTitle = $filterMeta[$filter]['label'] ?? 'All Requests';
+    $activeTitle = $filterMeta[$filter]['label'] ?? 'All';
 @endphp
 
-<div class="mx-auto max-w-6xl space-y-5 pb-12">
-    {{-- Top Filter Tabs (matches RIS Approvals) --}}
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-            @foreach ($filterMeta as $key => $meta)
-                <a
-                    href="{{ route($portalPrefix.'.canvass-review.index', array_filter(['filter' => $key, 'urgency' => $urgency, 'search' => $search])) }}"
-                    class="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition {{ $filter === $key ? 'bg-[#0025cc] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}"
-                >
-                    <span>{{ $meta['label'] }}</span>
-                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $filter === $key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}">{{ $meta['count'] }}</span>
-                </a>
-            @endforeach
-        </div>
-    </div>
+<div class="mx-auto max-w-6xl pb-12">
+    {{-- Shared 3-Phase Switcher: Pending review | Reviewed RIS | Awaiting Issued by --}}
+    @include('admin.partials.ris-phase-tabs', [
+        'phase' => 'accept',
+        'pendingAcceptCount' => $pendingAcceptCount ?? $counts['pending'],
+        'readyToSignCount' => $readyToSignCount ?? 0,
+        'awaitingIssuedCount' => $awaitingIssuedCount ?? 0,
+    ])
 
-    {{-- Main Unified Table Card (matches RIS Approvals) --}}
+    {{-- Main Unified Table Card (matches Reviewed RIS) --}}
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {{-- Card Toolbar --}}
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-            <div class="flex items-center gap-2.5">
-                <h2 class="text-sm font-bold text-slate-900">{{ $activeTitle }}</h2>
-                <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                    {{ $canvasses->total() }} total
-                </span>
+        {{-- Card Header --}}
+        <div class="px-5 pt-4 pb-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <h2 class="text-base font-semibold text-slate-900">{{ $activeTitle }}</h2>
+                        <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                            {{ $canvasses->total() }} total
+                        </span>
+                    </div>
+                    <p class="mt-0.5 text-xs text-slate-500">Compare supplier &amp; brand quotations and confirm winning offers to move the RIS into Reviewed RIS.</p>
+                </div>
             </div>
 
-            <form method="GET" action="{{ route($portalPrefix.'.canvass-review.index') }}" class="flex flex-wrap items-center gap-2">
-                <input type="hidden" name="filter" value="{{ $filter }}">
-                <select
-                    name="urgency"
-                    onchange="this.form.submit()"
-                    class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500"
-                >
-                    <option value="">All urgency</option>
-                    <option value="Urgent" @selected($urgency === 'Urgent')>Urgent</option>
-                    <option value="Non-Urgent" @selected($urgency === 'Non-Urgent')>Non-Urgent</option>
-                </select>
-                <div class="relative">
-                    <input
-                        type="search"
-                        name="search"
-                        value="{{ $search }}"
-                        placeholder="Search CAN no., Request no., purchaser..."
-                        class="w-64 rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-3 text-xs text-slate-900 outline-none focus:border-blue-500"
-                    >
+            {{-- Sub-filters + Search Toolbar --}}
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3.5">
+                <div class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 p-1">
+                    @foreach ($filterMeta as $key => $meta)
+                        <a
+                            href="{{ route($portalPrefix.'.canvass-review.index', array_filter(['filter' => $key, 'urgency' => $urgency, 'search' => $search])) }}"
+                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ $filter === $key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}"
+                        >
+                            <span>{{ $meta['label'] }}</span>
+                            <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $filter === $key ? 'bg-slate-100 text-slate-800' : 'text-slate-500' }}">{{ $meta['count'] }}</span>
+                        </a>
+                    @endforeach
                 </div>
-                <button type="submit" class="rounded-xl bg-[#0025cc] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#001db3]">
-                    Search
-                </button>
-            </form>
+
+                <form method="GET" action="{{ route($portalPrefix.'.canvass-review.index') }}" class="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="filter" value="{{ $filter }}">
+                    <select
+                        name="urgency"
+                        onchange="this.form.submit()"
+                        class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500"
+                    >
+                        <option value="">All urgency</option>
+                        <option value="Urgent" @selected($urgency === 'Urgent')>Urgent</option>
+                        <option value="Non-Urgent" @selected($urgency === 'Non-Urgent')>Non-Urgent</option>
+                    </select>
+                    <div class="relative">
+                        <input
+                            type="search"
+                            name="search"
+                            value="{{ $search }}"
+                            placeholder="Search CAN no., Request no., purchaser..."
+                            class="w-60 rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-3 text-xs text-slate-900 outline-none focus:border-blue-500"
+                        >
+                    </div>
+                    <button type="submit" class="rounded-xl bg-[#0025cc] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#001db3]">
+                        Search
+                    </button>
+                </form>
+            </div>
         </div>
 
         {{-- Table --}}
@@ -269,30 +282,71 @@
                                         </svg>
                                     </button>
 
-                                    <button
-                                        type="button"
-                                        x-show="canAct && isReviewable()"
-                                        @click="openReasonModal('reject', 'all')"
-                                        :disabled="busy"
-                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition hover:opacity-85 disabled:opacity-45"
-                                        style="background:#fef2f2;border-color:#fecaca;color:#dc2626;"
-                                        title="Reject request"
+                                    {{-- 3-Dots More Actions Menu (Print + Reject) --}}
+                                    <div
+                                        class="relative inline-flex"
+                                        x-data="{
+                                            menuOpen: false,
+                                            top: 0,
+                                            right: 0,
+                                            toggleMenu(el) {
+                                                if (this.menuOpen) { this.menuOpen = false; return; }
+                                                const r = el.getBoundingClientRect();
+                                                this.top = r.bottom + 6;
+                                                this.right = Math.max(12, window.innerWidth - r.right);
+                                                this.menuOpen = true;
+                                            }
+                                        }"
+                                        @keydown.escape.window="menuOpen = false"
+                                        @scroll.window="menuOpen = false"
                                     >
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                                        </svg>
-                                    </button>
+                                        <button
+                                            type="button"
+                                            @click.stop="toggleMenu($el)"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                            title="More actions"
+                                            aria-label="More actions"
+                                        >
+                                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M6 10a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm5.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm5.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                                            </svg>
+                                        </button>
 
-                                    <a
-                                        :href="printUrl"
-                                        target="_blank"
-                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                        title="Print ATP & RIS"
-                                    >
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
-                                        </svg>
-                                    </a>
+                                        <template x-teleport="body">
+                                            <div
+                                                x-cloak
+                                                x-show="menuOpen"
+                                                @click.outside="menuOpen = false"
+                                                :style="`position:fixed;top:${top}px;right:${right}px;z-index:240;`"
+                                                class="w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl"
+                                            >
+                                                <a
+                                                    :href="printUrl"
+                                                    target="_blank"
+                                                    @click="menuOpen = false"
+                                                    class="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                                                >
+                                                    <svg class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+                                                    </svg>
+                                                    <span>Print ATP &amp; RIS</span>
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    x-show="canAct && isReviewable()"
+                                                    :disabled="busy"
+                                                    @click="menuOpen = false; openReasonModal('reject', 'all')"
+                                                    class="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold transition hover:bg-red-50 disabled:opacity-45"
+                                                    style="color:#dc2626;"
+                                                >
+                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                    </svg>
+                                                    <span>Reject</span>
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
 
                                 {{-- TELEPORTED XL WORKSPACE MODAL --}}
@@ -300,240 +354,337 @@
                                     <div
                                         x-cloak
                                         x-show="open"
-                                        @keydown.escape.window="if (open && !reasonModal.open && !approveModal.open) open = false"
+                                        @keydown.escape.window="if (open && !reasonModal.open && !approveModal.open && !closeConfirmOpen) requestCloseWorkspace()"
                                         class="fixed inset-0 z-[250] flex items-center justify-center bg-slate-900/45 p-4"
-                                        @click.self="open = false"
+                                        @click.self="requestCloseWorkspace()"
                                     >
                                         <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                                            {{-- Sticky Modal Header --}}
-                                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-4">
-                                                <div>
-                                                    <div class="flex flex-wrap items-center gap-2">
-                                                        <h3 class="text-base font-bold text-slate-900" x-text="'Request ' + displayNo"></h3>
-                                                        <span
-                                                            class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold"
-                                                            :style="statusBadgeStyle()"
-                                                            x-text="status"
-                                                        ></span>
-                                                        <span
-                                                            x-show="linkedRisNumber"
-                                                            class="rounded-md px-2 py-0.5 text-[11px] font-semibold"
-                                                            style="background:#ccfbf1;color:#0f766e;"
-                                                            x-text="'RIS ' + linkedRisNumber"
-                                                        ></span>
+                                            {{-- Unified Sticky White Header + Tabs --}}
+                                            <div class="border-b border-slate-200 bg-white px-6 pt-5 pb-4">
+                                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <div class="flex flex-wrap items-center gap-2.5">
+                                                            <h3 class="text-lg font-bold tracking-tight text-slate-900" x-text="'Request ' + displayNo"></h3>
+                                                            <span
+                                                                class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                                                                :style="status === 'Approved' || status === 'Converted to RIS'
+                                                                    ? 'background:#ecfdf5;border-color:#a7f3d0;color:#059669;'
+                                                                    : (status === 'Rejected'
+                                                                        ? 'background:#fef2f2;border-color:#fecaca;color:#dc2626;'
+                                                                        : (status === 'Returned'
+                                                                            ? 'background:#fffbeb;border-color:#fde68a;color:#b45309;'
+                                                                            : 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;'))"
+                                                            >
+                                                                <span
+                                                                    class="h-1.5 w-1.5 rounded-full"
+                                                                    :style="status === 'Approved' || status === 'Converted to RIS'
+                                                                        ? 'background:#10b981;'
+                                                                        : (status === 'Rejected'
+                                                                            ? 'background:#dc2626;'
+                                                                            : (status === 'Returned'
+                                                                                ? 'background:#d97706;'
+                                                                                : 'background:#2563eb;'))"
+                                                                ></span>
+                                                                <span x-text="status"></span>
+                                                            </span>
+                                                            <span
+                                                                x-show="linkedRisNumber"
+                                                                class="rounded-md px-2 py-0.5 text-[11px] font-semibold"
+                                                                style="background:#ccfbf1;color:#0f766e;"
+                                                                x-text="'RIS ' + linkedRisNumber"
+                                                            ></span>
+                                                        </div>
+                                                        <p class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                                                            <span>Requested by <span class="font-semibold text-slate-800" x-text="ownerName"></span></span>
+                                                            <span>·</span>
+                                                            <span>Submitted <span x-text="submittedAt"></span></span>
+                                                            <span>·</span>
+                                                            <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700" x-text="items.length + ' item(s)'"></span>
+                                                            <span>·</span>
+                                                            <span>Total qty requested: <span class="font-bold text-slate-900" x-text="totalRequestedQty()"></span></span>
+                                                        </p>
                                                     </div>
-                                                    <p class="mt-0.5 text-xs text-slate-500">
-                                                        Requested by <span class="font-semibold text-slate-700" x-text="ownerName"></span>
-                                                        · Submitted <span x-text="submittedAt"></span>
-                                                        · <span x-text="items.length + ' item(s)'"></span>
-                                                        · <span class="font-semibold text-slate-700" x-text="'Total qty requested: ' + totalRequestedQty()"></span>
-                                                    </p>
+
+                                                    <div class="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            x-show="canAct && isReviewable()"
+                                                            @click="openReasonModal('return', 'all')"
+                                                            :disabled="busy"
+                                                            class="rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:opacity-45"
+                                                            style="border-color:#fcd34d;color:#b45309;"
+                                                        >
+                                                            Return
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            x-show="canAct && isReviewable()"
+                                                            @click="openReasonModal('reject', 'all')"
+                                                            :disabled="busy"
+                                                            class="rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:opacity-45"
+                                                            style="border-color:#fecaca;color:#dc2626;"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                        <a
+                                                            :href="printUrl"
+                                                            target="_blank"
+                                                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                                        >
+                                                            <svg class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+                                                            </svg>
+                                                            <span>Print ATP &amp; RIS</span>
+                                                        </a>
+                                                        <button
+                                                            type="button"
+                                                            @click="requestCloseWorkspace()"
+                                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                                            title="Close"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
                                                 </div>
 
-                                                <div class="flex items-center gap-2">
+                                                <hr style="border-top:1px solid #e2e8f0;margin:1rem 0;">
+
+                                                {{-- Integrated 3-Tab Switcher (Underlined tabs) --}}
+                                                <div class="mt-4 flex flex-wrap items-center gap-6">
                                                     <button
                                                         type="button"
-                                                        x-show="canAct && isReviewable()"
-                                                        @click="openReasonModal('return', 'all')"
-                                                        :disabled="busy"
-                                                        class="rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:opacity-45"
-                                                        style="background:#fffbeb;border-color:#fcd34d;color:#b45309;"
+                                                        @click="activeTab = 'review'"
+                                                        class="inline-flex items-center gap-2 px-1 pb-1 text-xs font-semibold transition"
+                                                        :style="activeTab === 'review'
+                                                            ? 'border-bottom:2px solid #2563eb;color:#2563eb;'
+                                                            : 'border-bottom:2px solid #cbd5e1;color:#64748b;'"
                                                     >
-                                                        Return
+                                                        <span>Review &amp; Approve</span>
+                                                        <span
+                                                            class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                                            :style="activeTab === 'review' ? 'background:#eff6ff;color:#2563eb;' : 'background:#f1f5f9;color:#64748b;'"
+                                                            x-text="pendingItems().length + ' pending'"
+                                                        ></span>
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        x-show="canAct && isReviewable()"
-                                                        @click="openReasonModal('reject', 'all')"
-                                                        :disabled="busy"
-                                                        class="rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:opacity-45"
-                                                        style="background:#fef2f2;border-color:#fecaca;color:#dc2626;"
+                                                        @click="activeTab = 'ris'"
+                                                        class="inline-flex items-center gap-2 px-1 pb-1 text-xs font-semibold transition"
+                                                        :style="activeTab === 'ris'
+                                                            ? 'border-bottom:2px solid #2563eb;color:#2563eb;'
+                                                            : 'border-bottom:2px solid #cbd5e1;color:#64748b;'"
                                                     >
-                                                        Reject
+                                                        <span>Requisition &amp; Issue Slip</span>
+                                                        <span
+                                                            class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                            :style="activeTab === 'ris' ? 'background:#eff6ff;color:#2563eb;' : 'background:#f1f5f9;color:#64748b;'"
+                                                            x-text="items.length"
+                                                        ></span>
                                                     </button>
-                                                    <a
-                                                        :href="printUrl"
-                                                        target="_blank"
-                                                        class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                                    >
-                                                        Print ATP &amp; RIS
-                                                    </a>
                                                     <button
                                                         type="button"
-                                                        @click="open = false"
-                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                                                        title="Close"
+                                                        @click="activeTab = 'atp'"
+                                                        class="inline-flex items-center gap-2 px-1 pb-1 text-xs font-semibold transition"
+                                                        :style="activeTab === 'atp'
+                                                            ? 'border-bottom:2px solid #2563eb;color:#2563eb;'
+                                                            : 'border-bottom:2px solid #cbd5e1;color:#64748b;'"
                                                     >
-                                                        ✕
+                                                        <span>Authorities to Purchase</span>
+                                                        <span
+                                                            class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                            :style="activeTab === 'atp' ? 'background:#eff6ff;color:#2563eb;' : 'background:#f1f5f9;color:#64748b;'"
+                                                            x-text="supplierAtpPages().length"
+                                                        ></span>
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            {{-- Scrollable Modal Body (3-Tab Compact Workspace) --}}
-                                            <div class="flex-1 space-y-4 overflow-y-auto bg-slate-50/50 p-5">
-                                                {{-- 3-Tab Switcher --}}
-                                                <div class="flex flex-wrap items-center justify-between gap-2">
-                                                    <div class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
-                                                        <button
-                                                            type="button"
-                                                            @click="activeTab = 'review'"
-                                                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition"
-                                                            :style="activeTab === 'review' ? 'background:#0025cc;color:#ffffff;' : 'background:transparent;color:#475569;'"
-                                                        >
-                                                            <span>Review &amp; Approve</span>
-                                                            <span
-                                                                class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                                                                :style="activeTab === 'review' ? 'background:rgba(255,255,255,0.22);color:#ffffff;' : 'background:#f1f5f9;color:#475569;'"
-                                                                x-text="pendingItems().length + ' pending'"
-                                                            ></span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            @click="activeTab = 'atp'"
-                                                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition"
-                                                            :style="activeTab === 'atp' ? 'background:#0025cc;color:#ffffff;' : 'background:transparent;color:#475569;'"
-                                                        >
-                                                            <span>Authorities to Purchase</span>
-                                                            <span
-                                                                class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                                                                :style="activeTab === 'atp' ? 'background:rgba(255,255,255,0.22);color:#ffffff;' : 'background:#f1f5f9;color:#475569;'"
-                                                                x-text="supplierAtpPages().length"
-                                                            ></span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            @click="activeTab = 'ris'"
-                                                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition"
-                                                            :style="activeTab === 'ris' ? 'background:#0025cc;color:#ffffff;' : 'background:transparent;color:#475569;'"
-                                                        >
-                                                            <span>Requisition &amp; Issue Slip</span>
-                                                            <span
-                                                                class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                                                                :style="activeTab === 'ris' ? 'background:rgba(255,255,255,0.22);color:#ffffff;' : 'background:#f1f5f9;color:#475569;'"
-                                                                x-text="items.length"
-                                                            ></span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-
+                                            {{-- Scrollable Modal Body --}}
+                                            <div class="flex-1 space-y-4 overflow-y-auto p-5" style="background:#f8fafc;">
                                                 {{-- Feedback Banner --}}
                                                 <div x-show="feedbackMsg" class="rounded-xl border px-4 py-2.5 text-xs font-semibold" :style="feedbackOk ? 'border-color:#bbf7d0;background:#f0fdf4;color:#166534;' : 'border-color:#fecdd3;background:#fff1f2;color:#be123c;'" x-text="feedbackMsg"></div>
 
                                                 {{-- TAB 1: REVIEW & APPROVE --}}
-                                                <div x-show="activeTab === 'review'" class="space-y-3.5">
-                                                    {{-- Item Quotations Card --}}
+                                                <div x-show="activeTab === 'review'" class="space-y-4">
+                                                    {{-- Item Quotations Section (Direct on #f8fafc canvas — no double-nested card) --}}
                                                     <template x-if="currentItem()">
-                                                        <div class="rounded-xl border border-slate-200 bg-white p-4">
-                                                            <div class="border-l-4 border-blue-600 pl-3">
-                                                                <h4 class="text-sm font-bold text-slate-900">Select supplier offers to approve</h4>
-                                                                <!--<p class="text-xs text-slate-500">Check the winning supplier offer(s) and quantity for each item you want to approve. Items left unselected will be marked Rejected when you confirm approval.</p>-->
-                                                            </div>
+                                                        <div>
+                                                            {{-- Supplier Quotations White Card (Title + Item Switcher Pills + Header + Table + Footer) --}}
+                                                            <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                                                                {{-- Top Section Title inside Card --}}
+                                                                <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-6 pb-4">
+                                                                    <div class="flex items-center gap-2.5">
+                                                                        <span class="h-5 w-1 shrink-0 rounded-full" style="background:#2563eb;"></span>
+                                                                        <div>
+                                                                            <h4 class="text-lg font-bold leading-tight text-slate-900">Supplier Quotations</h4>
+                                                                            <!--<p class="mt-0.5 text-[11px] text-slate-500">Review competitive bids, adjust allocation quantities, and finalize order authorization.</p>-->
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
 
-                                                            {{-- Clean Item Switcher Pills --}}
-                                                            <div class="mt-3.5 flex flex-wrap items-center gap-2">
-                                                                <template x-for="(it, idx) in items" :key="'pill-' + it.id">
-                                                                    <button
-                                                                        type="button"
-                                                                        @click="activeItemIdx = idx"
-                                                                        class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
-                                                                        :style="activeItemIdx === idx
-                                                                            ? 'border-color:#0025cc;background:#eff6ff;color:#0025cc;'
-                                                                            : 'border-color:#e2e8f0;background:#ffffff;color:#475569;'"
-                                                                    >
-                                                                        <span
-                                                                            class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                                                                            :style="(it.status === 'Approved' || (isReviewable() && itemAllocationReady(it)))
-                                                                                ? 'background:#16a34a;color:#ffffff;'
-                                                                                : (it.status === 'Rejected'
-                                                                                    ? 'background:#dc2626;color:#ffffff;'
-                                                                                    : (it.status === 'Returned'
-                                                                                        ? 'background:#d97706;color:#ffffff;'
-                                                                                        : 'background:#e2e8f0;color:#64748b;'))"
-                                                                            x-text="(it.status === 'Approved' || (isReviewable() && itemAllocationReady(it))) ? '✓' : (it.status === 'Rejected' ? '✕' : (it.status === 'Returned' ? '↺' : (idx + 1)))"
-                                                                        ></span>
-                                                                        <span class="max-w-[170px] truncate" x-text="'Item ' + (idx + 1) + ': ' + it.name"></span>
-                                                                        <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600" x-text="it.qty + ' ' + it.uom"></span>
-                                                                    </button>
-                                                                </template>
-                                                            </div>
-
-                                                            <div class="mt-3.5 rounded-xl border border-slate-200 p-4">
-                                                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                                                    <div class="text-xs font-bold text-slate-900" x-text="'Supplier quotations · Item ' + (activeItemIdx + 1) + ': ' + currentItem().name"></div>
-                                                                    <div class="flex flex-wrap items-center gap-2 text-xs">
-                                                                        <span
-                                                                            class="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold"
-                                                                            style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;"
+                                                                {{-- Clean Item Switcher Pills --}}
+                                                                <div class="flex flex-wrap items-center gap-2.5 px-6 pb-6">
+                                                                    <template x-for="(it, idx) in items" :key="'pill-' + it.id">
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="activeItemIdx = idx"
+                                                                            class="inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-xs font-semibold transition"
+                                                                            :style="activeItemIdx === idx
+                                                                                ? 'border:1.5px solid #2563eb;background:#ffffff;color:#2563eb;'
+                                                                                : 'border:1px solid #e2e8f0;background:#ffffff;color:#475569;'"
                                                                         >
-                                                                            <span>Total Qty Requested:</span>
-                                                                            <span x-text="currentItem().qty + ' ' + currentItem().uom"></span>
+                                                                            <span
+                                                                                class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                                                                                :style="(it.status === 'Approved' || (isReviewable() && itemAllocationReady(it)))
+                                                                                    ? 'background:#16a34a;color:#ffffff;'
+                                                                                    : (it.status === 'Rejected'
+                                                                                        ? 'background:#dc2626;color:#ffffff;'
+                                                                                        : (it.status === 'Returned'
+                                                                                            ? 'background:#d97706;color:#ffffff;'
+                                                                                            : (activeItemIdx === idx ? 'background:#dbeafe;color:#2563eb;' : 'background:#f1f5f9;color:#475569;')))"
+                                                                                x-text="(it.status === 'Approved' || (isReviewable() && itemAllocationReady(it))) ? '✓' : (it.status === 'Rejected' ? '✕' : (it.status === 'Returned' ? '↺' : (idx + 1)))"
+                                                                            ></span>
+                                                                            <span class="max-w-[180px] truncate" x-text="'Item ' + (idx + 1) + ': ' + it.name"></span>
+                                                                            <span
+                                                                                class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                                                                :style="activeItemIdx === idx
+                                                                                    ? 'background:#eff6ff;color:#2563eb;'
+                                                                                    : 'background:#f1f5f9;color:#475569;'"
+                                                                                x-text="it.qty + ' ' + it.uom"
+                                                                            ></span>
+                                                                        </button>
+                                                                    </template>
+                                                                </div>
+
+                                                                {{-- Item Header Row --}}
+                                                                <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-1 pb-4">
+                                                                    <div>
+                                                                        <div class="text-[15px] font-bold text-slate-900">
+                                                                            <span x-text="'Item ' + (activeItemIdx + 1) + ': ' + currentItem().name"></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="flex flex-wrap items-center gap-3 text-xs">
+                                                                        <span class="inline-flex items-center gap-1 text-xs text-slate-500">
+                                                                            <span>Total Requested:</span>
+                                                                            <span class="font-semibold text-slate-900" x-text="currentItem().qty + ' Qty'"></span>
                                                                         </span>
-                                                                        <span
-                                                                            class="rounded-lg px-2 py-1 text-[11px] font-semibold"
-                                                                            :style="currentItem().status === 'Approved' ? 'background:#dcfce7;color:#15803d;' : (currentItem().status === 'Rejected' ? 'background:#fee2e2;color:#dc2626;' : (currentItem().status === 'Returned' ? 'background:#fef3c7;color:#b45309;' : 'background:#f1f5f9;color:#475569;'))"
-                                                                            x-text="currentItem().status"
-                                                                        ></span>
+                                                                        <template x-if="['Approved', 'Rejected', 'Returned'].includes(currentItem().status)">
+                                                                            <span
+                                                                                class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold"
+                                                                                :style="currentItem().status === 'Approved'
+                                                                                    ? 'background:#ecfdf5;border-color:#a7f3d0;color:#059669;'
+                                                                                    : (currentItem().status === 'Rejected'
+                                                                                        ? 'background:#fef2f2;border-color:#fecaca;color:#dc2626;'
+                                                                                        : 'background:#fff7ed;border-color:#fed7aa;color:#c2410c;')"
+                                                                            >
+                                                                                <span
+                                                                                    class="h-1.5 w-1.5 rounded-full"
+                                                                                    :style="currentItem().status === 'Approved' ? 'background:#10b981;' : (currentItem().status === 'Rejected' ? 'background:#dc2626;' : 'background:#ea580c;')"
+                                                                                ></span>
+                                                                                <span x-text="currentItem().status"></span>
+                                                                            </span>
+                                                                        </template>
                                                                         <button
                                                                             type="button"
                                                                             x-show="canAct && isReviewable() && currentItem().status !== 'Approved' && currentItem().status !== 'Rejected'"
                                                                             @click="openReasonModal('reject', 'single')"
                                                                             :disabled="busy"
-                                                                            class="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition hover:opacity-85 disabled:opacity-45"
-                                                                            style="background:#fef2f2;border-color:#fecaca;color:#dc2626;"
+                                                                            class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-45"
+                                                                            style="background-color:#ffffff;border-color:#ffe4e6;color:#e11d48;"
+                                                                            onmouseenter="this.style.backgroundColor='#fff1f2';this.style.borderColor='#fecdd3';"
+                                                                            onmouseleave="this.style.backgroundColor='#ffffff';this.style.borderColor='#ffe4e6';"
                                                                             title="Reject only this item"
                                                                         >
+                                                                            
                                                                             <span>Reject item</span>
                                                                         </button>
                                                                     </div>
                                                                 </div>
 
+                                                                {{-- Quotations Table --}}
                                                                 <div class="overflow-x-auto">
-                                                                    <table class="w-full border-collapse text-xs">
+                                                                    <table class="w-full text-left text-xs">
                                                                         <thead>
-                                                                            <tr class="bg-slate-50 text-left text-slate-800">
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Brand</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Unit</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Supplier</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Pack size</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Approved qty</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Unit cost</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 font-bold">Amount</th>
-                                                                                <th class="border border-slate-200 px-3 py-2 text-center font-bold">Approval</th>
+                                                                            <tr class="border-y border-slate-100 bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                                                                <th class="py-3 pl-6 pr-3">Supplier</th>
+                                                                                <th class="px-3 py-3">Brand</th>
+                                                                                <th class="px-3 py-3">Unit</th>
+                                                                                <th class="px-3 py-3 text-center">Approved Qty</th>
+                                                                                <th class="px-3 py-3 text-right">Unit Cost</th>
+                                                                                <th class="px-3 py-3 text-right">Total Amount</th>
+                                                                                <th class="py-3 pl-3 pr-6 text-center">Approval</th>
                                                                             </tr>
                                                                         </thead>
-                                                                        <tbody>
+                                                                        <tbody class="divide-y divide-slate-100">
                                                                             <template x-for="offer in currentItem().offers" :key="offer.id">
-                                                                                <tr :class="offer.checked ? 'bg-blue-50/40' : ''">
-                                                                                    <td class="border border-slate-200 px-3 py-2 font-medium text-slate-900">
+                                                                                <tr class="transition hover:bg-slate-50/40" :class="offer.checked ? 'bg-blue-50/20' : ''">
+                                                                                    <td class="py-4 pl-6 pr-3 align-middle">
+                                                                                        <div class="flex flex-wrap items-center gap-2">
+                                                                                            <span class="text-[13px] font-bold text-slate-900" x-text="offer.supplier"></span>
+                                                                                            <span
+                                                                                                x-show="isLowestOffer(currentItem(), offer) && !offer.blacklisted"
+                                                                                                class="rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                                                                                                style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;"
+                                                                                            >
+                                                                                                Lowest Price
+                                                                                            </span>
+                                                                                            <span x-show="offer.blacklisted" class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style="background:#ffe4e6;color:#be123c;">Blacklisted</span>
+                                                                                            <span x-show="!offer.blacklisted && offer.caution" class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style="background:#fef3c7;color:#92400e;">Caution</span>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                    <td class="px-3 py-4 align-middle text-[13px] font-medium text-slate-800">
                                                                                         <span x-text="offer.brand"></span>
-                                                                                        <span x-show="offer.brandAvoid" class="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold" style="background:#ffe4e6;color:#be123c;">Avoid</span>
+                                                                                        <span x-show="offer.brandAvoid" class="ml-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style="background:#ffe4e6;color:#be123c;">Avoid</span>
                                                                                     </td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-700" x-text="offer.unit"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-800">
-                                                                                        <span x-text="offer.supplier"></span>
-                                                                                        <span x-show="offer.blacklisted" class="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold" style="background:#ffe4e6;color:#be123c;">Blacklisted</span>
-                                                                                        <span x-show="!offer.blacklisted && offer.caution" class="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold" style="background:#fef3c7;color:#92400e;">Caution</span>
+                                                                                    <td class="px-3 py-4 align-middle">
+                                                                                        <span
+                                                                                            class="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600"
+                                                                                            x-text="offer.unit"
+                                                                                        ></span>
                                                                                     </td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-600" x-text="packLabel(offer, currentItem())"></td>
-                                                                                    <td class="border border-slate-200 px-2.5 py-1.5">
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            min="1"
-                                                                                            :max="maxOfferUnits(currentItem(), offer)"
-                                                                                            step="1"
-                                                                                            x-model="offer.approvedQty"
-                                                                                            @input="onQtyInput(currentItem(), offer)"
-                                                                                            :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected'"
-                                                                                            placeholder="0"
-                                                                                            class="w-24 rounded-md border px-2.5 py-1 text-xs outline-none focus:border-blue-500"
-                                                                                            :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected')
-                                                                                                ? 'background:#f1f5f9;border-color:#e2e8f0;color:#94a3b8;cursor:not-allowed;'
-                                                                                                : 'background:#ffffff;border-color:#94a3b8;color:#0f172a;'"
-                                                                                        >
+                                                                                    <td class="px-3 py-4 text-center align-middle">
+                                                                                        <div class="inline-flex items-center gap-1.5">
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                @click="stepOfferQty(currentItem(), offer, -1)"
+                                                                                                :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) <= 1"
+                                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 transition hover:bg-slate-200/80 disabled:cursor-not-allowed disabled:bg-slate-100/70 disabled:text-slate-300"
+                                                                                                aria-label="Decrease quantity"
+                                                                                            >
+                                                                                                −
+                                                                                            </button>
+                                                                                            <input
+                                                                                                type="number"
+                                                                                                min="1"
+                                                                                                :max="maxOfferUnits(currentItem(), offer)"
+                                                                                                step="1"
+                                                                                                x-model="offer.approvedQty"
+                                                                                                @input="onQtyInput(currentItem(), offer)"
+                                                                                                :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected'"
+                                                                                                placeholder="0"
+                                                                                                class="h-8 w-12 rounded-lg border text-center text-xs font-semibold tabular-nums outline-none focus:border-blue-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                                                                :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected')
+                                                                                                    ? 'background:#ffffff;border-color:#e2e8f0;color:#64748b;cursor:not-allowed;'
+                                                                                                    : 'background:#ffffff;border-color:#cbd5e1;color:#0f172a;'"
+                                                                                            >
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                @click="stepOfferQty(currentItem(), offer, 1)"
+                                                                                                :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), offer)"
+                                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 transition hover:bg-slate-200/80 disabled:cursor-not-allowed disabled:bg-slate-100/70 disabled:text-slate-300"
+                                                                                                aria-label="Increase quantity"
+                                                                                            >
+                                                                                                +
+                                                                                            </button>
+                                                                                        </div>
                                                                                     </td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-800" x-text="formatPeso(offer.unitCost)"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 font-semibold text-slate-900" x-text="formatPeso(offerAmount(offer))"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-center">
+                                                                                    <td class="px-3 py-4 text-right align-middle text-[13px] font-semibold tabular-nums text-slate-900" x-text="formatPeso(offer.unitCost)"></td>
+                                                                                    <td
+                                                                                        class="px-3 py-4 text-right align-middle text-[13px] font-semibold tabular-nums"
+                                                                                        :class="offerAmount(offer) > 0 ? 'text-slate-900' : 'text-slate-400'"
+                                                                                        x-text="formatPeso(offerAmount(offer))"
+                                                                                    ></td>
+                                                                                    <td class="py-4 pl-3 pr-6 text-center align-middle">
                                                                                         <input
                                                                                             type="checkbox"
                                                                                             :checked="offer.checked"
@@ -549,80 +700,115 @@
                                                                     </table>
                                                                 </div>
 
-                                                                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                                                {{-- Allocation Pill + Estimated Total --}}
+                                                                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-[#f8fafc] px-6 py-3.5 text-xs">
                                                                     <span
-                                                                        class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-semibold"
+                                                                        class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
                                                                         :style="allocationBadgeStyle(currentItem())"
-                                                                        x-text="allocationBadgeText(currentItem())"
-                                                                    ></span>
-                                                                    <span class="text-xs font-bold text-slate-900" x-text="'Estimated total: ' + formatPeso(itemEstimatedTotal(currentItem()))"></span>
+                                                                    >
+                                                                        <template x-if="itemAllocatedUnits(currentItem()) >= Number(currentItem().qty || 1) && itemAllocatedUnits(currentItem()) <= Number(currentItem().qty || 1) + 0.0001">
+                                                                            <svg
+                                                                                class="h-3.5 w-3.5 shrink-0"
+                                                                                fill="none"
+                                                                                viewBox="0 0 24 24"
+                                                                                stroke="currentColor"
+                                                                                stroke-width="2.2"
+                                                                            >
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                                            </svg>
+                                                                        </template>
+                                                                        <template x-if="!(itemAllocatedUnits(currentItem()) >= Number(currentItem().qty || 1) && itemAllocatedUnits(currentItem()) <= Number(currentItem().qty || 1) + 0.0001)">
+                                                                            <span
+                                                                                class="h-2 w-2 shrink-0 rounded-full"
+                                                                                :style="itemAllocatedUnits(currentItem()) <= 0
+                                                                                    ? 'background:#94a3b8;'
+                                                                                    : (itemAllocatedUnits(currentItem()) > Number(currentItem().qty || 1) + 0.0001
+                                                                                        ? 'background:#ea580c;'
+                                                                                        : 'background:#d97706;')"
+                                                                            ></span>
+                                                                        </template>
+                                                                        <span>Allocated:</span>
+                                                                        <span class="font-bold" :style="itemAllocatedUnits(currentItem()) <= 0 ? 'color:#0f172a;' : ''" x-text="itemAllocatedUnits(currentItem())"></span>
+                                                                        <span x-text="'/ ' + currentItem().qty + ' ' + (currentItem().uom || 'unit')"></span>
+                                                                        <span class="ml-0.5" :style="itemAllocatedUnits(currentItem()) <= 0 ? 'color:#94a3b8;' : 'opacity:0.85;'" x-text="allocationStatusNote(currentItem())"></span>
+                                                                    </span>
+                                                                    <div class="flex items-baseline gap-1.5">
+                                                                        <span class="text-xs font-medium text-slate-600">Estimated total:</span>
+                                                                        <span class="text-sm font-bold tabular-nums text-slate-900" x-text="formatPeso(itemEstimatedTotal(currentItem()))"></span>
+                                                                    </div>
                                                                 </div>
 
                                                                 <template x-if="currentItem().reviewNote">
-                                                                    <div class="mt-2.5 rounded-lg border px-3 py-2 text-xs" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;">
+                                                                    <div class="border-t border-red-100 px-6 py-2.5 text-xs" style="background:#fef2f2;color:#991b1b;">
                                                                         <span class="font-semibold">Admin note:</span> <span x-text="currentItem().reviewNote"></span>
                                                                     </div>
                                                                 </template>
-                                                            </div>
 
-                                                            {{-- Pager + Single Primary Approve CTA --}}
-                                                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                                                                <div class="flex items-center gap-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        @click="if (activeItemIdx > 0) activeItemIdx--"
-                                                                        :disabled="activeItemIdx === 0"
-                                                                        title="Previous item"
-                                                                        aria-label="Previous item"
-                                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-500 bg-white text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-                                                                    >
-                                                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
-                                                                        </svg>
-                                                                    </button>
-                                                                    <span class="text-xs font-medium text-slate-600" x-text="'Item ' + (activeItemIdx + 1) + ' of ' + items.length"></span>
-                                                                    <button
-                                                                        type="button"
-                                                                        @click="if (activeItemIdx < items.length - 1) activeItemIdx++"
-                                                                        :disabled="activeItemIdx >= items.length - 1"
-                                                                        title="Next item"
-                                                                        aria-label="Next item"
-                                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#0d6efd] text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-                                                                    >
-                                                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
-                                                                        </svg>
-                                                                    </button>
-                                                                </div>
-
-                                                                <div x-show="canAct && isReviewable()" class="flex flex-wrap items-center gap-3">
-                                                                    <div class="text-right text-xs">
-                                                                        <span class="font-semibold text-slate-800" x-text="readyPendingItems().length + ' of ' + pendingItems().length + ' selected for approval'"></span>
-                                                                        <span
-                                                                            x-show="readyPendingItems().length > 0 && readyPendingItems().length < pendingItems().length"
-                                                                            class="ml-1 font-medium"
-                                                                            style="color: #dc2626;"
-                                                                            x-text="'(' + (pendingItems().length - readyPendingItems().length) + ' will be rejected)'"
-                                                                        ></span>
+                                                                {{-- Pager + Single Primary Approve CTA (inside Supplier Quotations card) --}}
+                                                                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-6 py-4">
+                                                                    <div class="flex items-center gap-3">
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="if (activeItemIdx > 0) activeItemIdx--"
+                                                                            :disabled="activeItemIdx === 0"
+                                                                            title="Previous item"
+                                                                            aria-label="Previous item"
+                                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-45"
+                                                                        >
+                                                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+                                                                            </svg>
+                                                                        </button>
+                                                                        <span class="text-xs font-semibold text-slate-700" x-text="'Item ' + (activeItemIdx + 1) + ' of ' + items.length"></span>
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="if (activeItemIdx < items.length - 1) activeItemIdx++"
+                                                                            :disabled="activeItemIdx >= items.length - 1"
+                                                                            title="Next item"
+                                                                            aria-label="Next item"
+                                                                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white transition hover:opacity-90 disabled:cursor-not-allowed"
+                                                                            :style="activeItemIdx >= items.length - 1 ? 'background:#e2e8f0;color:#94a3b8;' : 'background:#2563eb;color:#ffffff;'"
+                                                                        >
+                                                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                                                                            </svg>
+                                                                        </button>
                                                                     </div>
-                                                                    <button
-                                                                        type="button"
-                                                                        @click="openFinalizeApproveModal()"
-                                                                        :disabled="busy || readyPendingItems().length === 0"
-                                                                        class="rounded-lg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                                                                        style="background-color: #198754;"
-                                                                        x-text="readyPendingItems().length === pendingItems().length && pendingItems().length > 0
-                                                                            ? ('Approve all (' + pendingItems().length + ' of ' + pendingItems().length + ')')
-                                                                            : ('Approve selected (' + readyPendingItems().length + ' of ' + pendingItems().length + ')')"
-                                                                    ></button>
+
+                                                                    <div x-show="canAct && isReviewable()" class="flex flex-wrap items-center gap-3.5">
+                                                                        <div class="text-right text-xs">
+                                                                            <span class="font-semibold text-slate-700" x-text="readyPendingItems().length + ' of ' + pendingItems().length + ' selected for approval'"></span>
+                                                                            <span
+                                                                                x-show="readyPendingItems().length > 0 && readyPendingItems().length < pendingItems().length"
+                                                                                class="ml-1 font-medium"
+                                                                                style="color: #dc2626;"
+                                                                                x-text="'(' + (pendingItems().length - readyPendingItems().length) + ' will be rejected)'"
+                                                                            ></span>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="openFinalizeApproveModal()"
+                                                                            :disabled="busy || readyPendingItems().length === 0"
+                                                                            class="rounded-md px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-65"
+                                                                            style="background-color: #10b981;"
+                                                                            x-text="readyPendingItems().length === pendingItems().length && pendingItems().length > 0
+                                                                                ? ('Approve all (' + pendingItems().length + ' of ' + pendingItems().length + ')')
+                                                                                : ('Approve selected (' + readyPendingItems().length + ' of ' + pendingItems().length + ')')"
+                                                                        ></button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </template>
 
-                                                    {{-- Inline Attachments Strip --}}
-                                                    <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs">
-                                                        <span class="font-semibold text-slate-600">Attachments:</span>
+                                                    {{-- Inline Attachments Strip (with paperclip & file icons, matches Image 2) --}}
+                                                    <div class="flex flex-wrap items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs shadow-sm">
+                                                        <span class="inline-flex items-center gap-1.5 font-bold text-slate-700">
+                                                            <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
+                                                            </svg>
+                                                            <span>Attachments:</span>
+                                                        </span>
                                                         <template x-if="attachments.length === 0">
                                                             <span class="text-slate-400">No files attached</span>
                                                         </template>
@@ -631,8 +817,12 @@
                                                                 :href="att.url"
                                                                 target="_blank"
                                                                 rel="noopener"
-                                                                class="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50/70 px-2.5 py-1 font-medium text-blue-700 transition hover:bg-blue-100"
+                                                                class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-medium transition hover:bg-blue-100"
+                                                                style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;"
                                                             >
+                                                                <svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                                                                </svg>
                                                                 <span class="max-w-[200px] truncate" x-text="att.name"></span>
                                                                 <span class="text-[10px] text-blue-500" x-text="'(' + att.sizeKb + ' KB)'"></span>
                                                             </a>
@@ -640,14 +830,14 @@
                                                     </div>
 
                                                     {{-- Compact 1-Row Admin Signature Bar --}}
-                                                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                                                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                                                         <div class="flex flex-wrap items-center justify-between gap-3">
                                                             <div class="flex flex-wrap items-center gap-3">
                                                                 <span class="text-xs font-bold text-slate-800">Admin signature:</span>
                                                                 <template x-if="adminSignature">
                                                                     <div class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1">
                                                                         <img :src="adminSignature" alt="Admin signature" class="h-6 max-w-[90px] object-contain">
-                                                                        <span class="text-[11px] font-semibold" style="color: #16a34a;">✓ Ready</span>
+                                                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold" style="background:#ecfdf5;color:#059669;">✓ Ready</span>
                                                                     </div>
                                                                 </template>
                                                                 <template x-if="!adminSignature">
@@ -723,21 +913,30 @@
                                                                     type="button"
                                                                     @click="if (activeSupplierIdx > 0) activeSupplierIdx--"
                                                                     :disabled="activeSupplierIdx === 0"
-                                                                    class="rounded-lg bg-[#0d6efd] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
+                                                                    title="Previous supplier"
+                                                                    aria-label="Previous supplier"
+                                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-45"
                                                                 >
-                                                                    ← Previous supplier
+                                                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+                                                                    </svg>
                                                                 </button>
                                                                 <span
-                                                                    class="text-xs font-medium text-slate-600"
+                                                                    class="text-xs font-semibold text-slate-700"
                                                                     x-text="'Supplier ' + (activeSupplierIdx + 1) + ' of ' + supplierAtpPages().length + ' · ' + activeSupplierPage().supplierName"
                                                                 ></span>
                                                                 <button
                                                                     type="button"
                                                                     @click="if (activeSupplierIdx < supplierAtpPages().length - 1) activeSupplierIdx++"
                                                                     :disabled="activeSupplierIdx >= supplierAtpPages().length - 1"
-                                                                    class="rounded-lg bg-[#0d6efd] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
+                                                                    title="Next supplier"
+                                                                    aria-label="Next supplier"
+                                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white transition hover:opacity-90 disabled:cursor-not-allowed"
+                                                                    :style="activeSupplierIdx >= supplierAtpPages().length - 1 ? 'background:#e2e8f0;color:#94a3b8;' : 'background:#2563eb;color:#ffffff;'"
                                                                 >
-                                                                    Next supplier →
+                                                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                                                                    </svg>
                                                                 </button>
                                                             </div>
 
@@ -883,7 +1082,7 @@
                                     </div>
                                 </template>
 
-                                {{-- TELEPORTED REASON MODAL (Return for revision / Reject) --}}
+                                {{-- TELEPORTED REASON / VALIDATION MODAL (Return for revision / Reject) --}}
                                 <template x-teleport="body">
                                     <div
                                         x-cloak
@@ -893,15 +1092,34 @@
                                         @click.self="if (!busy) reasonModal.open = false"
                                     >
                                         <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                                            <div class="border-b border-slate-100 px-6 py-4">
-                                                <h3
-                                                    class="text-base font-bold"
-                                                    :style="reasonModal.type === 'reject' ? 'color:#991b1b;' : 'color:#92400e;'"
-                                                    x-text="reasonModal.title"
-                                                ></h3>
-                                                <p class="mt-1 text-xs text-slate-500" x-text="reasonModal.subtitle"></p>
+                                            <div class="flex items-start gap-3.5 border-b border-slate-100 px-6 py-4">
+                                                <div
+                                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                                                    :style="reasonModal.type === 'reject' ? 'background:#fef2f2;color:#dc2626;' : 'background:#fffbeb;color:#d97706;'"
+                                                >
+                                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                                                    </svg>
+                                                </div>
+                                                <div class="min-w-0 flex-1">
+                                                    <h3
+                                                        class="text-base font-bold"
+                                                        :style="reasonModal.type === 'reject' ? 'color:#991b1b;' : 'color:#92400e;'"
+                                                        x-text="reasonModal.title"
+                                                    ></h3>
+                                                    <p class="mt-1 text-xs leading-relaxed text-slate-500" x-text="reasonModal.subtitle"></p>
+                                                </div>
                                             </div>
                                             <div class="space-y-3 px-6 py-4">
+                                                <template x-if="reasonModal.itemLabel">
+                                                    <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs">
+                                                        <span class="truncate font-bold text-slate-900" x-text="reasonModal.itemLabel"></span>
+                                                        <span class="shrink-0 font-semibold text-slate-500" x-text="reasonModal.itemQtyLabel"></span>
+                                                    </div>
+                                                </template>
+                                                <template x-if="reasonModal.warning">
+                                                    <div class="rounded-xl border px-3.5 py-2.5 text-xs font-medium" style="background:#fffbeb;border-color:#fde68a;color:#92400e;" x-text="reasonModal.warning"></div>
+                                                </template>
                                                 <div>
                                                     <label class="mb-1.5 block text-xs font-semibold text-slate-700">
                                                         <span x-text="reasonModal.type === 'reject' ? 'Rejection reason' : 'Revision note for Purchaser'"></span>
@@ -909,10 +1127,12 @@
                                                     </label>
                                                     <textarea
                                                         x-model="reasonModal.note"
+                                                        @input="if (reasonModal.error && String(reasonModal.note || '').trim()) reasonModal.error = ''"
                                                         rows="3"
                                                         maxlength="1000"
                                                         placeholder="Enter clear instructions or reason..."
-                                                        class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500"
+                                                        class="w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500"
+                                                        :style="reasonModal.error ? 'border-color:#dc2626;' : 'border-color:#cbd5e1;'"
                                                     ></textarea>
                                                     <p x-show="reasonModal.error" x-text="reasonModal.error" class="mt-1 text-xs font-semibold" style="color:#dc2626;"></p>
                                                 </div>
@@ -1019,6 +1239,50 @@
                                         </div>
                                     </div>
                                 </template>
+
+                                {{-- TELEPORTED CONFIRM CLOSE MODAL (when unsaved changes exist) --}}
+                                <template x-teleport="body">
+                                    <div
+                                        x-cloak
+                                        x-show="closeConfirmOpen"
+                                        @keydown.escape.window="if (closeConfirmOpen) closeConfirmOpen = false"
+                                        class="fixed inset-0 z-[275] flex items-center justify-center bg-slate-900/45 p-4"
+                                        @click.self="closeConfirmOpen = false"
+                                    >
+                                        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                                            <div class="flex items-start gap-3.5 px-6 pt-6 pb-4">
+                                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background:#fef2f2;color:#dc2626;">
+                                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                                                    </svg>
+                                                </div>
+                                                <div class="min-w-0 flex-1">
+                                                    <h3 class="text-base font-bold text-slate-900">Close review workspace?</h3>
+                                                    <p class="mt-1.5 text-sm leading-relaxed text-slate-600">
+                                                        You have unsaved offer selections, quantities, or signature changes in this review. Closing now will leave them unsubmitted.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-end gap-2.5 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                                                <button
+                                                    type="button"
+                                                     @click="closeConfirmOpen = false"
+                                                    class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                                                >
+                                                    Continue reviewing
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    @click="confirmCloseWorkspace()"
+                                                    class="rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                                                    style="background:#dc2626;"
+                                                >
+                                                    Close anyway
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
                             </td>
                         </tr>
                     </tbody>
@@ -1081,10 +1345,46 @@ function canvassReviewCard(boot) {
         feedbackMsg: '',
         feedbackOk: true,
         drawing: false,
-        reasonModal: { open: false, type: 'return', scope: 'all', title: '', subtitle: '', confirmLabel: '', note: '', error: '' },
+        reasonModal: { open: false, type: 'return', scope: 'all', title: '', subtitle: '', itemLabel: '', itemQtyLabel: '', warning: '', confirmLabel: '', note: '', error: '' },
         approveModal: { open: false, all: false, title: '', confirmLabel: '', summary: [], unselected: [], unselectedNote: '', grandTotal: 0, payloadItems: [] },
+        closeConfirmOpen: false,
+        initialSnapshot: '',
+
+        currentStateSnapshot() {
+            return JSON.stringify({
+                sig: this.adminSignature || '',
+                items: (this.items || []).map(it => ({
+                    id: it.id,
+                    status: it.status,
+                    offers: (it.offers || []).map(o => ({
+                        id: o.id,
+                        checked: Boolean(o.checked),
+                        qty: String(o.approvedQty ?? ''),
+                    })),
+                })),
+            });
+        },
+
+        hasUnsavedChanges() {
+            if (!this.isReviewable() || !this.canAct) return false;
+            return this.initialSnapshot !== '' && this.currentStateSnapshot() !== this.initialSnapshot;
+        },
+
+        requestCloseWorkspace() {
+            if (this.hasUnsavedChanges()) {
+                this.closeConfirmOpen = true;
+                return;
+            }
+            this.open = false;
+        },
+
+        confirmCloseWorkspace() {
+            this.closeConfirmOpen = false;
+            this.open = false;
+        },
 
         init() {
+            this.initialSnapshot = this.currentStateSnapshot();
             if (this.open) {
                 this.ensureReviewStarted();
                 this.$nextTick(() => {
@@ -1094,6 +1394,7 @@ function canvassReviewCard(boot) {
         },
 
         openWorkspace() {
+            this.initialSnapshot = this.currentStateSnapshot();
             this.open = true;
             this.ensureReviewStarted();
             this.$nextTick(() => {
@@ -1169,6 +1470,25 @@ function canvassReviewCard(boot) {
             return (this.items || []).reduce((sum, it) => sum + Math.max(0, parseInt(it.qty, 10) || 0), 0);
         },
 
+        allocationStatusNote(item) {
+            if (!item) return '';
+            const alloc = this.itemAllocatedUnits(item);
+            const req = Number(item.qty || 1);
+            const uom = item.uom || 'unit';
+            if (alloc <= 0) {
+                return `(Select offer(s) to cover ${req} ${uom})`;
+            }
+            if (alloc + 0.0001 < req) {
+                const diff = Math.round((req - alloc) * 100) / 100;
+                return `(${diff} ${uom} remaining)`;
+            }
+            if (alloc > req + 0.0001) {
+                const over = Math.round((alloc - req) * 100) / 100;
+                return `(+${over} ${uom} over requested)`;
+            }
+            return '(Target completely fulfilled)';
+        },
+
         allocationBadgeText(item) {
             if (!item) return '';
             const alloc = this.itemAllocatedUnits(item);
@@ -1185,14 +1505,32 @@ function canvassReviewCard(boot) {
                 const over = Math.round((alloc - req) * 100) / 100;
                 return `⚠ Allocated: ${alloc} / ${req} ${uom} (+${over} ${uom} over requested)`;
             }
-            return `✓ Allocated: ${alloc} / ${req} ${uom} (Exact match)`;
+            return `Allocated: ${alloc} / ${req} ${uom} (Target completely fulfilled)`;
+        },
+
+        isLowestOffer(item, offer) {
+            if (!item || !offer || !item.offers || !item.offers.length) return false;
+            const validOffers = item.offers.filter(o => !o.blacklisted && Number(o.unitCost || 0) > 0);
+            if (!validOffers.length) return false;
+            const effCost = o => Number(o.unitCost || 0) / Math.max(0.01, Number(o.pack || 1));
+            const minEff = Math.min(...validOffers.map(effCost));
+            return Math.abs(effCost(offer) - minEff) < 0.0001;
+        },
+
+        stepOfferQty(item, offer, delta) {
+            if (!offer.checked) return;
+            const cur = parseInt(offer.approvedQty, 10) || 0;
+            const maxUnits = this.maxOfferUnits(item, offer);
+            const next = Math.min(maxUnits, Math.max(1, cur + delta));
+            offer.approvedQty = String(next);
+            this.onQtyInput(item, offer);
         },
 
         allocationBadgeStyle(item) {
-            if (!item) return 'background:#f8fafc;border-color:#e2e8f0;color:#64748b;';
+            if (!item) return 'background:#ffffff;border-color:#e2e8f0;color:#475569;';
             const alloc = this.itemAllocatedUnits(item);
             const req = Number(item.qty || 1);
-            if (alloc <= 0) return 'background:#f8fafc;border-color:#e2e8f0;color:#64748b;';
+            if (alloc <= 0) return 'background:#ffffff;border-color:#e2e8f0;color:#475569;';
             if (alloc + 0.0001 < req) return 'background:#fffbeb;border-color:#fcd34d;color:#b45309;';
             if (alloc > req + 0.0001) return 'background:#fff7ed;border-color:#fdba74;color:#c2410c;';
             return 'background:#f0fdf4;border-color:#bbf7d0;color:#15803d;';
@@ -1496,6 +1834,11 @@ function canvassReviewCard(boot) {
                     if (data.ris_number) this.linkedRisNumber = data.ris_number;
                 }
                 this.approveModal.open = false;
+                this.initialSnapshot = this.currentStateSnapshot();
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                    return;
+                }
                 this.feedbackOk = true;
                 this.feedbackMsg = data.message || 'Approval finalized.';
             } catch (e) {
@@ -1513,12 +1856,20 @@ function canvassReviewCard(boot) {
             if (scope === 'single') {
                 const item = this.currentItem();
                 if (!item) return;
+                const checkedCount = (item.offers || []).filter(o => o.checked).length;
+                const alloc = this.itemAllocatedUnits(item);
+                const warning = checkedCount > 0
+                    ? `This item currently has ${checkedCount} selected offer(s) (${alloc} / ${item.qty} ${item.uom} allocated). Rejecting it will discard those selections.`
+                    : '';
                 this.reasonModal = {
                     open: true,
                     type,
                     scope: 'single',
                     title: `Reject "${item.name}"?`,
-                    subtitle: 'Only this item will be marked Rejected and excluded from any generated RIS or ATP.',
+                    subtitle: 'Please confirm and provide a reason before rejecting this item.',
+                    itemLabel: `Item ${this.activeItemIdx + 1}: ${item.name}`,
+                    itemQtyLabel: `Total Requested: ${item.qty} Qty`,
+                    warning,
                     confirmLabel: 'Confirm Reject Item',
                     note: '',
                     error: '',
@@ -1533,6 +1884,9 @@ function canvassReviewCard(boot) {
                 subtitle: isReject
                     ? 'All items in this canvass will be rejected and no RIS or ATP will be generated.'
                     : 'This canvass will be returned to the Purchaser so they can edit and resubmit.',
+                itemLabel: '',
+                itemQtyLabel: '',
+                warning: '',
                 confirmLabel: isReject ? 'Confirm Reject All' : 'Confirm Return',
                 note: '',
                 error: '',
@@ -1603,6 +1957,7 @@ function canvassReviewCard(boot) {
                 }
 
                 this.reasonModal.open = false;
+                this.initialSnapshot = this.currentStateSnapshot();
                 this.feedbackOk = true;
                 this.feedbackMsg = data.message || 'Action completed.';
             } catch (e) {

@@ -324,6 +324,11 @@ $schoolAdminRisActionRoutes = function () {
     )->whereNumber('canvassId')->name('canvass-review.bulk-reject');
 
     Route::post(
+        '/digital-signatures/sign-ris/budget-limit',
+        [AdminController::class, 'updateRisBudgetLimit']
+    )->name('digital-signatures.sign-ris.budget-limit');
+
+    Route::post(
         '/procurement-review/ris/accept-bulk',
         [AdminController::class, 'bulkAcceptRis']
     )->name('procurement-review.ris.accept-bulk');

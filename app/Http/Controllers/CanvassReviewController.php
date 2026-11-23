@@ -113,6 +113,30 @@ class CanvassReviewController extends Controller
         $canAct = AdminPortal::canActOnRis();
         $savedSignatures = $canAct ? UserSignatureLibrary::forUser((int) Auth::id()) : collect();
 
+        $pendingAcceptCount = (int) $counts['pending'];
+        $readyToSignCount = Schema::hasTable('requisition_issue_slip_table')
+            ? (int) DB::table('requisition_issue_slip_table')->where('ris_status', 'Accepted')->count()
+            : 0;
+        $awaitingIssuedCount = Schema::hasTable('requisition_issue_slip_table')
+            ? (int) DB::table('requisition_issue_slip_table')
+                ->where(function ($approved) {
+                    $approved->where(function ($p) {
+                        $p->where('ris_status', 'Approved by the President')
+                            ->whereNotNull('ris_approved_by_signature')
+                            ->whereRaw('TRIM(ris_approved_by_signature) != ""');
+                    })->orWhere(function ($legacy) {
+                        $legacy->where('ris_status', 'Approved')
+                            ->whereNotNull('ris_approved_by_signature')
+                            ->where('ris_approved_by_signature', 'like', 'data:image%');
+                    });
+                })
+                ->where(function ($unsigned) {
+                    $unsigned->whereNull('ris_issued_by_signature')
+                        ->orWhereRaw('TRIM(ris_issued_by_signature) = ""');
+                })
+                ->count()
+            : 0;
+
         return view('admin.canvass-review.index', compact(
             'canvasses',
             'workspaces',
@@ -122,7 +146,10 @@ class CanvassReviewController extends Controller
             'counts',
             'canAct',
             'savedSignatures',
-            'openCanvassId'
+            'openCanvassId',
+            'pendingAcceptCount',
+            'readyToSignCount',
+            'awaitingIssuedCount'
         ));
     }
 
@@ -279,6 +306,16 @@ class CanvassReviewController extends Controller
             return $this->finalizeCanvassIfComplete($canvassId, $canvass, $adminId, $now);
         });
 
+        $msg = $result['all_approved']
+            ? 'All items finalized! Official RIS '.$result['generated']['ris_number'].' has been moved to Reviewed RIS for Direct Approval or forwarding to the President.'
+            : 'Item approved.';
+        $redirectUrl = $result['all_approved']
+            ? route(AdminPortal::prefix().'.digital-signatures.sign-ris', ['filter' => 'for_decision'])
+            : null;
+        if ($redirectUrl) {
+            session()->flash('success', $msg);
+        }
+
         return response()->json([
             'ok' => true,
             'finalized' => $result['finalized'],
@@ -286,9 +323,8 @@ class CanvassReviewController extends Controller
             'canvass_status' => $result['canvass_status'],
             'ris_number' => $result['generated']['ris_number'] ?? null,
             'atp_count' => isset($result['generated']['atp_ids']) ? count($result['generated']['atp_ids']) : 0,
-            'message' => $result['all_approved']
-                ? 'All items finalized! Official RIS '.$result['generated']['ris_number'].' and '.count($result['generated']['atp_ids']).' per-supplier ATP draft(s) have been generated.'
-                : 'Item approved.',
+            'redirect_url' => $redirectUrl,
+            'message' => $msg,
         ]);
     }
 
@@ -577,8 +613,14 @@ class CanvassReviewController extends Controller
         $msg = $result['all_approved']
             ? count($approvedIds).' item(s) approved'
                 .($rejectedCount > 0 ? " ({$rejectedCount} unselected marked Rejected)" : '')
-                .' — Official RIS '.$result['generated']['ris_number'].' and '.count($result['generated']['atp_ids']).' per-supplier ATP draft(s) generated!'
+                .' — Official RIS '.$result['generated']['ris_number'].' moved to Reviewed RIS for Direct Approval or forwarding to the President.'
             : count($approvedIds).' selected item(s) approved.';
+        $redirectUrl = $result['all_approved']
+            ? route(AdminPortal::prefix().'.digital-signatures.sign-ris', ['filter' => 'for_decision'])
+            : null;
+        if ($redirectUrl) {
+            session()->flash('success', $msg);
+        }
 
         return response()->json([
             'ok' => true,
@@ -589,6 +631,7 @@ class CanvassReviewController extends Controller
             'canvass_status' => $result['canvass_status'],
             'ris_number' => $result['generated']['ris_number'] ?? null,
             'atp_count' => isset($result['generated']['atp_ids']) ? count($result['generated']['atp_ids']) : 0,
+            'redirect_url' => $redirectUrl,
             'message' => $msg,
         ]);
     }

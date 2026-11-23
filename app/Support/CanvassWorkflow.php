@@ -563,15 +563,15 @@ class CanvassWorkflow
             'ris_form_number' => $formNumber,
             'ris_supplier_id' => null,
             'ris_purpose_description' => $canvass->canvass_purpose ?: null,
-            'ris_status' => RisWorkflow::DIRECTLY_APPROVED,
+            'ris_status' => RisWorkflow::ACCEPTED,
             'ris_requested_by_signature' => $ownerName,
             'ris_requested_by_date' => $canvass->canvass_submitted_at
                 ? \Carbon\Carbon::parse($canvass->canvass_submitted_at)->toDateString()
                 : $today,
-            'ris_approved_by_signature' => $adminSig !== '' ? $adminSig : $adminName,
-            'ris_approved_by_date' => $today,
-            'ris_issued_by_signature' => $adminSig !== '' ? $adminSig : $adminName,
-            'ris_issued_by_date' => $today,
+            'ris_approved_by_signature' => null,
+            'ris_approved_by_date' => null,
+            'ris_issued_by_signature' => null,
+            'ris_issued_by_date' => null,
             'ris_received_by_signature' => null,
             'ris_received_by_date' => null,
             'ris_submitted_by' => $ownerId,
@@ -605,15 +605,6 @@ class CanvassWorkflow
         }
         if (Schema::hasColumn('requisition_issue_slip_table', 'ris_checked_by_date')) {
             $risPayload['ris_checked_by_date'] = $today;
-        }
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_approved_by_name')) {
-            $risPayload['ris_approved_by_name'] = $adminName;
-        }
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approved_at')) {
-            $risPayload['ris_direct_approved_at'] = $now;
-        }
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_direct_approved_by')) {
-            $risPayload['ris_direct_approved_by'] = $adminUserId;
         }
 
         $risId = (int) DB::table('requisition_issue_slip_table')->insertGetId($risPayload);
@@ -709,61 +700,8 @@ class CanvassWorkflow
             }
         }
 
-        // Auto-create one per-supplier ATP draft for every winning supplier
-        $atpIds = [];
-        if (
-            $atpLinesBySupplier !== []
-            && Schema::hasTable('authority_to_purchase_table')
-            && Schema::hasTable('authority_to_purchase_items_table')
-        ) {
-            $isSplit = count($atpLinesBySupplier) > 1;
-            $hasSplitCol = AtpRisSuppliers::hasSplitColumn();
-            $hasAtpReqNo = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no');
-
-            foreach ($atpLinesBySupplier as $supId => $lines) {
-                $atpPayload = [
-                    'authority_purchase_ris_id' => $risId,
-                    'authority_purchase_form_number' => null,
-                    'authority_purchase_supplier_id' => $supId > 0 ? $supId : null,
-                    'authority_purchase_date' => $today,
-                    'authority_purchase_received_by_name' => null,
-                    'authority_purchase_reference_po_no' => null,
-                    'authority_purchase_status' => 'Pending',
-                    'authority_purchase_created_by' => $ownerId,
-                    'authority_purchase_is_archived' => 0,
-                    'authority_purchase_created_at' => $now,
-                    'authority_purchase_updated_at' => $now,
-                    'authority_purchase_submitted_by' => null,
-                    'authority_purchase_submitted_at' => null,
-                ];
-                if ($hasSplitCol) {
-                    $atpPayload['authority_purchase_ris_supplier_split'] = $isSplit ? 1 : 0;
-                }
-                if ($hasAtpReqNo) {
-                    $atpPayload['authority_purchase_request_no'] = $requestNo;
-                }
-
-                $atpId = (int) DB::table('authority_to_purchase_table')->insertGetId($atpPayload);
-                $atpIds[] = $atpId;
-
-                $atpItems = [];
-                foreach ($lines as $line) {
-                    $atpItems[] = [
-                        'authority_purchase_id' => $atpId,
-                        'atp_description' => $line['description'],
-                        'atp_quantity' => $line['quantity'],
-                        'atp_unit' => $line['unit'],
-                        'atp_unit_price' => $line['unit_price'],
-                        'atp_amount' => round($line['quantity'] * $line['unit_price'], 2),
-                    ];
-                }
-                if ($atpItems !== []) {
-                    DB::table('authority_to_purchase_items_table')->insert($atpItems);
-                }
-            }
-        }
-
-        // Link Canvass to the newly created RIS
+        // Link Canvass to the newly created RIS (per-supplier ATP drafts are generated
+        // automatically once the RIS is Directly Approved or President-approved & Issued by).
         DB::table('canvass_table')
             ->where('canvass_id', $canvassId)
             ->update([
@@ -775,7 +713,140 @@ class CanvassWorkflow
         return [
             'ris_id' => $risId,
             'ris_number' => $formNumber,
-            'atp_ids' => $atpIds,
+            'atp_ids' => [],
         ];
+    }
+
+    /**
+     * Auto-generate per-supplier ATP drafts for a canvass-linked RIS once it is
+     * Directly Approved or President-approved & Issued by, then returned to Purchaser.
+     * Idempotent: returns existing ATP IDs if already generated.
+     *
+     * @return array<int>
+     */
+    public static function ensureAtpDraftsForApprovedRis(int $risId): array
+    {
+        if (
+            $risId <= 0
+            || ! self::tablesExist()
+            || ! Schema::hasTable('authority_to_purchase_table')
+            || ! Schema::hasTable('authority_to_purchase_items_table')
+        ) {
+            return [];
+        }
+
+        $existing = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_ris_id', $risId)
+            ->where('authority_purchase_is_archived', 0)
+            ->pluck('authority_purchase_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($existing !== []) {
+            return $existing;
+        }
+
+        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+        if (! $ris) {
+            return [];
+        }
+
+        $canvassId = (int) ($ris->ris_canvass_id ?? 0);
+        if ($canvassId <= 0) {
+            $canvassId = (int) (DB::table('canvass_table')->where('canvass_ris_id', $risId)->value('canvass_id') ?? 0);
+        }
+        if ($canvassId <= 0) {
+            return [];
+        }
+
+        $loaded = self::loadFull($canvassId);
+        if (! $loaded) {
+            return [];
+        }
+
+        $canvass = $loaded['canvass'];
+        $ownerId = (int) ($canvass->canvass_owner_user_id ?: ($ris->ris_submitted_by ?? $ris->ris_created_by ?? 0));
+        $requestNo = (string) ($ris->ris_request_no ?? $canvass->canvass_request_no ?? '');
+        $now = now();
+        $today = $now->toDateString();
+
+        $atpLinesBySupplier = [];
+        foreach ($loaded['items'] as $item) {
+            if ((string) ($item->canvass_item_status ?? '') !== self::ITEM_APPROVED) {
+                continue;
+            }
+            $itemName = (string) ($item->canvass_item_name ?: $item->catalog_item_name);
+            $selectedOffers = $item->selected_offers ?? collect();
+            foreach ($selectedOffers as $offer) {
+                $approvedUnits = max(1, (int) ($offer->approved_offer_units ?? $offer->computed_offer_units ?? 1));
+                $offerPrice = round((float) ($offer->offer_unit_price ?? 0), 2);
+                $supId = (int) $offer->supplier_id;
+                $uomLabel = (string) ($offer->offer_uom_name ?: ($item->uom_name ?: 'Unit'));
+
+                $desc = $itemName;
+                if (! empty($offer->brand_name)) {
+                    $desc .= ' ('.$offer->brand_name.')';
+                }
+                $atpLinesBySupplier[$supId][] = [
+                    'description' => $desc,
+                    'quantity' => $approvedUnits,
+                    'unit' => $uomLabel,
+                    'unit_price' => $offerPrice,
+                ];
+            }
+        }
+
+        if ($atpLinesBySupplier === []) {
+            return [];
+        }
+
+        $atpIds = [];
+        $isSplit = count($atpLinesBySupplier) > 1;
+        $hasSplitCol = AtpRisSuppliers::hasSplitColumn();
+        $hasAtpReqNo = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no');
+
+        foreach ($atpLinesBySupplier as $supId => $lines) {
+            $atpPayload = [
+                'authority_purchase_ris_id' => $risId,
+                'authority_purchase_form_number' => null,
+                'authority_purchase_supplier_id' => $supId > 0 ? $supId : null,
+                'authority_purchase_date' => $today,
+                'authority_purchase_received_by_name' => null,
+                'authority_purchase_reference_po_no' => null,
+                'authority_purchase_status' => 'Pending',
+                'authority_purchase_created_by' => $ownerId,
+                'authority_purchase_is_archived' => 0,
+                'authority_purchase_created_at' => $now,
+                'authority_purchase_updated_at' => $now,
+                'authority_purchase_submitted_by' => null,
+                'authority_purchase_submitted_at' => null,
+            ];
+            if ($hasSplitCol) {
+                $atpPayload['authority_purchase_ris_supplier_split'] = $isSplit ? 1 : 0;
+            }
+            if ($hasAtpReqNo && $requestNo !== '') {
+                $atpPayload['authority_purchase_request_no'] = $requestNo;
+            }
+
+            $atpId = (int) DB::table('authority_to_purchase_table')->insertGetId($atpPayload);
+            $atpIds[] = $atpId;
+
+            $atpItems = [];
+            foreach ($lines as $line) {
+                $atpItems[] = [
+                    'authority_purchase_id' => $atpId,
+                    'atp_description' => $line['description'],
+                    'atp_quantity' => $line['quantity'],
+                    'atp_unit' => $line['unit'],
+                    'atp_unit_price' => $line['unit_price'],
+                    'atp_amount' => round($line['quantity'] * $line['unit_price'], 2),
+                ];
+            }
+            if ($atpItems !== []) {
+                DB::table('authority_to_purchase_items_table')->insert($atpItems);
+            }
+        }
+
+        return $atpIds;
     }
 }

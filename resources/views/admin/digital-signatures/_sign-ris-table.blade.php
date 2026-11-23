@@ -27,6 +27,11 @@
                 $ownerPurchaserName = \App\Support\RisWorkflow::requesterName($ris, '');
                 $rowDimmed = !$needsDecision && !$awaitingSign && !$isPresidentRejected;
                 $risCanAct = \App\Support\AdminPortal::canActOnRis();
+                $risTotalAmount = \App\Support\RisApprovalBudget::risTotal($ris);
+                $budgetLimit = \App\Support\RisApprovalBudget::limit();
+                $requiresPresident = \App\Support\RisApprovalBudget::requiresPresident($risTotalAmount, $budgetLimit);
+                $canForwardByBudget = $reforwardToPresident || $requiresPresident;
+                $canDirectApproveByBudget = $allowsDirectApprove && ! $requiresPresident;
             @endphp
 
             <tr class="transition hover:bg-gray-50/70 {{ $rowDimmed ? 'bg-gray-50/50 text-gray-500' : '' }}">
@@ -43,6 +48,13 @@
                                 'urgent' => \App\Support\RisWorkflow::isUrgent($ris),
                                 'size' => 'sm',
                             ])
+                            @if($risTotalAmount > 0)
+                                <span
+                                    class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                                    style="{{ $requiresPresident ? 'background:#e0f2fe;color:#0369a1;' : 'background:#ecfdf5;color:#047857;' }}"
+                                    title="{{ $requiresPresident ? 'Exceeds '.\App\Support\RisApprovalBudget::formatPeso($budgetLimit).' limit (President approval required)' : 'Within '.\App\Support\RisApprovalBudget::formatPeso($budgetLimit).' limit (Direct Approve)' }}"
+                                >{{ \App\Support\RisApprovalBudget::formatPeso($risTotalAmount) }}</span>
+                            @endif
                             @if($reforwardToPresident && $needsDecision)
                                 @include('partials.ris-reforward-badge', ['size' => 'sm'])
                             @endif
@@ -115,17 +127,25 @@
                         @if($needsDecision && $risCanAct)
                             @php
                                 $forwardMode = $reforwardToPresident ? 'forward-back' : 'forward';
-                                $forwardTip = $reforwardToPresident
-                                    ? 'Forward back to President'
-                                    : 'Forward RIS to President';
+                                $forwardTip = $canForwardByBudget
+                                    ? ($reforwardToPresident ? 'Forward back to President' : 'Forward RIS to President')
+                                    : 'Disabled: Total ('.\App\Support\RisApprovalBudget::formatPeso($risTotalAmount).') is within the '.\App\Support\RisApprovalBudget::formatPeso($budgetLimit).' limit — use Approve Directly.';
+                                $directApproveTip = $canDirectApproveByBudget
+                                    ? 'Approve Directly'
+                                    : 'Disabled: Total ('.\App\Support\RisApprovalBudget::formatPeso($risTotalAmount).') exceeds the '.\App\Support\RisApprovalBudget::formatPeso($budgetLimit).' limit — forward to President.';
                             @endphp
                             <button
                                 type="button"
-                                onclick="window.openDirectApproveModal('{{ $ris->ris_id }}', '{{ $forwardMode }}')"
+                                @if($canForwardByBudget)
+                                    onclick="window.openDirectApproveModal('{{ $ris->ris_id }}', '{{ $forwardMode }}')"
+                                @else
+                                    disabled
+                                @endif
                                 data-tip="{{ $forwardTip }}"
                                 data-tip-place="above"
+                                title="{{ $forwardTip }}"
                                 aria-label="{{ $forwardTip }}"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border {{ $reforwardToPresident ? 'border-orange-200 bg-orange-50 text-orange-700 hover:border-orange-300 hover:bg-orange-100 hover:text-orange-800' : 'border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800' }} transition"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition {{ $canForwardByBudget ? ($reforwardToPresident ? 'border-orange-200 bg-orange-50 text-orange-700 hover:border-orange-300 hover:bg-orange-100 hover:text-orange-800' : 'border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800') : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-50' }}"
                             >
                                 @if($reforwardToPresident)
                                     {{-- Return / re-forward indicator (revision RIS) --}}
@@ -142,11 +162,16 @@
                             @if($allowsDirectApprove)
                                 <button
                                     type="button"
-                                    onclick="window.openDirectApproveModal('{{ $ris->ris_id }}', 'direct')"
-                                    data-tip="Approve Directly"
+                                    @if($canDirectApproveByBudget)
+                                        onclick="window.openDirectApproveModal('{{ $ris->ris_id }}', 'direct')"
+                                    @else
+                                        disabled
+                                    @endif
+                                    data-tip="{{ $directApproveTip }}"
                                     data-tip-place="above"
-                                    aria-label="Approve Directly"
-                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800"
+                                    title="{{ $directApproveTip }}"
+                                    aria-label="{{ $directApproveTip }}"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition {{ $canDirectApproveByBudget ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800' : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-50' }}"
                                 >
                                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
