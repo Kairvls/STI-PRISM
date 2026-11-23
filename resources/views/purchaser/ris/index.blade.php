@@ -5494,15 +5494,54 @@
                                     </tr>
                                 </thead>
                             <tbody>
-                                @for($row = 0; $row < max(8, $ris->risItems->count()); $row++)
+                                @php
+                                    $sheetItems = collect($ris->risItems ?? [])->values();
+                                    $sheetRows = max(8, $sheetItems->count());
+                                @endphp
+                                @for($row = 0; $row < $sheetRows; $row++)
                                     @php
-                                        $item = $ris->risItems->get($row);
+                                        $item = $sheetItems->get($row);
+                                        $name = trim((string) ($item?->ris_item_name_description ?? ''));
+                                        $nameKey = mb_strtolower($name);
+                                        $supplier = trim((string) ($item?->supplier_display_name ?? ''));
+                                        $supplierKey = mb_strtolower($supplier);
+                                        $prev = $row > 0 ? $sheetItems->get($row - 1) : null;
+                                        $prevNameKey = mb_strtolower(trim((string) ($prev?->ris_item_name_description ?? '')));
+                                        $prevSupplierKey = mb_strtolower(trim((string) ($prev?->supplier_display_name ?? '')));
+                                        $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
+                                        $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
+                                        $itemSpan = 1;
+                                        if ($nameKey !== '' && ! $sameItem) {
+                                            for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
+                                                $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                                if ($nextName === '' || $nextName !== $nameKey) {
+                                                    break;
+                                                }
+                                                $itemSpan++;
+                                            }
+                                        }
+                                        $supplierSpan = 1;
+                                        if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
+                                            for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
+                                                $next = $sheetItems->get($k);
+                                                $nextName = mb_strtolower(trim((string) ($next?->ris_item_name_description ?? '')));
+                                                $nextSupplier = mb_strtolower(trim((string) ($next?->supplier_display_name ?? '')));
+                                                if ($nextName !== $nameKey || $nextSupplier !== $supplierKey) {
+                                                    break;
+                                                }
+                                                $supplierSpan++;
+                                            }
+                                        }
                                     @endphp
                                     <tr>
-                                        <td>{{ $item?->ris_item_name_description ?: ' ' }}</td>
-                                        <td class="text-center">{{ $item?->brand_name ?: ' ' }}</td>
+                                        @if (! $sameItem)
+                                            <td @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $name !== '' ? $name : ' ' }}</td>
+                                        @endif
+                                        <td class="text-center">{{ $item ? (\App\Support\RisWorkflow::brandPaperLabel($item) ?: ' ') : ' ' }}</td>
                                         <td class="text-center">{{ $item?->uom_name ?: ' ' }}</td>
-                                        <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
+                                        @if (! $sameSupplier)
+                                            <td @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier !== '' ? $supplier : ' ' }}</td>
+                                        @endif
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? \App\Support\Money::format($item->ris_unit_cost) : ' ' }}</td>
@@ -5779,15 +5818,54 @@
                                     </tr>
                                 </thead>
                             <tbody>
-                                @for($row = 0; $row < max(8, $ris->risItems->count()); $row++)
+                                @php
+                                    $sheetItems = collect($ris->risItems ?? [])->values();
+                                    $sheetRows = max(8, $sheetItems->count());
+                                @endphp
+                                @for($row = 0; $row < $sheetRows; $row++)
                                     @php
-                                        $item = $ris->risItems->get($row);
+                                        $item = $sheetItems->get($row);
+                                        $name = trim((string) ($item?->ris_item_name_description ?? ''));
+                                        $nameKey = mb_strtolower($name);
+                                        $supplier = trim((string) ($item?->supplier_display_name ?? ''));
+                                        $supplierKey = mb_strtolower($supplier);
+                                        $prev = $row > 0 ? $sheetItems->get($row - 1) : null;
+                                        $prevNameKey = mb_strtolower(trim((string) ($prev?->ris_item_name_description ?? '')));
+                                        $prevSupplierKey = mb_strtolower(trim((string) ($prev?->supplier_display_name ?? '')));
+                                        $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
+                                        $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
+                                        $itemSpan = 1;
+                                        if ($nameKey !== '' && ! $sameItem) {
+                                            for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
+                                                $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                                if ($nextName === '' || $nextName !== $nameKey) {
+                                                    break;
+                                                }
+                                                $itemSpan++;
+                                            }
+                                        }
+                                        $supplierSpan = 1;
+                                        if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
+                                            for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
+                                                $next = $sheetItems->get($k);
+                                                $nextName = mb_strtolower(trim((string) ($next?->ris_item_name_description ?? '')));
+                                                $nextSupplier = mb_strtolower(trim((string) ($next?->supplier_display_name ?? '')));
+                                                if ($nextName !== $nameKey || $nextSupplier !== $supplierKey) {
+                                                    break;
+                                                }
+                                                $supplierSpan++;
+                                            }
+                                        }
                                     @endphp
                                     <tr>
-                                        <td>{{ $item?->ris_item_name_description ?: ' ' }}</td>
-                                        <td class="text-center">{{ $item?->brand_name ?: ' ' }}</td>
+                                        @if (! $sameItem)
+                                            <td @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $name !== '' ? $name : ' ' }}</td>
+                                        @endif
+                                        <td class="text-center">{{ $item ? (\App\Support\RisWorkflow::brandPaperLabel($item) ?: ' ') : ' ' }}</td>
                                         <td class="text-center">{{ $item?->uom_name ?: ' ' }}</td>
-                                        <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
+                                        @if (! $sameSupplier)
+                                            <td @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier !== '' ? $supplier : ' ' }}</td>
+                                        @endif
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? \App\Support\Money::format($item->ris_unit_cost) : ' ' }}</td>

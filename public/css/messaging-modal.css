@@ -1,0 +1,943 @@
+
+    /* Topbar unread message peek (under Messages icon) */
+    .topbar-msg-preview-bubble {
+        display: block;
+        max-width: min(280px, calc(100vw - 24px));
+        padding: 8px 12px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 9999px;
+        background: #f1f5f9;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.35;
+        text-align: left;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+        cursor: pointer;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        pointer-events: auto;
+    }
+
+    .topbar-msg-preview-bubble.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .topbar-msg-preview-bubble::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        right: 14px;
+        width: 12px;
+        height: 12px;
+        background: #f1f5f9;
+        border-left: 1px solid rgba(148, 163, 184, 0.55);
+        border-top: 1px solid rgba(148, 163, 184, 0.55);
+        transform: rotate(45deg);
+    }
+
+    .topbar-msg-preview-bubble__text {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .topbar-msg-preview-bubble__text strong {
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .topbar-msg-preview-bubble:hover {
+        background: #e2e8f0;
+    }
+
+    .message-more {
+        overflow: visible;
+    }
+
+    .message-more-menu {
+        overflow: visible;
+    }
+
+    .message-more-menu::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        width: 0;
+        height: 0;
+        margin-left: -6px;
+        border: 6px solid transparent;
+    }
+
+    .message-more-menu-up::after {
+        top: 100%;
+        border-top-color: #fff;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.08));
+    }
+
+    .message-more-menu-down::after {
+        bottom: 100%;
+        border-bottom-color: #fff;
+        filter: drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.08));
+    }
+
+    /* ======================================
+    SEARCH INSIDE CONVERSATION
+    ====================================== */
+
+    .conversation-search-match .message-bubble {
+        outline: 1px solid rgba(17, 24, 39, 0.16);
+        outline-offset: 3px;
+        transition:
+            outline-color 0.2s ease,
+            box-shadow 0.2s ease,
+            transform 0.2s ease;
+    }
+
+    .conversation-search-current .message-bubble {
+        outline: 2px solid rgba(17, 24, 39, 0.55);
+        outline-offset: 3px;
+        box-shadow: 0 0 0 5px rgba(17, 24, 39, 0.08);
+    }
+
+
+    /* ======================================
+       KEYFRAMES
+    ====================================== */
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeInScale {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes scaleIn {
+        from {
+            transform: scale(0.92);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    @keyframes badgePop {
+        0% {
+            transform: scale(0);
+        }
+
+        60% {
+            transform: scale(1.15);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            background-position: -200% 0;
+        }
+
+        100% {
+            background-position: 200% 0;
+        }
+    }
+
+    @keyframes conversationSlideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes userCardIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes inputFocusGlow {
+        0% {
+            box-shadow: 0 0 0 0 rgba(15, 23, 42, 0.08);
+        }
+
+        50% {
+            box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.08);
+        }
+
+        100% {
+            box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+        }
+    }
+
+    /* ======================================
+       UTILITY CLASSES
+    ====================================== */
+
+    .animate-fade-in {
+        animation: fadeIn 0.25s ease-out both;
+    }
+
+    .animate-fade-in-up {
+        animation: fadeInUp 0.3s ease-out both;
+    }
+
+    .animate-scale-in {
+        animation: fadeInScale 0.3s ease-out both;
+    }
+
+    .animate-slide-in-left {
+        animation: slideInLeft 0.3s ease-out both;
+    }
+
+    .animate-slide-in-right {
+        animation: slideInRight 0.3s ease-out both;
+    }
+
+    .messaging-hover-tooltip {
+        opacity: 0;
+        transform: translateY(4px) scale(0.98);
+        transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+
+    .messaging-hover-tooltip.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    /* ======================================
+       MESSAGING MODAL CONTAINER
+    ====================================== */
+
+    #modalMessagesContainer:not(.hidden) {
+        display: block;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        overflow-anchor: none;
+        scrollbar-gutter: stable;
+    }
+
+    #modalMessagesContainer > * + * {
+        margin-top: 0.625rem;
+    }
+
+    .pin-system-notice-flash {
+        animation: pinNoticeFlash 1.4s ease;
+    }
+
+    @keyframes pinNoticeFlash {
+        0% {
+            background-color: rgb(219 234 254);
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .message-bubble-line,
+    .message-content-wrapper,
+    .message-bubble {
+        overflow: visible;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .message-sender-avatar {
+        align-self: flex-end;
+    }
+
+    .message-bubble-text {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: pre-wrap;
+    }
+
+    .message-content-wrapper {
+        position: relative;
+    }
+
+    .message-content-wrapper > .message-reactions {
+        position: absolute;
+        right: 6px;
+        bottom: 2px;
+        z-index: 30;
+        display: flex;
+        align-items: flex-end;
+        gap: 1px;
+        line-height: 0;
+        transform: translate(50%, 50%);
+        pointer-events: auto;
+    }
+
+    .message-content-wrapper:has(.message-reaction-chip) {
+        padding-bottom: 0;
+    }
+
+    .message-row:has(.message-reaction-chip) .message-status-wrapper {
+        margin-top: 0.7rem;
+    }
+
+    .message-reaction-chip {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        min-width: 0;
+        cursor: pointer;
+    }
+
+    .message-reaction-chip:hover {
+        background: transparent !important;
+        transform: scale(1.12);
+    }
+
+    .message-reaction-emoji {
+        font-size: 16px;
+        line-height: 1;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.28));
+    }
+
+    .message-reaction-count {
+        font-size: 10px;
+        line-height: 1;
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+    #modalConversationsContainer,
+    #modalUsersContainer {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        contain: content;
+    }
+
+    #messagingModalContainer {
+        will-change: auto;
+        min-width: 0;
+    }
+
+    #messagingModalContainer.is-fullscreen {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    #messagingModalBackdrop:has(#messagingModalContainer.is-fullscreen) {
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 0;
+    }
+
+    #messagingModalWindowControls {
+        top: max(0.65rem, env(safe-area-inset-top));
+        right: max(0.65rem, env(safe-area-inset-right));
+    }
+
+    #messagingModalContainer:has(#modalChatHeader:not(.hidden)) #messagingModalWindowControls {
+        display: none;
+    }
+
+    #modalComposer {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    @media (max-width: 767px) {
+        #messagingModalBackdrop {
+            align-items: stretch;
+            justify-content: stretch;
+            padding: 0;
+        }
+
+        #messagingModalContainer:not(.is-fullscreen) {
+            width: 100%;
+            max-width: none;
+            height: 100dvh;
+            max-height: 100dvh;
+            margin: 0;
+            border-radius: 0;
+        }
+
+        #messagingModalContainer:not(.messaging-thread-open) #modalChatArea {
+            display: none !important;
+        }
+
+        #messagingModalContainer.messaging-thread-open #modalConversationsPane {
+            display: none !important;
+        }
+
+        #messagingModalContainer.messaging-thread-open #modalChatArea {
+            display: flex !important;
+            width: 100%;
+            min-width: 0;
+        }
+
+        #modalConversationInfoSidebar:not(.hidden) {
+            position: absolute;
+            inset: 0;
+            z-index: 40;
+            width: 100% !important;
+            max-width: none !important;
+            border-left: 0;
+        }
+
+        #modalComposer .px-4 {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+    }
+
+    @media (max-width: 379px) {
+        #modalAudioCallButton,
+        #modalVideoCallButton {
+            display: none;
+        }
+    }
+
+    /* ======================================
+       CONVERSATION LIST
+    ====================================== */
+
+    #modalConversationsList .conversation-item {
+        transition: background-color 0.12s ease;
+    }
+
+    /* ======================================
+       CONVERSATION DELETE BUTTON
+    ====================================== */
+
+    .conversation-delete-btn {
+        will-change: auto;
+    }
+
+    .conversation-delete-btn:active {
+        transform: scale(0.9) !important;
+    }
+
+    /* ======================================
+       USER LIST
+    ====================================== */
+
+    .user-row {
+        will-change: auto;
+    }
+
+    .user-row .ring-2 {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .user-row:hover .ring-2 {
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+    }
+
+    /* ======================================
+       MESSAGE BUBBLES
+    ====================================== */
+
+    #modalMessagesContainer [style*="messageSlideIn"] {
+        animation: fadeInUp 0.12s ease-out both;
+    }
+
+    /* ======================================
+       MESSAGE COMPOSER
+    ====================================== */
+
+    #modalMessageInput {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    #modalMessageInput:focus {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    #modalMessageInput::placeholder {
+        color: #9CA3AF;
+    }
+
+    .messenger-like-icon {
+        color: #0084FF;
+        fill: currentColor;
+        stroke: none;
+    }
+
+    #modalSendButton:active:not(:disabled) {
+        transform: scale(0.92);
+    }
+
+    #modalSendButton:hover:not(:disabled) {
+        transform: scale(1.05);
+    }
+
+    #modalAttachmentButton {
+        transition: background-color 0.12s ease, color 0.12s ease;
+    }
+
+    #modalAttachmentButton:hover {
+        transform: scale(1.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    #modalAttachmentButton:active {
+        transform: scale(0.92);
+    }
+
+    /* ======================================
+       SEARCH BARS
+    ====================================== */
+
+    #modalConversationSearch,
+    #modalUserSearch {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    #modalConversationSearch:focus,
+    #modalUserSearch:focus {
+        border-color: #111827;
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+        background-color: #ffffff;
+    }
+
+    #modalConversationSearch::placeholder,
+    #modalUserSearch::placeholder {
+        transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    #modalConversationSearch:focus::placeholder,
+    #modalUserSearch:focus::placeholder {
+        transform: translateX(4px);
+        color: #9CA3AF;
+    }
+
+    /* ======================================
+       TAB BUTTONS
+    ====================================== */
+
+    #modalTabConversations,
+    #modalTabUsers {
+        transition: all 0.2s ease;
+        will-change: transform, box-shadow;
+    }
+
+    #modalTabConversations:active,
+    #modalTabUsers:active {
+        transform: scale(0.96);
+    }
+
+    /* ======================================
+       UNREAD BADGE
+    ====================================== */
+
+    .shrink-0.inline-flex.h-5 {
+        animation: badgePop 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+        will-change: transform;
+    }
+
+    /* ======================================
+       EMPTY STATES
+       Chat empty state stays fully opaque — no fade
+       animation (that previously hid it on first open).
+    ====================================== */
+
+    #modalChatEmptyState {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+    }
+
+    #modalChatEmptyState.hidden {
+        display: none !important;
+    }
+
+    #modalConversationsEmpty,
+    #modalUsersEmpty {
+        will-change: opacity, transform;
+    }
+
+    #messagingModal:not(.hidden) #modalConversationsEmpty:not(.hidden),
+    #messagingModal:not(.hidden) #modalUsersEmpty:not(.hidden) {
+        animation: fadeInUp 0.3s ease-out both;
+    }
+
+    /* ======================================
+       SCROLLBARS
+    ====================================== */
+
+    .messaging-user-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+        transition: scrollbar-color 0.3s ease;
+    }
+
+    .messaging-user-scroll::-webkit-scrollbar {
+        width: 3px;
+    }
+
+    .messaging-user-scroll::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 20px;
+    }
+
+    .messaging-user-scroll::-webkit-scrollbar-thumb {
+        background: transparent;
+        border-radius: 20px;
+        transition: background 0.3s ease;
+    }
+
+    .messaging-user-scroll:hover::-webkit-scrollbar-thumb {
+        background: #E2E8F0;
+    }
+
+    #modalMessagesContainer {
+        scroll-behavior: auto;
+    }
+
+    #modalMessagesContainer::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    #modalMessagesContainer::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 20px;
+    }
+
+    #modalMessagesContainer::-webkit-scrollbar-thumb {
+        background: transparent;
+        border-radius: 20px;
+        transition: background 0.3s ease;
+    }
+
+    #modalMessagesContainer:hover::-webkit-scrollbar-thumb {
+        background: #E2E8F0;
+    }
+
+    #modalMessagesContainer {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+    }
+
+    /* ======================================
+       ATTACHMENT PREVIEW
+    ====================================== */
+
+    #modalAttachmentPreview:not(.hidden) {
+        animation: fadeInUp 0.25s ease-out both;
+    }
+
+    .attachments-own > div {
+        margin-left: auto;
+    }
+
+    .attachments-own .message-attachment-files {
+        align-items: flex-end;
+    }
+
+    #modalAttachmentItems {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #f1f5f9;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar {
+        height: 5px;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 999px;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+    }
+
+    #modalAttachmentItems::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+
+    #modalAttachmentPreview .h-1.rounded-full {
+        transition: width 0.3s ease, background-color 0.3s ease;
+    }
+
+    /* ======================================
+       IMAGE LOADING SKELETON
+    ====================================== */
+
+    .animate-pulse {
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
+        background-size: 200% 100%;
+        animation: shimmer 0.7s ease-in-out infinite;
+    }
+
+    /* Chat thread skeleton — slightly snappier than the shared pulse */
+    #modalThreadLoading .animate-pulse {
+        animation-duration: 0.55s;
+    }
+
+    /* ======================================
+       MODAL OPEN / CLOSE TRANSITIONS
+    ====================================== */
+
+    #messagingModalBackdrop {
+        will-change: opacity;
+    }
+
+    /* While fading out (or if opacity stuck at 0), never block page clicks */
+    #messagingModalBackdrop.opacity-0 {
+        pointer-events: none;
+    }
+
+    /* ======================================
+       CONVERSATION DELETE OVERLAY
+    ====================================== */
+
+    #deleteConfirmBackdrop {
+        will-change: opacity;
+    }
+
+    #deleteConfirmBox {
+        will-change: transform, opacity;
+    }
+
+    /* ======================================
+       NEW MESSAGE TAB
+    ====================================== */
+
+    #modalTabConversations,
+    #modalTabUsers {
+        position: relative;
+        overflow: hidden;
+    }
+
+    #modalTabConversations::after,
+    #modalTabUsers::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.3);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+        border-radius: inherit;
+    }
+
+    #modalTabConversations:active::after,
+    #modalTabUsers:active::after {
+        opacity: 1;
+    }
+
+    /* ======================================
+       CHAT HEADER APPEARANCE
+    ====================================== */
+
+    /* Chat header and composer stay static so opening a
+       conversation does not shrink the thread after scroll. */
+
+    /* ======================================
+       LOADING EMPTY STATE
+    ====================================== */
+
+    .text-center.py-12 {
+        animation: fadeInUp 0.3s ease-out both;
+    }
+
+    /* ======================================
+    TYPING INDICATOR DOT ANIMATION
+    ====================================== */
+
+    .typing-dot {
+        animation: typingBounce 1.2s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+
+    .typing-dot:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    @keyframes typingBounce {
+
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+
+        30% {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+    }
+
+    /* ======================================
+    CHAT TYPING INDICATOR TRANSITION
+
+    When typing starts:
+    Last message smoothly moves upward.
+
+    When typing stops:
+    Last message smoothly returns downward.
+    ====================================== */
+
+    .typing-indicator-wrapper {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        padding-bottom: 0;
+        margin-top: 0;
+        transform: translateY(8px);
+
+        transition:
+            max-height 0.25s ease,
+            opacity 0.2s ease,
+            transform 0.25s ease,
+            padding-bottom 0.25s ease,
+            margin-top 0.25s ease;
+
+        pointer-events: none;
+    }
+
+    .typing-indicator-wrapper.is-typing {
+        display: block !important;
+        max-height: 60px;
+        opacity: 1 !important;
+        visibility: visible !important;
+        padding-bottom: 12px;
+        margin-top: 12px;
+        transform: translateY(0);
+    }
+
+
+    /* ======================================
+    CONVERSATION LIST TYPING DOTS
+    ====================================== */
+
+    .conversation-typing-dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        height: 14px;
+    }
+
+    .conversation-typing-dots span {
+        width: 4px;
+        height: 4px;
+        border-radius: 9999px;
+        background: currentColor;
+        animation: conversationTypingBounce 1.2s infinite ease-in-out;
+    }
+
+    .conversation-typing-dots span:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+
+    .conversation-typing-dots span:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    @keyframes conversationTypingBounce {
+
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+
+        30% {
+            transform: translateY(-3px);
+            opacity: 1;
+        }
+    }

@@ -1,19 +1,17 @@
 /**
- * Faster module switching for every role sidebar + portal switcher.
- * - Prefetch same-origin destinations on hover / focus / touch / idle
- * - Immediate click feedback (top progress bar)
- * Speculation Rules when the browser supports them
+ * Fast, non-blocking click feedback for role sidebar + portal switcher links.
+ *
+ * Intentionally avoids idle/hover background page prefetching so single-threaded
+ * local PHP servers (php artisan serve on Windows) and database sessions are never
+ * queued behind speculative full-page renders.
  */
 (function () {
     if (window.PrismSidebarNavFast) {
         return;
     }
 
-    var warmed = new Set();
-    var inflight = new Map();
     var progressEl = null;
     var progressTimer = null;
-    var IDLE_WARM_LIMIT = 6;
 
     function absoluteUrl(href) {
         try {
@@ -65,43 +63,6 @@
         });
     }
 
-    function warm(url) {
-        url = absoluteUrl(url);
-        if (!url || !sameOrigin(url) || warmed.has(url) || inflight.has(url)) {
-            return;
-        }
-
-        var link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.as = 'document';
-        link.href = url;
-        document.head.appendChild(link);
-
-        var request = fetch(url, {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                Purpose: 'prefetch',
-                'Sec-Purpose': 'prefetch',
-                'X-Prism-Prefetch': '1',
-            },
-            priority: 'low',
-        })
-            .then(function () {
-                warmed.add(url);
-            })
-            .catch(function () {
-                /* ignore failed warm */
-            })
-            .finally(function () {
-                if (inflight.get(url) === request) {
-                    inflight.delete(url);
-                }
-            });
-
-        inflight.set(url, request);
-    }
-
     function ensureProgress() {
         if (progressEl) {
             return progressEl;
@@ -126,20 +87,23 @@
         }, 12000);
     }
 
+    function resetProgress() {
+        document.documentElement.classList.remove('prism-nav-leaving');
+        if (progressTimer) {
+            clearTimeout(progressTimer);
+            progressTimer = null;
+        }
+        if (progressEl) {
+            progressEl.classList.remove('is-active', 'is-done');
+        }
+    }
+
     function bindAnchor(anchor) {
         if (anchor.dataset.prismNavFastBound === '1') {
             return;
         }
         anchor.dataset.prismNavFastBound = '1';
 
-        var url = absoluteUrl(anchor.href);
-        var warmNow = function () {
-            warm(url);
-        };
-
-        anchor.addEventListener('pointerenter', warmNow, { passive: true });
-        anchor.addEventListener('focus', warmNow, { passive: true });
-        anchor.addEventListener('touchstart', warmNow, { passive: true });
         anchor.addEventListener(
             'click',
             function (event) {
@@ -151,60 +115,16 @@
                 }
                 startProgress();
                 document.documentElement.classList.add('prism-nav-leaving');
-                warm(url);
             },
             { passive: true }
         );
     }
 
-    function installSpeculationRules(anchors) {
-        if (!HTMLScriptElement.supports || !HTMLScriptElement.supports('speculationrules')) {
-            return;
-        }
-        if (document.getElementById('prismSidebarSpeculation')) {
-            return;
-        }
-
-        var urls = [];
-        for (var i = 0; i < anchors.length && urls.length < IDLE_WARM_LIMIT; i++) {
-            var href = absoluteUrl(anchors[i].href);
-            if (href && urls.indexOf(href) === -1) {
-                urls.push(href);
-            }
-        }
-        if (!urls.length) {
-            return;
-        }
-
-        var script = document.createElement('script');
-        script.type = 'speculationrules';
-        script.id = 'prismSidebarSpeculation';
-        script.textContent = JSON.stringify({
-            prefetch: [
-                {
-                    source: 'list',
-                    urls: urls,
-                    eagerness: 'moderate',
-                },
-            ],
-        });
-        document.head.appendChild(script);
-    }
-
     function boot() {
-        var anchors = collectAnchors();
-        anchors.forEach(bindAnchor);
-        installSpeculationRules(anchors);
-
-        var idle = window.requestIdleCallback || function (cb) {
-            return setTimeout(cb, 700);
-        };
-        idle(function () {
-            collectAnchors().slice(0, IDLE_WARM_LIMIT).forEach(function (anchor) {
-                warm(anchor.href);
-            });
-        });
+        collectAnchors().forEach(bindAnchor);
     }
+
+    window.addEventListener('pageshow', resetProgress);
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);
@@ -213,7 +133,7 @@
     }
 
     window.PrismSidebarNavFast = {
-        warm: warm,
+        warm: function () {},
         refresh: boot,
     };
 })();

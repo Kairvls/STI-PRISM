@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Support\CachedMySqlBuilder;
+use App\Support\CachedMySqlConnection;
 use App\Support\ProcurementPortal;
+use Illuminate\Database\Connection;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
@@ -22,10 +26,20 @@ class AppServiceProvider extends ServiceProvider
         config([
             'view.compiled' => $compiledViewPath,
         ]);
+
+        if (! $this->app->runningInConsole()) {
+            Connection::resolverFor('mysql', function ($connection, $database, $prefix, $config) {
+                return new CachedMySqlConnection($connection, $database, $prefix, $config);
+            });
+        }
     }
 
     public function boot(): void
     {
+        Event::listen(MigrationsEnded::class, function () {
+            CachedMySqlBuilder::flush((string) config('database.connections.mysql.database'));
+        });
+
         if (request()->is('maintenance*', 'admin*', 'receiving*', 'purchaser*', 'president*', 'accounting*')) {
             Paginator::defaultView('pagination.maintenance');
         }

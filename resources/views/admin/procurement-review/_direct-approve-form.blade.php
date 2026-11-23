@@ -446,24 +446,59 @@
                     </thead>
                     <tbody>
                         @php
-                            $rowCount = max(10, $items->count());
+                            $sheetItems = collect($items ?? [])->values();
+                            $rowCount = max(10, $sheetItems->count());
                         @endphp
                         @for($i = 0; $i < $rowCount; $i++)
                             @php
-                                $item = $items->get($i);
-                                $itemName = trim((string) ($item->ris_item_name_description ?? ''));
+                                $item = $sheetItems->get($i);
+                                $itemName = trim((string) ($item?->ris_item_name_description ?? ''));
+                                $nameKey = mb_strtolower($itemName);
+                                $supplier = trim((string) ($item?->supplier_display_name ?? ''));
+                                $supplierKey = mb_strtolower($supplier);
+                                $prev = $i > 0 ? $sheetItems->get($i - 1) : null;
+                                $prevNameKey = mb_strtolower(trim((string) ($prev?->ris_item_name_description ?? '')));
+                                $prevSupplierKey = mb_strtolower(trim((string) ($prev?->supplier_display_name ?? '')));
+                                $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
+                                $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
+                                $itemSpan = 1;
+                                if ($nameKey !== '' && ! $sameItem) {
+                                    for ($k = $i + 1; $k < $sheetItems->count(); $k++) {
+                                        $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                        if ($nextName === '' || $nextName !== $nameKey) {
+                                            break;
+                                        }
+                                        $itemSpan++;
+                                    }
+                                }
+                                $supplierSpan = 1;
+                                if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
+                                    for ($k = $i + 1; $k < $sheetItems->count(); $k++) {
+                                        $next = $sheetItems->get($k);
+                                        $nextName = mb_strtolower(trim((string) ($next?->ris_item_name_description ?? '')));
+                                        $nextSupplier = mb_strtolower(trim((string) ($next?->supplier_display_name ?? '')));
+                                        if ($nextName !== $nameKey || $nextSupplier !== $supplierKey) {
+                                            break;
+                                        }
+                                        $supplierSpan++;
+                                    }
+                                }
                                 $lockCell = $isDirect ? 'admin-da-locked' : '';
-                                $issuedQty = (int) ($item->ris_quantity_issued ?? 0);
-                                $amountBasis = $issuedQty > 0 ? $issuedQty : (float) ($item->ris_quantity_requested ?? 0);
+                                $issuedQty = (int) ($item?->ris_quantity_issued ?? 0);
+                                $amountBasis = $issuedQty > 0 ? $issuedQty : (float) ($item?->ris_quantity_requested ?? 0);
                                 $lineAmount = isset($item->ris_unit_cost)
                                     ? round($amountBasis * (float) $item->ris_unit_cost, 2)
                                     : null;
                             @endphp
                             <tr>
-                                <td class="{{ $lockCell }}">{{ $itemName }}</td>
+                                @if (! $sameItem)
+                                    <td class="{{ $lockCell }}" @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $itemName }}</td>
+                                @endif
                                 <td class="text-center {{ $lockCell }}">{{ $item ? \App\Support\RisWorkflow::brandPaperLabel($item) : '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item?->uom_name ?? '' }}</td>
-                                <td class="{{ $lockCell }}">{{ $item->supplier_display_name ?? '' }}</td>
+                                @if (! $sameSupplier)
+                                    <td class="{{ $lockCell }}" @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier }}</td>
+                                @endif
                                 <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_requested ?? '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_issued ?? '' }}</td>
                                 <td class="text-right {{ $lockCell }}">{{ isset($item->ris_unit_cost) ? \App\Support\Money::format($item->ris_unit_cost) : '' }}</td>

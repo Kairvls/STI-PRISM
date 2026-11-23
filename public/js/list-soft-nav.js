@@ -188,15 +188,30 @@
         return selectorOrEl;
     }
 
+    function bindHoverPrefetch(link) {
+        var timer = null;
+        link.addEventListener('pointerenter', function () {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(function () {
+                timer = null;
+                prefetch(link.href);
+            }, 220);
+        });
+        link.addEventListener('pointerleave', function () {
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        });
+    }
+
     function bindPanelLinks(root) {
         (root || document).querySelectorAll('a[data-list-panel]').forEach(function (link) {
             if (link.dataset.softNavBound === '1') return;
             var href = link.getAttribute('href') || '';
             if (!href || href === '#' || href.indexOf('javascript:') === 0) return;
             link.dataset.softNavBound = '1';
-            link.addEventListener('pointerenter', function () {
-                prefetch(link.href);
-            });
+            bindHoverPrefetch(link);
             link.addEventListener('click', function (event) {
                 if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
                     return;
@@ -221,9 +236,7 @@
                 return;
             }
             link.dataset.softNavBound = '1';
-            link.addEventListener('pointerenter', function () {
-                prefetch(link.href);
-            });
+            bindHoverPrefetch(link);
             link.addEventListener('click', function (event) {
                 if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
                     return;
