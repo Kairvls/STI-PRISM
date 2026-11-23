@@ -294,6 +294,39 @@
 
                 @include('maintenance-personnel.equipment.partials.property-assignment-panel')
 
+                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <div class="border-b border-slate-100 px-5 py-4">
+                        <h2 class="text-sm font-semibold text-slate-900">Stock history</h2>
+                        <p class="mt-1 text-xs text-slate-500">Quantity changes are recorded here. The on-hand number is the sum of these movements.</p>
+                    </div>
+                    <div class="px-5 py-4">
+                        @if (($stockMovements ?? collect())->isEmpty())
+                            <p class="text-sm text-slate-500">No stock movements yet.</p>
+                        @else
+                            <ul class="divide-y divide-slate-100">
+                                @foreach ($stockMovements as $movement)
+                                    <li class="flex items-start justify-between gap-4 py-3">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-medium text-slate-900">
+                                                {{ \App\Support\EquipmentStockLedger::LABELS[$movement->movement_type] ?? $movement->movement_type }}
+                                                <span class="font-semibold {{ (int) $movement->quantity_delta < 0 ? 'text-rose-700' : 'text-emerald-700' }}">
+                                                    {{ (int) $movement->quantity_delta > 0 ? '+' : '' }}{{ (int) $movement->quantity_delta }}
+                                                </span>
+                                            </p>
+                                            @if (filled($movement->remarks))
+                                                <p class="mt-1 text-xs leading-5 text-slate-500">{{ $movement->remarks }}</p>
+                                            @endif
+                                        </div>
+                                        <p class="shrink-0 text-xs text-slate-400">
+                                            {{ \Carbon\Carbon::parse($movement->created_at)->format('M d, Y g:i A') }}
+                                        </p>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                </section>
+
                 @if (filled($equipment->equipment_image))
                     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         <div class="border-b border-slate-100 px-5 py-4">

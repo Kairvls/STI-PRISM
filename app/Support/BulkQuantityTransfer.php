@@ -41,17 +41,34 @@ class BulkQuantityTransfer
             return $equipment;
         }
 
-        DB::table('equipment_table')
-            ->where('equipment_id', $equipment->equipment_id)
-            ->update(['equipment_quantity' => $stock - $quantity]);
+        if (! EquipmentStockLedger::enabled()) {
+            DB::table('equipment_table')
+                ->where('equipment_id', $equipment->equipment_id)
+                ->update(['equipment_quantity' => $stock - $quantity]);
+        }
 
         $existing = self::findMergeTarget($equipment, $destinationRoomId);
         if ($existing) {
-            DB::table('equipment_table')
-                ->where('equipment_id', $existing->equipment_id)
-                ->update([
-                    'equipment_quantity' => (int) ($existing->equipment_quantity ?? 0) + $quantity,
-                ]);
+            if (! EquipmentStockLedger::enabled()) {
+                DB::table('equipment_table')
+                    ->where('equipment_id', $existing->equipment_id)
+                    ->update([
+                        'equipment_quantity' => (int) ($existing->equipment_quantity ?? 0) + $quantity,
+                    ]);
+            }
+
+            EquipmentStockLedger::post((int) $equipment->equipment_id, EquipmentStockLedger::TRANSFER_OUT, -$quantity, [
+                'room_id' => (int) ($equipment->equipment_room_id ?? 0) ?: null,
+                'reference_type' => 'equipment',
+                'reference_id' => (int) $existing->equipment_id,
+                'remarks' => 'Partial quantity moved to another room',
+            ]);
+            EquipmentStockLedger::post((int) $existing->equipment_id, EquipmentStockLedger::TRANSFER_IN, $quantity, [
+                'room_id' => $destinationRoomId,
+                'reference_type' => 'equipment',
+                'reference_id' => (int) $equipment->equipment_id,
+                'remarks' => 'Partial quantity received from another room',
+            ]);
 
             return DB::table('equipment_table')->where('equipment_id', $existing->equipment_id)->first();
         }
@@ -95,6 +112,19 @@ class BulkQuantityTransfer
 
         $newId = (int) DB::table('equipment_table')->insertGetId($insert);
 
+        EquipmentStockLedger::post((int) $equipment->equipment_id, EquipmentStockLedger::TRANSFER_OUT, -$quantity, [
+            'room_id' => (int) ($equipment->equipment_room_id ?? 0) ?: null,
+            'reference_type' => 'equipment',
+            'reference_id' => $newId,
+            'remarks' => 'Partial quantity moved to another room',
+        ]);
+        EquipmentStockLedger::post($newId, EquipmentStockLedger::TRANSFER_IN, $quantity, [
+            'room_id' => $destinationRoomId,
+            'reference_type' => 'equipment',
+            'reference_id' => (int) $equipment->equipment_id,
+            'remarks' => 'Partial quantity received from another room',
+        ]);
+
         return DB::table('equipment_table')->where('equipment_id', $newId)->first();
     }
 
@@ -118,6 +148,14 @@ class BulkQuantityTransfer
         }
         if (Schema::hasColumn('equipment_table', 'equipment_condition_status')) {
             $query->where('equipment_condition_status', $source->equipment_condition_status ?? null);
+        }
+        if (Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id')) {
+            $rrItemId = (int) ($source->equipment_receiving_report_item_id ?? 0);
+            if ($rrItemId > 0) {
+                $query->where('equipment_receiving_report_item_id', $rrItemId);
+            } else {
+                $query->whereNull('equipment_receiving_report_item_id');
+            }
         }
 
         return $query->orderBy('equipment_id')->first();

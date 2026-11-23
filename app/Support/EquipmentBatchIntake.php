@@ -265,6 +265,12 @@ class EquipmentBatchIntake
 
                     $equipmentId = (int) DB::table('equipment_table')->insertGetId($payload);
                     EquipmentQrCodes::assignIfEligible($equipmentId);
+                    EquipmentStockLedger::recordReceipt(
+                        $equipmentId,
+                        (int) ($payload['equipment_quantity'] ?? 1),
+                        (int) ($payload['equipment_room_id'] ?? 0) ?: null,
+                        isset($payload['equipment_receiving_report_item_id']) ? (int) $payload['equipment_receiving_report_item_id'] : null
+                    );
 
                     $finalRoom = $unit['room'] ?? $storageRoom;
                     if ($unit['room']) {

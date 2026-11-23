@@ -21,6 +21,9 @@ class EquipmentInventoryStatuses
     /** Swapped out by a newer unit; awaiting repair decision or disposal. */
     public const REPLACED = 'Replaced';
 
+    /** Sent to Equipment Disposal; still restorable until finalized. */
+    public const PENDING_DISPOSAL = 'Pending Disposal';
+
     public const DISPOSED = 'Disposed';
 
     /** @var list<string> */
@@ -30,21 +33,25 @@ class EquipmentInventoryStatuses
         self::UNDER_MAINTENANCE,
         self::FOR_REPLACEMENT,
         self::REPLACED,
+        self::PENDING_DISPOSAL,
         self::DISPOSED,
     ];
 
     /**
      * Statuses that can be chosen when adding or editing equipment.
-     * Disposed is set only by the Equipment Disposal module.
+     * Loans, replacement, and disposal are set by their own records.
      *
      * @var list<string>
      */
     public const ASSIGNABLE = [
         self::ACTIVE,
-        self::BORROWED,
         self::UNDER_MAINTENANCE,
-        self::FOR_REPLACEMENT,
-        self::REPLACED,
+    ];
+
+    /** @var list<string> */
+    public const MANUAL = [
+        self::ACTIVE,
+        self::UNDER_MAINTENANCE,
     ];
 
     public static function ruleIn(): string

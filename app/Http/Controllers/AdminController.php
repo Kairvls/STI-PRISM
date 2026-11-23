@@ -2758,18 +2758,6 @@ class AdminController extends Controller
             return redirect('/admin/users')->with('error', 'That role is not available to assign right now.');
         }
 
-        $person = null;
-        if (Schema::hasColumn('users_table', 'person_id')
-            && ! empty($user->person_id)
-            && \App\Support\Persons::tableReady()) {
-            $person = \App\Support\Persons::find((int) $user->person_id);
-        }
-
-        $isStaff = $person
-            ? \App\Support\RoleAccess::isStaffEmploymentType((string) ($person->person_employment_type ?? ''))
-            : \App\Support\RoleAccess::isStaffEmployeeId((string) ($user->user_employee_id ?? ''));
-        $isItDepartment = \App\Support\RoleAccess::personIsItDepartment($person);
-
         $requestedAdditional = collect((array) $request->input('additional_roles', []))
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0 && $id !== $primaryRoleId)
@@ -2777,15 +2765,15 @@ class AdminController extends Controller
             ->values()
             ->all();
 
-        // Allow clearing extras even when the Staff/IT matrix would otherwise block adds.
+        // Admin / Maintenance / Purchaser may add or remove Maintenance / Purchaser additional roles.
         if ($requestedAdditional === []) {
             $additionalRoles = [];
         } else {
             $additionalRoles = \App\Support\RoleAccess::filterAllowedAdditionalRoles(
                 $primaryRoleId,
                 $requestedAdditional,
-                $isStaff,
-                $isItDepartment
+                true,
+                true
             );
         }
 
