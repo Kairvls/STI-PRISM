@@ -607,6 +607,10 @@ class ReceivableStockLines
             return $totals;
         }
 
+        if (EquipmentStockLedger::enabled()) {
+            return self::stockedQuantitiesFromLedger($itemIds, $totals);
+        }
+
         $seenEquipment = [];
 
         if (Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id')) {
@@ -644,6 +648,67 @@ class ReceivableStockLines
                 $seenEquipment[$eqId] = true;
                 $totals[$itemId] += max(1, (int) ($row->equipment_quantity ?? 1));
             }
+        }
+
+        return $totals;
+    }
+
+    /**
+     * Receipts name the RR line. Older rows only have an opening balance, so that
+     * balance counts once for the line stored on the equipment row.
+     *
+     * @param  list<int>  $itemIds
+     * @param  array<int, int>  $totals
+     * @return array<int, int>
+     */
+    private static function stockedQuantitiesFromLedger(array $itemIds, array $totals): array
+    {
+        $receipts = DB::table('equipment_stock_movements')
+            ->where('movement_type', EquipmentStockLedger::RECEIPT)
+            ->where('reference_type', 'receiving_report_item')
+            ->whereIn('reference_id', $itemIds)
+            ->groupBy('reference_id')
+            ->selectRaw('reference_id, SUM(quantity_delta) as qty')
+            ->get();
+
+        foreach ($receipts as $row) {
+            $itemId = (int) $row->reference_id;
+            if (isset($totals[$itemId])) {
+                $totals[$itemId] += (int) $row->qty;
+            }
+        }
+
+        $receiptEquipment = DB::table('equipment_stock_movements')
+            ->where('movement_type', EquipmentStockLedger::RECEIPT)
+            ->where('reference_type', 'receiving_report_item')
+            ->whereIn('reference_id', $itemIds)
+            ->pluck('equipment_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->all();
+
+        if (! Schema::hasColumn('equipment_table', 'equipment_receiving_report_item_id')) {
+            return $totals;
+        }
+
+        $legacy = DB::table('equipment_table')
+            ->whereIn('equipment_receiving_report_item_id', $itemIds)
+            ->get(['equipment_id', 'equipment_quantity', 'equipment_receiving_report_item_id']);
+
+        foreach ($legacy as $row) {
+            $equipmentId = (int) $row->equipment_id;
+            if (in_array($equipmentId, $receiptEquipment, true)) {
+                continue;
+            }
+            $itemId = (int) $row->equipment_receiving_report_item_id;
+            if (! isset($totals[$itemId])) {
+                continue;
+            }
+            $opening = (int) DB::table('equipment_stock_movements')
+                ->where('equipment_id', $equipmentId)
+                ->where('movement_type', EquipmentStockLedger::OPENING_BALANCE)
+                ->sum('quantity_delta');
+            $totals[$itemId] += $opening > 0 ? $opening : max(1, (int) ($row->equipment_quantity ?? 1));
         }
 
         return $totals;

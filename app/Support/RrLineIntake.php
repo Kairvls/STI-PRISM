@@ -261,6 +261,12 @@ class RrLineIntake
                         collect($payload)->filter(fn ($value, $column) => Schema::hasColumn('equipment_table', $column))->all()
                     );
                     EquipmentQrCodes::assignIfEligible($equipmentId);
+                    EquipmentStockLedger::recordReceipt(
+                        $equipmentId,
+                        (int) ($payload['equipment_quantity'] ?? 1),
+                        (int) ($payload['equipment_room_id'] ?? 0) ?: null,
+                        (int) ($payload['equipment_receiving_report_item_id'] ?? 0) ?: null
+                    );
                     $createdIds[] = $equipmentId;
 
                     if ($unit['room']) {

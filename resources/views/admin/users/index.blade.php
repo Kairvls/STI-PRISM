@@ -576,6 +576,12 @@
                                     && \App\Support\RoleAccess::isStaffEmployeeId((string) ($user->user_employee_id ?? ''))
                                 );
                             $isItDepartmentUser = \App\Support\RoleAccess::isItDepartmentName((string) ($user->person_department_name ?? ''));
+                            $canEditAdditionalRoles = count($extraNames) > 0
+                                || in_array((int) $user->user_role_id, [
+                                    \App\Support\RoleAccess::ADMIN,
+                                    \App\Support\RoleAccess::MAINTENANCE,
+                                    \App\Support\RoleAccess::PURCHASER,
+                                ], true);
                             $profilePictureUrl = null;
                             $rawPicture = trim((string) ($user->user_profile_picture ?? ''));
                             if ($rawPicture !== '') {
@@ -668,7 +674,7 @@
                                     >
                                         <i data-lucide="eye" class="h-4 w-4 pointer-events-none"></i>
                                     </button>
-                                    @if (count($extraNames))
+                                    @if ($canEditAdditionalRoles)
                                         <button type="button"
                                             onclick="openEditRolesModal(this)"
                                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-800"
@@ -1712,7 +1718,7 @@
         var rolesHint = document.getElementById('editRolesHint');
         if (rolesHint) {
             if (lockPrimary) {
-                rolesHint.textContent = 'Primary role is locked. You can remove additional roles.';
+                rolesHint.textContent = 'Primary role is locked. You can add or remove additional roles.';
                 rolesHint.classList.remove('hidden');
             } else {
                 rolesHint.textContent = '';
@@ -1754,6 +1760,7 @@
         }
         var modal = mountUserModal(document.getElementById('editRolesModal'));
         if (modal) modal.classList.remove('hidden');
+        syncAdminUsersCsrf(form);
     };
 
     window.syncCreateAdditionalRolesVisibility = function () {
@@ -1779,8 +1786,8 @@
             hintId: 'editAdditionalRolesHint',
             rowSelector: '.edit-additional-role-row',
             checkboxSelector: '.edit-additional-role',
-            isStaff: editUserIsStaff,
-            isItDepartment: editUserItDepartment
+            isStaff: true,
+            isItDepartment: true
         });
     };
 

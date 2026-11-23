@@ -77,6 +77,43 @@ class EquipmentTrackingModes
     }
 
     /**
+     * Bulk piles and consumable categories are stores: quantity leaves by issue or spoilage.
+     * Serialized units, including all computer equipment, stay on the asset disposal path.
+     */
+    public static function isStores(?string $trackingMode, ?int $categoryId = null, ?string $categoryName = null): bool
+    {
+        if (self::requiresIndividualForCategory($categoryId, $categoryName)) {
+            return false;
+        }
+
+        $policy = self::categoryPolicy($categoryId);
+        if ($policy === 'stores') {
+            return true;
+        }
+        if ($policy === 'asset') {
+            return false;
+        }
+        if (self::isConsumableCategory($categoryId, $categoryName)) {
+            return true;
+        }
+
+        return ($trackingMode ?? self::INDIVIDUAL) === self::BULK;
+    }
+
+    public static function categoryPolicy(?int $categoryId): ?string
+    {
+        if (! $categoryId || $categoryId < 1 || ! Schema::hasColumn('equipment_categories_table', 'equipment_category_tracking_policy')) {
+            return null;
+        }
+
+        $policy = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $categoryId)
+            ->value('equipment_category_tracking_policy');
+
+        return filled($policy) ? (string) $policy : null;
+    }
+
+    /**
      * @return array{Bulk: bool, Individual: bool} allowed modes for a category
      */
     public static function allowedForRrCategory(?int $categoryId = null, ?string $categoryName = null): array

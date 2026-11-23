@@ -866,6 +866,7 @@
                                     "Under Maintenance" => "bg-amber-50 text-amber-700",
                                     "For Replacement" => "bg-orange-50 text-orange-700",
                                     "Replaced" => "bg-blue-50 text-blue-700",
+                                    "Pending Disposal" => "bg-rose-50 text-rose-700",
                                     "Disposed" => "bg-rose-50 text-rose-700",
                                     default => "bg-slate-100 text-slate-600",
                                 };
@@ -880,8 +881,17 @@
                                 $placementClass = $isStorageStock
                                     ? 'bg-amber-50 text-amber-700 ring-amber-200'
                                     : 'bg-sky-50 text-sky-700 ring-sky-200';
-                                $canDisposeRow = \App\Support\EquipmentConditions::isDisposable($item->equipment_condition_status ?? null)
-                                    && ($item->equipment_inventory_status ?? '') !== \App\Support\EquipmentInventoryStatuses::DISPOSED;
+                                $isStoresRow = \App\Support\EquipmentTrackingModes::isStores(
+                                    $item->equipment_tracking_mode ?? null,
+                                    isset($item->equipment_category_id) ? (int) $item->equipment_category_id : null,
+                                    $item->equipment_category_name ?? null
+                                );
+                                $canDisposeRow = ! $isStoresRow
+                                    && \App\Support\EquipmentConditions::isDisposable($item->equipment_condition_status ?? null)
+                                    && ! in_array($item->equipment_inventory_status ?? '', [
+                                        \App\Support\EquipmentInventoryStatuses::DISPOSED,
+                                        \App\Support\EquipmentInventoryStatuses::PENDING_DISPOSAL,
+                                    ], true);
                             @endphp
                             <tr class="border-b border-slate-100 transition duration-200 hover:bg-slate-50">
                                 @if ($selectable)
@@ -1123,6 +1133,22 @@
                                                 data-tooltip="Mark as Replaced"
                                             >
                                                 <i data-lucide="replace" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        @endif
+                                        @if ($canManage && $isStoresRow && ($item->equipment_inventory_status ?? '') !== 'Disposed')
+                                            <button
+                                                type="button"
+                                                onclick="openStockMovementModal(
+                                                    {{ (int) $item->equipment_id }},
+                                                    {{ json_encode($item->equipment_name) }},
+                                                    {{ (int) ($item->equipment_quantity ?? 0) }}
+                                                )"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+                                                aria-label="Stock movement"
+                                                title="Issue, spoilage, or count"
+                                                data-tooltip="Issue, spoilage, or count"
+                                            >
+                                                <i data-lucide="clipboard-list" class="h-4 w-4"></i>
                                             </button>
                                         @endif
                                         @if ($canDisposeRow)
@@ -1636,17 +1662,19 @@
                             <input id="edit_equipment_name" type="text" name="equipment_name" required maxlength="{{ \App\Support\InputLimits::NAME }}" class="{{ $eqField }}" />
                         </div>
                         <div>
-                            <label for="edit_category" class="{{ $eqLabel }}">Classification <span class="text-rose-500">*</span></label>
-                            <select id="edit_category" name="equipment_category_id" required class="{{ $eqField }}">
+                            <label for="edit_category" class="{{ $eqLabel }}">Classification</label>
+                            <select id="edit_category" name="equipment_category_id" required class="{{ $eqField }} bg-slate-100 text-slate-600" disabled>
                                 <option value="">Select classification</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
                                 @endforeach
                             </select>
+                            <input type="hidden" id="edit_category_locked" name="equipment_category_id" value="" disabled />
+                            <p class="mt-1.5 text-[11px] leading-4 text-slate-500">Classification is set when the item is stocked and cannot be changed here.</p>
                         </div>
                         <div>
-                            <label for="edit_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
-                            <select id="edit_room" name="equipment_room_id" required class="{{ $eqField }}">
+                            <label for="edit_room" class="{{ $eqLabel }}">Room</label>
+                            <select id="edit_room" name="equipment_room_id" required class="{{ $eqField }} bg-slate-100 text-slate-600" disabled>
                                 <option value="">Select room</option>
                                 @foreach ($rooms as $room)
                                     <option value="{{ $room->room_id }}">
@@ -1654,6 +1682,8 @@
                                     </option>
                                 @endforeach
                             </select>
+                            <input type="hidden" id="edit_room_locked" name="equipment_room_id" value="" disabled />
+                            <p id="edit_room_hint" class="mt-1.5 text-[11px] leading-4 text-slate-500">To move this item, use Transfer from Inventory.</p>
                         </div>
                     </div>
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
@@ -1661,13 +1691,17 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="edit_quantity" class="{{ $eqLabel }}">Qty</label>
-                                <input id="edit_quantity" type="number" min="1" max="{{ \App\Support\InputLimits::QTY }}" name="equipment_quantity" class="{{ $eqField }}" />
+                                <input id="edit_quantity" type="number" min="1" max="{{ \App\Support\InputLimits::QTY }}" name="equipment_quantity" class="{{ $eqField }}" @if (\App\Support\EquipmentStockLedger::enabled()) readonly @endif />
+                                @if (\App\Support\EquipmentStockLedger::enabled())
+                                    <p class="mt-1.5 text-[11px] leading-4 text-slate-500">On-hand quantity changes through receipts, transfers, issue, spoilage, or a count adjustment.</p>
+                                @endif
                             </div>
                             <div>
                                 <label for="edit_condition" class="{{ $eqLabel }}">Condition</label>
                                 <select id="edit_condition" name="equipment_condition_status" class="{{ $eqField }}">
                                     <option value="Good">Good</option>
                                     <option value="Under Maintenance">Under Maintenance</option>
+                                    <option value="Defective">Defective</option>
                                     <option value="Damaged">Damaged</option>
                                 </select>
                                 <p id="edit_condition_hint" class="mt-1.5 text-[11px] leading-4 text-slate-500">Damaged equipment can be disposed from Equipment Disposal.</p>
@@ -1678,10 +1712,9 @@
                             <select id="edit_status" name="equipment_inventory_status" class="{{ $eqField }}">
                                 <option value="Active">{{ $isStockPage ? \App\Support\EquipmentInventoryStatuses::IN_STOCK_LABEL : 'Active' }}</option>
                                 <option value="Under Maintenance">Under maintenance</option>
-                                <option value="Borrowed">Borrowed</option>
-                                <option value="For Replacement">For replacement</option>
-                                <option value="Replaced">Replaced</option>
                             </select>
+                            <input type="hidden" id="edit_status_locked" value="" disabled />
+                            <p class="mt-1.5 text-[11px] leading-4 text-slate-500">Borrowed, replacement, and disposal are set by their own records.</p>
                             <p id="edit_disposal_lock_note" class="mt-1.5 hidden text-[11px] leading-4 text-slate-500">This unit is already disposed. Condition and inventory status stay with Equipment Disposal.</p>
                         </div>
                     </div>
@@ -1735,15 +1768,16 @@
                         </div>
                         <div>
                             <label for="edit_purchase_date" class="{{ $eqLabel }}">Purchased</label>
-                            <input id="edit_purchase_date" type="date" name="equipment_purchase_date" class="{{ $eqField }}" />
+                            <input id="edit_purchase_date" type="date" name="equipment_purchase_date" class="{{ $eqField }} bg-slate-100 text-slate-600" readonly tabindex="-1" />
+                            <p class="mt-1 text-[11px] text-slate-500">From intake or procurement; not editable here.</p>
                         </div>
                         <div>
                             <label for="edit_acquired_date" class="{{ $eqLabel }}">Acquired</label>
-                            <input id="edit_acquired_date" type="date" name="equipment_acquired_date" class="{{ $eqField }}" />
+                            <input id="edit_acquired_date" type="date" name="equipment_acquired_date" class="{{ $eqField }} bg-slate-100 text-slate-600" readonly tabindex="-1" />
                         </div>
                         <div>
                             <label for="edit_purchase_cost" class="{{ $eqLabel }}">Purchase cost (₱)</label>
-                            <input id="edit_purchase_cost" type="number" name="equipment_purchase_cost" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" placeholder="0.00" class="{{ $eqField }}" />
+                            <input id="edit_purchase_cost" type="number" name="equipment_purchase_cost" min="0" max="{{ \App\Support\InputLimits::COST }}" step="0.01" placeholder="0.00" class="{{ $eqField }} bg-slate-100 text-slate-600" readonly tabindex="-1" />
                         </div>
                         <div>
                             <label
@@ -1826,9 +1860,21 @@
                 </details>
             </div>
 
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
-                <button type="button" onclick="closeEditEquipmentModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Save changes</button>
+            <div class="border-t border-slate-100 px-6 py-4">
+                <label for="edit_edit_reason" class="{{ $eqLabel }}">Reason for change <span class="text-rose-500">*</span></label>
+                <textarea
+                    id="edit_edit_reason"
+                    name="equipment_edit_reason"
+                    rows="2"
+                    required
+                    maxlength="500"
+                    placeholder="e.g. Corrected asset tag typo, updated warranty date"
+                    class="mt-1.5 w-full rounded-xl border-0 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                ></textarea>
+                <div class="mt-4 flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeEditEquipmentModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Save changes</button>
+                </div>
             </div>
         </form>
     </div>
@@ -1856,6 +1902,7 @@
                     <select id="maintenance_condition" name="equipment_condition_status" required class="{{ $eqField }}">
                         <option value="Good">Good</option>
                         <option value="Under Maintenance">Under Maintenance</option>
+                        <option value="Defective">Defective</option>
                         <option value="Damaged">Damaged</option>
                     </select>
                     <p id="maintenance_condition_hint" class="mt-1.5 text-[11px] leading-4 text-slate-500">Damaged equipment can be disposed from Equipment Disposal.</p>
@@ -1865,10 +1912,8 @@
                     <select id="maintenance_status" name="equipment_inventory_status" required class="{{ $eqField }}">
                         <option value="Active">{{ $isStockPage ? \App\Support\EquipmentInventoryStatuses::IN_STOCK_LABEL : 'Active' }}</option>
                         <option value="Under Maintenance">Under maintenance</option>
-                        <option value="Borrowed">Borrowed</option>
-                        <option value="For Replacement">For replacement</option>
-                        <option value="Replaced">Replaced</option>
                     </select>
+                    <input type="hidden" id="maintenance_status_locked" value="" disabled />
                     <p id="maintenance_disposal_lock_note" class="mt-1.5 hidden text-[11px] leading-4 text-slate-500">This unit is already disposed. Condition and inventory status stay with Equipment Disposal.</p>
                 </div>
             </div>
@@ -1884,20 +1929,23 @@
             form.action = @json(url('/maintenance/equipment/inventory/status')) + "/" + id;
             document.getElementById("maintenanceStatusName").textContent = name || "Equipment";
             setEqSelectValue("maintenance_condition", condition || "Good");
-            setEqSelectValue("maintenance_status", status || "Active");
-            const locked = status === "Disposed";
-            ["maintenance_condition", "maintenance_status"].forEach(function (selectId, index) {
-                const select = document.getElementById(selectId);
-                const current = index === 0 ? condition : status;
-                select.querySelectorAll("option[data-locked-disposed]").forEach(function (opt) { opt.remove(); });
-                if (locked && current && !Array.from(select.options).some(function (opt) { return opt.value === current; })) {
-                    const opt = new Option(current, current);
+            lockDocumentStatus("maintenance_status", "maintenance_status_locked", status || "Active");
+            const locked = status === "Disposed" || status === "Pending Disposal";
+            const conditionSelect = document.getElementById("maintenance_condition");
+            if (conditionSelect) {
+                conditionSelect.querySelectorAll("option[data-locked-disposed]").forEach(function (opt) { opt.remove(); });
+                if (locked && condition && !Array.from(conditionSelect.options).some(function (opt) { return opt.value === condition; })) {
+                    const opt = new Option(condition, condition);
                     opt.dataset.lockedDisposed = "1";
-                    select.add(opt);
-                    select.value = current;
+                    conditionSelect.add(opt);
+                    conditionSelect.value = condition;
                 }
-                select.disabled = locked;
-            });
+                conditionSelect.disabled = locked;
+            }
+            const statusSelect = document.getElementById("maintenance_status");
+            if (statusSelect && locked) {
+                statusSelect.disabled = true;
+            }
             document.getElementById("maintenance_condition_hint").classList.toggle("hidden", locked);
             document.getElementById("maintenance_disposal_lock_note").classList.toggle("hidden", !locked);
             document.getElementById("maintenanceStatusSave").disabled = locked;
@@ -1920,26 +1968,26 @@
 
     <script>
         function syncEditDisposalLock(condition, status) {
-            const locked = status === "Disposed";
-            [
-                ["edit_condition", condition],
-                ["edit_status", status],
-            ].forEach(function (pair) {
-                const select = document.getElementById(pair[0]);
-                if (!select) return;
+            const locked = status === "Disposed" || status === "Pending Disposal";
+            const select = document.getElementById("edit_condition");
+            if (select) {
                 select.querySelectorAll("option[data-locked-disposed]").forEach(function (opt) {
                     opt.remove();
                 });
-                if (locked && pair[1]) {
-                    if (!Array.from(select.options).some(function (opt) { return opt.value === pair[1]; })) {
-                        const opt = new Option(pair[1], pair[1]);
+                if (locked && condition) {
+                    if (!Array.from(select.options).some(function (opt) { return opt.value === condition; })) {
+                        const opt = new Option(condition, condition);
                         opt.dataset.lockedDisposed = "1";
                         select.add(opt);
                     }
-                    select.value = pair[1];
+                    select.value = condition;
                 }
                 select.disabled = locked;
-            });
+            }
+            const statusSelect = document.getElementById("edit_status");
+            if (statusSelect && locked) {
+                statusSelect.disabled = true;
+            }
             const conditionSelect = document.getElementById("edit_condition");
             if (!locked && condition === "Disposed" && conditionSelect) {
                 conditionSelect.value = "Defective";
@@ -2015,17 +2063,27 @@
 
             setEqSelectValue("edit_condition", condition);
 
-            setEqSelectValue("edit_status", status);
+            lockDocumentStatus("edit_status", "edit_status_locked", status);
 
             syncEditDisposalLock(condition, status);
 
-            setEqSelectValue("edit_category", category);
-
-            setEqSelectValue("edit_room", room);
+            lockEditCategoryAndRoom(category, room);
 
             setEditEquipmentImage(imageUrl, name);
 
             setEditAcquisition(acquisition || {});
+
+            syncEditProcurementLocks(!!(acquisition && acquisition.linked_rr));
+
+            window.editEquipmentSnapshot = snapshotEditEquipmentForm(
+                document.getElementById("edit_condition")?.value || condition,
+                document.getElementById("edit_status")?.value
+                    || document.getElementById("edit_status_locked")?.value
+                    || status
+            );
+
+            const reasonField = document.getElementById("edit_edit_reason");
+            if (reasonField) reasonField.value = "";
 
             document
                 .getElementById("editEquipmentModal")
@@ -2036,6 +2094,99 @@
             if (window.lucide) {
                 window.lucide.createIcons();
             }
+        }
+
+        function lockEditCategoryAndRoom(categoryId, roomId) {
+            setEqSelectValue("edit_category", categoryId);
+            setEqSelectValue("edit_room", roomId);
+            const catSelect = document.getElementById("edit_category");
+            const roomSelect = document.getElementById("edit_room");
+            const catHidden = document.getElementById("edit_category_locked");
+            const roomHidden = document.getElementById("edit_room_locked");
+            [catSelect, roomSelect].forEach(function (el) {
+                if (!el) return;
+                el.disabled = true;
+                el.removeAttribute("name");
+            });
+            if (catHidden) {
+                catHidden.disabled = false;
+                catHidden.value = categoryId || "";
+            }
+            if (roomHidden) {
+                roomHidden.disabled = false;
+                roomHidden.value = roomId || "";
+            }
+        }
+
+        function syncEditProcurementLocks(linkedRr) {
+            ["edit_purchase_date", "edit_acquired_date", "edit_purchase_cost"].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.readOnly = true;
+                el.removeAttribute("name");
+            });
+            ["edit_brand", "edit_model"].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = linkedRr;
+                if (linkedRr) {
+                    el.removeAttribute("name");
+                } else {
+                    el.setAttribute("name", id === "edit_brand" ? "equipment_brand_name" : "equipment_model");
+                }
+            });
+        }
+
+        function snapshotEditEquipmentForm(condition, status) {
+            return {
+                name: document.getElementById("edit_equipment_name")?.value || "",
+                assetTag: document.getElementById("edit_asset_tag")?.value || "",
+                serial: document.getElementById("edit_serial")?.value || "",
+                brand: document.getElementById("edit_brand")?.value || "",
+                model: document.getElementById("edit_model")?.value || "",
+                condition: condition || "",
+                status: status || "",
+                warranty: document.getElementById("edit_warranty_expiration")?.value || "",
+                usefulLife: document.getElementById("edit_useful_life_years")?.value || "",
+                notes: document.getElementById("edit_acquisition_notes")?.value || "",
+            };
+        }
+
+        function buildEditEquipmentChangeSummary() {
+            const snap = window.editEquipmentSnapshot;
+            if (!snap) return "";
+            const lines = [];
+            const current = snapshotEditEquipmentForm(
+                document.getElementById("edit_condition")?.value,
+                document.getElementById("edit_status")?.value || document.getElementById("edit_status_locked")?.value
+            );
+            const pairs = [
+                ["name", "Name"],
+                ["assetTag", "Asset tag"],
+                ["serial", "Serial"],
+                ["brand", "Brand"],
+                ["model", "Model"],
+                ["condition", "Condition"],
+                ["status", "Status"],
+                ["warranty", "Warranty"],
+                ["usefulLife", "Useful life"],
+                ["notes", "Notes"],
+            ];
+            pairs.forEach(function (pair) {
+                const key = pair[0];
+                const label = pair[1];
+                if (String(snap[key] || "") !== String(current[key] || "")) {
+                    lines.push(label);
+                }
+            });
+            const fileInput = document.getElementById("edit_equipment_image");
+            if (fileInput && fileInput.files && fileInput.files.length) {
+                lines.push("Photo");
+            }
+            if (document.getElementById("edit_remove_image")?.value === "1") {
+                lines.push("Photo removed");
+            }
+            return lines.length ? ("Updating: " + lines.join(", ") + ".") : "No field changes detected besides your reason.";
         }
 
         function setEditAcquisition(acquisition) {
@@ -2057,6 +2208,41 @@
             document.getElementById("edit_acquisition_notes").value = acquisition.notes || "";
             syncEditSupplierName();
         }
+
+        (function () {
+            const form = document.getElementById("editEquipmentForm");
+            if (!form) return;
+            form.addEventListener("submit", function (event) {
+                if (form.dataset.purConfirmAccepted === "1") {
+                    delete form.dataset.purConfirmAccepted;
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                const reason = (document.getElementById("edit_edit_reason")?.value || "").trim();
+                if (reason.length < 3) {
+                    document.getElementById("edit_edit_reason")?.focus();
+                    return;
+                }
+                const summary = buildEditEquipmentChangeSummary();
+                const message = summary + " Continue?";
+                if (typeof window.purConfirm !== "function") {
+                    form.dataset.purConfirmAccepted = "1";
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                    return;
+                }
+                window.purConfirm({
+                    title: "Save equipment changes?",
+                    text: message,
+                    confirmText: "Save changes",
+                    kind: "caution",
+                }).then(function (ok) {
+                    if (!ok) return;
+                    form.dataset.purConfirmAccepted = "1";
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                });
+            }, true);
+        })();
 
         function syncEditSupplierName() {
             const select = document.getElementById("edit_acquisition_supplier");
@@ -2174,6 +2360,76 @@
             document
                 .getElementById("editEquipmentModal")
                 .classList.remove("flex");
+        }
+
+        function lockDocumentStatus(selectId, hiddenId, status) {
+            const select = document.getElementById(selectId);
+            const hidden = document.getElementById(hiddenId);
+            if (!select) return;
+            const manual = ["Active", "Under Maintenance"];
+            const current = status || "Active";
+            select.querySelectorAll("option[data-locked-doc]").forEach(function (opt) { opt.remove(); });
+            if (manual.indexOf(current) === -1) {
+                const opt = new Option(current, current);
+                opt.dataset.lockedDoc = "1";
+                select.add(opt);
+                select.value = current;
+                select.disabled = true;
+                select.removeAttribute("name");
+                if (hidden) {
+                    hidden.disabled = false;
+                    hidden.name = "equipment_inventory_status";
+                    hidden.value = current;
+                }
+                return;
+            }
+            select.disabled = false;
+            select.name = "equipment_inventory_status";
+            setEqSelectValue(selectId, current);
+            if (hidden) {
+                hidden.disabled = true;
+                hidden.removeAttribute("name");
+                hidden.value = "";
+            }
+        }
+
+        function openStockMovementModal(equipmentId, equipmentName, onHand) {
+            const modal = document.getElementById("stockMovementModal");
+            if (!modal) return;
+            document.getElementById("stockMovementEquipmentId").value = equipmentId;
+            document.getElementById("stockMovementName").textContent = equipmentName || "Stock";
+            document.getElementById("stockMovementOnHand").textContent = String(onHand ?? 0);
+            document.getElementById("stockMovementQuantity").value = "";
+            document.getElementById("stockMovementReason").value = "";
+            const kind = document.getElementById("stockMovementKind");
+            if (kind) kind.value = "issue";
+            syncStockMovementHint();
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        function closeStockMovementModal() {
+            const modal = document.getElementById("stockMovementModal");
+            if (!modal) return;
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function syncStockMovementHint() {
+            const kind = document.getElementById("stockMovementKind");
+            const hint = document.getElementById("stockMovementHint");
+            const label = document.getElementById("stockMovementQtyLabel");
+            if (!kind || !hint || !label) return;
+            if (kind.value === "adjustment") {
+                label.textContent = "Counted on hand";
+                hint.textContent = "Enter what you counted. The difference from the book is posted as an adjustment.";
+            } else if (kind.value === "spoilage") {
+                label.textContent = "Quantity to write off";
+                hint.textContent = "Removes damaged or unusable bulk stock. This does not create a disposal record.";
+            } else {
+                label.textContent = "Quantity to issue";
+                hint.textContent = "Removes stock that was given out. The reason should say who received it.";
+            }
         }
 
         function clearInventoryDisposeReasonError() {
@@ -2717,6 +2973,56 @@
     </div>
     @endif
 
+    @if ($canManage)
+    <div
+        id="stockMovementModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeStockMovementModal()"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">Stock movement</h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        <span id="stockMovementName" class="font-medium text-slate-800"></span>
+                        · On hand <span id="stockMovementOnHand">0</span>
+                    </p>
+                </div>
+                <button type="button" onclick="closeStockMovementModal()" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+            <form action="{{ url('/admin/inventory/stock-movement') }}" method="POST">
+                @csrf
+                <input type="hidden" name="equipment_id" id="stockMovementEquipmentId" value="" />
+                <div class="space-y-4 border-y border-slate-100 px-6 py-5">
+                    <div>
+                        <label for="stockMovementKind" class="mb-2 block text-sm font-medium text-slate-700">Type</label>
+                        <select id="stockMovementKind" name="kind" onchange="syncStockMovementHint()" class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900">
+                            <option value="issue">Issue</option>
+                            <option value="spoilage">Spoilage / write-off</option>
+                            <option value="adjustment">Count adjustment</option>
+                        </select>
+                        <p id="stockMovementHint" class="mt-1.5 text-[11px] leading-4 text-slate-500"></p>
+                    </div>
+                    <div>
+                        <label for="stockMovementQuantity" id="stockMovementQtyLabel" class="mb-2 block text-sm font-medium text-slate-700">Quantity</label>
+                        <input id="stockMovementQuantity" name="quantity" type="number" min="0" required class="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm" />
+                    </div>
+                    <div>
+                        <label for="stockMovementReason" class="mb-2 block text-sm font-medium text-slate-700">Reason <span class="text-red-500">*</span></label>
+                        <textarea id="stockMovementReason" name="reason" rows="3" required maxlength="1000" class="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm" placeholder="Why is this quantity changing?"></textarea>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 px-6 py-4">
+                    <button type="button" onclick="closeStockMovementModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                    <button type="submit" class="h-10 rounded-xl bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Post</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+
     @if ($canManage || $canEditStatus)
     <div
         id="inventoryDisposeModal"
@@ -2733,7 +3039,7 @@
                         Dispose equipment
                     </h2>
                     <p class="mt-2 text-sm leading-6 text-slate-500">
-                        Only Defective or Damaged equipment can be sent to Equipment Disposal. It can still be restored until it is finalized there.
+                        Only Defective or Damaged equipment can be sent to Equipment Disposal. It stays pending until you finalize it there, and it can be restored with the condition it had before.
                     </p>
                 </div>
                 <button

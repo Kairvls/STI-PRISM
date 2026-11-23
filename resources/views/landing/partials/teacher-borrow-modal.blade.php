@@ -95,22 +95,6 @@
                     <p id="teacherBorrowCartError" class="hidden text-xs font-medium text-rose-600"></p>
                 </div>
 
-                {{-- Location --}}
-                <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                    <div>
-                        <label for="teacherBorrowLocation" class="mb-1.5 block text-sm text-slate-600">
-                            Location <span class="text-red-500">*</span>
-                        </label>
-                        <input
-                            id="teacherBorrowLocation"
-                            type="text"
-                            required
-                            maxlength="150"
-                            placeholder="Where the equipment will be used"
-                            class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                        >
-                    </div>
-                </div>
 
                 {{-- Schedule --}}
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
@@ -144,6 +128,25 @@
                     </div>
                 </div>
 
+ 
+                
+                {{-- Location --}}
+                <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                    <div>
+                        <label for="teacherBorrowLocation" class="mb-1.5 block text-sm text-slate-600">
+                            Location <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            id="teacherBorrowLocation"
+                            type="text"
+                            required
+                            maxlength="150"
+                            placeholder="Where the equipment will be used"
+                            class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                        >
+                    </div>
+                </div>
+                
                 {{-- Notes --}}
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div>

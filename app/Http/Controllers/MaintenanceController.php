@@ -10,6 +10,7 @@ use App\Support\EquipmentAcquisition;
 use App\Support\EquipmentBatchIntake;
 use App\Support\EquipmentConditions;
 use App\Support\EquipmentInventoryStatuses;
+use App\Support\EquipmentStockLedger;
 use App\Support\AdminPortal;
 use App\Support\BorrowingFees;
 use App\Support\IssueChecks;
@@ -4962,7 +4963,11 @@ class MaintenanceController extends Controller
 
         if ($isStockPage) {
             $liveStockQuery = $storageJoin(DB::table('equipment_table'))
-                ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed', TransferLocks::BORROWED]);
+                ->whereNotIn('equipment_table.equipment_inventory_status', [
+                    'Disposed',
+                    EquipmentInventoryStatuses::PENDING_DISPOSAL,
+                    TransferLocks::BORROWED,
+                ]);
 
             $totalEquipment = (clone $liveStockQuery)->count();
             $stockTotalQuantity = (int) (clone $liveStockQuery)
@@ -8516,6 +8521,7 @@ class MaintenanceController extends Controller
 
         $equipmentBack = EquipmentViewReturn::resolve(request());
         $lifecycle = EquipmentTimeline::forEquipment((int) $id);
+        $stockMovements = EquipmentStockLedger::history((int) $id);
         $lifecycleProfile = $lifecycle['equipment'] ?? null;
         $lifecycleEvents = collect($lifecycle['events'] ?? []);
         $lifecycleCounts = $lifecycle['counts'] ?? [];
@@ -8548,7 +8554,8 @@ class MaintenanceController extends Controller
                 'propertyAssignment',
                 'assignmentHistory',
                 'assignmentBlocker',
-                'assignablePeople'
+                'assignablePeople',
+                'stockMovements'
             ) + ['reportSummary' => $lifecycle['report_summary'] ?? null]
         );
     }
@@ -9090,6 +9097,12 @@ class MaintenanceController extends Controller
                 $equipmentId = DB::table('equipment_table')->insertGetId($payload);
 
                 EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                EquipmentStockLedger::recordReceipt(
+                    (int) $equipmentId,
+                    $quantity,
+                    (int) ($validated['equipment_room_id'] ?? 0) ?: null,
+                    $rrLine ? (int) $rrLine->receiving_report_item_id : null
+                );
                 $createdIds[] = (int) $equipmentId;
             } else {
                 $rows = count($items) > 0
@@ -9143,6 +9156,12 @@ class MaintenanceController extends Controller
                     $equipmentId = DB::table('equipment_table')->insertGetId($payload);
 
                     EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                    EquipmentStockLedger::recordReceipt(
+                        (int) $equipmentId,
+                        1,
+                        (int) ($validated['equipment_room_id'] ?? 0) ?: null,
+                        $rrLine ? (int) $rrLine->receiving_report_item_id : null
+                    );
                     $createdIds[] = (int) $equipmentId;
                     $createdRooms[(int) $equipmentId] = $itemRooms->get((int) ($item['deploy_room_id'] ?? 0)) ?? $deployRoom;
                 }
@@ -9495,6 +9514,27 @@ class MaintenanceController extends Controller
             );
         }
 
+        $request->validate([
+            'equipment_edit_reason' => 'required|string|min:3|max:500',
+        ], [
+            'equipment_edit_reason.required' => 'Enter a short reason for this change.',
+            'equipment_edit_reason.min' => 'The reason must be at least 3 characters.',
+        ]);
+
+        if ((int) ($request->equipment_room_id ?? 0) !== (int) ($equipment->equipment_room_id ?? 0)) {
+            return back()
+                ->with('error', 'Room changes must use Transfer from Inventory. Other fields were not saved.')
+                ->withInput();
+        }
+
+        if ((int) ($request->equipment_category_id ?? 0) !== (int) ($equipment->equipment_category_id ?? 0)) {
+            return back()
+                ->with('error', 'Classification cannot be changed after stock-in.')
+                ->withInput();
+        }
+
+        $linkedRr = (int) ($equipment->equipment_receiving_report_item_id ?? 0) > 0;
+
         // Bulk stock keeps unique name-per-room; Individual units may share a display name.
         $duplicateName = ($equipment->equipment_tracking_mode ?? 'Individual') === 'Bulk'
             && DB::table('equipment_table')
@@ -9526,7 +9566,13 @@ class MaintenanceController extends Controller
             'equipment_purchase_cost' => 'nullable|numeric|min:0',
         ] + EquipmentAcquisition::validationRules());
 
-        $alreadyDisposed = ($equipment->equipment_inventory_status ?? '') === EquipmentInventoryStatuses::DISPOSED;
+        $alreadyDisposed = in_array(
+            (string) ($equipment->equipment_inventory_status ?? ''),
+            [EquipmentInventoryStatuses::DISPOSED, EquipmentInventoryStatuses::PENDING_DISPOSAL],
+            true
+        );
+
+        $editReason = trim((string) $request->input('equipment_edit_reason', ''));
 
         if ($alreadyDisposed) {
             $savedCondition = $equipment->equipment_condition_status;
@@ -9534,13 +9580,16 @@ class MaintenanceController extends Controller
         } else {
             $request->validate([
                 'equipment_condition_status' => ['required', Rule::in(EquipmentConditions::ASSIGNABLE)],
-                'equipment_inventory_status' => ['required', Rule::in(EquipmentInventoryStatuses::ASSIGNABLE)],
+                'equipment_inventory_status' => ['required', Rule::in(EquipmentInventoryStatuses::ALL)],
             ], [
                 'equipment_condition_status.in' => 'Disposed is set only from Equipment Disposal. Choose Good, Under Maintenance, Defective, or Damaged.',
-                'equipment_inventory_status.in' => 'Disposed is set only from Equipment Disposal.',
+                'equipment_inventory_status.in' => 'Choose a known inventory status.',
             ]);
             $savedCondition = $request->equipment_condition_status;
-            $savedInventoryStatus = $request->equipment_inventory_status;
+            $savedInventoryStatus = $this->keptInventoryStatus(
+                (string) ($equipment->equipment_inventory_status ?? ''),
+                (string) $request->equipment_inventory_status
+            );
         }
 
         $acquisitionColumns = EquipmentAcquisition::ready()
@@ -9562,6 +9611,8 @@ class MaintenanceController extends Controller
         // START TRANSACTION
         // =====================================================
 
+        $changeNotes = $this->equipmentEditChangeNotes($equipment, $request, $savedCondition, $imagePath !== ($equipment->equipment_image ?? null));
+
         DB::transaction(function () use (
             $request,
             $id,
@@ -9569,24 +9620,13 @@ class MaintenanceController extends Controller
             $imagePath,
             $acquisitionColumns,
             $savedCondition,
-            $savedInventoryStatus
+            $savedInventoryStatus,
+            $linkedRr,
+            $editReason,
+            $changeNotes
         ) {
-            $oldRoomId = (int) ($equipment->equipment_room_id ?? 0);
-            $newRoomId = (int) ($request->equipment_room_id ?? 0);
             $oldCondition = $equipment->equipment_condition_status ?? null;
             $newCondition = $savedCondition;
-
-            // Room changes must go through transfer history (immutability).
-            if ($newRoomId > 0 && $oldRoomId !== $newRoomId && Schema::hasTable('equipment_transfer_history_table')) {
-                DB::table('equipment_transfer_history_table')->insert([
-                    'equipment_id' => $id,
-                    'from_room_id' => $oldRoomId ?: null,
-                    'to_room_id' => $newRoomId,
-                    'transferred_by' => Auth::id(),
-                    'remarks' => trim((string) $request->input('transfer_remarks', '')) ?: 'Room change via equipment edit',
-                    'created_at' => now(),
-                ]);
-            }
 
             DB::table('equipment_table')
 
@@ -9598,10 +9638,10 @@ class MaintenanceController extends Controller
                 ->update([
 
                     'equipment_category_id'
-                        => $request->equipment_category_id,
+                        => (int) ($equipment->equipment_category_id ?? 0),
 
                     'equipment_room_id'
-                        => $request->equipment_room_id,
+                        => (int) ($equipment->equipment_room_id ?? 0),
 
                     'equipment_asset_tag'
                         => $request->equipment_asset_tag,
@@ -9610,16 +9650,22 @@ class MaintenanceController extends Controller
                         => $request->equipment_name,
 
                     'equipment_brand_name'
-                        => $request->equipment_brand_name,
+                        => $linkedRr
+                            ? $equipment->equipment_brand_name
+                            : $request->equipment_brand_name,
 
                     'equipment_model'
-                        => $request->equipment_model,
+                        => $linkedRr
+                            ? $equipment->equipment_model
+                            : $request->equipment_model,
 
                     'equipment_serial_number'
                         => $request->equipment_serial_number,
 
                     'equipment_quantity'
-                        => $request->equipment_quantity,
+                        => EquipmentStockLedger::enabled()
+                            ? $equipment->equipment_quantity
+                            : $request->equipment_quantity,
 
                     'equipment_condition_status'
                         => $savedCondition,
@@ -9628,19 +9674,13 @@ class MaintenanceController extends Controller
                         => $savedInventoryStatus,
 
                     'equipment_purchase_date'
-                        => $request->filled('equipment_purchase_date')
-                            ? $request->equipment_purchase_date
-                            : null,
+                        => $equipment->equipment_purchase_date,
 
                     'equipment_acquired_date'
-                        => $request->filled('equipment_acquired_date')
-                            ? $request->equipment_acquired_date
-                            : null,
+                        => $equipment->equipment_acquired_date,
 
                     'equipment_purchase_cost'
-                        => $request->filled('equipment_purchase_cost')
-                            ? $request->equipment_purchase_cost
-                            : null,
+                        => $equipment->equipment_purchase_cost,
 
                     'equipment_warranty_expiration'
                         => $request->equipment_warranty_expiration,
@@ -9660,12 +9700,19 @@ class MaintenanceController extends Controller
                 $oldCondition,
                 $newCondition,
                 'equipment_edit',
-                'Condition updated via edit form'
+                'Condition updated via edit form. Reason: '.$editReason
             );
 
             // =================================================
             // RECENT ACTIVITY
             // =================================================
+
+            $audit = 'Updated equipment information for '
+                .($request->equipment_name ?? $equipment->equipment_name)
+                .'. Reason: '.$editReason;
+            if ($changeNotes !== '') {
+                $audit .= ' Changes: '.$changeNotes;
+            }
 
             $this->logActivity(
 
@@ -9677,10 +9724,7 @@ class MaintenanceController extends Controller
 
                 (int) $id,
 
-                'Updated equipment information for '
-                . ($request->equipment_name
-                    ?? $equipment->equipment_name)
-                . '.'
+                $audit
 
             );
 
@@ -9722,17 +9766,22 @@ class MaintenanceController extends Controller
 
         $validated = $request->validate([
             'equipment_condition_status' => ['required', Rule::in(EquipmentConditions::ASSIGNABLE)],
-            'equipment_inventory_status' => ['required', Rule::in(EquipmentInventoryStatuses::ASSIGNABLE)],
+            'equipment_inventory_status' => ['required', Rule::in(EquipmentInventoryStatuses::ALL)],
         ], [
             'equipment_condition_status.in' => 'Disposed is set only from Equipment Disposal. Choose Good, Under Maintenance, Defective, or Damaged.',
-            'equipment_inventory_status.in' => 'Disposed is set only from Equipment Disposal.',
+            'equipment_inventory_status.in' => 'Choose a known inventory status.',
         ]);
+
+        $keptStatus = $this->keptInventoryStatus(
+            (string) ($equipment->equipment_inventory_status ?? ''),
+            (string) $validated['equipment_inventory_status']
+        );
 
         DB::table('equipment_table')
             ->where('equipment_id', $id)
             ->update([
                 'equipment_condition_status' => $validated['equipment_condition_status'],
-                'equipment_inventory_status' => $validated['equipment_inventory_status'],
+                'equipment_inventory_status' => $keptStatus,
             ]);
 
         EquipmentConditionHistory::record(
@@ -10319,6 +10368,13 @@ class MaintenanceController extends Controller
             return $fail($locked);
         }
 
+        if (in_array($equipment->equipment_inventory_status ?? '', [
+            EquipmentInventoryStatuses::DISPOSED,
+            EquipmentInventoryStatuses::PENDING_DISPOSAL,
+        ], true)) {
+            return $fail('This unit is in disposal and cannot be transferred.');
+        }
+
         $room = DB::table('rooms_table')->where('room_id', $roomId)->first();
         if (! $room) {
             return $fail('Destination room not found.');
@@ -10386,7 +10442,7 @@ class MaintenanceController extends Controller
             foreach ($ids as $equipmentId) {
                 $equipment = DB::table('equipment_table')
                     ->where('equipment_id', $equipmentId)
-                    ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                    ->whereNotIn('equipment_inventory_status', ['Disposed', EquipmentInventoryStatuses::PENDING_DISPOSAL])
                     ->first();
 
                 if (! $equipment) {
@@ -15017,6 +15073,137 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * @return string Human-readable list of changed fields for audit logs.
+     */
+    private function equipmentEditChangeNotes(
+        object $equipment,
+        Request $request,
+        string $newCondition,
+        bool $imageChanged
+    ): string {
+        $notes = [];
+        $fields = [
+            'equipment_name' => 'Name',
+            'equipment_asset_tag' => 'Asset tag',
+            'equipment_serial_number' => 'Serial',
+            'equipment_warranty_expiration' => 'Warranty',
+            'equipment_useful_life_years' => 'Useful life',
+        ];
+
+        foreach ($fields as $key => $label) {
+            $before = trim((string) ($equipment->{$key} ?? ''));
+            $after = trim((string) ($request->input($key) ?? ''));
+            if ($key === 'equipment_useful_life_years') {
+                $before = (string) ($equipment->{$key} ?? '');
+                $after = $request->filled($key) ? (string) (int) $request->input($key) : '';
+            }
+            if ($after !== '' && $before !== $after) {
+                $notes[] = $label;
+            }
+        }
+
+        $oldCondition = (string) ($equipment->equipment_condition_status ?? '');
+        if ($newCondition !== '' && $oldCondition !== $newCondition) {
+            $notes[] = 'Condition';
+        }
+
+        $oldStatus = (string) ($equipment->equipment_inventory_status ?? '');
+        $newStatus = $this->keptInventoryStatus($oldStatus, (string) $request->input('equipment_inventory_status', $oldStatus));
+        if ($newStatus !== $oldStatus && in_array($oldStatus, EquipmentInventoryStatuses::MANUAL, true)) {
+            $notes[] = 'Inventory status';
+        }
+
+        if ($imageChanged) {
+            $notes[] = 'Photo';
+        }
+
+        return $notes === [] ? '' : implode(', ', $notes);
+    }
+
+    /**
+     * Borrowed, replacement, and disposal statuses stay with the record that set them.
+     */
+    private function keptInventoryStatus(string $current, string $requested): string
+    {
+        if (! in_array($current, EquipmentInventoryStatuses::MANUAL, true)) {
+            return $current;
+        }
+
+        return in_array($requested, EquipmentInventoryStatuses::MANUAL, true)
+            ? $requested
+            : $current;
+    }
+
+    public function postStockMovement(Request $request)
+    {
+        $validated = $request->validate([
+            'equipment_id' => 'required|integer|min:1',
+            'kind' => 'required|in:adjustment,spoilage,issue',
+            'quantity' => 'required|integer|min:0|max:'.\App\Support\InputLimits::QTY,
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        if (! EquipmentStockLedger::enabled()) {
+            return back()->with('error', 'The stock ledger is not available yet.');
+        }
+
+        $equipment = DB::table('equipment_table')->where('equipment_id', (int) $validated['equipment_id'])->first();
+        if (! $equipment) {
+            return back()->with('error', 'Equipment not found.');
+        }
+
+        if (! EquipmentTrackingModes::isStores(
+            $equipment->equipment_tracking_mode ?? null,
+            isset($equipment->equipment_category_id) ? (int) $equipment->equipment_category_id : null
+        )) {
+            return back()->with('error', 'Issue, spoilage, and count adjustments are for bulk stock. Serialized units use disposal.');
+        }
+
+        $kind = $validated['kind'];
+        $quantity = (int) $validated['quantity'];
+        $reason = trim($validated['reason']);
+        $onHand = EquipmentStockLedger::balance((int) $equipment->equipment_id);
+
+        try {
+            if ($kind === 'adjustment') {
+                $delta = $quantity - $onHand;
+                if ($delta === 0) {
+                    return back()->with('success', 'Counted quantity already matches the book. Nothing was posted.');
+                }
+                EquipmentStockLedger::post((int) $equipment->equipment_id, EquipmentStockLedger::ADJUSTMENT, $delta, [
+                    'room_id' => $equipment->equipment_room_id ?: null,
+                    'reference_type' => 'stock_adjustment',
+                    'remarks' => 'Count adjustment. Book '.$onHand.', counted '.$quantity.'. '.$reason,
+                ]);
+                $message = 'Stock adjusted from '.$onHand.' to '.$quantity.'.';
+            } else {
+                if ($quantity < 1) {
+                    return back()->with('error', 'Enter a quantity of at least 1.')->withInput();
+                }
+                $type = $kind === 'issue' ? EquipmentStockLedger::ISSUE : EquipmentStockLedger::SPOILAGE;
+                EquipmentStockLedger::post((int) $equipment->equipment_id, $type, -$quantity, [
+                    'room_id' => $equipment->equipment_room_id ?: null,
+                    'reference_type' => $kind === 'issue' ? 'stock_issue' : 'stock_spoilage',
+                    'remarks' => $reason,
+                ]);
+                $message = ($kind === 'issue' ? 'Issued ' : 'Wrote off ').$quantity.' from '.($equipment->equipment_name ?? 'stock').'.';
+            }
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage())->withInput();
+        }
+
+        $this->logActivity(
+            $kind === 'adjustment' ? 'Adjusted stock' : ($kind === 'issue' ? 'Issued stock' : 'Wrote off spoilage'),
+            'Equipment',
+            'equipment_table',
+            (int) $equipment->equipment_id,
+            $message.' Reason: '.$reason
+        );
+
+        return back()->with('success', $message);
+    }
+
     public function storeDisposal(Request $request)
     {
         $validated = $request->validate([
@@ -15113,8 +15300,19 @@ class MaintenanceController extends Controller
 
         $name = $equipment->equipment_name ?? 'This equipment';
 
-        if (($equipment->equipment_inventory_status ?? '') === EquipmentInventoryStatuses::DISPOSED) {
+        $inventoryStatus = (string) ($equipment->equipment_inventory_status ?? '');
+        if ($inventoryStatus === EquipmentInventoryStatuses::DISPOSED) {
             return $name.' is already disposed.';
+        }
+        if ($inventoryStatus === EquipmentInventoryStatuses::PENDING_DISPOSAL) {
+            return $name.' is already in Equipment Disposal.';
+        }
+
+        if (EquipmentTrackingModes::isStores(
+            $equipment->equipment_tracking_mode ?? null,
+            isset($equipment->equipment_category_id) ? (int) $equipment->equipment_category_id : null
+        )) {
+            return $name.' is bulk stock. Reduce it with Issue or Spoilage instead of equipment disposal.';
         }
 
         if (! EquipmentConditions::isDisposable($equipment->equipment_condition_status ?? null)) {
@@ -15388,9 +15586,8 @@ class MaintenanceController extends Controller
     private function disposalEquipmentUpdate(object $equipment, ?object $destinationRoom): array
     {
         $update = [
-            'equipment_inventory_status' => 'Disposed',
-            // Keep Damaged so it remains restorable until finalized via Dispose.
-            'equipment_condition_status' => 'Damaged',
+            'equipment_inventory_status' => EquipmentInventoryStatuses::PENDING_DISPOSAL,
+            'equipment_condition_status' => $equipment->equipment_condition_status ?: EquipmentConditions::DAMAGED,
         ];
 
         if (! $destinationRoom || (int) $destinationRoom->room_id === (int) ($equipment->equipment_room_id ?? 0)) {
@@ -15462,6 +15659,8 @@ class MaintenanceController extends Controller
                 ->orderByDesc('disposal_record_id')
                 ->first();
 
+            $conditionBefore = (string) ($equipment->equipment_condition_status ?? '');
+
             if ($existingDisposal) {
                 $disposalId = (int) $existingDisposal->disposal_record_id;
 
@@ -15471,6 +15670,9 @@ class MaintenanceController extends Controller
                     'disposal_approved_by' => Auth::id(),
                     'disposal_disposed_at' => now(),
                 ];
+                if (Schema::hasColumn('disposal_records_table', 'disposal_condition_before')) {
+                    $update['disposal_condition_before'] = $conditionBefore !== '' ? $conditionBefore : null;
+                }
                 if (Schema::hasColumn('disposal_records_table', 'disposal_method')) {
                     $update['disposal_method'] = $method;
                 }
@@ -15489,6 +15691,9 @@ class MaintenanceController extends Controller
                     'disposal_approved_by' => Auth::id(),
                     'disposal_disposed_at' => now(),
                 ];
+                if (Schema::hasColumn('disposal_records_table', 'disposal_condition_before')) {
+                    $insert['disposal_condition_before'] = $conditionBefore !== '' ? $conditionBefore : null;
+                }
                 if (Schema::hasColumn('disposal_records_table', 'disposal_method')) {
                     $insert['disposal_method'] = $method;
                 }
@@ -15567,11 +15772,25 @@ class MaintenanceController extends Controller
             );
         }
 
+        $restoredCondition = EquipmentConditions::DAMAGED;
+        if (
+            Schema::hasColumn('disposal_records_table', 'disposal_condition_before')
+            && filled($record->disposal_condition_before ?? null)
+            && in_array($record->disposal_condition_before, EquipmentConditions::ASSIGNABLE, true)
+        ) {
+            $restoredCondition = (string) $record->disposal_condition_before;
+        } elseif (
+            $equipment
+            && in_array($equipment->equipment_condition_status ?? '', EquipmentConditions::DISPOSABLE, true)
+        ) {
+            $restoredCondition = (string) $equipment->equipment_condition_status;
+        }
+
         DB::table('equipment_table')
             ->where('equipment_id', $record->disposal_equipment_id)
             ->update([
                 'equipment_inventory_status' => 'Active',
-                'equipment_condition_status' => 'Good',
+                'equipment_condition_status' => $restoredCondition,
             ]);
 
         DB::table('disposal_records_table')

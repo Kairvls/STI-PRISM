@@ -658,6 +658,7 @@ Route::middleware(['auth', 'admin'])
         Route::post('/inventory/transfer', [MaintenanceController::class, 'transferEquipment'])->name('inventory.transfer');
         Route::post('/inventory/transfer-batch', [MaintenanceController::class, 'transferEquipmentBatch'])->name('inventory.transfer-batch');
         Route::post('/inventory/dispose', [MaintenanceController::class, 'storeDisposal'])->name('inventory.dispose');
+        Route::post('/inventory/stock-movement', [MaintenanceController::class, 'postStockMovement'])->name('inventory.stock-movement');
         Route::post('/inventory/mark-replaced', [MaintenanceController::class, 'markEquipmentReplacedNoSuccessor'])->name('inventory.mark-replaced');
         Route::get('/inventory/transfer-requests', [MaintenanceController::class, 'transferRequests'])->name('inventory.transfer-requests');
         Route::post('/inventory/transfer-requests/{id}/approve', [MaintenanceController::class, 'approveTransferRequest'])->whereNumber('id')->name('inventory.transfer-requests.approve');
