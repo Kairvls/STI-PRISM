@@ -185,6 +185,26 @@ $schoolAdminModuleRoutes = function () {
     )->whereNumber('id')->where('type', 'ris|atp|rfc|dv|rr|liq')->name('operations.document');
 
     Route::get(
+        '/canvass-review',
+        [\App\Http\Controllers\CanvassReviewController::class, 'index']
+    )->name('canvass-review.index');
+
+    Route::get(
+        '/canvass-review/{canvassId}',
+        [\App\Http\Controllers\CanvassReviewController::class, 'show']
+    )->whereNumber('canvassId')->name('canvass-review.show');
+
+    Route::get(
+        '/canvass-review/{canvassId}/print',
+        [\App\Http\Controllers\CanvassReviewController::class, 'print']
+    )->whereNumber('canvassId')->name('canvass-review.print');
+
+    Route::get(
+        '/canvass-review/attachments/{attachmentId}/download',
+        [\App\Http\Controllers\CanvassController::class, 'downloadAttachment']
+    )->whereNumber('attachmentId')->name('canvass-review.attachments.download');
+
+    Route::get(
         '/procurement-review',
         [AdminController::class, 'procurementReview']
     )->name('procurement-review');
@@ -262,6 +282,21 @@ $schoolAdminModuleRoutes = function () {
 
 // RIS decisions: School Administrator only (the Administrator portal is view-only).
 $schoolAdminRisActionRoutes = function () {
+
+    Route::post(
+        '/canvass-review/{canvassId}/start-review',
+        [\App\Http\Controllers\CanvassReviewController::class, 'startReview']
+    )->whereNumber('canvassId')->name('canvass-review.start-review');
+
+    Route::post(
+        '/canvass-review/{canvassId}/items/{itemId}/approve',
+        [\App\Http\Controllers\CanvassReviewController::class, 'approveItem']
+    )->whereNumber(['canvassId', 'itemId'])->name('canvass-review.items.approve');
+
+    Route::post(
+        '/canvass-review/{canvassId}/items/{itemId}/return',
+        [\App\Http\Controllers\CanvassReviewController::class, 'returnItem']
+    )->whereNumber(['canvassId', 'itemId'])->name('canvass-review.items.return');
 
     Route::post(
         '/procurement-review/ris/accept-bulk',

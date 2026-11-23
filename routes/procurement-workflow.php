@@ -8,6 +8,7 @@
 use App\Http\Controllers\AuthorityToPurchaseController;
 use App\Http\Controllers\BackOrderController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\CanvassController;
 use App\Http\Controllers\DraftHandoverController;
 use App\Http\Controllers\FileMaintenanceController;
 use App\Http\Controllers\ItemCategoryController;
@@ -58,6 +59,39 @@ Route::post(
     '/procurement/replacement-requests/{requestId}/restore',
     [ReplacementRequestController::class, 'restore']
 )->name('procurement.replacement-requests.restore');
+
+
+// =====================================================
+// PURCHASE CANVASS
+// =====================================================
+
+Route::get('/canvass', [CanvassController::class, 'index'])->name('canvass.index');
+Route::get('/canvass/create', [CanvassController::class, 'create'])->name('canvass.create');
+Route::post('/canvass', [CanvassController::class, 'store'])->name('canvass.store');
+Route::get('/canvass/attachments/{attachmentId}/download', [CanvassController::class, 'downloadAttachment'])
+    ->whereNumber('attachmentId')
+    ->name('canvass.attachments.download');
+Route::delete('/canvass/attachments/{attachmentId}', [CanvassController::class, 'destroyAttachment'])
+    ->whereNumber('attachmentId')
+    ->name('canvass.attachments.destroy');
+Route::get('/canvass/{canvassId}', [CanvassController::class, 'show'])
+    ->whereNumber('canvassId')
+    ->name('canvass.show');
+Route::get('/canvass/{canvassId}/edit', [CanvassController::class, 'edit'])
+    ->whereNumber('canvassId')
+    ->name('canvass.edit');
+Route::put('/canvass/{canvassId}', [CanvassController::class, 'update'])
+    ->whereNumber('canvassId')
+    ->name('canvass.update');
+Route::post('/canvass/{canvassId}/archive', [CanvassController::class, 'archive'])
+    ->whereNumber('canvassId')
+    ->name('canvass.archive');
+Route::post('/canvass/{canvassId}/restore', [CanvassController::class, 'restore'])
+    ->whereNumber('canvassId')
+    ->name('canvass.restore');
+Route::delete('/canvass/{canvassId}', [CanvassController::class, 'destroy'])
+    ->whereNumber('canvassId')
+    ->name('canvass.destroy');
 
 
 // =====================================================

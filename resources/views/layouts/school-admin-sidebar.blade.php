@@ -161,10 +161,22 @@
 
         @php
             $saCounts = \App\Support\SchoolAdminSidebarCounts::counts();
+            $saCanvassPending = \App\Support\CanvassWorkflow::pendingReviewCount();
             $navCount = 'menu-count ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#0025cc] px-1.5 text-[10px] font-bold leading-none !text-white';
             $risSidebarActive = request()->is('school-admin/procurement-review*')
                 || request()->is('school-admin/digital-signatures/sign-ris*');
         @endphp
+        <a
+            href="{{ route('school-admin.canvass-review.index') }}"
+            class="menu-item {{ request()->is('school-admin/canvass-review*') ? 'active' : '' }}"
+        >
+            <i data-lucide="scale"></i>
+            <span>Canvass Review</span>
+            @if($saCanvassPending > 0)
+                <span class="{{ $navCount }}" title="{{ $saCanvassPending }} awaiting review">{{ $saCanvassPending }}</span>
+            @endif
+        </a>
+
         <a
             href="{{ route('school-admin.procurement-review') }}"
             class="menu-item {{ $risSidebarActive ? 'active' : '' }}"

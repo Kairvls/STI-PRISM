@@ -303,6 +303,7 @@ class RisController extends Controller
             || $request->boolean('create')
             || $request->filled('replacement_request')
             || $request->filled('copy_from')
+            || $request->filled('from_canvass')
             || $editRisId > 0
             || $request->session()->hasOldInput()
         );
@@ -368,6 +369,9 @@ class RisController extends Controller
         }
 
         $risCopyPrefill = $loadFormDatasets ? $this->risCopyPrefillFromRequest($request) : null;
+        $canvassPrefill = ($loadFormDatasets && $request->filled('from_canvass'))
+            ? \App\Support\CanvassWorkflow::risPrefillPayload((int) $request->query('from_canvass', 0))
+            : null;
         $defaultRequestedBy = $loadFormDatasets
             ? (trim((string) (Auth::user()->user_full_name ?? '')) ?: ($risCopyPrefill['requested_by'] ?? ''))
             : null;
@@ -418,6 +422,7 @@ class RisController extends Controller
             'itemCatalog',
             'itemHints',
             'risCopyPrefill',
+            'canvassPrefill',
             'defaultRequestedBy',
             'defaultRequestedByDate',
             'savedSignatures',
@@ -544,6 +549,11 @@ class RisController extends Controller
             'ris_form_number' => $this->risFormNumberRules(false),
 
             'copied_from_ris_id' => [
+                'nullable',
+                'integer',
+            ],
+
+            'ris_canvass_id' => [
                 'nullable',
                 'integer',
             ],
@@ -1014,7 +1024,44 @@ class RisController extends Controller
                 $risPayload['ris_request_no'] = \App\Support\ProcurementRequestNumber::allocate();
             }
 
+            $sourceCanvassId = ! empty($validated['ris_canvass_id']) ? (int) $validated['ris_canvass_id'] : null;
+            if ($sourceCanvassId && Schema::hasColumn('requisition_issue_slip_table', 'ris_canvass_id')) {
+                $risPayload['ris_canvass_id'] = $sourceCanvassId;
+            }
+
             $risId = DB::table('requisition_issue_slip_table')->insertGetId($risPayload);
+
+            // Link & lock source Canvass as Converted to RIS and carry over supporting files.
+            if ($sourceCanvassId && \App\Support\CanvassWorkflow::tablesExist()) {
+                DB::table('canvass_table')
+                    ->where('canvass_id', $sourceCanvassId)
+                    ->whereNull('canvass_ris_id')
+                    ->update([
+                        'canvass_ris_id' => (int) $risId,
+                        'canvass_status' => \App\Support\CanvassWorkflow::STATUS_CONVERTED,
+                        'canvass_updated_at' => now(),
+                    ]);
+
+                if (
+                    Schema::hasTable('canvass_attachments_table')
+                    && Schema::hasTable('ris_attachments_table')
+                ) {
+                    $canvassFiles = DB::table('canvass_attachments_table')
+                        ->where('canvass_id', $sourceCanvassId)
+                        ->get();
+                    foreach ($canvassFiles as $cf) {
+                        DB::table('ris_attachments_table')->insert([
+                            'ris_id' => (int) $risId,
+                            'ris_attachment_original_name' => $cf->canvass_attachment_original_name,
+                            'ris_attachment_stored_path' => $cf->canvass_attachment_stored_path,
+                            'ris_attachment_mime_type' => $cf->canvass_attachment_mime_type,
+                            'ris_attachment_size' => (int) ($cf->canvass_attachment_size ?? 0),
+                            'ris_attachment_uploaded_by' => $cf->canvass_attachment_uploaded_by ?? Auth::id(),
+                            'ris_attachment_created_at' => now(),
+                        ]);
+                    }
+                }
+            }
 
             RisWorkflow::storeRequestedBySignature((int) $risId, (string) $requestedByImage);
 
