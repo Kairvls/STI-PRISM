@@ -15,16 +15,14 @@
     ]);
 @endphp
 
-<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-        <div>
-            <h2 class="text-base font-semibold text-slate-900">Procurement & lifecycle</h2>
-        </div>
-        <i data-lucide="git-branch" class="h-5 w-5 text-slate-400"></i>
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Procurement & lifecycle</h2>
+        <i data-lucide="git-branch" class="h-4 w-4 text-slate-400"></i>
     </div>
     @if ($notRecorded)
-        <div class="mx-6 mt-5 flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
-            <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0"></i>
+        <div class="mx-4 mt-3 flex items-start gap-2.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+            <i data-lucide="info" class="mt-0.5 h-3.5 w-3.5 shrink-0"></i>
             <p>
                 This item was added without a Receiving Report or an acquisition source, so procurement details are blank.
                 @if ($lifecycleReadOnly)
@@ -35,90 +33,90 @@
             </p>
         </div>
     @endif
-    <div class="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Acquired via</p>
-            <p class="mt-1 font-semibold text-slate-900">
+    <dl class="grid grid-cols-1 gap-x-6 gap-y-2.5 p-4 md:grid-cols-2">
+        <div class="border-b border-slate-100 pb-2">
+            <dt class="text-[11px] font-medium text-slate-500">Acquired via</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                 {{ $isProcured ? \App\Support\EquipmentAcquisition::sourceLabel(\App\Support\EquipmentAcquisition::PROCUREMENT) : $na($lp['acquisition_source_label'] ?? null) }}
-            </p>
+            </dd>
             @if (!empty($lp['acquisition_notes']))
-                <p class="mt-0.5 text-xs text-slate-500">{{ $lp['acquisition_notes'] }}</p>
+                <p class="mt-0.5 text-[11px] text-slate-500">{{ $lp['acquisition_notes'] }}</p>
             @endif
         </div>
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">{{ $acqSource === 'donation' ? 'Donor' : 'Supplier' }}</p>
-            <p class="mt-1 font-semibold text-slate-900">{{ $na($lp['supplier_name'] ?? null) }}</p>
+        <div class="border-b border-slate-100 pb-2">
+            <dt class="text-[11px] font-medium text-slate-500">{{ $acqSource === 'donation' ? 'Donor' : 'Supplier' }}</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $na($lp['supplier_name'] ?? null) }}</dd>
         </div>
         @if ($isManualSource)
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Reference no.</p>
-                <p class="mt-1 font-semibold text-slate-900">{{ $na($lp['reference_number'] ?? null) }}</p>
+            <div class="border-b border-slate-100 pb-2">
+                <dt class="text-[11px] font-medium text-slate-500">Reference no.</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $na($lp['reference_number'] ?? null) }}</dd>
             </div>
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received</p>
-                <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? null) }}</p>
-                <p class="mt-0.5 text-xs text-slate-500">No RR — not procured through PRISM</p>
+            <div class="border-b border-slate-100 pb-2">
+                <dt class="text-[11px] font-medium text-slate-500">Received</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? null) }}</dd>
+                <p class="mt-0.5 text-[11px] text-slate-500">No RR — not procured through PRISM</p>
             </div>
         @else
             @if (!empty($lp['purchase_order_number']))
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase order</p>
-                <p class="mt-1 font-semibold text-slate-900">
+            <div class="border-b border-slate-100 pb-2">
+                <dt class="text-[11px] font-medium text-slate-500">Purchase order</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     {{ $lp['purchase_order_number'] }}
                     @if (!empty($lp['purchase_order_date']))
-                        <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['purchase_order_date']) }}</span>
+                        <span class="font-normal text-slate-500">· {{ $formatDate($lp['purchase_order_date']) }}</span>
                     @endif
-                </p>
+                </dd>
             </div>
             @endif
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">ATP / RIS</p>
-                <p class="mt-1 font-semibold text-slate-900">
+            <div class="border-b border-slate-100 pb-2">
+                <dt class="text-[11px] font-medium text-slate-500">ATP / RIS</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     {{ $lp['atp_number'] ?? '—' }}
                     <span class="text-slate-300">/</span>
                     {{ $lp['ris_number'] ?? '—' }}
-                </p>
+                </dd>
             </div>
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Received (RR)</p>
-                <p class="mt-1 font-semibold text-slate-900">
+            <div class="border-b border-slate-100 pb-2">
+                <dt class="text-[11px] font-medium text-slate-500">Received (RR)</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     {{ $na($lp['receiving_report_number'] ?? null) }}
                     @if (!empty($lp['receiving_report_date']))
-                        <span class="text-sm font-normal text-slate-500">· {{ $formatDate($lp['receiving_report_date']) }}</span>
+                        <span class="font-normal text-slate-500">· {{ $formatDate($lp['receiving_report_date']) }}</span>
                     @endif
-                </p>
+                </dd>
                 @if (!empty($lp['received_by']))
-                    <p class="mt-0.5 text-xs text-slate-500">By {{ $lp['received_by'] }}</p>
+                    <p class="mt-0.5 text-[11px] text-slate-500">By {{ $lp['received_by'] }}</p>
                 @endif
             </div>
         @endif
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Added to inventory</p>
-            <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? $equipment->equipment_acquired_date ?? null) }}</p>
+        <div class="border-b border-slate-100 pb-2">
+            <dt class="text-[11px] font-medium text-slate-500">Added to inventory</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $formatDate($lp['acquired_date'] ?? $equipment->equipment_acquired_date ?? null) }}</dd>
             @if ($stockedMeta)
-                <p class="mt-0.5 text-xs text-slate-500">{{ implode(' · ', $stockedMeta) }}</p>
+                <p class="mt-0.5 text-[11px] text-slate-500">{{ implode(' · ', $stockedMeta) }}</p>
             @endif
         </div>
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Deployed</p>
+        <div class="border-b border-slate-100 pb-2">
+            <dt class="text-[11px] font-medium text-slate-500">Deployed</dt>
             @if (!empty($lp['deployed_at']))
-                <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['deployed_at']) }}</p>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $formatDate($lp['deployed_at']) }}</dd>
                 @if (!empty($lp['deployed_room']))
-                    <p class="mt-0.5 text-xs text-slate-500">First placed in {{ $lp['deployed_room'] }}</p>
+                    <p class="mt-0.5 text-[11px] text-slate-500">First placed in {{ $lp['deployed_room'] }}</p>
                 @endif
             @else
-                <p class="mt-1 font-semibold text-slate-900">Not yet deployed</p>
-                <p class="mt-0.5 text-xs text-slate-500">Still in storage</p>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">Not yet deployed</dd>
+                <p class="mt-0.5 text-[11px] text-slate-500">Still in storage</p>
             @endif
         </div>
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">QR issued</p>
-            <p class="mt-1 font-semibold text-slate-900">{{ $formatDate($lp['qr_issued_at'] ?? null) }}</p>
-            <p class="mt-0.5 text-xs text-slate-500">{{ $na($lp['qr_code'] ?? $equipment->equipment_qr_code ?? null) }}</p>
+        <div class="border-b border-slate-100 pb-2">
+            <dt class="text-[11px] font-medium text-slate-500">QR issued</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $formatDate($lp['qr_issued_at'] ?? null) }}</dd>
+            <p class="mt-0.5 break-all font-mono text-[11px] text-slate-500">{{ $na($lp['qr_code'] ?? $equipment->equipment_qr_code ?? null) }}</p>
         </div>
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Replacement link</p>
-            <p class="mt-1 text-sm font-semibold text-slate-900">
+        <div class="border-b border-slate-100 pb-2 md:border-b-0 md:pb-0">
+            <dt class="text-[11px] font-medium text-slate-500">Replacement link</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                 @if (!empty($lp['replaces_id']))
                     Replaces <a class="text-[#0025cc] hover:underline" href="{{ $equipmentViewUrl($lp['replaces_id']) }}">#{{ $lp['replaces_id'] }}</a>
                 @elseif (!empty($lp['replaced_by_id']))
@@ -126,17 +124,17 @@
                 @else
                     —
                 @endif
-            </p>
+            </dd>
         </div>
         <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Repair cost (total)</p>
-            <p class="mt-1 font-semibold text-slate-900">₱{{ number_format((float) ($repairCostTotal ?? 0), 2) }}</p>
+            <dt class="text-[11px] font-medium text-slate-500">Repair cost (total)</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900">₱{{ number_format((float) ($repairCostTotal ?? 0), 2) }}</dd>
         </div>
-    </div>
+    </dl>
     @if (($conditionHistory ?? collect())->isNotEmpty())
-        <div class="border-t border-slate-100 px-6 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Condition history</p>
-            <ul class="mt-2 space-y-1.5 text-sm text-slate-700">
+        <div class="border-t border-slate-100 px-4 py-3">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Condition history</p>
+            <ul class="mt-1.5 space-y-1 text-xs text-slate-700">
                 @foreach ($conditionHistory as $ch)
                     <li>
                         <span class="font-medium">{{ $ch->condition_from ?: '—' }} → {{ $ch->condition_to }}</span>
@@ -151,12 +149,10 @@
     @endif
 </section>
 
-<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-        <div>
-            <h2 class="text-base font-semibold text-slate-900">Lifecycle timeline</h2>
-        </div>
-        <i data-lucide="history" class="h-5 w-5 text-slate-400"></i>
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Lifecycle timeline</h2>
+        <i data-lucide="history" class="h-4 w-4 text-slate-400"></i>
     </div>
     @php
         $events = $lifecycleEvents ?? collect();
@@ -184,29 +180,29 @@
                 default => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
             };
         @endphp
-        <div class="grid grid-cols-2 gap-3 border-b border-slate-100 px-6 py-4 sm:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 border-b border-slate-100 px-4 py-3 sm:grid-cols-4">
             <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Right now</p>
-                <span class="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $stateTone }}">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Right now</p>
+                <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 {{ $stateTone }}">
                     {{ $reportSummary['state'] }}
                 </span>
                 @if (($reportSummary['open_count'] ?? 0) > 1)
-                    <p class="mt-1 text-xs text-rose-600">{{ $reportSummary['open_count'] }} open tickets</p>
+                    <p class="mt-0.5 text-[11px] text-rose-600">{{ $reportSummary['open_count'] }} open tickets</p>
                 @endif
             </div>
             <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Times reported</p>
-                <p class="mt-1 text-lg font-semibold text-slate-900">{{ $reportSummary['times_reported'] }}</p>
-                <p class="text-xs text-slate-500">Last: {{ $formatDate($reportSummary['last_reported_at']) }}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Times reported</p>
+                <p class="mt-0.5 text-sm font-bold text-slate-900">{{ $reportSummary['times_reported'] }}</p>
+                <p class="text-[11px] text-slate-500">Last: {{ $formatDate($reportSummary['last_reported_at']) }}</p>
             </div>
             <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Times fixed</p>
-                <p class="mt-1 text-lg font-semibold text-slate-900">{{ $reportSummary['times_fixed'] }}</p>
-                <p class="text-xs text-slate-500">Last: {{ $reportSummary['last_fixed_at'] ? $formatDate($reportSummary['last_fixed_at']) : '—' }}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Times fixed</p>
+                <p class="mt-0.5 text-sm font-bold text-slate-900">{{ $reportSummary['times_fixed'] }}</p>
+                <p class="text-[11px] text-slate-500">Last: {{ $reportSummary['last_fixed_at'] ? $formatDate($reportSummary['last_fixed_at']) : '—' }}</p>
             </div>
             <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Replacement</p>
-                <p class="mt-1 text-sm font-semibold {{ $reportSummary['replacement'] ? 'text-orange-700' : 'text-slate-900' }}">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Replacement</p>
+                <p class="mt-0.5 text-xs font-semibold {{ $reportSummary['replacement'] ? 'text-orange-700' : 'text-slate-900' }}">
                     {{ $reportSummary['replacement'] ? 'Needed' : 'Not needed' }}
                 </p>
             </div>
@@ -217,52 +213,52 @@
         $stageCounts = collect($events)->countBy(fn ($event) => $event['stage'] ?? 'repair');
     @endphp
     @if ($stageCounts->isNotEmpty())
-        <div class="border-b border-slate-100 px-6 py-3" data-lifecycle-stage-filter>
-            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Filter by stage</p>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" data-stage="all" class="lifecycle-stage-chip rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition bg-[#0025cc] text-white ring-[#0025cc]">
-                    All · {{ collect($events)->count() }}
+        <div class="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2.5" data-lifecycle-stage-filter>
+            <span class="mr-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Stage</span>
+            <button type="button" data-stage="all" class="lifecycle-stage-chip rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 transition bg-[#0025cc] text-white ring-[#0025cc]">
+                All · {{ collect($events)->count() }}
+            </button>
+            @foreach ($stageLabels as $stageKey => $stageLabel)
+                @continue(! $stageCounts->has($stageKey))
+                <button type="button" data-stage="{{ $stageKey }}" class="lifecycle-stage-chip rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 transition bg-slate-50 text-slate-600 ring-slate-200/80 hover:bg-slate-100">
+                    {{ $stageLabel }} · {{ $stageCounts[$stageKey] }}
                 </button>
-                @foreach ($stageLabels as $stageKey => $stageLabel)
-                    @continue(! $stageCounts->has($stageKey))
-                    <button type="button" data-stage="{{ $stageKey }}" class="lifecycle-stage-chip rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition bg-slate-50 text-slate-600 ring-slate-200/80 hover:bg-slate-100">
-                        {{ $stageLabel }} · {{ $stageCounts[$stageKey] }}
-                    </button>
-                @endforeach
-            </div>
+            @endforeach
         </div>
     @endif
     @php
         $lifecycleLimit = 10;
         $olderCount = max(0, collect($events)->count() - $lifecycleLimit);
     @endphp
-    <div class="px-6 py-5" data-lifecycle-events>
+    <div class="px-4 py-3.5" data-lifecycle-events>
         @forelse ($events as $event)
-            <div class="lifecycle-event relative flex gap-4 pb-5 last:pb-0 {{ $loop->index >= $lifecycleLimit ? 'hidden' : '' }}" data-stage="{{ $event['stage'] ?? 'repair' }}">
-                <span class="lifecycle-line absolute left-[7px] top-4 bottom-0 w-px bg-slate-200 {{ $loop->last || $loop->iteration === $lifecycleLimit ? 'hidden' : '' }}"></span>
-                <span class="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full ring-4 ring-white {{ $event['meta']['dot'] ?? ($typeColors[$event['type'] ?? ''] ?? 'bg-slate-400') }}"></span>
+            <div class="lifecycle-event relative flex gap-3 pb-3.5 last:pb-0 {{ $loop->index >= $lifecycleLimit ? 'hidden' : '' }}" data-stage="{{ $event['stage'] ?? 'repair' }}">
+                <span class="lifecycle-line absolute left-[4.5px] top-3 bottom-0 w-px bg-slate-200 {{ $loop->last || $loop->iteration === $lifecycleLimit ? 'hidden' : '' }}"></span>
+                <span class="relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white {{ $event['meta']['dot'] ?? ($typeColors[$event['type'] ?? ''] ?? 'bg-slate-400') }}"></span>
                 <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <p class="text-sm font-semibold text-slate-900">{{ $event['title'] ?? 'Event' }}</p>
-                        <span class="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">
-                            {{ $event['stage_label'] ?? ($event['type_label'] ?? ($event['type'] ?? '')) }}
-                        </span>
+                    <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <p class="text-xs font-semibold text-slate-900">{{ $event['title'] ?? 'Event' }}</p>
+                            <span class="rounded-full bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200/80">
+                                {{ $event['stage_label'] ?? ($event['type_label'] ?? ($event['type'] ?? '')) }}
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">
+                            {{ !empty($event['occurred_at']) ? $formatDate($event['occurred_at']) : '—' }}
+                            @if (!empty($event['meta']['actor']))
+                                · {{ $event['meta']['actor'] }}
+                            @elseif (!empty($event['meta']['transferred_by']))
+                                · {{ $event['meta']['transferred_by'] }}
+                            @elseif (!empty($event['meta']['borrower']))
+                                · {{ $event['meta']['borrower'] }}
+                            @endif
+                        </p>
                     </div>
-                    <p class="mt-0.5 text-xs text-slate-400">
-                        {{ !empty($event['occurred_at']) ? $formatDate($event['occurred_at']) : '—' }}
-                        @if (!empty($event['meta']['actor']))
-                            · {{ $event['meta']['actor'] }}
-                        @elseif (!empty($event['meta']['transferred_by']))
-                            · {{ $event['meta']['transferred_by'] }}
-                        @elseif (!empty($event['meta']['borrower']))
-                            · {{ $event['meta']['borrower'] }}
-                        @endif
-                    </p>
                     @if (!empty($event['description']))
-                        <p class="mt-1 text-sm text-slate-600">{{ $event['description'] }}</p>
+                        <p class="mt-0.5 text-xs text-slate-600">{{ $event['description'] }}</p>
                     @endif
                     @if (!empty($event['meta']['parts_used']) || isset($event['meta']['repair_cost']) || isset($event['meta']['downtime_hours']))
-                        <p class="mt-1 text-xs text-slate-500">
+                        <p class="mt-0.5 text-[11px] text-slate-500">
                             @if (!empty($event['meta']['parts_used'])) Parts: {{ $event['meta']['parts_used'] }} @endif
                             @if (isset($event['meta']['repair_cost']) && $event['meta']['repair_cost'] !== null)
                                 · Cost: ₱{{ number_format((float) $event['meta']['repair_cost'], 2) }}
@@ -275,13 +271,13 @@
                 </div>
             </div>
         @empty
-            <p class="py-6 text-center text-sm text-slate-400">No lifecycle events recorded yet.</p>
+            <p class="py-4 text-center text-xs text-slate-400">No lifecycle events recorded yet.</p>
         @endforelse
     </div>
-    <div class="border-t border-slate-100 px-6 py-3 {{ $olderCount > 0 ? '' : 'hidden' }}" data-lifecycle-toggle>
-        <button type="button" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0025cc] hover:underline">
+    <div class="border-t border-slate-100 px-4 py-2.5 {{ $olderCount > 0 ? '' : 'hidden' }}" data-lifecycle-toggle>
+        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0025cc] hover:underline">
             <span data-lifecycle-toggle-icon class="inline-flex transition-transform">
-                <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
             </span>
             <span data-lifecycle-toggle-label>Show {{ $olderCount }} older {{ \Illuminate\Support\Str::plural('event', $olderCount) }}</span>
         </button>

@@ -6,78 +6,76 @@
     $returnUrl = $equipmentBack['url'] ?? '';
     $readOnly = $assignmentReadOnly ?? false;
     $linkCustodians = ! \App\Support\AdminPortal::isSchoolAdmin();
-    $fieldClass = 'h-10 w-full rounded-xl border-0 bg-slate-50 px-3 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
-    $textareaClass = 'w-full rounded-xl border-0 bg-slate-50 px-3 py-2 text-sm outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+    $fieldClass = 'h-8 w-full rounded-lg border-0 bg-slate-50 px-2.5 text-xs outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+    $textareaClass = 'w-full rounded-lg border-0 bg-slate-50 px-2.5 py-1.5 text-xs outline-none ring-1 ring-slate-200/80 focus:bg-white focus:ring-2 focus:ring-slate-900/10';
 @endphp
 
-<section id="property-assignment" class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-        <div>
-            <h2 class="text-sm font-semibold text-slate-900">Accountable person</h2>
-        </div>
+<section id="property-assignment" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Accountable person</h2>
         <i data-lucide="user-round-check" class="h-4 w-4 text-slate-400"></i>
     </div>
 
-    <div class="space-y-4 p-5">
+    <div class="space-y-3 p-3.5">
         @if ($current)
-            <div class="rounded-2xl bg-teal-50/60 px-4 py-3 ring-1 ring-teal-100">
+            <div class="rounded-lg bg-teal-50/60 px-3 py-2.5 ring-1 ring-teal-100">
                 @if ($linkCustodians)
-                    <a href="{{ \App\Support\PropertyAssignments::url('/people/'.$current->assignment_custodian_id) }}" class="text-sm font-semibold text-slate-900 hover:underline">
+                    <a href="{{ \App\Support\PropertyAssignments::url('/people/'.$current->assignment_custodian_id) }}" class="text-xs font-semibold text-slate-900 hover:underline">
                         {{ $current->custodian_full_name ?? 'Unknown person' }}
                     </a>
                 @else
-                    <p class="text-sm font-semibold text-slate-900">{{ $current->custodian_full_name ?? 'Unknown person' }}</p>
+                    <p class="text-xs font-semibold text-slate-900">{{ $current->custodian_full_name ?? 'Unknown person' }}</p>
                 @endif
-                <p class="mt-0.5 text-xs text-slate-500">
+                <p class="mt-0.5 text-[11px] text-slate-500">
                     {{ implode(' · ', array_filter([$current->custodian_position ?? null, $current->custodian_employee_id ?? null])) ?: '—' }}
                 </p>
-                <dl class="mt-3 space-y-1.5 text-xs">
-                    <div class="flex justify-between gap-3">
+                <dl class="mt-2 space-y-1 text-[11px]">
+                    <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Document no.</dt>
                         <dd class="font-semibold text-slate-800">{{ $current->assignment_document_no ?? '—' }}</dd>
                     </div>
-                    <div class="flex justify-between gap-3">
+                    <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Assigned since</dt>
                         <dd class="font-semibold text-slate-800">{{ $formatDate($current->assignment_issued_at) }}</dd>
                     </div>
-                    <div class="flex justify-between gap-3">
+                    <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Last verified</dt>
                         <dd class="font-semibold {{ filled($current->assignment_verified_at ?? null) ? 'text-slate-800' : 'text-slate-400' }}">
                             {{ filled($current->assignment_verified_at ?? null) ? $formatDate($current->assignment_verified_at) : 'Not yet' }}
                         </dd>
                     </div>
-                    <div class="flex justify-between gap-3">
+                    <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Room</dt>
                         <dd class="text-right font-semibold text-slate-800">
                             {{ $current->room_name ?? '—' }}@if (!empty($current->workstation_slot_label)) · {{ $current->workstation_slot_label }}@endif
                         </dd>
                     </div>
                     @if (!empty($current->issued_by_name))
-                        <div class="flex justify-between gap-3">
+                        <div class="flex justify-between gap-2">
                             <dt class="text-slate-500">Issued by</dt>
                             <dd class="font-semibold text-slate-800">{{ $current->issued_by_name }}</dd>
                         </div>
                     @endif
                 </dl>
                 @if (!empty($current->assignment_notes))
-                    <p class="mt-3 text-xs text-slate-600">{{ $current->assignment_notes }}</p>
+                    <p class="mt-2 text-[11px] text-slate-600">{{ $current->assignment_notes }}</p>
                 @endif
             </div>
 
             @unless ($readOnly)
-            <details class="group rounded-xl ring-1 ring-slate-200/80">
-                <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700">
-                    <span class="inline-flex items-center gap-2">
-                        <i data-lucide="undo-2" class="h-4 w-4"></i>
+            <details class="group rounded-lg ring-1 ring-slate-200/80">
+                <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700">
+                    <span class="inline-flex items-center gap-1.5">
+                        <i data-lucide="undo-2" class="h-3.5 w-3.5"></i>
                         Return item
                     </span>
-                    <i data-lucide="chevron-down" class="h-4 w-4 transition group-open:rotate-180"></i>
+                    <i data-lucide="chevron-down" class="h-3.5 w-3.5 transition group-open:rotate-180"></i>
                 </summary>
-                <form method="POST" action="{{ \App\Support\PropertyAssignments::route('return', $current->assignment_id) }}" class="space-y-3 border-t border-slate-100 px-4 py-3">
+                <form method="POST" action="{{ \App\Support\PropertyAssignments::route('return', $current->assignment_id) }}" class="space-y-2.5 border-t border-slate-100 px-3 py-2.5">
                     @csrf
                     <input type="hidden" name="return" value="{{ $returnUrl }}">
                     <label class="block">
-                        <span class="mb-1 block text-xs font-medium text-slate-500">Condition on return</span>
+                        <span class="mb-1 block text-[11px] font-medium text-slate-500">Condition on return</span>
                         <select name="return_condition" required class="{{ $fieldClass }}">
                             @foreach (\App\Support\PropertyAssignments::RETURN_CONDITIONS as $conditionOption)
                                 <option value="{{ $conditionOption }}">{{ $conditionOption }}</option>
@@ -85,11 +83,11 @@
                         </select>
                     </label>
                     <label class="block">
-                        <span class="mb-1 block text-xs font-medium text-slate-500">Notes (optional)</span>
+                        <span class="mb-1 block text-[11px] font-medium text-slate-500">Notes (optional)</span>
                         <textarea name="return_notes" rows="2" maxlength="1000" class="{{ $textareaClass }}"></textarea>
                     </label>
-                    <p class="text-xs text-slate-400">Returning as Damaged also marks the equipment as Damaged.</p>
-                    <button type="submit" class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <p class="text-[11px] text-slate-400">Returning as Damaged also marks the equipment as Damaged.</p>
+                    <button type="submit" class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                         Confirm return
                     </button>
                 </form>
@@ -99,34 +97,34 @@
 
         @if ($readOnly)
             @unless ($current)
-                <p class="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
+                <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200/80">
                     No accountable person yet. Maintenance assigns property.
                 </p>
             @endunless
         @elseif ($assignmentBlocker)
-            <p class="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
+            <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200/80">
                 {{ $assignmentBlocker }}
             </p>
         @elseif ($people->isEmpty())
-            <p class="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500 ring-1 ring-slate-200/80">
+            <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200/80">
                 No one is in the people directory yet.
                 <a href="{{ \App\Support\PropertyAssignments::route('people.create') }}" class="font-semibold text-[#0025cc] hover:underline">Add a person</a>
                 first.
             </p>
         @else
-            <details class="group rounded-xl ring-1 ring-slate-200/80" @if (! $current) open @endif>
-                <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700">
-                    <span class="inline-flex items-center gap-2">
-                        <i data-lucide="{{ $current ? 'arrow-right-left' : 'user-plus' }}" class="h-4 w-4"></i>
+            <details class="group rounded-lg ring-1 ring-slate-200/80" @if (! $current) open @endif>
+                <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700">
+                    <span class="inline-flex items-center gap-1.5">
+                        <i data-lucide="{{ $current ? 'arrow-right-left' : 'user-plus' }}" class="h-3.5 w-3.5"></i>
                         {{ $current ? 'Transfer to another person' : 'Assign to a person' }}
                     </span>
-                    <i data-lucide="chevron-down" class="h-4 w-4 transition group-open:rotate-180"></i>
+                    <i data-lucide="chevron-down" class="h-3.5 w-3.5 transition group-open:rotate-180"></i>
                 </summary>
-                <form method="POST" action="{{ \App\Support\PropertyAssignments::route('store', $equipment->equipment_id) }}" class="space-y-3 border-t border-slate-100 px-4 py-3">
+                <form method="POST" action="{{ \App\Support\PropertyAssignments::route('store', $equipment->equipment_id) }}" class="space-y-2.5 border-t border-slate-100 px-3 py-2.5">
                     @csrf
                     <input type="hidden" name="return" value="{{ $returnUrl }}">
                     <label class="block">
-                        <span class="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
+                        <span class="mb-1 flex items-center justify-between text-[11px] font-medium text-slate-500">
                             <span>Person <span class="text-red-500">*</span></span>
                             <a href="{{ \App\Support\PropertyAssignments::route('people.create') }}" class="font-semibold text-[#0025cc] hover:underline">+ Add person</a>
                         </span>
@@ -141,14 +139,14 @@
                         </select>
                     </label>
                     <label class="block">
-                        <span class="mb-1 block text-xs font-medium text-slate-500">Document no. (optional)</span>
+                        <span class="mb-1 block text-[11px] font-medium text-slate-500">Document no. (optional)</span>
                         <input type="text" name="document_no" maxlength="64" value="{{ old('document_no') }}" placeholder="Auto-generated if blank" class="{{ $fieldClass }}">
                     </label>
                     <label class="block">
-                        <span class="mb-1 block text-xs font-medium text-slate-500">Notes (optional)</span>
+                        <span class="mb-1 block text-[11px] font-medium text-slate-500">Notes (optional)</span>
                         <textarea name="notes" rows="2" maxlength="1000" class="{{ $textareaClass }}">{{ old('notes') }}</textarea>
                     </label>
-                    <button type="submit" class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white hover:bg-[#001fad]">
+                    <button type="submit" class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white hover:bg-[#001fad]">
                         {{ $current ? 'Transfer custody' : 'Assign item' }}
                     </button>
                 </form>
@@ -156,11 +154,11 @@
         @endif
 
         @if ($pastAssignments->isNotEmpty())
-            <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Past custodians</p>
-                <ul class="mt-2 space-y-2">
+            <div class="border-t border-slate-100 pt-2.5">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Past custodians</p>
+                <ul class="mt-1.5 space-y-1.5">
                     @foreach ($pastAssignments as $past)
-                        <li class="text-xs">
+                        <li class="text-[11px]">
                             @if ($linkCustodians)
                                 <a href="{{ \App\Support\PropertyAssignments::url('/people/'.$past->assignment_custodian_id) }}" class="font-semibold text-slate-800 hover:underline">{{ $past->custodian_full_name ?? 'Unknown person' }}</a>
                             @else
