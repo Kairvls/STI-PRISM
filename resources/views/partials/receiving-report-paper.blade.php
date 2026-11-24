@@ -65,11 +65,12 @@
         $formNo = '';
     }
     $oldItems = $editable && is_array(old('items')) ? array_values(old('items')) : [];
-    $rrDefaultRows = 9;
+    $isBlankPrint = !$editable && !$rr && count($rows) === 0;
+    $rrDefaultRows = $isBlankPrint ? 9 : 1;
     $rrMaxRows = 50;
-    $rrRowCount = max($rrDefaultRows, count($rows));
+    $rrRowCount = $isBlankPrint ? 9 : max(1, count($rows));
     if ($editable) {
-        $rrRowCount = min($rrMaxRows, $oldItems !== [] ? count($oldItems) : $rrRowCount);
+        $rrRowCount = min($rrMaxRows, $oldItems !== [] ? count($oldItems) : max(1, count($rows)));
     }
     $verifiedItemIds = collect($rows)
         ->filter(fn ($row) => is_object($row) && !empty($row->receiving_report_item_verified))
@@ -406,29 +407,50 @@
     </div>
     @endif
 
-    {{-- Per-item equipment photos (aligned with items table row indices) --}}
+    {{-- Per-item equipment photos (aligned with items table row indices, collapsed by default) --}}
     @if($showItemPhotos)
     <div
         data-rr-item-photos
-        class="mt-5 rounded border border-black/20 bg-slate-50/80 p-3 text-[12px] print:hidden"
+        x-data="{ photosOpen: false }"
+        class="mt-5 rounded-lg border border-slate-200 bg-slate-50/80 text-[12px] print:hidden"
     >
-        <div class="mb-2 flex items-baseline justify-between gap-2">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Item photos</p>
-            <span class="text-[10px] text-slate-400">1 file per slot · JPG, PNG, WEBP · max 5MB</span>
+        <button
+            type="button"
+            @click="photosOpen = !photosOpen"
+            class="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition hover:bg-slate-100/70"
+            :aria-expanded="photosOpen.toString()"
+        >
+            <div class="flex min-w-0 items-center gap-2">
+                <svg
+                    class="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-150"
+                    :class="photosOpen ? 'rotate-90' : ''"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Item photos</span>
+                <span class="text-[10px] font-medium text-slate-400">Optional · 1 file per slot · JPG, PNG, WEBP · max 5MB</span>
+            </div>
+            <span class="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600" x-text="photosOpen ? 'Hide' : 'Attach photos'"></span>
+        </button>
+        <div x-show="photosOpen" x-cloak class="border-t border-slate-200 px-3 pb-3 pt-2.5">
+            <p class="mb-2 text-[10px] leading-snug text-slate-400">Optional. Each slot accepts one photo only — remove to replace. Slots follow the items table below.</p>
+            <div data-rr-photo-list class="space-y-2">
+                @for($i = 0; $i < $rrRowCount; $i++)
+                    @include('partials.receiving-report-item-photo-slot', ['i' => $i, 'row' => $oldItems[$i] ?? $rows[$i] ?? null, 'editable' => $editable])
+                @endfor
+            </div>
+            @if($editable)
+                <template data-rr-photo-template>
+                    @include('partials.receiving-report-item-photo-slot', ['i' => '__INDEX__', 'row' => null, 'editable' => true])
+                </template>
+                <p data-rr-photo-empty class="hidden text-sm text-slate-400">Add an article in the items table to attach a photo.</p>
+            @endif
+            <p data-rr-photo-none class="hidden text-sm text-slate-400">No item photos</p>
         </div>
-        <p class="mb-2 text-[10px] leading-snug text-slate-400">Optional. Each slot accepts one photo only — remove to replace. Slots follow the items table below.</p>
-        <div data-rr-photo-list class="space-y-2">
-            @for($i = 0; $i < $rrRowCount; $i++)
-                @include('partials.receiving-report-item-photo-slot', ['i' => $i, 'row' => $oldItems[$i] ?? $rows[$i] ?? null, 'editable' => $editable])
-            @endfor
-        </div>
-        @if($editable)
-            <template data-rr-photo-template>
-                @include('partials.receiving-report-item-photo-slot', ['i' => '__INDEX__', 'row' => null, 'editable' => true])
-            </template>
-            <p data-rr-photo-empty class="hidden text-sm text-slate-400">Add an article in the items table to attach a photo.</p>
-        @endif
-        <p data-rr-photo-none class="hidden text-sm text-slate-400">No item photos</p>
     </div>
     @endif
 

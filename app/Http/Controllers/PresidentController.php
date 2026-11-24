@@ -861,7 +861,7 @@ class PresidentController extends Controller
             $row->latest_stop = $latestStops[(int) $row->ris_id] ?? [
                 'key' => 'ris',
                 'code' => 'RIS',
-                'title' => 'Requisition and Issue Slip',
+                'title' => 'Requisition Slip',
             ];
         });
 

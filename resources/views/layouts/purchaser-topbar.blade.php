@@ -22,7 +22,7 @@
                 },
                 request()->is('purchaser/canvass*') => ['Purchase Canvass', 'Compare 2–3 suppliers and up to 10 brand offers per item.'],
                 request()->is('purchaser/ris*') => ['RIS', 'RIS records generated from approved canvasses.'],
-                request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Prepare ATP + RFC, then submit both together.'],
+                request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Review approved ATPs, choose a payment method, and create the Request for Check.'],
                 request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group ATPs, then submit for approval.'],
                 request()->is('purchaser/request-check*') && in_array(request('fund'), ['direct_payment', 'request_for_check'], true) => ['Direct Payment', 'Prepare with ATP, then submit both together.'],
                 request()->is('purchaser/request-check*') && request('fund') === 'cash_installment' => ['Cash Installment', 'Prepare with ATP, then submit both together.'],

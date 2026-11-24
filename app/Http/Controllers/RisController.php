@@ -26,7 +26,7 @@ use App\Support\ProcurementPortal;
 use App\Support\SupplyHandoff;
 
 /**
- * Requisition & Issue Slip (RIS) workflow for the purchaser role.
+ * Requisition Slip (RIS) workflow for the purchaser role.
  */
 class RisController extends Controller
 {
@@ -1053,7 +1053,7 @@ class RisController extends Controller
                         DB::table('ris_attachments_table')->insert([
                             'ris_id' => (int) $risId,
                             'ris_attachment_original_name' => $cf->canvass_attachment_original_name,
-                            'ris_attachment_stored_path' => $cf->canvass_attachment_stored_path,
+                            'ris_attachment_path' => $cf->canvass_attachment_stored_path,
                             'ris_attachment_mime_type' => $cf->canvass_attachment_mime_type,
                             'ris_attachment_size' => (int) ($cf->canvass_attachment_size ?? 0),
                             'ris_attachment_uploaded_by' => $cf->canvass_attachment_uploaded_by ?? Auth::id(),

@@ -12,8 +12,12 @@ class CanvassWorkflow
     public const STATUS_DRAFT = 'Draft';
     public const STATUS_AWAITING = 'Awaiting for review';
     public const STATUS_REVIEWING = 'Reviewing - Awaiting for approval';
+    public const STATUS_REVIEWED_AWAITING = 'Reviewed - Awaiting for Approval';
+    public const STATUS_FORWARDED_PRESIDENT = 'Forwarded to President';
     public const STATUS_RETURNED = 'Returned';
     public const STATUS_REJECTED = 'Rejected';
+    public const STATUS_APPROVED_SCHOOL_ADMIN = 'Approved - by School Administrator';
+    public const STATUS_APPROVED_PRESIDENT = 'Approved - by the President';
     public const STATUS_APPROVED = 'Approved';
     public const STATUS_CONVERTED = 'Converted to RIS';
 
@@ -44,11 +48,69 @@ class CanvassWorkflow
             self::STATUS_DRAFT,
             self::STATUS_AWAITING,
             self::STATUS_REVIEWING,
+            self::STATUS_REVIEWED_AWAITING,
+            self::STATUS_FORWARDED_PRESIDENT,
             self::STATUS_RETURNED,
             self::STATUS_REJECTED,
+            self::STATUS_APPROVED_SCHOOL_ADMIN,
+            self::STATUS_APPROVED_PRESIDENT,
             self::STATUS_APPROVED,
             self::STATUS_CONVERTED,
         ];
+    }
+
+    public static function completedReviewStatuses(): array
+    {
+        return [
+            self::STATUS_REVIEWED_AWAITING,
+            self::STATUS_FORWARDED_PRESIDENT,
+            self::STATUS_APPROVED_SCHOOL_ADMIN,
+            self::STATUS_APPROVED_PRESIDENT,
+            self::STATUS_APPROVED,
+            self::STATUS_CONVERTED,
+        ];
+    }
+
+    public static function resolveDisplayStatus(string $canvassStatus, ?string $linkedRisStatus = null): string
+    {
+        $risStatus = trim((string) ($linkedRisStatus ?? ''));
+        if ($risStatus !== '' && in_array($canvassStatus, self::completedReviewStatuses(), true)) {
+            return match ($risStatus) {
+                RisWorkflow::ACCEPTED => self::STATUS_REVIEWED_AWAITING,
+                RisWorkflow::FORWARDED => self::STATUS_FORWARDED_PRESIDENT,
+                RisWorkflow::DIRECTLY_APPROVED => self::STATUS_APPROVED_SCHOOL_ADMIN,
+                RisWorkflow::PRESIDENT_APPROVED, RisWorkflow::APPROVED_LEGACY => self::STATUS_APPROVED_PRESIDENT,
+                default => $canvassStatus,
+            };
+        }
+
+        return $canvassStatus;
+    }
+
+    public static function syncStatusFromRis(int $risId, string $risStatus): void
+    {
+        if ($risId <= 0 || ! Schema::hasTable('canvass_table')) {
+            return;
+        }
+
+        $mapped = match (trim($risStatus)) {
+            RisWorkflow::ACCEPTED => self::STATUS_REVIEWED_AWAITING,
+            RisWorkflow::FORWARDED => self::STATUS_FORWARDED_PRESIDENT,
+            RisWorkflow::DIRECTLY_APPROVED => self::STATUS_APPROVED_SCHOOL_ADMIN,
+            RisWorkflow::PRESIDENT_APPROVED, RisWorkflow::APPROVED_LEGACY => self::STATUS_APPROVED_PRESIDENT,
+            default => null,
+        };
+
+        if ($mapped === null) {
+            return;
+        }
+
+        DB::table('canvass_table')
+            ->where('canvass_ris_id', $risId)
+            ->update([
+                'canvass_status' => $mapped,
+                'canvass_updated_at' => now(),
+            ]);
     }
 
     public static function pendingReviewStatuses(): array
@@ -112,14 +174,14 @@ class CanvassWorkflow
     public static function allocateNumber(): string
     {
         for ($attempt = 0; $attempt < 15; $attempt++) {
-            $candidate = 'CAN-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+            $candidate = 'CVS-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
             $exists = DB::table('canvass_table')->where('canvass_number', $candidate)->exists();
             if (! $exists) {
                 return $candidate;
             }
         }
 
-        return 'CAN-'.strtoupper(Str::random(8));
+        return 'CVS-'.strtoupper(Str::random(8));
     }
 
     /**
@@ -152,44 +214,92 @@ class CanvassWorkflow
     }
 
     /**
-     * @return array{label: string, class: string}
+     * @return array{label: string, primary: string, secondary: string, class: string, style: string, dot: string}
      */
-    public static function statusBadge(string $status): array
+    public static function statusBadge(string $status, ?string $linkedRisStatus = null): array
     {
-        return match ($status) {
+        $effective = self::resolveDisplayStatus($status, $linkedRisStatus);
+
+        $badge = match ($effective) {
             self::STATUS_DRAFT => [
                 'label' => 'Draft',
                 'class' => 'bg-slate-100 text-slate-700 border-slate-200',
+                'style' => 'background:#f1f5f9;border-color:#e2e8f0;color:#475569;',
+                'dot' => '#94a3b8',
             ],
             self::STATUS_AWAITING => [
                 'label' => 'Awaiting for review',
-                'class' => 'bg-amber-400/90 text-slate-950 border-amber-400',
+                'class' => 'bg-amber-50 text-amber-800 border-amber-200',
+                'style' => 'background:#fffbeb;border-color:#fde68a;color:#b45309;',
+                'dot' => '#d97706',
             ],
             self::STATUS_REVIEWING => [
                 'label' => 'Reviewing - Awaiting for approval',
-                'class' => 'bg-blue-600 text-white border-blue-600',
+                'class' => 'bg-blue-50 text-blue-700 border-blue-200',
+                'style' => 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;',
+                'dot' => '#2563eb',
+            ],
+            self::STATUS_REVIEWED_AWAITING => [
+                'label' => 'Reviewed - Awaiting for Approval',
+                'class' => 'bg-purple-50 text-purple-700 border-purple-200',
+                'style' => 'background:#f3e8ff;border-color:#d8b4fe;color:#7e22ce;',
+                'dot' => '#9333ea',
+            ],
+            self::STATUS_FORWARDED_PRESIDENT => [
+                'label' => 'Forwarded to President',
+                'class' => 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                'style' => 'background:#eef2ff;border-color:#c7d2fe;color:#4338ca;',
+                'dot' => '#4f46e5',
             ],
             self::STATUS_RETURNED => [
                 'label' => 'Returned for revision',
-                'class' => 'bg-orange-100 text-orange-800 border-orange-200',
+                'class' => 'bg-orange-50 text-orange-800 border-orange-200',
+                'style' => 'background:#fff7ed;border-color:#fed7aa;color:#c2410c;',
+                'dot' => '#ea580c',
             ],
             self::STATUS_REJECTED => [
                 'label' => 'Rejected',
-                'class' => 'bg-rose-600 text-white border-rose-600',
+                'class' => 'bg-rose-50 text-rose-700 border-rose-200',
+                'style' => 'background:#fef2f2;border-color:#fecaca;color:#dc2626;',
+                'dot' => '#dc2626',
+            ],
+            self::STATUS_APPROVED_SCHOOL_ADMIN => [
+                'label' => 'Approved - by School Administrator',
+                'class' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'style' => 'background:#ecfdf5;border-color:#a7f3d0;color:#059669;',
+                'dot' => '#10b981',
+            ],
+            self::STATUS_APPROVED_PRESIDENT => [
+                'label' => 'Approved - by the President',
+                'class' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'style' => 'background:#ecfdf5;border-color:#a7f3d0;color:#059669;',
+                'dot' => '#10b981',
             ],
             self::STATUS_APPROVED => [
                 'label' => 'Approved',
-                'class' => 'bg-emerald-600 text-white border-emerald-600',
+                'class' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'style' => 'background:#ecfdf5;border-color:#a7f3d0;color:#059669;',
+                'dot' => '#10b981',
             ],
             self::STATUS_CONVERTED => [
                 'label' => 'Converted to RIS',
-                'class' => 'bg-teal-600 text-white border-teal-600',
+                'class' => 'bg-teal-50 text-teal-700 border-teal-200',
+                'style' => 'background:#f0fdfa;border-color:#99f6e4;color:#0f766e;',
+                'dot' => '#0d9488',
             ],
             default => [
-                'label' => $status !== '' ? $status : 'Draft',
+                'label' => $effective !== '' ? $effective : 'Draft',
                 'class' => 'bg-slate-100 text-slate-700 border-slate-200',
+                'style' => 'background:#f1f5f9;border-color:#e2e8f0;color:#475569;',
+                'dot' => '#94a3b8',
             ],
         };
+
+        $parts = explode(' - ', $badge['label'], 2);
+        $badge['primary'] = trim($parts[0]);
+        $badge['secondary'] = isset($parts[1]) ? trim($parts[1]) : '';
+
+        return $badge;
     }
 
     /**
@@ -691,7 +801,7 @@ class CanvassWorkflow
                 DB::table('ris_attachments_table')->insert([
                     'ris_id' => $risId,
                     'ris_attachment_original_name' => $att->canvass_attachment_original_name,
-                    'ris_attachment_stored_path' => $att->canvass_attachment_stored_path,
+                    'ris_attachment_path' => $att->canvass_attachment_stored_path,
                     'ris_attachment_mime_type' => $att->canvass_attachment_mime_type,
                     'ris_attachment_size' => (int) ($att->canvass_attachment_size ?? 0),
                     'ris_attachment_uploaded_by' => $att->canvass_attachment_uploaded_by ?? $ownerId,
@@ -700,20 +810,24 @@ class CanvassWorkflow
             }
         }
 
-        // Link Canvass to the newly created RIS (per-supplier ATP drafts are generated
-        // automatically once the RIS is Directly Approved or President-approved & Issued by).
+        // Link Canvass to the newly created RIS (status becomes Reviewed - Awaiting for Approval
+        // until School Admin Direct Approves or President approves the linked RIS).
         DB::table('canvass_table')
             ->where('canvass_id', $canvassId)
             ->update([
                 'canvass_ris_id' => $risId,
-                'canvass_status' => self::STATUS_APPROVED,
+                'canvass_status' => self::STATUS_REVIEWED_AWAITING,
                 'canvass_updated_at' => $now,
             ]);
+
+        // Auto-generate consolidated per-supplier ATPs immediately on review so
+        // School Admin can inspect both RIS and ATP(s) in Reviewed RIS & Direct Approve.
+        $atpIds = self::ensureAtpDraftsForApprovedRis($risId);
 
         return [
             'ris_id' => $risId,
             'ris_number' => $formNumber,
-            'atp_ids' => [],
+            'atp_ids' => $atpIds,
         ];
     }
 
@@ -755,72 +869,125 @@ class CanvassWorkflow
         if ($canvassId <= 0) {
             $canvassId = (int) (DB::table('canvass_table')->where('canvass_ris_id', $risId)->value('canvass_id') ?? 0);
         }
-        if ($canvassId <= 0) {
-            return [];
-        }
 
-        $loaded = self::loadFull($canvassId);
-        if (! $loaded) {
-            return [];
-        }
-
-        $canvass = $loaded['canvass'];
-        $ownerId = (int) ($canvass->canvass_owner_user_id ?: ($ris->ris_submitted_by ?? $ris->ris_created_by ?? 0));
-        $requestNo = (string) ($ris->ris_request_no ?? $canvass->canvass_request_no ?? '');
+        $loaded = $canvassId > 0 ? self::loadFull($canvassId) : null;
+        $canvass = $loaded['canvass'] ?? null;
+        $ownerId = (int) (($canvass->canvass_owner_user_id ?? 0) ?: ($ris->ris_submitted_by ?? $ris->ris_created_by ?? 0));
+        $requestNo = (string) ($ris->ris_request_no ?? ($canvass->canvass_request_no ?? ''));
         $now = now();
         $today = $now->toDateString();
 
-        $atpLinesBySupplier = [];
-        foreach ($loaded['items'] as $item) {
-            if ((string) ($item->canvass_item_status ?? '') !== self::ITEM_APPROVED) {
-                continue;
-            }
-            $itemName = (string) ($item->canvass_item_name ?: $item->catalog_item_name);
-            $selectedOffers = $item->selected_offers ?? collect();
-            foreach ($selectedOffers as $offer) {
-                $approvedUnits = max(1, (int) ($offer->approved_offer_units ?? $offer->computed_offer_units ?? 1));
-                $offerPrice = round((float) ($offer->offer_unit_price ?? 0), 2);
-                $supId = (int) $offer->supplier_id;
-                $uomLabel = (string) ($offer->offer_uom_name ?: ($item->uom_name ?: 'Unit'));
-
-                $desc = $itemName;
-                if (! empty($offer->brand_name)) {
-                    $desc .= ' ('.$offer->brand_name.')';
+        $atpGroupsBySupplier = [];
+        if ($loaded) {
+            foreach ($loaded['items'] as $item) {
+                if ((string) ($item->canvass_item_status ?? '') !== self::ITEM_APPROVED) {
+                    continue;
                 }
-                $atpLinesBySupplier[$supId][] = [
+                $itemName = (string) ($item->canvass_item_name ?: $item->catalog_item_name);
+                $selectedOffers = $item->selected_offers ?? collect();
+                foreach ($selectedOffers as $offer) {
+                    $approvedUnits = max(1, (int) ($offer->approved_offer_units ?? $offer->computed_offer_units ?? 1));
+                    $offerPrice = round((float) ($offer->offer_unit_price ?? 0), 2);
+                    $supId = (int) $offer->supplier_id;
+                    $supName = trim((string) ($offer->supplier_display_name ?? ''));
+                    $supBase = trim(explode('·', $supName)[0]);
+                    $groupKey = $supBase !== '' ? mb_strtolower($supBase) : ($supName !== '' ? mb_strtolower($supName) : ('id:'.$supId));
+                    $uomLabel = (string) ($offer->offer_uom_name ?: ($item->uom_name ?: 'Unit'));
+
+                    if (! isset($atpGroupsBySupplier[$groupKey])) {
+                        $atpGroupsBySupplier[$groupKey] = [
+                            'supplier_id' => $supId > 0 ? $supId : null,
+                            'lines' => [],
+                        ];
+                    } elseif (empty($atpGroupsBySupplier[$groupKey]['supplier_id']) && $supId > 0) {
+                        $atpGroupsBySupplier[$groupKey]['supplier_id'] = $supId;
+                    }
+
+                    $desc = $itemName;
+                    if (! empty($offer->brand_name)) {
+                        $desc .= ' ('.$offer->brand_name.')';
+                    }
+                    $atpGroupsBySupplier[$groupKey]['lines'][] = [
+                        'description' => $desc,
+                        'quantity' => $approvedUnits,
+                        'unit' => $uomLabel,
+                        'unit_price' => $offerPrice,
+                    ];
+                }
+            }
+        } else {
+            // Fallback for legacy Reviewed RIS records not linked to a canvass: group RIS line items by supplier.
+            $risItems = RisWorkflow::sheetItemsByRisIds([$risId])->get($risId, collect());
+            foreach ($risItems as $ri) {
+                $itemName = trim((string) ($ri->ris_item_name_description ?? ''));
+                if ($itemName === '') {
+                    continue;
+                }
+                $qty = max(1, (int) round((float) ($ri->ris_quantity_issued ?: ($ri->ris_quantity_requested ?: 1))));
+                $unitPrice = round((float) ($ri->ris_unit_cost ?? 0), 2);
+                $supId = (int) ($ri->ris_item_supplier_id ?? 0);
+                $supName = trim((string) ($ri->supplier_display_name ?? ''));
+                $supBase = trim(explode('·', $supName)[0]);
+                $groupKey = $supBase !== '' ? mb_strtolower($supBase) : ($supName !== '' ? mb_strtolower($supName) : ('id:'.$supId));
+                $uomLabel = trim((string) ($ri->uom_name ?? '')) ?: 'Unit';
+
+                if (! isset($atpGroupsBySupplier[$groupKey])) {
+                    $atpGroupsBySupplier[$groupKey] = [
+                        'supplier_id' => $supId > 0 ? $supId : null,
+                        'lines' => [],
+                    ];
+                } elseif (empty($atpGroupsBySupplier[$groupKey]['supplier_id']) && $supId > 0) {
+                    $atpGroupsBySupplier[$groupKey]['supplier_id'] = $supId;
+                }
+
+                $brandLabel = trim((string) ($ri->brand_name ?? ''));
+                $desc = $brandLabel !== '' ? ($itemName.' ('.$brandLabel.')') : $itemName;
+                $atpGroupsBySupplier[$groupKey]['lines'][] = [
                     'description' => $desc,
-                    'quantity' => $approvedUnits,
+                    'quantity' => $qty,
                     'unit' => $uomLabel,
-                    'unit_price' => $offerPrice,
+                    'unit_price' => $unitPrice,
                 ];
             }
         }
 
-        if ($atpLinesBySupplier === []) {
+        if ($atpGroupsBySupplier === []) {
             return [];
         }
 
         $atpIds = [];
-        $isSplit = count($atpLinesBySupplier) > 1;
+        $isSplit = count($atpGroupsBySupplier) > 1;
         $hasSplitCol = AtpRisSuppliers::hasSplitColumn();
         $hasAtpReqNo = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_request_no');
+        $hasReceivedSigCol = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_received_by_signature');
+        $ownerName = trim((string) (DB::table('users_table')->where('user_id', $ownerId)->value('user_full_name') ?? '')) ?: null;
+        $purchaserSig = trim((string) (($canvass->canvass_purchaser_signature ?? '') ?: ($ris->ris_requested_by_signature ?? '')));
+        if ($purchaserSig !== '' && ! RisWorkflow::isDrawnSignature($purchaserSig)) {
+            $purchaserSig = '';
+        }
 
-        foreach ($atpLinesBySupplier as $supId => $lines) {
+        foreach ($atpGroupsBySupplier as $group) {
+            $supId = $group['supplier_id'];
+            $lines = $group['lines'];
+            $atpNumber = AtpFormNumber::next();
             $atpPayload = [
                 'authority_purchase_ris_id' => $risId,
-                'authority_purchase_form_number' => null,
-                'authority_purchase_supplier_id' => $supId > 0 ? $supId : null,
+                'authority_purchase_form_number' => $atpNumber,
+                'authority_purchase_supplier_id' => $supId ?: null,
                 'authority_purchase_date' => $today,
-                'authority_purchase_received_by_name' => null,
+                'authority_purchase_received_by_name' => $ownerName,
                 'authority_purchase_reference_po_no' => null,
                 'authority_purchase_status' => 'Pending',
                 'authority_purchase_created_by' => $ownerId,
                 'authority_purchase_is_archived' => 0,
                 'authority_purchase_created_at' => $now,
                 'authority_purchase_updated_at' => $now,
-                'authority_purchase_submitted_by' => null,
-                'authority_purchase_submitted_at' => null,
+                'authority_purchase_submitted_by' => $ownerId ?: null,
+                'authority_purchase_submitted_at' => $now,
             ];
+            if ($hasReceivedSigCol && $purchaserSig !== '') {
+                $atpPayload['authority_purchase_received_by_signature'] = $purchaserSig;
+            }
             if ($hasSplitCol) {
                 $atpPayload['authority_purchase_ris_supplier_split'] = $isSplit ? 1 : 0;
             }
@@ -848,5 +1015,126 @@ class CanvassWorkflow
         }
 
         return $atpIds;
+    }
+
+    /**
+     * Mark all per-supplier ATPs linked to an approved RIS as Approved so Purchaser
+     * can immediately choose a Payment Method and create an RFC without re-submitting ATPs.
+     *
+     * @return array<int>
+     */
+    public static function approveLinkedAtpsForRis(
+        int $risId,
+        ?string $adminSignature = null,
+        ?string $adminName = null,
+        ?int $adminUserId = null
+    ): array {
+        $atpIds = self::ensureAtpDraftsForApprovedRis($risId);
+        if ($atpIds === []) {
+            return [];
+        }
+
+        $now = now();
+        $hasAuthSig = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by_signature');
+        $hasAuthName = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by_name');
+        $hasAuthBy = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_authorized_by');
+        $hasReleasedAt = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_released_to_purchaser_at');
+        $hasLogs = Schema::hasTable('approval_logs_table');
+        $existingRows = DB::table('authority_to_purchase_table')
+            ->whereIn('authority_purchase_id', $atpIds)
+            ->get();
+
+        foreach ($existingRows as $row) {
+            $update = [
+                'authority_purchase_status' => 'Approved',
+                'authority_purchase_updated_at' => $now,
+            ];
+            if ($hasReleasedAt && empty($row->authority_purchase_released_to_purchaser_at)) {
+                $update['authority_purchase_released_to_purchaser_at'] = $now;
+            }
+            if (! AtpFormNumber::isValid($row->authority_purchase_form_number ?? null)) {
+                $update['authority_purchase_form_number'] = AtpFormNumber::next();
+            }
+            if (empty($row->authority_purchase_submitted_at)) {
+                $update['authority_purchase_submitted_at'] = $now;
+            }
+            if ($hasAuthSig && $adminSignature !== null && trim($adminSignature) !== '') {
+                $update['authority_purchase_authorized_by_signature'] = trim($adminSignature);
+            }
+            if ($hasAuthName && $adminName !== null && trim($adminName) !== '') {
+                $update['authority_purchase_authorized_by_name'] = trim($adminName);
+            }
+            if ($hasAuthBy && $adminUserId !== null && $adminUserId > 0) {
+                $update['authority_purchase_authorized_by'] = $adminUserId;
+            }
+            DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_id', $row->authority_purchase_id)
+                ->update($update);
+
+            if ($hasLogs && $adminUserId !== null && $adminUserId > 0) {
+                try {
+                    DB::table('approval_logs_table')->insert([
+                        'approval_log_reference_type' => 'ATP',
+                        'approval_log_reference_id' => (int) $row->authority_purchase_id,
+                        'approval_log_level' => 'School Administrator',
+                        'approval_log_approved_by' => $adminUserId,
+                        'approval_log_approval_status' => 'Approved',
+                        'approval_log_approval_remarks' => 'Authorized alongside RIS approval by '.($adminName ? trim($adminName) : 'School Administrator').'.',
+                        'approval_log_approved_at' => $now,
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore logging failures
+                }
+            }
+        }
+
+        return $atpIds;
+    }
+
+    /**
+     * Batch-load linked non-archived ATPs (with supplier labels & line items) keyed by ris_id.
+     */
+    public static function linkedAtpsByRisIds(array $risIds): \Illuminate\Support\Collection
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $risIds), fn ($id) => $id > 0)));
+        if (
+            $ids === []
+            || ! Schema::hasTable('authority_to_purchase_table')
+            || ! Schema::hasTable('authority_to_purchase_items_table')
+        ) {
+            return collect();
+        }
+
+        $atps = DB::table('authority_to_purchase_table')
+            ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->whereIn('authority_to_purchase_table.authority_purchase_ris_id', $ids)
+            ->where('authority_to_purchase_table.authority_purchase_is_archived', 0)
+            ->select(
+                'authority_to_purchase_table.*',
+                'suppliers_table.supplier_store_type',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            )
+            ->orderBy('authority_to_purchase_table.authority_purchase_id')
+            ->get();
+
+        if ($atps->isEmpty()) {
+            return collect();
+        }
+
+        $atpIds = $atps->pluck('authority_purchase_id')->map(fn ($id) => (int) $id)->all();
+        $itemsByAtp = DB::table('authority_to_purchase_items_table')
+            ->whereIn('authority_purchase_id', $atpIds)
+            ->orderBy('atp_item_id')
+            ->get()
+            ->groupBy('authority_purchase_id');
+
+        foreach ($atps as $atp) {
+            $atp->atpItems = $itemsByAtp->get($atp->authority_purchase_id, collect())->values();
+        }
+
+        return $atps->groupBy('authority_purchase_ris_id');
     }
 }

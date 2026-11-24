@@ -30,7 +30,7 @@
             class="menu-item {{ request()->is('accounting/approved-packages*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="files"></i>
-            <span>ATP + RFC</span>
+            <span>Request for Check</span>
             @if($packageCount > 0)
                 <span class="{{ $navCount }}" title="{{ $packageCount }} approved by the School Administrator">{{ $packageCount }}</span>
             @endif

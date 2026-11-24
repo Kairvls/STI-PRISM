@@ -431,7 +431,10 @@ class AccountingController extends Controller
             ->where('authority_purchase_ris_id', $id)
             ->orderByDesc('authority_purchase_id')
             ->get();
-        $atp = $atps->first();
+        $requestedAtpId = (int) $request->query('atp', 0);
+        $atp = $requestedAtpId > 0
+            ? ($atps->firstWhere('authority_purchase_id', $requestedAtpId) ?? $atps->first())
+            : $atps->first();
 
         $chain = $atp
             ? $this->chainFromAtp((int) $atp->authority_purchase_id)
@@ -447,7 +450,9 @@ class AccountingController extends Controller
                 'rr' => null,
                 'liq' => null,
             ];
-        $chain['atp_siblings'] = $atps->slice(1)
+        $activeAtpId = (int) ($atp->authority_purchase_id ?? 0);
+        $chain['atp_siblings'] = $atps
+            ->reject(fn ($row) => (int) ($row->authority_purchase_id ?? 0) === $activeAtpId)
             ->reject(fn ($row) => (string) ($row->authority_purchase_status ?? '') === 'Rejected')
             ->map(fn ($row) => [
                 'label' => $row->authority_purchase_form_number ?: ('ATP #' . $row->authority_purchase_id),
@@ -1116,36 +1121,6 @@ class AccountingController extends Controller
     {
         $rfc = $this->rfcQuery()->where('request_check_table.request_check_id', $id)->first();
         abort_if(!$rfc, 404);
-
-        // Package review: when linked ATP is still awaiting SA, open the ATP+RFC page instead.
-        if (
-            ProcurementPortal::PURCHASER_OWNS_ATP
-            && in_array((string) ($rfc->request_check_status ?? ''), $this->rfcIncomingStatuses(), true)
-        ) {
-            $linkedAtpIds = RfcAtpLinks::atpIdsFor(
-                (int) $id,
-                (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null
-            );
-            if ($linkedAtpIds !== []) {
-                $packageAtp = DB::table('authority_to_purchase_table')
-                    ->whereIn('authority_purchase_id', $linkedAtpIds)
-                    ->where('authority_purchase_status', 'Pending')
-                    ->whereNotNull('authority_purchase_submitted_at')
-                    ->orderBy('authority_purchase_id')
-                    ->first(['authority_purchase_id']);
-                if ($packageAtp) {
-                    return redirect()
-                        ->route('school-admin.atp.show', [
-                            'id' => (int) $packageAtp->authority_purchase_id,
-                            'return_status' => $request->query('return_status', 'incoming'),
-                        ])
-                        ->with(
-                            'success',
-                            'Review ATP + RFC together here. One approval stamps both documents.'
-                        );
-                }
-            }
-        }
 
         if (in_array($rfc->request_check_status, ['Submitted', 'Resubmitted'], true) && $this->rfcStatusAllowed('Under Review')) {
             $underReviewPayload = [
@@ -2040,7 +2015,7 @@ class AccountingController extends Controller
                 continue;
             }
             $stamp = (string) ($row->request_check_updated_at ?? $row->request_check_status ?? $id);
-            $map[route('school-admin.rfc.preview', $id)] = $this->rememberFormPreview('rfc:'.$id.':'.$stamp, function () use ($id) {
+            $map[route('school-admin.rfc.preview', $id)] = $this->rememberFormPreview('rfc-live-v1:'.$id.':'.$stamp.':'.(int) Auth::id(), function () use ($id) {
                 return view('accounting.dashboard-preview', $this->dashboardPreviewRfc($id))->render();
             });
         }
@@ -2068,7 +2043,10 @@ class AccountingController extends Controller
         $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
         abort_if(! $rfc, 404);
 
-        return ['kind' => 'rfc', 'rfc' => $rfc];
+        $accLiveSign = in_array((string) ($rfc->request_check_status ?? ''), $this->rfcIncomingStatuses(), true)
+            && empty($rfc->request_check_funds_released_at);
+
+        return ['kind' => 'rfc', 'rfc' => $rfc, 'accLiveSign' => $accLiveSign];
     }
 
     private function dashboardPreviewLiq(int $id): array
@@ -2911,6 +2889,7 @@ class AccountingController extends Controller
             'request_check_request_no',
             'request_check_status',
             'request_check_payee',
+            'request_check_requested_by',
             'request_check_amount_figures',
             'request_check_date',
             'request_check_submitted_at',
@@ -2920,6 +2899,7 @@ class AccountingController extends Controller
             'request_check_is_archived',
             'request_check_assigned_reviewer_id',
             'request_check_authority_purchase_id',
+            'request_check_funding_type',
         ];
         $select = [];
         foreach ($wanted as $column) {
@@ -2928,6 +2908,9 @@ class AccountingController extends Controller
             }
         }
         $select[] = 'authority_to_purchase_table.authority_purchase_form_number';
+        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')) {
+            $select[] = 'authority_to_purchase_table.authority_purchase_payment_path';
+        }
         $select[] = 'requisition_issue_slip_table.ris_form_number';
 
         $this->applyAssignedReviewerFilter(
@@ -2989,7 +2972,7 @@ class AccountingController extends Controller
                 $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $atp->authority_purchase_ris_id)->first();
                 $chain['ris'] = [
                     'label' => RisWorkflow::formNumber($ris, (int) $atp->authority_purchase_ris_id),
-                    'url' => route('school-admin.ris.show', $atp->authority_purchase_ris_id),
+                    'url' => route('school-admin.ris.show', ['id' => $atp->authority_purchase_ris_id, 'atp' => $atpId]),
                     'status' => $ris->ris_status ?? null,
                 ];
             }

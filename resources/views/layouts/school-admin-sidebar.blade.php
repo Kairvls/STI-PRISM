@@ -180,18 +180,18 @@
         </a>
 
         @php
-            $atpRfcNavCount = (int) ($saCounts['atp'] ?? 0) + (int) ($saCounts['rfc'] ?? 0);
-            $atpRfcNavActive = request()->is('school-admin/authority-to-purchase*')
-                || request()->is('school-admin/request-check*');
+            $rfcNavCount = (int) ($saCounts['rfc'] ?? 0);
+            $rfcNavActive = request()->is('school-admin/request-check*')
+                || request()->is('school-admin/authority-to-purchase*');
         @endphp
         <a
-            href="{{ route('school-admin.atp.index') }}"
-            class="menu-item {{ $atpRfcNavActive ? 'active' : '' }}"
+            href="{{ route('school-admin.rfc.index') }}"
+            class="menu-item {{ $rfcNavActive ? 'active' : '' }}"
         >
             <i data-lucide="file-check"></i>
-            <span>ATP + Check Approvals</span>
-            @if($atpRfcNavCount > 0)
-                <span class="{{ $navCount }}" title="{{ $atpRfcNavCount }} not viewed yet">{{ $atpRfcNavCount }}</span>
+            <span>Request for Check Approvals</span>
+            @if($rfcNavCount > 0)
+                <span class="{{ $navCount }}" title="{{ $rfcNavCount }} RFC(s) awaiting review">{{ $rfcNavCount }}</span>
             @endif
         </a>
 

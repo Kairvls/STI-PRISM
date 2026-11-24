@@ -33,12 +33,7 @@
                 </p>
             </div>
 
-            <div id="directApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50/40">
-                <div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500">
-                    <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>
-                    Loading RIS form...
-                </div>
-            </div>
+            <div id="directApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50/40"></div>
         </div>
     </div>
 </div>
@@ -280,12 +275,11 @@
                 ? ''
                 : (actionMode === 'cosign'
                     ? 'Sign Issued by on the RIS form. Approved by is already filled by the President.'
-                    : 'Fill Checked by and Issued by, add a reason (and optional proof), then confirm School Administrator Approval.');
+                    : 'Sign the RIS & ATP(s), add a reason (and optional proof), then approve and send to the Purchaser.');
         }
 
-        body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>Loading RIS form...</div>';
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+        var reqId = (window._adminDaFetchSeq = (window._adminDaFetchSeq || 0) + 1);
+        document.body.style.cursor = 'wait';
 
         fetch(@js(\App\Support\AdminPortal::url('procurement-review/ris')) + '/' + risId + '/direct-approve-form?mode=' + encodeURIComponent(actionMode), {
             headers: {
@@ -302,16 +296,27 @@
             return response.text();
         })
         .then(function (html) {
+            if (reqId !== window._adminDaFetchSeq) return;
             body.innerHTML = html;
             Array.prototype.slice.call(body.querySelectorAll('script')).forEach(function (oldScript) {
                 var script = document.createElement('script');
                 script.textContent = oldScript.textContent;
                 oldScript.parentNode.replaceChild(script, oldScript);
             });
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         })
         .catch(function (err) {
+            if (reqId !== window._adminDaFetchSeq) return;
             var msg = (err && err.message) ? err.message : 'Failed to load RIS form. Please try again.';
             body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-slate-600">' + msg + '</div>';
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        })
+        .finally(function () {
+            if (reqId === window._adminDaFetchSeq) {
+                document.body.style.cursor = '';
+            }
         });
     };
 

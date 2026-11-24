@@ -1,0 +1,45 @@
+/* ==========================================================================
+   Unified Modal Backdrop (System-wide)
+   Standardizes every modal overlay to crisp 50% black with no backdrop blur,
+   matching the RIS Form preview modal (bg-black/50, no blur).
+   ========================================================================== */
+
+:is(
+    .fixed.inset-0,
+    .fixed.inset-0 > .absolute.inset-0,
+    .fixed.inset-0 > .fixed.inset-0,
+    .fixed.inset-0 > .h-screen,
+    .fixed.inset-0 > .min-h-screen
+):is(
+    [class*="bg-black/"],
+    [class*="bg-slate-9"],
+    [class*="bg-gray-9"],
+    [class*="bg-zinc-9"],
+    [class*="bg-neutral-9"],
+    [class*="bg-stone-9"],
+    [class*="bg-[#0b1220]"],
+    [class*="bg-[#0B1120]"],
+    [class*="bg-[#0f172a]"],
+    [class*="bg-[rgba(0,"],
+    [class*="bg-[rgba(15,"]
+),
+.pm-modal-overlay,
+.confirm-backdrop,
+.swal2-container.swal2-backdrop-show {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Remove blur from any modal backdrop layer that only sets backdrop-blur without a Tailwind dark bg class */
+:is(
+    .fixed.inset-0,
+    .fixed.inset-0 > .absolute.inset-0,
+    .fixed.inset-0 > .fixed.inset-0,
+    .fixed.inset-0 > .h-screen,
+    .fixed.inset-0 > .min-h-screen
+)[class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}

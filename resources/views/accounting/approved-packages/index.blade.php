@@ -1,6 +1,6 @@
 @extends('layouts.accounting-layout')
 
-@section('title', 'ATP + RFC')
+@section('title', 'Request for Check')
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
@@ -40,7 +40,10 @@
                                             'title' => 'Inherited from linked RIS',
                                         ])
                                         @if(!empty($item->fund_label) && $item->fund_label !== 'Not chosen')
-                                            <span class="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-800 ring-1 ring-inset ring-violet-200">{{ $item->fund_label }}</span>
+                                            @include('partials.payment-method-badge', [
+                                                'path' => $item->fund_label,
+                                                'size' => 'sm',
+                                            ])
                                         @endif
                                     </div>
                                 </div>
@@ -58,9 +61,27 @@
                             </td>
                             <td class="px-5 py-4">
                                 @if(!empty($item->check_ready))
-                                    @include('accounting.partials.status-badge', ['status' => \App\Support\ProcurementStatus::READY_FOR_COLLECTION])
+                                    <div class="inline-flex flex-col items-start">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                            style="background:#fffbeb;color:#b45309;border-color:#fde68a;"
+                                        >
+                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:#d97706;"></span>
+                                            <span>Ready</span>
+                                        </span>
+                                        <div class="mt-1 text-[11px] font-medium leading-tight text-slate-600">For check collection</div>
+                                    </div>
                                 @else
-                                    @include('accounting.partials.status-badge', ['status' => \App\Support\ProcurementStatus::ACCOUNTING_NEED_REVISION])
+                                    <div class="inline-flex flex-col items-start">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                            style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;"
+                                        >
+                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:#059669;"></span>
+                                            <span>Approved</span>
+                                        </span>
+                                        <div class="mt-1 text-[11px] font-medium leading-tight text-slate-600">Ready for check release</div>
+                                    </div>
                                 @endif
                             </td>
                             <td class="px-5 py-4">
@@ -97,7 +118,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-5 py-14 text-center text-sm text-gray-500">No approved ATP + RFC is waiting.</td>
+                            <td colspan="7" class="px-5 py-14 text-center text-sm text-gray-500">No approved Request for Check is waiting.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -173,7 +194,7 @@
 
         function openModal(button) {
             index = 0;
-            title.textContent = button.getAttribute('data-title') || 'ATP + RFC';
+            title.textContent = button.getAttribute('data-title') || 'Request for Check';
             var method = button.getAttribute('data-fund') || '';
             fund.textContent = method;
             fund.hidden = method === '' || method === 'Not chosen';

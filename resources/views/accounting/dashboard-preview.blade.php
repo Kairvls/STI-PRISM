@@ -8,6 +8,7 @@
         @include('partials.request-check-paper', [
             'editable' => false,
             'rfc' => $rfc,
+            'accLiveSign' => !empty($accLiveSign),
         ])
     @elseif (($kind ?? '') === 'liq')
         @include('partials.liquidation-report-paper', [

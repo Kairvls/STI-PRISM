@@ -19,14 +19,19 @@
         onclick="if (event.target === this) window.{{ $closeFn }}()"
     >
         <div
-            class="ris-preview-modal-panel flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
-            style="width: auto; height: auto; max-width: 98vw; max-height: 96vh;"
+            class="ris-preview-modal-panel flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            style="width: min(1024px, 96vw); height: auto; max-width: 98vw; max-height: 96vh;"
             onclick="event.stopPropagation()"
             data-ris-preview-panel
         >
             <div class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-2.5" data-ris-preview-header>
-                <div class="min-w-0 flex-1">
+                <div class="flex min-w-0 flex-1 items-center gap-2.5">
                     <h3 class="text-base font-semibold text-gray-900">RIS Form</h3>
+                    <span
+                        data-ris-preview-number
+                        class="hidden rounded-md px-2 py-0.5 text-xs font-semibold"
+                        style="background:#eff6ff;color:#1d4ed8;"
+                    ></span>
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
                     <button
@@ -65,37 +70,48 @@
                 </div>
             </div>
 
-            {{-- No flex-1: stage must hug the scaled form (avoids big empty gaps) --}}
-            <div
-                class="ris-preview-stage relative overflow-hidden bg-slate-100"
-                data-iframe-id="{{ $iframeId }}"
-                style="min-height: 0; width: min(1112px, 96vw);"
-            >
+            {{-- Single scrollable body so RIS form and Canvass attachments scroll naturally (no pinned footer, no horizontal scrollbar) --}}
+            <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
                 <div
-                    class="ris-preview-scale-wrap"
-                    data-scale-wrap-for="{{ $iframeId }}"
-                    style="overflow: hidden; line-height: 0; height: 0; min-height: 0;"
+                    class="ris-preview-stage relative w-full overflow-hidden bg-gray-100"
+                    data-iframe-id="{{ $iframeId }}"
+                    style="min-height: min(72vh, 620px); width: 100%;"
                 >
-                    <iframe
-                        id="{{ $iframeId }}"
-                        class="block bg-white"
-                        scrolling="no"
-                        style="width: 11in; height: 0; border: 0; overflow: hidden; transform-origin: top left;"
-                        src="about:blank"
-                        title="RIS Form Preview"
-                    ></iframe>
+                    <div
+                        class="ris-preview-scale-wrap"
+                        data-scale-wrap-for="{{ $iframeId }}"
+                        style="overflow: hidden; line-height: 0; height: 0; min-height: 0;"
+                    >
+                        <iframe
+                            id="{{ $iframeId }}"
+                            class="block bg-white"
+                            scrolling="no"
+                            style="width: 11in; height: 0; border: 0; overflow: hidden; transform-origin: top left;"
+                            src="about:blank"
+                            title="RIS Form Preview"
+                        ></iframe>
+                    </div>
+                    <div class="hidden bg-gray-100 p-4 md:p-6" data-ris-preview-inline></div>
+                    <div
+                        class="flex flex-col items-center justify-center gap-2 bg-white text-xs font-medium text-slate-500"
+                        style="min-height: min(72vh, 620px);"
+                        data-ris-preview-skeleton
+                    >
+                        <svg class="h-6 w-6 animate-spin" style="color:#2563eb;" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        <span>Loading RIS form...</span>
+                    </div>
                 </div>
-                <div class="overflow-hidden bg-slate-100 py-6" data-ris-preview-skeleton>
-                    @include('partials.skeleton', ['skeletonType' => 'document', 'skeletonLabel' => 'Loading RIS form'])
-                </div>
-            </div>
 
-            <div
-                id="{{ $modalId }}-attachments"
-                class="hidden shrink-0 border-t border-gray-100 bg-white px-4 py-2"
-            >
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Canvass</p>
-                <div class="mt-1 space-y-0.5" data-attachment-list></div>
+                <div
+                    id="{{ $modalId }}-attachments"
+                    class="hidden border-t border-gray-200 bg-white px-5 py-3"
+                >
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Canvass</p>
+                    <div class="mt-1 space-y-0.5" data-attachment-list></div>
+                </div>
             </div>
 
             @if($footerView)
@@ -129,7 +145,7 @@
         }
         if (stage) {
             stage.style.height = 'auto';
-            stage.style.minHeight = '0';
+            stage.style.minHeight = 'min(72vh, 620px)';
             stage.style.width = 'min(1112px, 96vw)';
             stage.style.background = '#f1f5f9';
         }
@@ -286,10 +302,17 @@
 
         try {
             var idoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+            if (!idoc || idoc.readyState !== 'complete' || !idoc.body) {
+                return;
+            }
+            var sheetRoot = idoc.querySelector('.ris-original-form, .ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet');
+            if (!sheetRoot && !String(idoc.body.innerText || '').trim()) {
+                return;
+            }
             if (idoc && idoc.body) {
                 iframe.style.width = docW + 'px';
                 iframe.style.height = '2400px';
-                var root = idoc.querySelector('.ris-original-form, .ris-document, .ris-print-sheet, .rfc-print-sheet, .atp-print-sheet, .dv-print-sheet, .rr-print-sheet') || idoc.body;
+                var root = sheetRoot || idoc.body;
                 purchaserSheet = !!(root.classList && root.classList.contains('ris-original-form'));
                 var prevMin = root.style.minHeight;
                 var prevHeight = root.style.height;
@@ -393,13 +416,14 @@
                 wrap.style.height = scaledH + 'px';
             }
         } else {
-            wrap.style.margin = '0';
+            var finalPanelW = Math.min(maxW, Math.max(scaledW, Math.min(1024, maxW)));
+            wrap.style.margin = finalPanelW > scaledW ? '0 auto' : '0';
             wrap.style.boxShadow = 'none';
 
             var stageH = scaledH;
             if (purchaserSheet) stageH = Math.min(scaledH, maxH);
             stage.style.flex = 'none';
-            stage.style.width = scaledW + 'px';
+            stage.style.width = finalPanelW + 'px';
             stage.style.height = stageH + 'px';
             stage.style.minHeight = purchaserSheet ? '0' : (scaledH + 'px');
             stage.style.overflowX = 'hidden';
@@ -410,7 +434,7 @@
             stage.style.justifyContent = '';
             stage.style.alignItems = '';
 
-            panel.style.width = scaledW + 'px';
+            panel.style.width = finalPanelW + 'px';
             panel.style.height = 'auto';
             panel.style.maxWidth = '98vw';
             panel.style.maxHeight = '96vh';
@@ -468,6 +492,45 @@
             }
         });
     });
+
+    document.addEventListener('click', function (event) {
+        var tabBtn = event.target.closest('[data-ris-modal-tab]');
+        if (tabBtn) {
+            var root = tabBtn.closest('[data-ris-modal-doc-root]');
+            if (!root) return;
+            var target = tabBtn.getAttribute('data-ris-modal-tab');
+            root.querySelectorAll('[data-ris-modal-pane]').forEach(function (pane) {
+                pane.classList.toggle('hidden', pane.getAttribute('data-ris-modal-pane') !== target);
+            });
+            root.querySelectorAll('[data-ris-modal-tab]').forEach(function (btn) {
+                var active = btn.getAttribute('data-ris-modal-tab') === target;
+                btn.style.borderColor = active ? '#2563eb' : 'transparent';
+                btn.style.color = active ? '#1d4ed8' : '#64748b';
+            });
+            return;
+        }
+
+        var stepBtn = event.target.closest('[data-ris-atp-prev], [data-ris-atp-next]');
+        if (stepBtn) {
+            var root = stepBtn.closest('[data-ris-modal-doc-root]');
+            if (!root) return;
+            var sheets = Array.from(root.querySelectorAll('[data-ris-atp-sheet]'));
+            if (!sheets.length) return;
+            var cur = sheets.findIndex(function (el) { return !el.classList.contains('hidden'); });
+            if (cur < 0) cur = 0;
+            var next = stepBtn.hasAttribute('data-ris-atp-next') ? cur + 1 : cur - 1;
+            next = Math.max(0, Math.min(sheets.length - 1, next));
+            sheets.forEach(function (el, idx) { el.classList.toggle('hidden', idx !== next); });
+            var labelEl = root.querySelector('[data-ris-atp-label]');
+            if (labelEl && sheets[next]) {
+                labelEl.textContent = 'ATP ' + (next + 1) + ' of ' + sheets.length + ' · ' + (sheets[next].getAttribute('data-ris-atp-title') || '');
+            }
+            var prevBtn = root.querySelector('[data-ris-atp-prev]');
+            var nextBtn = root.querySelector('[data-ris-atp-next]');
+            if (prevBtn) prevBtn.disabled = next === 0;
+            if (nextBtn) nextBtn.disabled = next >= sheets.length - 1;
+        }
+    }, true);
 
     window.printAdminRis = function (risId) {
         if (!risId) return;

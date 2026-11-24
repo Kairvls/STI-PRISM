@@ -18,7 +18,7 @@
         'liq' => route('accounting.liq.index', ['focus' => 'liq-review']),
     ];
     $typeShort = [
-        'package' => 'ATP + RFC',
+        'package' => 'Request for Check',
         'liq' => 'Liquidation report',
     ];
     $reviewTabs = $d['queueByType'];

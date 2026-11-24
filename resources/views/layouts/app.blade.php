@@ -992,12 +992,14 @@
 
     <link rel="stylesheet" href="{{ asset('css/list-soft-nav.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sidebar-nav-fast.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/modal-backdrop-unified.css') }}?v=1">
     <script src="{{ asset('js/auto-filter.js') }}" defer></script>
     <script src="{{ asset('js/list-soft-nav.js') }}?v=2" defer></script>
     <script src="{{ asset('js/sidebar-nav-fast.js') }}?v=2" defer></script>
     <script src="{{ asset('js/input-limits.js') }}" defer></script>
     <script src="{{ asset('js/signature-image.js') }}?v=2" defer></script>
     <script src="{{ asset('js/modal-backdrop-close.js') }}" defer></script>
+    <script src="{{ asset('js/collapsible-signature-panels.js') }}?v=2" defer></script>
 
     @include('layouts.partials.floating-tip')
 

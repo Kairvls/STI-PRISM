@@ -56,7 +56,9 @@
         <div class="flex items-end gap-3">
             <span class="w-24 shrink-0 font-semibold">Amount: @if($editable)<span class="text-red-500">*</span>@endif</span>
             @if($editable)
-                <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="request_check_amount_figures" value="{{ $amountValue }}" readonly tabindex="-1" title="Amount comes from the selected ATP and cannot be edited." class="h-8 flex-1 cursor-not-allowed border-0 border-b border-black bg-transparent px-1 outline-none">
+                <div class="rfc-amount-line flex flex-1 items-end border-b border-black">
+                    <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="request_check_amount_figures" value="{{ $amountValue }}" readonly tabindex="-1" title="Amount comes from the selected ATP and cannot be edited." class="h-8 w-full flex-1 cursor-not-allowed border-0 bg-transparent px-1 outline-none">
+                </div>
             @else
                 <span class="flex-1 border-b border-black px-1 pb-0.5">
                     {{ $amountValue !== '' && $amountValue !== null ? '₱' . number_format((float) $amountValue, 2) : '' }}
@@ -68,14 +70,12 @@
             <div class="flex items-end gap-3">
                 <span class="w-24 shrink-0 font-semibold">For: @if($editable)<span class="text-red-500">*</span>@endif</span>
                 @if($editable)
-                    <textarea name="request_check_particulars_purpose" rows="2" maxlength="{{ \App\Support\InputLimits::PURPOSE }}" readonly tabindex="-1" title="For comes from the selected ATP and cannot be edited." class="flex-1 cursor-not-allowed resize-none border-0 border-b border-black bg-transparent px-1 outline-none">{{ $purposeValue }}</textarea>
+                    <input type="text" name="request_check_particulars_purpose" value="{{ $purposeValue }}" maxlength="{{ \App\Support\InputLimits::PURPOSE }}" readonly tabindex="-1" title="For comes from the selected ATP and cannot be edited." class="h-8 flex-1 cursor-not-allowed border-0 border-b border-black bg-transparent px-1 outline-none">
                 @else
                     <span class="flex-1 border-b border-black px-1 pb-0.5 min-h-[1.5rem]">{{ $purposeValue }}</span>
                 @endif
             </div>
-            @unless($editable)
-                <div class="mt-8 border-b border-black"></div>
-            @endunless
+            <div class="mt-8 border-b border-black"></div>
         </div>
     </div>
 
@@ -158,6 +158,11 @@
 
 <style>
     /* Screen: allow fullscreen modals to stretch height. Print: collapse to content. */
+    .rfc-print-sheet .rfc-amount-line > * {
+        width: 100% !important;
+        flex: 1 1 0% !important;
+    }
+
     .rfc-print-sheet .signature-name-stack {
         margin-left: auto;
         margin-right: auto;

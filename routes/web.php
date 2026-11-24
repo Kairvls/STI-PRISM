@@ -1087,7 +1087,7 @@ Route::middleware(['auth', 'school_admin'])
             [AccountingController::class, 'destroySavedSignature']
         )->whereNumber('signature')->name('saved-signatures.destroy');
 
-        Route::get('/authority-to-purchase', [AccountingController::class, 'authorityToPurchase'])->name('atp.index');
+        Route::redirect('/authority-to-purchase', '/school-admin/request-check')->name('atp.index');
         Route::get('/authority-to-purchase/export-pdf', [AccountingController::class, 'exportAtpPdf'])->name('atp.export-pdf');
         Route::get('/authority-to-purchase/{id}/preview', [AccountingController::class, 'previewAtpForm'])
             ->whereNumber('id')
@@ -1169,6 +1169,7 @@ Route::middleware(['auth', 'supply_officer'])
         Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
         Route::post('/authority-to-purchase/{id}/release-purchaser', [AuthorityToPurchaseController::class, 'releaseToPurchaser'])->name('atp.release-purchaser');
         Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
+        Route::post('/authority-to-purchase/{id}/received-by', [AuthorityToPurchaseController::class, 'updateReceivedByName'])->name('atp.received-by');
         Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
         Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
         Route::get('/authority-to-purchase/{id}/export-xlsx', [AuthorityToPurchaseController::class, 'exportExcel'])->name('atp.export-xlsx');

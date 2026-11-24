@@ -618,8 +618,8 @@
    MODAL STYLES
    ============================================ */
 .pm-modal-overlay {
-    background: rgba(15, 23, 42, 0.35);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: none;
     animation: pmFadeIn 0.2s ease-out forwards;
 }
 .pm-modal-content {
@@ -1567,7 +1567,7 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
 .confirm-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, .4);
+    background: rgba(0, 0, 0, 0.5);
 }
 .confirm-card {
     position: relative;

@@ -785,18 +785,27 @@
                                 type="button"
                                 @click="if (item.activeSupplierIdx > 0) item.activeSupplierIdx--"
                                 :disabled="item.activeSupplierIdx === 0"
-                                class="rounded-lg border border-[#0025cc] bg-white px-3 py-1.5 text-xs font-semibold text-[#0025cc] transition hover:!bg-[#0025cc] hover:!text-white disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:!bg-white disabled:hover:!text-slate-400"
+                                title="Previous supplier"
+                                aria-label="Previous supplier"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-45"
                             >
-                                ← Previous supplier
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+                                </svg>
                             </button>
-                            <span class="text-xs font-medium text-slate-600" x-text="'Supplier ' + (item.activeSupplierIdx + 1) + ' of ' + item.suppliers.length"></span>
+                            <span class="text-xs font-semibold text-slate-700" x-text="'Supplier ' + (item.activeSupplierIdx + 1) + ' of ' + item.suppliers.length"></span>
                             <button
                                 type="button"
                                 @click="if (item.activeSupplierIdx < item.suppliers.length - 1) item.activeSupplierIdx++"
                                 :disabled="item.activeSupplierIdx >= item.suppliers.length - 1"
-                                class="rounded-lg bg-[#0025cc] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#001db3] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                                title="Next supplier"
+                                aria-label="Next supplier"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white transition hover:opacity-90 disabled:cursor-not-allowed"
+                                :style="item.activeSupplierIdx >= item.suppliers.length - 1 ? 'background:#e2e8f0;color:#94a3b8;' : 'background:#0025cc;color:#ffffff;'"
                             >
-                                Next supplier →
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                                </svg>
                             </button>
                         </div>
 
@@ -998,7 +1007,7 @@
         >
             <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between px-6 pt-5 pb-2">
-                <h3 class="text-xl font-medium text-slate-900">Requisition and Issue Slip Preview</h3>
+                <h3 class="text-xl font-medium text-slate-900">Requisition Slip Preview</h3>
                 <button
                     type="button"
                     @click="previewModalOpen = false"
@@ -1012,7 +1021,7 @@
             <div class="overflow-y-auto px-6 pb-6 pt-1">
                 <div class="text-center">
                     <div class="text-base font-bold text-slate-950">STI COLLEGE - ORMOC, INC.</div>
-                    <div class="mt-0.5 text-xs font-medium tracking-wide text-slate-500 uppercase">REQUISITION AND ISSUE SLIP</div>
+                    <div class="mt-0.5 text-xs font-medium tracking-wide text-slate-500 uppercase">REQUISITION SLIP</div>
                 </div>
 
                 <div class="mt-2 text-right text-xs text-slate-500" x-text="'Preview · ' + previewTimestamp"></div>

@@ -14,7 +14,7 @@
             : null;
         $proofName = $row->ris_direct_approval_proof_name ?: 'Download proof';
         $supportingDocs = $row->supportingDocuments ?? [];
-        $latestStop = $row->latest_stop ?? ['code' => 'RIS', 'title' => 'Requisition and Issue Slip'];
+        $latestStop = $row->latest_stop ?? ['code' => 'RIS', 'title' => 'Requisition Slip'];
         $requestNo = trim((string) ($row->ris_request_no ?? ''));
         $requestUrl = null;
         if ($requestNo !== '') {

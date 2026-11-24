@@ -77,12 +77,29 @@
     };
 
     document.addEventListener('click', (event) => {
+        if (event.target.closest('[data-borrow-more-close]')) {
+            event.preventDefault();
+            event.stopPropagation();
+            document.querySelectorAll('[data-borrow-more].is-open').forEach((wrap) => {
+                wrap.classList.remove('is-open');
+                wrap.querySelector('[data-borrow-more-btn]')?.setAttribute('aria-expanded', 'false');
+            });
+            return;
+        }
         if (event.target.closest('[data-borrow-more]')) return;
         document.querySelectorAll('[data-borrow-more].is-open').forEach((wrap) => {
             wrap.classList.remove('is-open');
             wrap.querySelector('[data-borrow-more-btn]')?.setAttribute('aria-expanded', 'false');
         });
     }, true);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('[data-borrow-more].is-open').forEach((wrap) => {
+            wrap.classList.remove('is-open');
+            wrap.querySelector('[data-borrow-more-btn]')?.setAttribute('aria-expanded', 'false');
+        });
+    });
 </script>
 @endonce
 
@@ -111,8 +128,19 @@
                         +{{ $moreCount }} more
                     </button>
                     <span class="borrow-more-panel" role="tooltip">
-                        <span class="block px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            Borrowed equipment · {{ $slipItems->count() }}
+                        <span class="flex items-center justify-between gap-2 px-3 pb-1.5 pt-2">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                Borrowed equipment · {{ $slipItems->count() }}
+                            </span>
+                            <button
+                                type="button"
+                                data-borrow-more-close
+                                class="inline-flex h-5 w-5 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                title="Close"
+                                aria-label="Close"
+                            >
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
                         </span>
                         @foreach ($slipItems as $item)
                             @php

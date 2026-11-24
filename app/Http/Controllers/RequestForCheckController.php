@@ -307,9 +307,11 @@ class RequestForCheckController extends Controller
             return (int) $id;
         });
 
+        $fundParams = array_filter(['fund' => ProcurementPaymentPath::normalize($fundingType)]);
+
         if ($pendingJointAtpId) {
             return $this->delegateJointSubmitIfRequired([$pendingJointAtpId])
-                ?? ProcurementPortal::redirect('rfc.index')->with(
+                ?? ProcurementPortal::redirect('rfc.index', $fundParams)->with(
                     'success',
                     ProcurementDraftLabel::flashSaved(ProcurementPaymentPath::label($fundingType))
                 );
@@ -317,7 +319,7 @@ class RequestForCheckController extends Controller
 
         $fundLabel = ProcurementPaymentPath::label($fundingType);
 
-        return ProcurementPortal::redirect('rfc.index')->with(
+        return ProcurementPortal::redirect('rfc.index', $fundParams)->with(
             'success',
             $isDraft
                 ? ProcurementDraftLabel::flashSaved($fundLabel)
@@ -426,9 +428,11 @@ class RequestForCheckController extends Controller
             }
         });
 
+        $fundParams = array_filter(['fund' => ProcurementPaymentPath::normalize($fundingType)]);
+
         if ($pendingJointAtpId) {
             return $this->delegateJointSubmitIfRequired([$pendingJointAtpId])
-                ?? ProcurementPortal::redirect('rfc.index')->with(
+                ?? ProcurementPortal::redirect('rfc.index', $fundParams)->with(
                     'success',
                     ProcurementDraftLabel::flashUpdated(ProcurementPaymentPath::label($fundingType))
                 );
@@ -436,7 +440,7 @@ class RequestForCheckController extends Controller
 
         $fundLabel = ProcurementPaymentPath::label($fundingType);
 
-        return ProcurementPortal::redirect('rfc.index')->with(
+        return ProcurementPortal::redirect('rfc.index', $fundParams)->with(
             'success',
             $isDraft
                 ? ProcurementDraftLabel::flashUpdated($fundLabel)
@@ -924,7 +928,9 @@ class RequestForCheckController extends Controller
             ->pluck('total', 'authority_purchase_id');
 
         foreach ($eligibleAtps as $atp) {
-            $payee = $cashAdvance
+            $isCashAdvance = $cashAdvance
+                || ProcurementPaymentPath::requiresLiquidation($atp->authority_purchase_payment_path ?? null);
+            $payee = $isCashAdvance
                 ? $purchaserName
                 : PurchaseOrderBasket::checkPayee($atp);
 

@@ -11,10 +11,20 @@
                 fit.style.height = 'auto';
                 fit.style.margin = '0';
 
-                var sheet = fit.querySelector(
+                var activeScope = fit.querySelector('[data-doc-panel]:not([hidden])') || fit;
+                var sheet = activeScope.querySelector(
                     '.ris-original-form, .rfc-print-sheet, .liq-print-sheet, .atp-print-sheet, .rr-print-sheet, .dv-print-sheet, .ris-document, .acc-paper'
-                ) || fit.firstElementChild;
+                ) || activeScope.firstElementChild;
                 if (!sheet) return;
+
+                var isFluidRfc = !!(sheet.classList && sheet.classList.contains('rfc-print-sheet'));
+                if (isFluidRfc) {
+                    fit.style.width = '100%';
+                    fit.style.height = 'auto';
+                    fit.style.transform = 'none';
+                    fit.style.margin = '0';
+                    return;
+                }
 
                 var pad = 16;
                 var availW = Math.max(140, stage.clientWidth - pad);

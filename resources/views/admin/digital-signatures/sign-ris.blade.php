@@ -485,25 +485,69 @@
     }
 
 
+    window.__signRisInlinePrintUrl = '';
+
     window.openSignRisPreviewModal = function (risId) {
+        const modal = document.getElementById('risPreviewModal');
+        const iframe = document.getElementById('signRisPreviewIframe');
+        if (!modal || !iframe) return;
 
-        const modal =
-            document.getElementById('risPreviewModal');
+        const printUrl = `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print`;
+        const tpl = document.getElementById('sign-ris-sheet-' + risId);
+        const stage = modal.querySelector('.ris-preview-stage');
+        const inlineHost = modal.querySelector('[data-ris-preview-inline]');
+        const skeleton = modal.querySelector('[data-ris-preview-skeleton]');
+        const scaleWrap = modal.querySelector('[data-scale-wrap-for="signRisPreviewIframe"]');
+        const panel = modal.querySelector('[data-ris-preview-panel]');
+        const numBadge = modal.querySelector('[data-ris-preview-number]');
 
-        const iframe =
-            document.getElementById('signRisPreviewIframe');
-
-        if (!modal || !iframe) {
-            return;
+        if (numBadge) {
+            const risNo = tpl && tpl.dataset ? (tpl.dataset.risNumber || '') : '';
+            if (risNo) {
+                numBadge.textContent = risNo;
+                numBadge.classList.remove('hidden');
+            } else {
+                numBadge.textContent = '';
+                numBadge.classList.add('hidden');
+            }
         }
-
-        iframe.src =
-            `{{ \App\Support\AdminPortal::url('procurement-review/ris') }}/${risId}/print`;
 
         if (window.fillRisPreviewAttachments) {
             window.fillRisPreviewAttachments(risId);
         }
 
+        if (tpl && inlineHost) {
+            window.__signRisInlinePrintUrl = printUrl;
+            iframe.src = 'about:blank';
+            inlineHost.innerHTML = tpl.innerHTML;
+            inlineHost.classList.remove('hidden');
+            if (skeleton) skeleton.classList.add('hidden');
+            if (scaleWrap) scaleWrap.classList.add('hidden');
+            if (stage) {
+                stage.style.minHeight = '0';
+                stage.style.height = 'auto';
+                stage.style.width = '100%';
+                stage.style.background = '#f3f4f6';
+            }
+            if (panel) {
+                panel.style.width = 'min(1024px, 96vw)';
+                panel.style.height = 'auto';
+            }
+            modal.classList.remove('hidden');
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            return;
+        }
+
+        window.__signRisInlinePrintUrl = '';
+        if (inlineHost) {
+            inlineHost.innerHTML = '';
+            inlineHost.classList.add('hidden');
+        }
+        if (scaleWrap) scaleWrap.classList.remove('hidden');
+        if (skeleton) skeleton.classList.remove('hidden');
+
+        iframe.src = printUrl;
         modal.classList.remove('hidden');
         modal.style.display = 'block';
         document.body.style.overflow = 'hidden';
@@ -518,20 +562,21 @@
                 window.scaleRisPreviewIframe('signRisPreviewIframe');
             }
         };
-
     };
 
     window.closeSignRisPreviewModal = function () {
+        const modal = document.getElementById('risPreviewModal');
+        const iframe = document.getElementById('signRisPreviewIframe');
+        const inlineHost = modal ? modal.querySelector('[data-ris-preview-inline]') : null;
+        const scaleWrap = modal ? modal.querySelector('[data-scale-wrap-for="signRisPreviewIframe"]') : null;
 
-        const modal =
-            document.getElementById('risPreviewModal');
-
-        const iframe =
-            document.getElementById('signRisPreviewIframe');
-
-        if (iframe) {
-            iframe.src = 'about:blank';
+        window.__signRisInlinePrintUrl = '';
+        if (iframe) iframe.src = 'about:blank';
+        if (inlineHost) {
+            inlineHost.innerHTML = '';
+            inlineHost.classList.add('hidden');
         }
+        if (scaleWrap) scaleWrap.classList.remove('hidden');
 
         if (modal) {
             modal.classList.add('hidden');
@@ -539,11 +584,11 @@
         }
 
         document.body.style.overflow = '';
-
     };
 
 
     window.scaleSignRisPreviewToFit = function () {
+        if (window.__signRisInlinePrintUrl) return;
         if (typeof window.scaleRisPreviewIframe === 'function') {
             window.scaleRisPreviewIframe('signRisPreviewIframe');
         }
@@ -551,17 +596,16 @@
 
 
     window.printSignRisPreview = function () {
-
-        const iframe =
-            document.getElementById('signRisPreviewIframe');
-
-        if (!iframe || !iframe.contentWindow) {
+        if (window.__signRisInlinePrintUrl) {
+            const sep = window.__signRisInlinePrintUrl.includes('?') ? '&' : '?';
+            window.open(window.__signRisInlinePrintUrl + sep + 'auto=1', '_blank', 'noopener');
             return;
         }
 
+        const iframe = document.getElementById('signRisPreviewIframe');
+        if (!iframe || !iframe.contentWindow) return;
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
-
     };
 
 

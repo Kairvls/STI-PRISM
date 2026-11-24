@@ -4,6 +4,7 @@
 @section('page-subtitle', 'Compare supplier quotations, finalize offers, then Direct Approve or forward to the President.')
 
 @section('content')
+@include('partials.ris-purchaser-sheet-styles')
 @php
     $portalPrefix = \App\Support\AdminPortal::prefix();
     $savedSigList = ($savedSignatures ?? collect())->map(fn ($s) => [
@@ -77,7 +78,7 @@
                             type="search"
                             name="search"
                             value="{{ $search }}"
-                            placeholder="Search CAN no., Request no., purchaser..."
+                            placeholder="Search CVS no., Request no., purchaser..."
                             class="w-60 rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-3 text-xs text-slate-900 outline-none focus:border-blue-500"
                         >
                     </div>
@@ -98,7 +99,7 @@
                         <th class="px-4 py-3.5">Items &amp; Attachments</th>
                         <th class="px-4 py-3.5">Requested By</th>
                         <th class="px-4 py-3.5">Status</th>
-                        <th class="px-5 py-3.5 text-right">Actions</th>
+                        <th class="px-5 py-3.5 text-center">Actions</th>
                     </tr>
                 </thead>
 
@@ -121,8 +122,11 @@
                             'requestNo' => (string) ($row->canvass_request_no ?? ''),
                             'urgency' => $rowUrgency,
                             'ownerName' => (string) ($row->owner_name ?: 'Purchaser'),
-                            'status' => (string) $row->canvass_status,
+                            'adminName' => (string) (auth()->user()->user_full_name ?? \App\Support\AccountingSigner::SIGNATURE_TITLE),
+                            'status' => \App\Support\CanvassWorkflow::resolveDisplayStatus((string) $row->canvass_status, $row->linked_ris_status ?? null),
                             'submittedAt' => $row->canvass_submitted_at ? \Carbon\Carbon::parse($row->canvass_submitted_at)->format('M d, Y h:i A') : '—',
+                            'atpDate' => $row->canvass_submitted_at ? \Carbon\Carbon::parse($row->canvass_submitted_at)->format('m/d/Y') : now()->format('m/d/Y'),
+                            'purpose' => (string) ($row->canvass_purpose ?? ''),
                             'purchaserSignature' => (string) ($row->canvass_purchaser_signature ?? ''),
                             'adminSignature' => (string) ($row->canvass_admin_signature ?? ($savedSigList[0]['url'] ?? '')),
                             'linkedRisNumber' => (string) ($row->linked_ris_number ?? ''),
@@ -206,9 +210,15 @@
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <span class="font-semibold text-slate-900">{{ $firstItemName }}</span>
                                     @if ($extraItemCount > 0)
-                                        <span class="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                                            +{{ $extraItemCount }} more
-                                        </span>
+                                        @include('partials.closable-more-popover', [
+                                            'moreCount' => $extraItemCount,
+                                            'heading' => 'Canvass items',
+                                            'popoverKey' => 'canvass-review-'.$cid,
+                                            'rows' => ($ws ? $ws['items'] : collect())->map(fn ($it) => [
+                                                'title' => (string) ($it->canvass_item_name ?: $it->catalog_item_name),
+                                                'meta' => 'Qty '.max(1, (int) ($it->canvass_item_quantity ?? 1)).' '.($it->uom_name ?: 'pcs'),
+                                            ])->values()->all(),
+                                        ])
                                     @endif
                                 </div>
                                 @if (! empty($row->canvass_purpose))
@@ -245,11 +255,14 @@
                             {{-- 5. STATUS --}}
                             <td class="px-4 py-4 align-top">
                                 <span
-                                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                                    class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
                                     :style="statusBadgeStyle()"
-                                    x-text="shortStatus()"
-                                ></span>
-                                <div class="mt-1.5 text-[11px] text-slate-500">
+                                >
+                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full" :style="'background:' + statusDotColor() + ';'"></span>
+                                    <span x-text="shortStatus()"></span>
+                                </span>
+                                <div x-show="statusSubtext()" class="mt-1 text-[11px] font-medium leading-tight text-slate-600" x-text="statusSubtext()"></div>
+                                <div class="mt-1 text-[11px] text-slate-500">
                                     <span x-text="approvedCount() + ' of ' + items.length + ' approved'"></span>
                                     <span x-show="rejectedCount() > 0" style="color:#dc2626;" x-text="' · ' + rejectedCount() + ' rejected'"></span>
                                 </div>
@@ -261,11 +274,11 @@
                                     <button
                                         type="button"
                                         @click="openWorkspace()"
-                                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition"
+                                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition"
                                         :style="canAct && isReviewable()
                                             ? 'background:#0025cc;color:#ffffff;'
                                             : 'background:#ffffff;border:1px solid #cbd5e1;color:#334155;'"
-                                        x-text="canAct && isReviewable() ? 'Review & Approve' : 'View'"
+                                        x-text="canAct && isReviewable() ? 'Review Canvass' : 'View'"
                                     ></button>
 
                                     <button
@@ -367,23 +380,11 @@
                                                             <h3 class="text-lg font-bold tracking-tight text-slate-900" x-text="'Request ' + displayNo"></h3>
                                                             <span
                                                                 class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
-                                                                :style="status === 'Approved' || status === 'Converted to RIS'
-                                                                    ? 'background:#ecfdf5;border-color:#a7f3d0;color:#059669;'
-                                                                    : (status === 'Rejected'
-                                                                        ? 'background:#fef2f2;border-color:#fecaca;color:#dc2626;'
-                                                                        : (status === 'Returned'
-                                                                            ? 'background:#fffbeb;border-color:#fde68a;color:#b45309;'
-                                                                            : 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;'))"
+                                                                :style="statusBadgeStyle()"
                                                             >
                                                                 <span
                                                                     class="h-1.5 w-1.5 rounded-full"
-                                                                    :style="status === 'Approved' || status === 'Converted to RIS'
-                                                                        ? 'background:#10b981;'
-                                                                        : (status === 'Rejected'
-                                                                            ? 'background:#dc2626;'
-                                                                            : (status === 'Returned'
-                                                                                ? 'background:#d97706;'
-                                                                                : 'background:#2563eb;'))"
+                                                                    :style="'background:' + statusDotColor() + ';'"
                                                                 ></span>
                                                                 <span x-text="status"></span>
                                                             </span>
@@ -408,36 +409,6 @@
                                                     <div class="flex items-center gap-2">
                                                         <button
                                                             type="button"
-                                                            x-show="canAct && isReviewable()"
-                                                            @click="openReasonModal('return', 'all')"
-                                                            :disabled="busy"
-                                                            class="rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:opacity-45"
-                                                            style="border-color:#fcd34d;color:#b45309;"
-                                                        >
-                                                            Return
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            x-show="canAct && isReviewable()"
-                                                            @click="openReasonModal('reject', 'all')"
-                                                            :disabled="busy"
-                                                            class="rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold transition hover:opacity-90 disabled:opacity-45"
-                                                            style="border-color:#fecaca;color:#dc2626;"
-                                                        >
-                                                            Reject
-                                                        </button>
-                                                        <a
-                                                            :href="printUrl"
-                                                            target="_blank"
-                                                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                                        >
-                                                            <svg class="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
-                                                            </svg>
-                                                            <span>Print ATP &amp; RIS</span>
-                                                        </a>
-                                                        <button
-                                                            type="button"
                                                             @click="requestCloseWorkspace()"
                                                             class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
                                                             title="Close"
@@ -459,7 +430,7 @@
                                                             ? 'border-bottom:2px solid #2563eb;color:#2563eb;'
                                                             : 'border-bottom:2px solid #cbd5e1;color:#64748b;'"
                                                     >
-                                                        <span>Review &amp; Approve</span>
+                                                        <span>Review &amp; Accept</span>
                                                         <span
                                                             class="rounded-full px-2 py-0.5 text-[10px] font-bold"
                                                             :style="activeTab === 'review' ? 'background:#eff6ff;color:#2563eb;' : 'background:#f1f5f9;color:#64748b;'"
@@ -474,7 +445,7 @@
                                                             ? 'border-bottom:2px solid #2563eb;color:#2563eb;'
                                                             : 'border-bottom:2px solid #cbd5e1;color:#64748b;'"
                                                     >
-                                                        <span>Requisition &amp; Issue Slip</span>
+                                                        <span>Requisition Slip</span>
                                                         <span
                                                             class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                                                             :style="activeTab === 'ris' ? 'background:#eff6ff;color:#2563eb;' : 'background:#f1f5f9;color:#64748b;'"
@@ -690,7 +661,7 @@
                                                                                             :checked="offer.checked"
                                                                                             @change="onToggleOffer(currentItem(), offer, $event.target.checked)"
                                                                                             :disabled="isOfferCheckboxDisabled(currentItem(), offer)"
-                                                                                            :title="(!offer.checked && itemAllocationReady(currentItem())) ? 'Requested quantity already reached. Lower an allocated qty or uncheck an offer to select this row.' : 'Select offer for approval'"
+                                                                                            :title="(!offer.checked && itemAllocationFull(currentItem())) ? 'Requested quantity already reached. Lower an allocated qty or uncheck an offer to select this row.' : 'Select offer for approval'"
                                                                                             class="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
                                                                                         >
                                                                                     </td>
@@ -706,7 +677,7 @@
                                                                         class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
                                                                         :style="allocationBadgeStyle(currentItem())"
                                                                     >
-                                                                        <template x-if="itemAllocatedUnits(currentItem()) >= Number(currentItem().qty || 1) && itemAllocatedUnits(currentItem()) <= Number(currentItem().qty || 1) + 0.0001">
+                                                                        <template x-if="itemAllocationReady(currentItem())">
                                                                             <svg
                                                                                 class="h-3.5 w-3.5 shrink-0"
                                                                                 fill="none"
@@ -717,7 +688,7 @@
                                                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                                             </svg>
                                                                         </template>
-                                                                        <template x-if="!(itemAllocatedUnits(currentItem()) >= Number(currentItem().qty || 1) && itemAllocatedUnits(currentItem()) <= Number(currentItem().qty || 1) + 0.0001)">
+                                                                        <template x-if="!itemAllocationReady(currentItem())">
                                                                             <span
                                                                                 class="h-2 w-2 shrink-0 rounded-full"
                                                                                 :style="itemAllocatedUnits(currentItem()) <= 0
@@ -777,12 +748,12 @@
 
                                                                     <div x-show="canAct && isReviewable()" class="flex flex-wrap items-center gap-3.5">
                                                                         <div class="text-right text-xs">
-                                                                            <span class="font-semibold text-slate-700" x-text="readyPendingItems().length + ' of ' + pendingItems().length + ' selected for approval'"></span>
+                                                                            <span class="font-semibold text-slate-700" x-text="readyPendingItems().length + ' of ' + pendingItems().length + ' item' + (pendingItems().length === 1 ? '' : 's') + ' ready'"></span>
                                                                             <span
                                                                                 x-show="readyPendingItems().length > 0 && readyPendingItems().length < pendingItems().length"
                                                                                 class="ml-1 font-medium"
                                                                                 style="color: #dc2626;"
-                                                                                x-text="'(' + (pendingItems().length - readyPendingItems().length) + ' will be rejected)'"
+                                                                                x-text="'(' + (pendingItems().length - readyPendingItems().length) + ' unselected item' + ((pendingItems().length - readyPendingItems().length) === 1 ? '' : 's') + ' will be rejected)'"
                                                                             ></span>
                                                                         </div>
                                                                         <button
@@ -792,8 +763,8 @@
                                                                             class="rounded-md px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-65"
                                                                             style="background-color: #10b981;"
                                                                             x-text="readyPendingItems().length === pendingItems().length && pendingItems().length > 0
-                                                                                ? ('Approve all (' + pendingItems().length + ' of ' + pendingItems().length + ')')
-                                                                                : ('Approve selected (' + readyPendingItems().length + ' of ' + pendingItems().length + ')')"
+                                                                                ? ('Accept all (' + pendingItems().length + ' of ' + pendingItems().length + ')')
+                                                                                : ('Accept selected (' + readyPendingItems().length + ' of ' + pendingItems().length + ')')"
                                                                         ></button>
                                                                     </div>
                                                                 </div>
@@ -841,7 +812,7 @@
                                                                     </div>
                                                                 </template>
                                                                 <template x-if="!adminSignature">
-                                                                    <span class="text-xs font-semibold" style="color: #dc2626;">Required to approve</span>
+                                                                    <span class="text-xs font-semibold" style="color: #dc2626;">Required to accept</span>
                                                                 </template>
                                                             </div>
 
@@ -940,72 +911,108 @@
                                                                 </button>
                                                             </div>
 
-                                                            <div class="rounded-xl border border-slate-200 bg-white p-6">
-                                                                <div class="text-center">
-                                                                    <div class="text-sm font-bold text-slate-900">STI COLLEGE - ORMOC, INC.</div>
-                                                                    <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">AUTHORITY TO PURCHASE</div>
-                                                                    <div class="mt-1 text-xs font-bold text-slate-800" x-text="'Supplier: ' + activeSupplierPage().supplierName"></div>
-                                                                </div>
+                                                            <div class="mx-auto w-full rounded-xl border border-slate-200 bg-white px-8 py-8 text-[13px] leading-tight text-black">
+                                                                {{-- HEADER --}}
+                                                                <div class="relative text-center">
+                                                                    <div class="text-lg font-bold">STI COLLEGE ORMOC, INC.</div>
+                                                                    <div class="text-xs">Centrum Mall, Aviles Street, Ormoc City</div>
+                                                                    <div class="mt-2 text-xl font-bold tracking-wide">AUTHORITY TO PURCHASE</div>
 
-                                                                <div class="mt-4 flex flex-wrap justify-between gap-2 text-xs">
-                                                                    <div>
-                                                                        <div><span class="font-bold">Request No.:</span> <span x-text="displayNo"></span></div>
-                                                                        <div class="mt-0.5"><span class="font-bold">Date submitted:</span> <span x-text="submittedAt"></span></div>
-                                                                    </div>
-                                                                    <div><span class="font-bold">Status:</span> <span x-text="status"></span></div>
-                                                                </div>
-
-                                                                <div class="mt-3 overflow-x-auto">
-                                                                    <table class="w-full border-collapse text-xs">
-                                                                        <thead>
-                                                                            <tr class="bg-slate-50 text-left text-slate-800">
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Item</th>
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Requested</th>
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Approved brand</th>
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Approved qty</th>
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Unit cost</th>
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Amount</th>
-                                                                                <th class="border border-slate-300 px-3 py-2 font-bold">Status</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            <template x-for="(line, lIdx) in activeSupplierPage().lines" :key="lIdx">
-                                                                                <tr>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-900" x-text="line.itemName"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-700" x-text="line.requested"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-800" x-text="line.brand"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-800" x-text="line.approvedQtyLabel"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-800" x-text="formatPeso(line.unitCost)"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-900" x-text="line.amount > 0 ? formatPeso(line.amount) : '—'"></td>
-                                                                                    <td class="border border-slate-200 px-3 py-2 text-slate-700" x-text="line.statusLabel"></td>
-                                                                                </tr>
-                                                                            </template>
-                                                                            <tr x-show="activeSupplierPage().lines.length === 0">
-                                                                                <td colspan="7" class="border border-slate-200 px-3 py-3 text-center text-slate-400">No offers selected for this supplier yet.</td>
-                                                                            </tr>
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-
-                                                                <div class="mt-6 grid grid-cols-1 gap-6 text-xs sm:grid-cols-3">
-                                                                    <div>
-                                                                        <div class="flex h-12 items-end justify-center border-b border-slate-500 pb-1">
-                                                                            <img x-show="purchaserSignature" :src="purchaserSignature" alt="Requested by" class="max-h-11 object-contain">
+                                                                    <div class="absolute right-0 top-0 text-left text-sm">
+                                                                        <div class="flex items-end gap-2" style="color:#dc2626;">
+                                                                            <strong class="font-semibold">No.</strong>
+                                                                            <span class="inline-block min-w-[9rem] border-b border-red-200 px-1 text-center font-semibold" x-text="activeSupplierPage().atpNumber || ''"></span>
                                                                         </div>
-                                                                        <div class="mt-1 font-medium text-slate-700">Requested by</div>
-                                                                        <div class="mt-1 text-slate-500">Date: ______________________</div>
-                                                                    </div>
-                                                                    <div>
-                                                                        <div class="flex h-12 items-end justify-center border-b border-slate-500 pb-1">
-                                                                            <img x-show="adminSignature" :src="adminSignature" alt="Authorized by" class="max-h-11 object-contain">
+                                                                        <div class="mt-2 flex items-end gap-2">
+                                                                            <strong>Date</strong>
+                                                                            <span class="inline-block min-w-[7rem] border-b border-black px-1 text-center" x-text="atpDate"></span>
                                                                         </div>
-                                                                        <div class="mt-1 font-medium text-slate-700">Authorized by</div>
-                                                                        <div class="mt-1 text-slate-500">Date: ______________________</div>
                                                                     </div>
-                                                                    <div>
-                                                                        <div class="h-12 border-b border-slate-500"></div>
-                                                                        <div class="mt-1 font-medium text-slate-700">Received by (Supplier)</div>
-                                                                        <div class="mt-1 text-slate-500">Date: ______________________</div>
+                                                                </div>
+
+                                                                {{-- SUPPLIER --}}
+                                                                <div class="mt-10">
+                                                                    <strong>To:</strong>
+                                                                    <span class="ml-1" x-text="activeSupplierPage().supplierName"></span>
+                                                                </div>
+
+                                                                <p class="mt-6">
+                                                                    Please deliver to bearer the following items chargeable to our account.
+                                                                </p>
+
+                                                                {{-- ITEMS TABLE --}}
+                                                                <table class="mt-5 w-full table-fixed border-collapse border border-black text-sm">
+                                                                    <colgroup>
+                                                                        <col style="width: 10%">
+                                                                        <col style="width: 10%">
+                                                                        <col style="width: 52%">
+                                                                        <col style="width: 14%">
+                                                                        <col style="width: 14%">
+                                                                    </colgroup>
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th class="border border-black p-2 text-center font-bold">Quantity</th>
+                                                                            <th class="border border-black p-2 text-center font-bold">Unit</th>
+                                                                            <th class="border border-black p-2 text-left font-bold">Description</th>
+                                                                            <th class="border border-black p-2 text-center font-bold">Unit Price</th>
+                                                                            <th class="border border-black p-2 text-center font-bold">Amount</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        <template x-for="(line, lIdx) in activeSupplierPage().lines" :key="lIdx">
+                                                                            <tr>
+                                                                                <td class="h-8 border border-black text-center" x-text="line.qty > 0 ? line.qty : ''"></td>
+                                                                                <td class="border border-black text-center" x-text="line.unit"></td>
+                                                                                <td class="border border-black px-2 text-left" x-text="line.description"></td>
+                                                                                <td class="border border-black px-2 text-right tabular-nums" x-text="formatPeso(line.unitCost)"></td>
+                                                                                <td class="border border-black px-2 text-right tabular-nums" x-text="line.amount > 0 ? formatPeso(line.amount) : ''"></td>
+                                                                            </tr>
+                                                                        </template>
+                                                                        <tr x-show="activeSupplierPage().lines.length === 0">
+                                                                            <td colspan="5" class="h-9 border border-black px-3 text-center text-xs text-slate-400">No offers selected for this supplier yet.</td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td colspan="3" class="h-8 border border-black">&nbsp;</td>
+                                                                            <td class="border border-black px-2 text-right font-bold">TOTAL</td>
+                                                                            <td class="border border-black px-2 text-right font-bold tabular-nums" x-text="activeSupplierPage().lines.length > 0 ? formatPeso(activeSupplierPage().totalAmount || 0) : ''"></td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+
+                                                                {{-- BOTTOM SIGNATURES --}}
+                                                                <div class="mt-10 grid grid-cols-2 items-start gap-10">
+                                                                    <div class="w-full max-w-sm">
+                                                                        <div class="font-semibold leading-6">RECEIVED BY:</div>
+                                                                        <div class="relative mt-6 flex min-h-[1.75rem] w-full items-center justify-center border-b border-black pb-1 text-center">
+                                                                            <span class="signature-name-stack relative inline-flex max-w-full items-center justify-center">
+                                                                                <img
+                                                                                    x-show="purchaserSignature"
+                                                                                    :src="purchaserSignature"
+                                                                                    alt="Received by"
+                                                                                    class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-10 max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                                                                >
+                                                                                <span class="signature-name relative z-[1] text-xs font-normal text-slate-900" x-text="ownerName"></span>
+                                                                            </span>
+                                                                        </div>
+                                                                        <div class="mt-6 flex items-end gap-2">
+                                                                            <span class="shrink-0 whitespace-nowrap pb-1 text-xs">Reference P.O. No.</span>
+                                                                            <div class="min-w-0 flex-1 border-b border-black pb-1 text-sm">&nbsp;</div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="w-full max-w-xs justify-self-end text-left">
+                                                                        <div class="leading-6">Authorized by</div>
+                                                                        <div class="relative mt-6 flex min-h-[1.75rem] w-full items-center justify-center border-b border-black pb-1 text-center">
+                                                                            <span class="signature-name-stack relative inline-flex max-w-full items-center justify-center">
+                                                                                <img
+                                                                                    x-show="adminSignature"
+                                                                                    :src="adminSignature"
+                                                                                    alt="Authorized by"
+                                                                                    class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-10 max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                                                                                >
+                                                                                <span class="signature-name relative z-[1] text-xs font-normal text-slate-900" x-text="adminName"></span>
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1013,66 +1020,109 @@
                                                     </template>
                                                 </div>
 
-                                                {{-- TAB 3: REQUISITION AND ISSUE SLIP PREVIEW --}}
+                                                {{-- TAB 3: REQUISITION SLIP PREVIEW --}}
                                                 <div x-show="activeTab === 'ris'" class="rounded-xl border border-slate-200 bg-white p-5">
                                                     <div class="border-l-4 border-blue-600 pl-3">
-                                                        <h4 class="text-sm font-bold text-slate-900">Requisition and Issue Slip</h4>
+                                                        <h4 class="text-sm font-bold text-slate-900">Requisition Slip</h4>
                                                         <p class="text-xs text-slate-500">The shared request slip includes every requested item and its signatories.</p>
                                                     </div>
 
-                                                    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-6">
-                                                        <div class="text-center">
-                                                            <div class="text-sm font-bold text-slate-900">STI COLLEGE - ORMOC, INC.</div>
-                                                            <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">REQUISITION AND ISSUE SLIP</div>
-                                                        </div>
+                                                    <div class="mt-4 overflow-x-auto">
+                                                        <div class="ris-original-form" style="min-height: 0; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px 32px;">
+                                                            <div class="ris-document-header">
+                                                                <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
+                                                                <div class="ris-document-title">REQUISITION SLIP</div>
+                                                                <div class="ris-number-area">
+                                                                    <span class="ris-number-label">No.</span>
+                                                                    <span class="ris-number-line ris-value-line" x-text="linkedRisNumber || ''"></span>
+                                                                </div>
+                                                            </div>
 
-                                                        <div class="mt-4 flex flex-wrap justify-between gap-2 text-xs">
-                                                            <div><span class="font-bold">Request No.:</span> <span x-text="displayNo"></span></div>
-                                                            <div><span class="font-bold">Status:</span> <span x-text="status"></span></div>
-                                                        </div>
-
-                                                        <div class="mt-3 overflow-x-auto">
-                                                            <table class="w-full border-collapse text-xs">
+                                                            <table class="ris-items-table">
                                                                 <thead>
-                                                                    <tr class="bg-slate-50 text-left text-slate-800">
-                                                                        <th class="border border-slate-300 px-3 py-2 font-bold">Requested item</th>
-                                                                        <th class="border border-slate-300 px-3 py-2 font-bold">Quantity</th>
-                                                                        <th class="border border-slate-300 px-3 py-2 font-bold">Status</th>
+                                                                    <tr>
+                                                                        <th rowspan="2" class="ris-item-column">ITEM</th>
+                                                                        <th rowspan="2" class="ris-brand-column">BRAND</th>
+                                                                        <th rowspan="2" class="ris-unit-column">UNIT</th>
+                                                                        <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
+                                                                        <th colspan="2" class="ris-quantity-header">QUANTITY</th>
+                                                                        <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
+                                                                        <th rowspan="2" class="ris-amount-column">AMOUNT</th>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th class="ris-requested-column">REQUESTED</th>
+                                                                        <th class="ris-issued-column">ISSUED</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    <template x-for="it in items" :key="it.id">
+                                                                    <template x-for="(r, rIdx) in risPreviewRows()" :key="rIdx">
                                                                         <tr>
-                                                                            <td class="border border-slate-200 px-3 py-2 text-slate-900" x-text="it.name"></td>
-                                                                            <td class="border border-slate-200 px-3 py-2 text-slate-700" x-text="it.qty + ' ' + it.uom"></td>
-                                                                            <td class="border border-slate-200 px-3 py-2 text-slate-700" x-text="it.status"></td>
+                                                                            <template x-if="!r.sameItem">
+                                                                                <td :rowspan="r.itemSpan > 1 ? r.itemSpan : null" x-text="r.itemName"></td>
+                                                                            </template>
+                                                                            <td class="text-center" x-text="r.brandLabel"></td>
+                                                                            <td class="text-center" x-text="r.unit"></td>
+                                                                            <template x-if="!r.sameSupplier">
+                                                                                <td :rowspan="r.supplierSpan > 1 ? r.supplierSpan : null" x-text="r.supplierDisplay"></td>
+                                                                            </template>
+                                                                            <template x-if="!r.sameItem">
+                                                                                <td :rowspan="r.itemSpan > 1 ? r.itemSpan : null" class="text-center" x-text="r.requestedDisplay"></td>
+                                                                            </template>
+                                                                            <template x-if="!r.sameItem">
+                                                                                <td :rowspan="r.itemSpan > 1 ? r.itemSpan : null" class="text-center" x-text="r.issuedDisplay"></td>
+                                                                            </template>
+                                                                            <td class="text-right tabular-nums" x-text="r.unitCostDisplay"></td>
+                                                                            <td class="text-right tabular-nums" x-text="r.amountDisplay"></td>
                                                                         </tr>
                                                                     </template>
+                                                                    <tr x-show="risPreviewRows().length === 0">
+                                                                        <td colspan="8" class="text-center text-slate-400">No items to display.</td>
+                                                                    </tr>
                                                                 </tbody>
                                                             </table>
-                                                        </div>
 
-                                                        <div class="mt-6 grid grid-cols-1 gap-6 text-xs sm:grid-cols-3">
-                                                            <div>
-                                                                <div class="flex h-12 items-end justify-center border-b border-slate-500 pb-1">
-                                                                    <img x-show="purchaserSignature" :src="purchaserSignature" alt="Requested by" class="max-h-11 object-contain">
+                                                            <div class="ris-purpose-area">
+                                                                <div class="ris-purpose-lined-wrap">
+                                                                    <div class="ris-purpose-label">PURPOSE</div>
+                                                                    <div class="ris-purpose-input" x-text="purpose || ' '"></div>
                                                                 </div>
-                                                                <div class="mt-1 font-medium text-slate-700">Requested by</div>
-                                                                <div class="mt-1 text-slate-500">Date: ______________________</div>
                                                             </div>
-                                                            <div>
-                                                                <div class="flex h-12 items-end justify-center border-b border-slate-500 pb-1">
-                                                                    <img x-show="adminSignature" :src="adminSignature" alt="Approved by" class="max-h-11 object-contain">
+
+                                                            <div class="ris-signatures">
+                                                                <div class="ris-signature-column">
+                                                                    <div class="ris-signature-label">Requested by:</div>
+                                                                    <div class="ris-signature-line ris-value-line relative flex items-center justify-center">
+                                                                        <span class="signature-name-stack relative inline-flex max-w-full items-center justify-center">
+                                                                            <img
+                                                                                x-show="purchaserSignature"
+                                                                                :src="purchaserSignature"
+                                                                                alt="Requested by"
+                                                                                class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-10 max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain"
+                                                                            >
+                                                                            <span class="signature-name relative z-[1] text-xs font-normal text-slate-900" x-text="ownerName"></span>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div class="ris-date-label">Date:</div>
+                                                                    <div class="ris-date-line ris-value-line" x-text="atpDate"></div>
                                                                 </div>
-                                                                <div class="mt-1 font-medium text-slate-700">Approved by</div>
-                                                                <div class="mt-1 text-slate-500">Date: ______________________</div>
-                                                            </div>
-                                                            <div>
-                                                                <div class="flex h-12 items-end justify-center border-b border-slate-500 pb-1">
-                                                                    <img x-show="adminSignature && approvedCount() > 0 && pendingItems().length === 0" :src="adminSignature" alt="Issued by" class="max-h-11 object-contain">
+                                                                <div class="ris-signature-column">
+                                                                    <div class="ris-signature-label">Approved by:</div>
+                                                                    <div class="ris-signature-line ris-value-line">&nbsp;</div>
+                                                                    <div class="ris-date-label">Date:</div>
+                                                                    <div class="ris-date-line ris-value-line">&nbsp;</div>
                                                                 </div>
-                                                                <div class="mt-1 font-medium text-slate-700">Issued by</div>
-                                                                <div class="mt-1 text-slate-500">Date: ______________________</div>
+                                                                <div class="ris-signature-column">
+                                                                    <div class="ris-signature-label">Issued by:</div>
+                                                                    <div class="ris-signature-line ris-value-line">&nbsp;</div>
+                                                                    <div class="ris-date-label">Date:</div>
+                                                                    <div class="ris-date-line ris-value-line">&nbsp;</div>
+                                                                </div>
+                                                                <div class="ris-signature-column">
+                                                                    <div class="ris-signature-label">Received by:</div>
+                                                                    <div class="ris-signature-line ris-value-line">&nbsp;</div>
+                                                                    <div class="ris-date-label">Date:</div>
+                                                                    <div class="ris-date-line ris-value-line">&nbsp;</div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1174,11 +1224,11 @@
                                         <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
                                             <div class="border-b border-slate-100 px-6 py-4">
                                                 <h3 class="text-base font-bold text-slate-900" x-text="approveModal.title"></h3>
-                                                <p class="mt-0.5 text-xs text-slate-500">Review the items and supplier totals to be approved with your authorization signature.</p>
+                                                <p class="mt-0.5 text-xs text-slate-500">Review the selected items and supplier totals to accept this canvass and generate the RIS &amp; ATP(s) for approval.</p>
                                             </div>
                                             <div class="max-h-80 space-y-3 overflow-y-auto px-6 py-4">
                                                 <div>
-                                                    <p class="mb-1.5 text-[11px] font-bold uppercase tracking-wider" style="color: #166534;" x-text="'Will be Approved (' + approveModal.summary.length + ')'"></p>
+                                                    <p class="mb-1.5 text-[11px] font-bold uppercase tracking-wider" style="color: #166534;" x-text="'Will be Accepted (' + approveModal.summary.length + ')'"></p>
                                                     <div class="space-y-2">
                                                         <template x-for="row in approveModal.summary" :key="row.itemId">
                                                             <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs">
@@ -1193,8 +1243,8 @@
                                                 </div>
 
                                                 <div class="flex items-center justify-between border-t border-slate-200 pt-2.5 text-xs font-bold text-slate-900">
-                                                    <span>Total estimated approval amount</span>
-                                                    <span x-text="formatPeso(approveModal.grandTotal)"></span>
+                                                    <span>Total estimated amount</span>
+                                                    <span class="text-base font-extrabold tabular-nums text-slate-900" x-text="formatPeso(approveModal.grandTotal)"></span>
                                                 </div>
 
                                                 <template x-if="approveModal.unselected.length > 0">
@@ -1233,7 +1283,7 @@
                                                     @click="confirmBulkApprove()"
                                                     class="rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                                                     style="background:#198754;"
-                                                    x-text="busy ? 'Approving...' : approveModal.confirmLabel"
+                                                    x-text="busy ? 'Accepting...' : approveModal.confirmLabel"
                                                 ></button>
                                             </div>
                                         </div>
@@ -1321,8 +1371,11 @@ function canvassReviewCard(boot) {
         canvassId: boot.canvassId,
         displayNo: boot.displayNo,
         ownerName: boot.ownerName || 'Purchaser',
+        adminName: boot.adminName || '',
         status: boot.status,
         submittedAt: boot.submittedAt,
+        atpDate: boot.atpDate || '',
+        purpose: boot.purpose || '',
         purchaserSignature: boot.purchaserSignature || '',
         adminSignature: boot.adminSignature || '',
         linkedRisNumber: boot.linkedRisNumber || '',
@@ -1449,21 +1502,56 @@ function canvassReviewCard(boot) {
 
         shortStatus() {
             if (this.status === 'Awaiting for review') return 'To review';
-            if (this.status === 'Reviewing - Awaiting for approval') return 'Reviewing';
-            return this.status;
+            const parts = String(this.status || '').split(' - ');
+            return parts[0] || this.status;
+        },
+
+        statusSubtext() {
+            const parts = String(this.status || '').split(' - ');
+            return parts.length > 1 ? parts.slice(1).join(' - ') : '';
         },
 
         statusBadgeStyle() {
-            if (this.status === 'Approved' || this.status === 'Converted to RIS') return 'background:#dcfce7;color:#15803d;';
-            if (this.status === 'Rejected') return 'background:#fee2e2;color:#b91c1c;';
-            if (this.status === 'Reviewing - Awaiting for approval') return 'background:#dbeafe;color:#1d4ed8;';
-            if (this.status === 'Returned') return 'background:#fef3c7;color:#b45309;';
-            return 'background:#dcfce7;color:#15803d;';
+            if (this.status === 'Approved' || this.status === 'Approved - by School Administrator' || this.status === 'Approved - by the President') return 'background:#ecfdf5;border-color:#a7f3d0;color:#047857;';
+            if (this.status === 'Converted to RIS') return 'background:#f0fdfa;border-color:#99f6e4;color:#0f766e;';
+            if (this.status === 'Reviewed - Awaiting for Approval') return 'background:#f3e8ff;border-color:#d8b4fe;color:#7e22ce;';
+            if (this.status === 'Forwarded to President') return 'background:#eef2ff;border-color:#c7d2fe;color:#4338ca;';
+            if (this.status === 'Rejected') return 'background:#fef2f2;border-color:#fecaca;color:#dc2626;';
+            if (this.status === 'Reviewing - Awaiting for approval') return 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;';
+            if (this.status === 'Awaiting for review') return 'background:#fffbeb;border-color:#fde68a;color:#b45309;';
+            if (this.status === 'Returned') return 'background:#fff7ed;border-color:#fed7aa;color:#c2410c;';
+            return 'background:#f1f5f9;border-color:#cbd5e1;color:#475569;';
+        },
+
+        statusDotColor() {
+            if (this.status === 'Approved' || this.status === 'Approved - by School Administrator' || this.status === 'Approved - by the President') return '#10b981';
+            if (this.status === 'Converted to RIS') return '#0d9488';
+            if (this.status === 'Reviewed - Awaiting for Approval') return '#9333ea';
+            if (this.status === 'Forwarded to President') return '#4f46e5';
+            if (this.status === 'Rejected') return '#dc2626';
+            if (this.status === 'Reviewing - Awaiting for approval') return '#2563eb';
+            if (this.status === 'Awaiting for review') return '#d97706';
+            if (this.status === 'Returned') return '#ea580c';
+            return '#64748b';
+        },
+
+        itemAllocationFull(item) {
+            if (!item) return false;
+            return (this.itemAllocatedUnits(item) + 0.0001) >= Number(item.qty || 1);
+        },
+
+        itemHasEmptyCheckedOffer(item) {
+            if (!item || !item.offers) return false;
+            return item.offers.some(o => o.checked && (parseInt(o.approvedQty, 10) || 0) <= 0);
         },
 
         itemAllocationReady(item) {
             if (!item) return false;
-            return (this.itemAllocatedUnits(item) + 0.0001) >= Number(item.qty || 1);
+            const alloc = this.itemAllocatedUnits(item);
+            const req = Number(item.qty || 1);
+            if (alloc <= 0 || alloc > req + 0.0001) return false;
+            if (this.itemHasEmptyCheckedOffer(item)) return false;
+            return true;
         },
 
         totalRequestedQty() {
@@ -1476,17 +1564,20 @@ function canvassReviewCard(boot) {
             const req = Number(item.qty || 1);
             const uom = item.uom || 'unit';
             if (alloc <= 0) {
-                return `(Select offer(s) to cover ${req} ${uom})`;
+                return `(Select offer(s) to approve up to ${req} ${uom})`;
+            }
+            if (this.itemHasEmptyCheckedOffer(item)) {
+                return '(Enter qty ≥ 1 for all checked rows)';
             }
             if (alloc + 0.0001 < req) {
                 const diff = Math.round((req - alloc) * 100) / 100;
-                return `(${diff} ${uom} remaining)`;
+                return `(Partial approval · ${diff} ${uom} below requested)`;
             }
             if (alloc > req + 0.0001) {
                 const over = Math.round((alloc - req) * 100) / 100;
                 return `(+${over} ${uom} over requested)`;
             }
-            return '(Target completely fulfilled)';
+            return '(Full requested quantity)';
         },
 
         allocationBadgeText(item) {
@@ -1494,18 +1585,7 @@ function canvassReviewCard(boot) {
             const alloc = this.itemAllocatedUnits(item);
             const req = Number(item.qty || 1);
             const uom = item.uom || 'unit';
-            if (alloc <= 0) {
-                return `Allocated: 0 / ${req} ${uom} (Select offer(s) to cover ${req} ${uom})`;
-            }
-            if (alloc + 0.0001 < req) {
-                const diff = Math.round((req - alloc) * 100) / 100;
-                return `Allocated: ${alloc} / ${req} ${uom} (${diff} ${uom} remaining)`;
-            }
-            if (alloc > req + 0.0001) {
-                const over = Math.round((alloc - req) * 100) / 100;
-                return `⚠ Allocated: ${alloc} / ${req} ${uom} (+${over} ${uom} over requested)`;
-            }
-            return `Allocated: ${alloc} / ${req} ${uom} (Target completely fulfilled)`;
+            return `Allocated: ${alloc} / ${req} ${uom} ${this.allocationStatusNote(item)}`;
         },
 
         isLowestOffer(item, offer) {
@@ -1531,8 +1611,9 @@ function canvassReviewCard(boot) {
             const alloc = this.itemAllocatedUnits(item);
             const req = Number(item.qty || 1);
             if (alloc <= 0) return 'background:#ffffff;border-color:#e2e8f0;color:#475569;';
-            if (alloc + 0.0001 < req) return 'background:#fffbeb;border-color:#fcd34d;color:#b45309;';
+            if (this.itemHasEmptyCheckedOffer(item)) return 'background:#fffbeb;border-color:#fcd34d;color:#b45309;';
             if (alloc > req + 0.0001) return 'background:#fff7ed;border-color:#fdba74;color:#c2410c;';
+            if (alloc + 0.0001 < req) return 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;';
             return 'background:#f0fdf4;border-color:#bbf7d0;color:#15803d;';
         },
 
@@ -1550,7 +1631,7 @@ function canvassReviewCard(boot) {
         isOfferCheckboxDisabled(item, offer) {
             if (!this.canAct || !this.isReviewable() || !item) return true;
             if (item.status === 'Approved' || item.status === 'Rejected') return true;
-            if (!offer.checked && this.itemAllocationReady(item)) return true;
+            if (!offer.checked && this.itemAllocationFull(item)) return true;
             return false;
         },
 
@@ -1577,7 +1658,7 @@ function canvassReviewCard(boot) {
             } else if (raw < 1) {
                 offer.approvedQty = '1';
             }
-            if (this.itemAllocationReady(item)) {
+            if (this.itemAllocationFull(item)) {
                 item.offers.forEach(o => {
                     if (o.id !== offer.id && o.checked && (parseInt(o.approvedQty, 10) || 0) <= 0) {
                         o.checked = false;
@@ -1588,7 +1669,7 @@ function canvassReviewCard(boot) {
         },
 
         onToggleOffer(item, offer, isChecked) {
-            if (isChecked && this.itemAllocationReady(item) && !offer.checked) {
+            if (isChecked && this.itemAllocationFull(item) && !offer.checked) {
                 return;
             }
             offer.checked = Boolean(isChecked);
@@ -1617,15 +1698,32 @@ function canvassReviewCard(boot) {
 
         supplierAtpPages() {
             const map = new Map();
+            let hasAnySelected = false;
             this.items.forEach(item => {
+                if (item.status === 'Rejected') return;
                 item.offers.forEach(o => {
-                    if (!map.has(o.supplierId)) {
-                        map.set(o.supplierId, { supplierId: o.supplierId, supplierName: o.supplier, lines: [] });
+                    const supName = String(o.supplier || '').trim();
+                    const key = supName ? supName.toLowerCase() : ('id:' + o.supplierId);
+                    if (!map.has(key)) {
+                        map.set(key, {
+                            supplierKey: key,
+                            supplierId: o.supplierId,
+                            supplierName: supName || 'Supplier',
+                            lines: [],
+                            totalAmount: 0,
+                        });
                     }
                     if (o.checked) {
+                        hasAnySelected = true;
                         const qty = Math.max(0, parseInt(o.approvedQty, 10) || 0);
                         const amt = qty * Number(o.unitCost || 0);
-                        map.get(o.supplierId).lines.push({
+                        const group = map.get(key);
+                        const brandText = String(o.brand || '').trim();
+                        const descText = brandText && brandText !== '—' ? `${item.name} (${brandText})` : item.name;
+                        group.lines.push({
+                            qty: qty,
+                            unit: o.unit || item.uom || 'pcs',
+                            description: descText,
                             itemName: item.name,
                             requested: `${item.qty} ${item.uom}`,
                             brand: o.brand,
@@ -1634,10 +1732,14 @@ function canvassReviewCard(boot) {
                             amount: amt,
                             statusLabel: item.status === 'Approved' ? 'Approved' : (qty > 0 ? 'Pending approval' : 'Quantity required'),
                         });
+                        group.totalAmount += amt;
                     }
                 });
             });
-            const pages = Array.from(map.values());
+            let pages = Array.from(map.values());
+            if (hasAnySelected) {
+                pages = pages.filter(p => p.lines.length > 0);
+            }
             if (this.activeSupplierIdx >= pages.length) {
                 this.activeSupplierIdx = Math.max(0, pages.length - 1);
             }
@@ -1646,7 +1748,109 @@ function canvassReviewCard(boot) {
 
         activeSupplierPage() {
             const pages = this.supplierAtpPages();
-            return pages[this.activeSupplierIdx] || { supplierName: '—', lines: [] };
+            return pages[this.activeSupplierIdx] || { supplierName: '—', lines: [], totalAmount: 0 };
+        },
+
+        risPreviewRows() {
+            const rawRows = [];
+            (this.items || []).forEach(item => {
+                if (item.status === 'Rejected') return;
+                const itemName = String(item.name || '').trim();
+                const nameKey = itemName.toLowerCase();
+                const reqQty = Number(item.qty || 0);
+                const selectedOffers = (item.offers || []).filter(o => o.checked);
+                if (selectedOffers.length === 0) {
+                    rawRows.push({
+                        itemName,
+                        nameKey,
+                        brandLabel: '',
+                        unit: item.uom || 'pcs',
+                        supplierRaw: '',
+                        supplierBase: '',
+                        supplierKey: '',
+                        requestedQty: reqQty,
+                        issuedQty: 0,
+                        unitCost: null,
+                        amount: null,
+                    });
+                    return;
+                }
+                const totalIssued = selectedOffers.reduce((sum, o) => {
+                    const q = Math.max(0, parseInt(o.approvedQty, 10) || 0);
+                    return sum + (q * Number(o.pack || 1));
+                }, 0);
+                selectedOffers.forEach(o => {
+                    const q = Math.max(0, parseInt(o.approvedQty, 10) || 0);
+                    const brandBase = String(o.brand || '').trim();
+                    const brandLabel = (brandBase && brandBase !== '—')
+                        ? (q > 1 ? `${brandBase} ×${q}` : brandBase)
+                        : (q > 1 ? `×${q}` : '');
+                    const supRaw = String(o.supplier || '').trim();
+                    const supBase = supRaw.split('·')[0].trim();
+                    const supKey = (supBase || supRaw).toLowerCase();
+                    const unitCost = Number(o.unitCost || 0);
+                    const amount = q * unitCost;
+                    rawRows.push({
+                        itemName,
+                        nameKey,
+                        brandLabel,
+                        unit: o.unit || item.uom || 'pcs',
+                        supplierRaw: supRaw,
+                        supplierBase: supBase,
+                        supplierKey: supKey,
+                        requestedQty: reqQty,
+                        issuedQty: totalIssued,
+                        unitCost,
+                        amount,
+                    });
+                });
+            });
+
+            const fmtNum = (val) => {
+                const n = Number(val || 0);
+                return Math.abs(n - Math.round(n)) < 0.0001
+                    ? String(Math.round(n))
+                    : n.toFixed(2).replace(/\.?0+$/, '');
+            };
+
+            return rawRows.map((row, idx) => {
+                const prev = idx > 0 ? rawRows[idx - 1] : null;
+                const sameItem = row.nameKey !== '' && prev && prev.nameKey === row.nameKey;
+                const sameSupplier = sameItem && row.supplierKey !== '' && prev && prev.supplierKey === row.supplierKey;
+
+                let itemSpan = 1;
+                if (row.nameKey !== '' && !sameItem) {
+                    for (let i = idx + 1; i < rawRows.length; i++) {
+                        if (rawRows[i].nameKey !== row.nameKey) break;
+                        itemSpan++;
+                    }
+                }
+
+                let supplierSpan = 1;
+                if (row.supplierKey !== '' && !sameSupplier) {
+                    for (let i = idx + 1; i < rawRows.length; i++) {
+                        if (rawRows[i].nameKey !== row.nameKey || rawRows[i].supplierKey !== row.supplierKey) break;
+                        supplierSpan++;
+                    }
+                }
+
+                const supplierDisplay = supplierSpan > 1 && row.supplierBase ? row.supplierBase : row.supplierRaw;
+
+                return {
+                    itemName: row.itemName,
+                    brandLabel: row.brandLabel,
+                    unit: row.unit,
+                    supplierDisplay,
+                    requestedDisplay: fmtNum(row.requestedQty),
+                    issuedDisplay: fmtNum(row.issuedQty),
+                    unitCostDisplay: row.unitCost !== null ? this.formatPeso(row.unitCost) : '',
+                    amountDisplay: row.amount !== null ? this.formatPeso(row.amount) : '',
+                    sameItem: Boolean(sameItem),
+                    sameSupplier: Boolean(sameSupplier),
+                    itemSpan,
+                    supplierSpan,
+                };
+            });
         },
 
         // Signature canvas
@@ -1730,17 +1934,16 @@ function canvassReviewCard(boot) {
             const ready = this.readyPendingItems();
             if (!ready.length) {
                 this.feedbackOk = false;
-                this.feedbackMsg = 'Select winning supplier offer(s) covering the requested quantity on at least one item before approving.';
+                this.feedbackMsg = 'Select at least one supplier offer and enter an approved quantity (>= 1) on at least one item before approving.';
                 return;
             }
 
             for (const it of pending) {
-                const hasAnyChecked = it.offers.some(o => o.checked);
-                if (hasAnyChecked && !this.itemAllocationReady(it)) {
+                if (this.itemHasEmptyCheckedOffer(it)) {
                     const idx = this.items.findIndex(x => x.id === it.id);
                     if (idx >= 0) this.activeItemIdx = idx;
                     this.feedbackOk = false;
-                    this.feedbackMsg = `Item ${idx + 1} (${it.name}) has checked offer(s) totaling ${this.itemAllocatedUnits(it)} ${it.uom}, which is less than the requested ${it.qty} ${it.uom}. Finish allocating it or uncheck its offers.`;
+                    this.feedbackMsg = `Item ${idx + 1} (${it.name}) has a checked supplier offer with 0/empty quantity. Enter an approved quantity (>= 1) or uncheck it before finalizing.`;
                     return;
                 }
             }
@@ -1758,11 +1961,15 @@ function canvassReviewCard(boot) {
                         .map(o => ({ offer_id: o.id, qty: parseInt(o.approvedQty, 10) }));
                     const total = this.itemEstimatedTotal(it);
                     grandTotal += total;
+                    const allocUnits = this.itemAllocatedUnits(it);
+                    const qtySummary = allocUnits + 0.0001 < Number(it.qty || 1)
+                        ? `${allocUnits} of ${it.qty} ${it.uom} (partial)`
+                        : `${allocUnits} ${it.uom}`;
                     const supNames = [...new Set(it.offers.filter(o => o.checked && parseInt(o.approvedQty, 10) > 0).map(o => o.supplier))];
                     summary.push({
                         itemId: it.id,
                         name: `Item ${idx + 1}: ${it.name}`,
-                        detail: `${this.itemAllocatedUnits(it)} ${it.uom} · ${supNames.join(', ')}`,
+                        detail: `${qtySummary} · ${supNames.join(', ')}`,
                         total,
                     });
                     payloadItems.push({ item_id: it.id, allocations: allocs });
@@ -1779,9 +1986,9 @@ function canvassReviewCard(boot) {
                 open: true,
                 all: allSelected,
                 title: allSelected
-                    ? `Approve all ${summary.length} item(s)?`
-                    : `Approve ${summary.length} of ${pending.length} item(s)?`,
-                confirmLabel: 'Confirm & Finalize Approval',
+                    ? `Accept all ${summary.length} item(s)?`
+                    : `Accept ${summary.length} of ${pending.length} item(s)?`,
+                confirmLabel: 'Confirm & Accept Canvass',
                 summary,
                 unselected,
                 unselectedNote: '',

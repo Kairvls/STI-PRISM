@@ -58,7 +58,7 @@
             : (string) ($atp->shop_name ?? $atp->company_name ?? '');
     }
 
-    $atpDefaultRows = 8;
+    $atpDefaultRows = 1;
     $atpMaxRows = 50;
     $oldItems = is_array($oldItems) ? array_values($oldItems) : null;
     if ($editable) {
@@ -73,6 +73,9 @@
     $atpCellClass = 'w-full min-w-0 border-0 bg-transparent px-1 py-1.5 text-sm outline-none ring-0 focus:outline-none focus:ring-0';
 @endphp
 
+@once
+    @include('partials.ris-signature-overlay-styles')
+@endonce
 <div
     @if($printId) id="{{ $printId }}" @endif
     class="atp-print-sheet mx-auto w-full max-w-[1095px] bg-white px-10 pb-[38px] pt-[38px] text-[13px] leading-tight text-black shadow {{ $printClass }}"
@@ -311,7 +314,7 @@
                             value="{{ $receivedBy }}"
                             maxlength="255"
                             autocomplete="off"
-                            class="relative z-[1] w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-sm outline-none ring-0 focus:outline-none focus:ring-0"
+                            class="relative z-[1] w-full min-h-[1.5rem] border-0 border-b border-black bg-transparent pb-1 text-center text-xs font-normal leading-5 text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"
                         >
                     </span>
                     <input
@@ -331,6 +334,132 @@
                         maxlength="{{ \App\Support\InputLimits::SHORT }}"
                         class="min-w-0 flex-1 border-0 border-b border-black bg-transparent pb-1 outline-none ring-0 focus:outline-none focus:ring-0"
                     >
+                </div>
+            @elseif(!empty($editableReceivedBy) && !empty($receivedBySaveUrl))
+                @php
+                    $viewSignKey = 'atp-view-'.(int) ($atp?->authority_purchase_id ?? 0);
+                    $hasDrawnReceivedSig = \App\Support\RisWorkflow::isDrawnSignature((string) $receivedBySignature);
+                @endphp
+                <div
+                    class="relative mt-6 flex min-h-[1.75rem] w-full items-center justify-center border-b border-black pb-1 text-center"
+                    x-data="{
+                        nameVal: @js((string) $receivedBy),
+                        lastSaved: @js((string) $receivedBy),
+                        status: '',
+                        saveName() {
+                            const trimmed = String(this.nameVal || '').trim();
+                            if (trimmed === this.lastSaved) return;
+                            this.status = 'Saving...';
+                            fetch(@js($receivedBySaveUrl), {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
+                                },
+                                body: JSON.stringify({ authority_purchase_received_by_name: trimmed })
+                            })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data && data.ok) {
+                                    this.lastSaved = trimmed;
+                                    this.nameVal = trimmed;
+                                    this.status = 'Saved';
+                                    setTimeout(() => { if (this.status === 'Saved') this.status = ''; }, 1800);
+                                } else {
+                                    this.status = 'Error';
+                                }
+                            })
+                            .catch(() => { this.status = 'Error'; });
+                        }
+                    }"
+                >
+                    <img
+                        id="purSigOverlay-{{ $viewSignKey }}"
+                        src="{{ $hasDrawnReceivedSig ? $receivedBySignature : '' }}"
+                        alt="Received by signature"
+                        class="pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                        style="{{ $hasDrawnReceivedSig ? '' : 'display:none;' }}"
+                    >
+                    <input
+                        type="text"
+                        id="purSigName-{{ $viewSignKey }}"
+                        x-model="nameVal"
+                        @blur="saveName()"
+                        @keydown.enter.prevent="$el.blur()"
+                        maxlength="255"
+                        autocomplete="off"
+                        title="Click to overwrite printed name"
+                        aria-label="Received by printed name"
+                        class="relative z-[1] w-full border-0 bg-transparent px-1 text-center text-xs font-normal leading-5 text-slate-900 outline-none ring-0 focus:bg-blue-50/40 focus:outline-none focus:ring-0"
+                    >
+                    <input
+                        type="hidden"
+                        id="purSigImage-{{ $viewSignKey }}"
+                        value="{{ $hasDrawnReceivedSig ? $receivedBySignature : '' }}"
+                    >
+                    <span
+                        x-show="status"
+                        x-text="status"
+                        class="pointer-events-none absolute -top-5 right-0 text-[10px] font-medium"
+                        :style="status === 'Error' ? 'color:#dc2626;' : 'color:#059669;'"
+                    ></span>
+                </div>
+
+                <div
+                    class="relative mt-6 flex items-end gap-2"
+                    x-data="{
+                        poVal: @js((string) $poNo),
+                        lastSavedPo: @js((string) $poNo),
+                        poStatus: '',
+                        savePo() {
+                            const trimmed = String(this.poVal || '').trim();
+                            if (trimmed === this.lastSavedPo) return;
+                            this.poStatus = 'Saving...';
+                            fetch(@js($receivedBySaveUrl), {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
+                                },
+                                body: JSON.stringify({ authority_purchase_reference_po_no: trimmed })
+                            })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data && data.ok) {
+                                    this.lastSavedPo = trimmed;
+                                    this.poVal = trimmed;
+                                    this.poStatus = 'Saved';
+                                    setTimeout(() => { if (this.poStatus === 'Saved') this.poStatus = ''; }, 1800);
+                                } else {
+                                    this.poStatus = 'Error';
+                                }
+                            })
+                            .catch(() => { this.poStatus = 'Error'; });
+                        }
+                    }"
+                >
+                    <span class="shrink-0 pb-1 text-xs whitespace-nowrap">Reference P.O. No.</span>
+                    <input
+                        type="text"
+                        x-model="poVal"
+                        @blur="savePo()"
+                        @keydown.enter.prevent="$el.blur()"
+                        maxlength="{{ \App\Support\InputLimits::SHORT }}"
+                        autocomplete="off"
+                        title="Click to enter or edit Reference P.O. No."
+                        aria-label="Reference P.O. No."
+                        class="min-w-0 flex-1 border-0 border-b border-black bg-transparent px-1 pb-1 text-sm text-slate-900 outline-none ring-0 focus:bg-blue-50/40 focus:outline-none focus:ring-0"
+                    >
+                    <span
+                        x-show="poStatus"
+                        x-text="poStatus"
+                        class="pointer-events-none absolute -top-4 right-0 text-[10px] font-medium"
+                        :style="poStatus === 'Error' ? 'color:#dc2626;' : 'color:#059669;'"
+                    ></span>
                 </div>
             @else
                 <div class="relative mt-6 flex min-h-[1.75rem] w-full items-center justify-center border-b border-black pb-1 text-center">
@@ -374,6 +503,25 @@
                             class="ris-signature-input relative z-[1] w-full border-0 bg-transparent px-1 text-center text-xs font-normal not-italic leading-5 text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"
                         >
                     </span>
+                @elseif(!empty($adminLiveSign))
+                    <span class="signature-name-stack relative flex w-full items-center justify-center">
+                        <img
+                            data-da-atp-sig-img
+                            alt="Authorized by"
+                            class="signature-image pointer-events-none absolute left-1/2 top-1/2 z-[10] max-h-[38px] w-auto max-w-[92%] -translate-x-1/2 -translate-y-1/2 object-contain object-center"
+                            style="display:none;"
+                        >
+                        <input
+                            type="text"
+                            name="atp_authorized_by_name"
+                            data-da-atp-sig-name
+                            value="{{ $adminSignerName ?? (auth()->user()->user_full_name ?? '') }}"
+                            maxlength="120"
+                            autocomplete="off"
+                            aria-label="Authorized by printed name"
+                            class="relative z-[1] w-full border-0 bg-transparent px-1 text-center text-xs font-normal leading-5 text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"
+                        >
+                    </span>
                 @elseif(!$editable)
                     @include('partials.drawn-signature', [
                         'value' => $atp?->authority_purchase_authorized_by_signature ?? '',
@@ -381,7 +529,6 @@
                     ])
                 @endif
             </div>
-            <div class="mt-1 text-center text-[11px] italic">({{ \App\Support\AccountingSigner::SIGNATURE_TITLE }})</div>
         </div>
     </div>
 </div>

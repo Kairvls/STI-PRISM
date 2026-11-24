@@ -34,10 +34,10 @@
     <a
         href="{{ $signUrl }}"
         class="inline-flex items-center gap-2 rounded-[0.65rem] px-3.5 py-2 text-[13px] font-semibold transition {{ $phase === 'sign' ? 'bg-[#0025cc] font-bold text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}"
-        title="{{ $readyToSignCount }} reviewed RIS waiting for a decision"
+        title="{{ $readyToSignCount }} reviewed RIS & ATP waiting for a decision"
     >
         <i data-lucide="pen-line" class="h-3.5 w-3.5"></i>
-        Reviewed RIS
+        Reviewed RIS &amp; ATP
         @if ($readyToSignCount > 0)
             <span class="min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none {{ $phase === 'sign' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' }}">{{ $readyToSignCount }}</span>
         @endif

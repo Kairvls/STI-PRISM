@@ -166,6 +166,59 @@ class CanvassController extends Controller
             })
             ->count();
 
+        $visibleCanvassIds = $canvasses->getCollection()
+            ->pluck('canvass_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+        $canvassItemsByCanvass = collect();
+        if ($visibleCanvassIds !== [] && Schema::hasTable('canvass_items_table')) {
+            $canvassItemsByCanvass = DB::table('canvass_items_table as ci')
+                ->leftJoin('items_table as it', 'it.item_id', '=', 'ci.item_id')
+                ->leftJoin('uom_table as u', 'u.uom_id', '=', 'ci.uom_id')
+                ->whereIn('ci.canvass_id', $visibleCanvassIds)
+                ->orderBy('ci.canvass_item_sort_order')
+                ->orderBy('ci.canvass_item_id')
+                ->select(
+                    'ci.canvass_id',
+                    'ci.canvass_item_name',
+                    'it.item_name as catalog_item_name',
+                    'ci.canvass_item_quantity',
+                    'u.uom_name'
+                )
+                ->get()
+                ->groupBy('canvass_id');
+        }
+        foreach ($canvasses->getCollection() as $cRow) {
+            $cRow->canvass_items_preview = $canvassItemsByCanvass->get((int) $cRow->canvass_id, collect())->values();
+        }
+
+        $linkedRisIds = $canvasses->getCollection()
+            ->pluck('canvass_ris_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $linkedRisSheets = [];
+        if ($linkedRisIds !== [] && Schema::hasTable('requisition_issue_slip_table')) {
+            $risRows = DB::table('requisition_issue_slip_table')
+                ->whereIn('ris_id', $linkedRisIds)
+                ->get()
+                ->keyBy('ris_id');
+            $risItemsMap = RisWorkflow::sheetItemsByRisIds($linkedRisIds);
+            $linkedAtpsMap = CanvassWorkflow::linkedAtpsByRisIds($linkedRisIds);
+            foreach ($risRows as $rid => $risRow) {
+                $linkedRisSheets[(int) $rid] = [
+                    'ris' => $risRow,
+                    'items' => $risItemsMap->get($rid, collect())->values(),
+                    'atps' => $linkedAtpsMap->get($rid, collect())->values(),
+                ];
+            }
+        }
+
         return view('purchaser.canvass.index', compact(
             'canvasses',
             'archiveView',
@@ -173,7 +226,8 @@ class CanvassController extends Controller
             'search',
             'countsByStatus',
             'activeCount',
-            'archiveCount'
+            'archiveCount',
+            'linkedRisSheets'
         ));
     }
 

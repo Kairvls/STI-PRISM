@@ -1,4 +1,4 @@
-﻿@extends($procurementLayout ?? 'layouts.purchaser-layout')
+@extends($procurementLayout ?? 'layouts.purchaser-layout')
 
 @php
     $atpIsSupplyPortal = \App\Support\ProcurementPortal::isSupplyOfficerContext();
@@ -8,9 +8,7 @@
 @section('page-title', 'Authority to Purchase')
 @section('page-subtitle', $atpIsSupplyPortal
     ? 'Create from Incoming RIS, submit, then release to Purchaser.'
-    : ($atpPurchaserOwns
-        ? 'Create ATP, choose a payment path, prepare the RFC, then submit ATP + RFC from the funding request.'
-        : 'Choose Direct Payment, Cash Installment, or Cash Advance.'))
+    : 'Review approved ATPs, choose a payment method, and create the Request for Check.')
 
 @section('content')
 @include('partials.floating-menu-script')
@@ -144,6 +142,9 @@
                 if (this.installmentAutoDating) return;
                 this.$nextTick(() => this.syncInstallmentDates(false));
             }, { deep: true });
+            if (this.viewOpen && this.selectedAtp) {
+                this.bindViewDocSig(this.selectedAtp);
+            }
         },
         clearOneShotAtpCreateQuery() {
             const url = new URL(window.location.href);
@@ -638,6 +639,48 @@
             this.viewOpen = true;
             this.editOpen = false;
             this.modalFullscreen = false;
+            this.bindViewDocSig(id);
+        },
+
+        lastSavedViewSig: {},
+
+        bindViewDocSig(id) {
+            this.$nextTick(() => {
+                const key = 'atp-view-' + id;
+                const slot = document.getElementById('purSigSlot-' + key);
+                if (!slot || !window.purchaserDocumentSignature) return;
+                const hidden = document.getElementById('purSigImage-' + key);
+                if (this.lastSavedViewSig[id] === undefined) {
+                    this.lastSavedViewSig[id] = hidden ? String(hidden.value || '') : '';
+                }
+                window.purchaserDocumentSignature.bind({
+                    key: key,
+                    hiddenId: 'purSigImage-' + key,
+                    nameId: 'purSigName-' + key,
+                    previewId: 'purSigOverlay-' + key,
+                    slotId: 'purSigSlot-' + key,
+                    title: 'Purchaser signature',
+                    hint: 'Pick a saved signature, draw one, or upload. It overlays your printed name on the form above.',
+                    onChange: (dataUrl) => this.saveViewAtpSignature(id, dataUrl)
+                });
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
+
+        saveViewAtpSignature(id, dataUrl) {
+            const val = String(dataUrl || '');
+            if (this.lastSavedViewSig[id] === val) return;
+            this.lastSavedViewSig[id] = val;
+            fetch('/{{ $pp ?? 'purchaser' }}/authority-to-purchase/' + id + '/received-by', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
+                },
+                body: JSON.stringify({ authority_purchase_received_by_signature: val })
+            }).catch(() => {});
         },
 
         openEdit(id) {
@@ -1001,7 +1044,7 @@
             const rowsRoot = form.querySelector('[data-doc-rows]');
             const rowTotal = (rowsRoot && window.docRows)
                 ? window.docRows.fit(rowsRoot, prefillItems.length).length
-                : Math.max(8, prefillItems.length);
+                : Math.max(1, prefillItems.length);
             for (let i = 0; i < rowTotal; i++) {
                 const item = prefillItems[i] || {};
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
@@ -1333,16 +1376,18 @@
                         <i data-lucide="printer" class="h-4 w-4"></i>
                         Print Empty ATP
                     </button>
-                    <button
-                        type="button"
-                        @click="openCreate()"
-                        class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
-                    >
-                        <i data-lucide="plus" class="h-4 w-4"></i>
-                        Create ATP
-                    </button>
-            @endif
-        @endunless
+                    @if($atpIsSupplyPortal)
+                        <button
+                            type="button"
+                            @click="openCreate()"
+                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                        >
+                            <i data-lucide="plus" class="h-4 w-4"></i>
+                            Create ATP
+                        </button>
+                    @endif
+                @endif
+            @endunless
         </div>
     </div>
 
@@ -2022,10 +2067,15 @@
                     <div class="bg-slate-100 p-3 md:p-5">
                         @include('partials.authority-to-purchase-paper', [
                             'editable' => false,
+                            'editableReceivedBy' => !$archiveView && !$atpIsSupplyPortal,
+                            'receivedBySaveUrl' => route(($pp ?? 'purchaser').'.atp.received-by', $atp->authority_purchase_id),
                             'atp' => $atp,
                             'items' => $items,
                             'printId' => 'atp-print-'.$atp->authority_purchase_id,
                         ])
+                        @if(!$archiveView && !$atpIsSupplyPortal)
+                            <div id="purSigSlot-atp-view-{{ $atp->authority_purchase_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
+                        @endif
                     </div>
 
                     {{-- Footer Actions --}}
@@ -2099,7 +2149,7 @@
                             && !\App\Support\ProcurementPortal::isSupplyOfficerContext()
                             && (
                                 ($atpPurchaserOwns && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true) && empty($atp->authority_purchase_submitted_at))
-                                || ($atp->authority_purchase_status === 'Approved' && !empty($atp->released_to_purchaser))
+                                || ($atp->authority_purchase_status === 'Approved' && ($atpPurchaserOwns || !empty($atp->released_to_purchaser)))
                             )
                         )
                             @if(false)
@@ -2111,7 +2161,7 @@
                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
                                         data-pur-confirm="{{ $directPaymentConfirm($atp) }}"
                                         data-pur-confirm-title="Use Direct Payment?"
-                                        data-pur-confirm-ok="Use Direct Payment"
+                                        data-pur-confirm-ok="Confirm"
                                     >
                                         @csrf
                                         <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
@@ -2129,7 +2179,7 @@
                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
                                         data-pur-confirm="{{ $cashInstallmentConfirm($atp) }}"
                                         data-pur-confirm-title="Use Cash Installment?"
-                                        data-pur-confirm-ok="Use Cash Installment"
+                                        data-pur-confirm-ok="Confirm"
                                     >
                                         @csrf
                                         <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT }}">
@@ -2147,7 +2197,7 @@
                                         action="{{ route(($pp ?? 'purchaser').'.atp.payment-path', $atp->authority_purchase_id) }}"
                                         data-pur-confirm="{{ $cashAdvanceConfirm($atp) }}"
                                         data-pur-confirm-title="Use Cash Advance?"
-                                        data-pur-confirm-ok="Use Cash Advance"
+                                        data-pur-confirm-ok="Confirm"
                                     >
                                         @csrf
                                         <input type="hidden" name="authority_purchase_payment_path" value="{{ \App\Support\ProcurementPaymentPath::CASH_ADVANCE }}">

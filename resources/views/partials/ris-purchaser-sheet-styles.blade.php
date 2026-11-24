@@ -13,12 +13,13 @@
         }
     }
     .ris-original-form {
-        width: 1095px;
-        max-width: 1095px;
-        min-height: 845px;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        min-height: 0;
         box-sizing: border-box;
         border: 2px solid #1f2937;
-        padding: 26px 24px 24px;
+        padding: 24px 22px 22px;
         font-family: Arial, Helvetica, sans-serif;
         color: #000;
         background: #fff;

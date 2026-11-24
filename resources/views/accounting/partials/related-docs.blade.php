@@ -9,7 +9,7 @@
                 $node = $chain[$key] ?? null;
                 $isCurrent = $current !== null && $current === $key;
             @endphp
-            <li class="acc-chain-item {{ $isCurrent ? 'acc-chain-item--current' : '' }}">
+            <li class="acc-chain-item {{ $isCurrent ? 'acc-chain-item--current' : '' }}" data-chain-item="{{ $key }}">
                 <div class="min-w-0">
                     <p>{{ $title }}</p>
                     <p class="acc-chain-value" title="{{ $node['label'] ?? '—' }}">{{ $node['label'] ?? '—' }}</p>
@@ -18,10 +18,22 @@
                     @endif
                 </div>
                 <div class="shrink-0 flex flex-col items-end gap-0.5">
-                    @if ($isCurrent && !empty($node['url']))
+                    @if (!empty($switchable) && in_array($key, ['ris', 'atp'], true) && !empty($node['label']))
+                        <span
+                            data-chain-current
+                            @if(!$isCurrent) hidden @endif
+                            class="text-[11px] font-medium text-slate-400 cursor-default select-none"
+                            title="You are viewing this document"
+                        >Current</span>
+                        <button
+                            type="button"
+                            data-switch-doc="{{ $key }}"
+                            data-chain-open
+                            @if($isCurrent) hidden @endif
+                            class="acc-link text-[11px]"
+                        >Open</button>
+                    @elseif ($isCurrent && !empty($node['url']))
                         <span class="text-[11px] font-medium text-slate-400 cursor-default select-none" title="You are viewing this document">Current</span>
-                    @elseif (!empty($switchable) && in_array($key, ['ris', 'atp', 'rfc'], true))
-                        <button type="button" data-switch-doc="{{ $key }}" class="acc-link text-[11px]">Open</button>
                     @elseif (!empty($node['url']))
                         <a href="{{ $node['url'] }}" class="acc-link text-[11px]">Open</a>
                     @endif

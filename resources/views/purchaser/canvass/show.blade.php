@@ -6,7 +6,7 @@
 @section('content')
 @php
     $routePrefix = $pp ?? 'purchaser';
-    $badge = \App\Support\CanvassWorkflow::statusBadge((string) $canvass->canvass_status);
+    $badge = \App\Support\CanvassWorkflow::statusBadge((string) $canvass->canvass_status, $canvass->linked_ris_status ?? null);
     $editable = \App\Support\CanvassWorkflow::canEdit($canvass);
     $canCreateRis = \App\Support\CanvassWorkflow::canConvertToRis($canvass);
 @endphp
@@ -36,7 +36,8 @@
             @if ($canCreateRis)
                 <a
                     href="{{ route($routePrefix.'.ris.index', ['from_canvass' => $canvass->canvass_id]) }}"
-                    class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
+                    class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+                    style="background:#10b981;color:#ffffff;"
                 >
                     <i data-lucide="file-plus-2" class="h-4 w-4"></i>
                     <span>Create RIS from Canvass</span>
@@ -44,7 +45,8 @@
             @elseif (! empty($canvass->canvass_ris_id))
                 <a
                     href="{{ route($routePrefix.'.ris.index', ['view_ris' => $canvass->canvass_ris_id]) }}"
-                    class="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700"
+                    class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+                    style="background:#0025cc;color:#ffffff;"
                 >
                     <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
                     <span>Open Linked RIS {{ $canvass->linked_ris_number ?: '#'.$canvass->canvass_ris_id }}</span>
@@ -59,8 +61,12 @@
             <div>
                 <div class="flex flex-wrap items-center gap-2.5">
                     <h2 class="text-lg font-bold text-slate-900">{{ \App\Support\CanvassWorkflow::displayNumber($canvass) }}</h2>
-                    <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold {{ $badge['class'] }}">
-                        {{ $badge['label'] }}
+                    <span
+                        class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                        style="{{ $badge['style'] }}"
+                    >
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $badge['dot'] }};"></span>
+                        <span>{{ $badge['label'] }}</span>
                     </span>
                     @if ($canvass->canvass_urgency === 'Urgent')
                         <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">Urgent</span>
@@ -159,9 +165,9 @@
                                 <td class="px-5 py-3 text-right font-bold text-slate-900">
                                     ₱{{ number_format((float) $offer->computed_total, 2) }}
                                     @if ($offer->is_selected)
-                                        <span class="ml-1.5 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">Approved</span>
+                                        <span class="ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background:#10b981;color:#ffffff;">Approved</span>
                                     @elseif ($offer->is_lowest)
-                                        <span class="ml-1.5 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Lowest</span>
+                                        <span class="ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background:#eff6ff;color:#1d4ed8;">Lowest</span>
                                     @endif
                                 </td>
                             </tr>

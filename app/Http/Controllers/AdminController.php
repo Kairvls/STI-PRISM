@@ -1119,6 +1119,19 @@ class AdminController extends Controller
     $this->attachRisEquipmentItems($signableRisRecords);
     $this->attachRisPresidentRemarks($signableRisRecords);
 
+    $visibleRisIds = $signableRisRecords->getCollection()->pluck('ris_id')->all();
+    foreach ($signableRisRecords->getCollection() as $rec) {
+        if (RisWorkflow::needsSignDecision($rec) || RisWorkflow::needsAdminIssuedBy($rec)) {
+            \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $rec->ris_id);
+        }
+    }
+    $sheetItemsByRis = RisWorkflow::sheetItemsByRisIds($visibleRisIds);
+    $linkedAtpsByRis = \App\Support\CanvassWorkflow::linkedAtpsByRisIds($visibleRisIds);
+    foreach ($signableRisRecords->getCollection() as $rec) {
+        $rec->risItems = $sheetItemsByRis->get((int) $rec->ris_id, collect())->values();
+        $rec->linkedAtps = $linkedAtpsByRis->get((int) $rec->ris_id, collect())->values();
+    }
+
     if ($recordRisId > 0) {
         $attentionFocus = \App\Support\RecordFocus::ris($recordRisId, AdminPortal::route('digital-signatures.sign-ris'));
         $filter = 'focus';
@@ -1754,11 +1767,18 @@ class AdminController extends Controller
                 ->update(['ris_submitted_by' => $ownerPurchaserId]);
         }
 
-        $autoAtpIds = \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $targetId);
+        $atpSignerName = trim((string) $request->input('atp_authorized_by_name', '')) ?: trim($adminName);
+        $autoAtpIds = \App\Support\CanvassWorkflow::approveLinkedAtpsForRis(
+            (int) $targetId,
+            $issuedSignature ?? null,
+            $atpSignerName,
+            (int) Auth::id()
+        );
+        \App\Support\CanvassWorkflow::syncStatusFromRis((int) $targetId, RisWorkflow::PRESIDENT_APPROVED);
 
         if ($ownerPurchaserId > 0) {
             $atpSuffix = count($autoAtpIds) > 0
-                ? ' '.count($autoAtpIds).' per-supplier ATP draft(s) were automatically generated for your review.'
+                ? ' '.count($autoAtpIds).' approved ATP(s) are ready for Payment Method & RFC.'
                 : ' You may create an ATP.';
             WorkflowNotifier::toUser(
                 $ownerPurchaserId,
@@ -3834,6 +3854,7 @@ class AdminController extends Controller
             }
 
             $attachmentNames = RisForwardAttachments::sync((int) $risId, $keepKeys, $uploaded);
+            \App\Support\CanvassWorkflow::syncStatusFromRis((int) $risId, RisWorkflow::FORWARDED);
 
             $presidentName = WorkflowNotifier::recipientName($presidentId, 'the President');
             $logRemarks = 'RIS forwarded to '.$presidentName.' by ' . $adminName . '.';
@@ -4119,9 +4140,15 @@ class AdminController extends Controller
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
         $forwardAttachments = $mode === 'forward' ? RisForwardAttachments::listed($ris) : [];
 
+        \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $risId);
+        $linkedAtps = \App\Support\CanvassWorkflow::linkedAtpsByRisIds([(int) $risId])
+            ->get((int) $risId, collect())
+            ->values();
+
         return view('admin.procurement-review._direct-approve-form', [
             'ris' => $ris,
             'risItems' => $risItems,
+            'linkedAtps' => $linkedAtps,
             'mode' => $mode,
             'supportingDocuments' => $supportingDocuments,
             'savedSignatures' => $savedSignatures,
@@ -4370,11 +4397,19 @@ class AdminController extends Controller
                     ->update(['ris_submitted_by' => $ownerPurchaserId]);
             }
 
-            $autoAtpIds = \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $risId);
+            $atpSignerName = trim((string) $request->input('atp_authorized_by_name', ''))
+                ?: trim((string) ($request->input('ris_issued_by_name') ?: ($request->input('ris_checked_by_name') ?: (Auth::user()->user_full_name ?? 'School Administrator'))));
+            $autoAtpIds = \App\Support\CanvassWorkflow::approveLinkedAtpsForRis(
+                (int) $risId,
+                $issuedSignature,
+                $atpSignerName,
+                (int) Auth::id()
+            );
+            \App\Support\CanvassWorkflow::syncStatusFromRis((int) $risId, RisWorkflow::DIRECTLY_APPROVED);
 
             if ($ownerPurchaserId > 0) {
                 $atpSuffix = count($autoAtpIds) > 0
-                    ? ' '.count($autoAtpIds).' per-supplier ATP draft(s) were automatically generated for your review.'
+                    ? ' '.count($autoAtpIds).' approved ATP(s) are ready for Payment Method & RFC.'
                     : ' You may create an ATP.';
                 WorkflowNotifier::toUser(
                     $ownerPurchaserId,

@@ -92,6 +92,42 @@
             finish();
         },
 
+        rrSubmitConfirmOpen: false,
+        rrSubmitConfirmForm: null,
+        rrSubmitConfirmSummary: { title: 'Submit for Second Count?', receivedFrom: '—', itemCount: '—', destination: 'Receiving Officer (Second Count)', okLabel: 'Confirm & Submit' },
+
+        openRrSubmitConfirm(btn, isResubmit = false) {
+            const form = btn ? btn.form : this.$refs.createForm;
+            if (!form) return;
+            const fromVal = (form.querySelector('[name=receiving_report_received_from]')?.value || '').trim();
+            const articles = Array.from(form.querySelectorAll('input[name]'))
+                .filter(el => String(el.getAttribute('name') || '').endsWith('[article]'))
+                .map(el => String(el.value || '').trim())
+                .filter(Boolean);
+            this.rrSubmitConfirmForm = form;
+            this.rrSubmitConfirmSummary = {
+                title: isResubmit ? 'Resubmit for Second Count?' : 'Submit for Second Count?',
+                receivedFrom: fromVal || '—',
+                itemCount: articles.length ? (articles.length + (articles.length === 1 ? ' item' : ' items')) : '—',
+                destination: 'Receiving Officer (Second Count)',
+                okLabel: isResubmit ? 'Confirm & Resubmit' : 'Confirm & Submit',
+            };
+            this.rrSubmitConfirmOpen = true;
+        },
+
+        confirmRrSubmit() {
+            const form = this.rrSubmitConfirmForm;
+            this.rrSubmitConfirmOpen = false;
+            if (!form) return;
+            const saveInput = form.querySelector('input[name=save_action]');
+            if (saveInput) saveInput.value = 'submit';
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+            else form.submit();
+        },
+
         applyRfcPrefill(fundingKey) {
             this.selectedFundingKey = String(fundingKey || '');
             const data = this.rfcPrefill[String(fundingKey)];
@@ -112,8 +148,8 @@
             const rows = data.items || [];
             const rowsRoot = form.querySelector('[data-doc-rows]');
             const rowTotal = (rowsRoot && window.docRows)
-                ? window.docRows.fit(rowsRoot, rows.length).length
-                : 9;
+                ? window.docRows.fit(rowsRoot, Math.max(1, rows.length)).length
+                : Math.max(1, rows.length);
             for (let i = 0; i < rowTotal; i++) {
                 const item = rows[i] || {};
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
@@ -412,8 +448,8 @@
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         @php
                                             $rrSubmitLabel = $rr->receiving_report_status === 'Minor Revision'
-                                                ? 'Resubmit to Receiving Officer'
-                                                : 'Submit to Receiving Officer';
+                                                ? 'Resubmit for Second Count'
+                                                : 'Submit for Second Count';
                                         @endphp
                                         <form
                                             method="POST"
@@ -606,9 +642,9 @@
                             <div id="purSigSlot-rr-create" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                         </div>
                         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                            <p class="mr-auto max-w-sm text-[11px] text-slate-500">
+                            <!--<p class="mr-auto max-w-sm text-[11px] text-slate-500">
                                 Submit sends this Receiving Report to the Receiving Officer next.
-                            </p>
+                            </p>-->
                             <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                                 Cancel
                             </button>
@@ -621,30 +657,10 @@
                             </button>
                             <button
                                 type="button"
-                                onclick="(function (btn) {
-                                    var form = btn.form;
-                                    if (!form || !window.purConfirm) {
-                                        if (form) {
-                                            form.querySelector('input[name=save_action]').value = 'submit';
-                                            form.requestSubmit ? form.requestSubmit() : form.submit();
-                                        }
-                                        return;
-                                    }
-                                    window.purConfirm({
-                                        title: 'Submit RR',
-                                        text: 'Submit this Receiving Report for review by the Receiving Officer?',
-                                        confirmText: 'Submit',
-                                        kind: 'submit'
-                                    }).then(function (ok) {
-                                        if (!ok) return;
-                                        form.querySelector('input[name=save_action]').value = 'submit';
-                                        if (typeof form.requestSubmit === 'function') form.requestSubmit();
-                                        else form.submit();
-                                    });
-                                })(this)"
+                                @click="openRrSubmitConfirm($el, false)"
                                 class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
                             >
-                                Submit to Receiving Officer
+                                Submit for Second Count
                             </button>
                         </div>
                     </form>
@@ -652,6 +668,54 @@
             </div>
         </div>
     </div>
+    </template>
+
+    {{-- SUBMIT FOR SECOND COUNT CONFIRMATION MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="rrSubmitConfirmOpen"
+            x-cloak
+            @keydown.escape.window="if (rrSubmitConfirmOpen) rrSubmitConfirmOpen = false"
+            class="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+            style="z-index: 99999;"
+            @click.self="rrSubmitConfirmOpen = false"
+        >
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" @click.stop>
+                <h3 class="text-base font-bold text-slate-900" x-text="rrSubmitConfirmSummary.title"></h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    This Receiving Report will be sent to the <strong class="text-slate-900" x-text="rrSubmitConfirmSummary.destination"></strong> for verification.
+                </p>
+                <div class="mt-4 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Received From</span>
+                        <span class="truncate font-semibold text-slate-900" x-text="rrSubmitConfirmSummary.receivedFrom"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Items</span>
+                        <span class="font-semibold text-slate-900" x-text="rrSubmitConfirmSummary.itemCount"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Submit To</span>
+                        <span class="font-semibold text-[#0025cc]" x-text="rrSubmitConfirmSummary.destination"></span>
+                    </div>
+                </div>
+                <div class="mt-5 flex items-center justify-end gap-2">
+                    <button
+                        type="button"
+                        @click="rrSubmitConfirmOpen = false"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        @click="confirmRrSubmit()"
+                        class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white hover:bg-[#001db3]"
+                        x-text="rrSubmitConfirmSummary.okLabel"
+                    ></button>
+                </div>
+            </div>
+        </div>
     </template>
 
     @foreach($reports as $rr)
@@ -881,9 +945,9 @@
                                 <div id="purSigSlot-rr-{{ $rr->receiving_report_id }}" class="mx-auto mt-4 w-full max-w-[1095px]"></div>
                             </div>
                             <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
-                                <p class="mr-auto max-w-md text-xs text-gray-500">
+                                <!--<p class="mr-auto max-w-md text-xs text-gray-500">
                                     Submit sends this Receiving Report to the Receiving Officer next.
-                                </p>
+                                </p>-->
                                 <button
                                     type="button"
                                     @click="guardClose('edit')"
@@ -900,33 +964,10 @@
                                 </button>
                                 <button
                                     type="button"
-                                    onclick="(function (btn) {
-                                        var form = btn.form;
-                                        var isResubmit = {{ $rr->receiving_report_status === 'Minor Revision' ? 'true' : 'false' }};
-                                        if (!form || !window.purConfirm) {
-                                            if (form) {
-                                                form.querySelector('input[name=save_action]').value = 'submit';
-                                                form.requestSubmit ? form.requestSubmit() : form.submit();
-                                            }
-                                            return;
-                                        }
-                                        window.purConfirm({
-                                            title: isResubmit ? 'Resubmit RR' : 'Submit RR',
-                                            text: isResubmit
-                                                ? 'Resubmit this Receiving Report for review?'
-                                                : 'Submit this Receiving Report for review by the Receiving Officer?',
-                                            confirmText: isResubmit ? 'Resubmit' : 'Submit',
-                                            kind: 'submit'
-                                        }).then(function (ok) {
-                                            if (!ok) return;
-                                            form.querySelector('input[name=save_action]').value = 'submit';
-                                            if (typeof form.requestSubmit === 'function') form.requestSubmit();
-                                            else form.submit();
-                                        });
-                                    })(this)"
+                                    @click="openRrSubmitConfirm($el, {{ $rr->receiving_report_status === 'Minor Revision' ? 'true' : 'false' }})"
                                     class="rounded-lg bg-[#0025cc] px-5 py-2 text-sm font-medium text-white hover:bg-blue-800"
                                 >
-                                    {{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit to Receiving Officer' : 'Submit to Receiving Officer' }}
+                                    {{ $rr->receiving_report_status === 'Minor Revision' ? 'Resubmit for Second Count' : 'Submit for Second Count' }}
                                 </button>
                             </div>
                         </form>

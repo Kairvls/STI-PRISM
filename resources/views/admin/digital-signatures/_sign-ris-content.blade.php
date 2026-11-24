@@ -57,9 +57,9 @@
                                 View only. The School Administrator signs Issued by after the President approves.
                             @endif
                         @elseif (\App\Support\AdminPortal::canActOnRis())
-                            Direct Approve, Pass to President, or return for revision.
+                            Direct Approve or forward to President.
                         @else
-                            View only. The School Administrator Direct Approves, Passes to President, or returns for revision.
+                            View only. The School Administrator Direct Approves or forwards to President.
                         @endif
                     </p>
                 </div>
@@ -270,5 +270,89 @@
             ])
         </div>
     </div>
+
+    {{-- Pre-rendered RIS + linked ATP sheets for 0ms instant preview modal --}}
+    @foreach($signableRisRecords as $ris)
+        @php $rowLinkedAtps = collect($ris->linkedAtps ?? [])->values(); @endphp
+        <template id="sign-ris-sheet-{{ $ris->ris_id }}" data-ris-number="{{ \App\Support\RisWorkflow::formNumber($ris) }}">
+            @if ($rowLinkedAtps->isNotEmpty())
+                <div data-ris-modal-doc-root>
+                    <div class="mb-4 flex items-center gap-5 rounded-xl border border-slate-200 bg-white px-4 pt-2">
+                        <button
+                            type="button"
+                            data-ris-modal-tab="ris"
+                            class="border-b-2 pb-2.5 text-xs font-semibold transition"
+                            style="border-color:#2563eb;color:#1d4ed8;"
+                        >
+                            Requisition Slip
+                        </button>
+                        <button
+                            type="button"
+                            data-ris-modal-tab="atp"
+                            class="inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-semibold transition"
+                            style="border-color:transparent;color:#64748b;"
+                        >
+                            <span>Authorities to Purchase</span>
+                            <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style="background:#eff6ff;color:#1d4ed8;">{{ $rowLinkedAtps->count() }}</span>
+                        </button>
+                    </div>
+
+                    <div data-ris-modal-pane="ris">
+                        @include('partials.ris-purchaser-sheet', [
+                            'ris' => $ris,
+                            'risItems' => $ris->risItems ?? collect(),
+                        ])
+                    </div>
+
+                    <div data-ris-modal-pane="atp" class="hidden space-y-3">
+                        @if ($rowLinkedAtps->count() > 1)
+                            <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                                <button
+                                    type="button"
+                                    data-ris-atp-prev
+                                    disabled
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+                                    title="Previous ATP"
+                                >
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                                </button>
+                                <span class="text-xs font-semibold text-slate-700" data-ris-atp-label>
+                                    ATP 1 of {{ $rowLinkedAtps->count() }} · {{ $rowLinkedAtps->first()->authority_purchase_form_number ?: ('ATP #'.$rowLinkedAtps->first()->authority_purchase_id) }} · {{ $rowLinkedAtps->first()->company_name ?: ($rowLinkedAtps->first()->shop_name ?: 'Supplier') }}
+                                </span>
+                                <button
+                                    type="button"
+                                    data-ris-atp-next
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:opacity-90 disabled:opacity-40"
+                                    style="background:#2563eb;color:#ffffff;"
+                                    title="Next ATP"
+                                >
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </button>
+                            </div>
+                        @endif
+
+                        @foreach ($rowLinkedAtps as $atpIdx => $linkedAtp)
+                            <div
+                                class="{{ $atpIdx === 0 ? '' : 'hidden' }}"
+                                data-ris-atp-sheet="{{ $atpIdx }}"
+                                data-ris-atp-title="{{ $linkedAtp->authority_purchase_form_number ?: ('ATP #'.$linkedAtp->authority_purchase_id) }} · {{ $linkedAtp->company_name ?: ($linkedAtp->shop_name ?: 'Supplier') }}"
+                            >
+                                @include('partials.authority-to-purchase-paper', [
+                                    'editable' => false,
+                                    'atp' => $linkedAtp,
+                                    'items' => $linkedAtp->atpItems ?? collect(),
+                                ])
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                @include('partials.ris-purchaser-sheet', [
+                    'ris' => $ris,
+                    'risItems' => $ris->risItems ?? collect(),
+                ])
+            @endif
+        </template>
+    @endforeach
 
 </div>

@@ -15,7 +15,7 @@
     $sourceItems = !empty($oldRisItems)
         ? $oldRisItems
         : (($canvassBoot['items'] ?? []) ?: (($copyPrefill['items'] ?? []) ?: []));
-    $risDefaultRows = 8;
+    $risDefaultRows = 1;
     $risMaxRows = \App\Support\RisWorkflow::MAX_ITEMS;
     $sourceItems = array_values($sourceItems);
     $createRowCount = !empty($oldRisItems)
@@ -2890,7 +2890,7 @@
                             </div>
 
                             <div class="ris-document-title">
-                                REQUISITION AND ISSUE SLIP
+                                REQUISITION SLIP
                             </div>
 
                             {{-- RIS NUMBER --}}
@@ -3144,10 +3144,10 @@
         /* Main physical RIS sheet */
         .ris-original-form {
             width: 100%;
-            max-width: 1095px;
-            min-height: 845px;
+            max-width: 100%;
+            min-height: 0;
             border: 2px solid #1f2937;
-            padding: 26px 24px 24px 24px;
+            padding: 24px 22px 22px;
             font-family: Arial, Helvetica, sans-serif;
             color: #000;
         }
@@ -3812,7 +3812,7 @@
                     <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 md:px-6">
                         <div class="min-w-0">
                             <h3 id="ris-create-title" class="text-lg font-semibold tracking-tight text-gray-950">
-                                Create Requisition and Issue Slip
+                                Create Requisition Slip
                             </h3>
                             <p class="mt-0.5 text-sm text-gray-500">
                                 <span x-show="lockedReplacement && selectedReplacement">Linked to an approved replacement request.</span>
@@ -4053,7 +4053,7 @@
                         <div class="w-full border-2 border-gray-800 bg-white p-3 sm:p-5">
                             <div class="relative mb-4 text-center sm:mb-5">
                                 <h2 class="text-sm font-bold uppercase tracking-wide text-gray-900 sm:text-lg">STI COLLEGE - ORMOC, INC.</h2>
-                                <h3 class="mt-1 text-xs font-bold uppercase text-gray-900 sm:text-base">REQUISITION AND ISSUE SLIP</h3>
+                                <h3 class="mt-1 text-xs font-bold uppercase text-gray-900 sm:text-base">REQUISITION SLIP</h3>
                                 <div class="mt-3 flex justify-end sm:mt-4">
                                     <div class="flex items-end gap-2">
                                         <label class="text-xs font-medium sm:text-sm">No.</label>
@@ -4830,7 +4830,7 @@
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Requested By</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Documents</th>
-                        <th class="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
                         <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
                         <th class="py-3 pl-3 pr-5 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
@@ -4925,7 +4925,7 @@
                                 @endif
                             </td>
 
-                            <td class="max-w-[11rem] px-3 py-3.5 text-center">
+                            <td class="max-w-[11rem] px-3 py-3.5 text-left">
                                 @include('admin.partials.ris-status-badge', ['ris' => $ris, 'wrap' => true])
                                 @if($pendingHandover = $handoverOutgoing->get((int) $ris->ris_id))
                                     <p class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
@@ -4987,17 +4987,15 @@
                                         && ($isRejectedRis || ($isApprovedRis && ! empty($ris->has_atp)));
                                 @endphp
                                 <div class="inline-flex items-center justify-end gap-1">
-                                    @unless($isMinorRevisionRis)
-                                        <button
-                                            type="button"
-                                            x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                            title="View"
-                                            aria-label="View"
-                                        >
-                                            <i data-lucide="eye" class="h-4 w-4"></i>
-                                        </button>
-                                    @endunless
+                                    <button
+                                        type="button"
+                                        x-on:click="openModal = 'ris-{{ $ris->ris_id }}'"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                        title="View RIS"
+                                        aria-label="View RIS"
+                                    >
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
                                     <button
                                         type="button"
                                         data-share-doc-type="ris"
@@ -5009,163 +5007,6 @@
                                     >
                                         <i data-lucide="share-2" class="h-4 w-4"></i>
                                     </button>
-
-                                    @if($canEditRis)
-                                        <button
-                                            type="button"
-                                            x-on:click="openEditRis('edit-ris-{{ $ris->ris_id }}', @js(\App\Support\RisWorkflow::requestedByDrawnSignature($ris)))"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                            title="Edit RIS"
-                                            aria-label="Edit RIS"
-                                        >
-                                            <i data-lucide="pencil" class="h-4 w-4"></i>
-                                        </button>
-                                    @endif
-
-                                    @if($canCreateAtp)
-                                        <a
-                                            href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                            title="Create Authority to Purchase"
-                                            aria-label="Create Authority to Purchase"
-                                        >
-                                            <i data-lucide="file-plus" class="h-4 w-4"></i>
-                                        </a>
-                                    @elseif($canSendToSupply)
-                                        <form
-                                            method="POST"
-                                            action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}"
-                                            class="inline"
-                                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvass + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
-                                            data-pur-confirm-title="Send to Supply Officer"
-                                            data-pur-confirm-ok="Send"
-                                            data-pur-confirm-reviewer-role="School Supply / Material Officer"
-                                        >
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
-                                                title="Send to School Supply / Material Officer"
-                                                aria-label="Send to School Supply / Material Officer"
-                                            >
-                                                <i data-lucide="send" class="h-4 w-4"></i>
-                                            </button>
-                                        </form>
-                                    @elseif($sentToSupply && !$ris->has_atp && ! \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP)
-                                        <span
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700"
-                                            title="Waiting for Supply Officer ATP"
-                                            aria-label="Waiting for Supply Officer ATP"
-                                        >
-                                            <i data-lucide="hourglass" class="h-4 w-4"></i>
-                                        </span>
-                                    @elseif($ris->has_atp)
-                                        <span
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-200 bg-green-50 text-green-700"
-                                            title="ATP Created"
-                                            aria-label="ATP Created"
-                                        >
-                                            <i data-lucide="file-check" class="h-4 w-4"></i>
-                                        </span>
-                                    @endif
-
-                                    @if($showRisActionsMenu)
-                                        <div
-                                            class="relative"
-                                            x-data="{ openActions: false, actionsTrigger: null }"
-                                            @keydown.escape.window="openActions = false"
-                                            x-on:scroll.window.capture="openActions = false"
-                                            x-on:resize.window="openActions = false"
-                                        >
-                                            <button
-                                                type="button"
-                                                x-on:click="actionsTrigger = $el; openActions = !openActions"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                                title="More actions"
-                                                aria-label="More actions"
-                                                :aria-expanded="openActions.toString()"
-                                            >
-                                                <i data-lucide="ellipsis" class="h-4 w-4"></i>
-                                            </button>
-
-                                            <template x-teleport="body">
-                                            <div
-                                                x-show="openActions"
-                                                x-cloak
-                                                x-transition.opacity
-                                                x-effect="openActions && $nextTick(() => { window.lucide && window.lucide.createIcons(); window.purPlaceMenu(actionsTrigger, $el); })"
-                                                @click.outside="if (!actionsTrigger || !actionsTrigger.contains($event.target)) openActions = false"
-                                                class="fixed z-[900] w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
-                                            >
-                                                @if($isDraftRis)
-                                                    <a
-                                                        href="{{ route(($pp ?? 'purchaser').'.ris.index', ['copy_from' => $ris->ris_id]) }}"
-                                                        class="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                                    >
-                                                        <i data-lucide="copy" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        {{ \App\Support\ProcurementDraftLabel::copyAction() }}
-                                                    </a>
-                                                    <button
-                                                        type="button"
-                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris')), @js(route(($pp ?? 'purchaser').'.ris.submit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'submit', @js($risSubmitSignature))"
-                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                    >
-                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        Submit to School Administrator
-                                                    </button>
-                                                    @if($risHandover = $handoverOutgoing->get((int) $ris->ris_id))
-                                                        <form method="POST" action="{{ route('purchaser.handovers.cancel', $risHandover->handover_id) }}">
-                                                            @csrf
-                                                            <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50">
-                                                                <i data-lucide="undo-2" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                                Take back from {{ \Illuminate\Support\Str::before($risHandover->to_name ?: 'co-worker', ' ') }}
-                                                            </button>
-                                                        </form>
-                                                    @else
-                                                        <button
-                                                            type="button"
-                                                            x-on:click="openActions = false; window.dispatchEvent(new CustomEvent('open-draft-handover', { detail: { type: 'ris', id: {{ (int) $ris->ris_id }}, label: @js(($ris->ris_form_number ?: \App\Support\ProcurementDraftLabel::untitled('ris')).' · Record #'.$ris->ris_id) } }))"
-                                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                        >
-                                                            <i data-lucide="user-round-plus" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                            Pass to 
-                                                        </button>
-                                                    @endif
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route(($pp ?? 'purchaser').'.ris.destroy', $ris->ris_id) }}"
-                                                        data-pur-confirm="{{ \App\Support\ProcurementDraftLabel::deleteConfirm('RIS') }}"
-                                                        data-pur-confirm-title="{{ \App\Support\ProcurementDraftLabel::deleteAction('RIS') }}"
-                                                        data-pur-confirm-ok="Delete"
-                                                        data-pur-confirm-danger="1"
-                                                        data-pur-confirm-kind="danger"
-                                                    >
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button
-                                                            type="submit"
-                                                            class="flex w-full items-center gap-2.5 border-t border-slate-100 px-3 py-2 text-left text-sm text-red-700 transition hover:bg-slate-50"
-                                                        >
-                                                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                                            {{ \App\Support\ProcurementDraftLabel::deleteAction() }}
-                                                        </button>
-                                                    </form>
-                                                @endif
-
-                                                @if($isMinorRevisionRis)
-                                                    <button
-                                                        type="button"
-                                                        x-on:click="openActions = false; openSubmitRis({{ (int) $ris->ris_id }}, @js($ris->ris_form_number ?: 'RIS'), @js(route(($pp ?? 'purchaser').'.ris.resubmit', $ris->ris_id)), {{ $ris->risAttachments->isNotEmpty() ? 'true' : 'false' }}, 'resubmit', @js($risSubmitSignature))"
-                                                        class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                                                    >
-                                                        <i data-lucide="send" class="h-3.5 w-3.5 text-gray-400"></i>
-                                                        Resubmit to School Administrator
-                                                    </button>
-                                                @endif
-                                            </div>
-                                            </template>
-                                        </div>
-                                    @endif
 
                                     @if(!empty($archiveView))
                                         <form method="POST" action="{{ route(($pp ?? 'purchaser').'.ris.restore', $ris->ris_id) }}">
@@ -5183,7 +5024,7 @@
                                         <form
                                             method="POST"
                                             action="{{ route(($pp ?? 'purchaser').'.ris.archive', $ris->ris_id) }}"
-                                            data-pur-confirm="Archive this Requisition and Issue Slip?"
+                                            data-pur-confirm="Archive this Requisition Slip?"
                                             data-pur-confirm-title="Archive RIS"
                                             data-pur-confirm-ok="Archive"
                                             data-pur-confirm-kind="archive"
@@ -5467,7 +5308,7 @@
                         >
                             <div class="ris-document-header">
                                 <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
-                                <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
+                                <div class="ris-document-title">REQUISITION SLIP</div>
                                 <div class="ris-number-area">
                                     <span class="ris-number-label">No.</span>
                                     <span class="ris-number-line ris-value-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: ' ' }}</span>
@@ -5493,7 +5334,7 @@
                             <tbody>
                                 @php
                                     $sheetItems = collect($ris->risItems ?? [])->values();
-                                    $sheetRows = max(8, $sheetItems->count());
+                                    $sheetRows = max(1, $sheetItems->count());
                                 @endphp
                                 @for($row = 0; $row < $sheetRows; $row++)
                                     @php
@@ -5501,34 +5342,66 @@
                                         $name = trim((string) ($item?->ris_item_name_description ?? ''));
                                         $nameKey = mb_strtolower($name);
                                         $supplier = trim((string) ($item?->supplier_display_name ?? ''));
-                                        $supplierKey = mb_strtolower($supplier);
+                                        $supplierBase = trim(explode('·', $supplier)[0]);
+                                        $supplierKey = mb_strtolower($supplierBase !== '' ? $supplierBase : $supplier);
                                         $prev = $row > 0 ? $sheetItems->get($row - 1) : null;
                                         $prevNameKey = mb_strtolower(trim((string) ($prev?->ris_item_name_description ?? '')));
-                                        $prevSupplierKey = mb_strtolower(trim((string) ($prev?->supplier_display_name ?? '')));
+                                        $prevSupRaw = trim((string) ($prev?->supplier_display_name ?? ''));
+                                        $prevSupBase = trim(explode('·', $prevSupRaw)[0]);
+                                        $prevSupplierKey = mb_strtolower($prevSupBase !== '' ? $prevSupBase : $prevSupRaw);
                                         $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
                                         $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
                                         $itemSpan = 1;
+                                        $itemReqSum = 0.0;
+                                        $itemHasReq = false;
+                                        $itemIssSum = 0.0;
+                                        $itemHasIss = false;
+                                        if ($item !== null && $item->ris_quantity_requested !== null && $item->ris_quantity_requested !== '') {
+                                            $itemReqSum += (float) $item->ris_quantity_requested;
+                                            $itemHasReq = true;
+                                        }
+                                        if ($item !== null && $item->ris_quantity_issued !== null && $item->ris_quantity_issued !== '') {
+                                            $itemIssSum += (float) $item->ris_quantity_issued;
+                                            $itemHasIss = true;
+                                        }
                                         if ($nameKey !== '' && ! $sameItem) {
                                             for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
-                                                $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                                $nextItem = $sheetItems->get($k);
+                                                $nextName = mb_strtolower(trim((string) ($nextItem?->ris_item_name_description ?? '')));
                                                 if ($nextName === '' || $nextName !== $nameKey) {
                                                     break;
                                                 }
                                                 $itemSpan++;
+                                                if ($nextItem?->ris_quantity_requested !== null && $nextItem->ris_quantity_requested !== '') {
+                                                    $itemReqSum += (float) $nextItem->ris_quantity_requested;
+                                                    $itemHasReq = true;
+                                                }
+                                                if ($nextItem?->ris_quantity_issued !== null && $nextItem->ris_quantity_issued !== '') {
+                                                    $itemIssSum += (float) $nextItem->ris_quantity_issued;
+                                                    $itemHasIss = true;
+                                                }
                                             }
                                         }
+                                        $fmtQty = static fn (float $v): string => abs($v - round($v)) < 0.0001
+                                            ? (string) (int) round($v)
+                                            : rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.');
+                                        $itemReqDisplay = $itemHasReq ? $fmtQty($itemReqSum) : ' ';
+                                        $itemIssDisplay = $itemHasIss ? $fmtQty($itemIssSum) : ' ';
                                         $supplierSpan = 1;
                                         if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
                                             for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
                                                 $next = $sheetItems->get($k);
                                                 $nextName = mb_strtolower(trim((string) ($next?->ris_item_name_description ?? '')));
-                                                $nextSupplier = mb_strtolower(trim((string) ($next?->supplier_display_name ?? '')));
+                                                $nextSupRaw = trim((string) ($next?->supplier_display_name ?? ''));
+                                                $nextSupBase = trim(explode('·', $nextSupRaw)[0]);
+                                                $nextSupplier = mb_strtolower($nextSupBase !== '' ? $nextSupBase : $nextSupRaw);
                                                 if ($nextName !== $nameKey || $nextSupplier !== $supplierKey) {
                                                     break;
                                                 }
                                                 $supplierSpan++;
                                             }
                                         }
+                                        $supplierDisplay = $supplierSpan > 1 && $supplierBase !== '' ? $supplierBase : $supplier;
                                     @endphp
                                     <tr>
                                         @if (! $sameItem)
@@ -5537,10 +5410,12 @@
                                         <td class="text-center">{{ $item ? (\App\Support\RisWorkflow::brandPaperLabel($item) ?: ' ') : ' ' }}</td>
                                         <td class="text-center">{{ $item?->uom_name ?: ' ' }}</td>
                                         @if (! $sameSupplier)
-                                            <td @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier !== '' ? $supplier : ' ' }}</td>
+                                            <td @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplierDisplay !== '' ? $supplierDisplay : ' ' }}</td>
                                         @endif
-                                        <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
-                                        <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
+                                        @if (! $sameItem)
+                                            <td @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif class="text-center">{{ $itemReqDisplay }}</td>
+                                            <td @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif class="text-center">{{ $itemIssDisplay }}</td>
+                                        @endif
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? \App\Support\Money::format($item->ris_unit_cost) : ' ' }}</td>
                                         <td class="text-right">{{ $item ? \App\Support\Money::format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))) : ' ' }}</td>
                                     </tr>
@@ -5698,37 +5573,8 @@
                         Close
                     </button>
 
-                    {{-- NEXT STEP AFTER APPROVAL --}}
-                    @if(!empty($ris->can_create_atp))
-                        <a
-                            href="{{ route(($pp ?? 'purchaser').'.atp.create', ['selected_ris' => $ris->ris_id]) }}"
-                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
-                        >
-                            <i data-lucide="file-plus" class="h-4 w-4"></i>
-                            Create Authority to Purchase
-                        </a>
-                    @elseif(!empty($ris->can_send_to_supply))
-                        <form
-                            method="POST"
-                            action="{{ route(($pp ?? 'purchaser').'.ris.send-to-supply', $ris->ris_id) }}"
-                            data-pur-confirm="Send {{ $ris->ris_form_number ?: 'RIS #'.$ris->ris_id }} (approved Canvass + RIS) to the School Supply / Material Officer so they can create the Authority to Purchase?"
-                            data-pur-confirm-title="Send to Supply Officer"
-                            data-pur-confirm-ok="Send"
-                            data-pur-confirm-reviewer-role="School Supply / Material Officer"
-                        >
-                            @csrf
-                            <button
-                                type="submit"
-                                class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
-                            >
-                                Send to Supply Officer
-                            </button>
-                        </form>
-                    @elseif(!empty($ris->sent_to_supply) && empty($ris->has_atp) && ! \App\Support\ProcurementPortal::PURCHASER_OWNS_ATP)
-                        <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
-                            Waiting for Supply Officer ATP
-                        </span>
-                    @elseif(!empty($ris->has_atp))
+                    {{-- NEXT STEP STATUS --}}
+                    @if(!empty($ris->has_atp))
                         <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
                             ATP Created
                         </span>
@@ -5791,7 +5637,7 @@
                         >
                             <div class="ris-document-header">
                                 <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
-                                <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
+                                <div class="ris-document-title">REQUISITION SLIP</div>
                                 <div class="ris-number-area">
                                     <span class="ris-number-label">No.</span>
                                     <span class="ris-number-line ris-value-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: ' ' }}</span>
@@ -5817,7 +5663,7 @@
                             <tbody>
                                 @php
                                     $sheetItems = collect($ris->risItems ?? [])->values();
-                                    $sheetRows = max(8, $sheetItems->count());
+                                    $sheetRows = max(1, $sheetItems->count());
                                 @endphp
                                 @for($row = 0; $row < $sheetRows; $row++)
                                     @php
@@ -5825,34 +5671,66 @@
                                         $name = trim((string) ($item?->ris_item_name_description ?? ''));
                                         $nameKey = mb_strtolower($name);
                                         $supplier = trim((string) ($item?->supplier_display_name ?? ''));
-                                        $supplierKey = mb_strtolower($supplier);
+                                        $supplierBase = trim(explode('·', $supplier)[0]);
+                                        $supplierKey = mb_strtolower($supplierBase !== '' ? $supplierBase : $supplier);
                                         $prev = $row > 0 ? $sheetItems->get($row - 1) : null;
                                         $prevNameKey = mb_strtolower(trim((string) ($prev?->ris_item_name_description ?? '')));
-                                        $prevSupplierKey = mb_strtolower(trim((string) ($prev?->supplier_display_name ?? '')));
+                                        $prevSupRaw = trim((string) ($prev?->supplier_display_name ?? ''));
+                                        $prevSupBase = trim(explode('·', $prevSupRaw)[0]);
+                                        $prevSupplierKey = mb_strtolower($prevSupBase !== '' ? $prevSupBase : $prevSupRaw);
                                         $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
                                         $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
                                         $itemSpan = 1;
+                                        $itemReqSum = 0.0;
+                                        $itemHasReq = false;
+                                        $itemIssSum = 0.0;
+                                        $itemHasIss = false;
+                                        if ($item !== null && $item->ris_quantity_requested !== null && $item->ris_quantity_requested !== '') {
+                                            $itemReqSum += (float) $item->ris_quantity_requested;
+                                            $itemHasReq = true;
+                                        }
+                                        if ($item !== null && $item->ris_quantity_issued !== null && $item->ris_quantity_issued !== '') {
+                                            $itemIssSum += (float) $item->ris_quantity_issued;
+                                            $itemHasIss = true;
+                                        }
                                         if ($nameKey !== '' && ! $sameItem) {
                                             for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
-                                                $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                                $nextItem = $sheetItems->get($k);
+                                                $nextName = mb_strtolower(trim((string) ($nextItem?->ris_item_name_description ?? '')));
                                                 if ($nextName === '' || $nextName !== $nameKey) {
                                                     break;
                                                 }
                                                 $itemSpan++;
+                                                if ($nextItem?->ris_quantity_requested !== null && $nextItem->ris_quantity_requested !== '') {
+                                                    $itemReqSum += (float) $nextItem->ris_quantity_requested;
+                                                    $itemHasReq = true;
+                                                }
+                                                if ($nextItem?->ris_quantity_issued !== null && $nextItem->ris_quantity_issued !== '') {
+                                                    $itemIssSum += (float) $nextItem->ris_quantity_issued;
+                                                    $itemHasIss = true;
+                                                }
                                             }
                                         }
+                                        $fmtQty = static fn (float $v): string => abs($v - round($v)) < 0.0001
+                                            ? (string) (int) round($v)
+                                            : rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.');
+                                        $itemReqDisplay = $itemHasReq ? $fmtQty($itemReqSum) : ' ';
+                                        $itemIssDisplay = $itemHasIss ? $fmtQty($itemIssSum) : ' ';
                                         $supplierSpan = 1;
                                         if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
                                             for ($k = $row + 1; $k < $sheetItems->count(); $k++) {
                                                 $next = $sheetItems->get($k);
                                                 $nextName = mb_strtolower(trim((string) ($next?->ris_item_name_description ?? '')));
-                                                $nextSupplier = mb_strtolower(trim((string) ($next?->supplier_display_name ?? '')));
+                                                $nextSupRaw = trim((string) ($next?->supplier_display_name ?? ''));
+                                                $nextSupBase = trim(explode('·', $nextSupRaw)[0]);
+                                                $nextSupplier = mb_strtolower($nextSupBase !== '' ? $nextSupBase : $nextSupRaw);
                                                 if ($nextName !== $nameKey || $nextSupplier !== $supplierKey) {
                                                     break;
                                                 }
                                                 $supplierSpan++;
                                             }
                                         }
+                                        $supplierDisplay = $supplierSpan > 1 && $supplierBase !== '' ? $supplierBase : $supplier;
                                     @endphp
                                     <tr>
                                         @if (! $sameItem)
@@ -5861,10 +5739,12 @@
                                         <td class="text-center">{{ $item ? (\App\Support\RisWorkflow::brandPaperLabel($item) ?: ' ') : ' ' }}</td>
                                         <td class="text-center">{{ $item?->uom_name ?: ' ' }}</td>
                                         @if (! $sameSupplier)
-                                            <td @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier !== '' ? $supplier : ' ' }}</td>
+                                            <td @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplierDisplay !== '' ? $supplierDisplay : ' ' }}</td>
                                         @endif
-                                        <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
-                                        <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
+                                        @if (! $sameItem)
+                                            <td @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif class="text-center">{{ $itemReqDisplay }}</td>
+                                            <td @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif class="text-center">{{ $itemIssDisplay }}</td>
+                                        @endif
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? \App\Support\Money::format($item->ris_unit_cost) : ' ' }}</td>
                                         <td class="text-right">{{ $item ? \App\Support\Money::format(((float) ($item->ris_quantity_requested ?? 0)) * ((float) ($item->ris_unit_cost ?? 0))) : ' ' }}</td>
                                     </tr>
@@ -6454,7 +6334,7 @@
                                 >
                                     <div class="ris-document-header">
                                         <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
-                                        <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
+                                        <div class="ris-document-title">REQUISITION SLIP</div>
                                         <div class="ris-number-area">
                                             <span class="ris-number-label">No.</span>
                                             @if(\App\Support\RisWorkflow::isPurchaserEditable($ris) && blank($ris->ris_form_number))

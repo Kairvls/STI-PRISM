@@ -812,6 +812,49 @@ class AuthorityToPurchaseController extends Controller
         ]))->with('success', "Payment path set to {$label}. You may now create the funding request.");
     }
 
+    public function updateReceivedByName(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'authority_purchase_received_by_name' => ['nullable', 'string', 'max:255'],
+            'authority_purchase_received_by_signature' => ['nullable', 'string'],
+            'authority_purchase_reference_po_no' => ['nullable', 'string', 'max:'.\App\Support\InputLimits::SHORT],
+        ]);
+
+        $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->first();
+        if (! $atp) {
+            return response()->json(['ok' => false, 'message' => 'Authority to Purchase not found.'], 404);
+        }
+
+        PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+        $update = ['authority_purchase_updated_at' => now()];
+
+        if ($request->has('authority_purchase_received_by_name')) {
+            $update['authority_purchase_received_by_name'] = trim((string) ($validated['authority_purchase_received_by_name'] ?? ''));
+        }
+
+        if ($request->has('authority_purchase_received_by_signature')) {
+            $sig = trim((string) ($validated['authority_purchase_received_by_signature'] ?? ''));
+            $update['authority_purchase_received_by_signature'] = ($sig !== '' && \App\Support\RisWorkflow::isDrawnSignature($sig)) ? $sig : null;
+        }
+
+        if ($request->has('authority_purchase_reference_po_no')) {
+            $po = trim((string) ($validated['authority_purchase_reference_po_no'] ?? ''));
+            $update['authority_purchase_reference_po_no'] = $po !== '' ? $po : null;
+        }
+
+        DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_id', $id)
+            ->update($update);
+
+        return response()->json([
+            'ok' => true,
+            'name' => $update['authority_purchase_received_by_name'] ?? $atp->authority_purchase_received_by_name,
+            'signature' => $update['authority_purchase_received_by_signature'] ?? $atp->authority_purchase_received_by_signature,
+            'reference_po_no' => $update['authority_purchase_reference_po_no'] ?? $atp->authority_purchase_reference_po_no,
+        ]);
+    }
+
     /**
      * Cash Installment: installment count + payment interval + downpayment → draft RFCs.
      */

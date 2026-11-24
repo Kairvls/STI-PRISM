@@ -881,7 +881,7 @@ class RequestExplorer
     private static function stopLabel(string $key): array
     {
         $map = [
-            'ris' => ['RIS', 'Requisition and Issue Slip'],
+            'ris' => ['RIS', 'Requisition Slip'],
             'atp' => ['ATP', 'Authority to Purchase'],
             'rfc' => ['RFC', 'Request for Check'],
             'dv' => ['DV', 'Disbursement Voucher'],

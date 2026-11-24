@@ -690,7 +690,7 @@ class RisWorkflow
 
         if ($status === 'Pending') {
             return filled($atp->authority_purchase_submitted_at ?? null)
-                ? ProcurementStatus::SENT_TO_SCHOOL_ADMINISTRATOR
+                ? ProcurementStatus::REVIEWED
                 : ProcurementStatus::IN_PREPARATION;
         }
 
@@ -1373,5 +1373,87 @@ class RisWorkflow
         }
 
         return $qty > 1 ? $name.' ×'.$qty : $name;
+    }
+
+    /**
+     * Batch-hydrate RIS item rows (with UOM, brand, and supplier display name)
+     * grouped by ris_id so views can pre-render RIS sheets inline with zero loading delay.
+     *
+     * @param  array<int|string>  $risIds
+     * @return \Illuminate\Support\Collection<int, \Illuminate\Support\Collection<int, object>>
+     */
+    public static function sheetItemsByRisIds(array $risIds): \Illuminate\Support\Collection
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $risIds), fn ($id) => $id > 0)));
+        if ($ids === [] || ! Schema::hasTable('requisition_issue_slip_items_table')) {
+            return collect();
+        }
+
+        $query = DB::table('requisition_issue_slip_items_table')
+            ->whereIn('requisition_issue_slip_items_table.ris_id', $ids)
+            ->orderBy('ris_item_id');
+
+        $select = ['requisition_issue_slip_items_table.*'];
+
+        if (
+            Schema::hasTable('uom_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
+        ) {
+            $query->leftJoin(
+                'uom_table',
+                'uom_table.uom_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_uom_id'
+            );
+            $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('brands_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+        ) {
+            $query->leftJoin(
+                'brands_table',
+                'brands_table.brand_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_brand_id'
+            );
+            $select[] = 'brands_table.brand_name';
+        }
+
+        if (
+            Schema::hasTable('suppliers_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')
+        ) {
+            $query
+                ->leftJoin(
+                    'suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'requisition_issue_slip_items_table.ris_item_supplier_id'
+                )
+                ->leftJoin(
+                    'physical_suppliers_table',
+                    'physical_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                )
+                ->leftJoin(
+                    'online_suppliers_table',
+                    'online_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                );
+
+            $select[] = DB::raw(
+                "CASE
+                    WHEN suppliers_table.supplier_store_type = 'Online Store'
+                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
+                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
+                END as supplier_display_name"
+            );
+        }
+
+        return $query->select($select)->get()->groupBy('ris_id');
     }
 }

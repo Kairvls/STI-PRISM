@@ -79,8 +79,10 @@
                         @elseif($step)
                             <a
                                 href="{{ $step['url'] }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 class="inline-flex w-full min-w-0 items-center justify-center gap-1 truncate rounded-lg bg-white px-2 py-1.5 text-center font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-100"
-                                title="Open {{ $stepTitle }}"
+                                title="Open {{ $stepTitle }} (opens in new tab)"
                             >
                                 <span class="shrink-0">{{ $stage['display'] }}</span>
                                 <span class="min-w-0 truncate opacity-80">{{ $stepLabel }}</span>

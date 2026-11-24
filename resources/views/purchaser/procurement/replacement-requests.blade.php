@@ -756,7 +756,7 @@
                     <div class="min-w-0">
                         <h3 class="text-base font-semibold text-gray-950">Create RIS</h3>
                         <p class="mt-1 text-xs text-gray-500">
-                            Continue to create a Requisition &amp; Issue Slip from this approved replacement request.
+                            Continue to create a Requisition Slip from this approved replacement request.
                         </p>
                     </div>
                     <button

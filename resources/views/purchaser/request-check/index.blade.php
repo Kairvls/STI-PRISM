@@ -103,22 +103,53 @@
             finish();
         },
 
+        createSubmitConfirmOpen: false,
+        createSubmitSummary: { paymentMethod: '', payee: '', amount: '', destination: 'School Administrator' },
+
         prepareCreateSave(action) {
             const form = this.$refs.createForm;
             if (!form) return;
             const save = form.querySelector('[name=save_action]');
             if (save) save.value = action;
-            if (action === 'submit') {
-                form.setAttribute('data-pur-confirm', 'Send this form to the School Administrator?');
-                form.setAttribute('data-pur-confirm-title', 'Send to School Administrator');
-                form.setAttribute('data-pur-confirm-ok', 'Send');
-                form.setAttribute('data-pur-confirm-reviewer-role', 'School Administrator');
-                return;
-            }
             form.removeAttribute('data-pur-confirm');
             form.removeAttribute('data-pur-confirm-title');
             form.removeAttribute('data-pur-confirm-ok');
             form.removeAttribute('data-pur-confirm-reviewer-role');
+        },
+
+        openCreateSubmitConfirm() {
+            const form = this.$refs.createForm;
+            if (!form) return;
+            const payee = (form.querySelector('[name=request_check_payee]')?.value || '').trim();
+            const rawAmount = (form.querySelector('[name=request_check_amount_figures]')?.value || '').trim();
+            const numAmount = Number(rawAmount.replace(/[^0-9.\-]/g, ''));
+            const amountLabel = rawAmount !== '' && !Number.isNaN(numAmount)
+                ? '₱' + numAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '—';
+            const typeMap = {
+                direct_payment: 'Direct Payment',
+                cash_installment: 'Cash Installment',
+                cash_advance: 'Cash Advance',
+            };
+            const fundingType = (form.querySelector('[name=request_check_funding_type]')?.value || '').trim();
+            this.createSubmitSummary = {
+                paymentMethod: typeMap[fundingType] || 'Request for Check',
+                payee: payee || '—',
+                amount: amountLabel,
+                destination: 'School Administrator',
+            };
+            this.createSubmitConfirmOpen = true;
+        },
+
+        confirmCreateSubmit() {
+            const form = this.$refs.createForm;
+            if (!form) return;
+            this.prepareCreateSave('submit');
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            this.createSubmitConfirmOpen = false;
+            form.submit();
         },
 
         applyAtpPrefill(atpId) {
@@ -517,16 +548,87 @@
                             <td class="px-5 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $rfc->request_check_date ? \Carbon\Carbon::parse($rfc->request_check_date)->format('M d, Y') : '—' }}</td>
                             <td class="px-5 py-4">
-                                @if($rfc->request_check_status === 'Approved')
-                                    @if(!empty($rfc->funds_collected))
-                                        @include('accounting.partials.status-badge', ['status' => 'Check collected'])
-                                    @elseif($rfc->funds_released)
-                                        @include('accounting.partials.status-badge', ['status' => 'Checks released'])
-                                    @elseif(!empty($rfc->check_ready))
-                                        @include('accounting.partials.status-badge', ['status' => \App\Support\ProcurementStatus::READY_FOR_COLLECTION])
-                                    @else
-                                        @include('accounting.partials.status-badge', ['status' => \App\Support\ProcurementStatus::ACCOUNTING_NEED_REVISION])
-                                    @endif
+                                @php
+                                    $purRfcStatus = (string) ($rfc->request_check_status ?? '');
+                                    $purRfcBadge = match (true) {
+                                        $purRfcStatus === 'Approved' && !empty($rfc->funds_collected) => [
+                                            'pill' => 'Collected',
+                                            'sub' => 'Check collected',
+                                            'bg' => '#f0fdfa',
+                                            'fg' => '#0f766e',
+                                            'border' => '#99f6e4',
+                                            'dot' => '#0d9488',
+                                        ],
+                                        $purRfcStatus === 'Approved' && !empty($rfc->funds_released) => [
+                                            'pill' => 'Released',
+                                            'sub' => 'Check released',
+                                            'bg' => '#eff6ff',
+                                            'fg' => '#1d4ed8',
+                                            'border' => '#bfdbfe',
+                                            'dot' => '#2563eb',
+                                        ],
+                                        $purRfcStatus === 'Approved' && !empty($rfc->check_ready) => [
+                                            'pill' => 'Ready',
+                                            'sub' => 'For check collection',
+                                            'bg' => '#fffbeb',
+                                            'fg' => '#b45309',
+                                            'border' => '#fde68a',
+                                            'dot' => '#d97706',
+                                        ],
+                                        $purRfcStatus === 'Approved' => [
+                                            'pill' => 'Approved',
+                                            'sub' => 'By SA - Sent to Accounting for check release',
+                                            'bg' => '#ecfdf5',
+                                            'fg' => '#047857',
+                                            'border' => '#a7f3d0',
+                                            'dot' => '#059669',
+                                        ],
+                                        \App\Support\ProcurementDraftLabel::isDraftStatus($purRfcStatus) => [
+                                            'pill' => 'Draft',
+                                            'sub' => 'In preparation',
+                                            'bg' => '#f1f5f9',
+                                            'fg' => '#475569',
+                                            'border' => '#cbd5e1',
+                                            'dot' => '#64748b',
+                                        ],
+                                        in_array($purRfcStatus, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) => [
+                                            'pill' => 'Pending',
+                                            'sub' => 'Awaiting School Admin approval',
+                                            'bg' => '#fffbeb',
+                                            'fg' => '#b45309',
+                                            'border' => '#fde68a',
+                                            'dot' => '#d97706',
+                                        ],
+                                        in_array($purRfcStatus, ['Returned', 'For revision', 'Minor Revision', 'Revision', 'Revision required'], true) => [
+                                            'pill' => 'Returned',
+                                            'sub' => 'For revision',
+                                            'bg' => '#fff7ed',
+                                            'fg' => '#c2410c',
+                                            'border' => '#fed7aa',
+                                            'dot' => '#ea580c',
+                                        ],
+                                        $purRfcStatus === 'Rejected' => [
+                                            'pill' => 'Rejected',
+                                            'sub' => 'By School Administrator',
+                                            'bg' => '#fef2f2',
+                                            'fg' => '#dc2626',
+                                            'border' => '#fecaca',
+                                            'dot' => '#dc2626',
+                                        ],
+                                        default => null,
+                                    };
+                                @endphp
+                                @if($purRfcBadge)
+                                    <div class="inline-flex flex-col items-start">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                            style="background:{{ $purRfcBadge['bg'] }};color:{{ $purRfcBadge['fg'] }};border-color:{{ $purRfcBadge['border'] }};"
+                                        >
+                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $purRfcBadge['dot'] }};"></span>
+                                            <span>{{ $purRfcBadge['pill'] }}</span>
+                                        </span>
+                                        <div class="mt-1 text-[11px] font-medium leading-tight text-slate-600">{{ $purRfcBadge['sub'] }}</div>
+                                    </div>
                                 @else
                                     @include('accounting.partials.status-badge', [
                                         'status' => $rfc->request_check_status,
@@ -713,10 +815,6 @@
                             <h3 id="rfc-create-title" class="text-lg font-semibold tracking-tight text-slate-900">
                                 Create {{ \App\Support\ProcurementPaymentPath::label($selectedFundingType ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT) }}
                             </h3>
-                            <p class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                                <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-[#0025cc]">School Administrator</span>
-                                Send delivers this form to the School Administrator.
-                            </p>
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1">
@@ -778,10 +876,6 @@
                         <div id="purSigSlot-rfc-create" class="mt-4 w-full"></div>
                     </div>
                     <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
-                        <p class="mr-auto flex min-w-0 items-center gap-2 text-xs text-slate-600">
-                            <i data-lucide="send" class="h-3.5 w-3.5 shrink-0 text-[#0025cc]"></i>
-                            <span>This send goes to the <span class="font-semibold text-slate-900">School Administrator</span>.</span>
-                        </p>
                         <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
@@ -789,15 +883,68 @@
                             <i data-lucide="check" class="h-4 w-4"></i>
                             {{ \App\Support\ProcurementDraftLabel::SAVE }}
                         </button>
-                        <button type="submit" @click="prepareCreateSave('submit')" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                        <button type="button" @click="openCreateSubmitConfirm()" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
                             <i data-lucide="send" class="h-4 w-4"></i>
-                            Send to School Administrator
+                            Submit for Approval
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+    </template>
+
+    {{-- SUBMIT RFC CONFIRMATION MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="createSubmitConfirmOpen"
+            x-cloak
+            @keydown.escape.window="if (createSubmitConfirmOpen) createSubmitConfirmOpen = false"
+            class="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+            style="z-index: 99999;"
+            @click.self="createSubmitConfirmOpen = false"
+        >
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" @click.stop>
+                <h3 class="text-base font-bold text-slate-900">Submit for Approval?</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    This Request for Check will be submitted to the <strong class="text-slate-900" x-text="createSubmitSummary.destination"></strong> for approval.
+                </p>
+                <div class="mt-4 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Payment Method</span>
+                        <span class="font-semibold text-slate-900" x-text="createSubmitSummary.paymentMethod"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Payee</span>
+                        <span class="truncate font-semibold text-slate-900" x-text="createSubmitSummary.payee"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Amount</span>
+                        <span class="font-semibold tabular-nums text-slate-900" x-text="createSubmitSummary.amount"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Submit To</span>
+                        <span class="font-semibold text-[#0025cc]" x-text="createSubmitSummary.destination"></span>
+                    </div>
+                </div>
+                <div class="mt-5 flex items-center justify-end gap-2">
+                    <button
+                        type="button"
+                        @click="createSubmitConfirmOpen = false"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        @click="confirmCreateSubmit()"
+                        class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white hover:bg-[#001db3]"
+                    >
+                        Confirm &amp; Submit
+                    </button>
+                </div>
+            </div>
+        </div>
     </template>
 
     @foreach($rfcs as $rfc)

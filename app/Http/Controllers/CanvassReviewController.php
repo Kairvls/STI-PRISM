@@ -39,7 +39,7 @@ class CanvassReviewController extends Controller
         if ($filter === 'pending') {
             $query->whereIn('c.canvass_status', CanvassWorkflow::pendingReviewStatuses());
         } elseif ($filter === 'approved') {
-            $query->whereIn('c.canvass_status', [CanvassWorkflow::STATUS_APPROVED, CanvassWorkflow::STATUS_CONVERTED]);
+            $query->whereIn('c.canvass_status', CanvassWorkflow::completedReviewStatuses());
         } elseif ($filter === 'returned') {
             $query->where('c.canvass_status', CanvassWorkflow::STATUS_RETURNED);
         } elseif ($filter === 'rejected') {
@@ -66,6 +66,7 @@ class CanvassReviewController extends Controller
                 'owner.user_full_name as owner_name',
                 'reviewer.user_full_name as reviewer_name',
                 'ris.ris_form_number as linked_ris_number',
+                'ris.ris_status as linked_ris_status',
             ])
             ->orderByRaw("CASE WHEN c.canvass_status IN ('Awaiting for review','Reviewing - Awaiting for approval') THEN 0 ELSE 1 END")
             ->orderByDesc('c.canvass_submitted_at')
@@ -94,7 +95,7 @@ class CanvassReviewController extends Controller
                 ->count(),
             'approved' => (int) DB::table('canvass_table')
                 ->where('canvass_is_archived', 0)
-                ->whereIn('canvass_status', [CanvassWorkflow::STATUS_APPROVED, CanvassWorkflow::STATUS_CONVERTED])
+                ->whereIn('canvass_status', CanvassWorkflow::completedReviewStatuses())
                 ->count(),
             'returned' => (int) DB::table('canvass_table')
                 ->where('canvass_is_archived', 0)
@@ -253,10 +254,10 @@ class CanvassReviewController extends Controller
             ], 422);
         }
 
-        if (($allocatedRequestedUnits + 0.0001) < $requestedQty) {
+        if ($allocatedRequestedUnits > ($requestedQty + 0.0001)) {
             return response()->json([
                 'ok' => false,
-                'message' => "Allocated quantity ({$allocatedRequestedUnits}) must cover the requested quantity ({$requestedQty}).",
+                'message' => "Allocated quantity ({$allocatedRequestedUnits}) cannot exceed the requested quantity ({$requestedQty}).",
             ], 422);
         }
 
@@ -514,10 +515,10 @@ class CanvassReviewController extends Controller
                     'message' => "{$itemName}: Please check at least one supplier offer and enter an approved quantity.",
                 ], 422);
             }
-            if (($allocatedUnits + 0.0001) < $requestedQty) {
+            if ($allocatedUnits > ($requestedQty + 0.0001)) {
                 return response()->json([
                     'ok' => false,
-                    'message' => "{$itemName}: Allocated quantity ({$allocatedUnits}) must cover the requested quantity ({$requestedQty}).",
+                    'message' => "{$itemName}: Allocated quantity ({$allocatedUnits}) cannot exceed the requested quantity ({$requestedQty}).",
                 ], 422);
             }
 

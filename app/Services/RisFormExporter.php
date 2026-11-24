@@ -107,7 +107,7 @@ class RisFormExporter
         $sheet->getRowDimension(1)->setRowHeight(22);
 
         $sheet->mergeCells('A2:H2');
-        $sheet->setCellValue('A2', 'REQUISITION AND ISSUE SLIP');
+        $sheet->setCellValue('A2', 'REQUISITION SLIP');
         $sheet->getStyle('A2')->getFont()->setBold(true)->setName('Arial')->setSize(11);
         $sheet->getStyle('A2')->getAlignment()->setHorizontal($center)->setVertical($middle);
         $sheet->getRowDimension(2)->setRowHeight(18);
@@ -339,7 +339,7 @@ class RisFormExporter
         $header->addRow();
         $headerCell = $header->addCell($w);
         $headerCell->addText('STI COLLEGE - ORMOC, INC.', ['bold' => true, 'size' => 14], ['alignment' => Jc::CENTER, 'spaceAfter' => 60]);
-        $headerCell->addText('REQUISITION AND ISSUE SLIP', ['bold' => true, 'size' => 11], ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
+        $headerCell->addText('REQUISITION SLIP', ['bold' => true, 'size' => 11], ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
 
         $noTable = $cell->addTable([
             'borderSize' => 0,

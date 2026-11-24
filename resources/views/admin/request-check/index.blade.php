@@ -39,7 +39,12 @@
                             || ($rfc->request_check_status === 'Under Review' && $rfc->request_check_review_stage === 'admin');
                     @endphp
                     <tr>
-                        <td class="px-4 py-4 font-medium">{{ $rfc->request_check_form_number }}</td>
+                        <td class="px-4 py-4 font-medium">
+                            <div>{{ $rfc->request_check_form_number }}</div>
+                            <div class="mt-1">
+                                @include('partials.payment-method-badge', ['rfc' => $rfc, 'size' => 'sm'])
+                            </div>
+                        </td>
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->authority_purchase_form_number ?? '—' }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rfc->request_check_payee ?: '—' }}</td>
                         <td class="px-4 py-4">@include('partials.status-pill', ['status' => $rfc->request_check_status])</td>
@@ -78,10 +83,20 @@
                 <div @click.stop class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl">
                     <div class="flex justify-between border-b px-6 py-5">
                         <div>
-                            <h3 class="text-xl font-semibold">{{ $rfc->request_check_form_number }}</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-xl font-semibold">{{ $rfc->request_check_form_number }}</h3>
+                                @include('partials.payment-method-badge', ['rfc' => $rfc])
+                            </div>
                             <p class="text-sm text-gray-500">ATP: {{ $rfc->authority_purchase_form_number ?? '—' }}</p>
                         </div>
                         <button type="button" @click="viewOpen = false">✕</button>
+                    </div>
+                    <div class="border-b border-gray-100 bg-white px-6 py-3">
+                        @include('partials.document-lineage', [
+                            'lineage' => \App\Support\DocumentLineage::forRfc((int) $rfc->request_check_id, (int) ($rfc->request_check_authority_purchase_id ?? 0) ?: null),
+                            'currentType' => 'RFC',
+                            'statusHint' => \App\Support\DocumentLineage::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc'),
+                        ])
                     </div>
                     <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
                         @include('partials.request-check-paper', ['editable' => false, 'rfc' => $rfc])

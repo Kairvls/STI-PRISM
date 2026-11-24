@@ -148,10 +148,39 @@
             }
         });
 
+        function hideAllPanels() {
+            clearTimeout(hideTimer);
+            document.querySelectorAll('.ris-eq-more-panel.is-visible').forEach(function (el) {
+                el.classList.remove('is-visible');
+            });
+            if (activeWrap) {
+                activeWrap.querySelector('[data-ris-eq-btn]')?.setAttribute('aria-expanded', 'false');
+                activeWrap = null;
+            }
+        }
+
+        window.closeRisEqMorePopover = function (event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            hideAllPanels();
+        };
+
         document.addEventListener('click', function (event) {
+            if (event.target.closest('[data-ris-eq-close]')) {
+                event.preventDefault();
+                event.stopPropagation();
+                hideAllPanels();
+                return;
+            }
             if (event.target.closest('[data-ris-eq-more]') || event.target.closest('.ris-eq-more-panel')) return;
-            if (activeWrap) hideWrap(activeWrap);
+            hideAllPanels();
         }, true);
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') hideAllPanels();
+        });
 
         window.addEventListener('scroll', function () {
             if (activeWrap) placePanel(activeWrap);
@@ -190,8 +219,22 @@
                     +{{ $moreCount }} more
                 </button>
                 <span id="{{ $popoverId }}" class="ris-eq-more-panel" role="tooltip">
-                    <span class="block px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        RIS equipment · {{ count($names) }}
+                    <span class="flex items-center justify-between gap-2 px-3 pb-1.5 pt-2">
+                        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            RIS equipment · {{ count($names) }}
+                        </span>
+                        <button
+                            type="button"
+                            data-ris-eq-close
+                            onclick="window.closeRisEqMorePopover(event)"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                            title="Close"
+                            aria-label="Close"
+                        >
+                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
                     </span>
                     @foreach ($names as $index => $itemName)
                         @php

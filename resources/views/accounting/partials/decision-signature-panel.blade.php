@@ -24,7 +24,7 @@
             $accDefaultPrintedName = \App\Support\AccountingSigner::currentUserName() ?: 'Accountant';
         }
     @endphp
-    <div class="mt-10">
+    <div class="{{ !empty($hideInlinePreview) ? 'hidden' : 'mt-10' }}">
         <div id="accSigPreviewWrap" class="relative mx-auto flex min-h-0 w-full max-w-sm items-end justify-center border-b border-slate-800 px-2 pb-0.5">
             <span class="signature-name-stack w-full">
                 <img

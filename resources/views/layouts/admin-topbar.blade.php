@@ -21,7 +21,7 @@
                 request()->is('school-admin/procurement-review*') => ['Canvass Review & Approvals', 'Legacy RIS review fallback.'],
                 request()->is('school-admin/authority-to-purchase*') => ['ATP + Check Approvals', 'One approval for ATP and linked funding request.'],
                 request()->is('school-admin/purchase-orders*') => ['Purchase Orders', ''],
-                request()->is('school-admin/request-check*') => ['Funding Requests', 'Funds and post-approve actions. Needs-review opens the ATP + RFC package.'],
+                request()->is('school-admin/request-check*') => ['Request for Check Approvals', 'Review and approve funding requests (RFC) submitted by the Purchaser.'],
                 request()->is('school-admin/digital-signatures/sign-ris*') => ['Canvass Review & Approvals', 'Approve directly, forward to President, or sign Issued by.'],
                 request()->is('school-admin/digital-signatures/history*') => ['Signature History', ''],
                 request()->is('school-admin/notifications*') => ['Notifications', ''],

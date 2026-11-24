@@ -209,7 +209,7 @@
             <div class="president-ris-form mx-auto">
                 <div class="ris-document-header president-ris-locked">
                     <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
-                    <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
+                    <div class="ris-document-title">REQUISITION SLIP</div>
                     <div class="ris-number-area">
                         <span class="ris-number-label">No.</span>
                         <div class="ris-number-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: '—' }}</div>
@@ -235,7 +235,7 @@
                     <tbody>
                         @php
                             $sheetItems = collect($items ?? [])->values();
-                            $rowCount = max(8, $sheetItems->count());
+                            $rowCount = max(1, $sheetItems->count());
                         @endphp
                         @for($i = 0; $i < $rowCount; $i++)
                             @php

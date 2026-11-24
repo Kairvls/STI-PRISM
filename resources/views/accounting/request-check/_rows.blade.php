@@ -5,6 +5,9 @@
         elseif (!empty($row->request_check_funds_released_at)) { $st = 'Released'; }
         $when = $row->request_check_submitted_at ?? $row->request_check_date ?? $row->request_check_created_at;
         $reviewTip = ($st === 'Released' || $st === 'Approved') ? 'View request check' : 'Review request check';
+        $rawPaymentPath = $row->request_check_funding_type ?? ($row->authority_purchase_payment_path ?? null);
+        $paymentPath = \App\Support\ProcurementPaymentPath::normalize(is_string($rawPaymentPath) ? $rawPaymentPath : null);
+        $paymentLabel = $paymentPath ? \App\Support\ProcurementPaymentPath::label($paymentPath) : '';
     @endphp
     <tr class="transition hover:bg-gray-50/70">
         <td class="px-5 py-4">
@@ -22,6 +25,11 @@
                             data-review-url="/school-admin/request-check/{{ $row->request_check_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                             data-preview-title="{{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}"
                             data-rfc-id="{{ $row->request_check_id }}"
+                            data-payment-method="{{ $paymentPath ?? '' }}"
+                            data-payment-label="{{ $paymentLabel }}"
+                            data-purchaser-name="{{ $row->request_check_requested_by ?? '' }}"
+                            data-payee-name="{{ $row->request_check_payee ?? '' }}"
+                            data-amount-label="{{ isset($row->request_check_amount_figures) && $row->request_check_amount_figures !== '' ? '₱'.number_format((float) $row->request_check_amount_figures, 2) : '—' }}"
                             data-can-approve="{{ in_array($row->request_check_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) && empty($row->request_check_funds_released_at) ? '1' : '0' }}"
                             title="View RFC form"
                         >
@@ -31,6 +39,10 @@
                             'urgent' => \App\Support\DocumentUrgency::isUrgent('RFC', $row),
                             'size' => 'sm',
                             'title' => 'Inherited from linked RIS',
+                        ])
+                        @include('partials.payment-method-badge', [
+                            'path' => $paymentPath,
+                            'size' => 'sm',
                         ])
                     </div>
                 </div>
@@ -54,7 +66,73 @@
             @endif
         </td>
         <td class="px-5 py-4">
-            @include('accounting.partials.status-badge', ['status' => $st, 'doc' => 'rfc'])
+            @php
+                $rfcStatusDisplay = match (true) {
+                    $st === 'Check collected' => [
+                        'pill' => 'Collected',
+                        'sub' => 'Check collected',
+                        'bg' => '#f0fdfa',
+                        'fg' => '#0f766e',
+                        'border' => '#99f6e4',
+                        'dot' => '#0d9488',
+                    ],
+                    $st === 'Released' => [
+                        'pill' => 'Released',
+                        'sub' => 'Check released',
+                        'bg' => '#eff6ff',
+                        'fg' => '#1d4ed8',
+                        'border' => '#bfdbfe',
+                        'dot' => '#2563eb',
+                    ],
+                    $st === 'Approved' => [
+                        'pill' => 'Approved',
+                        'sub' => 'Sent to Accounting',
+                        'bg' => '#ecfdf5',
+                        'fg' => '#047857',
+                        'border' => '#a7f3d0',
+                        'dot' => '#059669',
+                    ],
+                    in_array($st, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) => [
+                        'pill' => 'Pending',
+                        'sub' => 'Awaiting approval',
+                        'bg' => '#fffbeb',
+                        'fg' => '#b45309',
+                        'border' => '#fde68a',
+                        'dot' => '#d97706',
+                    ],
+                    in_array($st, ['Returned', 'For revision', 'Minor Revision', 'Revision', 'Revision required'], true) => [
+                        'pill' => 'Returned',
+                        'sub' => 'For revision',
+                        'bg' => '#fff7ed',
+                        'fg' => '#c2410c',
+                        'border' => '#fed7aa',
+                        'dot' => '#ea580c',
+                    ],
+                    $st === 'Rejected' => [
+                        'pill' => 'Rejected',
+                        'sub' => 'By School Administrator',
+                        'bg' => '#fef2f2',
+                        'fg' => '#dc2626',
+                        'border' => '#fecaca',
+                        'dot' => '#dc2626',
+                    ],
+                    default => null,
+                };
+            @endphp
+            @if ($rfcStatusDisplay)
+                <div class="inline-flex flex-col items-start">
+                    <span
+                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                        style="background:{{ $rfcStatusDisplay['bg'] }};color:{{ $rfcStatusDisplay['fg'] }};border-color:{{ $rfcStatusDisplay['border'] }};"
+                    >
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $rfcStatusDisplay['dot'] }};"></span>
+                        <span>{{ $rfcStatusDisplay['pill'] }}</span>
+                    </span>
+                    <div class="mt-1 text-[11px] font-medium leading-tight text-slate-600">{{ $rfcStatusDisplay['sub'] }}</div>
+                </div>
+            @else
+                @include('accounting.partials.status-badge', ['status' => $st, 'doc' => 'rfc'])
+            @endif
         </td>
         <td class="px-5 py-4 text-center">
             <div class="inline-flex items-center justify-center gap-1.5">
@@ -65,6 +143,11 @@
                     data-review-url="/school-admin/request-check/{{ $row->request_check_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                     data-preview-title="{{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}"
                     data-rfc-id="{{ $row->request_check_id }}"
+                    data-payment-method="{{ $paymentPath ?? '' }}"
+                    data-payment-label="{{ $paymentLabel }}"
+                    data-purchaser-name="{{ $row->request_check_requested_by ?? '' }}"
+                    data-payee-name="{{ $row->request_check_payee ?? '' }}"
+                    data-amount-label="{{ isset($row->request_check_amount_figures) && $row->request_check_amount_figures !== '' ? '₱'.number_format((float) $row->request_check_amount_figures, 2) : '—' }}"
                     data-can-approve="{{ in_array($row->request_check_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) && empty($row->request_check_funds_released_at) ? '1' : '0' }}"
                     title="View RFC form"
                     aria-label="View RFC form"

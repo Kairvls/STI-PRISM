@@ -32,13 +32,13 @@ class ProcurementStatus
 
     public const APPROVED = 'Approved';
 
-    public const APPROVED_BY_SA_READY_FOR_ATP = 'Approved by SA - ready for ATP';
+    public const APPROVED_BY_SA_READY_FOR_ATP = 'Approved by School Administrator';
 
     public const APPROVED_BY_PRESIDENT_NEED_ISSUED_BY = 'Approved RIS by President need Issued by';
 
     public const APPROVED_BY_PRESIDENT_TO_PURCHASER = 'Approved RIS by President to Purchaser';
 
-    public const APPROVED_BY_PRESIDENT_READY_FOR_ATP = 'Approved RIS by President - ready for ATP';
+    public const APPROVED_BY_PRESIDENT_READY_FOR_ATP = 'Approved by President';
 
     public const REJECTED = 'Rejected';
 
@@ -65,40 +65,45 @@ class ProcurementStatus
     public const OVERDUE = 'Overdue';
 
     /**
+     * Unified semantic procurement badge palette:
+     * Slate = Draft · Amber = Pending/Awaiting · Blue = Reviewing · Purple = Reviewed
+     * Indigo = With/Forwarded to President · Orange = Returned/Revision · Emerald = Approved/Completed
+     * Teal = Accounting/Collected · Sky = Receiving · Red = Rejected/Overdue
+     *
      * @return array{0: string, 1: string, 2: string} background, text, ring
      */
     public static function colors(string $label): array
     {
         return match ($label) {
-            self::IN_PREPARATION => ['#fff7ed', '#c2410c', '#fdba74'],
-            self::WITH_SCHOOL_ADMINISTRATOR => ['#ecfdf5', '#047857', '#6ee7b7'],
-            self::SENT_TO_SCHOOL_ADMINISTRATOR => ['#ecfdf5', '#047857', '#6ee7b7'],
-            self::TO_REVIEW => ['#ecfdf5', '#047857', '#6ee7b7'],
-            self::REVIEWED => ['#eef2ff', '#3730a3', '#c7d2fe'],
+            self::IN_PREPARATION => ['#f1f5f9', '#475569', '#cbd5e1'],
+            self::WITH_SCHOOL_ADMINISTRATOR => ['#fffbeb', '#b45309', '#fde68a'],
+            self::SENT_TO_SCHOOL_ADMINISTRATOR => ['#fffbeb', '#b45309', '#fde68a'],
+            self::TO_REVIEW => ['#fffbeb', '#b45309', '#fde68a'],
+            self::REVIEWED => ['#f3e8ff', '#7e22ce', '#d8b4fe'],
             self::WITH_PRESIDENT => ['#eef2ff', '#4338ca', '#c7d2fe'],
             self::SA_FORWARDED_TO_PRESIDENT => ['#eef2ff', '#4338ca', '#c7d2fe'],
-            self::FOR_REVISION => ['#f0f9ff', '#0369a1', '#7dd3fc'],
-            self::SA_RETURN_RIS_FOR_REVISION => ['#f0f9ff', '#0369a1', '#7dd3fc'],
-            self::PRESIDENT_RETURN_RIS_FOR_REVISION => ['#f0f9ff', '#0369a1', '#7dd3fc'],
-            self::SA_FORWARD_RETURNED_RIS_TO_PURCHASER => ['#f0f9ff', '#0369a1', '#7dd3fc'],
-            self::APPROVED => ['#eff6ff', '#1d4ed8', '#bfdbfe'],
-            self::APPROVED_BY_SA_READY_FOR_ATP => ['#eff6ff', '#1d4ed8', '#bfdbfe'],
-            self::APPROVED_BY_PRESIDENT_NEED_ISSUED_BY => ['#eff6ff', '#1d4ed8', '#bfdbfe'],
-            self::APPROVED_BY_PRESIDENT_READY_FOR_ATP => ['#eff6ff', '#1d4ed8', '#bfdbfe'],
-            self::APPROVED_BY_PRESIDENT_TO_PURCHASER => ['#eff6ff', '#1d4ed8', '#bfdbfe'],
-            self::REJECTED => ['#fff1f2', '#be123c', '#fecdd3'],
-            self::REJECTED_BY_SA => ['#fff1f2', '#be123c', '#fecdd3'],
-            self::REJECTED_BY_PRESIDENT => ['#fff1f2', '#be123c', '#fecdd3'],
+            self::FOR_REVISION => ['#fff7ed', '#c2410c', '#fed7aa'],
+            self::SA_RETURN_RIS_FOR_REVISION => ['#fff7ed', '#c2410c', '#fed7aa'],
+            self::PRESIDENT_RETURN_RIS_FOR_REVISION => ['#fff7ed', '#c2410c', '#fed7aa'],
+            self::SA_FORWARD_RETURNED_RIS_TO_PURCHASER => ['#fff7ed', '#c2410c', '#fed7aa'],
+            self::ACCOUNTING_NEED_REVISION => ['#fff7ed', '#c2410c', '#fed7aa'],
+            self::APPROVED => ['#ecfdf5', '#047857', '#a7f3d0'],
+            self::APPROVED_BY_SA_READY_FOR_ATP => ['#ecfdf5', '#047857', '#a7f3d0'],
+            self::APPROVED_BY_PRESIDENT_NEED_ISSUED_BY => ['#ecfdf5', '#047857', '#a7f3d0'],
+            self::APPROVED_BY_PRESIDENT_READY_FOR_ATP => ['#ecfdf5', '#047857', '#a7f3d0'],
+            self::APPROVED_BY_PRESIDENT_TO_PURCHASER => ['#ecfdf5', '#047857', '#a7f3d0'],
+            self::COMPLETED => ['#ecfdf5', '#047857', '#a7f3d0'],
+            self::REJECTED => ['#fef2f2', '#dc2626', '#fecaca'],
+            self::REJECTED_BY_SA => ['#fef2f2', '#dc2626', '#fecaca'],
+            self::REJECTED_BY_PRESIDENT => ['#fef2f2', '#dc2626', '#fecaca'],
+            self::OVERDUE => ['#fef2f2', '#dc2626', '#fecaca'],
             self::WITH_ACCOUNTING => ['#f0fdfa', '#0f766e', '#99f6e4'],
-            self::ACCOUNTING_NEED_REVISION => ['#f0fdfa', '#0f766e', '#99f6e4'],
-            self::WITH_RECEIVING => ['#f5f3ff', '#6d28d9', '#ddd6fe'],
-            self::INCOMPLETE => ['#fffbeb', '#b45309', '#fcd34d'],
-            self::COMPLETED => ['#f0fdf4', '#166534', '#86efac'],
-            self::CHECKS_RELEASED => ['#dbeafe', '#1e40af', '#93c5fd'],
-            self::READY_FOR_COLLECTION => ['#fef3c7', '#92400e', '#fcd34d'],
-            self::CHECK_COLLECTED => ['#ccfbf1', '#0f766e', '#5eead4'],
-            self::OVERDUE => ['#fff1f2', '#9f1239', '#fda4af'],
-            default => ['#f8fafc', '#334155', '#e2e8f0'],
+            self::CHECK_COLLECTED => ['#f0fdfa', '#0f766e', '#99f6e4'],
+            self::WITH_RECEIVING => ['#f0f9ff', '#0369a1', '#bae6fd'],
+            self::INCOMPLETE => ['#fffbeb', '#b45309', '#fde68a'],
+            self::READY_FOR_COLLECTION => ['#fffbeb', '#b45309', '#fde68a'],
+            self::CHECKS_RELEASED => ['#eff6ff', '#1d4ed8', '#bfdbfe'],
+            default => ['#f1f5f9', '#475569', '#cbd5e1'],
         };
     }
 

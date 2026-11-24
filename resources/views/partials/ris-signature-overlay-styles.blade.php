@@ -65,21 +65,31 @@
         position: relative;
         z-index: 1;
         display: block;
-        line-height: 1.35;
-        text-align: center;
-        font-size: 11px;
-        letter-spacing: 0;
+        line-height: 1.35 !important;
+        text-align: center !important;
+        font-size: 12px !important;
+        font-weight: 400 !important;
+        color: #0f172a !important;
+        letter-spacing: 0 !important;
         text-transform: none !important;
     }
 
     .signature-name-stack > input,
-    .signature-name-stack > .ris-signature-input {
+    .signature-name-stack > .ris-signature-input,
+    .ris-signature-line > input,
+    .ris-signature-input {
         position: relative;
         z-index: 1;
         width: 100%;
         min-width: 8rem;
         background: transparent;
-        text-align: center;
+        text-align: center !important;
+        font-size: 12px !important;
+        font-weight: 400 !important;
+        line-height: 1.35 !important;
+        color: #0f172a !important;
+        letter-spacing: 0 !important;
+        text-transform: none !important;
     }
 </style>
 @once

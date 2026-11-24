@@ -347,3 +347,7 @@ Search the list, or type a new name and click Add — it saves to maintenance (b
 Wired on Identity, multi-line intake, per-piece, Units, and Edit equipment
 
 Option B: Expand inline as a full width row underneath the clicked table row
+
+in all ris form make the width same like this then adjust the texts and still have a merge cell for the corresponding fields
+
+can we clarify everything what i want is when the canvass is Reviewing - Awaiting for Approval then after it will be confirm & finalize approval 

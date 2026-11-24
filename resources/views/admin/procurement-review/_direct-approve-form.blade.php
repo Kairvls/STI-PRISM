@@ -22,7 +22,7 @@
     .admin-da-ris-form {
         width: 100%;
         max-width: 1095px;
-        min-height: 845px;
+        min-height: 0;
         border: 2px solid #1f2937;
         padding: 26px 24px 24px;
         font-family: Arial, Helvetica, sans-serif;
@@ -215,11 +215,6 @@
     data-mode="{{ $mode }}"
 >
     @csrf
-    @include('partials.document-lineage', [
-        'lineage' => \App\Support\DocumentLineage::forRis((int) $ris->ris_id, $ris),
-        'currentType' => 'RIS',
-        'statusHint' => \App\Support\DocumentLineage::reviewHintForRis($ris),
-    ])
     @if ($isCosign)
         <input type="hidden" name="target_id" value="{{ $ris->ris_id }}">
         <input type="hidden" name="decision" value="Approved">
@@ -416,12 +411,134 @@
             </script>
             @endif
 
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-100/80 shadow-inner">
+            @php $daLinkedAtps = collect($linkedAtps ?? [])->values(); @endphp
+            @if ($daLinkedAtps->isNotEmpty())
+                <div class="mb-2 flex items-center gap-5 border-b border-slate-200 px-1 pt-1" data-da-doc-tabs>
+                    <button
+                        type="button"
+                        data-da-tab="ris"
+                        class="border-b-2 pb-2 text-xs font-semibold transition"
+                        style="border-color:#2563eb;color:#1d4ed8;"
+                    >
+                        Requisition Slip
+                    </button>
+                    <button
+                        type="button"
+                        data-da-tab="atp"
+                        class="inline-flex items-center gap-1.5 border-b-2 pb-2 text-xs font-semibold transition"
+                        style="border-color:transparent;color:#64748b;"
+                    >
+                        <span>Authorities to Purchase</span>
+                        <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style="background:#eff6ff;color:#1d4ed8;">{{ $daLinkedAtps->count() }}</span>
+                    </button>
+                </div>
+            @endif
+
+            @if ($daLinkedAtps->isNotEmpty())
+                <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-slate-100/80 shadow-inner" data-da-pane="atp">
+                    <div class="space-y-4 p-3 md:p-5">
+                        @if ($daLinkedAtps->count() > 1)
+                            <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                                <button
+                                    type="button"
+                                    data-da-atp-prev
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+                                    title="Previous ATP"
+                                >
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                                </button>
+                                <span class="text-xs font-semibold text-slate-700" data-da-atp-label>
+                                    ATP 1 of {{ $daLinkedAtps->count() }}
+                                </span>
+                                <button
+                                    type="button"
+                                    data-da-atp-next
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:opacity-90 disabled:opacity-40"
+                                    style="background:#2563eb;color:#ffffff;"
+                                    title="Next ATP"
+                                >
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                </button>
+                            </div>
+                        @endif
+
+                        @foreach ($daLinkedAtps as $atpIdx => $linkedAtp)
+                            <div
+                                class="{{ $atpIdx === 0 ? '' : 'hidden' }}"
+                                data-da-atp-sheet="{{ $atpIdx }}"
+                                data-da-atp-title="{{ $linkedAtp->authority_purchase_form_number ?: ('ATP #'.$linkedAtp->authority_purchase_id) }} · {{ $linkedAtp->company_name ?: ($linkedAtp->shop_name ?: 'Supplier') }}"
+                            >
+                                @include('partials.authority-to-purchase-paper', [
+                                    'editable' => false,
+                                    'atp' => $linkedAtp,
+                                    'items' => $linkedAtp->atpItems ?? collect(),
+                                    'adminLiveSign' => $isDirect || $isCosign,
+                                    'adminSignerName' => $adminName,
+                                ])
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                <script>
+                (function () {
+                    var tabs = document.querySelector('[data-da-doc-tabs]');
+                    if (!tabs || tabs.dataset.bound === '1') return;
+                    tabs.dataset.bound = '1';
+                    var modalBody = tabs.closest('form') || document;
+                    var risPane = modalBody.querySelector('[data-da-pane="ris"]');
+                    var atpPane = modalBody.querySelector('[data-da-pane="atp"]');
+                    var btns = tabs.querySelectorAll('[data-da-tab]');
+
+                    function setTab(name) {
+                        if (risPane) risPane.classList.toggle('hidden', name !== 'ris');
+                        if (atpPane) atpPane.classList.toggle('hidden', name !== 'atp');
+                        btns.forEach(function (b) {
+                            var active = b.getAttribute('data-da-tab') === name;
+                            b.style.borderColor = active ? '#2563eb' : 'transparent';
+                            b.style.color = active ? '#1d4ed8' : '#64748b';
+                        });
+                    }
+                    btns.forEach(function (b) {
+                        b.addEventListener('click', function () { setTab(b.getAttribute('data-da-tab')); });
+                    });
+
+                    var sheets = Array.from(modalBody.querySelectorAll('[data-da-atp-sheet]'));
+                    var prevBtn = modalBody.querySelector('[data-da-atp-prev]');
+                    var nextBtn = modalBody.querySelector('[data-da-atp-next]');
+                    var labelEl = modalBody.querySelector('[data-da-atp-label]');
+                    var cur = 0;
+                    function renderAtp(idx) {
+                        cur = Math.max(0, Math.min(sheets.length - 1, idx));
+                        sheets.forEach(function (el, i) { el.classList.toggle('hidden', i !== cur); });
+                        if (labelEl && sheets[cur]) {
+                            labelEl.textContent = 'ATP ' + (cur + 1) + ' of ' + sheets.length + ' · ' + (sheets[cur].getAttribute('data-da-atp-title') || '');
+                        }
+                        if (prevBtn) prevBtn.disabled = cur === 0;
+                        if (nextBtn) nextBtn.disabled = cur >= sheets.length - 1;
+                    }
+                    if (sheets.length > 0) renderAtp(0);
+                    if (prevBtn) prevBtn.addEventListener('click', function () { renderAtp(cur - 1); });
+                    if (nextBtn) nextBtn.addEventListener('click', function () { renderAtp(cur + 1); });
+
+                    var atpNameInputs = Array.from(modalBody.querySelectorAll('[data-da-atp-sig-name]'));
+                    atpNameInputs.forEach(function (inp) {
+                        inp.addEventListener('input', function () {
+                            var val = inp.value;
+                            atpNameInputs.forEach(function (other) {
+                                if (other !== inp) other.value = val;
+                            });
+                        });
+                    });
+                })();
+                </script>
+            @endif
+
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-100/80 shadow-inner" data-da-pane="ris">
                 <div class="overflow-x-auto p-3 md:p-5">
                     <div class="admin-da-ris-form mx-auto">
                 <div class="ris-document-header admin-da-locked">
                     <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
-                    <div class="ris-document-title">REQUISITION AND ISSUE SLIP</div>
+                    <div class="ris-document-title">REQUISITION SLIP</div>
                     <div class="ris-number-area">
                         <span class="ris-number-label">No.</span>
                         <div class="ris-number-line">{{ \App\Support\RisWorkflow::formNumber($ris) ?: '—' }}</div>
@@ -447,7 +564,7 @@
                     <tbody>
                         @php
                             $sheetItems = collect($items ?? [])->values();
-                            $rowCount = max(10, $sheetItems->count());
+                            $rowCount = max(1, $sheetItems->count());
                         @endphp
                         @for($i = 0; $i < $rowCount; $i++)
                             @php
@@ -455,34 +572,66 @@
                                 $itemName = trim((string) ($item?->ris_item_name_description ?? ''));
                                 $nameKey = mb_strtolower($itemName);
                                 $supplier = trim((string) ($item?->supplier_display_name ?? ''));
-                                $supplierKey = mb_strtolower($supplier);
+                                $supplierBase = trim(explode('·', $supplier)[0]);
+                                $supplierKey = mb_strtolower($supplierBase !== '' ? $supplierBase : $supplier);
                                 $prev = $i > 0 ? $sheetItems->get($i - 1) : null;
                                 $prevNameKey = mb_strtolower(trim((string) ($prev?->ris_item_name_description ?? '')));
-                                $prevSupplierKey = mb_strtolower(trim((string) ($prev?->supplier_display_name ?? '')));
+                                $prevSupRaw = trim((string) ($prev?->supplier_display_name ?? ''));
+                                $prevSupBase = trim(explode('·', $prevSupRaw)[0]);
+                                $prevSupplierKey = mb_strtolower($prevSupBase !== '' ? $prevSupBase : $prevSupRaw);
                                 $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
                                 $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
                                 $itemSpan = 1;
+                                $itemReqSum = 0.0;
+                                $itemHasReq = false;
+                                $itemIssSum = 0.0;
+                                $itemHasIss = false;
+                                if ($item !== null && $item->ris_quantity_requested !== null && $item->ris_quantity_requested !== '') {
+                                    $itemReqSum += (float) $item->ris_quantity_requested;
+                                    $itemHasReq = true;
+                                }
+                                if ($item !== null && $item->ris_quantity_issued !== null && $item->ris_quantity_issued !== '') {
+                                    $itemIssSum += (float) $item->ris_quantity_issued;
+                                    $itemHasIss = true;
+                                }
                                 if ($nameKey !== '' && ! $sameItem) {
                                     for ($k = $i + 1; $k < $sheetItems->count(); $k++) {
-                                        $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                        $nextItem = $sheetItems->get($k);
+                                        $nextName = mb_strtolower(trim((string) ($nextItem?->ris_item_name_description ?? '')));
                                         if ($nextName === '' || $nextName !== $nameKey) {
                                             break;
                                         }
                                         $itemSpan++;
+                                        if ($nextItem?->ris_quantity_requested !== null && $nextItem->ris_quantity_requested !== '') {
+                                            $itemReqSum += (float) $nextItem->ris_quantity_requested;
+                                            $itemHasReq = true;
+                                        }
+                                        if ($nextItem?->ris_quantity_issued !== null && $nextItem->ris_quantity_issued !== '') {
+                                            $itemIssSum += (float) $nextItem->ris_quantity_issued;
+                                            $itemHasIss = true;
+                                        }
                                     }
                                 }
+                                $fmtQty = static fn (float $v): string => abs($v - round($v)) < 0.0001
+                                    ? (string) (int) round($v)
+                                    : rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.');
+                                $itemReqDisplay = $itemHasReq ? $fmtQty($itemReqSum) : '';
+                                $itemIssDisplay = $itemHasIss ? $fmtQty($itemIssSum) : '';
                                 $supplierSpan = 1;
                                 if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
                                     for ($k = $i + 1; $k < $sheetItems->count(); $k++) {
                                         $next = $sheetItems->get($k);
                                         $nextName = mb_strtolower(trim((string) ($next?->ris_item_name_description ?? '')));
-                                        $nextSupplier = mb_strtolower(trim((string) ($next?->supplier_display_name ?? '')));
+                                        $nextSupRaw = trim((string) ($next?->supplier_display_name ?? ''));
+                                        $nextSupBase = trim(explode('·', $nextSupRaw)[0]);
+                                        $nextSupplier = mb_strtolower($nextSupBase !== '' ? $nextSupBase : $nextSupRaw);
                                         if ($nextName !== $nameKey || $nextSupplier !== $supplierKey) {
                                             break;
                                         }
                                         $supplierSpan++;
                                     }
                                 }
+                                $supplierDisplay = $supplierSpan > 1 && $supplierBase !== '' ? $supplierBase : $supplier;
                                 $lockCell = $isDirect ? 'admin-da-locked' : '';
                                 $issuedQty = (int) ($item?->ris_quantity_issued ?? 0);
                                 $amountBasis = $issuedQty > 0 ? $issuedQty : (float) ($item?->ris_quantity_requested ?? 0);
@@ -497,10 +646,12 @@
                                 <td class="text-center {{ $lockCell }}">{{ $item ? \App\Support\RisWorkflow::brandPaperLabel($item) : '' }}</td>
                                 <td class="text-center {{ $lockCell }}">{{ $item?->uom_name ?? '' }}</td>
                                 @if (! $sameSupplier)
-                                    <td class="{{ $lockCell }}" @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier }}</td>
+                                    <td class="{{ $lockCell }}" @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplierDisplay }}</td>
                                 @endif
-                                <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_requested ?? '' }}</td>
-                                <td class="text-center {{ $lockCell }}">{{ $item->ris_quantity_issued ?? '' }}</td>
+                                @if (! $sameItem)
+                                    <td class="text-center {{ $lockCell }}" @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $itemReqDisplay }}</td>
+                                    <td class="text-center {{ $lockCell }}" @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $itemIssDisplay }}</td>
+                                @endif
                                 <td class="text-right {{ $lockCell }}">{{ isset($item->ris_unit_cost) ? \App\Support\Money::format($item->ris_unit_cost) : '' }}</td>
                                 <td class="text-right {{ $lockCell }}">{{ $lineAmount !== null ? \App\Support\Money::format($lineAmount) : '' }}</td>
                             </tr>
@@ -959,10 +1110,90 @@
             class="rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition {{ $isForward ? 'bg-[#0025cc] hover:bg-blue-800' : 'bg-[#0025cc] hover:bg-blue-800' }}"
             title="{{ $isForward ? 'Forward this RIS to the President' : ($isCosign ? 'Sign Issued by and return to Purchaser' : 'Confirm direct approval, notify President for record, and return to Purchaser') }}"
         >
-            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Confirm School Administrator Approval') }}
+            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Approve & Send to Purchaser') }}
         </button>
     </div>
 </form>
+
+@if ($isDirect)
+@php
+    $confirmAtpNumbers = collect($linkedAtps ?? [])
+        ->map(fn ($a) => trim((string) ($a->authority_purchase_form_number ?? '')))
+        ->filter()
+        ->values()
+        ->all();
+    $confirmPurchaserName = \App\Support\RisWorkflow::requesterName($ris, 'Purchaser');
+@endphp
+<div id="adminDaConfirmApproveModal" class="fixed inset-0 z-[12200] hidden">
+    <div
+        class="absolute inset-0 flex items-center justify-center bg-black/50 p-4"
+        onclick="if (event.target === this) document.getElementById('adminDaConfirmApproveModal').classList.add('hidden')"
+    >
+        <div
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onclick="event.stopPropagation()"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="adminDaConfirmTitle"
+        >
+            <div class="flex items-start gap-3.5 px-6 pb-4 pt-6">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background:#eff6ff;color:#1d4ed8;">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 id="adminDaConfirmTitle" class="text-base font-bold text-slate-900">Approve &amp; Send to Purchaser?</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                        Your approval signature will be finalized on the RIS and linked ATP(s), then sent to the Purchaser to choose a Payment Method and create the RFC.
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-2.5 px-6 pb-5 text-xs">
+                <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-1.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">RIS Number</span>
+                        <span class="font-semibold text-slate-900">{{ \App\Support\RisWorkflow::formNumber($ris) ?: '—' }}</span>
+                    </div>
+                    @if (!empty($confirmAtpNumbers))
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="shrink-0 text-slate-500">Linked ATP(s)</span>
+                            <span class="text-right font-semibold text-slate-900">{{ implode(', ', $confirmAtpNumbers) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">Send to Purchaser</span>
+                        <span class="font-semibold text-slate-900">{{ $confirmPurchaserName }}</span>
+                    </div>
+                    <div class="border-t border-slate-200/80 pt-1.5">
+                        <span class="block text-[11px] font-semibold text-slate-500">Reason</span>
+                        <p id="adminDaConfirmReasonPreview" class="mt-0.5 break-words text-slate-800"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                <button
+                    type="button"
+                    id="adminDaConfirmCancel"
+                    class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    id="adminDaConfirmSubmit"
+                    class="rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
+                    style="background:#0025cc;color:#ffffff;"
+                >
+                    Confirm &amp; Send to Purchaser
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 @if (!$isForward)
 <script>
@@ -1054,6 +1285,9 @@
         if (checkedHidden) checkedHidden.value = url;
         setOverlay(issuedOverlay, url);
         setOverlay(checkedOverlay, url);
+        document.querySelectorAll('[data-da-atp-sig-img]').forEach(function (atpImg) {
+            setOverlay(atpImg, url);
+        });
         var hasSig = url !== '';
         if (signBadge) signBadge.classList.toggle('hidden', !hasSig);
         if (clearSignBtn) clearSignBtn.classList.toggle('hidden', !hasSig);
@@ -1613,9 +1847,51 @@
         });
     }
 
+    var confirmModal = document.getElementById('adminDaConfirmApproveModal');
+    var confirmCancelBtn = document.getElementById('adminDaConfirmCancel');
+    var confirmSubmitBtn = document.getElementById('adminDaConfirmSubmit');
+    var confirmReasonPreview = document.getElementById('adminDaConfirmReasonPreview');
+
+    function openDirectApproveConfirm() {
+        if (!confirmModal) {
+            form.dataset.confirmedDirectApprove = '1';
+            form.submit();
+            return;
+        }
+        var reasonField = form.querySelector('[name="direct_approval_reason"]');
+        if (confirmReasonPreview) {
+            confirmReasonPreview.textContent = reasonField ? String(reasonField.value || '').trim() : '';
+        }
+        confirmModal.classList.remove('hidden');
+    }
+
+    if (confirmCancelBtn && confirmModal) {
+        confirmCancelBtn.addEventListener('click', function () {
+            confirmModal.classList.add('hidden');
+        });
+    }
+    if (confirmSubmitBtn && form) {
+        confirmSubmitBtn.addEventListener('click', function () {
+            confirmSubmitBtn.disabled = true;
+            confirmSubmitBtn.textContent = 'Sending...';
+            form.dataset.confirmedDirectApprove = '1';
+            form.submit();
+        });
+    }
+
     if (form) {
         form.addEventListener('submit', function (event) {
+            if (form.dataset.confirmedDirectApprove === '1') {
+                return;
+            }
             if (form.dataset.mode === 'direct') {
+                var reasonInput = form.querySelector('[name="direct_approval_reason"]');
+                if (reasonInput && !String(reasonInput.value || '').trim()) {
+                    event.preventDefault();
+                    showNotice('Please enter a reason for direct approval.');
+                    reasonInput.focus();
+                    return;
+                }
                 var issuedError = issuedQuantityError(form);
                 if (issuedError) {
                     event.preventDefault();
@@ -1630,6 +1906,10 @@
                     : canvas.toDataURL('image/png')) || canvas.toDataURL('image/png'));
             }
             if (hasAppliedSignature()) {
+                if (form.dataset.mode === 'direct') {
+                    event.preventDefault();
+                    openDirectApproveConfirm();
+                }
                 return;
             }
 
@@ -1645,7 +1925,11 @@
             load.then(function (url) {
                 applySignature(url || '');
                 if (hasAppliedSignature()) {
-                    form.submit();
+                    if (form.dataset.mode === 'direct') {
+                        openDirectApproveConfirm();
+                    } else {
+                        form.submit();
+                    }
                 } else {
                     requireSignature();
                 }
