@@ -29,12 +29,12 @@
     $displayQuantity = $selectedUnit ? 1 : ($equipment->equipment_quantity ?? null);
 
     $conditionClass = match ($condition) {
-        "Good" => "border-emerald-200 bg-emerald-50 text-emerald-700",
-        "Under Maintenance" => "border-amber-200 bg-amber-50 text-amber-700",
-        "Defective" => "border-orange-200 bg-orange-50 text-orange-700",
-        "Damaged" => "border-rose-200 bg-rose-50 text-rose-700",
-        "Disposed" => "border-slate-200 bg-slate-100 text-slate-700",
-        default => "border-slate-200 bg-slate-50 text-slate-600",
+        "Good" => "ring-emerald-200 bg-emerald-50 text-emerald-700",
+        "Under Maintenance" => "ring-amber-200 bg-amber-50 text-amber-700",
+        "Defective" => "ring-orange-200 bg-orange-50 text-orange-700",
+        "Damaged" => "ring-rose-200 bg-rose-50 text-rose-700",
+        "Disposed" => "ring-slate-200 bg-slate-100 text-slate-700",
+        default => "ring-slate-200 bg-slate-50 text-slate-600",
     };
 
     $conditionDot = match ($condition) {
@@ -47,13 +47,13 @@
     };
 
     $inventoryClass = match ($inventory) {
-        "Active" => "border-emerald-200 bg-emerald-50 text-emerald-700",
-        "Borrowed" => "border-sky-200 bg-sky-50 text-sky-700",
-        "Under Maintenance" => "border-amber-200 bg-amber-50 text-amber-700",
-        "For Replacement" => "border-orange-200 bg-orange-50 text-orange-700",
-        "Replaced" => "border-blue-200 bg-blue-50 text-blue-700",
-        "Disposed" => "border-rose-200 bg-rose-50 text-rose-700",
-        default => "border-slate-200 bg-slate-50 text-slate-600",
+        "Active" => "ring-emerald-200 bg-emerald-50 text-emerald-700",
+        "Borrowed" => "ring-sky-200 bg-sky-50 text-sky-700",
+        "Under Maintenance" => "ring-amber-200 bg-amber-50 text-amber-700",
+        "For Replacement" => "ring-orange-200 bg-orange-50 text-orange-700",
+        "Replaced" => "ring-blue-200 bg-blue-50 text-blue-700",
+        "Disposed" => "ring-rose-200 bg-rose-50 text-rose-700",
+        default => "ring-slate-200 bg-slate-50 text-slate-600",
     };
 
     $inventoryDot = match ($inventory) {
@@ -68,256 +68,419 @@
 @endphp
 
     <div>
-        <header class="mb-6">
-            <div class="mb-4 flex items-center gap-2 text-sm text-slate-400">
+        {{-- Compact top header & return bar --}}
+        <header class="mb-4">
+            <nav aria-label="Breadcrumb" class="mb-2 flex items-center gap-1.5 text-xs text-slate-400">
                 <a
                     href="{{ $equipmentBack['url'] ?? url('/maintenance/equipment/all') }}"
                     class="transition hover:text-slate-700"
                 >
                     {{ $equipmentBack['label'] ?? 'All Equipment' }}
                 </a>
-                <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
                 <span class="font-medium text-slate-600">Equipment details</span>
-            </div>
+            </nav>
 
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
-                    <h1 class="truncate text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                        {{ $equipment->equipment_name }}
-                    </h1>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="truncate text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
+                            {{ $equipment->equipment_name }}
+                        </h1>
 
-                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-                        <span class="inline-flex items-center gap-2">
-                            <i data-lucide="tag" class="h-4 w-4"></i>
-                            {{ $na($equipment->equipment_category_name) }}
-                        </span>
-                        <span class="inline-flex items-center gap-2">
-                            <i data-lucide="map-pin" class="h-4 w-4"></i>
-                            {{ $na($equipment->room_name) }}
-                        </span>
-                        @if (! empty($equipment->equipment_department_name))
-                            <span class="inline-flex items-center gap-2">
-                                <i data-lucide="network" class="h-4 w-4"></i>
-                                {{ $equipment->equipment_department_name }}
-                            </span>
-                        @endif
-                        @if ($propertyAssignment)
-                            <a href="#property-assignment" class="inline-flex items-center gap-2 text-teal-700 hover:underline">
-                                <i data-lucide="user-round-check" class="h-4 w-4"></i>
-                                {{ $propertyAssignment->custodian_full_name ?? 'Assigned' }}
-                            </a>
-                        @endif
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
                         @if ($condition)
-                            <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {{ $conditionClass }}">
+                            <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $conditionClass }}">
                                 <span class="h-1.5 w-1.5 rounded-full {{ $conditionDot }}"></span>
                                 {{ $condition }}
                             </span>
                         @endif
 
                         @if ($inventory)
-                            <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {{ $inventoryClass }}">
+                            <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $inventoryClass }}">
                                 <span class="h-1.5 w-1.5 rounded-full {{ $inventoryDot }}"></span>
                                 {{ $inventory }}
                             </span>
+                        @endif
+                    </div>
+
+                    <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span class="inline-flex items-center gap-1.5">
+                            <i data-lucide="tag" class="h-3.5 w-3.5 text-slate-400"></i>
+                            {{ $na($equipment->equipment_category_name) }}
+                        </span>
+                        <span class="inline-flex items-center gap-1.5">
+                            <i data-lucide="map-pin" class="h-3.5 w-3.5 text-slate-400"></i>
+                            {{ $na($equipment->room_name) }}
+                        </span>
+                        @if (! empty($equipment->equipment_department_name))
+                            <span class="inline-flex items-center gap-1.5">
+                                <i data-lucide="network" class="h-3.5 w-3.5 text-slate-400"></i>
+                                {{ $equipment->equipment_department_name }}
+                            </span>
+                        @endif
+                        @if ($propertyAssignment)
+                            <a href="#property-assignment" class="inline-flex items-center gap-1.5 font-medium text-teal-700 hover:underline">
+                                <i data-lucide="user-round-check" class="h-3.5 w-3.5"></i>
+                                {{ $propertyAssignment->custodian_full_name ?? 'Assigned' }}
+                            </a>
                         @endif
                     </div>
                 </div>
 
                 <div class="flex shrink-0 flex-wrap items-center gap-2">
                     <a
-                        href="{{ url('/maintenance/equipment/audit-pack/'.$equipment->equipment_id) }}"
-                        class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-                    >
-                        <i data-lucide="file-down" class="h-4 w-4"></i>
-                        Audit pack
-                    </a>
-                    <a
                         href="{{ $equipmentBack['url'] ?? url('/maintenance/equipment/all') }}"
-                        class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                     >
-                        <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                        <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
                         Back to {{ $equipmentBack['label'] ?? 'All Equipment' }}
                     </a>
+
+                    @if ($hasQr)
+                        <a
+                            href="{{ url('/maintenance/equipment/qr-image/' . $equipment->equipment_qr_code) }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        >
+                            <i data-lucide="qr-code" class="h-3.5 w-3.5"></i>
+                            QR Label
+                        </a>
+                    @endif
+
+                    <a
+                        href="{{ url('/maintenance/equipment/audit-pack/'.$equipment->equipment_id) }}"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-blue-800"
+                    >
+                        <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
+                        Audit pack
+                    </a>
+
+                    <div class="relative">
+                        <button
+                            type="button"
+                            id="equipmentProfileMoreBtn"
+                            aria-haspopup="menu"
+                            aria-expanded="false"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                            title="More actions"
+                        >
+                            <i data-lucide="more-horizontal" class="h-4 w-4"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <main class="min-w-0 space-y-6">
-                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                        <div>
-                            <h2 class="text-base font-semibold text-slate-900">Equipment identity</h2>
-                        </div>
-                        <i data-lucide="monitor" class="h-5 w-5 text-slate-400"></i>
+        {{-- Floating More menu (fixed positioning prevents clipping) --}}
+        <div
+            id="equipmentProfileMoreMenu"
+            role="menu"
+            class="fixed z-50 hidden w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg ring-1 ring-slate-900/5"
+        >
+            @if (filled($displayAssetTag))
+                <button
+                    type="button"
+                    data-copy-text="{{ $displayAssetTag }}"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                >
+                    <i data-lucide="copy" class="h-3.5 w-3.5 text-slate-400"></i>
+                    <span data-copy-label>Copy asset tag</span>
+                </button>
+            @endif
+            @if ($hasQr)
+                <a
+                    href="{{ url('/maintenance/equipment/qr-image/' . $equipment->equipment_qr_code) }}"
+                    download="{{ $equipment->equipment_qr_code }}.png"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                >
+                    <i data-lucide="download" class="h-3.5 w-3.5 text-slate-400"></i>
+                    Download QR PNG
+                </a>
+                <a
+                    href="#qr-label"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                >
+                    <i data-lucide="scan-line" class="h-3.5 w-3.5 text-slate-400"></i>
+                    Jump to QR section
+                </a>
+            @endif
+            <a
+                href="#property-assignment"
+                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+            >
+                <i data-lucide="user-round-check" class="h-3.5 w-3.5 text-slate-400"></i>
+                Accountable person
+            </a>
+            <button
+                type="button"
+                onclick="window.print()"
+                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+            >
+                <i data-lucide="printer" class="h-3.5 w-3.5 text-slate-400"></i>
+                Print profile
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_312px]">
+            <main class="min-w-0 space-y-4">
+                {{-- Equipment identity --}}
+                <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Equipment identity</h2>
+                        <i data-lucide="monitor" class="h-4 w-4 text-slate-400"></i>
                     </div>
 
-                    <div class="px-6 py-6">
-                        <div class="rounded-2xl bg-slate-50 px-4 py-4 ring-1 ring-slate-200/80">
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Asset tag</p>
-                            <p class="mt-1 break-all font-mono text-sm font-semibold tracking-wide text-slate-900">
-                                {{ $na($displayAssetTag) }}
-                            </p>
+                    <div class="p-4">
+                        <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200/80">
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Asset tag</p>
+                                <p class="mt-0.5 break-all font-mono text-xs font-semibold tracking-wide text-slate-900">
+                                    {{ $na($displayAssetTag) }}
+                                </p>
+                            </div>
+                            @if (filled($displayAssetTag))
+                                <button
+                                    type="button"
+                                    data-copy-text="{{ $displayAssetTag }}"
+                                    class="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                                    title="Copy asset tag"
+                                >
+                                    <i data-lucide="copy" class="h-3 w-3"></i>
+                                    <span data-copy-label>Copy</span>
+                                </button>
+                            @endif
                         </div>
 
-                        <dl class="mt-6 grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-                            <div>
-                                <dt class="text-sm text-slate-500">Equipment name</dt>
-                                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_name) }}</dd>
+                        <dl class="mt-3 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                            <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                                <dt class="shrink-0 text-slate-500">Equipment name</dt>
+                                <dd class="truncate text-right font-semibold text-slate-900">{{ $na($equipment->equipment_name) }}</dd>
                             </div>
-                            <div>
-                                <dt class="text-sm text-slate-500">Classification</dt>
-                                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_category_name) }}</dd>
+                            <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                                <dt class="shrink-0 text-slate-500">Classification</dt>
+                                <dd class="truncate text-right font-semibold text-slate-900">{{ $na($equipment->equipment_category_name) }}</dd>
                             </div>
-                            <div>
-                                <dt class="text-sm text-slate-500">Brand</dt>
-                                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_brand_name) }}</dd>
+                            <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                                <dt class="shrink-0 text-slate-500">Brand</dt>
+                                <dd class="truncate text-right font-semibold text-slate-900">{{ $na($equipment->equipment_brand_name) }}</dd>
                             </div>
-                            <div>
-                                <dt class="text-sm text-slate-500">Model</dt>
-                                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_model) }}</dd>
+                            <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                                <dt class="shrink-0 text-slate-500">Model</dt>
+                                <dd class="truncate text-right font-semibold text-slate-900">{{ $na($equipment->equipment_model) }}</dd>
                             </div>
-                            <div class="sm:col-span-2">
-                                <dt class="text-sm text-slate-500">Serial number</dt>
-                                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $na($equipment->equipment_serial_number) }}</dd>
+                            <div class="flex items-baseline justify-between gap-3 py-2 text-xs sm:col-span-2">
+                                <dt class="shrink-0 text-slate-500">Serial number</dt>
+                                <dd class="break-all text-right font-mono font-semibold text-slate-900">{{ $na($equipment->equipment_serial_number) }}</dd>
                             </div>
                         </dl>
                     </div>
                 </section>
 
-                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                        <div>
-                            <h2 class="text-base font-semibold text-slate-900">Location & acquisition</h2>
-                        </div>
-                        <i data-lucide="map-pin" class="h-5 w-5 text-slate-400"></i>
+                {{-- Location & acquisition --}}
+                <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Location & acquisition</h2>
+                        <i data-lucide="map-pin" class="h-4 w-4 text-slate-400"></i>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="door-open" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Room</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">{{ $na($equipment->room_name) }}</p>
+                    <dl class="grid grid-cols-1 gap-x-6 p-4 md:grid-cols-2">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="door-open" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Room
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">{{ $na($equipment->room_name) }}</dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="network" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Department</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">{{ $na($equipment->equipment_department_name ?? null) }}</p>
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="network" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Department
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">{{ $na($equipment->equipment_department_name ?? null) }}</dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="hash" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Quantity</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">{{ $na($displayQuantity) }}</p>
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="hash" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Quantity
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">{{ $na($displayQuantity) }}</dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="calendar" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase date</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">{{ $formatDate($equipment->equipment_purchase_date) }}</p>
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="calendar" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Purchase date
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">{{ $formatDate($equipment->equipment_purchase_date) }}</dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="calendar-check" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Acquired date</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">{{ $formatDate($equipment->equipment_acquired_date) }}</p>
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="calendar-check" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Acquired date
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">{{ $formatDate($equipment->equipment_acquired_date) }}</dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="banknote" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Purchase cost</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="banknote" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Purchase cost
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">
                                 @if (isset($equipment->equipment_purchase_cost) && $equipment->equipment_purchase_cost !== null && $equipment->equipment_purchase_cost !== '')
                                     ₱{{ number_format((float) $equipment->equipment_purchase_cost, 2) }}
                                 @else
                                     {{ $na(null) }}
                                 @endif
-                            </p>
+                            </dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="shield-check" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Warranty expiration</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">{{ $formatDate($equipment->equipment_warranty_expiration) }}</p>
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-xs md:border-b-0">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="shield-check" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Warranty expiration
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">{{ $formatDate($equipment->equipment_warranty_expiration) }}</dd>
                         </div>
-                        <div>
-                            <div class="mb-3 flex items-center gap-2">
-                                <i data-lucide="hourglass" class="h-4 w-4 text-slate-400"></i>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Useful lifespan</p>
-                            </div>
-                            <p class="font-semibold text-slate-900">
+                        <div class="flex items-center justify-between gap-3 py-2 text-xs">
+                            <dt class="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                                <i data-lucide="hourglass" class="h-3.5 w-3.5 text-slate-400"></i>
+                                Useful lifespan
+                            </dt>
+                            <dd class="text-right font-semibold text-slate-900">
                                 @if(!empty($equipment->equipment_useful_life_years))
                                     {{ (int) $equipment->equipment_useful_life_years }} years
                                 @else
-                                    {{ $na(null) }} <span class="text-xs font-normal text-slate-400">(default 5 years)</span>
+                                    {{ $na(null) }} <span class="text-[11px] font-normal text-slate-400">(default 5 yrs)</span>
                                 @endif
-                            </p>
+                            </dd>
                         </div>
-                    </div>
+                    </dl>
                 </section>
 
                 @include('maintenance-personnel.equipment.partials.lifecycle-sections')
             </main>
 
-            <aside class="space-y-6">
-                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                    <div class="border-b border-slate-100 px-5 py-4">
-                        <h2 class="text-sm font-semibold text-slate-900">Status snapshot</h2>
+            <aside class="space-y-4">
+                {{-- Status snapshot --}}
+                <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="border-b border-slate-100 px-4 py-2.5">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Status snapshot</h2>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 p-5">
-                        <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Condition</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $na($condition) }}</p>
+                    <div class="grid grid-cols-3 gap-2 p-3">
+                        <div class="rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200/60">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Condition</p>
+                            <p class="mt-0.5 truncate text-xs font-semibold text-slate-900" title="{{ $na($condition) }}">{{ $na($condition) }}</p>
                         </div>
-                        <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Status</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $na($inventory) }}</p>
+                        <div class="rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200/60">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                            <p class="mt-0.5 truncate text-xs font-semibold text-slate-900" title="{{ $na($inventory) }}">{{ $na($inventory) }}</p>
                         </div>
-                        <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $na($displayQuantity) }}</p>
+                        <div class="rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200/60">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Quantity</p>
+                            <p class="mt-0.5 truncate text-xs font-semibold text-slate-900">{{ $na($displayQuantity) }}</p>
                         </div>
                     </div>
                 </section>
 
+                {{-- QR label --}}
+                @if ($hasQr)
+                    <section id="qr-label" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+                            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">QR label</h2>
+                            <a
+                                href="{{ url('/maintenance/equipment/qr-image/' . $equipment->equipment_qr_code) }}"
+                                download="{{ $equipment->equipment_qr_code }}.png"
+                                class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0025cc] hover:underline"
+                            >
+                                <i data-lucide="download" class="h-3 w-3"></i>
+                                Save PNG
+                            </a>
+                        </div>
+                        <div class="flex flex-col items-center p-4">
+                            <div class="rounded-lg border border-slate-200 bg-white p-2">
+                                <img
+                                    src="{{ url('/maintenance/equipment/qr-image/' . $equipment->equipment_qr_code) }}"
+                                    alt="Equipment QR code"
+                                    class="h-32 w-32 object-contain"
+                                >
+                            </div>
+                            <p class="mt-2 max-w-full break-all text-center font-mono text-[11px] font-semibold tracking-wide text-slate-700">
+                                {{ $equipment->equipment_qr_code }}
+                            </p>
+                        </div>
+                    </section>
+                @endif
+
+                {{-- Accountable person / property assignment --}}
                 @include('maintenance-personnel.equipment.partials.property-assignment-panel')
 
-                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                    <div class="border-b border-slate-100 px-5 py-4">
-                        <h2 class="text-sm font-semibold text-slate-900">Stock history</h2>
-                        <p class="mt-1 text-xs text-slate-500">Quantity changes are recorded here. The on-hand number is the sum of these movements.</p>
+                {{-- Photo or Icon --}}
+                @if (filled($equipment->equipment_image))
+                    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div class="border-b border-slate-100 px-4 py-2.5">
+                            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Photo</h2>
+                        </div>
+                        <div class="p-3.5">
+                            <button
+                                type="button"
+                                onclick="openEquipmentPhotoViewer({{ json_encode(asset('storage/'.$equipment->equipment_image)) }}, {{ json_encode($equipment->equipment_name) }})"
+                                class="group relative block w-full overflow-hidden rounded-lg ring-1 ring-slate-200/80"
+                                aria-label="View {{ $equipment->equipment_name }} photo fullscreen"
+                            >
+                                <img
+                                    src="{{ asset('storage/'.$equipment->equipment_image) }}"
+                                    alt="{{ $equipment->equipment_name }}"
+                                    class="max-h-48 w-full object-cover"
+                                >
+                                <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/35">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-slate-800 opacity-0 shadow-sm transition group-hover:opacity-100">
+                                        <i data-lucide="expand" class="h-3 w-3"></i>
+                                        View full size
+                                    </span>
+                                </span>
+                            </button>
+                        </div>
+                    </section>
+                @else
+                    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div class="border-b border-slate-100 px-4 py-2.5">
+                            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Icon</h2>
+                        </div>
+                        <div class="flex items-center justify-center p-4">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-200/80">
+                                <span
+                                    class="inline-flex h-9 w-9 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                    data-equipment-layout-icon="{{ $equipment->equipment_name }}"
+                                ></span>
+                            </div>
+                        </div>
+                    </section>
+                @endif
+
+                {{-- Stock history --}}
+                <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="border-b border-slate-100 px-4 py-2.5">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-700">Stock history</h2>
+                        <p class="mt-0.5 text-[11px] text-slate-500">Quantity changes recorded here; on-hand is the sum of movements.</p>
                     </div>
-                    <div class="px-5 py-4">
+                    <div class="px-4 py-2.5">
                         @if (($stockMovements ?? collect())->isEmpty())
-                            <p class="text-sm text-slate-500">No stock movements yet.</p>
+                            <p class="py-1.5 text-xs text-slate-500">No stock movements yet.</p>
                         @else
                             <ul class="divide-y divide-slate-100">
                                 @foreach ($stockMovements as $movement)
-                                    <li class="flex items-start justify-between gap-4 py-3">
+                                    <li class="flex items-start justify-between gap-3 py-2">
                                         <div class="min-w-0">
-                                            <p class="text-sm font-medium text-slate-900">
+                                            <p class="text-xs font-medium text-slate-900">
                                                 {{ \App\Support\EquipmentStockLedger::LABELS[$movement->movement_type] ?? $movement->movement_type }}
                                                 <span class="font-semibold {{ (int) $movement->quantity_delta < 0 ? 'text-rose-700' : 'text-emerald-700' }}">
                                                     {{ (int) $movement->quantity_delta > 0 ? '+' : '' }}{{ (int) $movement->quantity_delta }}
                                                 </span>
                                             </p>
                                             @if (filled($movement->remarks))
-                                                <p class="mt-1 text-xs leading-5 text-slate-500">{{ $movement->remarks }}</p>
+                                                <p class="mt-0.5 text-[11px] leading-4 text-slate-500">{{ $movement->remarks }}</p>
                                             @endif
                                         </div>
-                                        <p class="shrink-0 text-xs text-slate-400">
+                                        <p class="shrink-0 text-[11px] text-slate-400">
                                             {{ \Carbon\Carbon::parse($movement->created_at)->format('M d, Y g:i A') }}
                                         </p>
                                     </li>
@@ -326,71 +489,72 @@
                         @endif
                     </div>
                 </section>
-
-                @if (filled($equipment->equipment_image))
-                    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        <div class="border-b border-slate-100 px-5 py-4">
-                            <h2 class="text-sm font-semibold text-slate-900">Photo</h2>
-                        </div>
-                        <div class="px-5 py-5">
-                            <button
-                                type="button"
-                                onclick="openEquipmentPhotoViewer({{ json_encode(asset('storage/'.$equipment->equipment_image)) }}, {{ json_encode($equipment->equipment_name) }})"
-                                class="group relative block w-full overflow-hidden rounded-xl ring-1 ring-slate-200/80"
-                                aria-label="View {{ $equipment->equipment_name }} photo fullscreen"
-                            >
-                                <img
-                                    src="{{ asset('storage/'.$equipment->equipment_image) }}"
-                                    alt="{{ $equipment->equipment_name }}"
-                                    class="w-full object-cover"
-                                >
-                                <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/35">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 opacity-0 shadow-sm transition group-hover:opacity-100">
-                                        <i data-lucide="expand" class="h-3.5 w-3.5"></i>
-                                        View full size
-                                    </span>
-                                </span>
-                            </button>
-                        </div>
-                    </section>
-                @else
-                    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        <div class="border-b border-slate-100 px-5 py-4">
-                            <h2 class="text-sm font-semibold text-slate-900">Icon</h2>
-                        </div>
-                        <div class="flex items-center justify-center px-5 py-5">
-                            <div class="flex h-24 w-24 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200/80">
-                                <span
-                                    class="inline-flex h-12 w-12 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
-                                    data-equipment-layout-icon="{{ $equipment->equipment_name }}"
-                                ></span>
-                            </div>
-                        </div>
-                    </section>
-                @endif
-
-                @if ($hasQr)
-                    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        <div class="border-b border-slate-100 px-5 py-4">
-                            <h2 class="text-sm font-semibold text-slate-900">QR label</h2>
-                        </div>
-                        <div class="flex flex-col items-center px-5 py-5">
-                            <div class="rounded-xl border border-slate-200 bg-white p-3">
-                                <img
-                                    src="{{ url('/maintenance/equipment/qr-image/' . $equipment->equipment_qr_code) }}"
-                                    alt="Equipment QR code"
-                                    class="h-40 w-40 object-contain"
-                                >
-                            </div>
-                            <p class="mt-3 max-w-full break-all text-center font-mono text-xs font-semibold tracking-wide text-slate-700">
-                                {{ $equipment->equipment_qr_code }}
-                            </p>
-                        </div>
-                    </section>
-                @endif
             </aside>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const btn = document.getElementById('equipmentProfileMoreBtn');
+            const menu = document.getElementById('equipmentProfileMoreMenu');
+
+            function closeMenu() {
+                if (!menu || !btn) return;
+                menu.classList.add('hidden');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+
+            if (btn && menu) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const isOpen = !menu.classList.contains('hidden');
+                    if (isOpen) {
+                        closeMenu();
+                        return;
+                    }
+                    menu.classList.remove('hidden');
+                    const rect = btn.getBoundingClientRect();
+                    const menuWidth = menu.offsetWidth || 192;
+                    const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+                    const top = Math.min(window.innerHeight - (menu.offsetHeight || 160) - 8, rect.bottom + 6);
+                    menu.style.left = left + 'px';
+                    menu.style.top = top + 'px';
+                    btn.setAttribute('aria-expanded', 'true');
+                    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                        window.lucide.createIcons();
+                    }
+                });
+
+                document.addEventListener('click', function (e) {
+                    if (!menu.contains(e.target) && e.target !== btn) {
+                        closeMenu();
+                    }
+                });
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') closeMenu();
+                });
+                window.addEventListener('scroll', closeMenu, true);
+                window.addEventListener('resize', closeMenu);
+            }
+
+            document.addEventListener('click', function (e) {
+                const copyBtn = e.target.closest('[data-copy-text]');
+                if (!copyBtn) return;
+                const text = copyBtn.getAttribute('data-copy-text') || '';
+                if (!text) return;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function () {
+                        const label = copyBtn.querySelector('[data-copy-label]');
+                        if (label) {
+                            const orig = label.textContent;
+                            label.textContent = 'Copied';
+                            setTimeout(function () { label.textContent = orig; }, 1400);
+                        }
+                    });
+                }
+            });
+        })();
+    </script>
 
     @include('layouts.partials.equipment-layout-icons')
     @include('layouts.partials.equipment-photo-viewer')

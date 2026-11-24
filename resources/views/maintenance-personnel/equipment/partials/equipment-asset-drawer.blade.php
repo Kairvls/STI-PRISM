@@ -15,12 +15,12 @@
                 aria-modal="true"
                 aria-labelledby="eqAssetModal_drawer_title"
             >
-                <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+                <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
                     <div class="min-w-0">
-                        <h2 id="eqAssetModal_drawer_title" class="text-xl font-semibold tracking-tight text-slate-900">Asset details</h2>
-                        <p id="eqAssetModal_drawer_subtitle" class="mt-1 text-sm text-slate-500">Review equipment information and lifecycle.</p>
+                        <h2 id="eqAssetModal_drawer_title" class="text-base font-semibold tracking-tight text-slate-900">Asset details</h2>
+                        <p id="eqAssetModal_drawer_subtitle" class="mt-0.5 truncate text-xs text-slate-500">Review equipment information and lifecycle.</p>
                     </div>
-                    <button type="button" onclick="closeEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <button type="button" onclick="closeEquipmentModal()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
@@ -219,19 +219,19 @@
 
             timelineEl.innerHTML = visible.length
                 ? visible.map((event, index) => `
-                    <div class="relative flex gap-3 ${index < visible.length - 1 ? 'pb-4' : ''}">
-                        ${index < visible.length - 1 ? '<span class="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200"></span>' : ''}
-                        <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white ${escapeEquipmentHtml(event.meta?.dot || 'bg-slate-400')}"></span>
+                    <div class="relative flex gap-2.5 ${index < visible.length - 1 ? 'pb-3' : ''}">
+                        ${index < visible.length - 1 ? '<span class="absolute left-[4px] top-3.5 bottom-0 w-px bg-slate-200"></span>' : ''}
+                        <span class="relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white ${escapeEquipmentHtml(event.meta?.dot || 'bg-slate-400')}"></span>
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-1.5">
-                                <p class="text-sm font-semibold text-slate-900">${escapeEquipmentHtml(event.title)}</p>
+                                <p class="text-xs font-semibold text-slate-900">${escapeEquipmentHtml(event.title)}</p>
                                 <span class="rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${EQUIPMENT_STAGE_CLASSES[event.stage] || 'bg-slate-100 text-slate-700'}">${escapeEquipmentHtml(event.stage_label || event.type_label)}</span>
                             </div>
-                            <p class="mt-0.5 text-xs text-slate-400">${escapeEquipmentHtml(formatEquipmentAssetDate(event.occurred_at))}</p>
-                            ${event.description ? `<p class="mt-1 text-xs leading-5 text-slate-600">${escapeEquipmentHtml(event.description)}</p>` : ''}
+                            <p class="mt-0.5 text-[11px] text-slate-400">${escapeEquipmentHtml(formatEquipmentAssetDate(event.occurred_at))}</p>
+                            ${event.description ? `<p class="mt-0.5 text-xs leading-4 text-slate-600">${escapeEquipmentHtml(event.description)}</p>` : ''}
                         </div>
                     </div>`).join('')
-                : `<p class="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">${events.length ? 'No events for this stage.' : 'No lifecycle events recorded yet.'}</p>`;
+                : `<p class="rounded-xl border border-dashed border-slate-200 px-3.5 py-5 text-center text-xs text-slate-400">${events.length ? 'No events for this stage.' : 'No lifecycle events recorded yet.'}</p>`;
 
             const older = matching.length - EQUIPMENT_TIMELINE_LIMIT;
             if (noteEl) {
@@ -286,13 +286,13 @@
             if (transfers.length) {
                 const block = document.createElement('div');
                 block.className = 'overflow-hidden rounded-xl border border-slate-200 bg-white';
-                block.innerHTML = '<div class="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Recent moves</div>';
+                block.innerHTML = '<div class="border-b border-slate-100 bg-slate-50/60 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recent moves</div>';
                 transfers.forEach((move, index) => {
                     const item = document.createElement('div');
-                    item.className = `px-4 py-3.5 ${index ? 'border-t border-slate-100' : ''}`;
+                    item.className = `px-3.5 py-2 ${index ? 'border-t border-slate-100' : ''}`;
                     item.innerHTML = `
-                        <p class="text-sm font-medium text-slate-800">${move.from_room_name || 'Unassigned'} → ${move.to_room_name || '—'}</p>
-                        <p class="mt-1 text-xs text-slate-400">${formatEquipmentAssetDate(move.created_at)}</p>
+                        <p class="text-xs font-medium text-slate-800">${move.from_room_name || 'Unassigned'} → ${move.to_room_name || '—'}</p>
+                        <p class="mt-0.5 text-[11px] text-slate-400">${formatEquipmentAssetDate(move.created_at)}</p>
                     `;
                     block.appendChild(item);
                 });
@@ -302,13 +302,13 @@
             if (maintenance.length) {
                 const block = document.createElement('div');
                 block.className = 'overflow-hidden rounded-xl border border-slate-200 bg-white';
-                block.innerHTML = '<div class="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Maintenance</div>';
+                block.innerHTML = '<div class="border-b border-slate-100 bg-slate-50/60 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Maintenance</div>';
                 maintenance.forEach((row, index) => {
                     const item = document.createElement('div');
-                    item.className = `px-4 py-3.5 ${index ? 'border-t border-slate-100' : ''}`;
+                    item.className = `px-3.5 py-2 ${index ? 'border-t border-slate-100' : ''}`;
                     item.innerHTML = `
-                        <p class="truncate text-sm font-medium text-slate-800">${row.findings || row.status || 'Maintenance'}</p>
-                        <p class="mt-1 text-xs text-slate-400">${formatEquipmentAssetDate(row.at)}</p>
+                        <p class="truncate text-xs font-medium text-slate-800">${row.findings || row.status || 'Maintenance'}</p>
+                        <p class="mt-0.5 text-[11px] text-slate-400">${formatEquipmentAssetDate(row.at)}</p>
                     `;
                     block.appendChild(item);
                 });
