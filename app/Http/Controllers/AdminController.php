@@ -897,7 +897,7 @@ class AdminController extends Controller
             'equipment_table.equipment_id'
         )
         ->leftJoin(
-            DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+            DB::raw('(SELECT ris_id, SUM(CASE WHEN COALESCE(ris_total_amount, 0) > 0 THEN ris_total_amount ELSE COALESCE(ris_quantity_requested, 0) * COALESCE(ris_unit_cost, 0) END) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
             'requisition_issue_slip_table.ris_id',
             '=',
             'ris_items_sum.ris_id'
@@ -1754,16 +1754,21 @@ class AdminController extends Controller
                 ->update(['ris_submitted_by' => $ownerPurchaserId]);
         }
 
+        $autoAtpIds = \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $targetId);
+
         if ($ownerPurchaserId > 0) {
+            $atpSuffix = count($autoAtpIds) > 0
+                ? ' '.count($autoAtpIds).' per-supplier ATP draft(s) were automatically generated for your review.'
+                : ' You may create an ATP.';
             WorkflowNotifier::toUser(
                 $ownerPurchaserId,
                 WorkflowNotifier::ROLE_PURCHASER,
                 'RIS approved',
-                RisWorkflow::formNumber($target) . ' was approved. You may create an ATP.',
+                RisWorkflow::formNumber($target).' was approved.'.$atpSuffix,
                 'ris_approved',
                 'RIS',
                 (int) $targetId,
-                '/purchaser/ris'
+                count($autoAtpIds) > 0 ? '/purchaser/authority-to-purchase' : '/purchaser/ris'
             );
         }
 
@@ -3773,6 +3778,15 @@ class AdminController extends Controller
                 return back()->with('error', 'Only accepted RIS records can be forwarded to the President.');
             }
 
+            $risTotal = \App\Support\RisApprovalBudget::risTotal((int) $risId);
+            $budgetLimit = \App\Support\RisApprovalBudget::limit();
+            if (! RisWorkflow::wasReturnedByPresidentForRevision($ris) && ! \App\Support\RisApprovalBudget::requiresPresident($risTotal, $budgetLimit)) {
+                return back()->with(
+                    'error',
+                    'This RIS total ('.\App\Support\RisApprovalBudget::formatPeso($risTotal).') is within the '.\App\Support\RisApprovalBudget::formatPeso($budgetLimit).' direct-approval budget limit. Please use Approve Directly instead.'
+                );
+            }
+
             $adminName = Auth::user()->user_full_name ?? 'Administrator';
             $forwardDetails = trim((string) ($validated['forward_details'] ?? ''));
 
@@ -4050,6 +4064,22 @@ class AdminController extends Controller
         }
     }
 
+    public function updateRisBudgetLimit(Request $request)
+    {
+        abort_unless(\App\Support\AdminPortal::canActOnRis(), 403, 'Only the School Administrator can update the approval budget limit.');
+
+        $validated = $request->validate([
+            'direct_approve_limit' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
+        ]);
+
+        $saved = \App\Support\RisApprovalBudget::saveLimit((float) $validated['direct_approve_limit'], (int) Auth::id());
+
+        return back()->with(
+            'success',
+            'Approval budget limit updated to '.\App\Support\RisApprovalBudget::formatPeso($saved).'. Requests above this amount must be forwarded to the President; requests at or below can be directly approved.'
+        );
+    }
+
     public function directApproveForm(Request $request, $risId)
     {
         $mode = strtolower($request->query('mode', 'direct'));
@@ -4258,6 +4288,15 @@ class AdminController extends Controller
                 );
             }
 
+            $risTotal = \App\Support\RisApprovalBudget::risTotal((int) $risId);
+            $budgetLimit = \App\Support\RisApprovalBudget::limit();
+            if (\App\Support\RisApprovalBudget::requiresPresident($risTotal, $budgetLimit)) {
+                return back()->with(
+                    'error',
+                    'This RIS total ('.\App\Support\RisApprovalBudget::formatPeso($risTotal).') exceeds the '.\App\Support\RisApprovalBudget::formatPeso($budgetLimit).' direct-approval budget limit and must be forwarded to the President.'
+                );
+            }
+
             // =====================================================
             // DIRECTLY APPROVE RIS
             //
@@ -4331,16 +4370,21 @@ class AdminController extends Controller
                     ->update(['ris_submitted_by' => $ownerPurchaserId]);
             }
 
+            $autoAtpIds = \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $risId);
+
             if ($ownerPurchaserId > 0) {
+                $atpSuffix = count($autoAtpIds) > 0
+                    ? ' '.count($autoAtpIds).' per-supplier ATP draft(s) were automatically generated for your review.'
+                    : ' You may create an ATP.';
                 WorkflowNotifier::toUser(
                     $ownerPurchaserId,
                     WorkflowNotifier::ROLE_PURCHASER,
                     'RIS approved by Administrator',
-                    RisWorkflow::formNumber($ris) . ' was approved. You may create an ATP.',
+                    RisWorkflow::formNumber($ris).' was approved.'.$atpSuffix,
                     'ris_approved',
                     'RIS',
                     (int) $risId,
-                    '/purchaser/ris'
+                    count($autoAtpIds) > 0 ? '/purchaser/authority-to-purchase' : '/purchaser/ris'
                 );
             }
 

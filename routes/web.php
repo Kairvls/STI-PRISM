@@ -200,6 +200,11 @@ $schoolAdminModuleRoutes = function () {
     )->whereNumber('canvassId')->name('canvass-review.print');
 
     Route::get(
+        '/canvass-review/attachments/{attachmentId}/preview',
+        [\App\Http\Controllers\CanvassController::class, 'previewAttachment']
+    )->whereNumber('attachmentId')->name('canvass-review.attachments.preview');
+
+    Route::get(
         '/canvass-review/attachments/{attachmentId}/download',
         [\App\Http\Controllers\CanvassController::class, 'downloadAttachment']
     )->whereNumber('attachmentId')->name('canvass-review.attachments.download');
@@ -297,6 +302,31 @@ $schoolAdminRisActionRoutes = function () {
         '/canvass-review/{canvassId}/items/{itemId}/return',
         [\App\Http\Controllers\CanvassReviewController::class, 'returnItem']
     )->whereNumber(['canvassId', 'itemId'])->name('canvass-review.items.return');
+
+    Route::post(
+        '/canvass-review/{canvassId}/items/{itemId}/reject',
+        [\App\Http\Controllers\CanvassReviewController::class, 'rejectItem']
+    )->whereNumber(['canvassId', 'itemId'])->name('canvass-review.items.reject');
+
+    Route::post(
+        '/canvass-review/{canvassId}/bulk-approve',
+        [\App\Http\Controllers\CanvassReviewController::class, 'bulkApprove']
+    )->whereNumber('canvassId')->name('canvass-review.bulk-approve');
+
+    Route::post(
+        '/canvass-review/{canvassId}/bulk-return',
+        [\App\Http\Controllers\CanvassReviewController::class, 'bulkReturn']
+    )->whereNumber('canvassId')->name('canvass-review.bulk-return');
+
+    Route::post(
+        '/canvass-review/{canvassId}/bulk-reject',
+        [\App\Http\Controllers\CanvassReviewController::class, 'bulkReject']
+    )->whereNumber('canvassId')->name('canvass-review.bulk-reject');
+
+    Route::post(
+        '/digital-signatures/sign-ris/budget-limit',
+        [AdminController::class, 'updateRisBudgetLimit']
+    )->name('digital-signatures.sign-ris.budget-limit');
 
     Route::post(
         '/procurement-review/ris/accept-bulk',

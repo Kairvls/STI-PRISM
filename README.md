@@ -345,3 +345,5 @@ Brand Name and Model are now searchable catalog pickers with inline Add new, mat
 
 Search the list, or type a new name and click Add — it saves to maintenance (brands_table / equipment_models_table) and selects it
 Wired on Identity, multi-line intake, per-piece, Units, and Edit equipment
+
+Option B: Expand inline as a full width row underneath the clicked table row
