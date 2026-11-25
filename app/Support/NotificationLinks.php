@@ -162,9 +162,7 @@ class NotificationLinks
         }
 
         if ($role === WorkflowNotifier::ROLE_RECEIVING) {
-            return str_contains($stored, 'back-orders')
-                ? '/receiving/back-orders?status=all&rr='.$id
-                : '/receiving/reports?rr='.$id;
+            return '/receiving/reports?rr='.$id;
         }
 
         if ($role === WorkflowNotifier::ROLE_MAINTENANCE) {

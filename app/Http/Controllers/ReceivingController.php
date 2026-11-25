@@ -121,7 +121,7 @@ class ReceivingController extends Controller
 
     public function reports(Request $request)
     {
-        $filter = $request->query('status', 'queue');
+        $filter = $request->query('status', 'all');
         $focusKey = (string) $request->query('focus', '');
         $focusOption = ReceivingAttentionSummary::focusOptions()[$focusKey] ?? null;
         if ($focusOption) {
@@ -136,7 +136,7 @@ class ReceivingController extends Controller
                 'reports' => $empty,
                 'items' => collect(),
                 'filter' => $filter,
-                'counts' => ['queue' => 0, 'completed' => 0, 'returned' => 0],
+                'counts' => ['all' => 0, 'queue' => 0, 'completed' => 0, 'returned' => 0],
                 'dateFilter' => trim((string) $request->query('date', '')),
                 'savedSignatures' => UserSignatureLibrary::forUser((int) Auth::id()),
                 'attentionFocus' => null,
@@ -171,11 +171,27 @@ class ReceivingController extends Controller
         DocumentUrgency::select($query, 'RR');
         if ($filter === 'queue') {
             DocumentUrgency::orderUrgentFirst($query, 'RR');
-            // Urgent first, then oldest waiting (fair queue).
+            // Urgent first, then newest waiting (LIFO / stack).
             try {
                 $reports = $query
-                    ->orderBy($sortColumn)
-                    ->orderBy('receiving_reports_table.receiving_report_id')
+                    ->orderByDesc($sortColumn)
+                    ->orderByDesc('receiving_reports_table.receiving_report_id')
+                    ->paginate(10)
+                    ->withQueryString();
+            } catch (\Throwable $e) {
+                $reports = $empty;
+            }
+        } elseif ($filter === 'all') {
+            $query->orderByRaw(
+                "CASE WHEN receiving_reports_table.receiving_report_status IN ('Pending','Submitted','Resubmitted','Under Review') THEN 0 "
+                ."WHEN receiving_reports_table.receiving_report_status = 'Incomplete' THEN 1 "
+                ."ELSE 2 END ASC"
+            );
+            DocumentUrgency::orderUrgentFirst($query, 'RR');
+            try {
+                $reports = $query
+                    ->orderByDesc($sortColumn)
+                    ->orderByDesc('receiving_reports_table.receiving_report_id')
                     ->paginate(10)
                     ->withQueryString();
             } catch (\Throwable $e) {
@@ -204,6 +220,7 @@ class ReceivingController extends Controller
         }
 
         $counts = [
+            'all' => $this->countReceivingReports('all'),
             'queue' => $this->countReceivingReports('queue'),
             'completed' => $this->countReceivingReports('completed'),
             'returned' => $this->countReceivingReports('returned'),
@@ -303,6 +320,14 @@ class ReceivingController extends Controller
 
     private function applyRrStatusFilter($query, string $filter): void
     {
+        if ($filter === 'all') {
+            $query->whereIn(
+                'receiving_reports_table.receiving_report_status',
+                array_merge(ReceivingAttentionSummary::QUEUE_STATUSES, ['Completed', 'Incomplete'])
+            );
+            return;
+        }
+
         if ($filter === 'completed') {
             $query->whereIn('receiving_reports_table.receiving_report_status', ['Completed', 'Incomplete']);
             return;
@@ -433,7 +458,7 @@ class ReceivingController extends Controller
             'signature_image' => ['nullable', 'string', 'max:2000000'],
             'signature_file' => ['nullable', 'image', 'max:2048'],
             'signature_data' => ['nullable', 'string', 'max:2000000'],
-            'verification_photos' => ['nullable', 'array'],
+            'verification_photos' => ['nullable', 'array', 'max:3'],
             'verification_photos.*' => ['nullable', 'image', 'max:5120'],
             'received' => ['nullable', 'array'],
             'received.*' => ['nullable', 'integer', 'min:0', 'max:999999'],

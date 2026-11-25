@@ -13,7 +13,11 @@
     $fundingTypeLabel = $fundingTypeLabel
         ?? ($paymentPath ? \App\Support\ProcurementPaymentPath::label($paymentPath) : null);
     $showOrCardExplicit = $showOrCard ?? null;
-    $showOrCard = $showOrCardExplicit !== null ? (bool) $showOrCardExplicit : $isCashAdvanceRr;
+    $orAttachmentName = $rr?->receiving_report_or_attachment_name ?? null;
+    $orAttachmentPath = $rr?->receiving_report_or_attachment_path ?? null;
+    $showOrCard = $showOrCardExplicit !== null
+        ? (bool) $showOrCardExplicit
+        : ($isCashAdvanceRr || $editable || filled($orAttachmentPath));
     $orCardAlpine = $orCardAlpine ?? null;
     $fundingBadgeAlpine = $fundingBadgeAlpine ?? null;
     $rows = $rows ?? collect();
@@ -126,16 +130,27 @@
                     x-cloak
                 >
                     <span
-                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset"
-                        :class="isCashAdvance(selectedFundingKey)
-                            ? 'bg-violet-50 text-violet-800 ring-violet-200'
-                            : 'bg-slate-100 text-slate-700 ring-slate-200'"
+                        class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                        :style="(function (k) {
+                            const d = rfcPrefill[String(k || '')];
+                            const p = d ? d.payment_path : '';
+                            if (p === 'cash_advance') return 'background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;';
+                            if (p === 'cash_installment') return 'background:#fffbeb;color:#b45309;border-color:#fde68a;';
+                            return 'background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;';
+                        })(selectedFundingKey)"
                         x-text="fundingLabel(selectedFundingKey)"
                     ></span>
                 </div>
             @elseif(filled($fundingTypeLabel) && $fundingTypeLabel !== 'Not chosen')
+                @php
+                    $rrPaperBadgeStyle = match ($paymentPath) {
+                        \App\Support\ProcurementPaymentPath::CASH_ADVANCE => 'background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;',
+                        \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT => 'background:#fffbeb;color:#b45309;border-color:#fde68a;',
+                        default => 'background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;',
+                    };
+                @endphp
                 <div class="print-hidden mt-2">
-                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $isCashAdvanceRr ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">
+                    <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style="{{ $rrPaperBadgeStyle }}">
                         {{ $fundingTypeLabel }} RR
                     </span>
                 </div>
@@ -205,18 +220,24 @@
         </div>
     </div>
 
-    {{-- Official Receipt (Cash Advance only) — Check vs OR; change returned to cashier (screen only; omitted from print) --}}
+    {{-- Official Receipt — detailed Check vs OR for Cash Advance; compact optional attachment strip for Direct Payment / Cash Installment --}}
     @if($showOrCard)
     <div
         @if($orCardAlpine)
-            x-show="{{ $orCardAlpine }}"
+            x-show="!!selectedFundingKey"
             x-cloak
         @endif
     >
     <div
-        class="rr-or-card print-hidden mt-5 rounded border border-black/20 bg-slate-50/80 p-3 text-[12px]"
+        @if($orCardAlpine)
+            class="rr-or-card print-hidden mt-5 text-[12px] rounded-lg border border-slate-200 bg-slate-50/80"
+        @else
+            class="rr-or-card print-hidden mt-5 text-[12px] rounded-lg border border-slate-200 bg-slate-50/80"
+        @endif
         @if($editable)
             x-data="{
+                orOpen: true,
+                orNo: @js((string) $orNumberValue),
                 checkAmt: {{ $checkAmountValue !== '' && $checkAmountValue !== null ? (float) $checkAmountValue : 'null' }},
                 orAmt: {{ $orAmountValue !== '' && $orAmountValue !== null ? (float) $orAmountValue : 'null' }},
                 orFileName: @js($orAttachmentName ?: ''),
@@ -234,9 +255,9 @@
                     this.$nextTick(() => window.lucide && window.lucide.createIcons());
                 },
                 limitMoney(raw) {
-                    let v = String(raw ?? '').replace(/[^\d.]/g, '');
+                    let v = String(raw ?? '').replace(/,/g, '').replace(/[^\d.]/g, '');
                     const parts = v.split('.');
-                    parts[0] = (parts[0] || '').slice(0, 7);
+                    parts[0] = (parts[0] || '').slice(0, 8);
                     if (parts.length > 1) {
                         v = parts[0] + '.' + parts.slice(1).join('').slice(0, 2);
                     } else {
@@ -245,10 +266,10 @@
                     if (v === '' || v === '.') return null;
                     const n = Number(v);
                     if (Number.isNaN(n)) return null;
-                    return Math.min(n, 9999999.99);
+                    return Math.min(n, 99999999.99);
                 },
-                setCheck(e) { this.checkAmt = this.limitMoney(e.target.value); e.target.value = this.checkAmt ?? ''; },
-                setOr(e) { this.orAmt = this.limitMoney(e.target.value); e.target.value = this.orAmt ?? ''; },
+                setCheck(e) { this.checkAmt = this.limitMoney(e.target.value); },
+                setOr(e) { this.orAmt = this.limitMoney(e.target.value); },
                 changeAmt() {
                     if (this.checkAmt === null || this.checkAmt === '' || this.orAmt === null || this.orAmt === '') return null;
                     const c = Number(this.checkAmt);
@@ -256,98 +277,281 @@
                     if (Number.isNaN(c) || Number.isNaN(o)) return null;
                     return Math.max(0, Math.round((c - o) * 100) / 100);
                 },
+                isOverFunds() {
+                    if (this.checkAmt === null || this.checkAmt === '' || this.orAmt === null || this.orAmt === '') return false;
+                    const c = Number(this.checkAmt);
+                    const o = Number(this.orAmt);
+                    if (Number.isNaN(c) || Number.isNaN(o)) return false;
+                    return o > c;
+                },
+                overFundsAmt() {
+                    if (!this.isOverFunds()) return 0;
+                    return Math.round((Number(this.orAmt) - Number(this.checkAmt)) * 100) / 100;
+                },
                 fmt(n) {
                     if (n === null || n === '' || Number.isNaN(Number(n))) return '—';
                     return '₱' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
             }"
             x-init="window.addEventListener('rr-check-amount', (e) => { checkAmt = limitMoney(e.detail?.amount) })"
+        @else
+            x-data="{ orOpen: false }"
         @endif
     >
-        <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">Official Receipt · Check vs OR</p>
-        <div class="mb-3 grid items-start gap-3 sm:grid-cols-3">
-            <div class="min-w-0 self-start">
-                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">OR number @if($editable)<span class="text-red-500">*</span>@endif</label>
+        {{-- Collapsible Cash Advance header --}}
+        @if($orCardAlpine || $isCashAdvanceRr)
+        <button
+            type="button"
+            @if($orCardAlpine)
+                x-show="{{ $orCardAlpine }}"
+                x-cloak
+            @endif
+            @click="orOpen = !orOpen"
+            :aria-expanded="orOpen.toString()"
+            class="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition hover:bg-slate-100/70"
+        >
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <svg
+                    class="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-150"
+                    :class="orOpen ? 'rotate-90' : ''"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
+                </svg>
+                <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Official Receipt · Check vs OR</span>
                 @if($editable)
-                    <input
-                        type="text"
-                        name="receiving_report_or_number"
-                        value="{{ $orNumberValue }}"
-                        maxlength="{{ \App\Support\InputLimits::DOC_REF_NO }}"
-                        pattern="[A-Za-z0-9\/\-]*"
-                        title="Letters, numbers, - and / only · max {{ \App\Support\InputLimits::DOC_REF_NO }}"
-                        oninput="this.value = this.value.replace(/[^A-Za-z0-9\/\-]/g, '').slice(0, {{ \App\Support\InputLimits::DOC_REF_NO }});"
-                        class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"
-                        placeholder="Official Receipt number"
-                        autocomplete="off"
-                    >
+                    <span class="text-[11px] text-slate-500" x-show="!orOpen" x-cloak>
+                        <span x-text="orNo ? ('OR #' + orNo) : 'Required to submit'"></span>
+                        <template x-if="orAmt !== null && orAmt !== ''">
+                            <span x-text="' · ' + fmt(orAmt)"></span>
+                        </template>
+                        <template x-if="changeAmt() !== null">
+                            <span class="font-medium text-amber-800" x-text="' · Change ' + fmt(changeAmt())"></span>
+                        </template>
+                    </span>
                 @else
-                    <p class="mt-1 text-sm font-semibold text-slate-900">{{ $orNumberValue !== '' ? $orNumberValue : '—' }}</p>
+                    <span class="text-[11px] text-slate-500" x-show="!orOpen">
+                        {{ $orNumberValue !== '' ? 'OR #'.$orNumberValue : 'No OR #' }}
+                        @if($orAmountValue !== '' && $orAmountValue !== null)
+                            · ₱{{ number_format((float) $orAmountValue, 2) }}
+                        @endif
+                        @if($changeAmountValue !== '' && $changeAmountValue !== null)
+                            · Change ₱{{ number_format((float) $changeAmountValue, 2) }}
+                        @endif
+                    </span>
                 @endif
             </div>
-        </div>
-        <div class="grid items-start gap-3 sm:grid-cols-3">
-            <div class="min-w-0 self-start">
-                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">Check / funds amount</label>
-                @if($editable)
-                    <input type="hidden" name="receiving_report_check_amount" :value="checkAmt ?? ''">
-                    <p class="mt-1 flex h-8 shrink-0 items-center rounded border border-slate-200 bg-slate-100 px-2 text-sm font-semibold tabular-nums text-slate-800" x-text="fmt(checkAmt)"></p>
-                    <p class="mt-0.5 text-[10px] text-slate-400">From released check — not editable</p>
-                @else
-                    <p class="mt-1 text-sm font-semibold tabular-nums text-slate-900">
-                        {{ $checkAmountValue !== '' && $checkAmountValue !== null ? '₱'.number_format((float) $checkAmountValue, 2) : '—' }}
-                    </p>
-                @endif
-            </div>
-            <div class="min-w-0 self-start">
-                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">OR amount (actual spend) @if($editable)<span class="text-red-500">*</span>@endif</label>
-                @if($editable)
-                    <input
-                        type="text"
-                        inputmode="decimal"
-                        name="receiving_report_or_amount"
-                        :value="orAmt ?? ''"
-                        x-on:input="setOr($event)"
-                        maxlength="13"
-                        pattern="\d{1,10}(\.\d{1,2})?"
-                        title="Up to 10 digits (optional 2 decimals)"
-                        class="mt-1 h-8 w-full shrink-0 rounded border border-slate-300 bg-white px-2 text-sm tabular-nums"
-                        placeholder="Amount on the Official Receipt (required to submit)"
-                        autocomplete="off"
-                    >
-                @else
-                    <p class="mt-1 text-sm font-semibold tabular-nums text-slate-900">
-                        {{ $orAmountValue !== '' && $orAmountValue !== null ? '₱'.number_format((float) $orAmountValue, 2) : '—' }}
-                    </p>
-                @endif
-            </div>
-            <div class="min-w-0 self-start">
-                <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">Change (return to cashier)</label>
-                @if($editable)
-                    <input type="hidden" name="receiving_report_change_amount" :value="changeAmt() ?? ''">
-                    <p class="mt-1 flex h-8 shrink-0 items-center text-sm font-semibold tabular-nums text-amber-800" x-text="fmt(changeAmt())"></p>
-                @else
-                    <p class="mt-1 text-sm font-semibold tabular-nums text-amber-800">
-                        {{ $changeAmountValue !== '' && $changeAmountValue !== null ? '₱'.number_format((float) $changeAmountValue, 2) : '—' }}
-                    </p>
-                @endif
-            </div>
-        </div>
-        <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                <div class="min-w-0">
-                    <p class="text-sm font-semibold text-slate-950">
-                        OR photo / attachment
-                        @if($editable)<span class="text-red-500">*</span>@endif
-                    </p>
-                    <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · PDF, JPG, PNG · max 10MB</p>
+            <span
+                class="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                x-text="orOpen ? 'Hide' : 'Show details'"
+            ></span>
+        </button>
+
+        {{-- Detailed Cash Advance money fields --}}
+        <div
+            class="border-t border-slate-200/80 px-3 pb-3 pt-3"
+            @if($orCardAlpine)
+                x-show="({{ $orCardAlpine }}) && orOpen"
+                x-cloak
+            @else
+                x-show="orOpen"
+                x-cloak
+            @endif
+        >
+            <div class="mb-3 grid items-start gap-3 sm:grid-cols-3">
+                <div class="min-w-0 self-start">
+                    <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">OR number @if($editable)<span class="text-red-500">*</span>@endif</label>
+                    @if($editable)
+                        <input
+                            type="text"
+                            name="receiving_report_or_number"
+                            value="{{ $orNumberValue }}"
+                            x-on:input="orNo = $event.target.value"
+                            maxlength="{{ \App\Support\InputLimits::DOC_REF_NO }}"
+                            pattern="[A-Za-z0-9\/\-]*"
+                            title="Letters, numbers, - and / only · max {{ \App\Support\InputLimits::DOC_REF_NO }}"
+                            oninput="this.value = this.value.replace(/[^A-Za-z0-9\/\-]/g, '').slice(0, {{ \App\Support\InputLimits::DOC_REF_NO }});"
+                            class="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-sm"
+                            placeholder="Official Receipt number"
+                            autocomplete="off"
+                            @if($orCardAlpine) :disabled="!({{ $orCardAlpine }})" @endif
+                        >
+                    @else
+                        <p class="mt-1 text-sm font-semibold text-slate-900">{{ $orNumberValue !== '' ? $orNumberValue : '—' }}</p>
+                    @endif
                 </div>
             </div>
+            <div class="grid items-start gap-3 sm:grid-cols-3">
+                <div class="min-w-0 self-start">
+                    <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">Check / funds amount</label>
+                    @if($editable)
+                        <input type="hidden" name="receiving_report_check_amount" :value="checkAmt ?? ''" @if($orCardAlpine) :disabled="!({{ $orCardAlpine }})" @endif>
+                        <p class="mt-1 flex h-8 shrink-0 items-center rounded border border-slate-200 bg-slate-100 px-2 text-sm font-semibold tabular-nums text-slate-800" x-text="fmt(checkAmt)"></p>
+                        <p class="mt-0.5 text-[10px] text-slate-400">From released check — not editable</p>
+                    @else
+                        <p class="mt-1 text-sm font-semibold tabular-nums text-slate-900">
+                            {{ $checkAmountValue !== '' && $checkAmountValue !== null ? '₱'.number_format((float) $checkAmountValue, 2) : '—' }}
+                        </p>
+                    @endif
+                </div>
+                <div class="min-w-0 self-start">
+                    <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">OR amount (actual spend) @if($editable)<span class="text-red-500">*</span>@endif</label>
+                    @if($editable)
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            data-money
+                            name="receiving_report_or_amount"
+                            value="{{ $orAmountValue !== '' && $orAmountValue !== null ? number_format((float) $orAmountValue, 2) : '' }}"
+                            x-on:input="setOr($event)"
+                            :style="isOverFunds() ? 'border-color:#dc2626;background:#fef2f2;color:#b91c1c;box-shadow:0 0 0 1px #dc2626;' : ''"
+                            class="mt-1 h-8 w-full shrink-0 rounded border border-slate-300 bg-white px-2 text-sm tabular-nums transition"
+                            placeholder="0.00"
+                            autocomplete="off"
+                            @if($orCardAlpine) :disabled="!({{ $orCardAlpine }})" @endif
+                        >
+                        <p
+                            x-show="isOverFunds()"
+                            x-cloak
+                            class="mt-1 text-[11px] font-medium"
+                            style="color:#dc2626;"
+                            x-text="'Exceeds funds amount by ' + fmt(overFundsAmt())"
+                        ></p>
+                    @else
+                        <p class="mt-1 text-sm font-semibold tabular-nums text-slate-900">
+                            {{ $orAmountValue !== '' && $orAmountValue !== null ? '₱'.number_format((float) $orAmountValue, 2) : '—' }}
+                        </p>
+                    @endif
+                </div>
+                <div class="min-w-0 self-start">
+                    <label class="block text-[10px] font-medium uppercase tracking-wide text-slate-500">Change (return to cashier)</label>
+                    @if($editable)
+                        <input type="hidden" name="receiving_report_change_amount" :value="changeAmt() ?? ''" @if($orCardAlpine) :disabled="!({{ $orCardAlpine }})" @endif>
+                        <p class="mt-1 flex h-8 shrink-0 items-center text-sm font-semibold tabular-nums text-amber-800" x-text="fmt(changeAmt())"></p>
+                    @else
+                        <p class="mt-1 text-sm font-semibold tabular-nums text-amber-800">
+                            {{ $changeAmountValue !== '' && $changeAmountValue !== null ? '₱'.number_format((float) $changeAmountValue, 2) : '—' }}
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Shared OR file attachment (detailed card for Cash Advance, compact strip for Direct Payment / Cash Installment) --}}
+        <div
+            @if($orCardAlpine)
+                x-show="!({{ $orCardAlpine }}) || orOpen"
+                :class="({{ $orCardAlpine }}) ? 'mx-3 mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white' : ''"
+            @elseif($isCashAdvanceRr)
+                x-show="orOpen"
+                x-cloak
+                class="mx-3 mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white"
+            @endif
+        >
+            {{-- Header --}}
+            @if($orCardAlpine)
+                <div x-show="{{ $orCardAlpine }}" x-cloak class="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-950">
+                            OR photo / attachment
+                            @if($editable)<span class="text-red-500">*</span>@endif
+                        </p>
+                        <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · PDF, JPG, PNG · max 10MB</p>
+                    </div>
+                </div>
+                <div x-show="!({{ $orCardAlpine }})" x-cloak class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+                    <div class="flex min-w-0 items-center gap-2">
+                        <i data-lucide="receipt" class="h-4 w-4 shrink-0 text-slate-500"></i>
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Official Receipt</span>
+                        <span class="text-[11px] text-slate-400">Optional · 1 file · PDF, JPG, PNG · max 10MB</span>
+                    </div>
+                    @if($editable)
+                        <div class="flex items-center gap-2">
+                            <template x-if="orFileName">
+                                <div class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs">
+                                    <span class="max-w-[220px] truncate font-medium text-slate-800" x-text="orFileName"></span>
+                                    <button type="button" class="text-[11px] font-medium text-slate-400 transition hover:text-rose-600" x-on:click="clearOrFile()">Remove</button>
+                                </div>
+                            </template>
+                            <button
+                                type="button"
+                                x-show="!orFileName"
+                                x-on:click="$refs.orAttachment && $refs.orAttachment.click()"
+                                class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100"
+                            >Attach OR</button>
+                        </div>
+                    @endif
+                </div>
+            @elseif($isCashAdvanceRr)
+                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-950">
+                            OR photo / attachment
+                            @if($editable)<span class="text-red-500">*</span>@endif
+                        </p>
+                        <p class="truncate text-[11px] text-slate-500">Required to submit · 1 file · PDF, JPG, PNG · max 10MB</p>
+                    </div>
+                </div>
+            @else
+                <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+                    <div class="flex min-w-0 items-center gap-2">
+                        <i data-lucide="receipt" class="h-4 w-4 shrink-0 text-slate-500"></i>
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Official Receipt</span>
+                        @if($editable)
+                            <span class="text-[11px] text-slate-400">Optional · 1 file · PDF, JPG, PNG · max 10MB</span>
+                        @endif
+                    </div>
+                    @if($editable)
+                        <div class="flex items-center gap-2">
+                            <template x-if="orFileName">
+                                <div class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs">
+                                    <span class="max-w-[220px] truncate font-medium text-slate-800" x-text="orFileName"></span>
+                                    <button type="button" class="text-[11px] font-medium text-slate-400 transition hover:text-rose-600" x-on:click="clearOrFile()">Remove</button>
+                                </div>
+                            </template>
+                            <button
+                                type="button"
+                                x-show="!orFileName"
+                                x-on:click="$refs.orAttachment && $refs.orAttachment.click()"
+                                class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100"
+                            >Attach OR</button>
+                        </div>
+                    @elseif($orAttachmentPath && $orAttachmentName)
+                        <a
+                            href="{{ asset('storage/'.$orAttachmentPath) }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-[#0025cc] transition hover:bg-slate-100"
+                        >
+                            <i data-lucide="file-image" class="h-3.5 w-3.5"></i>
+                            <span class="max-w-[240px] truncate">{{ $orAttachmentName }}</span>
+                            <span class="text-[11px] text-slate-400">· View OR</span>
+                        </a>
+                    @endif
+                </div>
+            @endif
+
+            {{-- Single shared file input + Cash Advance dropzone body --}}
             @if($editable)
-                <div class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5">
-                    <template x-if="orCleared && !orFileName">
-                        <input type="hidden" name="clear_or_attachment" value="1">
-                    </template>
+                <template x-if="orCleared && !orFileName">
+                    <input type="hidden" name="clear_or_attachment" value="1">
+                </template>
+                <input
+                    type="file"
+                    name="or_attachment"
+                    accept=".pdf,.jpg,.jpeg,.png,image/*"
+                    class="sr-only"
+                    x-ref="orAttachment"
+                    x-on:change="onOrPick($event)"
+                >
+                @if($orCardAlpine || $isCashAdvanceRr)
+                <div
+                    class="space-y-1.5 border-t border-slate-100 px-3.5 py-2.5"
+                    @if($orCardAlpine) x-show="{{ $orCardAlpine }}" x-cloak @endif
+                >
                     <div
                         class="flex items-center gap-2 rounded-lg bg-slate-50 px-1.5 py-1.5"
                         x-show="orFileName"
@@ -363,19 +567,13 @@
                             x-on:click="clearOrFile()"
                         >Remove</button>
                     </div>
-                    <label
+                    <button
+                        type="button"
                         x-show="!orFileName"
                         x-cloak
-                        class="group flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2.5 transition hover:border-slate-400 hover:bg-slate-50"
+                        x-on:click="$refs.orAttachment && $refs.orAttachment.click()"
+                        class="group flex w-full cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-2.5 py-2.5 text-left transition hover:border-slate-400 hover:bg-slate-50"
                     >
-                        <input
-                            type="file"
-                            name="or_attachment"
-                            accept=".pdf,.jpg,.jpeg,.png,image/*"
-                            class="sr-only"
-                            x-ref="orAttachment"
-                            x-on:change="onOrPick($event)"
-                        >
                         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white text-slate-500 transition group-hover:border-slate-400 group-hover:text-slate-800">
                             <i data-lucide="upload" class="h-3.5 w-3.5"></i>
                         </div>
@@ -383,9 +581,10 @@
                             <p class="text-xs font-medium text-slate-800">Upload Official Receipt</p>
                             <p class="truncate text-[10px] text-slate-500">One file only</p>
                         </div>
-                    </label>
+                    </button>
                 </div>
-            @elseif($orAttachmentPath && $orAttachmentName)
+                @endif
+            @elseif($isCashAdvanceRr && $orAttachmentPath && $orAttachmentName)
                 <div class="border-t border-slate-100 px-3.5 py-2.5">
                     <a
                         href="{{ asset('storage/'.$orAttachmentPath) }}"
@@ -399,7 +598,7 @@
                         <span class="min-w-0 truncate">{{ $orAttachmentName }}</span>
                     </a>
                 </div>
-            @else
+            @elseif($isCashAdvanceRr)
                 <p class="border-t border-slate-100 px-3.5 py-2.5 text-sm text-slate-400">No OR attachment</p>
             @endif
         </div>
@@ -631,7 +830,7 @@
     function num(row, field) {
         var input = row.querySelector('input[name$="[' + field + ']"]');
         if (!input || String(input.value).trim() === '') return null;
-        var value = parseInt(input.value, 10);
+        var value = parseInt(String(input.value).replace(/,/g, ''), 10);
         return isNaN(value) ? null : Math.max(0, value);
     }
 
@@ -658,8 +857,8 @@
 
         var parts = [];
         if (original === 'bad_order' && damaged === 0) parts.push('Bad Order');
-        if (isMissing) parts.push(missing > 0 ? 'Missing ' + missing : 'Missing');
-        if (damaged > 0) parts.push('Damaged ' + damaged);
+        if (isMissing) parts.push(missing > 0 ? missing + ' Missing' : 'Missing');
+        if (damaged > 0) parts.push(damaged + ' Damaged');
 
         hidden.value = isMissing ? 'short' : (original === 'bad_order' ? 'bad_order' : 'ok');
 
@@ -690,7 +889,7 @@
             if (input) input.classList.toggle('rr-cell-invalid', field === problemField);
         });
 
-        var text = problem || (parts.length ? parts.join(' · ') : (hasData ? 'OK' : '—'));
+        var text = problem || (parts.length ? parts.join(' · ') : (hasData ? 'Good' : '—'));
         label.textContent = text;
         label.title = problem ? 'Fix this before submitting' : 'Worked out from Ordered, Received and Damaged';
         var flagged = parts.length > 0 && !problem;
@@ -987,6 +1186,74 @@
         if (display) display.remove();
         td.classList.remove('bg-slate-50/80');
         td.removeAttribute('title');
+    };
+
+    window.rrLockUnitCell = function (unitInput) {
+        if (!unitInput) return;
+        var td = unitInput.closest ? unitInput.closest('[data-rr-unit-cell], td') : null;
+        if (!td) return;
+        var val = String(unitInput.value ?? '').trim();
+        if (val === '') {
+            window.rrUnlockUnitCell(unitInput);
+            return;
+        }
+        var picker = td.querySelector('[data-rr-unit-picker]');
+        var display = td.querySelector('[data-rr-unit-display]');
+        if (picker) picker.classList.add('hidden');
+        if (display) {
+            display.textContent = val;
+            display.classList.remove('hidden');
+            display.classList.add('block');
+        }
+        td.classList.add('bg-slate-50/80');
+        td.title = 'Unit is locked from the purchase authority';
+    };
+
+    window.rrUnlockUnitCell = function (unitInput) {
+        if (!unitInput) return;
+        var td = unitInput.closest ? unitInput.closest('[data-rr-unit-cell], td') : null;
+        if (!td) return;
+        var picker = td.querySelector('[data-rr-unit-picker]');
+        var display = td.querySelector('[data-rr-unit-display]');
+        if (picker) picker.classList.remove('hidden');
+        if (display) {
+            display.classList.add('hidden');
+            display.classList.remove('block');
+        }
+        td.classList.remove('bg-slate-50/80');
+        td.removeAttribute('title');
+    };
+
+    window.rrSetSupplierEditable = function (root, editable) {
+        var scope = root || document;
+        var canEdit = !!editable;
+        scope.querySelectorAll('[data-rr-supplier-cell]').forEach(function (td) {
+            var sel = td.querySelector('[data-rr-supplier-select]');
+            var hidden = td.querySelector('[data-rr-supplier-hidden]');
+            var display = td.querySelector('[data-rr-supplier-display]');
+            var nameInput = td.querySelector('[name$="[supplier_name]"]');
+            var selectedOpt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+            var label = (selectedOpt && selectedOpt.dataset && selectedOpt.dataset.name)
+                ? selectedOpt.dataset.name
+                : (nameInput ? String(nameInput.value || '').trim() : '');
+            if (hidden && sel) hidden.value = sel.value || '';
+            if (nameInput && label) nameInput.value = label;
+            if (display) display.textContent = label || '—';
+
+            if (canEdit) {
+                if (sel) { sel.disabled = false; sel.classList.remove('hidden'); }
+                if (hidden) hidden.disabled = true;
+                if (display) { display.classList.add('hidden'); display.classList.remove('block'); }
+                td.classList.remove('bg-slate-50/80');
+                td.removeAttribute('title');
+            } else {
+                if (sel) { sel.disabled = true; sel.classList.add('hidden'); }
+                if (hidden) hidden.disabled = false;
+                if (display) { display.classList.remove('hidden'); display.classList.add('block'); }
+                td.classList.add('bg-slate-50/80');
+                td.title = 'Supplier is locked (editable for Cash Advance only)';
+            }
+        });
     };
 
     window.rrRefreshConditions = function (root) {

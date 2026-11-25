@@ -38,6 +38,10 @@ class EquipmentOpenBalance
             ->whereIn('rr.receiving_report_status', BackOrders::RECEIVED_RR_STATUSES)
             ->where('ri.receiving_report_item_quantity', '>', 0);
 
+        if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_verified')) {
+            $base->where('ri.receiving_report_item_verified', 1);
+        }
+
         $reportIds = (clone $base)
             ->select('rr.receiving_report_id')
             ->distinct()
@@ -62,6 +66,7 @@ class EquipmentOpenBalance
         foreach ([
             'receiving_report_items_table' => [
                 'receiving_report_item_ordered_qty' => 'ri.receiving_report_item_ordered_qty',
+                'receiving_report_item_damaged_qty' => 'ri.receiving_report_item_damaged_qty',
                 'receiving_report_item_unit' => 'ri.receiving_report_item_unit',
                 'receiving_report_item_unit_price' => 'ri.receiving_report_item_unit_price',
                 'receiving_report_item_amount' => 'ri.receiving_report_item_amount',
@@ -118,7 +123,9 @@ class EquipmentOpenBalance
             $bucket = $equipmentByItem->get($itemId, self::emptyBucket());
 
             $ordered = (int) ($row->receiving_report_item_ordered_qty ?? $row->receiving_report_item_quantity ?? 0);
-            $received = (int) ($row->receiving_report_item_quantity ?? 0);
+            $rawReceived = (int) ($row->receiving_report_item_quantity ?? 0);
+            $damaged = (int) ($row->receiving_report_item_damaged_qty ?? 0);
+            $received = max(0, $rawReceived - $damaged);
             // Prefer dual-link stocked qty so RR→equipment and equipment→RR stay aligned.
             $stocked = max((int) $bucket['stocked'], (int) ($stockedByItem[$itemId] ?? 0));
             $inStorage = (int) $bucket['in_storage'];

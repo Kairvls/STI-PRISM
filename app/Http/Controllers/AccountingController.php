@@ -1457,6 +1457,12 @@ class AccountingController extends Controller
             session(['accounting.liq_status' => 'incoming']);
         }
 
+        // Auto-switch from Needs review to All when Needs review is empty and All has records
+        if (! $request->ajax() && ! $attentionFocus && ! $deadlineFilter && $filter === 'incoming' && $this->countLiqIncoming() === 0 && $this->countLiqAll() > 0) {
+            $filter = 'all';
+            session(['accounting.liq_status' => 'all']);
+        }
+
         $query = $this->liqQuery();
         AccountingAttentionSummary::scopeLiqActive($query);
 
@@ -1512,6 +1518,37 @@ class AccountingController extends Controller
             END', [now()->toDateString(), now()->toDateString()]);
         }
         $records = $query->orderByDesc($this->liqSortColumn())->paginate(15)->withQueryString();
+
+        // Preload items & attachments for reviewable records on this page so the Verify modal opens instantly (0ms)
+        $reviewableIds = $records->getCollection()
+            ->filter(fn ($r) => in_array((string) ($r->liquidation_report_status ?? ''), self::LIQ_INCOMING, true))
+            ->pluck('liquidation_report_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+        $rowsByLiq = ($reviewableIds !== [] && Schema::hasTable('liquidation_report_items_table'))
+            ? DB::table('liquidation_report_items_table')
+                ->whereIn('liquidation_report_id', $reviewableIds)
+                ->orderBy('liquidation_item_id')
+                ->get()
+                ->groupBy('liquidation_report_id')
+            : collect();
+        $attsByLiq = ($reviewableIds !== [] && Schema::hasTable('liquidation_report_attachments_table'))
+            ? DB::table('liquidation_report_attachments_table')
+                ->whereIn('liquidation_report_id', $reviewableIds)
+                ->orderBy('liquidation_attachment_id')
+                ->get()
+                ->groupBy('liquidation_report_id')
+            : collect();
+        foreach ($records->getCollection() as $rec) {
+            $lid = (int) $rec->liquidation_report_id;
+            $rec->preloaded_rows = $rowsByLiq->get($lid, collect())->values();
+            $rec->preloaded_attachments = $attsByLiq->get($lid, collect())->map(fn ($file) => [
+                'name' => $file->liquidation_attachment_original_name,
+                'url' => '/accounting/liquidation-reports/'.$lid.'/attachments/'.$file->liquidation_attachment_id,
+            ])->values()->all();
+        }
+
         $counts = [
             'all' => $this->countLiqAll(),
             'incoming' => $this->countLiqIncoming(),
@@ -1540,7 +1577,56 @@ class AccountingController extends Controller
             ]);
         }
 
-        return view('accounting.liquidation-reports.index', compact('records', 'filter', 'counts', 'deadlineFilter', 'attentionFocus'));
+        $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+
+        return view('accounting.liquidation-reports.index', compact('records', 'filter', 'counts', 'deadlineFilter', 'attentionFocus', 'savedSignatures'));
+    }
+
+    public function showLiquidationPaper($id)
+    {
+        $liq = $this->liqQuery()->where('liquidation_reports_table.liquidation_report_id', $id)->first();
+        abort_if(!$liq, 404);
+
+        $rows = Schema::hasTable('liquidation_report_items_table')
+            ? DB::table('liquidation_report_items_table')
+                ->where('liquidation_report_id', $id)
+                ->orderBy('liquidation_item_id')
+                ->get()
+            : collect();
+
+        $attachments = Schema::hasTable('liquidation_report_attachments_table')
+            ? DB::table('liquidation_report_attachments_table')
+                ->where('liquidation_report_id', $id)
+                ->orderBy('liquidation_attachment_id')
+                ->get()
+            : collect();
+
+        $reviewable = in_array($liq->liquidation_report_status, self::LIQ_INCOMING, true);
+
+        $paperHtml = view('partials.liquidation-report-paper', [
+            'editable' => false,
+            'liq' => $liq,
+            'rows' => $rows,
+            'accLiveSign' => $reviewable,
+        ])->render();
+
+        $attachmentList = $attachments->map(fn ($file) => [
+            'name' => $file->liquidation_attachment_original_name,
+            'url' => '/accounting/liquidation-reports/'.$liq->liquidation_report_id.'/attachments/'.$file->liquidation_attachment_id,
+        ])->values()->all();
+
+        return response()->json([
+            'id' => (int) $liq->liquidation_report_id,
+            'form_number' => $liq->liquidation_report_form_number ?? ('LIQ-'.$liq->liquidation_report_id),
+            'employee' => $liq->liquidation_report_employee_name ?? '—',
+            'rr_number' => $liq->receiving_report_form_number ?? '—',
+            'amount_advanced' => $liq->liquidation_report_summary_amt_advanced !== null ? (float) $liq->liquidation_report_summary_amt_advanced : null,
+            'actual_expense' => $liq->liquidation_report_summary_actual_expense !== null ? (float) $liq->liquidation_report_summary_actual_expense : null,
+            'balance' => $liq->liquidation_report_summary_balance !== null ? (float) $liq->liquidation_report_summary_balance : null,
+            'reviewable' => $reviewable,
+            'paper_html' => $paperHtml,
+            'attachments' => $attachmentList,
+        ]);
     }
 
     public function showLiquidation(Request $request, $id)
@@ -1621,11 +1707,15 @@ class AccountingController extends Controller
         }
 
         $name = \App\Support\AccountingSigner::nameFromRequest($request);
+        $checkedDateRaw = trim((string) $request->input('checked_by_date', ''));
+        $checkedDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $checkedDateRaw)
+            ? $checkedDateRaw
+            : now()->toDateString();
         $liqPayload = [
             'liquidation_report_status' => 'Approved',
             'liquidation_report_review_stage' => 'completed',
             'liquidation_report_checked_by_accountant' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
-            'liquidation_report_checked_by_date' => now()->toDateString(),
+            'liquidation_report_checked_by_date' => $checkedDate,
             'liquidation_report_updated_at' => now(),
         ];
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_checked_by_user_id')) {
@@ -2965,14 +3055,14 @@ class AccountingController extends Controller
         if ($atp) {
             $chain['atp'] = [
                 'label' => $atp->authority_purchase_form_number ?: ('ATP #' . $atpId),
-                'url' => ProcurementReviewPortal::atp((int) $atpId),
+                'url' => \App\Support\RequestExplorer::viewUrlFor('atp', (int) $atpId) ?: ProcurementReviewPortal::atp((int) $atpId),
                 'status' => $atp->authority_purchase_status,
             ];
             if (!empty($atp->authority_purchase_ris_id)) {
                 $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $atp->authority_purchase_ris_id)->first();
                 $chain['ris'] = [
                     'label' => RisWorkflow::formNumber($ris, (int) $atp->authority_purchase_ris_id),
-                    'url' => route('school-admin.ris.show', ['id' => $atp->authority_purchase_ris_id, 'atp' => $atpId]),
+                    'url' => \App\Support\RequestExplorer::viewUrlFor('ris', (int) $atp->authority_purchase_ris_id) ?: route('school-admin.ris.show', ['id' => $atp->authority_purchase_ris_id, 'atp' => $atpId]),
                     'status' => $ris->ris_status ?? null,
                 ];
             }
@@ -2981,9 +3071,13 @@ class AccountingController extends Controller
         if (Schema::hasTable('request_check_table')) {
             $rfc = RfcAtpLinks::latestRfcForAtp($atpId);
             if ($rfc) {
+                $paymentPath = \App\Support\ProcurementPaymentPath::normalize(
+                    ($atp->authority_purchase_payment_path ?? null) ?: ($rfc->request_check_funding_type ?? null)
+                );
+                $requiresLiq = \App\Support\ProcurementPaymentPath::requiresLiquidation($paymentPath);
                 $chain['rfc'] = [
                     'label' => $rfc->request_check_form_number ?: ('RFC #' . $rfc->request_check_id),
-                    'url' => ProcurementReviewPortal::requestCheck((int) $rfc->request_check_id),
+                    'url' => \App\Support\RequestExplorer::viewUrlFor('rfc', (int) $rfc->request_check_id) ?: ProcurementReviewPortal::requestCheck((int) $rfc->request_check_id),
                     'status' => $rfc->request_check_status,
                     'kind' => \App\Support\ProcurementPaymentPath::labelFromRfc($rfc, $atp ?? null),
                 ];
@@ -3003,23 +3097,32 @@ class AccountingController extends Controller
                         ->orderByDesc('receiving_report_id')
                         ->first();
                     if ($rr) {
-                        $chain['rr'] = [
-                            'label' => $rr->receiving_report_form_number ?: ('RR #' . $rr->receiving_report_id),
-                            'url' => null,
-                            'status' => $rr->receiving_report_status ?? null,
-                        ];
+                        $liq = null;
                         if (Schema::hasTable('liquidation_reports_table')) {
                             $liq = DB::table('liquidation_reports_table')
                                 ->where('liquidation_report_receiving_report_id', $rr->receiving_report_id)
                                 ->orderByDesc('liquidation_report_id')
                                 ->first();
-                            if ($liq) {
-                                $chain['liq'] = [
-                                    'label' => $liq->liquidation_report_form_number ?: ('LIQ #' . $liq->liquidation_report_id),
-                                    'url' => '/accounting/liquidation-reports/' . $liq->liquidation_report_id,
-                                    'status' => $liq->liquidation_report_status,
-                                ];
+                        }
+                        $rrDisplayStatus = $rr->receiving_report_status ?? null;
+                        if ($requiresLiq && in_array((string) $rrDisplayStatus, ['Completed', 'Accepted', 'Delivered'], true)) {
+                            if (!$liq || ($liq->liquidation_report_status ?? null) === 'Rejected') {
+                                $rrDisplayStatus = 'Needs Liquidation';
+                            } elseif (($liq->liquidation_report_status ?? null) !== 'Approved') {
+                                $rrDisplayStatus = 'For Liquidation';
                             }
+                        }
+                        $chain['rr'] = [
+                            'label' => $rr->receiving_report_form_number ?: ('RR #' . $rr->receiving_report_id),
+                            'url' => \App\Support\RequestExplorer::viewUrlFor('rr', (int) $rr->receiving_report_id),
+                            'status' => $rrDisplayStatus,
+                        ];
+                        if ($liq) {
+                            $chain['liq'] = [
+                                'label' => $liq->liquidation_report_form_number ?: ('LIQ #' . $liq->liquidation_report_id),
+                                'url' => '/accounting/liquidation-reports/' . $liq->liquidation_report_id,
+                                'status' => $liq->liquidation_report_status,
+                            ];
                         }
                     }
                 }

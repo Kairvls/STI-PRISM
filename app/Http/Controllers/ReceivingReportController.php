@@ -77,6 +77,17 @@ class ReceivingReportController extends Controller
             $query->whereDate('receiving_reports_table.receiving_report_date', $request->date);
         }
 
+        $paymentFilter = ProcurementPaymentPath::normalize(is_string($request->query('payment')) ? $request->query('payment') : null);
+        if ($paymentFilter !== null) {
+            $query->where(function ($q) use ($paymentFilter) {
+                $q->where('authority_to_purchase_table.authority_purchase_payment_path', $paymentFilter)
+                    ->orWhere(function ($fallback) use ($paymentFilter) {
+                        $fallback->whereNull('authority_to_purchase_table.authority_purchase_payment_path')
+                            ->where('request_check_table.request_check_funding_type', $paymentFilter);
+                    });
+            });
+        }
+
         $completeness = in_array($request->query('completeness'), ['complete', 'incomplete'], true) ? $request->query('completeness') : null;
         if (!$attentionFocus) {
             $this->applyBackOrderFilters($query, $completeness, $request->boolean('replacement'), $request->boolean('new_supplier'));
@@ -125,23 +136,31 @@ class ReceivingReportController extends Controller
         $rrIds = $reports->getCollection()->pluck('receiving_report_id');
         $items = $this->itemsFor($rrIds);
 
-        $rrHasLiq = [];
+        $rrLiqStatus = [];
         if ($rrIds->isNotEmpty() && Schema::hasTable('liquidation_reports_table')) {
-            $rrHasLiq = DB::table('liquidation_reports_table')
+            $liqRows = DB::table('liquidation_reports_table')
                 ->whereIn('liquidation_report_receiving_report_id', $rrIds)
                 ->where(function ($q) {
                     $q->whereNull('liquidation_report_is_archived')
                         ->orWhere('liquidation_report_is_archived', 0);
                 })
                 ->where('liquidation_report_status', '!=', 'Rejected')
-                ->pluck('liquidation_report_receiving_report_id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
+                ->orderByDesc('liquidation_report_id')
+                ->get(['liquidation_report_receiving_report_id', 'liquidation_report_status']);
+
+            foreach ($liqRows as $lr) {
+                $rid = (int) $lr->liquidation_report_receiving_report_id;
+                if (!isset($rrLiqStatus[$rid])) {
+                    $rrLiqStatus[$rid] = (string) ($lr->liquidation_report_status ?? '');
+                }
+            }
         }
 
         $unresolvedBackOrders = BackOrders::unresolvedCounts($rrIds->all());
         foreach ($reports as $rr) {
-            $rr->has_liq = in_array((int) $rr->receiving_report_id, $rrHasLiq, true);
+            $rid = (int) $rr->receiving_report_id;
+            $rr->has_liq = array_key_exists($rid, $rrLiqStatus);
+            $rr->liq_status = $rrLiqStatus[$rid] ?? null;
             $path = ProcurementPaymentPath::normalize(
                 $rr->authority_purchase_payment_path
                     ?? ($rr->request_check_funding_type ?? null)
@@ -1617,8 +1636,8 @@ class ReceivingReportController extends Controller
                     'article' => $item->atp_description,
                     'unit_price' => $item->atp_unit_price,
                     'equipment_id' => $equipmentId ?: null,
-                    'supplier_id' => $path === ProcurementPaymentPath::CASH_ADVANCE ? null : $rfc->authority_purchase_supplier_id,
-                    'supplier_name' => $path === ProcurementPaymentPath::CASH_ADVANCE ? '' : $from,
+                    'supplier_id' => $rfc->authority_purchase_supplier_id,
+                    'supplier_name' => $from,
                 ];
             }
             $references = [];

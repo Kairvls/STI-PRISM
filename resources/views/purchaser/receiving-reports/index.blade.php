@@ -158,7 +158,10 @@
                 const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
                 const article = form.querySelector('[name=\'items[' + i + '][article]\']');
                 const unitPrice = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
-                const supplier = form.querySelector('[name=\'items[' + i + '][supplier_id]\']');
+                const supplier = form.querySelector('[data-rr-supplier-select][name=\'items[' + i + '][supplier_id]\']')
+                    || form.querySelector('[name=\'items[' + i + '][supplier_id]\']');
+                const supplierHidden = form.querySelector('[data-rr-supplier-hidden][name=\'items[' + i + '][supplier_id]\']');
+                const supplierNameInput = form.querySelector('[name=\'items[' + i + '][supplier_name]\']');
                 if (qty) qty.value = item.quantity ?? '';
                 if (ordered) {
                     const hasOrdered = item.ordered_qty != null && item.ordered_qty !== '';
@@ -171,14 +174,25 @@
                 }
                 if (damaged) damaged.value = '';
                 if (unit) {
-                    unit.value = item.unit ?? '';
+                    const hasUnit = item.unit != null && String(item.unit).trim() !== '';
+                    unit.value = hasUnit ? item.unit : '';
                     unit.dispatchEvent(new Event('input', { bubbles: true }));
+                    if (hasUnit && window.rrLockUnitCell) {
+                        window.rrLockUnitCell(unit);
+                    } else if (!hasUnit && window.rrUnlockUnitCell) {
+                        window.rrUnlockUnitCell(unit);
+                    }
                 }
                 if (article) article.value = item.article ?? '';
                 const equipment = form.querySelector('[name=\'items[' + i + '][equipment_id]\']');
                 if (equipment) equipment.value = item.equipment_id ? String(item.equipment_id) : '';
                 if (unitPrice) unitPrice.value = item.unit_price ?? '';
                 if (supplier && item.supplier_id) supplier.value = item.supplier_id;
+                if (supplierHidden && item.supplier_id) supplierHidden.value = item.supplier_id;
+                if (supplierNameInput && item.supplier_name) supplierNameInput.value = item.supplier_name;
+            }
+            if (window.rrSetSupplierEditable) {
+                window.rrSetSupplierEditable(form, this.isCashAdvance(this.selectedFundingKey));
             }
             if (window.rrRefreshConditions) window.rrRefreshConditions(form);
         },
@@ -322,6 +336,13 @@
                         >
                     </div>
 
+                    <select id="rr-payment" name="payment" aria-label="Filter by payment method" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
+                        <option value="">All payments</option>
+                        <option value="direct_payment" @selected(request('payment') === 'direct_payment')>Direct Payment</option>
+                        <option value="cash_installment" @selected(request('payment') === 'cash_installment')>Cash Installment</option>
+                        <option value="cash_advance" @selected(request('payment') === 'cash_advance')>Cash Advance</option>
+                    </select>
+
                     <select id="rr-status" name="status" aria-label="Filter by status" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
                         @foreach(['Draft','Submitted','Minor Revision','Incomplete','Completed','Returned'] as $status)
@@ -330,9 +351,9 @@
                     </select>
 
                     <select id="rr-completeness" name="completeness" aria-label="Filter by delivery completeness" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                        <option value="">Complete &amp; incomplete</option>
+                        <option value="">Complete &amp; partial</option>
                         <option value="complete" @selected(($completeness ?? null) === 'complete')>Complete only</option>
-                        <option value="incomplete" @selected(($completeness ?? null) === 'incomplete')>Incomplete only</option>
+                        <option value="incomplete" @selected(($completeness ?? null) === 'incomplete')>Partial receive only</option>
                     </select>
 
                     <input id="rr-date" type="date" name="date" value="{{ request('date') }}" aria-label="Filter by date" class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
@@ -397,14 +418,15 @@
                                                 'size' => 'sm',
                                                 'title' => 'Inherited from linked RIS',
                                             ])
-                                            @if($rrFundLabel && $rrFundLabel !== 'Not chosen')
-                                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset {{ $rrIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-600 ring-slate-200' }}">{{ $rrFundLabel }}</span>
-                                            @endif
+                                            @include('partials.payment-method-badge', [
+                                                'path' => $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null),
+                                                'size' => 'sm',
+                                            ])
                                         </div>
                                         @if(($rr->open_back_orders ?? 0) > 0 || ($rr->replacement_rows ?? 0) > 0)
                                             <p class="mt-0.5 text-xs text-gray-400">
                                                 @if(($rr->open_back_orders ?? 0) > 0)
-                                                    <span class="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">{{ $rr->receiving_report_status === 'Incomplete' ? '' : 'Incomplete · ' }}{{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }}</span>
+                                                    <span class="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">{{ $rr->receiving_report_status === 'Incomplete' ? '' : 'Partial Receive · ' }}{{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }}</span>
                                                 @endif
                                                 @if(($rr->replacement_rows ?? 0) > 0)
                                                     <span class="ml-1 rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700">{{ $rr->replacement_rows }} replacement row{{ $rr->replacement_rows === 1 ? '' : 's' }}</span>
@@ -424,11 +446,128 @@
                             <td class="px-5 py-4 text-gray-600">{{ $rr->receiving_report_received_from ?: '—' }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ $rr->receiving_report_date ? \Carbon\Carbon::parse($rr->receiving_report_date)->format('M d, Y') : '—' }}</td>
                             <td class="px-5 py-4">
-                                @include('accounting.partials.status-badge', ['status' => $rr->receiving_report_status, 'doc' => 'rr'])
+                                @php
+                                    $rrRawStatus = trim((string) ($rr->receiving_report_status ?? ''));
+                                    $rrRowItems = collect($itemsByRr[$rr->receiving_report_id] ?? []);
+                                    $rrOrderedTotal = 0;
+                                    $rrGoodReceivedTotal = 0;
+                                    if ($rrRawStatus === 'Incomplete') {
+                                        foreach ($rrRowItems as $ri) {
+                                            $isRepl = !empty($ri->receiving_report_item_back_order_id);
+                                            if (!$isRepl) {
+                                                $rrOrderedTotal += (int) ($ri->receiving_report_item_ordered_qty ?? $ri->receiving_report_item_quantity ?? 0);
+                                            }
+                                            $rawQty = (int) ($ri->receiving_report_item_quantity ?? 0);
+                                            $dmgQty = (int) ($ri->receiving_report_item_damaged_qty ?? 0);
+                                            $isVerified = !property_exists($ri, 'receiving_report_item_verified') || !empty($ri->receiving_report_item_verified);
+                                            if ($isVerified) {
+                                                $rrGoodReceivedTotal += max(0, $rawQty - $dmgQty);
+                                            }
+                                        }
+                                    }
+                                    $rrBadge = match (true) {
+                                        $rrRawStatus === 'Draft' => [
+                                            'pill' => 'Draft',
+                                            'sub' => 'In preparation',
+                                            'bg' => '#f1f5f9', 'fg' => '#475569', 'border' => '#cbd5e1', 'dot' => '#64748b',
+                                        ],
+                                        in_array($rrRawStatus, ['Pending', 'Submitted', 'Resubmitted', 'Under Review', 'In Review'], true) => [
+                                            'pill' => 'For Second Count',
+                                            'sub' => 'With Receiving Officer',
+                                            'bg' => '#f0f9ff', 'fg' => '#0369a1', 'border' => '#bae6fd', 'dot' => '#0284c7',
+                                        ],
+                                        $rrRawStatus === 'Incomplete' => [
+                                            'pill' => 'Partial Receive',
+                                            'sub' => $rrOrderedTotal > 0 ? ('Received '.min($rrGoodReceivedTotal, $rrOrderedTotal).' of '.$rrOrderedTotal) : 'Back order open',
+                                            'bg' => '#fffbeb', 'fg' => '#b45309', 'border' => '#fde68a', 'dot' => '#d97706',
+                                        ],
+                                        in_array($rrRawStatus, ['Completed', 'Accepted', 'Delivered'], true) && $rrIsCashAdvance && empty($rr->has_liq) => [
+                                            'pill' => 'Needs Liquidation',
+                                            'sub' => 'Create Liquidation Report',
+                                            'bg' => '#eef2ff', 'fg' => '#4338ca', 'border' => '#c7d2fe', 'dot' => '#4f46e5',
+                                        ],
+                                        in_array($rrRawStatus, ['Completed', 'Accepted', 'Delivered'], true) && $rrIsCashAdvance && ($rr->liq_status ?? null) !== 'Approved' => [
+                                            'pill' => 'For Liquidation',
+                                            'sub' => in_array($rr->liq_status ?? '', ['Draft', 'Minor Revision'], true) ? 'Liquidation in progress' : 'With Accounting',
+                                            'bg' => '#f0f9ff', 'fg' => '#0369a1', 'border' => '#bae6fd', 'dot' => '#0284c7',
+                                        ],
+                                        in_array($rrRawStatus, ['Completed', 'Accepted', 'Delivered'], true) && $rrIsCashAdvance => [
+                                            'pill' => 'Completed',
+                                            'sub' => 'Liquidated & Verified',
+                                            'bg' => '#ecfdf5', 'fg' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+                                        ],
+                                        in_array($rrRawStatus, ['Completed', 'Accepted', 'Delivered'], true) => [
+                                            'pill' => 'Completed',
+                                            'sub' => 'Verified by Receiving',
+                                            'bg' => '#ecfdf5', 'fg' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+                                        ],
+                                        in_array($rrRawStatus, ['Minor Revision', 'Returned', 'For revision'], true) => [
+                                            'pill' => 'Returned',
+                                            'sub' => 'For revision',
+                                            'bg' => '#fff7ed', 'fg' => '#c2410c', 'border' => '#fed7aa', 'dot' => '#ea580c',
+                                        ],
+                                        default => [
+                                            'pill' => \App\Support\ProcurementStatus::label($rrRawStatus, 'rr'),
+                                            'sub' => '',
+                                            'bg' => '#fef2f2', 'fg' => '#b91c1c', 'border' => '#fecaca', 'dot' => '#dc2626',
+                                        ],
+                                    };
+                                @endphp
+                                <div class="inline-flex flex-col items-start">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                        style="background:{{ $rrBadge['bg'] }};color:{{ $rrBadge['fg'] }};border-color:{{ $rrBadge['border'] }};"
+                                    >
+                                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $rrBadge['dot'] }};"></span>
+                                        <span>{{ $rrBadge['pill'] }}</span>
+                                    </span>
+                                    @if($rrBadge['sub'] !== '')
+                                        <span class="mt-1 whitespace-nowrap text-[11px] font-medium leading-tight text-slate-500">
+                                            {{ $rrBadge['sub'] }}
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-5 py-4">
+                                @php
+                                    $rrNeedsLiq = !$archiveView
+                                        && $rr->receiving_report_status === 'Completed'
+                                        && !empty($rr->requires_liquidation)
+                                        && empty($rr->has_liq);
+                                    $rrHasOpenBo = !$archiveView && ($rr->open_back_orders ?? 0) > 0;
+                                @endphp
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
-                                    <button type="button" @click="openView({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    @if($rrNeedsLiq)
+                                        <button
+                                            type="button"
+                                            @click="openView({{ $rr->receiving_report_id }})"
+                                            class="relative inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                            title="Create Liquidation"
+                                            aria-label="Create Liquidation"
+                                        >
+                                            <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+                                            <span class="pointer-events-none absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></span>
+                                            </span>
+                                        </button>
+                                    @elseif($rrHasOpenBo)
+                                        <button
+                                            type="button"
+                                            @click="openView({{ $rr->receiving_report_id }})"
+                                            class="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
+                                            title="Back orders ({{ $rr->open_back_orders }} open)"
+                                            aria-label="Back orders"
+                                        >
+                                            <i data-lucide="package-x" class="h-4 w-4"></i>
+                                            <span class="pointer-events-none absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></span>
+                                            </span>
+                                        </button>
+                                    @else
+                                        <button type="button" @click="openView({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    @endif
                                     <button
                                         type="button"
                                         data-share-doc-type="rr"
@@ -441,9 +580,6 @@
                                         <i data-lucide="share-2" class="h-4 w-4"></i>
                                     </button>
                                     <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
-                                    @if(!$archiveView && ($rr->open_back_orders ?? 0) > 0)
-                                        <a href="{{ route(($pp ?? 'purchaser').'.bo.index', ['rr' => $rr->receiving_report_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100" title="Back orders ({{ $rr->open_back_orders }} open)" aria-label="Back orders"><i data-lucide="package-x" class="h-4 w-4"></i></a>
-                                    @endif
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         @php
@@ -472,9 +608,7 @@
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
-                                        @if(!$rr->has_liq)
-                                            <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create Liquidation" aria-label="Create Liquidation"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
-                                        @else
+                                        @if($rr->has_liq)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="Liquidation Created" aria-label="Liquidation Created"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
                                         @endif
                                     @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && empty($rr->requires_liquidation))
@@ -482,9 +616,6 @@
                                     @endif
                                     @php
                                         // Hide archive while liquidation still needs to be created.
-                                        $rrNeedsLiq = $rr->receiving_report_status === 'Completed'
-                                            && ! empty($rr->requires_liquidation)
-                                            && empty($rr->has_liq);
                                         $canArchiveRr = in_array($rr->receiving_report_status, ['Completed', 'Returned'], true)
                                             && ! $rrNeedsLiq
                                             && (
@@ -613,7 +744,7 @@
                                 </select>
                                 <div class="mt-3" x-show="referencesFor(selectedFundingKey).length" x-cloak>
                                     <p class="text-xs font-medium text-slate-700">Approved reference</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-500">Canvass, RIS, ATP, and RFC already approved. Open them while you create this Receiving Report.</p>
+                                    <!--<p class="mt-0.5 text-[11px] text-slate-500">Canvass, RIS, ATP, and RFC already approved. Open them while you create this Receiving Report.</p>-->
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         <template x-for="ref in referencesFor(selectedFundingKey)" :key="ref.url">
                                             <a :href="ref.url" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0025cc] hover:bg-slate-50" x-text="ref.label"></a>
@@ -622,9 +753,6 @@
                                 </div>
                                 <p class="mt-1.5 text-xs text-slate-500" x-show="selectedFundingKey && isCashAdvance(selectedFundingKey)" x-cloak>
                                     Cash Advance RR — Official Receipt (OR) details are required.
-                                </p>
-                                <p class="mt-1.5 text-xs text-slate-500" x-show="selectedFundingKey && !isCashAdvance(selectedFundingKey)" x-cloak>
-                                    Official Receipt section is only for Cash Advance RFCs.
                                 </p>
                             </div>
                             @include('partials.receiving-report-paper', [
@@ -768,7 +896,15 @@
                                             'title' => 'Inherited from linked RIS',
                                         ])
                                         @if($viewFundLabel && $viewFundLabel !== 'Not chosen')
-                                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $viewIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $viewFundLabel }} RR</span>
+                                            @php
+                                                $viewFundPath = \App\Support\ProcurementPaymentPath::normalize($rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null));
+                                                $viewFundStyle = match ($viewFundPath) {
+                                                    \App\Support\ProcurementPaymentPath::CASH_ADVANCE => 'background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;',
+                                                    \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT => 'background:#fffbeb;color:#b45309;border-color:#fde68a;',
+                                                    default => 'background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;',
+                                                };
+                                            @endphp
+                                            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style="{{ $viewFundStyle }}">{{ $viewFundLabel }} RR</span>
                                         @endif
                                     </div>
                                     <p class="mt-0.5 text-sm text-gray-500">RFC: {{ $rr->request_check_form_number ?? '—' }}</p>
@@ -854,13 +990,25 @@
                             Close
                         </button>
                         @if(!$archiveView && ($rr->open_back_orders ?? 0) > 0)
-                            <a href="{{ route(($pp ?? 'purchaser').'.bo.index', ['rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition hover:bg-amber-100">
+                            <a
+                                href="{{ route(($pp ?? 'purchaser').'.bo.index', ['rr' => $rr->receiving_report_id]) }}"
+                                data-pur-confirm="Open Back Orders for {{ $rr->receiving_report_form_number ?: 'this Receiving Report' }} to record a reason, refund, or replacement?"
+                                data-pur-confirm-title="Open Back Orders"
+                                data-pur-confirm-ok="Open Back Orders"
+                                class="inline-flex h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                            >
                                 <i data-lucide="package-x" class="h-4 w-4"></i>
                                 {{ $rr->open_back_orders }} back order{{ $rr->open_back_orders === 1 ? '' : 's' }} to complete this RR
                             </a>
                         @elseif(!$archiveView && $rr->receiving_report_status === 'Completed' && !empty($rr->requires_liquidation))
                             @if(!$rr->has_liq)
-                                <a href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}" class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800">Create Liquidation</a>
+                                <a
+                                    href="{{ route(($pp ?? 'purchaser').'.liq.index', ['selected_rr' => $rr->receiving_report_id]) }}"
+                                    data-pur-confirm="Proceed to create a Liquidation Report for {{ $rr->receiving_report_form_number ?: 'this Receiving Report' }}?"
+                                    data-pur-confirm-title="Create Liquidation Report"
+                                    data-pur-confirm-ok="Create Liquidation"
+                                    class="inline-flex h-10 items-center rounded-lg bg-[#0025cc] px-5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                                >Create Liquidation</a>
                             @else
                                 <span class="inline-flex h-10 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">Liquidation Created</span>
                             @endif
@@ -913,7 +1061,15 @@
                                                 );
                                         @endphp
                                         @if($editFundLabel && $editFundLabel !== 'Not chosen')
-                                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $editIsCashAdvance ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-slate-100 text-slate-700 ring-slate-200' }}">{{ $editFundLabel }} RR</span>
+                                            @php
+                                                $editFundPath = \App\Support\ProcurementPaymentPath::normalize($rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null));
+                                                $editFundStyle = match ($editFundPath) {
+                                                    \App\Support\ProcurementPaymentPath::CASH_ADVANCE => 'background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe;',
+                                                    \App\Support\ProcurementPaymentPath::CASH_INSTALLMENT => 'background:#fffbeb;color:#b45309;border-color:#fde68a;',
+                                                    default => 'background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;',
+                                                };
+                                            @endphp
+                                            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style="{{ $editFundStyle }}">{{ $editFundLabel }} RR</span>
                                         @endif
                                     </div>
                                     @if($editIsCashAdvance)

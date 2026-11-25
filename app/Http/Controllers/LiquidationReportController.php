@@ -134,7 +134,13 @@ class LiquidationReportController extends Controller
         }
 
         return DB::transaction(function () use ($request, $validated, $isDraft) {
+            $reviewerId = !$isDraft
+                ? ReviewerAssignment::resolve($request, WorkflowNotifier::ROLE_ACCOUNTING)
+                : null;
             $payload = $this->payloadFromValidated($validated, $isDraft, null);
+            if ($reviewerId && Schema::hasColumn('liquidation_reports_table', 'liquidation_report_assigned_reviewer_id')) {
+                $payload['liquidation_report_assigned_reviewer_id'] = $reviewerId;
+            }
             $id = DB::table('liquidation_reports_table')->insertGetId($payload);
             $this->replaceItems($id, $validated['items'] ?? []);
             if (!$isDraft && !$this->hasCompleteLiqItem($id)) {
@@ -152,7 +158,7 @@ class LiquidationReportController extends Controller
                         'liquidation_report_cash_returned_or_no' => $cashError,
                     ]);
                 }
-                $this->notifyAccountingLiq($id);
+                $this->notifyAccountingLiq($id, $reviewerId);
             }
 
             return ProcurementPortal::redirect('liq.index')->with(
@@ -382,6 +388,8 @@ class LiquidationReportController extends Controller
             'liquidation_report_activity_end_date' => ['nullable', 'date'],
             'liquidation_report_submission_deadline' => ['nullable', 'date'],
             'liquidation_report_date_submitted' => ['nullable', 'date'],
+            'liquidation_report_submitted_by_date' => ['nullable', 'date'],
+            'liquidation_report_days_lapse' => ['nullable', 'integer', 'min:0', 'max:99999'],
             'liquidation_report_other_income' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'liquidation_report_cash_returned_or_no' => ['nullable', 'string', 'max:100'],
             'liquidation_report_submitted_by_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
@@ -410,12 +418,19 @@ class LiquidationReportController extends Controller
         $activityEnd = $validated['liquidation_report_activity_end_date'] ?? null;
         $dateReleased = $validated['liquidation_report_date_released'] ?? null;
         // In preparation: do not start the 15-day clock from create date — only from activity end / release.
-        $deadline = LiquidationDeadline::resolveDeadline(
-            $activityEnd,
-            $dateReleased,
-            null
-        );
+        $deadline = !empty($validated['liquidation_report_submission_deadline'])
+            ? $validated['liquidation_report_submission_deadline']
+            : LiquidationDeadline::resolveDeadline(
+                $activityEnd,
+                $dateReleased,
+                null
+            );
         $daysAsOf = $isDraft ? null : ($submittedDate ?: $now->toDateString());
+        $manualDaysLapse = array_key_exists('liquidation_report_days_lapse', $validated)
+            && $validated['liquidation_report_days_lapse'] !== null
+            && $validated['liquidation_report_days_lapse'] !== ''
+            ? (int) $validated['liquidation_report_days_lapse']
+            : null;
 
         $row = [
             'liquidation_report_receiving_report_id' => $validated['liquidation_report_receiving_report_id'] ?? ($existing?->liquidation_report_receiving_report_id ?? null),
@@ -428,16 +443,16 @@ class LiquidationReportController extends Controller
             'liquidation_report_activity_end_date' => $activityEnd,
             'liquidation_report_submission_deadline' => $deadline,
             'liquidation_report_date_submitted' => $submittedDate,
-            'liquidation_report_days_lapse' => $isDraft
-                ? null
-                : LiquidationDeadline::daysLapsed($deadline, $daysAsOf),
+            'liquidation_report_days_lapse' => $manualDaysLapse !== null
+                ? $manualDaysLapse
+                : ($isDraft ? null : LiquidationDeadline::daysLapsed($deadline, $daysAsOf)),
             'liquidation_report_other_income' => $validated['liquidation_report_other_income'] ?? null,
             'liquidation_report_cash_returned_or_no' => $validated['liquidation_report_cash_returned_or_no'] ?? null,
             'liquidation_report_submitted_by_signature' => \App\Support\RisWorkflow::drawnOrName(
                 $validated['liquidation_report_submitted_by_signature'] ?? null,
                 trim((string) ($validated['liquidation_report_submitted_by_name'] ?? (auth()->user()->user_full_name ?? '')))
             ),
-            'liquidation_report_submitted_by_date' => $submittedDate,
+            'liquidation_report_submitted_by_date' => $validated['liquidation_report_submitted_by_date'] ?? $submittedDate,
             'liquidation_report_status' => $status,
             'liquidation_report_review_stage' => $isDraft ? ($existing?->liquidation_report_review_stage ?? null) : 'accounting',
             'liquidation_report_submitted_by' => $isDraft ? ($existing?->liquidation_report_submitted_by ?? null) : auth()->id(),
@@ -655,6 +670,30 @@ class LiquidationReportController extends Controller
                 'request_check_table.request_check_id'
             );
 
+        $select = [
+            'receiving_reports_table.receiving_report_id',
+            'receiving_reports_table.receiving_report_form_number',
+            'request_check_table.request_check_id',
+            'request_check_table.request_check_form_number',
+            'request_check_table.request_check_particulars_purpose',
+            'request_check_table.request_check_amount_figures',
+            'request_check_table.request_check_authority_purchase_id',
+            'authority_to_purchase_table.authority_purchase_id',
+            'authority_to_purchase_table.authority_purchase_form_number',
+        ];
+        foreach ([
+            'receiving_report_or_number',
+            'receiving_report_check_amount',
+            'receiving_report_or_amount',
+            'receiving_report_change_amount',
+            'receiving_report_or_attachment_path',
+            'receiving_report_or_attachment_name',
+        ] as $orCol) {
+            if (Schema::hasColumn('receiving_reports_table', $orCol)) {
+                $select[] = 'receiving_reports_table.'.$orCol;
+            }
+        }
+
         return $this->joinRrAtp($query)
             ->where('receiving_reports_table.receiving_report_status', 'Completed')
             ->where(function ($q) {
@@ -685,17 +724,7 @@ class LiquidationReportController extends Controller
                         ->whereIn(BackOrders::TABLE.'.back_order_status', BackOrders::UNRESOLVED);
                 });
             })
-            ->select(
-                'receiving_reports_table.receiving_report_id',
-                'receiving_reports_table.receiving_report_form_number',
-                'request_check_table.request_check_id',
-                'request_check_table.request_check_form_number',
-                'request_check_table.request_check_particulars_purpose',
-                'request_check_table.request_check_amount_figures',
-                'request_check_table.request_check_authority_purchase_id',
-                'authority_to_purchase_table.authority_purchase_id',
-                'authority_to_purchase_table.authority_purchase_form_number'
-            )
+            ->select($select)
             ->orderByDesc('receiving_reports_table.receiving_report_id')
             ->limit(50);
     }
@@ -774,11 +803,10 @@ class LiquidationReportController extends Controller
                 ];
             }
 
-            $cashHint = $shortfall > 0
-                ? 'Return unused cash ₱'.number_format($shortfall, 2).' (undelivered or refunded items)'
-                : '';
-
-            // Prefer OR amount from RR when recorded (actual spend); else check / ATP share.
+            $orNumber = trim((string) ($rr->receiving_report_or_number ?? ''));
+            $checkFromOr = isset($rr->receiving_report_check_amount) && $rr->receiving_report_check_amount !== null
+                ? round((float) $rr->receiving_report_check_amount, 2)
+                : null;
             $orAmount = isset($rr->receiving_report_or_amount) && $rr->receiving_report_or_amount !== null
                 ? round((float) $rr->receiving_report_or_amount, 2)
                 : null;
@@ -786,16 +814,75 @@ class LiquidationReportController extends Controller
                 ? round((float) $rr->receiving_report_change_amount, 2)
                 : null;
 
-            // One funding request can cover several ATPs; each RR liquidates only its ATP's budget share.
-            $amount = $orAmount !== null
-                ? $orAmount
+            // Amount Advanced is the Check / Funds amount (or ATP share if multi-ATP RFC).
+            $amount = $checkFromOr !== null
+                ? $checkFromOr
                 : ($isShare
                     ? round((float) $atp->sum(fn ($row) => (float) ($row->atp_amount ?? 0)), 2)
-                    : ($rr->request_check_amount_figures ?? ''));
+                    : (isset($rr->request_check_amount_figures) ? round((float) $rr->request_check_amount_figures, 2) : ''));
+
+            if ($changeFromOr === null && $orAmount !== null && is_numeric($amount)) {
+                $changeFromOr = max(0.0, round((float) $amount - $orAmount, 2));
+            }
+
+            // Prefill REF.No. from RR OR number and align item actuals with RR OR spend when recorded.
+            if ($rows !== []) {
+                if ($orNumber !== '') {
+                    foreach ($rows as &$r) {
+                        $r['ref_no'] = $orNumber;
+                    }
+                    unset($r);
+                }
+                if ($orAmount !== null) {
+                    if (count($rows) === 1) {
+                        $rows[0]['actual_amount'] = $orAmount;
+                        $rows[0]['actual_total'] = $orAmount;
+                    } else {
+                        $rowActualSum = round(array_sum(array_map(fn ($r) => (float) ($r['actual_total'] ?? 0), $rows)), 2);
+                        if ($rowActualSum > 0 && abs($rowActualSum - $orAmount) >= 0.01) {
+                            $allocated = 0.0;
+                            $lastIdx = count($rows) - 1;
+                            foreach ($rows as $idx => &$r) {
+                                if ($idx === $lastIdx) {
+                                    $share = max(0.0, round($orAmount - $allocated, 2));
+                                } else {
+                                    $share = round($orAmount * ((float) ($r['actual_total'] ?? 0) / $rowActualSum), 2);
+                                    $allocated += $share;
+                                }
+                                $r['actual_amount'] = $share;
+                                $r['actual_total'] = $share;
+                            }
+                            unset($r);
+                        }
+                    }
+                }
+            }
+
             if ($changeFromOr !== null && $changeFromOr > 0) {
                 $shortfall = max($shortfall, $changeFromOr);
                 $notes[] = 'Change returned to cashier ₱'.number_format($changeFromOr, 2).' (check vs OR)';
             }
+
+            $cashHint = '';
+            if ($changeFromOr !== null && $changeFromOr > 0 && $orAmount !== null && is_numeric($amount)) {
+                $cashHint = 'Return unused cash ₱'.number_format($changeFromOr, 2).' (Check ₱'.number_format((float) $amount, 2).' vs OR ₱'.number_format($orAmount, 2).')';
+            } elseif ($shortfall > 0) {
+                $cashHint = 'Return unused cash ₱'.number_format($shortfall, 2).' (undelivered or refunded items)';
+            }
+
+            $orPath = trim((string) ($rr->receiving_report_or_attachment_path ?? ''));
+            $orName = trim((string) ($rr->receiving_report_or_attachment_name ?? ''));
+            $orSummary = ($orNumber !== '' || $orAmount !== null || $orPath !== '')
+                ? [
+                    'or_number' => $orNumber,
+                    'check_amount' => is_numeric($amount) ? round((float) $amount, 2) : null,
+                    'or_amount' => $orAmount,
+                    'change_amount' => $changeFromOr,
+                    'attachment_url' => $orPath !== '' ? asset('storage/'.$orPath) : null,
+                    'attachment_name' => $orName !== '' ? $orName : ($orPath !== '' ? basename($orPath) : null),
+                ]
+                : null;
+
             $purpose = (string) ($rr->request_check_particulars_purpose ?? '');
             if ($isShare && filled($rr->authority_purchase_form_number ?? null)) {
                 $purpose = $purpose !== ''
@@ -810,6 +897,7 @@ class LiquidationReportController extends Controller
                 'shortfall_amount' => round($shortfall, 2),
                 'shortfall_notes' => $notes,
                 'cash_returned_hint' => $cashHint,
+                'or_summary' => $orSummary,
             ];
         }
 

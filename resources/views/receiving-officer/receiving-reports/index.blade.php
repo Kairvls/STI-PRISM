@@ -12,6 +12,23 @@
         remarksRr: null,
         signOpen: false,
         signRr: null,
+        signDirty: false,
+        closeSignConfirm: false,
+        requestCloseSign() {
+            if (!this.signDirty) {
+                this.signOpen = false;
+                return;
+            }
+            this.closeSignConfirm = true;
+        },
+        confirmCloseSign() {
+            this.signDirty = false;
+            this.closeSignConfirm = false;
+            this.signOpen = false;
+        },
+        cancelCloseSign() {
+            this.closeSignConfirm = false;
+        },
         openView(id) { this.selectedRr = id; this.viewOpen = true; },
         openRevise(id) {
             this.remarksRr = id;
@@ -39,6 +56,7 @@
         },
         openSign(id) {
             this.signRr = id;
+            this.signDirty = false;
             this.signOpen = true;
             this.viewOpen = false;
             this.reviseOpen = false;
@@ -74,9 +92,8 @@
         @php
             $focusKey = $attentionFocus['key'] ?? null;
             $statusFilters = [
+                'all' => 'All',
                 'queue' => 'For Second Count',
-                'completed' => 'Delivered',
-                'returned' => 'Returned',
             ];
             $activeStatus = $focusKey === 'leftover' || (int) request('rr') > 0 ? null : $filter;
         @endphp
@@ -94,9 +111,6 @@
             @if($focusKey)
                 <input type="hidden" name="focus" value="{{ $focusKey }}">
             @endif
-            @if(!empty($dateFilter))
-                <input type="hidden" name="date" value="{{ $dateFilter }}">
-            @endif
             <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex shrink-0 items-center gap-2.5">
@@ -106,43 +120,74 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center justify-end gap-2">
-                        <input
-                            type="text"
-                            name="search"
-                            value="{{ request('search') }}"
-                            placeholder="Search RR, RFC, or received from"
-                            class="h-10 w-64 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
-                        >
-                        <button type="submit" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800">
-                            <i data-lucide="search" class="h-3.5 w-3.5"></i>
-                            Search
-                        </button>
-                        @if(request()->filled('search'))
-                            <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'date' => $dateFilter ?? null, 'focus' => $focusKey])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                                <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
-                                Reset
-                            </a>
-                        @endif
                         @include('admin.partials.view-mode-switcher', [
                             'switcherId' => 'roRrViewSwitcher',
                             'btnClass' => 'ro-rr-view-btn',
                         ])
                     </div>
                 </div>
-                <nav
-                    class="mt-4 flex items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                    role="tablist"
-                    aria-label="Receiving report status filters"
-                >
-                    @foreach ($statusFilters as $key => $label)
-                        <a
-                            href="{{ route('receiving.rr.index', array_filter(['status' => $key, 'date' => $dateFilter ?? null, 'search' => request('search') ?: null])) }}"
-                            role="tab"
-                            aria-selected="{{ $activeStatus === $key ? 'true' : 'false' }}"
-                            class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $activeStatus === $key ? 'bg-slate-100 font-medium text-slate-950' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
-                        >{{ $label }}</a>
-                    @endforeach
-                </nav>
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <nav
+                        class="flex items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        role="tablist"
+                        aria-label="Receiving report status filters"
+                    >
+                        @foreach ($statusFilters as $key => $label)
+                            @php $tabCount = $key === 'queue' ? (int) ($counts['queue'] ?? 0) : null; @endphp
+                            <a
+                                href="{{ route('receiving.rr.index', array_filter(['status' => $key, 'date' => $dateFilter ?? null, 'search' => request('search') ?: null])) }}"
+                                role="tab"
+                                aria-selected="{{ $activeStatus === $key ? 'true' : 'false' }}"
+                                class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition {{ $activeStatus === $key ? 'bg-slate-100 font-medium text-slate-950' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                            >
+                                <span>{{ $label }}</span>
+                                @if($tabCount !== null && $tabCount > 0)
+                                    <span class="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums" style="background:#eef2ff;color:#4338ca;">{{ $tabCount }}</span>
+                                @endif
+                            </a>
+                        @endforeach
+                    </nav>
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                        <div class="relative">
+                            <button
+                                type="button"
+                                onclick="const el = document.getElementById('roRrDateInput'); if (el && typeof el.showPicker === 'function') { el.showPicker(); } else if (el) { el.focus(); el.click(); }"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-xl border transition {{ !empty($dateFilter) ? 'border-blue-300 bg-blue-50 text-[#0025cc]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}"
+                                data-tip="{{ !empty($dateFilter) ? 'Filtered: '.\Carbon\Carbon::parse($dateFilter)->format('M d, Y') : 'Filter by date' }}"
+                                data-tip-place="above"
+                                aria-label="Filter by date"
+                            >
+                                <i data-lucide="calendar" class="h-4 w-4"></i>
+                            </button>
+                            <input
+                                type="date"
+                                id="roRrDateInput"
+                                name="date"
+                                value="{{ $dateFilter ?? '' }}"
+                                onchange="this.form.submit()"
+                                class="pointer-events-none absolute left-0 top-0 h-10 w-10 opacity-0"
+                                tabindex="-1"
+                                aria-hidden="true"
+                            >
+                        </div>
+                        <div class="relative">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="text"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Search RR, RFC, or received from"
+                                class="h-10 w-64 rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
+                            >
+                        </div>
+                        @if(request()->filled('search') || !empty($dateFilter))
+                            <a href="{{ route('receiving.rr.index', array_filter(['status' => $filter, 'focus' => $focusKey])) }}" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                                Reset
+                            </a>
+                        @endif
+                    </div>
+                </div>
             </div>
 
             <div id="roRrTable" data-list-panel-root class="overflow-x-auto">
@@ -153,6 +198,7 @@
                             <th class="px-5 py-3.5">Request No.</th>
                             <th class="px-5 py-3.5">RFC</th>
                             <th class="px-5 py-3.5">Received from</th>
+                            <th class="px-5 py-3.5">Date</th>
                             <th class="px-5 py-3.5">Status</th>
                             <th class="px-5 py-3.5 text-center">Actions</th>
                         </tr>
@@ -173,6 +219,10 @@
                                             'size' => 'sm',
                                             'title' => 'Inherited from linked RIS',
                                         ])
+                                        @include('partials.payment-method-badge', [
+                                            'path' => $rr->authority_purchase_payment_path ?? ($rr->request_check_funding_type ?? null),
+                                            'size' => 'sm',
+                                        ])
                                     </div>
                                 </td>
                                 <td class="px-5 py-4">
@@ -184,13 +234,80 @@
                                 </td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->request_check_form_number ?? '-' }}</td>
                                 <td class="px-5 py-4 text-slate-600">{{ $rr->receiving_report_received_from ?? '-' }}</td>
-                                <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $displayStatus, 'doc' => 'rr'])</td>
+                                <td class="whitespace-nowrap px-5 py-4 text-slate-600">
+                                    @php
+                                        $rrDateRaw = $rr->receiving_report_date ?? $rr->receiving_report_submitted_at ?? $rr->receiving_report_created_at ?? null;
+                                    @endphp
+                                    {{ $rrDateRaw ? \Carbon\Carbon::parse($rrDateRaw)->format('M d, Y') : '-' }}
+                                </td>
                                 <td class="px-5 py-4">
-                                    <div class="flex flex-wrap items-center gap-2">
+                                    @php
+                                        $roRawStatus = trim((string) ($rr->receiving_report_status ?? ''));
+                                        $roBadge = match (true) {
+                                            in_array($roRawStatus, ['Pending', 'Submitted', 'Resubmitted', 'Under Review', 'In Review'], true) => [
+                                                'pill' => 'Need Second Count',
+                                                'sub' => 'Submitted by Purchaser',
+                                                'bg' => '#eef2ff', 'fg' => '#4338ca', 'border' => '#c7d2fe', 'dot' => '#4f46e5',
+                                            ],
+                                            $roRawStatus === 'Incomplete' => [
+                                                'pill' => 'Partial Receive',
+                                                'sub' => 'Waiting for back orders',
+                                                'bg' => '#fffbeb', 'fg' => '#b45309', 'border' => '#fde68a', 'dot' => '#d97706',
+                                            ],
+                                            in_array($roRawStatus, ['Completed', 'Accepted', 'Delivered'], true) => [
+                                                'pill' => 'Delivered',
+                                                'sub' => 'Verified by Receiving',
+                                                'bg' => '#ecfdf5', 'fg' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+                                            ],
+                                            in_array($roRawStatus, ['Returned', 'Minor Revision', 'For revision'], true) => [
+                                                'pill' => 'Returned',
+                                                'sub' => 'Sent back to Purchaser',
+                                                'bg' => '#fff7ed', 'fg' => '#c2410c', 'border' => '#fed7aa', 'dot' => '#ea580c',
+                                            ],
+                                            default => [
+                                                'pill' => \App\Support\ProcurementStatus::label($roRawStatus, 'rr'),
+                                                'sub' => '',
+                                                'bg' => '#f1f5f9', 'fg' => '#475569', 'border' => '#cbd5e1', 'dot' => '#64748b',
+                                            ],
+                                        };
+                                    @endphp
+                                    <div class="inline-flex flex-col items-start">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                            style="background:{{ $roBadge['bg'] }};color:{{ $roBadge['fg'] }};border-color:{{ $roBadge['border'] }};"
+                                        >
+                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $roBadge['dot'] }};"></span>
+                                            <span>{{ $roBadge['pill'] }}</span>
+                                        </span>
+                                        @if($roBadge['sub'] !== '')
+                                            <span class="mt-1 whitespace-nowrap text-[11px] font-medium leading-tight text-slate-500">
+                                                {{ $roBadge['sub'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-4">
+                                    <div class="flex flex-nowrap items-center justify-end gap-1.5">
+                                        @if($reviewable)
+                                            <button
+                                                type="button"
+                                                @click="openSign({{ $rr->receiving_report_id }})"
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition hover:opacity-85"
+                                                style="background:#eff6ff;color:#0025cc;"
+                                                data-tip="Second Count"
+                                                data-tip-place="above"
+                                                aria-label="Second Count"
+                                            >
+                                                <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                                            </button>
+                                        @endif
                                         <button
                                             type="button"
                                             @click="openView({{ $rr->receiving_report_id }}); fetch('{{ route('receiving.rr.start-review', $rr->receiving_report_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})"
-                                            class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+                                            data-tip="View"
+                                            data-tip-place="above"
+                                            aria-label="View"
                                         >
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
@@ -202,29 +319,19 @@
                                         <button
                                             type="button"
                                             @click="printRr({{ $rr->receiving_report_id }})"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                                            title="Print"
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                                            data-tip="Print"
+                                            data-tip-place="above"
                                             aria-label="Print"
                                         >
                                             <i data-lucide="printer" class="h-4 w-4"></i>
                                         </button>
-                                        @if($reviewable)
-                                            <button
-                                                type="button"
-                                                @click.stop="if (actionMenu === {{ $rr->receiving_report_id }}) { actionMenu = null } else { const r = $event.currentTarget.getBoundingClientRect(); actionMenuPos = { top: r.bottom + 6, left: r.right }; actionMenu = {{ $rr->receiving_report_id }} }"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                                                title="Actions"
-                                                aria-label="Actions"
-                                            >
-                                                <i data-lucide="more-horizontal" class="h-4 w-4"></i>
-                                            </button>
-                                        @endif
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-5 py-16 text-center">
+                                <td colspan="7" class="px-5 py-16 text-center">
                                     <p class="text-sm font-medium text-slate-700">No receiving reports in this queue</p>
                                     <p class="mt-1 text-xs text-slate-400">Try another filter or clear your search.</p>
                                 </td>
@@ -243,7 +350,7 @@
                         $actionsHtml = '<button type="button" @click="openView('.$rr->receiving_report_id.'); fetch(\''.route('receiving.rr.start-review', $rr->receiving_report_id).'\', {method:\'POST\', headers:{\'X-CSRF-TOKEN\':\''.csrf_token().'\',\'Accept\':\'application/json\'}})" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">View</button>'
                             .'<button type="button" @click="printRr('.$rr->receiving_report_id.')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>';
                         if ($reviewable) {
-                            $actionsHtml .= '<button type="button" @click.stop="if (actionMenu === '.$rr->receiving_report_id.') { actionMenu = null } else { const r = $event.currentTarget.getBoundingClientRect(); actionMenuPos = { top: r.bottom + 6, left: r.right }; actionMenu = '.$rr->receiving_report_id.' }" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600" title="Actions" aria-label="Actions"><i data-lucide="more-horizontal" class="h-4 w-4"></i></button>';
+                            $actionsHtml .= '<button type="button" @click="openSign('.$rr->receiving_report_id.')" class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-white" style="background:#0025cc;color:#ffffff;">Second Count</button>';
                         }
                     @endphp
                     @include('receiving-officer.partials.list-info-card', [
@@ -276,8 +383,6 @@
                 :style="`top:${actionMenuPos.top}px;left:${actionMenuPos.left}px`"
             >
                 <button type="button" @click="openSign(actionMenu); actionMenu = null" class="block w-full px-3 py-2 text-left text-xs font-semibold text-[#0025cc] hover:bg-slate-50">Second Count</button>
-                <button type="button" @click="openRevise(actionMenu); actionMenu = null" class="block w-full px-3 py-2 text-left text-xs font-semibold text-amber-800 hover:bg-amber-50">Revise</button>
-                <button type="button" @click="openReturn(actionMenu); actionMenu = null" class="block w-full px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50">Return</button>
             </div>
         </template>
 
@@ -340,14 +445,17 @@
             $reviewable = in_array($rr->receiving_report_status, ['Pending','Submitted','Resubmitted','Under Review'], true);
         @endphp
         @if($reviewable)
-            <div x-show="signOpen && signRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
-                <div class="fixed inset-0 bg-black/40" @click="signOpen = false"></div>
-                <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6" @click="signOpen = false">
+            <div x-show="signOpen && signRr === {{ $rr->receiving_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="if (signOpen && signRr === {{ $rr->receiving_report_id }}) { closeSignConfirm ? cancelCloseSign() : requestCloseSign(); }">
+                <div class="fixed inset-0 bg-black/40" @click="requestCloseSign()"></div>
+                <div class="relative flex min-h-full items-start justify-center p-4 sm:p-6" @click="requestCloseSign()">
                     <form
                         method="POST"
                         action="{{ route('receiving.rr.second-count', $rr->receiving_report_id) }}"
                         enctype="multipart/form-data"
                         @click.stop
+                        @input="if ($event.isTrusted) signDirty = true"
+                        @change="if ($event.isTrusted) signDirty = true"
+                        @pointerup="if ($event.isTrusted && $event.target && $event.target.tagName === 'CANVAS') signDirty = true"
                         class="relative my-auto w-full max-w-5xl rounded-2xl bg-white shadow-xl"
                         data-second-count-form="{{ $rr->receiving_report_id }}"
                     >
@@ -359,23 +467,101 @@
                                 <h3 class="text-xl font-semibold">Confirm Second Count</h3>
                                 <p class="text-sm text-gray-500">{{ $rr->receiving_report_form_number }} · Sign Second Count on the document below</p>
                             </div>
-                            <button type="button" @click="signOpen = false" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600" title="Close" aria-label="Close">
+                            <button type="button" @click="requestCloseSign()" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100" title="Close" aria-label="Close">
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
 
                         <div class="bg-gray-100 p-6">
                             <div class="mx-auto mb-4 w-full max-w-[1095px]">
-                                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
-                                    <label class="mb-1.5 block text-sm font-medium text-gray-700">Product verification photos</label>
-                                    <input
-                                        type="file"
-                                        name="verification_photos[]"
-                                        accept="image/*"
-                                        multiple
-                                        class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700"
-                                    >
-                                    <p class="mt-1 text-xs text-gray-500">Optional. Upload photos of the verified products.</p>
+                                <div
+                                    class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5"
+                                    x-data="{
+                                        maxPhotos: 3,
+                                        photos: [],
+                                        limitNotice: '',
+                                        syncInput() {
+                                            const dt = new DataTransfer();
+                                            this.photos.forEach(p => dt.items.add(p.file));
+                                            if (this.$refs.photoInput) {
+                                                this.$refs.photoInput.files = dt.files;
+                                            }
+                                        },
+                                        addFiles(event) {
+                                            const picked = Array.from(event.target.files || []);
+                                            this.limitNotice = '';
+                                            let skipped = 0;
+                                            for (const file of picked) {
+                                                if (!file.type || !file.type.startsWith('image/')) continue;
+                                                if (this.photos.length >= this.maxPhotos) {
+                                                    skipped++;
+                                                    continue;
+                                                }
+                                                this.photos.push({
+                                                    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+                                                    file,
+                                                    name: file.name,
+                                                    url: URL.createObjectURL(file),
+                                                });
+                                            }
+                                            if (skipped > 0) {
+                                                this.limitNotice = 'Maximum of ' + this.maxPhotos + ' photos allowed.';
+                                            }
+                                            this.syncInput();
+                                            if (event.target) event.target.value = '';
+                                        },
+                                        removePhoto(index) {
+                                            const item = this.photos[index];
+                                            if (item && item.url) URL.revokeObjectURL(item.url);
+                                            this.photos.splice(index, 1);
+                                            this.limitNotice = '';
+                                            this.syncInput();
+                                        }
+                                    }"
+                                >
+                                    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Product verification photos</label>
+                                            <p class="text-xs text-gray-500">Optional. Upload up to 3 photos of the verified products.</p>
+                                        </div>
+                                        <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-slate-600" x-text="photos.length + ' / ' + maxPhotos"></span>
+                                    </div>
+
+                                    {{-- Real form input synced via DataTransfer --}}
+                                    <input type="file" name="verification_photos[]" x-ref="photoInput" multiple accept="image/*" class="hidden">
+
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <label
+                                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                                            :class="photos.length >= maxPhotos ? 'pointer-events-none opacity-50' : ''"
+                                        >
+                                            <i data-lucide="image-plus" class="h-3.5 w-3.5"></i>
+                                            <span x-text="photos.length >= maxPhotos ? 'Maximum reached (3)' : 'Choose Photos'"></span>
+                                            <input type="file" accept="image/*" multiple class="hidden" :disabled="photos.length >= maxPhotos" @change="addFiles($event)">
+                                        </label>
+                                        <span x-show="limitNotice" x-text="limitNotice" class="text-xs font-medium text-amber-700" style="display:none;"></span>
+                                    </div>
+
+                                    <div x-show="photos.length > 0" class="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3" style="display:none;">
+                                        <template x-for="(photo, idx) in photos" :key="photo.id">
+                                            <div class="group relative flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/70 p-2">
+                                                <img :src="photo.url" :alt="photo.name" class="h-12 w-12 shrink-0 rounded-md border border-slate-200 object-cover bg-white">
+                                                <div class="min-w-0 flex-1">
+                                                    <p class="truncate text-xs font-medium text-slate-700" :title="photo.name" x-text="photo.name"></p>
+                                                    <p class="text-[11px] text-slate-400" x-text="'Photo ' + (idx + 1)"></p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    @click="removePhoto(idx)"
+                                                    title="Remove photo"
+                                                    aria-label="Remove photo"
+                                                    class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
 
                                 @php
@@ -386,17 +572,62 @@
                                     $verifiedCount = $rrItems->filter(fn ($line) => !empty($line->receiving_report_item_verified))->count();
                                 @endphp
                                 @if($inspectLines->isNotEmpty())
-                                    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
-                                        <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
+                                    @php
+                                        $inspectInitRows = $inspectLines->map(function ($line) {
+                                            $ord = $line->receiving_report_item_ordered_qty !== null ? (int) $line->receiving_report_item_ordered_qty : null;
+                                            $qty = (int) ($line->receiving_report_item_quantity ?? 0);
+                                            $dmg = \App\Support\BackOrders::damagedQty($line);
+                                            return [
+                                                'id' => (int) $line->receiving_report_item_id,
+                                                'ordered' => $ord,
+                                                'delivered' => $qty,
+                                                'damaged' => $dmg,
+                                            ];
+                                        })->values()->all();
+                                    @endphp
+                                    <div
+                                        class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5"
+                                        x-data="{
+                                            rows: @js($inspectInitRows),
+                                            goodOf(r) {
+                                                const d = Math.max(0, Number(r.delivered) || 0);
+                                                const b = Math.max(0, Math.min(d, Number(r.damaged) || 0));
+                                                return Math.max(0, d - b);
+                                            },
+                                            missingOf(r) {
+                                                if (r.ordered === null || r.ordered === '') return 0;
+                                                const o = Math.max(0, Number(r.ordered) || 0);
+                                                const d = Math.max(0, Number(r.delivered) || 0);
+                                                return Math.max(0, o - d);
+                                            },
+                                            damagedOf(r) {
+                                                const d = Math.max(0, Number(r.delivered) || 0);
+                                                return Math.max(0, Math.min(d, Number(r.damaged) || 0));
+                                            },
+                                            get totalGood() { return this.rows.reduce((s, r) => s + this.goodOf(r), 0); },
+                                            get totalMissing() { return this.rows.reduce((s, r) => s + this.missingOf(r), 0); },
+                                            get totalDamaged() { return this.rows.reduce((s, r) => s + this.damagedOf(r), 0); },
+                                            get totalBackOrder() { return this.totalMissing + this.totalDamaged; }
+                                        }"
+                                    >
+                                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                                             <div>
                                                 <p class="text-sm font-semibold text-gray-800">Item inspection · second verification</p>
-                                                <p class="text-xs text-gray-500">
-                                                    The Purchaser's first check is filled in. Correct the received or damaged count if yours differs.
-                                                    Missing and damaged units stay on back order and the RR is marked Incomplete until they are delivered.
-                                                    @if($verifiedCount > 0)
+                                                @if($verifiedCount > 0)
+                                                    <p class="text-xs text-gray-500">
                                                         {{ $verifiedCount }} row{{ $verifiedCount === 1 ? ' was' : 's were' }} already verified earlier and {{ $verifiedCount === 1 ? 'is' : 'are' }} not shown.
-                                                    @endif
-                                                </p>
+                                                    </p>
+                                                @endif
+                                            </div>
+                                            <div class="inline-flex items-center gap-1.5 text-xs">
+                                                <span class="text-slate-500">Result:</span>
+                                                <span
+                                                    class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                                    :style="totalBackOrder > 0 ? 'background:#fffbeb;color:#b45309;border-color:#fde68a;' : 'background:#ecfdf5;color:#047857;border-color:#a7f3d0;'"
+                                                >
+                                                    <span class="h-1.5 w-1.5 rounded-full" :style="totalBackOrder > 0 ? 'background:#d97706;' : 'background:#059669;'"></span>
+                                                    <span x-text="totalBackOrder > 0 ? 'Partial Receive' : 'Completed'"></span>
+                                                </span>
                                             </div>
                                         </div>
                                         <div class="overflow-x-auto">
@@ -406,13 +637,27 @@
                                                         <th class="py-2 pr-3 font-medium">Article</th>
                                                         <th class="py-2 pr-3 text-center font-medium">Ordered</th>
                                                         <th class="py-2 pr-3 text-center font-medium">Purchaser count</th>
-                                                        <th class="w-24 py-2 pr-3 text-center font-medium">Received</th>
-                                                        <th class="w-24 py-2 pr-3 text-center font-medium">Damaged</th>
+                                                        <th class="w-24 py-2 pr-3 text-center font-medium">
+                                                            <span class="block">Delivered</span>
+                                                            <span class="block text-[10px] font-normal normal-case text-gray-400">Total arrived</span>
+                                                        </th>
+                                                        <th class="w-24 py-2 pr-3 text-center font-medium">
+                                                            <span class="block">Damaged</span>
+                                                            <span class="block text-[10px] font-normal normal-case text-gray-400">Of delivered</span>
+                                                        </th>
+                                                        <th class="w-24 py-2 pr-3 text-center font-medium">
+                                                            <span class="block">Good</span>
+                                                            <span class="block text-[10px] font-normal normal-case text-gray-400">To inventory</span>
+                                                        </th>
+                                                        <th class="py-2 pr-3 text-center font-medium">
+                                                            <span class="block">Back Order</span>
+                                                            <span class="block text-[10px] font-normal normal-case text-gray-400">Missing + damaged</span>
+                                                        </th>
                                                         <th class="py-2 font-medium">Damage remarks</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-gray-100">
-                                                    @foreach($inspectLines as $line)
+                                                    @foreach($inspectLines as $idx => $line)
                                                         @php
                                                             $lineQty = (int) ($line->receiving_report_item_quantity ?? 0);
                                                             $lineOrdered = $line->receiving_report_item_ordered_qty;
@@ -426,8 +671,8 @@
                                                                     <span class="block text-[11px] font-semibold {{ $lineLabel['new'] ? 'text-violet-700' : 'text-sky-700' }}">{{ $lineLabel['label'] }}{{ filled($line->receiving_report_item_supplier_name ?? null) ? ' · '.$line->receiving_report_item_supplier_name : '' }}</span>
                                                                 @endif
                                                             </td>
-                                                            <td class="py-2 pr-3 text-center text-gray-600">{{ $lineOrdered ?? '-' }}</td>
-                                                            <td class="py-2 pr-3 text-center text-xs text-gray-500">{{ $lineQty }} received{{ $lineDamaged > 0 ? ' · '.$lineDamaged.' damaged' : '' }}</td>
+                                                            <td class="py-2 pr-3 text-center font-medium text-gray-700">{{ $lineOrdered ?? '-' }}</td>
+                                                            <td class="py-2 pr-3 text-center text-xs text-gray-500">{{ $lineQty }} delivered{{ $lineDamaged > 0 ? ' · '.$lineDamaged.' damaged' : '' }}</td>
                                                             <td class="py-2 pr-3">
                                                                 <input
                                                                     type="number"
@@ -435,6 +680,7 @@
                                                                     @if($lineOrdered !== null) max="{{ (int) $lineOrdered }}" @endif
                                                                     step="1"
                                                                     name="received[{{ $line->receiving_report_item_id }}]"
+                                                                    x-model.number="rows[{{ $idx }}].delivered"
                                                                     value="{{ $lineQty }}"
                                                                     class="h-9 w-full rounded-lg border border-gray-300 px-2 text-center text-sm"
                                                                 >
@@ -443,11 +689,33 @@
                                                                 <input
                                                                     type="number"
                                                                     min="0"
+                                                                    :max="Math.max(0, Number(rows[{{ $idx }}].delivered) || 0)"
                                                                     step="1"
                                                                     name="damaged[{{ $line->receiving_report_item_id }}]"
+                                                                    x-model.number="rows[{{ $idx }}].damaged"
                                                                     value="{{ $lineDamaged }}"
                                                                     class="h-9 w-full rounded-lg border border-gray-300 px-2 text-center text-sm"
                                                                 >
+                                                            </td>
+                                                            <td class="py-2 pr-3 text-center">
+                                                                <span
+                                                                    class="inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2 py-0.5 text-xs font-bold tabular-nums"
+                                                                    :style="goodOf(rows[{{ $idx }}]) > 0 ? 'background:#ecfdf5;color:#047857;border-color:#a7f3d0;' : 'background:#f1f5f9;color:#64748b;border-color:#cbd5e1;'"
+                                                                    x-text="goodOf(rows[{{ $idx }}])"
+                                                                ></span>
+                                                            </td>
+                                                            <td class="py-2 pr-3 text-center">
+                                                                <div class="inline-flex flex-wrap items-center justify-center gap-1">
+                                                                    <template x-if="missingOf(rows[{{ $idx }}]) > 0">
+                                                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold" style="background:#fffbeb;color:#b45309;border-color:#fde68a;" x-text="missingOf(rows[{{ $idx }}]) + ' missing'"></span>
+                                                                    </template>
+                                                                    <template x-if="damagedOf(rows[{{ $idx }}]) > 0">
+                                                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold" style="background:#fef2f2;color:#b91c1c;border-color:#fecaca;" x-text="damagedOf(rows[{{ $idx }}]) + ' damaged'"></span>
+                                                                    </template>
+                                                                    <template x-if="missingOf(rows[{{ $idx }}]) === 0 && damagedOf(rows[{{ $idx }}]) === 0">
+                                                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold" style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;">None</span>
+                                                                    </template>
+                                                                </div>
                                                             </td>
                                                             <td class="py-2">
                                                                 <input
@@ -483,7 +751,7 @@
                         </div>
 
                         <div class="flex items-center justify-end gap-2 border-t border-gray-200 bg-white px-6 py-4">
-                            <button type="button" @click="signOpen = false" class="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:text-gray-900">Cancel</button>
+                            <button type="button" @click="requestCloseSign()" class="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:text-gray-900">Cancel</button>
                             <button type="submit" class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800">Confirm Second Count</button>
                         </div>
                     </form>
@@ -491,6 +759,47 @@
             </div>
         @endif
     @endforeach
+
+    {{-- Close confirmation dialog for Confirm Second Count modal --}}
+    <div
+        x-show="closeSignConfirm"
+        x-cloak
+        class="fixed inset-0 flex items-center justify-center p-4"
+        style="z-index: 99999;"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scCloseConfirmTitle"
+    >
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px]" @click="cancelCloseSign()"></div>
+        <div class="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" @click.stop>
+            <div class="flex items-start gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border" style="background:#fffbeb;border-color:#fde68a;color:#b45309;">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h4 id="scCloseConfirmTitle" class="text-base font-semibold text-slate-950">Close Second Count?</h4>
+                    <p class="mt-1 text-sm text-slate-600">Any unsaved counts, damage remarks, or uploaded verification photos will not be saved.</p>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center justify-end gap-2">
+                <button
+                    type="button"
+                    @click="cancelCloseSign()"
+                    class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                    Keep Editing
+                </button>
+                <button
+                    type="button"
+                    @click="confirmCloseSign()"
+                    class="rounded-lg px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                    style="background:#dc2626;"
+                >
+                    Discard &amp; Close
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div id="roSigPanelHome" class="hidden">
         @include('receiving-officer.partials.second-count-signature-panel', [

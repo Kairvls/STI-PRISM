@@ -20,6 +20,18 @@
     $replacement = $backOrderId !== '' && $backOrderId !== null ? ($replacementLabels[(int) $backOrderId] ?? null) : null;
     $orderedHasValue = $orderedQty !== '' && $orderedQty !== null;
     $orderedLocked = $editable && ($orderedHasValue || !$cellsEditable);
+    $unitHasValue = trim((string) $unit) !== '';
+    $unitLocked = $editable && ($unitHasValue || !$cellsEditable);
+    $supplierLocked = $editable && !($isCashAdvanceRr ?? false);
+    $resolvedSupplierName = trim((string) $supplierName);
+    if ($resolvedSupplierName === '' && $supplierId !== '' && $supplierId !== null && isset($suppliers)) {
+        $matchedSupplier = $suppliers->firstWhere('supplier_id', (int) $supplierId);
+        if ($matchedSupplier) {
+            $resolvedSupplierName = $matchedSupplier->supplier_store_type === 'Physical Store'
+                ? (string) ($matchedSupplier->company_name ?? '')
+                : (string) ($matchedSupplier->shop_name ?? '');
+        }
+    }
 @endphp
 <tr
     class="h-8 {{ $replacement ? 'bg-sky-50/60' : '' }}"
@@ -58,15 +70,22 @@
             <span class="{{ $damagedQty > 0 ? 'font-semibold text-red-700' : '' }}">{{ $damagedQty > 0 ? $damagedQty : ($article !== '' ? '0' : '') }}</span>
         @endif
     </td>
-    <td class="border border-black">
+    <td
+        class="border border-black {{ $unitLocked ? 'bg-slate-50/80' : '' }}"
+        @if($unitLocked) title="Unit is locked from the purchase authority" @endif
+        data-rr-unit-cell
+    >
         @if($cellsEditable)
-            @include('partials.procurement-uom-select', [
-                'unit' => $unit,
-                'inputName' => 'items['.$i.'][unit]',
-                'uomNames' => $uomNames,
-                'pp' => $pp ?? null,
-                'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[12px] outline-none focus:ring-0',
-            ])
+            <div data-rr-unit-picker class="{{ $unitLocked ? 'hidden' : '' }}">
+                @include('partials.procurement-uom-select', [
+                    'unit' => $unit,
+                    'inputName' => 'items['.$i.'][unit]',
+                    'uomNames' => $uomNames,
+                    'pp' => $pp ?? null,
+                    'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[12px] outline-none focus:ring-0',
+                ])
+            </div>
+            <span data-rr-unit-display class="{{ $unitLocked ? 'block' : 'hidden' }} text-center text-[12px] text-slate-700">{{ $unitHasValue ? $unit : '—' }}</span>
         @else
             {{ $unit }}
         @endif
@@ -96,8 +115,9 @@
         @endif
     </td>
     @php
-        $missingQty = ($orderedQty !== '' && $orderedQty !== null && $qty !== '' && $qty !== null)
-            ? max(0, (int) $orderedQty - (int) $qty)
+        $receivedInt = ($qty !== '' && $qty !== null) ? (int) $qty : 0;
+        $missingQty = ($orderedQty !== '' && $orderedQty !== null)
+            ? max(0, (int) $orderedQty - $receivedInt)
             : 0;
         $isMissing = $condition === 'short' || $missingQty > 0;
         $conditionParts = [];
@@ -105,32 +125,42 @@
             $conditionParts[] = 'Bad Order';
         }
         if ($isMissing) {
-            $conditionParts[] = $missingQty > 0 ? 'Missing '.$missingQty : 'Missing';
+            $conditionParts[] = $missingQty > 0 ? $missingQty.' Missing' : 'Missing';
         }
         if ($damagedQty > 0) {
-            $conditionParts[] = 'Damaged '.$damagedQty;
+            $conditionParts[] = $damagedQty.' Damaged';
         }
         $hasRowData = $article !== '' || ($qty !== '' && $qty !== null);
-        $conditionLabel = $conditionParts !== [] ? implode(' · ', $conditionParts) : ($hasRowData ? 'OK' : '');
+        $conditionLabel = $conditionParts !== [] ? implode(' · ', $conditionParts) : ($hasRowData ? 'Good' : '');
     @endphp
     <td class="border border-black px-1">
         @if($cellsEditable)
             <input type="hidden" name="items[{{ $i }}][condition]" value="{{ $condition }}" data-rr-condition-input data-rr-condition-original="{{ $condition }}">
             <span
                 data-rr-condition-label
-                class="text-[10px] {{ $conditionLabel === 'OK' || $conditionLabel === '' ? 'text-slate-500' : 'font-semibold text-amber-700' }}"
+                class="text-[10px] {{ $conditionLabel === 'Good' || $conditionLabel === '' ? 'text-slate-500' : 'font-semibold text-amber-700' }}"
                 title="Worked out from Ordered, Received and Damaged"
             >{{ $conditionLabel !== '' ? $conditionLabel : '—' }}</span>
         @else
-            <span class="text-[10px] {{ $conditionLabel === 'OK' || $conditionLabel === '' ? '' : 'font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
+            <span class="text-[10px] {{ $conditionLabel === 'Good' || $conditionLabel === '' ? '' : 'font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
         @endif
     </td>
     @if($allowMultiSupplier && $editable && !$cellsEditable)
         <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>
         <td class="border border-black text-xs">{{ $unitPrice !== '' && $unitPrice !== null ? number_format((float) $unitPrice, 2) : '—' }}</td>
     @elseif($allowMultiSupplier && $editable)
-        <td class="border border-black px-1">
-            <select name="items[{{ $i }}][supplier_id]" class="h-7 w-full border-0 bg-transparent text-xs outline-none" onchange="const o=this.options[this.selectedIndex]; const n=this.parentElement.querySelector('[name$=\'[supplier_name]\']'); if(n) n.value=o.dataset.name||'';">
+        <td
+            class="border border-black px-1 {{ $supplierLocked ? 'bg-slate-50/80' : '' }}"
+            @if($supplierLocked) title="Supplier is locked (editable for Cash Advance only)" @endif
+            data-rr-supplier-cell
+        >
+            <select
+                data-rr-supplier-select
+                name="items[{{ $i }}][supplier_id]"
+                class="h-7 w-full border-0 bg-transparent text-xs outline-none {{ $supplierLocked ? 'hidden' : '' }}"
+                @if($supplierLocked) disabled @endif
+                onchange="const o=this.options[this.selectedIndex]; const cell=this.closest('[data-rr-supplier-cell]'); const n=cell && cell.querySelector('[name$=\'[supplier_name]\']'); if(n) n.value=o.dataset.name||''; const h=cell && cell.querySelector('[data-rr-supplier-hidden]'); if(h) h.value=this.value; const d=cell && cell.querySelector('[data-rr-supplier-display]'); if(d) d.textContent=o.dataset.name||'—';"
+            >
                 <option value="">—</option>
                 @foreach($suppliers as $supplier)
                     @php
@@ -141,7 +171,9 @@
                     <option value="{{ $supplier->supplier_id }}" data-name="{{ $sName }}" {{ (string) $supplierId === (string) $supplier->supplier_id ? 'selected' : '' }}>{{ $sName }}</option>
                 @endforeach
             </select>
-            <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $supplierName }}">
+            <input type="hidden" data-rr-supplier-hidden name="items[{{ $i }}][supplier_id]" value="{{ $supplierId }}" @if(!$supplierLocked) disabled @endif>
+            <span data-rr-supplier-display class="{{ $supplierLocked ? 'block' : 'hidden' }} truncate px-1 text-center text-xs text-slate-700">{{ $resolvedSupplierName !== '' ? $resolvedSupplierName : '—' }}</span>
+            <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $resolvedSupplierName }}">
         </td>
         <td class="border border-black">
             <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">

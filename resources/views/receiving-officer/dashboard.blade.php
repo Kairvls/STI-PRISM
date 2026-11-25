@@ -98,11 +98,11 @@
                     <h2 class="text-sm font-bold text-gray-900">Replacements</h2>
                     <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($replacementTotal) }}</span>
                 </div>
-                <a href="{{ route('receiving.back-orders.index', ['status' => 'receiving']) }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
+                <a href="{{ route('receiving.rr.index', ['status' => 'queue']) }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
             </div>
             <div class="mt-4 space-y-2">
                 @forelse ($replacementRows as $ticket)
-                    <button type="button" class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60" data-dashboard-preview data-preview-url="{{ $ticketPreview($ticket) }}" data-continue-url="{{ route('receiving.back-orders.index', array_filter(['status' => 'receiving', 'rr' => $ticket->root_id ?: null])) }}" data-continue-label="Open" data-preview-title="{{ $ticket->article }}">
+                    <button type="button" class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60" data-dashboard-preview data-preview-url="{{ $ticketPreview($ticket) }}" data-continue-url="{{ route('receiving.rr.index', array_filter(['rr' => $ticket->root_id ?: null, 'status' => 'queue'])) }}" data-continue-label="Open" data-preview-title="{{ $ticket->article }}">
                         <p class="truncate text-xs font-semibold text-gray-900">{{ $ticket->article }}</p>
                         @if (!empty($ticket->uniqueness))
                             <p class="truncate text-[11px] font-medium text-gray-700">{{ $ticket->uniqueness }}</p>
@@ -119,18 +119,18 @@
         </aside>
     </div>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <section class="rod-panel p-5 lg:col-span-2">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section class="rod-panel p-5">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-2">
-                    <h2 class="text-sm font-bold text-gray-900">Incomplete reports</h2>
+                    <h2 class="text-sm font-bold text-gray-900">Partial Receive</h2>
                     <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($incompleteTotal) }}</span>
                 </div>
-                <a href="{{ route('receiving.rr.index', ['status' => 'completed']) }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
+                <a href="{{ route('receiving.rr.index', ['status' => 'all']) }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
             </div>
             <div class="mt-4 divide-y divide-slate-100">
                 @forelse ($incompleteRows as $rr)
-                    <button type="button" class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40" data-dashboard-preview data-preview-url="{{ $rrPreview((int) $rr->id) }}" data-continue-url="{{ route('receiving.back-orders.index', ['rr' => $rr->id, 'status' => 'all']) }}" data-continue-label="Open" data-preview-title="{{ $rr->number }}">
+                    <button type="button" class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40" data-dashboard-preview data-preview-url="{{ $rrPreview((int) $rr->id) }}" data-continue-url="{{ route('receiving.rr.index', ['rr' => $rr->id]) }}" data-continue-label="Open" data-preview-title="{{ $rr->number }}">
                         <span class="min-w-0">
                             <span class="block truncate text-xs font-semibold text-gray-900">{{ $rr->number }}</span>
                             <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->total > 0 ? $rr->settled.'/'.$rr->total.' settled' : null) }}</span>
@@ -148,69 +148,13 @@
             @endif
         </section>
 
-        <aside class="rod-panel p-5">
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex min-w-0 items-center gap-2">
-                    <h2 class="text-sm font-bold text-gray-900">Back orders</h2>
-                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($backOrderTotal) }}</span>
-                </div>
-                <a href="{{ route('receiving.back-orders.index') }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
-            </div>
-            <div class="mt-4 space-y-2">
-                @forelse ($backOrderRows as $ticket)
-                    <button type="button" class="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-blue-50/60" data-dashboard-preview data-preview-url="{{ $ticketPreview($ticket) }}" data-continue-url="{{ route('receiving.back-orders.index', ['status' => 'all']) }}" data-continue-label="Open" data-preview-title="{{ $ticket->article }}">
-                        <p class="truncate text-xs font-semibold text-gray-900">{{ $ticket->article }}</p>
-                        @if (!empty($ticket->uniqueness))
-                            <p class="truncate text-[11px] font-medium text-gray-700">{{ $ticket->uniqueness }}</p>
-                        @endif
-                        <p class="truncate text-[11px] text-gray-500">{{ $line($ticket->kind ?? '', $ticket->status_label, $ticket->qty.' '.$ticket->unit) }}</p>
-                    </button>
-                @empty
-                    <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
-                @endforelse
-            </div>
-            @if ($backOrderRows->isNotEmpty())
-                <p class="mt-3 text-xs text-slate-500">{{ $showing($backOrderTotal, $backOrderRows->count()) }}</p>
-            @endif
-        </aside>
-    </div>
-
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section class="rod-panel p-5">
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex min-w-0 items-center gap-2">
-                    <h2 class="text-sm font-bold text-gray-900">Returned</h2>
-                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($returnedTotal) }}</span>
-                </div>
-                <a href="{{ route('receiving.rr.index', ['focus' => 'returned']) }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
-            </div>
-            <div class="mt-4 divide-y divide-slate-100">
-                @forelse ($returnedRows as $rr)
-                    <button type="button" class="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-blue-50/40" data-dashboard-preview data-preview-url="{{ $rrPreview((int) $rr->id) }}" data-continue-url="{{ route('receiving.rr.index', ['rr' => $rr->id]) }}" data-continue-label="Open" data-preview-title="{{ $rr->number }}">
-                        <span class="min-w-0">
-                            <span class="block truncate text-xs font-semibold text-gray-900">{{ $rr->number }}</span>
-                            <span class="block truncate text-[11px] text-gray-500">{{ $line($rr->kind ?? '', $rr->supplier, $rr->at ? $rr->at->format('M d, Y') : '—') }}</span>
-                        </span>
-                        <span class="shrink-0 text-right">
-                            <span class="text-[11px] font-semibold text-blue-600">Open</span>
-                        </span>
-                    </button>
-                @empty
-                    <p class="py-8 text-center text-xs font-medium text-gray-500">None</p>
-                @endforelse
-            </div>
-            @if ($returnedRows->isNotEmpty())
-                <p class="mt-3 text-xs text-slate-500">{{ $showing($returnedTotal, $returnedRows->count()) }}</p>
-            @endif
-        </section>
-
         <section class="rod-panel p-5">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-2">
                     <h2 class="text-sm font-bold text-gray-900">Delivered</h2>
                     <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">{{ number_format($deliveredTotal) }}</span>
                 </div>
-                <a href="{{ url('/receiving/delivered-items') }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
+                <a href="{{ route('receiving.rr.index', ['status' => 'all']) }}" class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
             </div>
             <div class="mt-4 divide-y divide-slate-100">
                 @forelse ($deliveredRows as $rr)

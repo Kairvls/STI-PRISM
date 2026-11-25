@@ -362,3 +362,19 @@ Option B: Keep the current setup as-is with no code changes.
 in the president side im a little bit confuse, why theres no canvass approval in the president that hew can also decide what to approve equipment like image 3-5 , or the school admin focus on canvass review and acceptance then approval of ris and atp created by that canvass then the president focus on ris and atp created by the canvass school admin accepted? or what
 
 whats the correct logic upon connecting the receiving report and back order and inventory in the system admin... check it whats the correct decision needs to be done, or the current is already correct or what
+
+![alt text](image-1.png)
+
+Receiving Report, Back Order & Inventory — Logic Audit & Plan
+Executive Answer (Real-World Standard & Your Scenario)
+
+Your example — 10 ordered, 5 delivered, 2 of those 5 damaged, 5 missing (leaving 3 good units) — is the classic Partial & Damaged Receipt scenario in real-world procurement/ERP systems (SAP, NetSuite, Odoo, and Philippine school/COA property receiving).
+
+What SHOULD happen in reality (and why)
+Question	Correct Real-World Decision	Already in STI-PRISM?
+1. Can an incomplete/damaged RR be sent to the Receiving Officer for Second Count?	Yes — it MUST be. The Receiving Officer performs an independent physical Second Count on what actually arrived before any items enter inventory or any supplier replacement claim is locked in.	Yes (ReceivingController::verifyRr())
+2. What happens to the 3 good items?	They go into Inventory immediately (via System Admin → Add to Inventory) once the Receiving Officer verifies the Second Count. The school should NOT let 3 usable items sit unrecorded/unusable in a storeroom while waiting weeks for the supplier to replace the other 7.	Yes (ReceivableStockLines.php line 457 computes 5 − 2 = 3 good units even while RR is Incomplete)
+3. What happens to the 2 damaged + 5 missing items?	They NEVER enter Inventory. They become open Back Orders (5 Missing + 2 Damaged = 7 open units), and the RR stays Incomplete (blocking Cash Advance Liquidation until resolved).	Yes (BackOrders::syncForRr() creates separate Missing and Damaged back orders; RR stays Incomplete)
+4. What happens when the supplier delivers the remaining 7?	Purchaser records the replacement delivery on Back Orders → adds a replacement line to the same RR → Receiving Officer performs Second Count on only the new unverified line(s) → those newly verified good units (+7) immediately appear in Add to Inventory (no double-counting of the original 3) → RR flips to Completed.
+
+in the entire system can you make all the loads to not use loads insead we make it shows directly (specially on switching sidebar modules)

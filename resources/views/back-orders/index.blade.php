@@ -8,15 +8,69 @@
 
 @section('content')
 @use('App\Support\BackOrders')
+@use('App\Support\ProcurementStatus')
 @php
-    $statusStyles = [
-        BackOrders::STATUS_OPEN => 'border-amber-200 bg-amber-50 text-amber-800',
-        BackOrders::STATUS_WAITING_RESTOCK => 'border-orange-200 bg-orange-50 text-orange-800',
-        BackOrders::STATUS_REFUNDED => 'border-rose-200 bg-rose-50 text-rose-800',
-        BackOrders::STATUS_RECEIVING => 'border-sky-200 bg-sky-50 text-sky-800',
-        BackOrders::STATUS_FULFILLED => 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        BackOrders::STATUS_FULFILLED_REPLACEMENT => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    $statusMeta = [
+        BackOrders::STATUS_OPEN => [
+            'label' => 'Needs Action',
+            'sub' => null,
+            'bg' => '#fffbeb', 'color' => '#b45309', 'border' => '#fde68a', 'dot' => '#d97706',
+        ],
+        BackOrders::STATUS_WAITING_RESTOCK => [
+            'label' => 'Waiting Restock',
+            'sub' => 'Awaiting supplier',
+            'bg' => '#fff7ed', 'color' => '#c2410c', 'border' => '#fed7aa', 'dot' => '#ea580c',
+        ],
+        BackOrders::STATUS_REFUNDED => [
+            'label' => 'Refunded',
+            'sub' => 'Buy replacement',
+            'bg' => '#eef2ff', 'color' => '#4338ca', 'border' => '#c7d2fe', 'dot' => '#4f46e5',
+        ],
+        BackOrders::STATUS_RECEIVING => [
+            'label' => 'For Second Count',
+            'sub' => 'Replacement delivered',
+            'bg' => '#f0f9ff', 'color' => '#0369a1', 'border' => '#bae6fd', 'dot' => '#0284c7',
+        ],
+        BackOrders::STATUS_FULFILLED => [
+            'label' => 'Delivered',
+            'sub' => null,
+            'bg' => '#ecfdf5', 'color' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+        ],
+        BackOrders::STATUS_FULFILLED_REPLACEMENT => [
+            'label' => 'Delivered',
+            'sub' => 'New supplier',
+            'bg' => '#ecfdf5', 'color' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+        ],
     ];
+    $rrStatusPill = function (?string $status): array {
+        $label = ProcurementStatus::label($status, 'rr');
+        return match ($label) {
+            ProcurementStatus::WITH_RECEIVING => [
+                'label' => 'Need Second Count',
+                'bg' => '#eef2ff', 'color' => '#4338ca', 'border' => '#c7d2fe', 'dot' => '#4f46e5',
+            ],
+            ProcurementStatus::INCOMPLETE => [
+                'label' => 'Partial Receive',
+                'bg' => '#fffbeb', 'color' => '#b45309', 'border' => '#fde68a', 'dot' => '#d97706',
+            ],
+            ProcurementStatus::COMPLETED => [
+                'label' => 'Completed',
+                'bg' => '#ecfdf5', 'color' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+            ],
+            ProcurementStatus::FOR_REVISION => [
+                'label' => 'For Revision',
+                'bg' => '#fff7ed', 'color' => '#c2410c', 'border' => '#fed7aa', 'dot' => '#ea580c',
+            ],
+            ProcurementStatus::REJECTED => [
+                'label' => 'Rejected',
+                'bg' => '#fef2f2', 'color' => '#b91c1c', 'border' => '#fecaca', 'dot' => '#dc2626',
+            ],
+            default => [
+                'label' => $label ?: ($status ?? '—'),
+                'bg' => '#f8fafc', 'color' => '#475569', 'border' => '#e2e8f0', 'dot' => '#64748b',
+            ],
+        };
+    };
     $fileAccept = '.'.str_replace(',', ',.', BackOrders::FILE_MIMES);
 
     $boData = [];
@@ -230,7 +284,6 @@
                         <th class="px-5 py-3">Receiving Report</th>
                         <th class="px-5 py-3">Payment</th>
                         <th class="px-5 py-3">Supplier</th>
-                        <th class="px-5 py-3">Reason</th>
                         <th class="px-5 py-3">Expected delivery</th>
                         <th class="px-5 py-3">Status</th>
                         <th class="px-5 py-3 text-center">Actions</th>
@@ -262,7 +315,13 @@
                                     <p class="mt-0.5 text-xs text-gray-500">{{ $bo->authority_purchase_form_number }}</p>
                                 @endif
                                 @if($bo->root_rr_status)
-                                    <p class="mt-1">@include('accounting.partials.status-badge', ['status' => $bo->root_rr_status, 'doc' => 'rr'])</p>
+                                    @php $rrPill = $rrStatusPill($bo->root_rr_status); @endphp
+                                    <p class="mt-1.5">
+                                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style="background:{{ $rrPill['bg'] }};color:{{ $rrPill['color'] }};border-color:{{ $rrPill['border'] }};">
+                                            <span class="h-1.5 w-1.5 rounded-full" style="background:{{ $rrPill['dot'] }};"></span>
+                                            {{ $rrPill['label'] }}
+                                        </span>
+                                    </p>
                                 @endif
                             </td>
                             <td class="whitespace-nowrap px-5 py-4 text-gray-700">
@@ -275,19 +334,6 @@
                                         {{ $bo->is_new_supplier ? 'New supplier: '.$bo->back_order_replacement_supplier_name : 'Same supplier' }}
                                     </p>
                                     <p class="mt-0.5 text-xs text-gray-500">Replacement {{ (int) $bo->back_order_replacement_quantity }} × ₱{{ number_format((float) $bo->back_order_replacement_unit_price, 2) }}</p>
-                                @endif
-                            </td>
-                            <td class="px-5 py-4">
-                                @if($bo->back_order_reason)
-                                    <p class="text-gray-800">{{ BackOrders::reasonLabel($bo->back_order_reason) }}</p>
-                                @else
-                                    <p class="text-xs font-medium text-amber-700">Not recorded yet</p>
-                                @endif
-                                @if($bo->back_order_remarks)
-                                    <p class="mt-0.5 max-w-[220px] truncate text-xs text-gray-500" title="{{ $bo->back_order_remarks }}">{{ $bo->back_order_remarks }}</p>
-                                @endif
-                                @if(count($bo->files))
-                                    <p class="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-500"><i data-lucide="paperclip" class="h-3 w-3"></i>{{ count($bo->files) }} attachment{{ count($bo->files) === 1 ? '' : 's' }}</p>
                                 @endif
                             </td>
                             <td class="px-5 py-4">
@@ -311,9 +357,20 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4">
-                                <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium {{ $statusStyles[$bo->back_order_status] ?? 'border-gray-200 bg-gray-50 text-gray-700' }}">
-                                    {{ BackOrders::statusLabel($bo->back_order_status) }}
+                                @php
+                                    $st = $statusMeta[$bo->back_order_status] ?? [
+                                        'label' => BackOrders::statusLabel($bo->back_order_status),
+                                        'sub' => null,
+                                        'bg' => '#f8fafc', 'color' => '#475569', 'border' => '#e2e8f0', 'dot' => '#64748b',
+                                    ];
+                                @endphp
+                                <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold" style="background:{{ $st['bg'] }};color:{{ $st['color'] }};border-color:{{ $st['border'] }};">
+                                    <span class="h-1.5 w-1.5 rounded-full" style="background:{{ $st['dot'] }};"></span>
+                                    {{ $st['label'] }}
                                 </span>
+                                @if(!empty($st['sub']))
+                                    <p class="mt-1 text-[11px] font-medium text-gray-500">{{ $st['sub'] }}</p>
+                                @endif
                                 @if($bo->back_order_refund_amount !== null)
                                     <p class="mt-1 text-xs text-gray-500">Refunded ₱{{ number_format((float) $bo->back_order_refund_amount, 2) }}</p>
                                 @endif
@@ -361,7 +418,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-5 py-14 text-center">
+                            <td colspan="7" class="px-5 py-14 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                                     <i data-lucide="package-check" class="h-6 w-6"></i>
                                 </div>
@@ -542,7 +599,7 @@
                                     <button type="button" @click="replaceOpen = false" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600" aria-label="Close"><i data-lucide="x" class="h-4 w-4"></i></button>
                                 </div>
                                 <div class="space-y-4 px-6 py-5">
-                                    <p class="text-sm text-gray-600">The replacement is added as a new row under the original line on the same RR (the original row is kept), then the RR goes back to Receiving for second count. The RR is completed once every back order is delivered.</p>
+                                    <!--<p class="text-sm text-gray-600">The replacement is added as a new row under the original line on the same RR (the original row is kept), then the RR goes back to Receiving for second count. The RR is completed once every back order is delivered.</p>-->
 
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700">Supplier <span class="text-red-500" x-show="current.is_cash_advance">*</span></label>

@@ -2759,6 +2759,7 @@ Route::middleware(['auth', 'accounting'])
         Route::post('/approved-packages/{id}/check-release', [AccountingController::class, 'markCheckReady'])->whereNumber('id')->name('accounting.approved-packages.check-release');
         Route::post('/approved-packages/{id}/check-released', [AccountingController::class, 'markCheckReleased'])->whereNumber('id')->name('accounting.approved-packages.check-released');
         Route::get('/liquidation-reports', [AccountingController::class, 'liquidationReports'])->name('accounting.liq.index');
+        Route::get('/liquidation-reports/{id}/paper', [AccountingController::class, 'showLiquidationPaper'])->whereNumber('id');
         Route::get('/liquidation-reports/{id}', [AccountingController::class, 'showLiquidation']);
         Route::post('/liquidation-reports/{id}/approve', [AccountingController::class, 'approveLiquidation']);
         Route::post('/liquidation-reports/{id}/revise', [AccountingController::class, 'reviseLiquidation']);

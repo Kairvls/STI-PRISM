@@ -9018,6 +9018,33 @@ toggleRoomBtn.addEventListener('click', function () {
             return;
         }
 
+        const hasReportInput = (() => {
+            const desc = document.getElementById("problemDescription");
+            if (desc && desc.value.trim() !== "") return true;
+            const room = document.getElementById("roomSelect");
+            if (room && room.value.trim() !== "") return true;
+            const eqSel = document.getElementById("equipmentSelect");
+            if (eqSel && eqSel.value.trim() !== "") return true;
+            const eqManual = document.getElementById("equipmentManualInput");
+            if (eqManual && eqManual.value.trim() !== "") return true;
+            if (reportForm.querySelector('input[type="checkbox"]:checked, input[type="radio"]:checked')) return true;
+            const files = reportForm.querySelectorAll('input[type="file"]');
+            for (const f of files) {
+                if (f.files && f.files.length > 0) return true;
+            }
+            if (typeof reportItems !== "undefined" && Array.isArray(reportItems) && reportItems.length > 0) return true;
+            return false;
+        })();
+
+        if (!hasReportInput) {
+            if (typeof window.reporterGateReset === "function") {
+                window.reporterGateReset();
+            } else if (typeof closeReportModal === "function") {
+                closeReportModal();
+            }
+            return;
+        }
+
         const result = await paayoSwal({
             tone: "warning",
             title: "Leave this report?",

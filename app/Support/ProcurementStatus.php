@@ -52,7 +52,7 @@ class ProcurementStatus
 
     public const WITH_RECEIVING = 'With Receiving';
 
-    public const INCOMPLETE = 'Incomplete';
+    public const INCOMPLETE = 'Partial Receive';
 
     public const COMPLETED = 'Completed';
 

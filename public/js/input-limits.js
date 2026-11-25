@@ -273,6 +273,30 @@
         return String(num);
     }
 
+    function formatQtyLive(raw) {
+        var clamped = clampQtyNumber(raw);
+        if (clamped === '') return '';
+        return Number(clamped).toLocaleString('en-PH');
+    }
+
+    function hasAlpineModel(el) {
+        if (!el || !el.attributes) return false;
+        for (var i = 0; i < el.attributes.length; i++) {
+            var attr = el.attributes[i].name || '';
+            if (attr === 'x-model' || attr.indexOf('x-model.') === 0) return true;
+        }
+        return false;
+    }
+
+    function shouldCommaQty(el) {
+        if (!el) return false;
+        if (el.hasAttribute('data-no-comma') || el.hasAttribute('data-no-max-limit')) return false;
+        if (hasAlpineModel(el)) return false;
+        var step = String(el.getAttribute('step') || '').trim();
+        if (step && step !== '1' && step !== 'any' && step.indexOf('.') !== -1) return false;
+        return true;
+    }
+
     function isCompactMoneyInput(el) {
         var cls = ' ' + (el.className || '') + ' ';
         return /border-0|bg-transparent|ris-cell-input/.test(cls)
@@ -423,16 +447,21 @@
         if (el.hasAttribute('readonly') || el.disabled) return;
 
         var before = el.value;
-        var next = clampQtyString(before);
+        var useCommas = !!el.__prismQtyComma;
+        var next = useCommas ? formatQtyLive(before) : clampQtyString(before);
         if (next === before) return;
 
-        var start = el.selectionStart;
+        var start = typeof el.selectionStart === 'number' ? el.selectionStart : before.length;
+        var digitsLeft = before.slice(0, start).replace(/\D/g, '').length;
         el.value = next;
         try {
-            if (typeof start === 'number') {
-                var delta = before.length - next.length;
-                var pos = Math.max(0, start - (delta > 0 ? delta : 0));
+            if (useCommas) {
+                var pos = caretAfterWholeDigits(next, digitsLeft);
                 el.setSelectionRange(pos, pos);
+            } else if (typeof start === 'number') {
+                var delta = before.length - next.length;
+                var pos2 = Math.max(0, start - (delta > 0 ? delta : 0));
+                el.setSelectionRange(pos2, pos2);
             }
         } catch (err) {}
         // Keep Alpine x-model.number in sync.
@@ -457,6 +486,9 @@
             el.removeAttribute('min');
             el.removeAttribute('max');
         }
+        // Remove legacy pattern/maxlength that reject or truncate formatted commas (e.g. 99,999,999.99).
+        el.removeAttribute('pattern');
+        el.removeAttribute('maxlength');
 
         el.addEventListener('focus', onMoneyFocus);
         el.addEventListener('keydown', onMoneyKeydown);
@@ -475,9 +507,18 @@
     function bindQtyGuard(el) {
         if (!el || el.__prismQtyBound) return;
         el.__prismQtyBound = true;
+        var useCommas = shouldCommaQty(el);
+        el.__prismQtyComma = useCommas;
+        if (useCommas && String(el.getAttribute('type') || '').toLowerCase() === 'number') {
+            el.setAttribute('type', 'text');
+            el.setAttribute('inputmode', 'numeric');
+            el.removeAttribute('step');
+            el.removeAttribute('min');
+            el.removeAttribute('max');
+        }
         el.addEventListener('input', onQtyInput, true);
         if (String(el.value || '').trim() !== '') {
-            var next = clampQtyNumber(el.value);
+            var next = useCommas ? formatQtyLive(el.value) : clampQtyNumber(el.value);
             if (next !== '' && next !== el.value) {
                 el.value = next;
             }
@@ -612,8 +653,39 @@
         }
     }
 
+    function bindFormDataStrip() {
+        if (document.__prismFormDataBound) return;
+        document.__prismFormDataBound = true;
+        document.addEventListener('formdata', function (e) {
+            var form = e.target;
+            var fd = e.formData;
+            if (!form || !fd || !form.querySelectorAll) return;
+            var inputs = form.querySelectorAll('input');
+            for (var i = 0; i < inputs.length; i++) {
+                var el = inputs[i];
+                if (!el.name || el.disabled) continue;
+                if (!el.__prismMoneyBound && !el.__prismQtyComma) continue;
+                var val = String(el.value || '');
+                if (val.indexOf(',') === -1) continue;
+                var clean = val.replace(/,/g, '');
+                if (fd.has(el.name)) {
+                    var all = fd.getAll(el.name);
+                    if (all.length === 1) {
+                        fd.set(el.name, clean);
+                    } else {
+                        fd.delete(el.name);
+                        for (var k = 0; k < all.length; k++) {
+                            fd.append(el.name, typeof all[k] === 'string' ? all[k].replace(/,/g, '') : all[k]);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     function boot() {
         ensureMoneyStyles();
+        bindFormDataStrip();
         scan(document);
 
         if (typeof MutationObserver === 'undefined') {

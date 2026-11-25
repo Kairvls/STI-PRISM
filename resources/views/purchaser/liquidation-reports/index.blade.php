@@ -4,16 +4,70 @@
 @section('page-subtitle', 'Liquidate cash advances after receiving.')
 
 @section('content')
+@php
+    $accountingReviewers = \App\Support\ReviewerAssignment::options(\App\Support\WorkflowNotifier::ROLE_ACCOUNTING);
+    $preferredAccountingId = \App\Support\ReviewerAssignment::preferredId($accountingReviewers);
+@endphp
 <script type="application/json" id="liq-rr-prefill">{!! json_encode($rrPrefill ?? []) !!}</script>
+<script type="application/json" id="liq-accounting-reviewers">{!! json_encode($accountingReviewers) !!}</script>
 <div
     x-data="{
         createOpen: {{ ($errors->any() && old('liquidation_report_receiving_report_id')) || !empty($selectedRrId) ? 'true' : 'false' }},
+        createSubmitConfirmOpen: false,
+        createSubmitReviewerId: @js($preferredAccountingId ? (string) $preferredAccountingId : ''),
+        accountingReviewers: JSON.parse(document.getElementById('liq-accounting-reviewers').textContent || '[]'),
+        createSubmitSummary: { employee: '', purpose: '', amount: '', dateSubmitted: '', rrLabel: '' },
+        selectedRrOrSummary: null,
+        fmtPeso(v) {
+            if (v === null || v === undefined || v === '' || Number.isNaN(Number(v))) return '—';
+            return '₱' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
         viewOpen: {{ !empty($viewLiqId) ? 'true' : 'false' }},
         editOpen: false,
         emptyOpen: false,
         modalFullscreen: false,
         selectedLiq: {{ !empty($viewLiqId) ? (int) $viewLiqId : 'null' }},
         rrPrefill: JSON.parse(document.getElementById('liq-rr-prefill').textContent || '{}'),
+        selectedAccountingName() {
+            const match = (this.accountingReviewers || []).find(r => String(r.id) === String(this.createSubmitReviewerId));
+            if (match) return match.name;
+            return (this.accountingReviewers && this.accountingReviewers[0]) ? this.accountingReviewers[0].name : 'Accounting Officer';
+        },
+        openCreateSubmitConfirm() {
+            const form = this.$refs.createForm || document.getElementById('liqCreateForm');
+            if (!form) return;
+            const save = form.querySelector('[name=save_action]');
+            if (save) save.value = 'submit';
+            if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+                return;
+            }
+            const rrSel = form.querySelector('[name=liquidation_report_receiving_report_id]');
+            const rrLabel = rrSel && rrSel.selectedIndex > 0 ? rrSel.options[rrSel.selectedIndex].text.trim() : '—';
+            const employee = (form.querySelector('[name=liquidation_report_employee_name]')?.value || '').trim() || '—';
+            const purpose = (form.querySelector('[name=liquidation_report_purpose]')?.value || '').trim() || '—';
+            const rawAmt = (form.querySelector('[name=liquidation_report_amount_advance]')?.value || '').replace(/,/g, '').trim();
+            const numAmt = Number(rawAmt);
+            const amount = rawAmt !== '' && !Number.isNaN(numAmt)
+                ? '₱' + numAmt.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '—';
+            const dateSubmitted = (form.querySelector('[name=liquidation_report_date_submitted]')?.value || '').trim() || 'Today';
+            this.createSubmitSummary = { employee, purpose, amount, dateSubmitted, rrLabel };
+            this.createSubmitConfirmOpen = true;
+            this.$nextTick(() => window.lucide && window.lucide.createIcons());
+        },
+        confirmCreateSubmit() {
+            const form = this.$refs.createForm || document.getElementById('liqCreateForm');
+            if (!form) return;
+            const save = form.querySelector('[name=save_action]');
+            if (save) save.value = 'submit';
+            const rev = form.querySelector('[name=assigned_reviewer_id]');
+            if (rev && this.createSubmitReviewerId) rev.value = this.createSubmitReviewerId;
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            this.createSubmitConfirmOpen = false;
+            form.submit();
+        },
         openView(id) { this.selectedLiq = id; this.viewOpen = true; this.editOpen = false; this.modalFullscreen = false; },
         openEdit(id) {
             this.selectedLiq = id;
@@ -53,37 +107,64 @@
         },
         applyRrPrefill(rrId) {
             const data = this.rrPrefill[String(rrId)];
-            const form = this.$refs.createForm;
+            const form = this.$refs.createForm || document.getElementById('liqCreateForm');
             if (!form || !data) return;
             const purpose = form.querySelector('[name=liquidation_report_purpose]');
             const amount = form.querySelector('[name=liquidation_report_amount_advance]');
             if (purpose && data.purpose) purpose.value = data.purpose;
-            if (amount && data.amount) amount.value = data.amount;
+            if (amount && data.amount != null) {
+                amount.value = window.PrismInputLimits && window.PrismInputLimits.formatMoney
+                    ? window.PrismInputLimits.formatMoney(data.amount)
+                    : data.amount;
+            }
             const rows = data.items || [];
-            for (let i = 0; i < 8; i++) {
+            const rowsRoot = form.querySelector('[data-doc-rows]');
+            const rowTotal = (rowsRoot && window.docRows)
+                ? window.docRows.fit(rowsRoot, Math.max(1, rows.length)).length
+                : Math.max(1, rows.length);
+            const fmtVal = (v) => (v != null && v !== '' && window.PrismInputLimits && window.PrismInputLimits.formatMoney)
+                ? window.PrismInputLimits.formatMoney(v)
+                : (v ?? '');
+            for (let i = 0; i < rowTotal; i++) {
                 const item = rows[i] || {};
                 const p = form.querySelector('[name=\'items[' + i + '][particulars]\']');
                 const a = form.querySelector('[name=\'items[' + i + '][amount]\']');
                 const aa = form.querySelector('[name=\'items[' + i + '][actual_amount]\']');
                 const at = form.querySelector('[name=\'items[' + i + '][actual_total]\']');
+                const ref = form.querySelector('[name=\'items[' + i + '][ref_no]\']');
                 if (p) p.value = item.particulars ?? '';
-                if (a) a.value = item.amount ?? '';
-                if (aa) aa.value = item.actual_amount ?? '';
-                if (at) at.value = item.actual_total ?? '';
+                if (a) a.value = fmtVal(item.amount);
+                if (aa) aa.value = fmtVal(item.actual_amount);
+                if (at) at.value = fmtVal(item.actual_total);
+                if (ref) ref.value = item.ref_no ?? '';
+            }
+            this.selectedRrOrSummary = data.or_summary || null;
+            if (window.PrismInputLimits && typeof window.PrismInputLimits.scan === 'function') {
+                window.PrismInputLimits.scan(form);
+            }
+            if (window.liqRecalcTotals) {
+                window.liqRecalcTotals(form);
             }
             const hintEl = form.querySelector('[data-cash-returned-hint]');
             const cashInput = form.querySelector('[data-cash-returned-input]');
             const hint = data.cash_returned_hint || '';
+            const unusedCash = Number(data.shortfall_amount || (data.or_summary && data.or_summary.change_amount) || 0);
             if (hintEl) {
                 hintEl.textContent = hint;
                 hintEl.classList.toggle('hidden', !hint);
             }
-            if (cashInput && hint) {
-                cashInput.placeholder = hint;
-                cashInput.classList.add('ring-1', 'ring-amber-400');
-            } else if (cashInput) {
-                cashInput.placeholder = 'Required when unused cash remains';
-                cashInput.classList.remove('ring-1', 'ring-amber-400');
+            if (cashInput) {
+                cashInput.value = unusedCash > 0 ? fmtVal(unusedCash) : '';
+                if (hint) {
+                    cashInput.placeholder = hint;
+                    cashInput.classList.add('ring-1', 'ring-amber-400');
+                } else {
+                    cashInput.placeholder = '0.00';
+                    cashInput.classList.remove('ring-1', 'ring-amber-400');
+                }
+            }
+            if (window.liqRecalcTotals) {
+                window.liqRecalcTotals(form);
             }
         },
         printLiq(id) {
@@ -336,7 +417,67 @@
                             </td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '-' }}</td>
                             <td class="px-5 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '-' }}</td>
-                            <td class="px-5 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status, 'doc' => 'liq', 'overdue' => $liqIsOverdue])</td>
+                            <td class="px-5 py-4">
+                                @php
+                                    $liqRawStatus = trim((string) ($liq->liquidation_report_status ?? ''));
+                                    $liqBadge = match (true) {
+                                        $liqIsOverdue => [
+                                            'pill' => 'Overdue',
+                                            'sub' => 'Past 15-day deadline',
+                                            'bg' => '#fef2f2', 'fg' => '#b91c1c', 'border' => '#fecaca', 'dot' => '#dc2626',
+                                        ],
+                                        $liqRawStatus === 'Draft' => [
+                                            'pill' => 'Draft',
+                                            'sub' => 'In preparation',
+                                            'bg' => '#f1f5f9', 'fg' => '#475569', 'border' => '#cbd5e1', 'dot' => '#64748b',
+                                        ],
+                                        in_array($liqRawStatus, ['Submitted', 'Under Review', 'Resubmitted'], true) => [
+                                            'pill' => 'With Accounting',
+                                            'sub' => 'Awaiting verification',
+                                            'bg' => '#f0f9ff', 'fg' => '#0369a1', 'border' => '#bae6fd', 'dot' => '#0284c7',
+                                        ],
+                                        $liqRawStatus === 'Pending Admin Approval' => [
+                                            'pill' => 'With School Admin',
+                                            'sub' => 'Awaiting approval',
+                                            'bg' => '#eef2ff', 'fg' => '#4338ca', 'border' => '#c7d2fe', 'dot' => '#4f46e5',
+                                        ],
+                                        in_array($liqRawStatus, ['Minor Revision', 'Returned', 'For revision'], true) => [
+                                            'pill' => 'For Revision',
+                                            'sub' => 'Returned by Accounting',
+                                            'bg' => '#fff7ed', 'fg' => '#c2410c', 'border' => '#fed7aa', 'dot' => '#ea580c',
+                                        ],
+                                        $liqRawStatus === 'Approved' => [
+                                            'pill' => 'Completed',
+                                            'sub' => 'Liquidation approved',
+                                            'bg' => '#ecfdf5', 'fg' => '#047857', 'border' => '#a7f3d0', 'dot' => '#059669',
+                                        ],
+                                        $liqRawStatus === 'Rejected' => [
+                                            'pill' => 'Rejected',
+                                            'sub' => 'Not approved',
+                                            'bg' => '#fef2f2', 'fg' => '#b91c1c', 'border' => '#fecaca', 'dot' => '#dc2626',
+                                        ],
+                                        default => [
+                                            'pill' => \App\Support\ProcurementStatus::label($liqRawStatus, 'liq'),
+                                            'sub' => '',
+                                            'bg' => '#f1f5f9', 'fg' => '#475569', 'border' => '#cbd5e1', 'dot' => '#64748b',
+                                        ],
+                                    };
+                                @endphp
+                                <div class="inline-flex flex-col items-start">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                        style="background:{{ $liqBadge['bg'] }};color:{{ $liqBadge['fg'] }};border-color:{{ $liqBadge['border'] }};"
+                                    >
+                                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $liqBadge['dot'] }};"></span>
+                                        <span>{{ $liqBadge['pill'] }}</span>
+                                    </span>
+                                    @if($liqBadge['sub'] !== '')
+                                        <span class="mt-1 whitespace-nowrap text-[11px] font-medium leading-tight text-slate-500">
+                                            {{ $liqBadge['sub'] }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="px-5 py-4">
                                 <div class="flex flex-wrap items-center justify-end gap-1.5">
                                     <button type="button" @click="openView({{ $liq->liquidation_report_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
@@ -556,9 +697,10 @@
                         </button>
                     </div>
                 </div>
-                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                <form id="liqCreateForm" method="POST" action="{{ route(($pp ?? 'purchaser').'.liq.store') }}" enctype="multipart/form-data" x-ref="createForm">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
+                    <input type="hidden" name="assigned_reviewer_id" value="{{ $preferredAccountingId ?? '' }}">
                     <div class="bg-slate-100 p-3 md:p-5">
                         @if($eligibleRrs->isEmpty())
                             <div class="mx-auto mb-4 w-full max-w-[1095px] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -575,6 +717,38 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                <div
+                                    x-show="selectedRrOrSummary"
+                                    x-cloak
+                                    class="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-200/80 bg-indigo-50/70 px-3.5 py-2.5 text-xs text-slate-700"
+                                >
+                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span class="font-semibold text-indigo-900">RR Official Receipt:</span>
+                                        <span x-show="selectedRrOrSummary && selectedRrOrSummary.or_number">
+                                            OR #<strong class="text-slate-900" x-text="selectedRrOrSummary ? selectedRrOrSummary.or_number : ''"></strong>
+                                        </span>
+                                        <span x-show="selectedRrOrSummary && selectedRrOrSummary.check_amount !== null">
+                                            Funds: <strong class="tabular-nums text-slate-900" x-text="selectedRrOrSummary ? fmtPeso(selectedRrOrSummary.check_amount) : ''"></strong>
+                                        </span>
+                                        <span x-show="selectedRrOrSummary && selectedRrOrSummary.or_amount !== null">
+                                            OR Spend: <strong class="tabular-nums text-slate-900" x-text="selectedRrOrSummary ? fmtPeso(selectedRrOrSummary.or_amount) : ''"></strong>
+                                        </span>
+                                        <span x-show="selectedRrOrSummary && selectedRrOrSummary.change_amount !== null">
+                                            Change: <strong class="tabular-nums text-amber-800" x-text="selectedRrOrSummary ? fmtPeso(selectedRrOrSummary.change_amount) : ''"></strong>
+                                        </span>
+                                    </div>
+                                    <template x-if="selectedRrOrSummary && selectedRrOrSummary.attachment_url">
+                                        <a
+                                            :href="selectedRrOrSummary.attachment_url"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#0025cc] transition hover:bg-indigo-50"
+                                        >
+                                            <i data-lucide="file-image" class="h-3.5 w-3.5"></i>
+                                            View OR
+                                        </a>
+                                    </template>
+                                </div>
                             </div>
                         @endif
                         @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => null, 'rows' => collect(), 'signKey' => 'liq-create'])
@@ -589,19 +763,116 @@
                             'helpLine' => 'One file only · PDF, JPG, or PNG',
                         ])
                     </div>
-                    <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
+                    <div class="flex flex-wrap justify-end gap-2.5 border-t border-gray-100 bg-gray-50 px-5 py-4 md:px-6">
                         <button type="button" @click="guardClose('create')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-950">
                             Cancel
                         </button>
-                        <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800">
-                            <i data-lucide="check" class="h-4 w-4"></i>
+                        <button
+                            type="submit"
+                            onclick="this.form.save_action.value='draft'"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-gray-700 transition hover:bg-gray-100"
+                        >
+                            <i data-lucide="bookmark" class="h-4 w-4"></i>
                             {{ \App\Support\ProcurementDraftLabel::SAVE }}
+                        </button>
+                        <button
+                            type="button"
+                            @click="openCreateSubmitConfirm()"
+                            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                        >
+                            <i data-lucide="send" class="h-4 w-4"></i>
+                            Submit to Accounting
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+    </template>
+
+    {{-- SUBMIT TO ACCOUNTING CONFIRMATION MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-show="createSubmitConfirmOpen"
+            x-cloak
+            class="fixed inset-0 flex items-center justify-center p-4"
+            style="z-index: 99999;"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="liqSubmitConfirmTitle"
+        >
+            <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px]" @click="createSubmitConfirmOpen = false"></div>
+            <div class="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" @click.stop>
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border" style="background:#eff6ff;border-color:#bfdbfe;color:#0025cc;">
+                        <i data-lucide="send" class="h-5 w-5"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h3 id="liqSubmitConfirmTitle" class="text-base font-bold text-slate-900">Submit to Accounting?</h3>
+                        <p class="mt-1 text-sm text-slate-600">
+                            This Liquidation Report will be sent to <strong class="text-slate-900">Accounting</strong> (<strong class="text-slate-900" x-text="selectedAccountingName()"></strong>) for verification.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Destination</span>
+                        <span class="font-semibold text-slate-900">Accounting Office</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Recipient</span>
+                        <template x-if="accountingReviewers.length > 1">
+                            <select
+                                x-model="createSubmitReviewerId"
+                                class="h-7 max-w-[200px] rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-900 outline-none"
+                            >
+                                <template x-for="rev in accountingReviewers" :key="rev.id">
+                                    <option :value="String(rev.id)" x-text="rev.name"></option>
+                                </template>
+                            </select>
+                        </template>
+                        <template x-if="accountingReviewers.length <= 1">
+                            <span class="font-semibold text-slate-900" x-text="selectedAccountingName()"></span>
+                        </template>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 border-t border-slate-200/80 pt-2">
+                        <span class="text-slate-500">Receiving Report</span>
+                        <span class="max-w-[220px] truncate font-medium text-slate-800" x-text="createSubmitSummary.rrLabel"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Employee</span>
+                        <span class="max-w-[220px] truncate font-medium text-slate-800" x-text="createSubmitSummary.employee"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Amount Advanced</span>
+                        <span class="font-semibold tabular-nums text-slate-900" x-text="createSubmitSummary.amount"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500">Date Submitted</span>
+                        <span class="font-medium text-slate-800" x-text="createSubmitSummary.dateSubmitted"></span>
+                    </div>
+                </div>
+
+                <div class="mt-5 flex items-center justify-end gap-2">
+                    <button
+                        type="button"
+                        @click="createSubmitConfirmOpen = false"
+                        class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        @click="confirmCreateSubmit()"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
+                    >
+                        <i data-lucide="send" class="h-3.5 w-3.5"></i>
+                        Confirm &amp; Submit
+                    </button>
+                </div>
+            </div>
+        </div>
     </template>
 
     @foreach($reports as $liq)
@@ -868,6 +1139,118 @@
         return Math.max(0, Math.floor(ms / 86400000));
     }
 
+    function parseMoney(val) {
+        var s = String(val == null ? '' : val).replace(/,/g, '').replace(/[^\d.-]/g, '').trim();
+        if (s === '' || s === '-' || s === '.') return null;
+        var n = Number(s);
+        return isFinite(n) ? n : null;
+    }
+
+    function fmtPeso(n) {
+        if (n === null || !isFinite(n)) return '';
+        return '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    window.liqRecalcTotals = function (root) {
+        if (!root || !root.querySelectorAll) return;
+        var rows = root.querySelectorAll('tbody[data-doc-rows-body] tr[data-doc-row]');
+        var sumBudget = 0;
+        var sumActual = 0;
+        var hasBudget = false;
+        var hasActual = false;
+
+        rows.forEach(function (tr) {
+            var amtEl = tr.querySelector('input[name$="[amount]"]');
+            var actAmtEl = tr.querySelector('input[name$="[actual_amount]"]');
+            var actTotEl = tr.querySelector('input[name$="[actual_total]"]');
+            var varEl = tr.querySelector('[data-liq-row-variance]');
+
+            var budget = amtEl ? parseMoney(amtEl.value) : null;
+            var actual = actTotEl ? parseMoney(actTotEl.value) : null;
+            if (actual === null && actAmtEl) actual = parseMoney(actAmtEl.value);
+
+            if (budget !== null) { sumBudget += budget; hasBudget = true; }
+            if (actual !== null) { sumActual += actual; hasActual = true; }
+
+            if (varEl) {
+                if (budget !== null || actual !== null) {
+                    var diff = Math.round(((budget || 0) - (actual || 0)) * 100) / 100;
+                    varEl.textContent = fmtPeso(diff);
+                    varEl.style.color = diff > 0 ? '#b45309' : (diff < 0 ? '#dc2626' : '#334155');
+                    varEl.style.fontWeight = diff !== 0 ? '600' : '400';
+                } else {
+                    varEl.textContent = '';
+                    varEl.style.color = '';
+                    varEl.style.fontWeight = '';
+                }
+            }
+        });
+
+        var headerAdvEl = root.querySelector('input[name="liquidation_report_amount_advance"]');
+        var headerAdv = headerAdvEl ? parseMoney(headerAdvEl.value) : null;
+        var effectiveAdv = headerAdv !== null ? headerAdv : (hasBudget ? sumBudget : null);
+        var effectiveAct = hasActual ? Math.round(sumActual * 100) / 100 : null;
+        var balance = (effectiveAdv !== null || effectiveAct !== null)
+            ? Math.round(((effectiveAdv || 0) - (effectiveAct || 0)) * 100) / 100
+            : null;
+
+        var totAdv = root.querySelector('[data-liq-total-advance]');
+        var totAct = root.querySelector('[data-liq-total-actual]');
+        var sumAdv = root.querySelector('[data-liq-summary-advance]');
+        var sumAct = root.querySelector('[data-liq-summary-actual]');
+        var sumBal = root.querySelector('[data-liq-summary-balance]');
+
+        if (totAdv) totAdv.textContent = hasBudget ? fmtPeso(Math.round(sumBudget * 100) / 100) : (effectiveAdv !== null ? fmtPeso(effectiveAdv) : '');
+        if (totAct) totAct.textContent = effectiveAct !== null ? fmtPeso(effectiveAct) : '';
+        if (sumAdv) sumAdv.textContent = effectiveAdv !== null ? fmtPeso(effectiveAdv) : '';
+        if (sumAct) sumAct.textContent = effectiveAct !== null ? fmtPeso(effectiveAct) : '';
+        if (sumBal) {
+            sumBal.textContent = balance !== null ? fmtPeso(balance) : '';
+            sumBal.style.color = balance !== null && balance > 0 ? '#b45309' : (balance !== null && balance < 0 ? '#dc2626' : '#047857');
+        }
+
+        var cashInput = root.querySelector('[data-cash-returned-input]');
+        var cashErr = root.querySelector('[data-cash-returned-error]');
+        if (cashInput) {
+            var entered = parseMoney(cashInput.value);
+            var maxUnused = balance !== null ? Math.max(0, balance) : 0;
+            var isOver = entered !== null && entered > (maxUnused + 0.001);
+            if (isOver) {
+                cashInput.style.borderColor = '#dc2626';
+                cashInput.style.backgroundColor = '#fef2f2';
+                cashInput.style.color = '#b91c1c';
+                cashInput.style.boxShadow = '0 0 0 1px #dc2626';
+                if (cashErr) {
+                    var excess = Math.round((entered - maxUnused) * 100) / 100;
+                    cashErr.textContent = 'Exceeds unused cash balance by ' + fmtPeso(excess);
+                    cashErr.classList.remove('hidden');
+                }
+            } else {
+                cashInput.style.borderColor = '';
+                cashInput.style.backgroundColor = '';
+                cashInput.style.color = '';
+                cashInput.style.boxShadow = '';
+                if (cashErr) {
+                    cashErr.textContent = '';
+                    cashErr.classList.add('hidden');
+                }
+            }
+        }
+    };
+
+    document.addEventListener('input', function (e) {
+        var el = e.target;
+        if (!el || !el.name) return;
+        if (
+            el.name === 'liquidation_report_amount_advance'
+            || el.name === 'liquidation_report_cash_returned_or_no'
+            || /^items\[\d+\]\[(amount|actual_amount|actual_total)\]$/.test(el.name)
+        ) {
+            var form = el.closest('form');
+            if (form) window.liqRecalcTotals(form);
+        }
+    });
+
     function syncForm(root) {
         if (!root) return;
         var activity = root.querySelector('[data-liq-activity-end]');
@@ -879,7 +1262,10 @@
         var anchor = parseYmd(activity && activity.value) || parseYmd(released && released.value);
         if (!anchor) {
             if (deadline.tagName === 'INPUT') deadline.value = '';
-            if (daysOut) daysOut.textContent = '';
+            if (daysOut) {
+                if (daysOut.tagName === 'INPUT') daysOut.value = '';
+                else daysOut.textContent = '';
+            }
             return;
         }
 
@@ -894,7 +1280,9 @@
         if (daysOut) {
             var today = new Date();
             today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            daysOut.textContent = today > due ? String(daysBetween(due, today)) : '0';
+            var lapsedText = today > due ? String(daysBetween(due, today)) : '0';
+            if (daysOut.tagName === 'INPUT') daysOut.value = lapsedText;
+            else daysOut.textContent = lapsedText;
         }
     }
 

@@ -1,5 +1,6 @@
 @php
     $current = $current ?? null;
+    $switchableKeys = $switchableKeys ?? ['ris', 'atp'];
 @endphp
 <div class="acc-panel">
     <h3 class="acc-panel-title">Related documents</h3>
@@ -18,7 +19,7 @@
                     @endif
                 </div>
                 <div class="shrink-0 flex flex-col items-end gap-0.5">
-                    @if (!empty($switchable) && in_array($key, ['ris', 'atp'], true) && !empty($node['label']))
+                    @if (!empty($switchable) && in_array($key, $switchableKeys, true) && !empty($node['label']))
                         <span
                             data-chain-current
                             @if(!$isCurrent) hidden @endif
@@ -28,6 +29,8 @@
                         <button
                             type="button"
                             data-switch-doc="{{ $key }}"
+                            data-doc-url="{{ $node['url'] ?? '' }}"
+                            data-doc-title="{{ $title }} · {{ $node['label'] ?? '' }}"
                             data-chain-open
                             @if($isCurrent) hidden @endif
                             class="acc-link text-[11px]"
@@ -39,7 +42,7 @@
                     @endif
                     @if (!empty($node['status']) && empty($node['url']))
                         <span class="text-[10px] text-slate-500">{{ $node['status'] }}</span>
-                    @elseif (!empty($node['status']) && !empty($node['url']) && $key === 'ris')
+                    @elseif (!empty($node['status']) && !empty($node['url']) && in_array($key, ['ris', 'rr'], true))
                         <span class="text-[10px] text-slate-500">{{ $node['status'] }}</span>
                     @endif
                 </div>

@@ -114,6 +114,9 @@ class DocumentLineage
             self::openUrl('atp', (int) $atp->authority_purchase_id),
             self::reviewHint(RisWorkflow::atpStatusLabel($atp), null, 'atp')
         );
+        if (!empty($atp->authority_purchase_payment_path)) {
+            $chain['payment_path'] = ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path);
+        }
 
         return $chain;
     }
@@ -133,6 +136,9 @@ class DocumentLineage
             self::openUrl('rfc', (int) $rfc->request_check_id),
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
+        if (empty($chain['payment_path']) && !empty($rfc->request_check_funding_type)) {
+            $chain['payment_path'] = ProcurementPaymentPath::normalize($rfc->request_check_funding_type);
+        }
 
         return $chain;
     }
@@ -157,6 +163,9 @@ class DocumentLineage
             self::openUrl('rfc', $rfcId),
             self::reviewHint($rfc->request_check_status ?? null, $rfc->request_check_review_stage ?? null, 'rfc')
         );
+        if (empty($chain['payment_path']) && !empty($rfc->request_check_funding_type)) {
+            $chain['payment_path'] = ProcurementPaymentPath::normalize($rfc->request_check_funding_type);
+        }
 
         return self::extendFromRfc($chain, $rfc, $atpId);
     }
@@ -208,6 +217,9 @@ class DocumentLineage
             self::openUrl('liq', $liqId),
             self::reviewHint($liq->liquidation_report_status ?? null, $liq->liquidation_report_review_stage ?? null, 'liq')
         );
+        if (empty($chain['payment_path'])) {
+            $chain['payment_path'] = ProcurementPaymentPath::CASH_ADVANCE;
+        }
 
         return $chain;
     }
@@ -261,6 +273,7 @@ class DocumentLineage
             'dv' => null,
             'rr' => null,
             'liq' => null,
+            'payment_path' => null,
         ];
     }
 
@@ -312,6 +325,9 @@ class DocumentLineage
             self::openUrl('atp', (int) $atp->authority_purchase_id),
             self::reviewHint(RisWorkflow::atpStatusLabel($atp), null, 'atp')
         );
+        if (!empty($atp->authority_purchase_payment_path)) {
+            $chain['payment_path'] = ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path);
+        }
 
         $rfc = RfcAtpLinks::latestRfcForAtp((int) $atp->authority_purchase_id);
 

@@ -115,6 +115,7 @@
         </div>
     </div>
 
+    <div data-doc-switcher>
     <div class="acc-review-body">
         @if (!empty($rfc->request_check_funds_collected_at))
             <div class="acc-note acc-note-ok mb-3">
@@ -128,38 +129,73 @@
 
         <div class="acc-review-grid">
             <div>
-                <div class="rounded-2xl bg-slate-100 p-3 md:p-4">
-                    @include('partials.request-check-paper', [
-                        'editable' => false,
-                        'rfc' => $rfc,
-                        'printId' => 'acc-print-sheet',
-                        'accLiveSign' => !empty($reviewable),
-                    ])
-                </div>
-                @if ($reviewable)
-                    <form id="inlineApproveRfcForm" method="POST" action="/school-admin/request-check/{{ $rfc->request_check_id }}/approve" class="mt-4">
-                        @csrf
-                        <input type="hidden" name="target_type" value="rfc" />
-                        <input type="hidden" name="target_id" value="{{ $rfc->request_check_id }}" />
-                        <input type="hidden" name="decision" value="Approved" />
-                        <input type="hidden" name="route_to" value="{{ !empty($dualRouteApprove) ? 'purchaser_and_accounting' : 'purchaser' }}" />
-                        <input type="hidden" name="signature_data" id="signatureData" value="" />
-                        <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
-                        @include('accounting.partials.decision-signature-panel', [
-                            'savedSignatures' => $savedSignatures ?? collect(),
-                            'signTitle' => 'School Administrator signature',
-                            'signHint' => 'Pick a saved signature, draw one, or upload. It approves this Request for Check.',
-                            'padTitle' => 'Sign the Request for Check',
-                            'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
-                            'hideInlinePreview' => true,
+                <div data-doc-panel="rfc">
+                    <div class="rounded-2xl bg-slate-100 p-3 md:p-4">
+                        @include('partials.request-check-paper', [
+                            'editable' => false,
+                            'rfc' => $rfc,
+                            'printId' => 'acc-print-sheet',
+                            'accLiveSign' => !empty($reviewable),
                         ])
-                    </form>
-                @endif
+                    </div>
+                    @if ($reviewable)
+                        <form id="inlineApproveRfcForm" method="POST" action="/school-admin/request-check/{{ $rfc->request_check_id }}/approve" class="mt-4">
+                            @csrf
+                            <input type="hidden" name="target_type" value="rfc" />
+                            <input type="hidden" name="target_id" value="{{ $rfc->request_check_id }}" />
+                            <input type="hidden" name="decision" value="Approved" />
+                            <input type="hidden" name="route_to" value="{{ !empty($dualRouteApprove) ? 'purchaser_and_accounting' : 'purchaser' }}" />
+                            <input type="hidden" name="signature_data" id="signatureData" value="" />
+                            <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
+                            @include('accounting.partials.decision-signature-panel', [
+                                'savedSignatures' => $savedSignatures ?? collect(),
+                                'signTitle' => 'School Administrator signature',
+                                'signHint' => 'Pick a saved signature, draw one, or upload. It approves this Request for Check.',
+                                'padTitle' => 'Sign the Request for Check',
+                                'padHint' => 'Sign clearly. This overlays your printed name on the approval.',
+                                'hideInlinePreview' => true,
+                            ])
+                        </form>
+                    @endif
+                </div>
+                <div data-doc-panel="related" hidden>
+                    <div class="mb-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <span class="inline-flex h-2 w-2 shrink-0 rounded-full" style="background:#0025cc;"></span>
+                            <span id="accRelatedDocTitle" class="truncate text-xs font-semibold text-slate-800">Related Document</span>
+                        </div>
+                        <button
+                            type="button"
+                            data-switch-doc="rfc"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                            <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                            <span>Back to Request Check</span>
+                        </button>
+                    </div>
+                    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-[#eef1f5]">
+                        @foreach (['ris', 'atp', 'rr', 'liq'] as $relKey)
+                            @if (!empty($chain[$relKey]['url']))
+                                <iframe
+                                    data-related-frame="{{ $relKey }}"
+                                    src="{{ $chain[$relKey]['url'] }}"
+                                    title="{{ strtoupper($relKey) }} preview"
+                                    class="w-full border-0 bg-[#eef1f5]"
+                                    style="display:none;"
+                                    scrolling="no"
+                                    hidden
+                                ></iframe>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
             </div>
             <div class="acc-side-stack">
                 @include('accounting.partials.related-docs', [
                     'chain' => $chain,
                     'current' => request('view') === 'funds' ? 'funds' : 'rfc',
+                    'switchable' => true,
+                    'switchableKeys' => ['ris', 'atp', 'rfc', 'rr', 'liq'],
                 ])
                 @include('accounting.partials.history', ['history' => $history])
                 @if (!empty($rfc->request_check_revision_notes))
@@ -174,6 +210,7 @@
                 @endif
             </div>
         </div>
+    </div>
     </div>
 </div>
 
@@ -331,6 +368,101 @@
         closeRfcFinalConfirm();
         closeReleaseFundsModal();
     });
+
+    @php
+        $rfcRelatedDocMeta = [
+            'ris' => ['title' => 'RIS · ' . ($chain['ris']['label'] ?? '')],
+            'atp' => ['title' => 'ATP · ' . ($chain['atp']['label'] ?? '')],
+            'rr'  => ['title' => 'Receiving Report · ' . ($chain['rr']['label'] ?? '')],
+            'liq' => ['title' => 'Liquidation · ' . ($chain['liq']['label'] ?? '')],
+        ];
+    @endphp
+    (function () {
+        const docMeta = @json($rfcRelatedDocMeta);
+        const titleEl = document.getElementById('accRelatedDocTitle');
+        const frames = Array.prototype.slice.call(document.querySelectorAll('iframe[data-related-frame]'));
+
+        function fitFrame(iframe) {
+            if (!iframe || iframe.hidden) return;
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!doc || !doc.body) return;
+                const h = Math.max(
+                    doc.body.scrollHeight || 0,
+                    doc.documentElement ? doc.documentElement.scrollHeight : 0,
+                    Math.ceil(doc.body.getBoundingClientRect().height)
+                );
+                if (h > 0) {
+                    iframe.style.height = h + 'px';
+                }
+            } catch (_) {}
+        }
+
+        frames.forEach(function (iframe) {
+            iframe.addEventListener('load', function () {
+                fitFrame(iframe);
+            });
+        });
+
+        window.addEventListener('resize', function () {
+            frames.forEach(fitFrame);
+        });
+
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-switch-doc]');
+            if (!button) return;
+            const root = button.closest('[data-doc-switcher]');
+            if (!root) return;
+
+            const key = button.getAttribute('data-switch-doc');
+            const rfcPanel = root.querySelector('[data-doc-panel="rfc"]');
+            const relatedPanel = root.querySelector('[data-doc-panel="related"]');
+            if (!rfcPanel || !relatedPanel) return;
+
+            if (key === 'rfc') {
+                event.preventDefault();
+                rfcPanel.hidden = false;
+                relatedPanel.hidden = true;
+                frames.forEach(function (f) {
+                    f.hidden = true;
+                    f.style.display = 'none';
+                });
+                if (window.fitAccountingDocuments) {
+                    requestAnimationFrame(function () { window.fitAccountingDocuments(); });
+                }
+            } else {
+                const targetFrame = root.querySelector('iframe[data-related-frame="' + key + '"]');
+                if (!targetFrame) return;
+                event.preventDefault();
+                const meta = docMeta[key] || {};
+                rfcPanel.hidden = true;
+                relatedPanel.hidden = false;
+                if (titleEl) {
+                    titleEl.textContent = meta.title || button.getAttribute('data-doc-title') || key.toUpperCase();
+                }
+                frames.forEach(function (f) {
+                    const show = f === targetFrame;
+                    f.hidden = !show;
+                    f.style.display = show ? 'block' : 'none';
+                });
+                requestAnimationFrame(function () {
+                    fitFrame(targetFrame);
+                    setTimeout(function () { fitFrame(targetFrame); }, 120);
+                });
+            }
+
+            root.querySelectorAll('[data-chain-item]').forEach(function (item) {
+                const active = item.getAttribute('data-chain-item') === key;
+                item.classList.toggle('acc-chain-item--current', active);
+                const curEl = item.querySelector('[data-chain-current]');
+                const openEl = item.querySelector('[data-chain-open]');
+                if (curEl) curEl.hidden = !active;
+                if (openEl) openEl.hidden = active;
+            });
+
+            if (window.lucide) lucide.createIcons();
+        });
+    })();
 </script>
 
 @include('partials.ris-revision-image-viewer')

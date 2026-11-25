@@ -3,13 +3,23 @@
     $currentType = $currentType ?? null;
     $statusHint = $statusHint ?? null;
 
+    $pipelinePath = \App\Support\ProcurementPaymentPath::normalize(
+        is_string($lineage['payment_path'] ?? null) ? $lineage['payment_path'] : null
+    );
+    $includeLiq = $pipelinePath === null
+        || \App\Support\ProcurementPaymentPath::requiresLiquidation($pipelinePath)
+        || !empty($lineage['liq'])
+        || ($currentType && strtoupper((string) $currentType) === 'LIQ');
+
     $pipelineStages = [
         ['key' => 'ris', 'type' => 'RIS', 'display' => 'RIS'],
         ['key' => 'atp', 'type' => 'ATP', 'display' => 'ATP'],
         ['key' => 'rfc', 'type' => 'RFC', 'display' => 'RFC'],
         ['key' => 'rr', 'type' => 'RR', 'display' => 'RR'],
-        ['key' => 'liq', 'type' => 'LIQ', 'display' => 'LR'],
     ];
+    if ($includeLiq) {
+        $pipelineStages[] = ['key' => 'liq', 'type' => 'LIQ', 'display' => 'LR'];
+    }
 
     $hasAnyStep = false;
     foreach ($pipelineStages as $stage) {
