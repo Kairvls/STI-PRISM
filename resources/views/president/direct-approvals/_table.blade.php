@@ -69,18 +69,40 @@
         </td>
         <td class="px-2 py-4 text-sm text-gray-700">{{ $dateLabel }}</td>
         <td class="px-2 py-4 text-sm">
-            @if ($requestUrl)
-                <a
-                    href="{{ $requestUrl }}"
-                    class="inline-flex items-center rounded-full bg-[#eef2ff] px-2.5 py-1 text-[11px] font-semibold text-[#1e3a8a] transition hover:bg-[#dbe4ff] hover:underline"
-                    title="Latest stop: {{ $latestStop['title'] }}. Open {{ $requestNo }}"
-                >{{ $latestStop['code'] }}</a>
-            @else
-                <span
-                    class="inline-flex items-center rounded-full bg-[#eef2ff] px-2.5 py-1 text-[11px] font-semibold text-[#1e3a8a]"
-                    title="Latest stop: {{ $latestStop['title'] }}"
-                >{{ $latestStop['code'] }}</span>
-            @endif
+            @php
+                $stopCode = strtoupper(trim((string) ($latestStop['code'] ?? 'RIS')));
+                [$stopStyle, $stopDot, $stopSub] = match ($stopCode) {
+                    'RIS' => ['background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;', '#2563eb', 'Directly approved'],
+                    'ATP' => ['background:#eef2ff;border-color:#c7d2fe;color:#4338ca;', '#4f46e5', 'Authority to Purchase'],
+                    'RFC' => ['background:#f3e8ff;border-color:#d8b4fe;color:#7e22ce;', '#9333ea', 'Request for Check'],
+                    'RR'  => ['background:#f0fdfa;border-color:#99f6e4;color:#0f766e;', '#0d9488', 'Receiving Report'],
+                    'LR'  => ['background:#ecfdf5;border-color:#a7f3d0;color:#059669;', '#10b981', 'Liquidation Report'],
+                    default => ['background:#f1f5f9;border-color:#e2e8f0;color:#475569;', '#64748b', (string) ($latestStop['title'] ?? 'In progress')],
+                };
+            @endphp
+            <div class="inline-flex flex-col items-start">
+                @if ($requestUrl)
+                    <a
+                        href="{{ $requestUrl }}"
+                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition hover:opacity-90"
+                        style="{{ $stopStyle }}"
+                        title="Latest stage: {{ $latestStop['title'] ?? $stopSub }}. Open {{ $requestNo }}"
+                    >
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $stopDot }};"></span>
+                        <span>{{ $stopCode }}</span>
+                    </a>
+                @else
+                    <span
+                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                        style="{{ $stopStyle }}"
+                        title="Latest stage: {{ $latestStop['title'] ?? $stopSub }}"
+                    >
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:{{ $stopDot }};"></span>
+                        <span>{{ $stopCode }}</span>
+                    </span>
+                @endif
+                <span class="mt-1 text-[11px] font-medium leading-tight text-slate-500">{{ $stopSub }}</span>
+            </div>
         </td>
         <td class="px-2 py-4 text-center">
             <div class="row-actions justify-center">

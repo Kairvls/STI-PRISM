@@ -1453,20 +1453,11 @@
 
                     <select name="status" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::IN_PREPARATION }}</option>
-                        <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::WITH_SCHOOL_ADMINISTRATOR }}</option>
-                        <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::FOR_REVISION }}</option>
+                        <option value="Reviewed" {{ request('status') === 'Reviewed' ? 'selected' : '' }}>Reviewed</option>
                         <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
+                        <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>For revision</option>
                         <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
                     </select>
-
-                    @if(\Illuminate\Support\Facades\Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type'))
-                        <select name="request_type" class="box-border h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
-                            <option value="">All RIS types</option>
-                            <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
-                            <option value="Replacement Procurement" {{ request('request_type') === 'Replacement Procurement' ? 'selected' : '' }}>Replacement Procurement</option>
-                        </select>
-                    @endif
 
                     <button
                         type="submit"
@@ -1476,7 +1467,7 @@
                         Apply
                     </button>
 
-                    @if(request()->filled('search') || request()->filled('status') || request()->filled('request_type'))
+                    @if(request()->filled('search') || request()->filled('status'))
                         <a
                             href="{{ $archiveView ? route(($pp ?? 'purchaser').'.atp.index', ['view' => 'archive']) : route(($pp ?? 'purchaser').'.atp.index') }}"
                             class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
@@ -2218,6 +2209,9 @@
                                     @endphp
                                     <a
                                         href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $pathKey, 'fund' => $pathKey]) }}"
+                                        data-pur-confirm="Create a {{ $pathLabel }} Request for Check for {{ $atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id) }}? The RFC form will open with this ATP already selected."
+                                        data-pur-confirm-title="Create {{ $pathLabel }}"
+                                        data-pur-confirm-ok="Create {{ $pathLabel }}"
                                         class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
                                     >
                                         Create {{ $pathLabel }}

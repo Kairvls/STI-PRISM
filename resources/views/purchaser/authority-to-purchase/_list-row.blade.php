@@ -145,8 +145,11 @@
                                             <div class="mt-1">
                                                 @include('partials.payment-method-badge', ['atp' => $atp, 'size' => 'sm'])
                                             </div>
+                                            @if(empty($atp->has_rfc) && !\App\Support\ProcurementPortal::isSupplyOfficerContext())
+                                                <div class="mt-1 text-[11px] font-medium leading-tight" style="color:#b45309;">Create RFC to proceed</div>
+                                            @endif
                                         @elseif(empty($atp->has_rfc) && !\App\Support\ProcurementPortal::isSupplyOfficerContext())
-                                            <div class="mt-1 text-[11px] font-medium leading-tight text-slate-500">Choose payment method</div>
+                                            <div class="mt-1 text-[11px] font-medium leading-tight" style="color:#b45309;">Choose payment method</div>
                                         @endif
                                     </div>
                                 @else
@@ -198,18 +201,19 @@
                             </td>
                             <td class="w-px whitespace-nowrap px-5 py-4">
                                 @php
-                                    $showChoosePaymentBtn = !$archiveView
+                                    $atpCanActOnRfc = !$archiveView
                                         && empty($atp->can_release_to_purchaser)
                                         && empty($atp->has_rfc)
-                                        && empty($atp->authority_purchase_payment_path)
                                         && !\App\Support\ProcurementPortal::isSupplyOfficerContext()
                                         && (
                                             ($atpPurchaserOwns && in_array($atp->authority_purchase_status, ['Draft', 'Pending'], true) && empty($atp->authority_purchase_submitted_at))
                                             || ($atp->authority_purchase_status === 'Approved' && ($atpPurchaserOwns || !empty($atp->released_to_purchaser)))
                                         );
+                                    $showChoosePaymentBtn = $atpCanActOnRfc && empty($atp->authority_purchase_payment_path);
+                                    $showCreateRfcBtn = $atpCanActOnRfc && !empty($atp->authority_purchase_payment_path);
                                 @endphp
                                 <div class="flex flex-nowrap items-center justify-end gap-1.5">
-                                    @unless($showChoosePaymentBtn)
+                                    @unless($showChoosePaymentBtn || $showCreateRfcBtn)
                                         <button
                                             type="button"
                                             @click="openView({{ $atp->authority_purchase_id }})"
@@ -249,27 +253,37 @@
                                         <button
                                             type="button"
                                             @click="openView({{ $atp->authority_purchase_id }})"
-                                            class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001db3]"
-                                            title="Choose Payment Method"
+                                            class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl transition hover:opacity-85"
+                                            style="background:#fffbeb;color:#d97706;"
+                                            data-tip="Choose Payment Method"
+                                            data-tip-place="above"
+                                            aria-label="Choose Payment Method"
                                         >
-                                            <i data-lucide="wallet" class="h-3.5 w-3.5"></i>
-                                            <span>Choose Payment</span>
+                                            <i data-lucide="wallet" class="h-4 w-4"></i>
+                                            <span class="pointer-events-none absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style="background:#f59e0b;"></span>
+                                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-white" style="background:#d97706;"></span>
+                                            </span>
                                         </button>
                                     @elseif(!$atp->has_rfc && !empty($atp->authority_purchase_payment_path))
                                         @php
                                             $pathLabel = \App\Support\ProcurementPaymentPath::label($atp->authority_purchase_payment_path);
-                                            $pathKey = \App\Support\ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path)
-                                                ?? $atp->authority_purchase_payment_path;
                                         @endphp
-                                        <a
-                                            href="{{ route(($pp ?? 'purchaser').'.rfc.index', ['selected_atp' => $atp->authority_purchase_id, 'funding_type' => $pathKey, 'fund' => $pathKey]) }}"
-                                            class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-[#001db3]"
-                                            title="Create {{ $pathLabel }}"
-                                            aria-label="Create {{ $pathLabel }}"
+                                        <button
+                                            type="button"
+                                            @click="openView({{ $atp->authority_purchase_id }})"
+                                            class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl transition hover:opacity-90"
+                                            style="background:#0025cc;color:#ffffff;"
+                                            data-tip="Create RFC ({{ $pathLabel }})"
+                                            data-tip-place="above"
+                                            aria-label="Create RFC ({{ $pathLabel }})"
                                         >
-                                            <i data-lucide="file-plus-2" class="h-3.5 w-3.5"></i>
-                                            <span>Create RFC</span>
-                                        </a>
+                                            <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+                                            <span class="pointer-events-none absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style="background:#f59e0b;"></span>
+                                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-white" style="background:#d97706;"></span>
+                                            </span>
+                                        </button>
                                     @elseif($atp->has_rfc)
                                         <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="RFC Created" aria-label="RFC Created">
                                             <i data-lucide="circle-check" class="h-4 w-4"></i>

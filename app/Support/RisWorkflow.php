@@ -939,11 +939,26 @@ class RisWorkflow
      * Full name of the account that owns the RIS (creator, then submitter).
      * Falls back to the name typed on the form for legacy rows without an owner.
      */
-    /** Purchaser who owns this RIS (submitter, else creator). */
+    /** Purchaser who owns this RIS (canvass performer first, else submitter, else creator). */
     public static function ownerPurchaserId(?object $ris): int
     {
         if (! $ris) {
             return 0;
+        }
+
+        $risId = (int) ($ris->ris_id ?? 0);
+        if (
+            $risId > 0
+            && Schema::hasTable('canvass_table')
+            && Schema::hasColumn('canvass_table', 'canvass_ris_id')
+            && Schema::hasColumn('canvass_table', 'canvass_owner_user_id')
+        ) {
+            $canvassOwnerId = (int) (DB::table('canvass_table')
+                ->where('canvass_ris_id', $risId)
+                ->value('canvass_owner_user_id') ?? 0);
+            if ($canvassOwnerId > 0) {
+                return $canvassOwnerId;
+            }
         }
 
         return (int) ($ris->ris_submitted_by ?: ($ris->ris_created_by ?? 0));

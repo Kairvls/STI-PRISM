@@ -95,10 +95,36 @@ class RequestForCheckController extends Controller
 
         DocumentUrgency::select($query, 'RFC');
         $spotlightQuery = clone $query;
-        $rfcs = DocumentWorkflowService::orderOwnUnfinishedFirst(
-            $query,
-            'request_check_table.request_check_status'
-        )
+
+        $hasReadyCol = Schema::hasColumn('request_check_table', 'request_check_check_ready_at');
+        $hasReleasedCol = Schema::hasColumn('request_check_table', 'request_check_funds_released_at');
+        $hasRrTable = Schema::hasTable('receiving_reports_table')
+            && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id');
+        $rrArchiveClause = $hasRrTable && Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')
+            ? ' AND (rr_chk.receiving_report_is_archived IS NULL OR rr_chk.receiving_report_is_archived = 0)'
+            : '';
+
+        $priorityCases = [
+            "WHEN request_check_table.request_check_status IN ('Draft', 'Minor Revision') THEN 0",
+        ];
+        if ($hasReadyCol && $hasReleasedCol) {
+            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_check_ready_at IS NOT NULL AND request_check_table.request_check_funds_released_at IS NULL THEN 1";
+        }
+        if ($hasReleasedCol && $hasRrTable) {
+            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM receiving_reports_table rr_chk WHERE rr_chk.receiving_report_request_check_id = request_check_table.request_check_id AND rr_chk.receiving_report_status != 'Returned'{$rrArchiveClause}) THEN 2";
+        } elseif ($hasReleasedCol) {
+            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NOT NULL THEN 2";
+        }
+        if ($hasReleasedCol) {
+            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NULL THEN 3";
+        }
+        $priorityCases[] = "WHEN request_check_table.request_check_status IN ('Pending', 'Submitted') THEN 3";
+        $priorityCases[] = "ELSE 4";
+
+        $query->orderByRaw('CASE '.implode(' ', $priorityCases).' END ASC');
+        DocumentUrgency::orderUrgentFirst($query, 'RFC');
+
+        $rfcs = $query
             ->orderByDesc($this->rfcSortColumn())
             ->paginate(10)
             ->withQueryString();
@@ -1328,6 +1354,33 @@ class RequestForCheckController extends Controller
         }
         if ($status === 'Submitted') {
             $query->whereIn('request_check_table.request_check_status', $this->rfcSubmittedFilterStatuses());
+            return;
+        }
+        if ($status === 'Ready for Pickup') {
+            $query->where('request_check_table.request_check_status', 'Approved');
+            if (Schema::hasColumn('request_check_table', 'request_check_check_ready_at')) {
+                $query->whereNotNull('request_check_table.request_check_check_ready_at');
+            }
+            if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
+                $query->whereNull('request_check_table.request_check_funds_released_at');
+            }
+            return;
+        }
+        if ($status === 'Released') {
+            $query->where('request_check_table.request_check_status', 'Approved');
+            if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
+                $query->whereNotNull('request_check_table.request_check_funds_released_at');
+            }
+            return;
+        }
+        if ($status === 'Approved') {
+            $query->where('request_check_table.request_check_status', 'Approved');
+            if (Schema::hasColumn('request_check_table', 'request_check_check_ready_at')) {
+                $query->whereNull('request_check_table.request_check_check_ready_at');
+            }
+            if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
+                $query->whereNull('request_check_table.request_check_funds_released_at');
+            }
             return;
         }
         $query->where('request_check_table.request_check_status', $status);

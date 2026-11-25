@@ -190,6 +190,11 @@ $schoolAdminModuleRoutes = function () {
     )->name('canvass-review.index');
 
     Route::get(
+        '/canvass-review/export-pdf',
+        [\App\Http\Controllers\CanvassReviewController::class, 'exportPdf']
+    )->name('canvass-review.export-pdf');
+
+    Route::get(
         '/canvass-review/{canvassId}',
         [\App\Http\Controllers\CanvassReviewController::class, 'show']
     )->whereNumber('canvassId')->name('canvass-review.show');

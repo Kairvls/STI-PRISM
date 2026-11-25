@@ -107,7 +107,7 @@
         createSubmitSummary: { paymentMethod: '', payee: '', amount: '', destination: 'School Administrator' },
 
         prepareCreateSave(action) {
-            const form = this.$refs.createForm;
+            const form = this.$refs.createForm || document.getElementById('rfcCreateForm');
             if (!form) return;
             const save = form.querySelector('[name=save_action]');
             if (save) save.value = action;
@@ -118,8 +118,11 @@
         },
 
         openCreateSubmitConfirm() {
-            const form = this.$refs.createForm;
+            const form = this.$refs.createForm || document.getElementById('rfcCreateForm');
             if (!form) return;
+            if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+                return;
+            }
             const payee = (form.querySelector('[name=request_check_payee]')?.value || '').trim();
             const rawAmount = (form.querySelector('[name=request_check_amount_figures]')?.value || '').trim();
             const numAmount = Number(rawAmount.replace(/[^0-9.\-]/g, ''));
@@ -142,7 +145,7 @@
         },
 
         confirmCreateSubmit() {
-            const form = this.$refs.createForm;
+            const form = this.$refs.createForm || document.getElementById('rfcCreateForm');
             if (!form) return;
             this.prepareCreateSave('submit');
             if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
@@ -474,8 +477,16 @@
                         class="box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white sm:w-36"
                     >
                         <option value="">All statuses</option>
-                        @foreach(['Draft','Submitted','Minor Revision','Approved','Rejected'] as $status)
-                            <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ \App\Support\ProcurementStatus::label($status, 'rfc') }}</option>
+                        @foreach([
+                            'Draft' => 'Draft',
+                            'Submitted' => 'Pending',
+                            'Approved' => 'Approved',
+                            'Ready for Pickup' => 'Ready for Pickup',
+                            'Released' => 'Released',
+                            'Minor Revision' => 'For revision',
+                            'Rejected' => 'Rejected',
+                        ] as $statusVal => $statusLabel)
+                            <option value="{{ $statusVal }}" {{ request('status') === $statusVal ? 'selected' : '' }}>{{ $statusLabel }}</option>
                         @endforeach
                     </select>
 
@@ -561,15 +572,15 @@
                                         ],
                                         $purRfcStatus === 'Approved' && !empty($rfc->funds_released) => [
                                             'pill' => 'Released',
-                                            'sub' => 'Check released',
+                                            'sub' => empty($rfc->has_rr) ? 'Create RR after delivery' : 'RR created',
                                             'bg' => '#eff6ff',
                                             'fg' => '#1d4ed8',
                                             'border' => '#bfdbfe',
                                             'dot' => '#2563eb',
                                         ],
                                         $purRfcStatus === 'Approved' && !empty($rfc->check_ready) => [
-                                            'pill' => 'Ready',
-                                            'sub' => 'For check collection',
+                                            'pill' => 'Ready for Pickup',
+                                            'sub' => 'Collect check from Accounting',
                                             'bg' => '#fffbeb',
                                             'fg' => '#b45309',
                                             'border' => '#fde68a',
@@ -636,9 +647,34 @@
                                     ])
                                 @endif
                             </td>
-                            <td class="px-5 py-4">
-                                <div class="flex flex-wrap items-center justify-end gap-1.5">
-                                    <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                            <td class="whitespace-nowrap px-5 py-4">
+                                <div class="flex flex-nowrap items-center justify-end gap-1.5">
+                                    @php
+                                        $rfcShowsCreateRr = !$archiveView
+                                            && $rfc->request_check_status === 'Approved'
+                                            && empty($rfc->can_send_to_accounting)
+                                            && empty($rfc->has_rr)
+                                            && !empty($rfc->funds_released);
+                                    @endphp
+                                    @if($rfcShowsCreateRr)
+                                        <button
+                                            type="button"
+                                            @click="openView({{ $rfc->request_check_id }})"
+                                            class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition hover:opacity-90"
+                                            style="background:#0025cc;color:#ffffff;"
+                                            data-tip="Create RR (after items are delivered)"
+                                            data-tip-place="above"
+                                            aria-label="Create RR (after items are delivered)"
+                                        >
+                                            <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+                                            <span class="pointer-events-none absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style="background:#f59e0b;"></span>
+                                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-white" style="background:#d97706;"></span>
+                                            </span>
+                                        </button>
+                                    @else
+                                        <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                    @endif
                                     <button
                                         type="button"
                                         data-share-doc-type="rfc"
@@ -710,9 +746,9 @@
                                                 ><i data-lucide="send" class="h-4 w-4"></i></button>
                                             </form>
                                         @elseif(!empty($rfc->sent_to_accounting) && !$rfc->funds_released)
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800" title="{{ !empty($rfc->check_ready) ? 'Check is ready for collection' : 'Accounting already has this package' }}" aria-label="{{ !empty($rfc->check_ready) ? 'Check is ready for collection' : 'Accounting already has this package' }}"><i data-lucide="{{ !empty($rfc->check_ready) ? 'banknote' : 'building-2' }}" class="h-4 w-4"></i></span>
+                                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800" title="{{ !empty($rfc->check_ready) ? 'Check is ready for collection' : 'Accounting already has this package' }}" aria-label="{{ !empty($rfc->check_ready) ? 'Check is ready for collection' : 'Accounting already has this package' }}"><i data-lucide="{{ !empty($rfc->check_ready) ? 'banknote' : 'building-2' }}" class="h-4 w-4"></i></span>
                                         @elseif(!$rfc->has_rr && $rfc->funds_released)
-                                            <a href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}" data-pur-confirm="Create a Receiving Report for {{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}? The RR form will open with this RFC already selected." data-pur-confirm-title="Create RR" data-pur-confirm-ok="Create RR" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Create RR" aria-label="Create RR"><i data-lucide="file-plus-2" class="h-4 w-4"></i></a>
+                                            {{-- Create RR button is rendered first in the action row --}}
                                         @elseif(!$rfc->has_rr)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
                                         @else
@@ -824,7 +860,7 @@
                         </button>
                     </div>
                 </div>
-                <form method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
+                <form id="rfcCreateForm" method="POST" action="{{ route(($pp ?? 'purchaser').'.rfc.store') }}" enctype="multipart/form-data" x-ref="createForm">
                     @csrf
                     <input type="hidden" name="save_action" value="draft">
                     <input type="hidden" name="request_check_funding_type" value="{{ \App\Support\ProcurementPaymentPath::normalize($selectedFundingType ?? null) ?? \App\Support\ProcurementPaymentPath::DIRECT_PAYMENT }}">
@@ -939,6 +975,7 @@
                         type="button"
                         @click="confirmCreateSubmit()"
                         class="rounded-lg bg-[#0025cc] px-4 py-2 text-sm font-semibold text-white hover:bg-[#001db3]"
+                        style="background:#0025cc;color:#ffffff;"
                     >
                         Confirm &amp; Submit
                     </button>
@@ -1096,6 +1133,18 @@
                                 <span class="inline-flex h-10 items-center rounded-lg border border-sky-200 bg-sky-50 px-4 text-sm font-medium text-sky-800">Accounting already has this package</span>
                             @elseif(!$rfc->funds_released)
                                 <span class="inline-flex h-10 items-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-sm font-medium text-amber-700">{{ \App\Support\ProcurementStatus::ACCOUNTING_NEED_REVISION }}</span>
+                            @else
+                                <a
+                                    href="{{ route(($pp ?? 'purchaser').'.rr.index', ['selected_rfc' => $rfc->request_check_id]) }}"
+                                    data-pur-confirm="Create a Receiving Report for {{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}? Make sure the items have already been purchased and delivered by the supplier."
+                                    data-pur-confirm-title="Create Receiving Report"
+                                    data-pur-confirm-ok="Create RR"
+                                    class="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                                    style="background:#0025cc;color:#ffffff;"
+                                >
+                                    <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+                                    <span>Create RR</span>
+                                </a>
                             @endif
                         @endif
                     </div>

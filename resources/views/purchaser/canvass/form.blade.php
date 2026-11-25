@@ -57,6 +57,15 @@
                 </span>
             @endif
         </div>
+
+        <button
+            type="button"
+            @click="openPreviewModal()"
+            class="inline-flex items-center gap-1.5 rounded-xl border border-blue-500 bg-white px-3.5 py-2 text-xs font-semibold text-blue-600 transition hover:bg-blue-50"
+        >
+            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+            <span>Preview requisition slip</span>
+        </button>
     </div>
 
     @if ($errors->any())
@@ -817,131 +826,200 @@
             </div>
         </template>
 
-        {{-- CANVASS ATTACHMENTS CARD (with Purpose above Supporting files) --}}
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 class="text-sm font-semibold text-slate-900">Purpose <span style="color: #dc2626;">*</span></h3>
-
-            <div class="mt-4">
-                
-                <textarea
-                    name="canvass_purpose"
-                    x-ref="purposeInput"
-                    x-model="purpose"
-                    @input="purposeError = ''"
-                    rows="2"
-                    maxlength="2000"
-                    placeholder="e.g. Classroom equipment replacement"
-                    class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500"
-                    :style="purposeError ? 'border-color:#dc2626;' : ''"
-                ></textarea>
-                <p x-show="purposeError" x-text="purposeError" class="mt-1 text-xs font-semibold" style="color: #dc2626;"></p>
-                <label class="mb-1.5 mt-1 block text-xs font-semibold text-slate-700">Note: <span class="font-normal text-slate-500">Carries into RIS</span></label>
-            </div>
-
-            <div class="mt-4">
-                <div class="mb-1.5 flex items-center justify-between gap-2">
-                    <label class="block text-xs font-semibold text-slate-700">Canvass Attachments <span class="font-normal text-slate-500">(Quotations)</span> <span style="color: #dc2626;">*</span></label>
+        {{-- PURPOSE & CANVASS ATTACHMENTS CARD (collapsible) --}}
+        <div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div
+                @click="purposeCardOpen = !purposeCardOpen"
+                class="flex cursor-pointer flex-wrap items-center justify-between gap-3 select-none"
+            >
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <span class="text-sm font-bold text-slate-900">Purpose &amp; Canvass Attachments <span style="color: #dc2626;">*</span></span>
                     <span
-                        class="text-xs font-semibold"
-                        :class="totalAttachmentCount() >= 5 ? 'text-blue-700' : 'text-slate-500'"
+                        x-show="String(purpose || '').trim() && totalAttachmentCount() > 0"
+                        x-cloak
+                        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold"
+                        style="background:#ecfdf5;color:#059669;"
+                    >✓ Ready</span>
+                    <span
+                        x-show="purposeError || attachmentError"
+                        x-cloak
+                        class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold"
+                        style="background:#fef2f2;color:#dc2626;"
+                    >Required</span>
+                    <span
+                        class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold"
+                        :class="totalAttachmentCount() >= 5 ? 'text-blue-700' : 'text-slate-600'"
                         x-text="totalAttachmentCount() + ' / 5 files'"
                     ></span>
                 </div>
-                <input
-                    type="file"
-                    x-ref="attachmentsInput"
-                    name="canvass_attachments[]"
-                    multiple
-                    :disabled="totalAttachmentCount() >= 5"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.avif,.heic"
-                    @change="addAttachments($event)"
-                    class="block w-full rounded-xl border border-slate-300 bg-white text-xs text-slate-700 file:mr-3 file:border-0 file:border-r file:border-slate-300 file:bg-slate-50 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    :style="attachmentError ? 'border-color:#dc2626;' : ''"
-                >
-                <p class="mt-1.5 text-[11px] text-slate-500">
-                    PDF, Word, or common image files (JPG, PNG, GIF, WEBP, BMP, TIFF, AVIF, HEIC) · At least 1 file required · Up to 5 files · 2 MB per file, 7 MB total.
-                </p>
-                <p x-show="attachmentError" x-text="attachmentError" class="mt-1.5 text-xs font-semibold" style="color: #dc2626;"></p>
 
-                <template x-if="selectedAttachments.length > 0">
-                    <ul class="mt-3 space-y-1.5">
-                        <template x-for="(file, fIdx) in selectedAttachments" :key="file.name + '-' + file.size + '-' + fIdx">
-                            <li class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-                                <span class="min-w-0 truncate font-medium text-slate-800" x-text="file.name"></span>
-                                <div class="flex shrink-0 items-center gap-3">
-                                    <span class="text-slate-400" x-text="formatFileSize(file.size)"></span>
-                                    <button
-                                        type="button"
-                                        @click="removeSelectedAttachment(fIdx)"
-                                        class="font-semibold hover:underline"
-                                        style="color: #dc2626;"
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
-                            </li>
-                        </template>
-                    </ul>
-                </template>
+                <button
+                    type="button"
+                    @click.stop="purposeCardOpen = !purposeCardOpen"
+                    class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                    <span x-text="purposeCardOpen ? 'Hide' : 'Edit Purpose & Files'"></span>
+                    <svg class="h-3.5 w-3.5 transition-transform" :class="purposeCardOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
             </div>
 
-            @if ($attachments->isNotEmpty())
-                <div class="mt-4 space-y-1.5 border-t border-slate-100 pt-3">
-                    <p class="text-xs font-semibold text-slate-700">Existing files ({{ $attachments->count() }})</p>
-                    @foreach ($attachments as $att)
-                        <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-                            <a href="{{ route($routePrefix.'.canvass.attachments.download', $att->canvass_attachment_id) }}" class="truncate font-medium text-blue-700 hover:underline">
-                                {{ $att->canvass_attachment_original_name }}
-                            </a>
-                            <span class="ml-3 shrink-0 text-slate-400">{{ number_format(($att->canvass_attachment_size ?? 0) / 1024, 1) }} KB</span>
-                        </div>
-                    @endforeach
+            <div x-show="purposeCardOpen" x-cloak class="mt-4 border-t border-slate-100 pt-4">
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold text-slate-700">Purpose <span style="color: #dc2626;">*</span></label>
+                    <textarea
+                        name="canvass_purpose"
+                        x-ref="purposeInput"
+                        x-model="purpose"
+                        @input="purposeError = ''"
+                        rows="2"
+                        maxlength="2000"
+                        placeholder="e.g. Classroom equipment replacement"
+                        class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500"
+                        :style="purposeError ? 'border-color:#dc2626;' : ''"
+                    ></textarea>
+                    <p x-show="purposeError" x-text="purposeError" class="mt-1 text-xs font-semibold" style="color: #dc2626;"></p>
+                    <label class="mb-1.5 mt-1 block text-xs font-semibold text-slate-700">Note: <span class="font-normal text-slate-500">Carries into RIS</span></label>
                 </div>
-            @endif
+
+                <div class="mt-4">
+                    <div class="mb-1.5 flex items-center justify-between gap-2">
+                        <label class="block text-xs font-semibold text-slate-700">Canvass Attachments <span class="font-normal text-slate-500">(Quotations)</span> <span style="color: #dc2626;">*</span></label>
+                        <span
+                            class="text-xs font-semibold"
+                            :class="totalAttachmentCount() >= 5 ? 'text-blue-700' : 'text-slate-500'"
+                            x-text="totalAttachmentCount() + ' / 5 files'"
+                        ></span>
+                    </div>
+                    <input
+                        type="file"
+                        x-ref="attachmentsInput"
+                        name="canvass_attachments[]"
+                        multiple
+                        :disabled="totalAttachmentCount() >= 5"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.avif,.heic"
+                        @change="addAttachments($event)"
+                        class="block w-full cursor-pointer rounded-xl border border-slate-300 bg-white text-xs text-slate-700 file:mr-3 file:cursor-pointer file:border-0 file:border-r file:border-slate-300 file:bg-slate-50 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        :style="attachmentError ? 'border-color:#dc2626;' : ''"
+                    >
+                    <p class="mt-1.5 text-[11px] text-slate-500">
+                        PDF, Word, or common image files (JPG, PNG, GIF, WEBP, BMP, TIFF, AVIF, HEIC) · At least 1 file required · Up to 5 files · 2 MB per file, 7 MB total.
+                    </p>
+                    <p x-show="attachmentError" x-text="attachmentError" class="mt-1.5 text-xs font-semibold" style="color: #dc2626;"></p>
+
+                    <template x-if="selectedAttachments.length > 0">
+                        <ul class="mt-3 space-y-1.5">
+                            <template x-for="(file, fIdx) in selectedAttachments" :key="file.name + '-' + file.size + '-' + fIdx">
+                                <li class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+                                    <span class="min-w-0 truncate font-medium text-slate-800" x-text="file.name"></span>
+                                    <div class="flex shrink-0 items-center gap-3">
+                                        <span class="text-slate-400" x-text="formatFileSize(file.size)"></span>
+                                        <button
+                                            type="button"
+                                            @click="removeSelectedAttachment(fIdx)"
+                                            class="font-semibold hover:underline"
+                                            style="color: #dc2626;"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+
+                @if ($attachments->isNotEmpty())
+                    <div class="mt-4 space-y-1.5 border-t border-slate-100 pt-3">
+                        <p class="text-xs font-semibold text-slate-700">Existing files ({{ $attachments->count() }})</p>
+                        @foreach ($attachments as $att)
+                            <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+                                <a href="{{ route($routePrefix.'.canvass.attachments.download', $att->canvass_attachment_id) }}" class="truncate font-medium text-blue-700 hover:underline">
+                                    {{ $att->canvass_attachment_original_name }}
+                                </a>
+                                <span class="ml-3 shrink-0 text-slate-400">{{ number_format(($att->canvass_attachment_size ?? 0) / 1024, 1) }} KB</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         </div>
 
-        {{-- PURCHASER SIGNATURE CARD (matches Image 2) --}}
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 class="text-sm font-semibold text-slate-900">Purchaser signature</h3>
-            <p class="mt-0.5 text-xs text-slate-500">Sign in the box or attach a signature image. A signature is required before submitting.</p>
-
-            @if ($savedSignatures->isNotEmpty())
-                <div class="mt-3 flex flex-wrap items-center gap-2">
-                    <span class="text-[11px] font-semibold text-slate-500">Saved signatures:</span>
-                    @foreach ($savedSignatures as $sig)
-                        <button
-                            type="button"
-                            @click="applySavedSignature(@js($sig->preview_url))"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50"
+        {{-- PURCHASER SIGNATURE CARD (collapsible bar matching Image 3) --}}
+        <div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-sm font-bold text-slate-900">Purchaser signature:</span>
+                    <div
+                        x-show="signatureData"
+                        x-cloak
+                        class="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                        <img
+                            :src="signatureData"
+                            alt="Purchaser signature"
+                            class="h-7 w-auto max-w-[96px] object-contain"
                         >
-                            <img src="{{ $sig->preview_url }}" alt="" class="h-5 w-auto max-w-[60px] object-contain">
-                            <span>{{ $sig->user_signature_label ?: 'Saved' }}</span>
-                        </button>
-                    @endforeach
+                        <span
+                            class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold"
+                            style="background:#ecfdf5;color:#059669;"
+                        >✓ Ready</span>
+                    </div>
+                    <span
+                        x-show="!signatureData"
+                        class="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold"
+                        style="background:#fffbeb;color:#b45309;"
+                    >Required before submitting</span>
                 </div>
-            @endif
 
-            <div class="relative mt-3 overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-white">
-                <canvas
-                    x-ref="sigCanvas"
-                    width="860"
-                    height="160"
-                    @pointerdown="startDraw($event)"
-                    @pointermove="moveDraw($event)"
-                    @pointerup="endDraw()"
-                    @pointerleave="endDraw()"
-                    class="h-40 w-full cursor-crosshair touch-none"
-                ></canvas>
-                <div
-                    x-show="!signatureData"
-                    class="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-400"
-                >
-                    Draw your signature here
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        @click="toggleSigPad()"
+                        class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        x-text="sigPadOpen ? 'Hide signature pad' : 'Change / Draw signature'"
+                    ></button>
                 </div>
             </div>
 
-            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-2">
+            <div x-show="sigPadOpen" x-cloak class="mt-4 border-t border-slate-100 pt-4">
+                <p class="text-xs text-slate-500">Sign in the box or attach a signature image. A signature is required before submitting.</p>
+
+                @if ($savedSignatures->isNotEmpty())
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="text-[11px] font-semibold text-slate-500">Saved signatures:</span>
+                        @foreach ($savedSignatures as $sig)
+                            <button
+                                type="button"
+                                @click="applySavedSignature(@js($sig->preview_url))"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:bg-blue-50"
+                            >
+                                <img src="{{ $sig->preview_url }}" alt="" class="h-5 w-auto max-w-[60px] object-contain">
+                                <span>{{ $sig->user_signature_label ?: 'Saved' }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
+
+                <div class="relative mt-3 overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-white">
+                    <canvas
+                        x-ref="sigCanvas"
+                        width="860"
+                        height="160"
+                        @pointerdown="startDraw($event)"
+                        @pointermove="moveDraw($event)"
+                        @pointerup="endDraw()"
+                        @pointerleave="endDraw()"
+                        class="h-40 w-full cursor-crosshair touch-none"
+                    ></canvas>
+                    <div
+                        x-show="!signatureData"
+                        class="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-400"
+                    >
+                        Draw your signature here
+                    </div>
+                </div>
+
+                <div class="mt-3 flex flex-wrap items-center gap-2">
                     <button
                         type="button"
                         @click="clearSignature()"
@@ -961,22 +1039,14 @@
                     </label>
                     <span x-show="signatureData" class="text-xs font-medium text-emerald-700">✓ Signature ready</span>
                 </div>
-
-                <button
-                    type="button"
-                    @click="openPreviewModal()"
-                    class="rounded-lg border border-blue-500 bg-white px-3.5 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-50"
-                >
-                    Preview requisition slip
-                </button>
             </div>
         </div>
 
         {{-- BOTTOM ACTION BAR --}}
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <span class="text-xs text-slate-500">All item lines are submitted together as one request; each line keeps its own supplier quotes and approval.</span>
+        <div class="flex flex-wrap items-center justify-end gap-3">
+            <!--<span class="text-xs text-slate-500">All item lines are submitted together as one request; each line keeps its own supplier quotes and approval.</span>-->
 
-            <div class="flex items-center gap-2.5">
+            <div class="ml-auto flex items-center gap-2.5">
                 <button
                     type="button"
                     @click="submitForm('draft')"
@@ -987,7 +1057,10 @@
                 <button
                     type="button"
                     @click="submitForm('submit')"
-                    class="rounded-xl bg-[#0d6efd] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                    class="rounded-xl bg-[#0025cc] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#001db3]"
+                    style="background:#0025cc;color:#ffffff;"
+                    onmouseenter="this.style.background='#001db3'"
+                    onmouseleave="this.style.background='#0025cc'"
                 >
                     Submit all item quotations
                 </button>
@@ -995,7 +1068,8 @@
         </div>
     </form>
 
-    {{-- PREVIEW REQUISITION SLIP MODAL (matches Image 2) --}}
+    {{-- PREVIEW REQUISITION SLIP MODAL (real RIS paper form) --}}
+    @include('partials.ris-purchaser-sheet-styles')
     <template x-teleport="body">
         <div
             x-cloak
@@ -1005,71 +1079,117 @@
             @click.self="previewModalOpen = false"
             class="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 p-4"
         >
-            <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div class="flex items-center justify-between px-6 pt-5 pb-2">
-                <h3 class="text-xl font-medium text-slate-900">Requisition Slip Preview</h3>
-                <button
-                    type="button"
-                    @click="previewModalOpen = false"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                    aria-label="Close preview"
-                >
-                    ✕
-                </button>
-            </div>
-
-            <div class="overflow-y-auto px-6 pb-6 pt-1">
-                <div class="text-center">
-                    <div class="text-base font-bold text-slate-950">STI COLLEGE - ORMOC, INC.</div>
-                    <div class="mt-0.5 text-xs font-medium tracking-wide text-slate-500 uppercase">REQUISITION SLIP</div>
+            <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-900">Requisition Slip Preview</h3>
+                        <p class="mt-0.5 text-xs text-slate-500" x-text="'Live preview · ' + previewTimestamp"></p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="previewModalOpen = false"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                        aria-label="Close preview"
+                    >
+                        ✕
+                    </button>
                 </div>
 
-                <div class="mt-2 text-right text-xs text-slate-500" x-text="'Preview · ' + previewTimestamp"></div>
-
-                <div class="mt-3 space-y-4">
-                    <template x-for="(card, cIdx) in previewItemCards()" :key="cIdx">
-                        <div class="rounded-xl border border-slate-200 bg-white p-4">
-                            <div class="text-sm font-bold text-slate-900" x-text="'Item ' + (cIdx + 1) + ': ' + card.itemName"></div>
-                            <div class="mt-0.5 text-xs text-slate-600" x-text="'Requested quantity: ' + card.requestedQtyText"></div>
-
-                            <div class="mt-3 overflow-x-auto">
-                                <table class="w-full border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-50 text-left text-slate-800">
-                                            <th class="border border-slate-300 px-3 py-2 font-bold">Brand</th>
-                                            <th class="border border-slate-300 px-3 py-2 font-bold">Supplier</th>
-                                            <th class="border border-slate-300 px-3 py-2 font-bold">Sold as</th>
-                                            <th class="border border-slate-300 px-3 py-2 font-bold">Price per offer unit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template x-for="(offerRow, rIdx) in card.offers" :key="rIdx">
-                                            <tr>
-                                                <td class="border border-slate-200 px-3 py-2 text-slate-800" x-text="offerRow.brand"></td>
-                                                <td class="border border-slate-200 px-3 py-2 text-slate-800" x-text="offerRow.supplier"></td>
-                                                <td class="border border-slate-200 px-3 py-2 text-slate-700" x-text="offerRow.soldAs"></td>
-                                                <td class="border border-slate-200 px-3 py-2 text-slate-900" x-text="offerRow.price"></td>
-                                            </tr>
-                                        </template>
-                                        <tr x-show="card.offers.length === 0">
-                                            <td colspan="4" class="border border-slate-200 px-3 py-3 text-center text-slate-400">No supplier quotations entered yet.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                <div class="overflow-y-auto bg-slate-50/70 p-4 sm:p-6">
+                    <div class="ris-original-form mx-auto bg-white shadow-sm">
+                        <div class="ris-document-header">
+                            <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
+                            <div class="ris-document-title">REQUISITION SLIP</div>
+                            <div class="ris-number-area">
+                                <span class="ris-number-label">No.</span>
+                                <span class="ris-number-line ris-value-line">&nbsp;</span>
                             </div>
                         </div>
-                    </template>
-                </div>
 
-                <div class="mt-5 border-t border-slate-200 pt-4">
-                    <div class="text-xs font-bold text-slate-900">Requested by signature</div>
-                    <div class="mt-2">
-                        <img x-show="signatureData" :src="signatureData" alt="Requested by signature" class="max-h-16 object-contain">
-                        <p x-show="!signatureData" class="text-xs text-slate-400">No signature attached yet.</p>
+                        <table class="ris-items-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" class="ris-item-column">ITEM</th>
+                                    <th rowspan="2" class="ris-brand-column">BRAND</th>
+                                    <th rowspan="2" class="ris-unit-column">UNIT</th>
+                                    <th rowspan="2" class="ris-supplier-column">SUPPLIER</th>
+                                    <th colspan="2" class="ris-quantity-header">QUANTITY</th>
+                                    <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
+                                    <th rowspan="2" class="ris-amount-column">AMOUNT</th>
+                                </tr>
+                                <tr>
+                                    <th class="ris-requested-column">REQUESTED</th>
+                                    <th class="ris-issued-column">ISSUED</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(row, rIdx) in previewRisRows()" :key="rIdx">
+                                    <tr>
+                                        <template x-if="row.showItem">
+                                            <td :rowspan="row.itemSpan" x-text="row.itemName"></td>
+                                        </template>
+                                        <td class="text-center" x-text="row.brand"></td>
+                                        <td class="text-center" x-text="row.unit"></td>
+                                        <template x-if="row.showSupplier">
+                                            <td :rowspan="row.supplierSpan" x-text="row.supplier"></td>
+                                        </template>
+                                        <template x-if="row.showItem">
+                                            <td :rowspan="row.itemSpan" class="text-center" x-text="row.requested"></td>
+                                        </template>
+                                        <template x-if="row.showItem">
+                                            <td :rowspan="row.itemSpan" class="text-center">&nbsp;</td>
+                                        </template>
+                                        <td class="text-right" x-text="row.unitCost"></td>
+                                        <td class="text-right" x-text="row.amount"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+
+                        <div class="ris-purpose-area">
+                            <div class="ris-purpose-lined-wrap">
+                                <div class="ris-purpose-label">PURPOSE</div>
+                                <div class="ris-purpose-input" x-text="String(purpose || '').trim() || '\u00A0'"></div>
+                            </div>
+                        </div>
+
+                        <div class="ris-signatures">
+                            <div class="ris-signature-column">
+                                <div class="ris-signature-label">Requested by:</div>
+                                <div class="ris-signature-line ris-value-line relative flex items-end justify-center">
+                                    <img
+                                        x-show="signatureData"
+                                        :src="signatureData"
+                                        alt="Requested by signature"
+                                        class="pointer-events-none absolute -top-4 left-1/2 max-h-12 -translate-x-1/2 object-contain"
+                                    >
+                                    <span class="relative z-10 text-xs font-medium text-slate-900" x-text="purchaserName"></span>
+                                </div>
+                                <div class="ris-date-label">Date:</div>
+                                <div class="ris-date-line ris-value-line" x-text="previewDateText()"></div>
+                            </div>
+                            <div class="ris-signature-column">
+                                <div class="ris-signature-label">Approved by:</div>
+                                <div class="ris-signature-line ris-value-line">&nbsp;</div>
+                                <div class="ris-date-label">Date:</div>
+                                <div class="ris-date-line ris-value-line">&nbsp;</div>
+                            </div>
+                            <div class="ris-signature-column">
+                                <div class="ris-signature-label">Issued by:</div>
+                                <div class="ris-signature-line ris-value-line">&nbsp;</div>
+                                <div class="ris-date-label">Date:</div>
+                                <div class="ris-date-line ris-value-line">&nbsp;</div>
+                            </div>
+                            <div class="ris-signature-column">
+                                <div class="ris-signature-label">Received by:</div>
+                                <div class="ris-signature-line ris-value-line">&nbsp;</div>
+                                <div class="ris-date-label">Date:</div>
+                                <div class="ris-date-line ris-value-line">&nbsp;</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
         </div>
     </template>
 
@@ -1358,6 +1478,8 @@ function canvassBuilder(boot) {
         purpose: String(boot.initial?.purpose || ''),
         urgency: String(boot.initial?.urgency || 'Non-Urgent'),
         signatureData: String(boot.initial?.purchaser_signature || ''),
+        sigPadOpen: !String(boot.initial?.purchaser_signature || '').trim(),
+        purposeCardOpen: false,
         saveAction: 'submit',
         purposeError: '',
         attachmentError: '',
@@ -1441,6 +1563,13 @@ function canvassBuilder(boot) {
                     this.drawImageOnCanvas(this.signatureData);
                 }
             });
+        },
+
+        toggleSigPad() {
+            this.sigPadOpen = !this.sigPadOpen;
+            if (this.sigPadOpen && this.signatureData) {
+                this.$nextTick(() => this.drawImageOnCanvas(this.signatureData));
+            }
         },
 
         itemDisplayName(item) {
@@ -1782,6 +1911,91 @@ function canvassBuilder(boot) {
             this.previewModalOpen = true;
         },
 
+        previewDateText() {
+            const d = new Date();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return mm + '/' + dd + '/' + d.getFullYear();
+        },
+
+        previewRisRows() {
+            const rows = [];
+            const fmtPeso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            (this.items || []).forEach(item => {
+                const itemName = this.itemDisplayName(item) || '\u00A0';
+                const itemUom = item.uom_id ? this.uomName(item.uom_id) : '\u00A0';
+                const reqQty = Number(item.quantity || 0);
+                const requestedText = reqQty > 0 ? String(reqQty) : '\u00A0';
+
+                const rawOffers = [];
+                (item.suppliers || []).forEach(s => {
+                    const supLabel = s.supplier_id ? this.supplierName(s.supplier_id) : '';
+                    (s.offers || []).forEach(o => {
+                        const priceNum = this.parseMoney(o.unit_price);
+                        const hasAny = s.supplier_id || o.brand_id || priceNum > 0;
+                        if (!hasAny) return;
+                        const offerUnits = typeof this.offerUnits === 'function'
+                            ? this.offerUnits(item, o)
+                            : Math.max(1, reqQty || 1);
+                        const lineTotal = priceNum > 0 ? (offerUnits * priceNum) : 0;
+                        rawOffers.push({
+                            brand: o.brand_id ? this.brandName(o.brand_id) : '\u00A0',
+                            unit: o.offer_uom_id ? this.uomName(o.offer_uom_id) : itemUom,
+                            supplier: supLabel || '\u00A0',
+                            supplierKey: (supLabel || '').toLowerCase(),
+                            unitCost: priceNum > 0 ? fmtPeso(priceNum) : '\u00A0',
+                            amount: lineTotal > 0 ? fmtPeso(lineTotal) : '\u00A0',
+                        });
+                    });
+                });
+
+                if (rawOffers.length === 0) {
+                    rows.push({
+                        itemName,
+                        brand: '\u00A0',
+                        unit: itemUom,
+                        supplier: '\u00A0',
+                        requested: requestedText,
+                        unitCost: '\u00A0',
+                        amount: '\u00A0',
+                        showItem: true,
+                        itemSpan: 1,
+                        showSupplier: true,
+                        supplierSpan: 1,
+                    });
+                    return;
+                }
+
+                rawOffers.forEach((of, idx) => {
+                    const prev = idx > 0 ? rawOffers[idx - 1] : null;
+                    const sameSup = prev && of.supplierKey !== '' && of.supplierKey === prev.supplierKey;
+                    let supplierSpan = 1;
+                    if (!sameSup && of.supplierKey !== '') {
+                        for (let j = idx + 1; j < rawOffers.length; j++) {
+                            if (rawOffers[j].supplierKey !== of.supplierKey) break;
+                            supplierSpan++;
+                        }
+                    }
+                    rows.push({
+                        itemName,
+                        brand: of.brand,
+                        unit: of.unit,
+                        supplier: of.supplier,
+                        requested: requestedText,
+                        unitCost: of.unitCost,
+                        amount: of.amount,
+                        showItem: idx === 0,
+                        itemSpan: rawOffers.length,
+                        showSupplier: !sameSup,
+                        supplierSpan,
+                    });
+                });
+            });
+
+            return rows;
+        },
+
         previewItemCards() {
             return this.items.map(item => {
                 const qtyText = item.quantity
@@ -1912,13 +2126,16 @@ function canvassBuilder(boot) {
 
             if (!String(this.purpose || '').trim()) {
                 this.purposeError = 'Purpose is required before submitting.';
+                this.purposeCardOpen = true;
                 errs.push('Purpose is required before submitting.');
             }
             if (this.totalAttachmentCount() < 1) {
                 this.attachmentError = 'Please attach at least 1 supporting quotation file before submitting.';
+                this.purposeCardOpen = true;
                 errs.push('Please attach at least 1 supporting quotation file before submitting.');
             }
             if (!this.signatureData) {
+                this.sigPadOpen = true;
                 errs.push('Purchaser signature is required before submitting.');
             }
 

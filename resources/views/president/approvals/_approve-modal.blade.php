@@ -26,16 +26,11 @@
 
             <div class="shrink-0 border-b border-slate-100 px-5 pb-2.5 pr-11 pt-3">
                 <h3 id="presidentApproveModalTitle" class="text-base font-semibold tracking-tight text-slate-900">
-                    Review and Approve RIS
+                    Review and Approve RIS &amp; ATP
                 </h3>
             </div>
 
-            <div id="presidentApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50/40">
-                <div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500">
-                    <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>
-                    Loading RIS form...
-                </div>
-            </div>
+            <div id="presidentApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50/40"></div>
         </div>
     </div>
 </div>
@@ -76,9 +71,8 @@
             document.body.appendChild(modal);
         }
 
-        body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-slate-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"></div>Loading RIS form...</div>';
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+        var reqId = (window._presidentPaFetchSeq = (window._presidentPaFetchSeq || 0) + 1);
+        document.body.style.cursor = 'wait';
 
         fetch(@json(url('/president/approvals/ris')) + '/' + risId + '/approve-form', {
             headers: {
@@ -95,22 +89,33 @@
             return response.text();
         })
         .then(function (html) {
+            if (reqId !== window._presidentPaFetchSeq) return;
             body.innerHTML = html;
             Array.prototype.slice.call(body.querySelectorAll('script')).forEach(function (oldScript) {
                 var script = document.createElement('script');
                 script.textContent = oldScript.textContent;
                 oldScript.parentNode.replaceChild(script, oldScript);
             });
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         })
         .catch(function (err) {
+            if (reqId !== window._presidentPaFetchSeq) return;
             var msg = (err && err.message) ? err.message : 'Failed to load RIS form. Please try again.';
             body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-slate-600">' + msg + '</div>';
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        })
+        .finally(function () {
+            if (reqId === window._presidentPaFetchSeq) {
+                document.body.style.cursor = '';
+            }
         });
     };
 
     window.closePresidentApproveModal = function () {
         if (window._presidentPaFileDialogOpen) return;
-        ['paSignPadModal', 'paNameSigModal', 'paDeleteSigModal', 'paNotice'].forEach(function (id) {
+        ['paApproveConfirmModal', 'paSignPadModal', 'paNameSigModal', 'paDeleteSigModal', 'paNotice'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el && el.parentElement === document.body) {
                 el.remove();
@@ -125,6 +130,13 @@
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
+        var confirmModal = document.getElementById('paApproveConfirmModal');
+        if (confirmModal && !confirmModal.classList.contains('hidden')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            confirmModal.classList.add('hidden');
+            return;
+        }
         var nameModal = document.getElementById('paNameSigModal');
         if (nameModal && !nameModal.classList.contains('hidden')) {
             event.preventDefault();

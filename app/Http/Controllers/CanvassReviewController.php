@@ -18,14 +18,19 @@ class CanvassReviewController extends Controller
     {
         abort_unless(CanvassWorkflow::tablesExist(), 503, 'Canvass tables are not migrated yet. Please run php artisan migrate.');
 
-        $filter = trim((string) $request->query('filter', 'all'));
+        $pendingCountNow = CanvassWorkflow::pendingReviewCount();
+        $filter = trim((string) $request->query('filter', $pendingCountNow > 0 ? 'pending' : 'all'));
         if (! in_array($filter, ['pending', 'approved', 'returned', 'rejected', 'all'], true)) {
-            $filter = 'all';
+            $filter = $pendingCountNow > 0 ? 'pending' : 'all';
         }
         $search = trim((string) $request->query('search', ''));
         $urgency = trim((string) $request->query('urgency', ''));
         if (! in_array($urgency, ['Urgent', 'Non-Urgent'], true)) {
             $urgency = '';
+        }
+        $submitted = trim((string) $request->query('submitted', ''));
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $submitted)) {
+            $submitted = '';
         }
         $openCanvassId = (int) $request->query('open', 0);
 
@@ -48,6 +53,10 @@ class CanvassReviewController extends Controller
 
         if ($urgency !== '') {
             $query->where('c.canvass_urgency', $urgency);
+        }
+
+        if ($submitted !== '') {
+            $query->whereDate('c.canvass_submitted_at', $submitted);
         }
 
         if ($search !== '') {
@@ -144,6 +153,7 @@ class CanvassReviewController extends Controller
             'filter',
             'search',
             'urgency',
+            'submitted',
             'counts',
             'canAct',
             'savedSignatures',
@@ -157,6 +167,103 @@ class CanvassReviewController extends Controller
     public function show(int $canvassId)
     {
         return redirect()->route(AdminPortal::prefix().'.canvass-review.index', ['open' => $canvassId]);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        abort_unless(CanvassWorkflow::tablesExist(), 503);
+
+        $filter = trim((string) $request->query('filter', 'all'));
+        if (! in_array($filter, ['pending', 'approved', 'returned', 'rejected', 'all'], true)) {
+            $filter = 'all';
+        }
+        $search = trim((string) $request->query('search', ''));
+        $urgency = trim((string) $request->query('urgency', ''));
+        if (! in_array($urgency, ['Urgent', 'Non-Urgent'], true)) {
+            $urgency = '';
+        }
+        $submitted = trim((string) $request->query('submitted', ''));
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $submitted)) {
+            $submitted = '';
+        }
+
+        $query = DB::table('canvass_table as c')
+            ->leftJoin('users_table as owner', 'owner.user_id', '=', 'c.canvass_owner_user_id')
+            ->leftJoin('requisition_issue_slip_table as ris', 'ris.ris_id', '=', 'c.canvass_ris_id')
+            ->where('c.canvass_is_archived', 0)
+            ->where('c.canvass_status', '!=', CanvassWorkflow::STATUS_DRAFT);
+
+        if ($filter === 'pending') {
+            $query->whereIn('c.canvass_status', CanvassWorkflow::pendingReviewStatuses());
+        } elseif ($filter === 'approved') {
+            $query->whereIn('c.canvass_status', CanvassWorkflow::completedReviewStatuses());
+        } elseif ($filter === 'returned') {
+            $query->where('c.canvass_status', CanvassWorkflow::STATUS_RETURNED);
+        } elseif ($filter === 'rejected') {
+            $query->where('c.canvass_status', CanvassWorkflow::STATUS_REJECTED);
+        }
+
+        if ($urgency !== '') {
+            $query->where('c.canvass_urgency', $urgency);
+        }
+        if ($submitted !== '') {
+            $query->whereDate('c.canvass_submitted_at', $submitted);
+        }
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('c.canvass_number', 'like', $like)
+                    ->orWhere('c.canvass_request_no', 'like', $like)
+                    ->orWhere('c.canvass_purpose', 'like', $like)
+                    ->orWhere('owner.user_full_name', 'like', $like);
+            });
+        }
+
+        $rows = $query
+            ->select([
+                'c.canvass_id',
+                'c.canvass_number',
+                'c.canvass_request_no',
+                'c.canvass_urgency',
+                'c.canvass_purpose',
+                'c.canvass_status',
+                'c.canvass_submitted_at',
+                'owner.user_full_name as owner_name',
+                'ris.ris_form_number as linked_ris_number',
+                'ris.ris_status as linked_ris_status',
+            ])
+            ->orderByDesc('c.canvass_submitted_at')
+            ->orderByDesc('c.canvass_id')
+            ->limit(1000)
+            ->get()
+            ->map(function ($row) {
+                $status = CanvassWorkflow::resolveDisplayStatus((string) $row->canvass_status, $row->linked_ris_status ?? null);
+
+                return [
+                    CanvassWorkflow::displayNumber($row),
+                    (string) ($row->canvass_request_no ?: '—'),
+                    (string) ($row->canvass_purpose ?: '—'),
+                    (string) ($row->owner_name ?: '—'),
+                    \App\Support\TablePdfExport::date($row->canvass_submitted_at),
+                    $status,
+                ];
+            })
+            ->all();
+
+        $titleSuffix = match ($filter) {
+            'pending' => 'Pending Review',
+            'approved' => 'Approved',
+            'returned' => 'Returned',
+            'rejected' => 'Rejected',
+            default => 'All',
+        };
+
+        return \App\Support\TablePdfExport::download(
+            'Canvass Requests — '.$titleSuffix,
+            ['Canvass No.', 'Request No.', 'Purpose', 'Requested By', 'Submitted', 'Status'],
+            $rows,
+            'canvass-requests-'.$filter.'-'.now()->format('Ymd-His').'.pdf'
+        );
     }
 
     public function startReview(int $canvassId)

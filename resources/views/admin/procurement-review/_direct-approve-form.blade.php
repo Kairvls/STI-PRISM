@@ -49,6 +49,9 @@
     .admin-da-ris-form .ris-items-table tbody td {
         height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle;
     }
+    .admin-da-ris-form .ris-items-table tfoot td {
+        height: 38px; padding: 6px 8px; font-size: 12px; font-weight: 700; vertical-align: middle; background: #f8fafc;
+    }
     .admin-da-ris-form .ris-item-column { width: 20%; }
     .admin-da-ris-form .ris-brand-column { width: 10%; }
     .admin-da-ris-form .ris-unit-column { width: 7%; font-size: 11px !important; }
@@ -657,6 +660,20 @@
                             </tr>
                         @endfor
                     </tbody>
+                    @php
+                        $daGrandTotal = collect($risItems ?? [])->sum(function ($ti) {
+                            if (! filled($ti?->ris_item_name_description ?? null)) return 0;
+                            return $ti->ris_total_amount !== null
+                                ? (float) $ti->ris_total_amount
+                                : (((float) ($ti->ris_quantity_requested ?? 0)) * ((float) ($ti->ris_unit_cost ?? 0)));
+                        });
+                    @endphp
+                    <tfoot>
+                        <tr>
+                            <td colspan="7" class="text-right" style="letter-spacing:0.03em;">TOTAL AMOUNT</td>
+                            <td class="text-right tabular-nums">{{ \App\Support\Money::format($daGrandTotal) }}</td>
+                        </tr>
+                    </tfoot>
                 </table>
                 <div class="ris-purpose-area admin-da-locked">
                     <div class="ris-purpose-lined-wrap">
@@ -1106,14 +1123,165 @@
             Cancel
         </button>
         <button
-            type="submit"
+            type="{{ $isForward ? 'button' : 'submit' }}"
+            @if ($isForward)
+                onclick="if (typeof window.openAdminForwardConfirmModal === 'function') window.openAdminForwardConfirmModal()"
+            @endif
             class="rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition {{ $isForward ? 'bg-[#0025cc] hover:bg-blue-800' : 'bg-[#0025cc] hover:bg-blue-800' }}"
-            title="{{ $isForward ? 'Forward this RIS to the President' : ($isCosign ? 'Sign Issued by and return to Purchaser' : 'Confirm direct approval, notify President for record, and return to Purchaser') }}"
+            title="{{ $isForward ? 'Forward RIS & ATP to the President' : ($isCosign ? 'Sign Issued by and return to Purchaser' : 'Confirm direct approval, notify President for record, and return to Purchaser') }}"
         >
-            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Approve & Send to Purchaser') }}
+            {{ $isForward ? 'Forward to President' : ($isCosign ? 'Confirm Issued by' : 'Approve') }}
         </button>
     </div>
 </form>
+
+@if ($isForward)
+@php
+    $fwdAtpNumbers = collect($linkedAtps ?? [])
+        ->map(fn ($a) => trim((string) ($a->authority_purchase_form_number ?? '')))
+        ->filter()
+        ->values()
+        ->all();
+@endphp
+<div id="adminForwardConfirmModal" class="fixed inset-0 hidden" style="z-index: 99999;">
+    <div
+        class="absolute inset-0 flex items-center justify-center bg-black/50 p-4"
+        onclick="if (event.target === this) document.getElementById('adminForwardConfirmModal').classList.add('hidden')"
+    >
+        <div
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onclick="event.stopPropagation()"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="adminForwardConfirmTitle"
+        >
+            <div class="flex items-start gap-3.5 px-6 pb-4 pt-6">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background:#eff6ff;color:#1d4ed8;">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 id="adminForwardConfirmTitle" class="text-base font-bold text-slate-900">Forward RIS &amp; ATP to President?</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                        This Requisition Slip and its linked Authorities to Purchase will be sent to the President for signature (Approved by, Issued by, and ATP Authorized by).
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-2.5 px-6 pb-5 text-xs">
+                <div class="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">RIS Number</span>
+                        <span class="font-semibold text-slate-900">{{ \App\Support\RisWorkflow::formNumber($ris) ?: '—' }}</span>
+                    </div>
+                    @if (!empty($fwdAtpNumbers))
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="shrink-0 text-slate-500">Linked ATP(s)</span>
+                            <span class="text-right font-semibold text-slate-900">{{ implode(', ', $fwdAtpNumbers) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">Destination</span>
+                        <span id="adminForwardConfirmDest" class="font-semibold text-[#0025cc]">President</span>
+                    </div>
+                    <div id="adminForwardConfirmNoteWrap" class="hidden border-t border-slate-200/80 pt-1.5">
+                        <span class="block text-[11px] font-semibold text-slate-500">Supporting details</span>
+                        <p id="adminForwardConfirmNotePreview" class="mt-0.5 break-words text-slate-800"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                <button
+                    type="button"
+                    id="adminForwardConfirmCancel"
+                    class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    id="adminForwardConfirmSubmit"
+                    class="rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50"
+                    style="background:#0025cc;color:#ffffff;"
+                >
+                    Confirm &amp; Forward
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var form = document.getElementById('adminDirectApproveForm');
+    var modal = document.getElementById('adminForwardConfirmModal');
+    var cancelBtn = document.getElementById('adminForwardConfirmCancel');
+    var confirmBtn = document.getElementById('adminForwardConfirmSubmit');
+    var destEl = document.getElementById('adminForwardConfirmDest');
+    var noteWrap = document.getElementById('adminForwardConfirmNoteWrap');
+    var notePreview = document.getElementById('adminForwardConfirmNotePreview');
+    if (!form || !modal) return;
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    function resolvePresidentLabel() {
+        var sel = form.querySelector('select[name="assigned_president_id"]');
+        if (sel && sel.options && sel.selectedIndex >= 0) {
+            var txt = String(sel.options[sel.selectedIndex].text || '').trim();
+            if (txt) return txt + ' (President)';
+        }
+        var singleName = form.querySelector('.text-sm.font-semibold.text-slate-900');
+        if (singleName && singleName.textContent.trim()) {
+            return singleName.textContent.trim() + ' (President)';
+        }
+        return 'President';
+    }
+
+    window.openAdminForwardConfirmModal = function () {
+        if (destEl) destEl.textContent = resolvePresidentLabel();
+        var detailsInput = form.querySelector('[name="forward_details"]');
+        var detailsText = detailsInput ? String(detailsInput.value || '').trim() : '';
+        if (noteWrap && notePreview) {
+            if (detailsText !== '') {
+                notePreview.textContent = detailsText;
+                noteWrap.classList.remove('hidden');
+            } else {
+                notePreview.textContent = '';
+                noteWrap.classList.add('hidden');
+            }
+        }
+        modal.classList.remove('hidden');
+    };
+
+    if (form.dataset.forwardConfirmBound !== '1') {
+        form.dataset.forwardConfirmBound = '1';
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.confirmedForward === '1') {
+                return;
+            }
+            event.preventDefault();
+            window.openAdminForwardConfirmModal();
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function () {
+            modal.classList.add('hidden');
+        });
+    }
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function () {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Forwarding...';
+            form.dataset.confirmedForward = '1';
+            form.submit();
+        });
+    }
+})();
+</script>
+@endif
 
 @if ($isDirect)
 @php

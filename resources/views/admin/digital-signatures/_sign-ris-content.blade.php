@@ -68,20 +68,56 @@
                     class="flex flex-wrap items-center gap-2"
                     x-data="{
                         budgetModalOpen: false,
+                        budgetCloseConfirmOpen: false,
+                        budgetLimitInitial: {{ json_encode((float) \App\Support\RisApprovalBudget::limit()) }},
                         budgetLimitVal: {{ json_encode((float) \App\Support\RisApprovalBudget::limit()) }},
                         budgetLimitDisplay: {{ json_encode(number_format((float) \App\Support\RisApprovalBudget::limit(), 2, '.', ',')) }},
-                        formatBudgetInput(raw) {
-                            let cleaned = String(raw || '').replace(/[^0-9.]/g, '');
-                            const parts = cleaned.split('.');
-                            let intPart = (parts[0] || '').replace(/^0+(?=\d)/, '');
-                            let decPart = parts.length > 1 ? parts.slice(1).join('').slice(0, 2) : null;
+                        hasBudgetChanges() {
+                            return Math.abs(Number(this.budgetLimitVal || 0) - Number(this.budgetLimitInitial || 0)) > 0.001;
+                        },
+                        requestCloseBudgetModal() {
+                            if (this.hasBudgetChanges()) {
+                                this.budgetCloseConfirmOpen = true;
+                                return;
+                            }
+                            this.budgetModalOpen = false;
+                        },
+                        confirmCloseBudgetModal() {
+                            this.budgetLimitVal = this.budgetLimitInitial;
+                            this.budgetLimitDisplay = Number(this.budgetLimitInitial || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            this.budgetCloseConfirmOpen = false;
+                            this.budgetModalOpen = false;
+                        },
+                        formatBudgetInput(e) {
+                            const el = e.target;
+                            const raw = String(el.value || '');
+                            const caret = el.selectionStart ?? raw.length;
+                            const beforeCaret = raw.slice(0, caret).replace(/[^0-9.]/g, '');
+                            let cleaned = raw.replace(/[^0-9.]/g, '');
+                            const dotIdx = cleaned.indexOf('.');
+                            let intPart = dotIdx >= 0 ? cleaned.slice(0, dotIdx) : cleaned;
+                            let decPart = dotIdx >= 0 ? cleaned.slice(dotIdx + 1).replace(/\./g, '').slice(0, 2) : null;
+                            intPart = intPart.replace(/^0+(?=\d)/, '').slice(0, 7);
                             const num = parseFloat((intPart || '0') + (decPart !== null ? '.' + decPart : ''));
-                            this.budgetLimitVal = isNaN(num) ? 0 : Math.min(999999999.99, num);
+                            this.budgetLimitVal = isNaN(num) ? 0 : Math.min(9999999.99, num);
                             const formattedInt = intPart ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
-                            this.budgetLimitDisplay = decPart !== null ? (formattedInt || '0') + '.' + decPart : formattedInt;
+                            const formatted = decPart !== null ? (formattedInt || '0') + '.' + decPart : formattedInt;
+                            this.budgetLimitDisplay = formatted;
+                            el.value = formatted;
+                            let targetNonComma = beforeCaret.length;
+                            let newPos = 0;
+                            let seen = 0;
+                            while (newPos < formatted.length && seen < targetNonComma) {
+                                if (formatted[newPos] !== ',') seen++;
+                                newPos++;
+                            }
+                            if (typeof el.setSelectionRange === 'function') {
+                                el.setSelectionRange(newPos, newPos);
+                            }
                         },
                         normalizeBudgetBlur() {
-                            const n = Number(this.budgetLimitVal || 0);
+                            const n = Math.min(9999999.99, Math.max(0, Number(this.budgetLimitVal || 0)));
+                            this.budgetLimitVal = n;
                             this.budgetLimitDisplay = n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }"
@@ -109,8 +145,8 @@
                             <div
                                 x-cloak
                                 x-show="budgetModalOpen"
-                                @keydown.escape.window="if (budgetModalOpen) budgetModalOpen = false"
-                                @click.self="budgetModalOpen = false"
+                                @keydown.escape.window="if (budgetCloseConfirmOpen) { budgetCloseConfirmOpen = false; } else if (budgetModalOpen) { requestCloseBudgetModal(); }"
+                                @click.self="requestCloseBudgetModal()"
                                 class="fixed inset-0 z-[270] flex items-center justify-center bg-slate-900/45 p-4"
                             >
                                 <form
@@ -122,11 +158,11 @@
                                     <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-4">
                                         <div>
                                             <h3 class="text-base font-bold text-slate-900">Approval Budget Limit</h3>
-                                            <p class="mt-0.5 text-xs text-slate-500">Controls when School Admin can Approve Directly vs. Forward RIS to President.</p>
+                                            <p class="mt-0.5 text-xs text-slate-500">Controls when School Admin can Approve Directly vs. Forward RIS &amp; ATP to President.</p>
                                         </div>
                                         <button
                                             type="button"
-                                            @click="budgetModalOpen = false"
+                                            @click="requestCloseBudgetModal()"
                                             class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                                         >✕</button>
                                     </div>
@@ -142,8 +178,8 @@
                                                     type="text"
                                                     inputmode="decimal"
                                                     autocomplete="off"
-                                                    x-model="budgetLimitDisplay"
-                                                    @input="formatBudgetInput($event.target.value)"
+                                                    :value="budgetLimitDisplay"
+                                                    @input="formatBudgetInput($event)"
                                                     @blur="normalizeBudgetBlur()"
                                                     placeholder="10,000.00"
                                                     required
@@ -163,7 +199,7 @@
                                                 <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" style="background:#0284c7;"></span>
                                                 <div class="text-slate-700">
                                                     <span class="font-bold text-slate-900">Above ₱<span x-text="Number(budgetLimitVal || 0).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2})"></span>:</span>
-                                                    <span><strong>Forward RIS to President</strong> is enabled; Approve Directly is disabled.</span>
+                                                    <span><strong>Forward RIS &amp; ATP to President</strong> is enabled; Approve Directly is disabled.</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -171,7 +207,7 @@
                                     <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
                                         <button
                                             type="button"
-                                            @click="budgetModalOpen = false"
+                                            @click="requestCloseBudgetModal()"
                                             class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                                         >Cancel</button>
                                         <button
@@ -181,6 +217,40 @@
                                         >Save Budget Limit</button>
                                     </div>
                                 </form>
+
+                                {{-- Unsaved Budget Limit Changes Confirmation Modal --}}
+                                <div
+                                    x-cloak
+                                    x-show="budgetCloseConfirmOpen"
+                                    @click.self="budgetCloseConfirmOpen = false"
+                                    class="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+                                    style="z-index: 99999;"
+                                >
+                                    <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" @click.stop>
+                                        <div class="flex items-start gap-3">
+                                            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style="background:#fef2f2;color:#dc2626;">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-slate-900">Discard unsaved changes?</h4>
+                                                <p class="mt-1 text-xs leading-relaxed text-slate-500">You modified the budget limit. Closing now will discard your changes.</p>
+                                            </div>
+                                        </div>
+                                        <div class="mt-5 flex items-center justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                @click="budgetCloseConfirmOpen = false"
+                                                class="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                            >Continue editing</button>
+                                            <button
+                                                type="button"
+                                                @click="confirmCloseBudgetModal()"
+                                                class="rounded-lg px-3.5 py-2 text-xs font-semibold text-white hover:opacity-95"
+                                                style="background:#dc2626;color:#ffffff;"
+                                            >Close anyway</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </template>
                     @else
@@ -191,11 +261,6 @@
                             Budget Limit: {{ \App\Support\RisApprovalBudget::formatPeso($currentBudgetLimit) }}
                         </span>
                     @endif
-
-                    @include('admin.partials.view-mode-switcher', [
-                        'switcherId' => 'adminSignViewSwitcher',
-                        'btnClass' => 'admin-sign-view-btn',
-                    ])
 
                     <a
                         href="{{ \App\Support\AdminPortal::route('digital-signatures.sign-ris.export-pdf', array_filter(['filter' => $filter, 'search' => $search, 'submitted' => $submittedDate ?? '', 'urgency' => $urgencyFilter ?? ''])) }}"
@@ -254,20 +319,6 @@
 
         <div class="overflow-x-auto" id="signRisTableContainer" data-sign-panel="table">
             @include('admin.digital-signatures._sign-ris-table')
-        </div>
-
-        <div id="signRisCardsContainer" class="hidden space-y-3 px-5 py-4" data-sign-panel="cards">
-            @forelse($signableRisRecords as $ris)
-                @include('admin.partials.ris-info-card', ['ris' => $ris, 'cardMode' => 'sign'])
-            @empty
-                <div class="pur-empty">No RIS records found.</div>
-            @endforelse
-
-            @include('layouts.partials.table-showing-pager', [
-                'pager' => $signableRisRecords,
-                'linkClass' => 'sign-ris-pagination-link',
-                'noun' => 'records',
-            ])
         </div>
     </div>
 

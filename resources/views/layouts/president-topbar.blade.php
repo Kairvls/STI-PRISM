@@ -7,9 +7,9 @@
         @php
             $moduleHeading = match (true) {
                 request()->is('president/dashboard') => ['Dashboard', ''],
-                request()->is('president/direct-approvals*') => ['School Administrator Direct Approvals', ''],
+                request()->is('president/direct-approvals*') => ['School Administrator Direct Approvals', 'Approved directly within budget limit. For oversight and audit only.'],
                 request()->is('president/approvals/history*') || request()->is('president/reports*') => ['Decision Reports', 'Monitor approvals by today, week, month, or year.'],
-                request()->is('president/approvals*') => ['RIS Approvals', 'Review and sign RIS.'],
+                request()->is('president/approvals*') => ['RIS & ATP Approvals', 'Review and sign forwarded RIS & ATP packages.'],
                 request()->is('president/notifications*') => ['Alerts', ''],
                 request()->is('president/profile*') => ['Profile Settings', ''],
                 request()->is('president/security*') => ['Security Settings', ''],

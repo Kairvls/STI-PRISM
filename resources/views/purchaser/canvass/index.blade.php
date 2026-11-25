@@ -210,12 +210,13 @@
                                         <button
                                             type="button"
                                             @click="openRisModal({{ (int) $row->canvass_ris_id }}, @js($row->linked_ris_number ?: 'RIS #'.$row->canvass_ris_id), @js(route($routePrefix.'.ris.print', $row->canvass_ris_id)))"
-                                            class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-                                            style="background:#0025cc;color:#ffffff;"
-                                            title="Preview generated RIS & ATP"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-xl transition hover:opacity-85"
+                                            style="background:#eff6ff;color:#0025cc;"
+                                            data-tip="View RIS &amp; ATP"
+                                            data-tip-place="above"
+                                            aria-label="View RIS &amp; ATP"
                                         >
-                                            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-                                            <span>View RIS &amp; ATP</span>
+                                            <i data-lucide="file-text" class="h-4 w-4"></i>
                                         </button>
                                     @endif
 
@@ -231,10 +232,12 @@
                                             </a>
                                         @else
                                             <span
-                                                class="inline-flex cursor-not-allowed items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-400"
-                                                title="Locked once review starts or is approved"
+                                                class="inline-flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400"
+                                                data-tip="Locked — review has started or is already approved"
+                                                data-tip-place="above"
+                                                aria-label="Locked"
                                             >
-                                                Locked
+                                                <i data-lucide="lock" class="h-3.5 w-3.5"></i>
                                             </span>
                                         @endif
 

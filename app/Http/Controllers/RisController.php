@@ -191,15 +191,17 @@ class RisController extends Controller
             $risQuery->whereDate('requisition_issue_slip_table.ris_created_at', $filterDate);
         }
 
-        // Paginated RIS list — In preparation → revisions → needs ATP → urgency / date
+        // Paginated RIS list — Returned/Draft → Active Review (Pending/Reviewed/Forwarded) → Approved → Rejected; Urgent first within each tier
         $spotlightQuery = clone $risQuery;
-        $risRecords = DocumentWorkflowService::orderOwnUnfinishedFirst(
-            $risQuery,
-            'requisition_issue_slip_table.ris_status'
-        );
-        $risRecords = RisWorkflow::orderNeedsAtpNext($risRecords);
-        $risRecords = RisWorkflow::orderUrgentFirst($risRecords)
+        $risQuery->orderByRaw("CASE
+            WHEN requisition_issue_slip_table.ris_status IN ('Draft', 'Minor Revision', 'For revision', 'Returned', 'Returned for Revision', 'Returned by President') THEN 0
+            WHEN requisition_issue_slip_table.ris_status IN ('Pending', 'Accepted', 'In Review', 'Forwarded to President') THEN 1
+            WHEN requisition_issue_slip_table.ris_status IN ('Approved', 'Directly Approved', 'Approved by the President') THEN 2
+            ELSE 3
+        END ASC");
+        $risRecords = RisWorkflow::orderUrgentFirst($risQuery)
             ->orderByDesc('requisition_issue_slip_table.ris_created_at')
+            ->orderByDesc('requisition_issue_slip_table.ris_id')
             ->paginate(10)
             ->withQueryString();
 

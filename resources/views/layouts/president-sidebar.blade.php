@@ -29,7 +29,7 @@
             class="menu-item {{ request()->is('president/approvals') && !request()->is('president/approvals/history*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="clipboard-check"></i>
-            <span>RIS Approvals</span>
+            <span>RIS &amp; ATP Approvals</span>
             @if($presCounts['ris'] > 0)
                 <span class="{{ $navCount }}" title="{{ $presCounts['ris'] }} not viewed yet">{{ $presCounts['ris'] }}</span>
             @endif
@@ -41,7 +41,7 @@
             id="direct-approvals-section"
         >
             <i class="h-5 w-5" data-lucide="shield-check"></i>
-            <span>School Administrator RIS Direct Approvals</span>
+            <span>Direct Approvals</span>
             @if($presCounts['direct'] > 0)
                 <span class="{{ $navCount }}" title="{{ $presCounts['direct'] }} not viewed yet">{{ $presCounts['direct'] }}</span>
             @endif

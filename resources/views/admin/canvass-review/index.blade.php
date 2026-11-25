@@ -1,6 +1,6 @@
 @extends('layouts.admin-layout')
 
-@section('page-title', 'Canvass Review & Approvals')
+@section('page-title', 'Purchase Approvals')
 @section('page-subtitle', 'Compare supplier quotations, finalize offers, then Direct Approve or forward to the President.')
 
 @section('content')
@@ -39,13 +39,23 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <div class="flex items-center gap-2.5">
-                        <h2 class="text-base font-semibold text-slate-900">{{ $activeTitle }}</h2>
+                        <h2 class="text-base font-semibold text-slate-900">Canvass Requests</h2>
                         <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                             {{ $canvasses->total() }} total
                         </span>
                     </div>
-                    <p class="mt-0.5 text-xs text-slate-500">Compare supplier &amp; brand quotations and confirm winning offers to move the RIS into Reviewed RIS.</p>
                 </div>
+
+                <a
+                    href="{{ route($portalPrefix.'.canvass-review.export-pdf', array_filter(['filter' => $filter, 'urgency' => $urgency, 'submitted' => $submitted ?? '', 'search' => $search])) }}"
+                    title="Export the current Canvass Requests table to PDF"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export PDF
+                </a>
             </div>
 
             {{-- Sub-filters + Search Toolbar --}}
@@ -53,7 +63,7 @@
                 <div class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 p-1">
                     @foreach ($filterMeta as $key => $meta)
                         <a
-                            href="{{ route($portalPrefix.'.canvass-review.index', array_filter(['filter' => $key, 'urgency' => $urgency, 'search' => $search])) }}"
+                            href="{{ route($portalPrefix.'.canvass-review.index', array_filter(['filter' => $key, 'urgency' => $urgency, 'submitted' => $submitted ?? '', 'search' => $search])) }}"
                             class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ $filter === $key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}"
                         >
                             <span>{{ $meta['label'] }}</span>
@@ -73,18 +83,52 @@
                         <option value="Urgent" @selected($urgency === 'Urgent')>Urgent</option>
                         <option value="Non-Urgent" @selected($urgency === 'Non-Urgent')>Non-Urgent</option>
                     </select>
+                    <div class="relative inline-flex items-center">
+                        <input
+                            type="date"
+                            name="submitted"
+                            id="canvassReviewDateInput"
+                            value="{{ $submitted ?? '' }}"
+                            onchange="this.form.submit()"
+                            class="pointer-events-none absolute inset-0 h-0 w-0 opacity-0"
+                            tabindex="-1"
+                            aria-hidden="true"
+                        >
+                        <button
+                            type="button"
+                            onclick="var inp = document.getElementById('canvassReviewDateInput'); if (inp) { if (typeof inp.showPicker === 'function') { inp.showPicker(); } else { inp.focus(); inp.click(); } }"
+                            title="{{ !empty($submitted) ? 'Submitted: '.\Carbon\Carbon::parse($submitted)->format('M d, Y').' — click to change' : 'Filter by submitted date' }}"
+                            aria-label="Filter by submitted date"
+                            class="inline-flex h-9 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium transition {{ !empty($submitted) ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            @if (!empty($submitted))
+                                <span class="tabular-nums">{{ \Carbon\Carbon::parse($submitted)->format('M j, Y') }}</span>
+                            @endif
+                        </button>
+                        @if (!empty($submitted))
+                            <a
+                                href="{{ route($portalPrefix.'.canvass-review.index', array_filter(['filter' => $filter, 'urgency' => $urgency, 'search' => $search])) }}"
+                                title="Clear date filter"
+                                aria-label="Clear date filter"
+                                class="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                            >×</a>
+                        @endif
+                    </div>
                     <div class="relative">
+                        <svg class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
                         <input
                             type="search"
                             name="search"
                             value="{{ $search }}"
                             placeholder="Search CVS no., Request no., purchaser..."
-                            class="w-60 rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-3 text-xs text-slate-900 outline-none focus:border-blue-500"
+                            class="w-64 rounded-xl border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs text-slate-900 outline-none focus:border-blue-500"
                         >
                     </div>
-                    <button type="submit" class="rounded-xl bg-[#0025cc] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#001db3]">
-                        Search
-                    </button>
                 </form>
             </div>
         </div>
@@ -274,12 +318,26 @@
                                     <button
                                         type="button"
                                         @click="openWorkspace()"
-                                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition"
+                                        :data-tip="canAct && isReviewable() ? 'Review Canvass' : 'View Canvass'"
+                                        data-tip-place="above"
+                                        :aria-label="canAct && isReviewable() ? 'Review Canvass' : 'View Canvass'"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-xl transition hover:opacity-85"
                                         :style="canAct && isReviewable()
-                                            ? 'background:#0025cc;color:#ffffff;'
+                                            ? 'background:#eff6ff;color:#0025cc;'
                                             : 'background:#ffffff;border:1px solid #cbd5e1;color:#334155;'"
-                                        x-text="canAct && isReviewable() ? 'Review Canvass' : 'View'"
-                                    ></button>
+                                    >
+                                        <template x-if="canAct && isReviewable()">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                            </svg>
+                                        </template>
+                                        <template x-if="!(canAct && isReviewable())">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                        </template>
+                                    </button>
 
                                     <button
                                         type="button"
@@ -295,8 +353,30 @@
                                         </svg>
                                     </button>
 
-                                    {{-- 3-Dots More Actions Menu (Print + Reject) --}}
+                                    {{-- Direct Print button when only 1 action is available (not reviewable) --}}
+                                    <div x-show="!(canAct && isReviewable())" class="group relative inline-flex">
+                                        <a
+                                            :href="printUrl"
+                                            target="_blank"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                            aria-label="Print ATP &amp; RIS"
+                                        >
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+                                            </svg>
+                                        </a>
+                                        <span
+                                            class="pointer-events-none absolute bottom-full right-0 z-30 mb-2 translate-y-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-medium opacity-0 shadow-lg transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+                                            style="background:#0f172a;color:#ffffff;"
+                                        >
+                                            Print ATP &amp; RIS
+                                            <span class="absolute right-3 top-full -mt-1 h-2 w-2 rotate-45" style="background:#0f172a;"></span>
+                                        </span>
+                                    </div>
+
+                                    {{-- 3-Dots More Actions Menu (Print + Reject, only when reviewable) --}}
                                     <div
+                                        x-show="canAct && isReviewable()"
                                         class="relative inline-flex"
                                         x-data="{
                                             menuOpen: false,
@@ -555,20 +635,54 @@
                                                                                 <span x-text="currentItem().status"></span>
                                                                             </span>
                                                                         </template>
-                                                                        <button
-                                                                            type="button"
-                                                                            x-show="canAct && isReviewable() && currentItem().status !== 'Approved' && currentItem().status !== 'Rejected'"
-                                                                            @click="openReasonModal('reject', 'single')"
-                                                                            :disabled="busy"
-                                                                            class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-45"
-                                                                            style="background-color:#ffffff;border-color:#ffe4e6;color:#e11d48;"
-                                                                            onmouseenter="this.style.backgroundColor='#fff1f2';this.style.borderColor='#fecdd3';"
-                                                                            onmouseleave="this.style.backgroundColor='#ffffff';this.style.borderColor='#ffe4e6';"
-                                                                            title="Reject only this item"
+                                                                        <div
+                                                                            x-show="canAct && isReviewable() && currentItem().status !== 'Approved' && currentItem().status !== 'Rejected' && currentItem().status !== 'Returned'"
+                                                                            class="group relative inline-flex"
                                                                         >
-                                                                            
-                                                                            <span>Reject item</span>
-                                                                        </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                @click="openReasonModal('return', 'single')"
+                                                                                :disabled="busy"
+                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:opacity-45"
+                                                                                style="background-color:#ffffff;border-color:#fed7aa;color:#c2410c;"
+                                                                                onmouseenter="this.style.backgroundColor='#fff7ed';this.style.borderColor='#fdba74';"
+                                                                                onmouseleave="this.style.backgroundColor='#ffffff';this.style.borderColor='#fed7aa';"
+                                                                                aria-label="Return item for revision"
+                                                                            >
+                                                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
+                                                                            </button>
+                                                                            <span
+                                                                                class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-medium opacity-0 shadow-lg transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+                                                                                style="background:#0f172a;color:#ffffff;"
+                                                                            >
+                                                                                Return item for revision
+                                                                                <span class="absolute left-1/2 top-full -mt-1 h-2 w-2 -translate-x-1/2 rotate-45" style="background:#0f172a;"></span>
+                                                                            </span>
+                                                                        </div>
+                                                                        <div
+                                                                            x-show="canAct && isReviewable() && currentItem().status !== 'Approved' && currentItem().status !== 'Rejected'"
+                                                                            class="group relative inline-flex"
+                                                                        >
+                                                                            <button
+                                                                                type="button"
+                                                                                @click="openReasonModal('reject', 'single')"
+                                                                                :disabled="busy"
+                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:opacity-45"
+                                                                                style="background-color:#ffffff;border-color:#ffe4e6;color:#e11d48;"
+                                                                                onmouseenter="this.style.backgroundColor='#fff1f2';this.style.borderColor='#fecdd3';"
+                                                                                onmouseleave="this.style.backgroundColor='#ffffff';this.style.borderColor='#ffe4e6';"
+                                                                                aria-label="Reject item"
+                                                                            >
+                                                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                            </button>
+                                                                            <span
+                                                                                class="pointer-events-none absolute bottom-full right-0 z-30 mb-2 translate-y-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-medium opacity-0 shadow-lg transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+                                                                                style="background:#0f172a;color:#ffffff;"
+                                                                            >
+                                                                                Reject item
+                                                                                <span class="absolute right-3 top-full -mt-1 h-2 w-2 rotate-45" style="background:#0f172a;"></span>
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
 
@@ -619,10 +733,13 @@
                                                                                                 type="button"
                                                                                                 @click="stepOfferQty(currentItem(), offer, -1)"
                                                                                                 :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) <= 1"
-                                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 transition hover:bg-slate-200/80 disabled:cursor-not-allowed disabled:bg-slate-100/70 disabled:text-slate-300"
+                                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed"
+                                                                                                :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) <= 1)
+                                                                                                    ? 'background:#f8fafc;border-color:#e2e8f0;color:#cbd5e1;'
+                                                                                                    : 'background:#eff6ff;border-color:#93c5fd;color:#0025cc;'"
                                                                                                 aria-label="Decrease quantity"
                                                                                             >
-                                                                                                −
+                                                                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14"/></svg>
                                                                                             </button>
                                                                                             <input
                                                                                                 type="number"
@@ -636,16 +753,19 @@
                                                                                                 class="h-8 w-12 rounded-lg border text-center text-xs font-semibold tabular-nums outline-none focus:border-blue-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                                                                                 :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected')
                                                                                                     ? 'background:#ffffff;border-color:#e2e8f0;color:#64748b;cursor:not-allowed;'
-                                                                                                    : 'background:#ffffff;border-color:#cbd5e1;color:#0f172a;'"
+                                                                                                    : 'background:#ffffff;border-color:#93c5fd;color:#0f172a;'"
                                                                                             >
                                                                                             <button
                                                                                                 type="button"
                                                                                                 @click="stepOfferQty(currentItem(), offer, 1)"
                                                                                                 :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), offer)"
-                                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 transition hover:bg-slate-200/80 disabled:cursor-not-allowed disabled:bg-slate-100/70 disabled:text-slate-300"
+                                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed"
+                                                                                                :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), offer))
+                                                                                                    ? 'background:#f8fafc;border-color:#e2e8f0;color:#cbd5e1;'
+                                                                                                    : 'background:#eff6ff;border-color:#93c5fd;color:#0025cc;'"
                                                                                                 aria-label="Increase quantity"
                                                                                             >
-                                                                                                +
+                                                                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
                                                                                             </button>
                                                                                         </div>
                                                                                     </td>
@@ -808,15 +928,15 @@
                                                                 <template x-if="adminSignature">
                                                                     <div class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1">
                                                                         <img :src="adminSignature" alt="Admin signature" class="h-6 max-w-[90px] object-contain">
-                                                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold" style="background:#ecfdf5;color:#059669;">✓ Ready</span>
+                                                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold" style="background:#ecfdf5;color:#059669;" x-text="isReviewable() ? '✓ Ready' : '✓ Signed'"></span>
                                                                     </div>
                                                                 </template>
                                                                 <template x-if="!adminSignature">
-                                                                    <span class="text-xs font-semibold" style="color: #dc2626;">Required to accept</span>
+                                                                    <span class="text-xs font-semibold" style="color: #dc2626;" x-text="isReviewable() ? 'Required to accept' : 'Not signed'"></span>
                                                                 </template>
                                                             </div>
 
-                                                            <div x-show="canAct" class="flex items-center gap-2">
+                                                            <div x-show="canAct && isReviewable()" class="flex items-center gap-2">
                                                                 <button
                                                                     type="button"
                                                                     @click="toggleSigPanel()"
@@ -826,7 +946,7 @@
                                                             </div>
                                                         </div>
 
-                                                        <div x-show="sigPanelOpen" class="mt-3 border-t border-slate-100 pt-3">
+                                                        <div x-show="sigPanelOpen && canAct && isReviewable()" class="mt-3 border-t border-slate-100 pt-3">
                                                             <div x-show="canAct && savedSignatures.length > 0" class="mb-2 flex flex-wrap items-center gap-2">
                                                                 <span class="text-[11px] font-semibold text-slate-500">Saved signatures:</span>
                                                                 <template x-for="sig in savedSignatures" :key="sig.id">
@@ -1079,6 +1199,12 @@
                                                                         <td colspan="8" class="text-center text-slate-400">No items to display.</td>
                                                                     </tr>
                                                                 </tbody>
+                                                                <tfoot>
+                                                                    <tr>
+                                                                        <td colspan="7" class="ris-total-label">TOTAL AMOUNT</td>
+                                                                        <td class="ris-total-value" x-text="risPreviewGrandTotal() > 0 ? formatPeso(risPreviewGrandTotal()) : ' '"></td>
+                                                                    </tr>
+                                                                </tfoot>
                                                             </table>
 
                                                             <div class="ris-purpose-area">
@@ -1431,7 +1557,34 @@ function canvassReviewCard(boot) {
             this.open = false;
         },
 
+        restoreFromSnapshot() {
+            if (!this.initialSnapshot) return;
+            try {
+                const snap = JSON.parse(this.initialSnapshot);
+                this.adminSignature = snap.sig || '';
+                const byItemId = {};
+                (snap.items || []).forEach(si => { byItemId[si.id] = si; });
+                (this.items || []).forEach(it => {
+                    const si = byItemId[it.id];
+                    if (!si) return;
+                    it.status = si.status;
+                    const byOfferId = {};
+                    (si.offers || []).forEach(so => { byOfferId[so.id] = so; });
+                    (it.offers || []).forEach(o => {
+                        const so = byOfferId[o.id];
+                        if (!so) return;
+                        o.checked = Boolean(so.checked);
+                        o.approvedQty = String(so.qty ?? '');
+                    });
+                });
+                this.activeTab = 'review';
+                this.activeItemIdx = 0;
+                this.feedbackMsg = '';
+            } catch (e) {}
+        },
+
         confirmCloseWorkspace() {
+            this.restoreFromSnapshot();
             this.closeConfirmOpen = false;
             this.open = false;
         },
@@ -1844,6 +1997,7 @@ function canvassReviewCard(boot) {
                     requestedDisplay: fmtNum(row.requestedQty),
                     issuedDisplay: fmtNum(row.issuedQty),
                     unitCostDisplay: row.unitCost !== null ? this.formatPeso(row.unitCost) : '',
+                    amount: row.amount,
                     amountDisplay: row.amount !== null ? this.formatPeso(row.amount) : '',
                     sameItem: Boolean(sameItem),
                     sameSupplier: Boolean(sameSupplier),
@@ -1851,6 +2005,10 @@ function canvassReviewCard(boot) {
                     supplierSpan,
                 };
             });
+        },
+
+        risPreviewGrandTotal() {
+            return (this.risPreviewRows() || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
         },
 
         // Signature canvas
@@ -2066,18 +2224,20 @@ function canvassReviewCard(boot) {
                 const checkedCount = (item.offers || []).filter(o => o.checked).length;
                 const alloc = this.itemAllocatedUnits(item);
                 const warning = checkedCount > 0
-                    ? `This item currently has ${checkedCount} selected offer(s) (${alloc} / ${item.qty} ${item.uom} allocated). Rejecting it will discard those selections.`
+                    ? `This item currently has ${checkedCount} selected offer(s) (${alloc} / ${item.qty} ${item.uom} allocated). ${isReject ? 'Rejecting' : 'Returning'} it will discard those selections.`
                     : '';
                 this.reasonModal = {
                     open: true,
                     type,
                     scope: 'single',
-                    title: `Reject "${item.name}"?`,
-                    subtitle: 'Please confirm and provide a reason before rejecting this item.',
+                    title: isReject ? `Reject "${item.name}"?` : `Return "${item.name}" for revision?`,
+                    subtitle: isReject
+                        ? 'Please confirm and provide a reason before rejecting this item.'
+                        : 'Returning this item will send the canvass back to the Purchaser with this item flagged for revision.',
                     itemLabel: `Item ${this.activeItemIdx + 1}: ${item.name}`,
                     itemQtyLabel: `Total Requested: ${item.qty} Qty`,
                     warning,
-                    confirmLabel: 'Confirm Reject Item',
+                    confirmLabel: isReject ? 'Confirm Reject Item' : 'Confirm Return Item',
                     note: '',
                     error: '',
                 };
@@ -2118,7 +2278,9 @@ function canvassReviewCard(boot) {
             if (scope === 'single') {
                 const item = this.currentItem();
                 if (!item) { this.busy = false; return; }
-                url = `${this.approveItemBaseUrl}/${item.id}/reject`;
+                url = type === 'return'
+                    ? `${this.approveItemBaseUrl}/${item.id}/return`
+                    : `${this.approveItemBaseUrl}/${item.id}/reject`;
                 bodyPayload = { note };
             }
 
@@ -2142,7 +2304,7 @@ function canvassReviewCard(boot) {
                 if (scope === 'single') {
                     const item = this.currentItem();
                     if (item) {
-                        item.status = 'Rejected';
+                        item.status = type === 'return' ? 'Returned' : 'Rejected';
                         item.reviewNote = note;
                         item.offers.forEach(o => { o.checked = false; o.approvedQty = ''; });
                     }

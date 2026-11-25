@@ -48,6 +48,10 @@
         font-weight: 700;
     }
     .ris-items-table tbody td { height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle; overflow-wrap: anywhere; }
+    .ris-items-table tfoot td { height: 38px; padding: 6px 8px; font-size: 12px; font-weight: 700; vertical-align: middle; background: #f8fafc; }
+    .ris-items-table tfoot td.ris-total-label { text-align: right; letter-spacing: 0.03em; }
+    .ris-items-table tfoot td.ris-total-value { text-align: right; font-variant-numeric: tabular-nums; }
+    @media print { .ris-items-table tfoot td { background: #fff !important; } }
     .ris-item-column { width: 20%; }
     .ris-brand-column { width: 10%; }
     .ris-unit-column { width: 7%; }

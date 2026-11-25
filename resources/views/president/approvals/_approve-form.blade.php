@@ -39,6 +39,9 @@
     .president-ris-form .ris-items-table tbody td {
         height: 45px; padding: 4px 6px; font-size: 12px; vertical-align: middle;
     }
+    .president-ris-form .ris-items-table tfoot td {
+        height: 38px; padding: 6px 8px; font-size: 12px; font-weight: 700; vertical-align: middle; background: #f8fafc;
+    }
     .president-ris-form .ris-item-column { width: 20%; }
     .president-ris-form .ris-brand-column { width: 10%; }
     .president-ris-form .ris-unit-column { width: 7%; }
@@ -188,11 +191,6 @@
 </style>
 @include('partials.ris-signature-overlay-styles')
 
-@include('partials.document-lineage', [
-    'lineage' => \App\Support\DocumentLineage::forRis((int) $ris->ris_id, $ris),
-    'currentType' => 'RIS',
-    'statusHint' => \App\Support\DocumentLineage::reviewHintForRis($ris),
-])
 <form
     id="presidentApproveForm"
     method="POST"
@@ -205,7 +203,127 @@
     <input type="hidden" name="signature_data" id="pa_signature_data" value="">
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-        <div class="overflow-x-auto bg-gray-100 p-4 md:p-6">
+        @php $paLinkedAtps = collect($linkedAtps ?? [])->values(); @endphp
+        @if ($paLinkedAtps->isNotEmpty())
+            <div class="mb-3 flex items-center gap-5 border-b border-slate-200 bg-white px-4 pt-2" data-pa-doc-tabs>
+                <button
+                    type="button"
+                    data-pa-tab="ris"
+                    class="border-b-2 pb-2 text-xs font-semibold transition"
+                    style="border-color:#2563eb;color:#1d4ed8;"
+                >
+                    Requisition Slip
+                </button>
+                <button
+                    type="button"
+                    data-pa-tab="atp"
+                    class="inline-flex items-center gap-1.5 border-b-2 pb-2 text-xs font-semibold transition"
+                    style="border-color:transparent;color:#64748b;"
+                >
+                    <span>Authorities to Purchase</span>
+                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style="background:#eff6ff;color:#1d4ed8;">{{ $paLinkedAtps->count() }}</span>
+                </button>
+            </div>
+
+            <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-slate-100/80 shadow-inner" data-pa-pane="atp">
+                <div class="space-y-4 p-3 md:p-5">
+                    @if ($paLinkedAtps->count() > 1)
+                        <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                            <button
+                                type="button"
+                                data-pa-atp-prev
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+                                title="Previous ATP"
+                            >
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <span class="text-xs font-semibold text-slate-700" data-pa-atp-label>
+                                ATP 1 of {{ $paLinkedAtps->count() }}
+                            </span>
+                            <button
+                                type="button"
+                                data-pa-atp-next
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:opacity-90 disabled:opacity-40"
+                                style="background:#2563eb;color:#ffffff;"
+                                title="Next ATP"
+                            >
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                            </button>
+                        </div>
+                    @endif
+
+                    @foreach ($paLinkedAtps as $atpIdx => $linkedAtp)
+                        <div
+                            class="{{ $atpIdx === 0 ? '' : 'hidden' }}"
+                            data-pa-atp-sheet="{{ $atpIdx }}"
+                            data-pa-atp-title="{{ $linkedAtp->authority_purchase_form_number ?: ('ATP #'.$linkedAtp->authority_purchase_id) }} · {{ $linkedAtp->company_name ?: ($linkedAtp->shop_name ?: 'Supplier') }}"
+                        >
+                            @include('partials.authority-to-purchase-paper', [
+                                'editable' => false,
+                                'atp' => $linkedAtp,
+                                'items' => $linkedAtp->atpItems ?? collect(),
+                                'adminLiveSign' => true,
+                                'adminSignerName' => $presidentName,
+                            ])
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            <script>
+            (function () {
+                var tabs = document.querySelector('[data-pa-doc-tabs]');
+                if (!tabs || tabs.dataset.bound === '1') return;
+                tabs.dataset.bound = '1';
+                var modalBody = tabs.closest('form') || document;
+                var risPane = modalBody.querySelector('[data-pa-pane="ris"]');
+                var atpPane = modalBody.querySelector('[data-pa-pane="atp"]');
+                var btns = tabs.querySelectorAll('[data-pa-tab]');
+
+                function setTab(name) {
+                    if (risPane) risPane.classList.toggle('hidden', name !== 'ris');
+                    if (atpPane) atpPane.classList.toggle('hidden', name !== 'atp');
+                    btns.forEach(function (b) {
+                        var active = b.getAttribute('data-pa-tab') === name;
+                        b.style.borderColor = active ? '#2563eb' : 'transparent';
+                        b.style.color = active ? '#1d4ed8' : '#64748b';
+                    });
+                }
+                btns.forEach(function (b) {
+                    b.addEventListener('click', function () { setTab(b.getAttribute('data-pa-tab')); });
+                });
+
+                var sheets = Array.from(modalBody.querySelectorAll('[data-pa-atp-sheet]'));
+                var prevBtn = modalBody.querySelector('[data-pa-atp-prev]');
+                var nextBtn = modalBody.querySelector('[data-pa-atp-next]');
+                var labelEl = modalBody.querySelector('[data-pa-atp-label]');
+                var cur = 0;
+                function renderAtp(idx) {
+                    cur = Math.max(0, Math.min(sheets.length - 1, idx));
+                    sheets.forEach(function (el, i) { el.classList.toggle('hidden', i !== cur); });
+                    if (labelEl && sheets[cur]) {
+                        labelEl.textContent = 'ATP ' + (cur + 1) + ' of ' + sheets.length + ' · ' + (sheets[cur].getAttribute('data-pa-atp-title') || '');
+                    }
+                    if (prevBtn) prevBtn.disabled = cur === 0;
+                    if (nextBtn) nextBtn.disabled = cur >= sheets.length - 1;
+                }
+                if (sheets.length > 0) renderAtp(0);
+                if (prevBtn) prevBtn.addEventListener('click', function () { renderAtp(cur - 1); });
+                if (nextBtn) nextBtn.addEventListener('click', function () { renderAtp(cur + 1); });
+
+                var atpNameInputs = Array.from(modalBody.querySelectorAll('[data-da-atp-sig-name]'));
+                atpNameInputs.forEach(function (inp) {
+                    inp.addEventListener('input', function () {
+                        var val = inp.value;
+                        atpNameInputs.forEach(function (other) {
+                            if (other !== inp) other.value = val;
+                        });
+                    });
+                });
+            })();
+            </script>
+        @endif
+
+        <div class="overflow-x-auto bg-gray-100 p-4 md:p-6" data-pa-pane="ris">
             <div class="president-ris-form mx-auto">
                 <div class="ris-document-header president-ris-locked">
                     <div class="ris-school-name">STI COLLEGE - ORMOC, INC.</div>
@@ -250,15 +368,43 @@
                                 $sameItem = $nameKey !== '' && $nameKey === $prevNameKey;
                                 $sameSupplier = $sameItem && $supplierKey !== '' && $supplierKey === $prevSupplierKey;
                                 $itemSpan = 1;
+                                $itemRequestedSum = 0.0;
+                                $itemHasRequested = false;
+                                $itemIssuedSum = 0.0;
+                                $itemHasIssued = false;
+                                if ($item !== null && $item->ris_quantity_requested !== null && $item->ris_quantity_requested !== '') {
+                                    $itemRequestedSum += (float) $item->ris_quantity_requested;
+                                    $itemHasRequested = true;
+                                }
+                                if ($item !== null && $item->ris_quantity_issued !== null && $item->ris_quantity_issued !== '') {
+                                    $itemIssuedSum += (float) $item->ris_quantity_issued;
+                                    $itemHasIssued = true;
+                                }
                                 if ($nameKey !== '' && ! $sameItem) {
                                     for ($k = $i + 1; $k < $sheetItems->count(); $k++) {
-                                        $nextName = mb_strtolower(trim((string) ($sheetItems->get($k)?->ris_item_name_description ?? '')));
+                                        $nextItem = $sheetItems->get($k);
+                                        $nextName = mb_strtolower(trim((string) ($nextItem?->ris_item_name_description ?? '')));
                                         if ($nextName === '' || $nextName !== $nameKey) {
                                             break;
                                         }
                                         $itemSpan++;
+                                        if ($nextItem?->ris_quantity_requested !== null && $nextItem->ris_quantity_requested !== '') {
+                                            $itemRequestedSum += (float) $nextItem->ris_quantity_requested;
+                                            $itemHasRequested = true;
+                                        }
+                                        if ($nextItem?->ris_quantity_issued !== null && $nextItem->ris_quantity_issued !== '') {
+                                            $itemIssuedSum += (float) $nextItem->ris_quantity_issued;
+                                            $itemHasIssued = true;
+                                        }
                                     }
                                 }
+                                $formatQty = static function (float $val): string {
+                                    return abs($val - round($val)) < 0.0001
+                                        ? (string) (int) round($val)
+                                        : rtrim(rtrim(number_format($val, 2, '.', ''), '0'), '.');
+                                };
+                                $itemRequestedDisplay = $itemHasRequested ? $formatQty($itemRequestedSum) : '';
+                                $itemIssuedDisplay = $itemHasIssued ? $formatQty($itemIssuedSum) : '';
                                 $supplierSpan = 1;
                                 if ($nameKey !== '' && $supplierKey !== '' && ! $sameSupplier) {
                                     for ($k = $i + 1; $k < $sheetItems->count(); $k++) {
@@ -286,13 +432,29 @@
                                 @if (! $sameSupplier)
                                     <td class="president-ris-locked" @if ($supplierSpan > 1) rowspan="{{ $supplierSpan }}" @endif>{{ $supplier }}</td>
                                 @endif
-                                <td class="text-center president-ris-locked">{{ $item->ris_quantity_requested ?? '' }}</td>
-                                <td class="text-center president-ris-locked">{{ $item->ris_quantity_issued ?? '' }}</td>
+                                @if (! $sameItem)
+                                    <td class="text-center president-ris-locked" @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $itemRequestedDisplay }}</td>
+                                    <td class="text-center president-ris-locked" @if ($itemSpan > 1) rowspan="{{ $itemSpan }}" @endif>{{ $itemIssuedDisplay }}</td>
+                                @endif
                                 <td class="text-right president-ris-locked">{{ isset($item->ris_unit_cost) ? \App\Support\Money::format($item->ris_unit_cost) : '' }}</td>
                                 <td class="text-right president-ris-locked">{{ $lineAmount !== null ? \App\Support\Money::format($lineAmount) : '' }}</td>
                             </tr>
                         @endfor
                     </tbody>
+                    @php
+                        $presGrandTotal = collect($risItems ?? [])->sum(function ($ti) {
+                            if (! filled($ti?->ris_item_name_description ?? null)) return 0;
+                            return $ti->ris_total_amount !== null
+                                ? (float) $ti->ris_total_amount
+                                : (((float) ($ti->ris_quantity_requested ?? 0)) * ((float) ($ti->ris_unit_cost ?? 0)));
+                        });
+                    @endphp
+                    <tfoot>
+                        <tr>
+                            <td colspan="7" class="text-right" style="letter-spacing:0.03em;">TOTAL AMOUNT</td>
+                            <td class="text-right tabular-nums">{{ \App\Support\Money::format($presGrandTotal) }}</td>
+                        </tr>
+                    </tfoot>
                 </table>
 
                 <div class="ris-purpose-area president-ris-locked">
@@ -354,18 +516,20 @@
                         </div>
                     </div>
 
-                    <div class="ris-signature-column president-ris-locked">
-                        <div class="ris-signature-label">Issued by:</div>
-                        <div class="ris-signature-line">
-                            @if ($issuedSig !== '' && str_starts_with($issuedSig, 'data:image'))
-                                <img src="{{ $issuedSig }}" alt="Issued by signature" class="signature-image">
-                            @else
-                                <span class="signature-name">{{ $issuedSig !== '' ? $issuedSig : ' ' }}</span>
-                            @endif
+                    <div class="ris-signature-column">
+                        <div class="ris-signature-label">Issued by: <span class="text-red-500">*</span></div>
+                        <div class="ris-signature-line ris-signature-line--input ris-signature-input-wrap">
+                            <img
+                                id="paIssuedSigOverlay"
+                                class="signature-image"
+                                alt="Issued by signature"
+                                style="display:none;"
+                            >
+                            <span id="paIssuedByName" class="signature-name">{{ old('ris_approved_by', $presidentName) }}</span>
                         </div>
                         <div class="ris-date-label">Date:</div>
-                        <div class="ris-date-line">
-                            {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('m/d/Y') : 'mm/dd/yyyy' }}
+                        <div class="ris-date-line" id="paIssuedByDate">
+                            {{ old('ris_approved_by_date', $todayDisplay) }}
                         </div>
                     </div>
 
@@ -387,17 +551,29 @@
             </div>
         </div>
 
-        <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h4 class="text-sm font-semibold text-slate-900">President signature <span class="text-red-500">*</span></h4>
+        <div class="mt-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-900/5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-sm font-bold text-slate-900">President signature:</span>
+                    <div id="paSigReadyPill" class="hidden inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5">
+                        <img id="paSigThumb" src="" alt="President signature" class="h-7 w-auto max-w-[96px] object-contain">
+                        <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold" style="background:#ecfdf5;color:#059669;">✓ Ready</span>
+                    </div>
+                    <span id="paSigRequiredPill" class="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold" style="background:#fffbeb;color:#b45309;">Required</span>
+                    <div id="paSignBadge" class="hidden"></div>
                 </div>
-                <div id="paSignBadge" class="hidden inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                    Signature added
-                </div>
+
+                <button
+                    type="button"
+                    id="paToggleSigPanelBtn"
+                    onclick="(function(){ var body = document.getElementById('paSigPanelBody'); var btn = document.getElementById('paToggleSigPanelBtn'); if (!body || !btn) return; var willShow = body.classList.contains('hidden'); body.classList.toggle('hidden', !willShow); btn.textContent = willShow ? 'Hide signature pad' : 'Change / Draw signature'; })()"
+                    class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >{{ $savedSignatures->isNotEmpty() ? 'Change / Draw signature' : 'Hide signature pad' }}</button>
             </div>
 
-            <div class="mt-3">
+            <div id="paSigPanelBody" class="{{ $savedSignatures->isNotEmpty() ? 'hidden' : '' }} mt-4 border-t border-slate-100 pt-4">
+                <p class="mb-3 text-xs text-slate-500">Applied to <strong>Approved by</strong> &amp; <strong>Issued by</strong> on the Requisition Slip and <strong>Authorized by</strong> on linked Authorities to Purchase, then released directly to the Purchaser.</p>
+                <div>
                 <div class="flex items-center justify-between gap-2">
                     <p class="text-xs font-medium text-slate-700">My saved signatures</p>
                     <span id="paSavedCount" class="text-[11px] text-slate-400">{{ $savedSignatures->count() }} / 4 saved</span>
@@ -499,29 +675,50 @@
                     <span class="mt-0.5 block text-[11px] text-slate-400">Keeps up to 4 signatures for the next approval.</span>
                 </span>
             </label>
+            </div>
         </div>
 
-        <div class="mt-4">
-            <label for="pa_remarks" class="block text-xs font-medium text-slate-700">Remarks <span class="font-normal text-slate-400">(optional)</span></label>
-            <textarea
-                id="pa_remarks"
-                name="remarks"
-                rows="2"
-                placeholder="Optional notes for this approval"
-                class="mt-1.5 block w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
-            ></textarea>
-        </div>
+        @php $paSupportingDocs = collect($supportingDocuments ?? []); @endphp
+        @if ($paSupportingDocs->isNotEmpty())
+            <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <h4 class="text-sm font-bold text-slate-900">Canvass</h4>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">{{ $paSupportingDocs->count() }} {{ $paSupportingDocs->count() === 1 ? 'file' : 'files' }}</span>
+                </div>
+                <div class="space-y-2">
+                    @foreach ($paSupportingDocs as $doc)
+                        @php
+                            $docUrl = !empty($doc->ris_attachment_path)
+                                ? \Illuminate\Support\Facades\Storage::disk('public')->url($doc->ris_attachment_path)
+                                : '#';
+                        @endphp
+                        <a
+                            href="{{ $docUrl }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 text-xs transition hover:border-blue-200 hover:bg-blue-50/40"
+                        >
+                            <div class="flex min-w-0 items-center gap-2.5">
+                                <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-400 ring-1 ring-slate-200">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="truncate font-semibold text-blue-700">{{ $doc->ris_attachment_original_name }}</div>
+                                    @if (!empty($doc->ris_attachment_size))
+                                        <div class="text-[11px] text-slate-400">{{ number_format($doc->ris_attachment_size / 1024, 1) }} KB</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <span class="shrink-0 font-semibold text-slate-600">Open</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 
     <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 bg-white px-5 py-4 md:px-6">
         <input type="hidden" name="return_to[]" value="school_admin">
-        <div class="mr-auto min-w-0 max-w-sm rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-            <p class="text-xs font-medium text-slate-600">Pass this RIS to</p>
-            <p class="mt-0.5 text-sm font-semibold text-slate-900">School Administrator</p>
-            <p class="mt-1 text-[11px] leading-relaxed text-slate-400">
-                Required so they can sign <strong>Issued by</strong> on the RIS.
-            </p>
-        </div>
         <button
             type="button"
             onclick="if (!window._presidentPaFileDialogOpen) closePresidentApproveModal()"
@@ -533,11 +730,103 @@
             type="submit"
             id="paSubmitBtn"
             class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-800"
+            style="background:#0025cc;color:#ffffff;"
         >
-            Confirm Approval
+            Approve
         </button>
     </div>
 </form>
+
+@php
+    $paConfirmPurchaserName = \App\Support\RisWorkflow::requesterName($ris, 'Purchaser');
+    $paConfirmAtpNumbers = collect($linkedAtps ?? [])
+        ->map(fn ($a) => trim((string) ($a->authority_purchase_form_number ?? '')))
+        ->filter()
+        ->values()
+        ->all();
+    $paConfirmTotal = collect($items ?? [])->sum(function ($it) {
+        $amt = (float) ($it->ris_total_amount ?? 0);
+        if ($amt > 0) {
+            return $amt;
+        }
+        $qty = (float) ($it->ris_quantity_issued ?? $it->ris_quantity_requested ?? 0);
+        $uc = (float) ($it->ris_unit_cost ?? 0);
+        return $qty * $uc;
+    });
+@endphp
+<div id="paApproveConfirmModal" class="fixed inset-0 hidden" style="z-index: 99999;">
+    <div
+        class="absolute inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[1px]"
+        data-pa-confirm-dismiss
+    >
+        <div
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onclick="event.stopPropagation()"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paApproveConfirmTitle"
+        >
+            <div class="flex items-start gap-3.5 px-6 pb-4 pt-6">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background:#eff6ff;color:#1d4ed8;">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 id="paApproveConfirmTitle" class="text-base font-bold text-slate-900">Approve &amp; Send RIS &amp; ATP?</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                        Your signature will be applied to RIS <strong>Approved by</strong>, <strong>Issued by</strong>, and linked ATP <strong>Authorized by</strong>, then released immediately.
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-2.5 px-6 pb-5 text-xs">
+                <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">RIS Number</span>
+                        <span class="font-semibold text-slate-900">{{ \App\Support\RisWorkflow::formNumber($ris) ?: '—' }}</span>
+                    </div>
+                    @if (!empty($paConfirmAtpNumbers))
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="shrink-0 text-slate-500">Linked ATP(s)</span>
+                            <span class="text-right font-semibold text-slate-900">{{ implode(', ', $paConfirmAtpNumbers) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">Total Amount</span>
+                        <span class="font-semibold text-slate-900">₱{{ number_format((float) $paConfirmTotal, 2) }}</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 border-t border-slate-200/80 pt-2">
+                        <span class="text-slate-500">Will be sent to</span>
+                        <span class="text-right font-semibold" style="color:#0025cc;">{{ $paConfirmPurchaserName }} (Purchaser)</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500">Also notified</span>
+                        <span class="font-medium text-slate-700">School Administrator</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                <button
+                    type="button"
+                    id="paApproveConfirmCancel"
+                    class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    id="paApproveConfirmProceed"
+                    class="rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                    style="background:#0025cc;color:#ffffff;"
+                >
+                    Confirm &amp; Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="paSignPadModal" class="fixed inset-0 z-[12100] hidden">
     <div class="absolute inset-0 flex items-center justify-center bg-slate-900/45 p-4" data-pa-pad-dismiss>
@@ -724,7 +1013,23 @@
         var url = (dataUrl && String(dataUrl).indexOf('data:image/') === 0) ? dataUrl : '';
         if (sigHidden) sigHidden.value = url;
         setOverlay(approvedOverlay, url);
+        var issuedOverlay = document.getElementById('paIssuedSigOverlay');
+        setOverlay(issuedOverlay, url);
+        if (form) {
+            form.querySelectorAll('[data-da-atp-sig-img]').forEach(function (img) {
+                setOverlay(img, url);
+            });
+        }
         var hasSig = url !== '';
+        var readyPill = document.getElementById('paSigReadyPill');
+        var reqPill = document.getElementById('paSigRequiredPill');
+        var sigThumb = document.getElementById('paSigThumb');
+        if (readyPill) readyPill.classList.toggle('hidden', !hasSig);
+        if (reqPill) reqPill.classList.toggle('hidden', hasSig);
+        if (sigThumb) {
+            if (hasSig) sigThumb.src = url;
+            else sigThumb.removeAttribute('src');
+        }
         if (signBadge) signBadge.classList.toggle('hidden', !hasSig);
         if (clearSignBtn) clearSignBtn.classList.toggle('hidden', !hasSig);
         if (saveCurrentBtn) {
@@ -733,6 +1038,31 @@
             updateSaveAvailability(currentCount);
         }
         if (openPadLabel) openPadLabel.textContent = hasSig ? 'Redraw signature' : 'Draw signature';
+    }
+
+    var paNameInput = document.getElementById('pa_approved_by');
+    if (paNameInput) {
+        paNameInput.addEventListener('input', function () {
+            var val = paNameInput.value;
+            var issuedNameEl = document.getElementById('paIssuedByName');
+            if (issuedNameEl) issuedNameEl.textContent = val;
+            if (form) {
+                form.querySelectorAll('[data-da-atp-sig-name]').forEach(function (inp) {
+                    inp.value = val;
+                });
+            }
+        });
+    }
+    if (dateInput) {
+        dateInput.addEventListener('input', function () {
+            var issuedDateEl = document.getElementById('paIssuedByDate');
+            if (issuedDateEl) issuedDateEl.textContent = dateInput.value || 'mm/dd/yyyy';
+        });
+    }
+
+    var firstSavedBtn = savedList ? savedList.querySelector('.pa-use-saved') : null;
+    if (firstSavedBtn && (!sigHidden || !sigHidden.value)) {
+        setTimeout(function () { firstSavedBtn.click(); }, 0);
     }
 
     function clearSignature() {
@@ -977,10 +1307,6 @@
             uploadNameOut.classList.add('hidden');
         }
         closeSignPad();
-        var sigs = form && form.querySelector('.ris-signatures');
-        if (sigs && typeof sigs.scrollIntoView === 'function') {
-            sigs.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
         if (saveOnDraw && saveOnDraw.checked) {
             var currentCount = savedList ? savedList.querySelectorAll('[data-saved-sig-id]').length : 0;
             if (currentCount >= maxSavedSignatures) {
@@ -1105,10 +1431,6 @@
                     if (uploadNameOut) {
                         uploadNameOut.textContent = '';
                         uploadNameOut.classList.add('hidden');
-                    }
-                    var sigs = form && form.querySelector('.ris-signatures');
-                    if (sigs && typeof sigs.scrollIntoView === 'function') {
-                        sigs.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                 };
                 if (savedSrc && window.PrismSignatureImage && window.PrismSignatureImage.cleanForOverlay) {
@@ -1250,6 +1572,103 @@
         return message;
     }
 
+    var confirmModal = document.getElementById('paApproveConfirmModal');
+    var confirmCancelBtn = document.getElementById('paApproveConfirmCancel');
+    var confirmProceedBtn = document.getElementById('paApproveConfirmProceed');
+
+    if (confirmModal && confirmModal.parentElement !== document.body) {
+        document.body.appendChild(confirmModal);
+    }
+
+    function closeApproveConfirmModal() {
+        if (confirmModal) confirmModal.classList.add('hidden');
+    }
+
+    if (confirmCancelBtn) {
+        confirmCancelBtn.addEventListener('click', closeApproveConfirmModal);
+    }
+    if (confirmModal) {
+        confirmModal.addEventListener('click', function (e) {
+            if (e.target && e.target.hasAttribute('data-pa-confirm-dismiss')) {
+                closeApproveConfirmModal();
+            }
+        });
+    }
+
+    function executePresidentApprovalSubmit() {
+        if (submitInFlight || !form) return;
+        submitInFlight = true;
+        if (confirmProceedBtn) {
+            confirmProceedBtn.disabled = true;
+            confirmProceedBtn.textContent = 'Sending...';
+        }
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken()
+            },
+            body: new FormData(form),
+            credentials: 'same-origin'
+        })
+        .then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok || data.ok === false) {
+                    throw new Error((data && data.message) || 'Unable to save decision.');
+                }
+                return data;
+            });
+        })
+        .then(function (data) {
+            var risId = data.ris_id || {{ (int) $ris->ris_id }};
+            closeApproveConfirmModal();
+            if (typeof window.closePresidentApproveModal === 'function') {
+                closePresidentApproveModal();
+            }
+            if (typeof window.openApprovedRisPreviewModal === 'function') {
+                openApprovedRisPreviewModal(risId, {
+                    afterApprove: true,
+                    adminNotified: data.admin_notified !== false,
+                    awaitingNotify: false,
+                    approvedDate: data.approved_by_date
+                        ? new Date(data.approved_by_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
+                        : null
+                });
+            }
+            var approvedMessage = (data && data.message) ? data.message : 'RIS approved.';
+            if (typeof window.showToast === 'function') {
+                showToast(approvedMessage, { title: 'Approved', type: 'success' });
+            } else if (typeof window.showMpToast === 'function') {
+                showMpToast(approvedMessage, { title: 'Approved', type: 'success', timer: 3600 });
+            }
+        })
+        .catch(function (error) {
+            closeApproveConfirmModal();
+            showNotice(error.message || 'Unable to save decision.');
+            if (confirmProceedBtn) {
+                confirmProceedBtn.disabled = false;
+                confirmProceedBtn.textContent = 'Confirm & Send';
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Approve';
+            }
+        })
+        .finally(function () {
+            submitInFlight = false;
+        });
+    }
+
+    if (confirmProceedBtn) {
+        confirmProceedBtn.addEventListener('click', executePresidentApprovalSubmit);
+    }
+
     if (form) {
         form.addEventListener('input', function (event) {
             if (event.target && event.target.matches('[data-issued-input]')) {
@@ -1278,62 +1697,14 @@
                 return;
             }
 
-            submitInFlight = true;
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Approving...';
+            if (confirmModal) {
+                if (confirmModal.parentElement !== document.body) {
+                    document.body.appendChild(confirmModal);
+                }
+                confirmModal.classList.remove('hidden');
+            } else {
+                executePresidentApprovalSubmit();
             }
-
-            fetch(form.action, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken()
-                },
-                body: new FormData(form),
-                credentials: 'same-origin'
-            })
-            .then(function (response) {
-                return response.json().then(function (data) {
-                    if (!response.ok || data.ok === false) {
-                        throw new Error((data && data.message) || 'Unable to save decision.');
-                    }
-                    return data;
-                });
-            })
-            .then(function (data) {
-                var risId = data.ris_id || {{ (int) $ris->ris_id }};
-                if (typeof window.closePresidentApproveModal === 'function') {
-                    closePresidentApproveModal();
-                }
-                if (typeof window.openApprovedRisPreviewModal === 'function') {
-                    openApprovedRisPreviewModal(risId, {
-                        afterApprove: true,
-                        adminNotified: data.admin_notified !== false,
-                        awaitingNotify: false,
-                        approvedDate: data.approved_by_date
-                            ? new Date(data.approved_by_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
-                            : null
-                    });
-                }
-                var approvedMessage = (data && data.message) ? data.message : 'RIS approved.';
-                if (typeof window.showToast === 'function') {
-                    showToast(approvedMessage, { title: 'Approved', type: 'success' });
-                } else if (typeof window.showMpToast === 'function') {
-                    showMpToast(approvedMessage, { title: 'Approved', type: 'success', timer: 3600 });
-                }
-            })
-            .catch(function (error) {
-                showNotice(error.message || 'Unable to save decision.');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Confirm Approval';
-                }
-            })
-            .finally(function () {
-                submitInFlight = false;
-            });
         });
     }
 

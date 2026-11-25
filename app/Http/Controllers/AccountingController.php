@@ -65,7 +65,7 @@ class AccountingController extends Controller
     public function approvedPackages()
     {
         return view('accounting.approved-packages.index', [
-            'records' => AccountingDashboard::approvedPackages(),
+            'records' => AccountingDashboard::approvedPackages(true),
         ]);
     }
 
@@ -109,7 +109,7 @@ class AccountingController extends Controller
 
         return back()->with(
             'success',
-            $label.' is ready for collection. '.WorkflowNotifier::recipientName($purchaserId, 'The Purchaser').' has been notified.'
+            $label.' is ready for pickup. '.WorkflowNotifier::recipientName($purchaserId, 'The Purchaser').' has been notified — mark it as released once collected.'
         );
     }
 

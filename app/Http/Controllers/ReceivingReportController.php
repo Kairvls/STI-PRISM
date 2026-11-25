@@ -84,11 +84,16 @@ class ReceivingReportController extends Controller
 
         DocumentUrgency::select($query, 'RR');
         $spotlightQuery = clone $query;
-        $reports = DocumentWorkflowService::orderOwnUnfinishedFirst(
-            $query,
-            'receiving_reports_table.receiving_report_status'
-        )
+        $query->orderByRaw("CASE
+            WHEN receiving_reports_table.receiving_report_status IN ('Draft', 'Returned', 'For revision', 'Minor Revision') THEN 0
+            WHEN receiving_reports_table.receiving_report_status IN ('Pending', 'Submitted', 'For Verification', 'Partially Received', 'Incomplete') THEN 1
+            WHEN receiving_reports_table.receiving_report_status IN ('Completed', 'Verified', 'Approved') THEN 2
+            ELSE 3
+        END ASC");
+        DocumentUrgency::orderUrgentFirst($query, 'RR');
+        $reports = $query
             ->orderByDesc('receiving_reports_table.receiving_report_created_at')
+            ->orderByDesc('receiving_reports_table.receiving_report_id')
             ->paginate(10)
             ->withQueryString();
 

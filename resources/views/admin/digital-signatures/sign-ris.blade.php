@@ -325,29 +325,9 @@
     }
 
 
-    function applySignRisView(mode, animate) {
-        if (typeof window.applyAdminViewMode === 'function') {
-            window.applyAdminViewMode({
-                mode: mode,
-                tableId: 'signRisTableContainer',
-                cardsId: 'signRisCardsContainer',
-                buttonSelector: '.admin-sign-view-btn',
-                storageKey: 'admin_sign_view',
-                animate: animate !== false,
-            });
-            return;
-        }
+    function applySignRisView() {
         var table = document.getElementById('signRisTableContainer');
-        var cards = document.getElementById('signRisCardsContainer');
-        var buttons = document.querySelectorAll('.admin-sign-view-btn');
-        if (!table || !cards) return;
-        var useCards = mode === 'cards';
-        table.classList.toggle('hidden', useCards);
-        cards.classList.toggle('hidden', !useCards);
-        buttons.forEach(function (btn) {
-            var active = btn.getAttribute('data-view-mode') === mode;
-            btn.classList.toggle('is-active', active);
-        });
+        if (table) table.classList.remove('hidden');
     }
 
 
@@ -718,6 +698,9 @@
         function (event) {
             if (event.key === 'Escape') {
                 closeSignRisPreviewModal();
+                if (typeof window.closeRisCostSummaryModal === 'function') {
+                    window.closeRisCostSummaryModal();
+                }
                 if (typeof window.closeDirectApproveModal === 'function') {
                     window.closeDirectApproveModal();
                 }
@@ -728,6 +711,74 @@
         }
     );
 
+    window.openRisCostSummaryModal = function (btn) {
+        const modal = document.getElementById('risCostSummaryModal');
+        if (!modal || !btn) return;
+        let data = null;
+        try {
+            data = JSON.parse(btn.getAttribute('data-summary') || '{}');
+        } catch (e) {
+            return;
+        }
+        const fmtPeso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtQty = (q) => Number.isInteger(Number(q)) ? String(Number(q)) : Number(q || 0).toFixed(2).replace(/\.?0+$/, '');
+        const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        document.getElementById('risCostSummaryTitle').textContent = data.ris_number || 'Cost Summary';
+        const reqBadge = document.getElementById('risCostSummaryReqNo');
+        if (data.request_no) {
+            reqBadge.textContent = data.request_no;
+            reqBadge.classList.remove('hidden');
+        } else {
+            reqBadge.classList.add('hidden');
+        }
+
+        const banner = document.getElementById('risCostSummaryBanner');
+        if (data.requires_president) {
+            banner.style.background = '#f0f9ff';
+            banner.style.borderColor = '#bae6fd';
+            banner.style.color = '#0369a1';
+            banner.textContent = `Exceeds ${fmtPeso(data.budget_limit)} direct-approval limit — requires President approval.`;
+        } else {
+            banner.style.background = '#ecfdf5';
+            banner.style.borderColor = '#a7f3d0';
+            banner.style.color = '#047857';
+            banner.textContent = `Within ${fmtPeso(data.budget_limit)} direct-approval limit — eligible for Direct Approval.`;
+        }
+
+        const tbody = document.getElementById('risCostSummaryBody');
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-slate-400">No itemized line items available.</td></tr>';
+        } else {
+            tbody.innerHTML = items.map((it) => {
+                const sub = [it.brand, it.supplier].filter(Boolean).join(' · ');
+                return `
+                    <tr>
+                        <td class="px-4 py-2.5 align-top">
+                            <div class="font-medium text-slate-900">${esc(it.name)}</div>
+                            ${sub ? `<div class="mt-0.5 text-[11px] text-slate-500">${esc(sub)}</div>` : ''}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2.5 text-right align-top tabular-nums text-slate-700">${fmtQty(it.qty)} ${esc(it.unit)}</td>
+                        <td class="whitespace-nowrap px-3 py-2.5 text-right align-top tabular-nums text-slate-700">${fmtPeso(it.unit_cost)}</td>
+                        <td class="whitespace-nowrap px-4 py-2.5 text-right align-top font-semibold tabular-nums text-slate-900">${fmtPeso(it.line_total)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('risCostSummaryGrandTotal').textContent = fmtPeso(data.total);
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    };
+
+    window.closeRisCostSummaryModal = function () {
+        const modal = document.getElementById('risCostSummaryModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    };
+
     document.addEventListener(
         'DOMContentLoaded',
         function () {
@@ -737,5 +788,64 @@
 
 
 </script>
+
+{{-- COST SUMMARY & COMPUTATION MODAL --}}
+<div
+    id="risCostSummaryModal"
+    onclick="if (event.target === this) window.closeRisCostSummaryModal()"
+    class="fixed inset-0 hidden items-center justify-center bg-black/50 p-4"
+    style="z-index: 99998;"
+>
+    <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-base font-bold text-slate-900">Cost Summary</h3>
+                    <span id="risCostSummaryTitle" class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700"></span>
+                    <span id="risCostSummaryReqNo" class="hidden rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700"></span>
+                </div>
+                <p class="mt-0.5 text-xs text-slate-500">Itemized computation and budget limit check.</p>
+            </div>
+            <button
+                type="button"
+                onclick="window.closeRisCostSummaryModal()"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                aria-label="Close cost summary"
+            >✕</button>
+        </div>
+
+        <div class="space-y-4 p-5">
+            <div id="risCostSummaryBanner" class="rounded-xl border px-3.5 py-2.5 text-xs font-semibold"></div>
+
+            <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs">
+                    <thead class="sticky top-0 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-2.5">Item</th>
+                            <th class="px-3 py-2.5 text-right">Qty</th>
+                            <th class="px-3 py-2.5 text-right">Unit Cost</th>
+                            <th class="px-4 py-2.5 text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="risCostSummaryBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                    <tfoot class="border-t border-slate-200 bg-slate-50">
+                        <tr>
+                            <td colspan="3" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-700">Total Amount</td>
+                            <td id="risCostSummaryGrandTotal" class="whitespace-nowrap px-4 py-3 text-right text-sm font-bold tabular-nums text-slate-900">₱0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end border-t border-slate-100 bg-slate-50 px-5 py-3">
+            <button
+                type="button"
+                onclick="window.closeRisCostSummaryModal()"
+                class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            >Close</button>
+        </div>
+    </div>
+</div>
 
 @endsection

@@ -307,6 +307,15 @@
                         </tr>
                     @endforeach
                 </tbody>
+                @php
+                    $printRisTotal = collect($risRows ?? [])->sum(fn ($r) => (float) ($r['amount'] ?? 0));
+                @endphp
+                <tfoot>
+                    <tr>
+                        <td colspan="7" class="ris-total-label">TOTAL AMOUNT</td>
+                        <td class="ris-total-value">{{ $printRisTotal > 0 ? '₱'.number_format($printRisTotal, 2) : ' ' }}</td>
+                    </tr>
+                </tfoot>
             </table>
 
             <div class="ris-purpose-area">

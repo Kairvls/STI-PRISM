@@ -4590,12 +4590,12 @@
                     @php
                         $risStatusOptions = [
                             '' => 'All statuses',
-                            'Draft' => \App\Support\ProcurementStatus::IN_PREPARATION,
-                            'In Review' => \App\Support\ProcurementStatus::WITH_SCHOOL_ADMINISTRATOR,
-                            'Forwarded to President' => \App\Support\ProcurementStatus::SA_FORWARDED_TO_PRESIDENT,
-                            'For revision' => \App\Support\ProcurementStatus::FOR_REVISION,
-                            'Approved' => \App\Support\ProcurementStatus::APPROVED,
-                            'Rejected' => \App\Support\ProcurementStatus::REJECTED,
+                            'Pending' => 'Pending',
+                            'Accepted' => 'Reviewed',
+                            'Forwarded to President' => 'Forwarded',
+                            'Approved' => 'Approved',
+                            'For revision' => 'For revision',
+                            'Rejected' => 'Rejected',
                         ];
                         $selectedRisStatus = (string) request('status', '');
                         $risUrgencyOptions = [
@@ -5421,6 +5421,24 @@
                                     </tr>
                                 @endfor
                             </tbody>
+                            @php
+                                $purRisGrandTotal = 0.0;
+                                $purRisHasItems = false;
+                                foreach ($sheetItems as $ti) {
+                                    if (filled($ti?->ris_item_name_description ?? null)) {
+                                        $purRisGrandTotal += $ti->ris_total_amount !== null
+                                            ? (float) $ti->ris_total_amount
+                                            : (((float) ($ti->ris_quantity_requested ?? 0)) * ((float) ($ti->ris_unit_cost ?? 0)));
+                                        $purRisHasItems = true;
+                                    }
+                                }
+                            @endphp
+                            <tfoot>
+                                <tr>
+                                    <td colspan="7" class="ris-total-label" style="text-align:right;font-weight:700;padding:6px 8px;">TOTAL AMOUNT</td>
+                                    <td class="ris-total-value" style="text-align:right;font-weight:700;padding:6px 8px;">{{ $purRisHasItems ? \App\Support\Money::format($purRisGrandTotal) : ' ' }}</td>
+                                </tr>
+                            </tfoot>
                             </table>
 
                             <div class="ris-purpose-area">
@@ -5750,6 +5768,24 @@
                                     </tr>
                                 @endfor
                             </tbody>
+                            @php
+                                $purRisGrandTotal = 0.0;
+                                $purRisHasItems = false;
+                                foreach ($sheetItems as $ti) {
+                                    if (filled($ti?->ris_item_name_description ?? null)) {
+                                        $purRisGrandTotal += $ti->ris_total_amount !== null
+                                            ? (float) $ti->ris_total_amount
+                                            : (((float) ($ti->ris_quantity_requested ?? 0)) * ((float) ($ti->ris_unit_cost ?? 0)));
+                                        $purRisHasItems = true;
+                                    }
+                                }
+                            @endphp
+                            <tfoot>
+                                <tr>
+                                    <td colspan="7" class="ris-total-label" style="text-align:right;font-weight:700;padding:6px 8px;">TOTAL AMOUNT</td>
+                                    <td class="ris-total-value" style="text-align:right;font-weight:700;padding:6px 8px;">{{ $purRisHasItems ? \App\Support\Money::format($purRisGrandTotal) : ' ' }}</td>
+                                </tr>
+                            </tfoot>
                             </table>
 
                             <div class="ris-purpose-area">

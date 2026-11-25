@@ -559,6 +559,39 @@ class PresidentController extends Controller
             }
         }
 
+        $queueRisIds = $pendingRis->getCollection()->pluck('ris_id')
+            ->merge($awaitingNotifyRis->pluck('ris_id'))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $costBreakdownByRis = [];
+        foreach ($queueRisIds as $qRisId) {
+            $costBreakdownByRis[$qRisId] = $this->risItemsWithUom($qRisId)
+                ->map(function ($it) {
+                    $qty = (float) ($it->ris_quantity_issued ?? $it->ris_quantity_requested ?? 0);
+                    $unitCost = (float) ($it->ris_unit_cost ?? 0);
+                    $amount = (float) ($it->ris_total_amount ?? 0);
+                    if ($amount <= 0 && $qty > 0 && $unitCost > 0) {
+                        $amount = $qty * $unitCost;
+                    }
+                    $brand = trim((string) ($it->ris_item_brand_name ?? $it->brand_name ?? ''));
+                    $supplier = trim((string) ($it->supplier_display_name ?? ''));
+                    $uom = trim((string) ($it->uom_name ?? $it->ris_item_unit ?? 'pcs'));
+                    return [
+                        'name' => trim((string) ($it->ris_item_name_description ?? 'Item')),
+                        'brand' => $brand,
+                        'supplier' => $supplier,
+                        'qty' => $qty,
+                        'uom' => $uom !== '' ? $uom : 'pcs',
+                        'unit_cost' => $unitCost,
+                        'amount' => $amount,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+        $budgetLimit = \App\Support\RisApprovalBudget::limit();
+
         // ================================
         // AJAX response: return JSON with rendered partial
         // ================================
@@ -582,6 +615,8 @@ class PresidentController extends Controller
                 'pendingRis' => $pendingRis,
                 'awaitingNotifyRis' => $awaitingNotifyRis,
                 'attentionFocus' => $attentionFocus,
+                'costBreakdownByRis' => $costBreakdownByRis,
+                'budgetLimit' => $budgetLimit,
             ])->render();
 
             return response()->json([
@@ -617,6 +652,8 @@ class PresidentController extends Controller
             'attentionFocus' => $attentionFocus,
             'queueDate' => $queueDate,
             'recentDate' => $recentDate,
+            'costBreakdownByRis' => $costBreakdownByRis,
+            'budgetLimit' => $budgetLimit,
         ]);
     }
 
@@ -1044,9 +1081,18 @@ class PresidentController extends Controller
 
             $updateValues['ris_approved_by_signature'] = $signature;
             $approvedDate = $this->parseFlexibleDate($request->input('ris_approved_by_date'));
-            $updateValues['ris_approved_by_date'] = $approvedDate ?: now()->toDateString();
+            $resolvedDate = $approvedDate ?: now()->toDateString();
+            $updateValues['ris_approved_by_date'] = $resolvedDate;
 
-            // Always passes to School Administrator so they can sign Issued by.
+            // President signs Issued by as well on forwarded RIS & ATP packages.
+            $updateValues['ris_issued_by_signature'] = $signature;
+            $updateValues['ris_issued_by_date'] = $resolvedDate;
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_approved_by_name')) {
+                $updateValues['ris_approved_by_name'] = $presidentName;
+            }
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_issued_by_name')) {
+                $updateValues['ris_issued_by_name'] = $presidentName;
+            }
         }
 
         try {
@@ -1088,34 +1134,60 @@ class PresidentController extends Controller
         $passedTo = [];
         $adminNotified = false;
 
-        // Approve always goes to School Administrator for Issued-by co-sign.
+        // President signs RIS Approved by + Issued by AND linked ATP Authorized by, releasing directly to Purchaser.
         if ($decision === 'Approved') {
             $form = RisWorkflow::formNumber($target);
+            $atpSignerName = trim((string) $request->input('atp_authorized_by_name', '')) ?: ($presidentName ?? (Auth::user()->user_full_name ?? 'President'));
+            $autoAtpIds = \App\Support\CanvassWorkflow::approveLinkedAtpsForRis(
+                (int) $targetId,
+                $signature ?? null,
+                $atpSignerName,
+                (int) Auth::id()
+            );
+            \App\Support\CanvassWorkflow::syncStatusFromRis((int) $targetId, RisWorkflow::PRESIDENT_APPROVED);
 
-                try {
-                    DB::table('approval_logs_table')->insert([
-                        'approval_log_reference_type' => 'RIS',
-                        'approval_log_reference_id' => (int) $targetId,
-                        'approval_log_level' => 'President',
-                        'approval_log_approved_by' => Auth::id(),
-                        'approval_log_approval_status' => 'Approved',
-                        'approval_log_approval_remarks' => 'Notified Administrator for co-sign',
-                        'approval_log_approved_at' => now(),
-                    ]);
-                } catch (\Throwable $e) {
-                }
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $targetId,
+                    'approval_log_level' => 'President',
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Approved',
+                    'approval_log_approval_remarks' => 'Approved & Issued by President; '.count($autoAtpIds).' linked ATP(s) authorized and released to Purchaser.',
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+            }
 
-                WorkflowNotifier::toRole(
-                    WorkflowNotifier::ROLE_SCHOOL_ADMIN,
-                    'President approved an RIS',
-                    $form . ' was approved by the President and is ready for School Administrator co-sign.',
-                    'ris_president_approved',
+            $ownerPurchaserId = RisWorkflow::ownerPurchaserId($target);
+            if ($ownerPurchaserId > 0) {
+                $atpSuffix = count($autoAtpIds) > 0
+                    ? ' '.count($autoAtpIds).' approved ATP(s) are ready for Payment Method & RFC.'
+                    : ' You may proceed with procurement.';
+                WorkflowNotifier::toUser(
+                    $ownerPurchaserId,
+                    WorkflowNotifier::ROLE_PURCHASER,
+                    'RIS & ATP approved by President',
+                    $form.' was approved by the President.'.$atpSuffix,
+                    'ris_approved',
                     'RIS',
                     (int) $targetId,
-                    '/school-admin/digital-signatures/sign-ris'
+                    count($autoAtpIds) > 0 ? '/purchaser/authority-to-purchase' : '/purchaser/ris'
                 );
-                $passedTo[] = 'School Administrator';
-                $adminNotified = true;
+                $passedTo[] = 'Purchaser';
+            }
+
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_SCHOOL_ADMIN,
+                'President approved RIS & ATP',
+                $form.(count($autoAtpIds) > 0 ? ' and '.count($autoAtpIds).' linked ATP(s)' : '').' approved by the President and released directly to the Purchaser.',
+                'ris_president_approved',
+                'RIS',
+                (int) $targetId,
+                '/school-admin/digital-signatures/sign-ris'
+            );
+            $passedTo[] = 'School Administrator';
+            $adminNotified = true;
         }
 
         if ($decision === 'Rejected') {
@@ -1951,10 +2023,22 @@ class PresidentController extends Controller
 
         $risItems = $this->risItemsWithUom($risId);
         $savedSignatures = UserSignatureLibrary::forUser((int) Auth::id());
+        $supportingDocuments = Schema::hasTable('ris_attachments_table')
+            ? DB::table('ris_attachments_table')
+                ->where('ris_id', $risId)
+                ->orderBy('ris_attachment_original_name')
+                ->get()
+            : collect();
+        \App\Support\CanvassWorkflow::ensureAtpDraftsForApprovedRis((int) $risId);
+        $linkedAtps = \App\Support\CanvassWorkflow::linkedAtpsByRisIds([(int) $risId])
+            ->get((int) $risId, collect())
+            ->values();
 
         return view('president.approvals._approve-form', [
             'ris' => $ris,
             'risItems' => $risItems,
+            'linkedAtps' => $linkedAtps,
+            'supportingDocuments' => $supportingDocuments,
             'savedSignatures' => $savedSignatures,
         ]);
     }

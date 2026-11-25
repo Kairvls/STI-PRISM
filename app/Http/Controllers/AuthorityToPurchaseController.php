@@ -163,11 +163,35 @@ class AuthorityToPurchaseController extends Controller
 
         DocumentUrgency::select($query, 'ATP');
         $spotlightQuery = clone $query;
-        $atps = DocumentWorkflowService::orderSoftDraftFirst(
-            $query,
-            'authority_to_purchase_table.authority_purchase_status',
-            'authority_to_purchase_table.authority_purchase_submitted_at'
-        )
+
+        $hasRfcTable = Schema::hasTable('request_check_table')
+            && Schema::hasColumn('request_check_table', 'request_check_authority_purchase_id');
+        $rfcArchiveClause = $hasRfcTable && Schema::hasColumn('request_check_table', 'request_check_is_archived')
+            ? ' AND (rfc_chk.request_check_is_archived IS NULL OR rfc_chk.request_check_is_archived = 0)'
+            : '';
+        $hasPivotTable = Schema::hasTable('request_check_atps_table');
+
+        $hasLinkedRfcSql = '0 = 1';
+        if ($hasRfcTable) {
+            $directExists = "EXISTS (SELECT 1 FROM request_check_table rfc_chk WHERE rfc_chk.request_check_authority_purchase_id = authority_to_purchase_table.authority_purchase_id AND rfc_chk.request_check_status != 'Rejected'{$rfcArchiveClause})";
+            if ($hasPivotTable) {
+                $pivotExists = "EXISTS (SELECT 1 FROM request_check_atps_table rca_chk INNER JOIN request_check_table rfc_chk ON rfc_chk.request_check_id = rca_chk.request_check_id WHERE rca_chk.authority_purchase_id = authority_to_purchase_table.authority_purchase_id AND rfc_chk.request_check_status != 'Rejected'{$rfcArchiveClause})";
+                $hasLinkedRfcSql = "({$directExists} OR {$pivotExists})";
+            } else {
+                $hasLinkedRfcSql = $directExists;
+            }
+        }
+
+        $query->orderByRaw("CASE
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' AND NOT ({$hasLinkedRfcSql}) THEN 0
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Pending' AND TRIM(COALESCE(authority_to_purchase_table.authority_purchase_rejection_reason, '')) != '' THEN 1
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Pending' THEN 2
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' THEN 3
+            ELSE 4
+        END ASC");
+        DocumentUrgency::orderUrgentFirst($query, 'ATP');
+
+        $atps = $query
             ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
             ->paginate(10)
             ->withQueryString();
@@ -1533,6 +1557,15 @@ class AuthorityToPurchaseController extends Controller
 
     private function applyStatusFilter($query, string $status): void
     {
+        if ($status === 'Reviewed') {
+            $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
+                ->where(function ($q) {
+                    $q->whereNull('authority_to_purchase_table.authority_purchase_rejection_reason')
+                        ->orWhere('authority_to_purchase_table.authority_purchase_rejection_reason', '');
+                });
+            return;
+        }
+
         if ($status === 'Draft') {
             $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
                 ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')

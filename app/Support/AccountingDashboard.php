@@ -276,9 +276,9 @@ class AccountingDashboard
         return $query ? (int) $query->count() : 0;
     }
 
-    public static function approvedPackages(): Collection
+    public static function approvedPackages(bool $includeReleased = false): Collection
     {
-        $query = self::approvedPackageQuery();
+        $query = self::approvedPackageQuery($includeReleased);
         if (! $query) {
             return collect();
         }
@@ -316,11 +316,23 @@ class AccountingDashboard
             $item->atp_no = $atpNo !== '' ? $atpNo : null;
             $item->atp_id = (int) ($row->authority_purchase_id ?? 0);
             $item->payee = $row->request_check_payee ?: '—';
+            $requesterName = trim((string) ($row->request_check_requested_by ?? ''));
+            if ($requesterName === '' || ctype_digit($requesterName)) {
+                $creatorId = (int) ($row->request_check_created_by ?? (ctype_digit($requesterName) ? $requesterName : 0));
+                if ($creatorId > 0 && Schema::hasTable('users_table')) {
+                    $requesterName = trim((string) (DB::table('users_table')
+                        ->where('user_id', $creatorId)
+                        ->value('user_full_name') ?? ''));
+                }
+            }
+            $item->requester = $requesterName !== '' ? $requesterName : '—';
             $item->date = $row->request_check_date ?? null;
             $item->rfc_id = $rfcId;
             $item->fund_label = $fundLabel;
             $item->urgent_row = DocumentUrgency::isUrgent('RFC', $row);
             $item->check_ready = ! empty($row->request_check_check_ready_at ?? null);
+            $item->check_released = ! empty($row->request_check_funds_released_at ?? null);
+            $item->check_released_at = $row->request_check_funds_released_at ?? null;
             $item->rfc_preview = $item->url;
             $item->atp_preview = $item->atp_id > 0
                 ? route('procurement.documents.preview', ['type' => 'atp', 'id' => $item->atp_id])
@@ -330,14 +342,21 @@ class AccountingDashboard
         });
     }
 
-    private static function approvedPackageQuery()
+    private static function approvedPackageQuery(bool $includeReleased = false)
     {
         if (! Schema::hasTable('request_check_table') || ! Schema::hasTable('authority_to_purchase_table')) {
             return null;
         }
 
         $query = DB::table('request_check_table');
-        AccountingAttentionSummary::scopeRfcFunds($query);
+        if ($includeReleased) {
+            $query->where('request_check_table.request_check_status', 'Approved');
+            if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+                $query->where('request_check_table.request_check_is_archived', 0);
+            }
+        } else {
+            AccountingAttentionSummary::scopeRfcFunds($query);
+        }
 
         return $query->leftJoin(
             'authority_to_purchase_table',

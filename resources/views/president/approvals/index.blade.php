@@ -1,6 +1,6 @@
 @extends('layouts.president-layout')
 
-@section('title', 'RIS Approvals')
+@section('title', 'RIS & ATP Approvals')
 
 @section('content')
 
@@ -71,8 +71,8 @@
         <aside class="recent-panel">
             <div class="panel-head compact">
                 <div>
-                    <h2>Recent RIS</h2>
-                    <p>Needs notify first · then earliest decisions</p>
+                    <h2>Recent Decisions</h2>
+                    <p>Latest President decisions on forwarded RIS &amp; ATP packages.</p>
                 </div>
                 <div class="panel-tools">
                     <div class="date-filter-wrap {{ !empty($recentDate) ? 'is-active' : '' }}">
@@ -365,8 +365,8 @@
                 <textarea name="remarks" id="presidentRevisionRemarks" rows="3" required placeholder="Describe what needs to be revised."></textarea>
             </div>
             <input type="hidden" name="revision_route" value="school_admin">
-            <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
-                This goes to the School Administrator only. They sign <strong>Issued by</strong>, then return the RIS to the Purchaser.
+            <p class="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/70 px-3 py-2.5 text-sm text-amber-900">
+                This returns the RIS &amp; ATP to the <strong>School Administrator</strong> with your remarks so they can revise it or send it back to the Purchaser before re-forwarding for your approval.
             </p>
             <div class="mt-4">
                 @include('admin.partials.revision-image-picker', ['pickerId' => 'presidentRevisionImages'])
@@ -1073,6 +1073,11 @@
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 5500);
     }
+    function resolveRisLabelFromTable(id) {
+        const row = document.querySelector('tr[data-ris-id="' + String(id) + '"] .ref-text');
+        const txt = row ? String(row.textContent || '').trim() : '';
+        return txt || (typeof window.risFormNumberLabel === 'function' ? window.risFormNumberLabel(id) : ('RIS #' + id));
+    }
     function openDecisionModal(type, id, presetDecision) {
         if ((presetDecision || '').toLowerCase() === 'approved') {
             if (typeof window.openPresidentApproveModal === 'function') {
@@ -1096,7 +1101,7 @@
         if (toPurchaser) toPurchaser.checked = false;
         const routeError = document.getElementById('rejectRouteError');
         if (routeError) routeError.classList.add('hidden');
-        document.getElementById('decisionModalSubtitle').textContent = window.risFormNumberLabel(id);
+        document.getElementById('decisionModalSubtitle').textContent = resolveRisLabelFromTable(id);
         form.action = '/president/approvals/ris/decide';
         document.getElementById('decisionModalTitle').textContent = 'Reject RIS';
         modal.classList.remove('hidden');
@@ -1117,7 +1122,7 @@
         document.getElementById('presidentRevisionTargetId').value = id;
         const remarks = document.getElementById('presidentRevisionRemarks');
         if (remarks) remarks.value = '';
-        document.getElementById('presidentRevisionSubtitle').textContent = window.risFormNumberLabel(id);
+        document.getElementById('presidentRevisionSubtitle').textContent = resolveRisLabelFromTable(id);
         if (typeof window.resetRevisionImagePicker === 'function') {
             window.resetRevisionImagePicker('presidentRevisionImages');
         }
@@ -1230,7 +1235,76 @@
         closeDecisionModal();
         closePresidentRevisionModal();
         closeSendConfirmationModal();
+        if (typeof window.closePresidentCostSummaryModal === 'function') {
+            window.closePresidentCostSummaryModal();
+        }
     });
+
+    window.openPresidentCostSummaryModal = function (btn) {
+        const modal = document.getElementById('presidentRisCostSummaryModal');
+        if (!modal || !btn) return;
+        let data = null;
+        try {
+            data = JSON.parse(btn.getAttribute('data-summary') || '{}');
+        } catch (e) {
+            return;
+        }
+        const fmtPeso = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtQty = (q) => Number.isInteger(Number(q)) ? String(Number(q)) : Number(q || 0).toFixed(2).replace(/\.?0+$/, '');
+        const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        document.getElementById('presidentCostSummaryTitle').textContent = data.ris_number || 'Cost Summary';
+        const reqBadge = document.getElementById('presidentCostSummaryReqNo');
+        if (data.request_no) {
+            reqBadge.textContent = data.request_no;
+            reqBadge.classList.remove('hidden');
+        } else {
+            reqBadge.classList.add('hidden');
+        }
+
+        const banner = document.getElementById('presidentCostSummaryBanner');
+        if (data.requires_president) {
+            banner.style.background = '#f0f9ff';
+            banner.style.borderColor = '#bae6fd';
+            banner.style.color = '#0369a1';
+            banner.textContent = 'Exceeds ' + fmtPeso(data.limit) + ' direct-approval limit — requires President approval.';
+        } else {
+            banner.style.background = '#ecfdf5';
+            banner.style.borderColor = '#a7f3d0';
+            banner.style.color = '#047857';
+            banner.textContent = 'Within ' + fmtPeso(data.limit) + ' School Admin direct-approval limit — forwarded for President review.';
+        }
+
+        const tbody = document.getElementById('presidentCostSummaryBody');
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-xs text-slate-500">No itemized breakdown available.</td></tr>';
+        } else {
+            tbody.innerHTML = items.map((it) => {
+                const sub = [it.brand, it.supplier].filter(Boolean).join(' · ');
+                return '<tr class="hover:bg-slate-50/70">' +
+                    '<td class="px-4 py-3">' +
+                        '<div class="font-semibold text-slate-900">' + esc(it.name) + '</div>' +
+                        (sub ? '<div class="mt-0.5 text-[11px] text-slate-500">' + esc(sub) + '</div>' : '') +
+                    '</td>' +
+                    '<td class="whitespace-nowrap px-3 py-3 text-right tabular-nums text-slate-700">' + esc(fmtQty(it.qty)) + ' ' + esc(it.uom || 'pcs') + '</td>' +
+                    '<td class="whitespace-nowrap px-3 py-3 text-right tabular-nums text-slate-700">' + fmtPeso(it.unit_cost) + '</td>' +
+                    '<td class="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-slate-900">' + fmtPeso(it.amount) + '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        document.getElementById('presidentCostSummaryGrandTotal').textContent = fmtPeso(data.total);
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+        modal.classList.remove('hidden');
+    };
+
+    window.closePresidentCostSummaryModal = function () {
+        const modal = document.getElementById('presidentRisCostSummaryModal');
+        if (modal) modal.classList.add('hidden');
+    };
 
     (function bootFromQuery() {
         const params = new URLSearchParams(window.location.search);
@@ -1248,5 +1322,58 @@
         history.replaceState({}, '', window.location.pathname + (rest ? '?' + rest : ''));
     })();
 </script>
+
+<div id="presidentRisCostSummaryModal" class="fixed inset-0 hidden flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]" style="z-index: 99999;" onclick="if (event.target === this) window.closePresidentCostSummaryModal()">
+    <div class="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="presidentCostSummaryHeading">
+        <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h3 id="presidentCostSummaryHeading" class="text-base font-bold text-slate-900">Cost Summary</h3>
+                    <span id="presidentCostSummaryTitle" class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700"></span>
+                    <span id="presidentCostSummaryReqNo" class="hidden rounded-md px-2 py-0.5 text-xs font-semibold" style="background:#eff6ff;color:#1d4ed8;"></span>
+                </div>
+                <p class="mt-0.5 text-xs text-slate-500">Itemized computation and budget limit check.</p>
+            </div>
+            <button
+                type="button"
+                onclick="window.closePresidentCostSummaryModal()"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                aria-label="Close cost summary"
+            >✕</button>
+        </div>
+
+        <div class="space-y-4 p-5">
+            <div id="presidentCostSummaryBanner" class="rounded-xl border px-3.5 py-2.5 text-xs font-semibold"></div>
+
+            <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs">
+                    <thead class="sticky top-0 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-2.5">Item</th>
+                            <th class="px-3 py-2.5 text-right">Qty</th>
+                            <th class="px-3 py-2.5 text-right">Unit Cost</th>
+                            <th class="px-4 py-2.5 text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="presidentCostSummaryBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                    <tfoot class="border-t border-slate-200 bg-slate-50">
+                        <tr>
+                            <td colspan="3" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-700">Total Amount</td>
+                            <td id="presidentCostSummaryGrandTotal" class="whitespace-nowrap px-4 py-3 text-right text-sm font-bold tabular-nums text-slate-900">₱0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end border-t border-slate-100 bg-slate-50 px-5 py-3">
+            <button
+                type="button"
+                onclick="window.closePresidentCostSummaryModal()"
+                class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            >Close</button>
+        </div>
+    </div>
+</div>
 
 @endsection

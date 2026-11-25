@@ -189,6 +189,24 @@ class PurchaserSidebarCounts
         return $query;
     }
 
+    private static function requestCheckStageSql(): string
+    {
+        $hasReleased = Schema::hasColumn('request_check_table', 'request_check_funds_released_at');
+        $hasReady = Schema::hasColumn('request_check_table', 'request_check_check_ready_at');
+
+        if ($hasReleased && $hasReady) {
+            return "CASE WHEN request_check_table.request_check_funds_released_at IS NOT NULL THEN 'Approved:released' WHEN request_check_table.request_check_check_ready_at IS NOT NULL THEN 'Approved:check_ready' ELSE COALESCE(request_check_table.request_check_status, '') END";
+        }
+        if ($hasReleased) {
+            return "CASE WHEN request_check_table.request_check_funds_released_at IS NOT NULL THEN 'Approved:released' ELSE COALESCE(request_check_table.request_check_status, '') END";
+        }
+        if ($hasReady) {
+            return "CASE WHEN request_check_table.request_check_check_ready_at IS NOT NULL THEN 'Approved:check_ready' ELSE COALESCE(request_check_table.request_check_status, '') END";
+        }
+
+        return 'request_check_table.request_check_status';
+    }
+
     /**
      * @return array{total: int, dp: int, ci: int, ca: int}
      */
@@ -204,7 +222,7 @@ class PurchaserSidebarCounts
             $query,
             'rfc',
             'request_check_table.request_check_id',
-            'request_check_table.request_check_status'
+            self::requestCheckStageSql()
         );
 
         if (! Schema::hasColumn('request_check_table', 'request_check_funding_type')) {
@@ -235,10 +253,21 @@ class PurchaserSidebarCounts
         if (Schema::hasColumn('request_check_table', 'request_check_funding_type')) {
             $select[] = 'request_check_funding_type';
         }
+        if (Schema::hasColumn('request_check_table', 'request_check_check_ready_at')) {
+            $select[] = 'request_check_check_ready_at';
+        }
+        if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
+            $select[] = 'request_check_funds_released_at';
+        }
 
         $rows = [];
         foreach ($query->get($select) as $row) {
-            $rows[(int) $row->request_check_id] = (string) ($row->request_check_status ?? '');
+            $stage = ! empty($row->request_check_funds_released_at ?? null)
+                ? 'Approved:released'
+                : (! empty($row->request_check_check_ready_at ?? null)
+                    ? 'Approved:check_ready'
+                    : (string) ($row->request_check_status ?? ''));
+            $rows[(int) $row->request_check_id] = $stage;
             self::rememberBucket('rfc', (int) $row->request_check_id, self::fundKey($row->request_check_funding_type ?? null));
         }
 

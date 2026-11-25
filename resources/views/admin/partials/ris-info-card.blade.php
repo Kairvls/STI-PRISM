@@ -153,7 +153,7 @@
                     $cardCanDirectApprove = $allowsDirectApprove && ! $cardRequiresPresident;
                     $forwardMode = $reforwardToPresident ? 'forward-back' : 'forward';
                     $forwardTip = $cardCanForward
-                        ? ($reforwardToPresident ? 'Forward back to President' : 'Forward RIS to President')
+                        ? ($reforwardToPresident ? 'Re-forward RIS & ATP to President' : 'Forward RIS & ATP to President')
                         : 'Disabled: Total ('.\App\Support\RisApprovalBudget::formatPeso($cardRisTotal).') is within the '.\App\Support\RisApprovalBudget::formatPeso($cardBudgetLimit).' limit — use Approve Directly.';
                     $directApproveTip = $cardCanDirectApprove
                         ? 'Approve Directly'

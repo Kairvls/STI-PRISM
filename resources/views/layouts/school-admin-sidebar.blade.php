@@ -169,11 +169,11 @@
                 || request()->is('school-admin/digital-signatures/sign-ris*');
         @endphp
         <a
-            href="{{ route('school-admin.canvass-review.index', ['filter' => 'pending']) }}"
+            href="{{ route('school-admin.canvass-review.index', ['filter' => $saCanvassPending > 0 ? 'pending' : 'all']) }}"
             class="menu-item {{ $canvassApprovalsActive ? 'active' : '' }}"
         >
             <i data-lucide="scale"></i>
-            <span>Canvass Review &amp; Approvals</span>
+            <span>Purchase Approvals</span>
             @if($saUnifiedApprovalCount > 0)
                 <span class="{{ $navCount }}" title="{{ $saUnifiedApprovalCount }} pending review or approval">{{ $saUnifiedApprovalCount }}</span>
             @endif

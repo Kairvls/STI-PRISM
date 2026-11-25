@@ -351,3 +351,14 @@ Option B: Expand inline as a full width row underneath the clicked table row
 in all ris form make the width same like this then adjust the texts and still have a merge cell for the corresponding fields
 
 can we clarify everything what i want is when the canvass is Reviewing - Awaiting for Approval then after it will be confirm & finalize approval 
+
+I've put together a breakdown of the School Administrator vs. President procurement workflow and options in president_canvass_role_plan.md.
+
+Decision needed before making any changes:
+
+Option A (Recommended): Keep Canvass Review strictly on the School Administrator side, and add a read-only Canvass Comparison tab inside the President's Review and Approve RIS & ATP modal so the President can inspect all competing supplier quotes the School Admin evaluated (and use Return for Revision if they disagree).
+Option B: Keep the current setup as-is with no code changes.
+
+in the president side im a little bit confuse, why theres no canvass approval in the president that hew can also decide what to approve equipment like image 3-5 , or the school admin focus on canvass review and acceptance then approval of ris and atp created by that canvass then the president focus on ris and atp created by the canvass school admin accepted? or what
+
+whats the correct logic upon connecting the receiving report and back order and inventory in the system admin... check it whats the correct decision needs to be done, or the current is already correct or what

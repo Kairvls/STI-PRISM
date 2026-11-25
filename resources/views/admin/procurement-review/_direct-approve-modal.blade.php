@@ -266,7 +266,7 @@
 
         if (title) {
             title.textContent = actionMode === 'forward'
-                ? (isForwardBack ? 'Forward back to President' : 'Forward RIS to President')
+                ? (isForwardBack ? 'Re-forward RIS & ATP to President' : 'Forward RIS & ATP to President')
                 : (actionMode === 'cosign' ? 'Sign Issued by' : 'Approve Directly');
         }
         if (subtitle) {
@@ -322,7 +322,7 @@
 
     window.closeDirectApproveModal = function () {
         if (window._adminDaFileDialogOpen) return;
-        ['adminDaSignPadModal', 'adminDaNameSigModal', 'adminDaDeleteSigModal', 'adminDaNotice'].forEach(function (id) {
+        ['adminDaSignPadModal', 'adminDaNameSigModal', 'adminDaDeleteSigModal', 'adminDaNotice', 'adminForwardConfirmModal'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el && el.parentElement === document.body) {
                 el.remove();

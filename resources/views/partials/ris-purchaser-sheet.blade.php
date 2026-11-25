@@ -118,6 +118,25 @@
                 </tr>
             @endfor
         </tbody>
+        @php
+            $risGrandTotal = 0.0;
+            $risHasAnyAmount = false;
+            foreach ($sheetItems as $ti) {
+                if (filled($ti?->ris_item_name_description ?? null)) {
+                    $lineVal = $ti->ris_total_amount !== null
+                        ? (float) $ti->ris_total_amount
+                        : (((float) ($ti->ris_quantity_requested ?? 0)) * ((float) ($ti->ris_unit_cost ?? 0)));
+                    $risGrandTotal += $lineVal;
+                    $risHasAnyAmount = true;
+                }
+            }
+        @endphp
+        <tfoot>
+            <tr>
+                <td colspan="7" class="ris-total-label">TOTAL AMOUNT</td>
+                <td class="ris-total-value">{{ $risHasAnyAmount ? \App\Support\Money::format($risGrandTotal) : ' ' }}</td>
+            </tr>
+        </tfoot>
     </table>
 
     <div class="ris-purpose-area">

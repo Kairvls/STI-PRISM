@@ -1,6 +1,6 @@
 @php
     $actions = array_values($actions ?? []);
-    $keepOutClasses = ['pin-btn', 'review-btn', 'approve-btn', 'revise-btn'];
+    $keepOutClasses = ['pin-btn', 'review-btn', 'approve-btn', 'revise-btn', 'cost-summary-btn'];
     $pinActions = array_values(array_filter(
         $actions,
         fn ($action) => in_array(($action['class'] ?? ''), $keepOutClasses, true)
@@ -18,6 +18,7 @@
             class="icon-btn {{ $action['class'] ?? '' }}"
             data-tip="{{ $action['label'] }}"
             aria-label="{{ $action['label'] }}"
+            @if (!empty($action['data_summary'])) data-summary="{{ $action['data_summary'] }}" @endif
             onclick="event.stopPropagation(); {!! $action['onclick'] !!}"
         >
             <i data-lucide="{{ $action['icon'] }}" class="h-4 w-4"></i>
