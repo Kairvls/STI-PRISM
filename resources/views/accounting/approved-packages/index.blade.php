@@ -190,12 +190,12 @@
                                     <div class="inline-flex flex-col items-start">
                                         <span
                                             class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
-                                            style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;"
+                                            style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;"
                                         >
-                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:#059669;"></span>
-                                            <span>Approved</span>
+                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:#2563eb;"></span>
+                                            <span>For Check Release</span>
                                         </span>
-                                        <div class="mt-1 text-[11px] font-medium leading-tight text-slate-600">Ready to release check</div>
+                                        <div class="mt-1 text-[11px] font-medium leading-tight text-slate-600">Approved by School Administrator</div>
                                     </div>
                                 @endif
                             </td>

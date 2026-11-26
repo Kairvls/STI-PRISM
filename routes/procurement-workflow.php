@@ -149,6 +149,7 @@ Route::get('/authority-to-purchase/{id}/edit', [AuthorityToPurchaseController::c
 Route::put('/authority-to-purchase/{id}', [AuthorityToPurchaseController::class, 'update'])->name('atp.update');
 Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
 Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
+Route::post('/authority-to-purchase/ris/{risId}/payment-path', [AuthorityToPurchaseController::class, 'chooseGroupPaymentPath'])->name('atp.group-payment-path');
 Route::post('/authority-to-purchase/{id}/received-by', [AuthorityToPurchaseController::class, 'updateReceivedByName'])->name('atp.received-by');
 Route::post('/authority-to-purchase/{id}/cash-installment-plan', [AuthorityToPurchaseController::class, 'planCashInstallment'])->name('atp.cash-installment-plan');
 Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
@@ -179,6 +180,7 @@ Route::post('/purchase-orders/{id}/restore', [PurchaseOrderController::class, 'r
 Route::get('/request-check', [RequestForCheckController::class, 'index'])->name('rfc.index');
 Route::get('/request-check/export-pdf', [\App\Http\Controllers\ProcurementListPdfController::class, 'rfc'])->name('rfc.export-pdf');
 Route::post('/request-check', [RequestForCheckController::class, 'store'])->name('rfc.store');
+Route::post('/request-check/batch-store', [RequestForCheckController::class, 'batchStore'])->name('rfc.batch-store');
 Route::get('/request-check/export-blank-xlsx', [RequestForCheckController::class, 'exportBlankExcel'])->name('rfc.export-blank-xlsx');
 Route::get('/request-check/export-blank-docx', [RequestForCheckController::class, 'exportBlankWord'])->name('rfc.export-blank-docx');
 Route::put('/request-check/{id}', [RequestForCheckController::class, 'update'])->name('rfc.update');

@@ -1174,6 +1174,7 @@ Route::middleware(['auth', 'supply_officer'])
         Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
         Route::post('/authority-to-purchase/{id}/release-purchaser', [AuthorityToPurchaseController::class, 'releaseToPurchaser'])->name('atp.release-purchaser');
         Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
+        Route::post('/authority-to-purchase/ris/{risId}/payment-path', [AuthorityToPurchaseController::class, 'chooseGroupPaymentPath'])->name('atp.group-payment-path');
         Route::post('/authority-to-purchase/{id}/received-by', [AuthorityToPurchaseController::class, 'updateReceivedByName'])->name('atp.received-by');
         Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
         Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');

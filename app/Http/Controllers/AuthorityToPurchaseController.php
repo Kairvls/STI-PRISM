@@ -433,6 +433,28 @@ class AuthorityToPurchaseController extends Controller
                 ->sort()
                 ->values();
 
+            $unchosen = $items->filter(function ($atp) {
+                return ($atp->authority_purchase_status ?? null) === 'Approved'
+                    && blank($atp->authority_purchase_payment_path ?? null)
+                    && empty($atp->has_rfc)
+                    && empty($atp->authority_purchase_is_archived);
+            })->values();
+
+            $unchosenPayload = $unchosen->map(function ($atp) use ($atpItems) {
+                $lines = $atpItems->get((int) $atp->authority_purchase_id, collect());
+                $total = (float) $lines->sum(fn ($l) => (float) ($l->atp_amount ?? ((float) ($l->atp_quantity ?? 0) * (float) ($l->atp_unit_price ?? 0))));
+                $supName = ($atp->supplier_store_type ?? '') === 'Physical Store'
+                    ? ($atp->company_name ?? 'Physical supplier')
+                    : ($atp->shop_name ?? 'Online supplier');
+
+                return [
+                    'id' => (int) $atp->authority_purchase_id,
+                    'form_number' => (string) ($atp->authority_purchase_form_number ?: ('ATP #'.$atp->authority_purchase_id)),
+                    'supplier' => (string) $supName,
+                    'total' => round($total, 2),
+                ];
+            })->values()->all();
+
             return [
                 'key' => (string) $key,
                 'ris_id' => $risId > 0 ? $risId : null,
@@ -450,6 +472,9 @@ class AuthorityToPurchaseController extends Controller
                 'urgent' => $urgent,
                 'date' => $dates->last() ?: null,
                 'supplier_total' => (int) ($first->ris_supplier_total ?? 0),
+                'unchosen_count' => $unchosen->count(),
+                'unchosen_total' => round(array_sum(array_column($unchosenPayload, 'total')), 2),
+                'unchosen_payload' => $unchosenPayload,
             ];
         })->values();
     }
@@ -834,6 +859,70 @@ class AuthorityToPurchaseController extends Controller
             'funding_type' => $path,
             'fund' => $path,
         ]))->with('success', "Payment path set to {$label}. You may now create the funding request.");
+    }
+
+    public function chooseGroupPaymentPath(Request $request, $risId)
+    {
+        $validated = $request->validate([
+            'authority_purchase_payment_path' => [
+                'required',
+                Rule::in([
+                    ProcurementPaymentPath::DIRECT_PAYMENT,
+                    ProcurementPaymentPath::CASH_ADVANCE,
+                ]),
+            ],
+            'atp_ids' => ['required', 'array', 'min:1'],
+            'atp_ids.*' => ['integer'],
+        ]);
+
+        $risId = (int) $risId;
+        $path = (string) $validated['authority_purchase_payment_path'];
+        $atpIds = array_values(array_unique(array_map('intval', $validated['atp_ids'])));
+
+        $atps = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_ris_id', $risId)
+            ->whereIn('authority_purchase_id', $atpIds)
+            ->get();
+
+        if ($atps->isEmpty()) {
+            return back()->with('error', 'No matching Authorities to Purchase found for this RIS.');
+        }
+
+        $fundedIds = RfcAtpLinks::fundedAtpIds($atpIds);
+        $updatedIds = [];
+
+        foreach ($atps as $atp) {
+            PurchaserDocumentAccess::assertOwns($atp, 'atp');
+            if ($this->paymentPathGateError($atp)) {
+                continue;
+            }
+            $aid = (int) $atp->authority_purchase_id;
+            if (filled($atp->authority_purchase_payment_path ?? null) && in_array($aid, $fundedIds, true)) {
+                continue;
+            }
+            $updatedIds[] = $aid;
+        }
+
+        if ($updatedIds === []) {
+            return back()->with('error', 'No eligible ATPs were available to update.');
+        }
+
+        DB::table('authority_to_purchase_table')
+            ->whereIn('authority_purchase_id', $updatedIds)
+            ->update([
+                'authority_purchase_payment_path' => $path,
+                'authority_purchase_payment_path_chosen_at' => now(),
+                'authority_purchase_updated_at' => now(),
+            ]);
+
+        $label = ProcurementPaymentPath::label($path);
+        $count = count($updatedIds);
+
+        return redirect(ProcurementPortal::route('rfc.index', [
+            'fund' => $path,
+            'funding_type' => $path,
+            'batch_ris' => $risId,
+        ]))->with('success', "Payment method set to {$label} for {$count} ATP(s). Review and submit their Request Checks below.");
     }
 
     public function updateReceivedByName(Request $request, $id)
