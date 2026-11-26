@@ -286,14 +286,31 @@ class AccountingDashboard
         $query->select(
                 'request_check_table.*',
                 'authority_to_purchase_table.authority_purchase_form_number',
-                'authority_to_purchase_table.authority_purchase_id'
+                'authority_to_purchase_table.authority_purchase_id',
+                'authority_to_purchase_table.authority_purchase_ris_id'
             );
         DocumentUrgency::select($query, 'RFC');
         DocumentUrgency::orderUrgentFirst($query, 'RFC');
         $query->orderByRaw('IFNULL(request_check_table.request_check_date, request_check_table.request_check_updated_at) DESC')
             ->orderByDesc('request_check_table.request_check_id');
 
-        return $query->get()->map(function ($row) {
+        $rows = $query->get();
+        $risIds = $rows->pluck('authority_purchase_ris_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $risNumbersById = ($risIds !== [] && Schema::hasTable('requisition_issue_slip_table'))
+            ? DB::table('requisition_issue_slip_table')
+                ->whereIn('ris_id', $risIds)
+                ->pluck('ris_form_number', 'ris_id')
+                ->all()
+            : [];
+        $canvassByRisId = ($risIds !== [] && Schema::hasTable('canvass_table'))
+            ? DB::table('canvass_table')
+                ->whereIn('canvass_ris_id', $risIds)
+                ->orderByDesc('canvass_id')
+                ->get(['canvass_id', 'canvass_ris_id', 'canvass_number'])
+                ->keyBy('canvass_ris_id')
+            : collect();
+
+        return $rows->map(function ($row) use ($risNumbersById, $canvassByRisId) {
             $rfcId = (int) $row->request_check_id;
             $fundLabel = ProcurementPaymentPath::label($row->request_check_funding_type ?? null);
             $atpNo = trim((string) ($row->authority_purchase_form_number ?? ''));
@@ -336,6 +353,18 @@ class AccountingDashboard
             $item->rfc_preview = $item->url;
             $item->atp_preview = $item->atp_id > 0
                 ? route('procurement.documents.preview', ['type' => 'atp', 'id' => $item->atp_id])
+                : '';
+            $risId = (int) ($row->authority_purchase_ris_id ?? 0);
+            $item->ris_id = $risId;
+            $item->ris_no = $risId > 0 ? trim((string) ($risNumbersById[$risId] ?? ('RIS #'.$risId))) : null;
+            $item->ris_preview = $risId > 0
+                ? route('procurement.documents.preview', ['type' => 'ris', 'id' => $risId])
+                : '';
+            $canvassRow = $risId > 0 ? $canvassByRisId->get($risId) : null;
+            $item->canvass_id = $canvassRow ? (int) $canvassRow->canvass_id : 0;
+            $item->canvass_no = $canvassRow ? trim((string) ($canvassRow->canvass_number ?: ('CVS #'.$canvassRow->canvass_id))) : null;
+            $item->canvass_preview = $item->canvass_id > 0
+                ? route('procurement.documents.preview', ['type' => 'canvass', 'id' => $item->canvass_id])
                 : '';
 
             return $item;

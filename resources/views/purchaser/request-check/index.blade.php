@@ -28,6 +28,15 @@
         batchIdx: 0,
         batchConfirmOpen: false,
         batchSubmitting: false,
+        batchSigUrl: '',
+        batchSignerName: @js(auth()->user()->user_full_name ?? 'Purchaser'),
+
+        syncBatchSigPreview() {
+            const hidden = document.getElementById('purSigImage-rfc-batch');
+            const nameEl = document.getElementById('purSigName-rfc-batch');
+            if (hidden) this.batchSigUrl = String(hidden.value || '');
+            if (nameEl && nameEl.value) this.batchSignerName = String(nameEl.value);
+        },
 
         toggleRfcGroup(key) {
             this.expandedRfcGroups[key] = !this.expandedRfcGroups[key];
@@ -94,6 +103,24 @@
             });
             if (this.batchOpen && this.batchItems.length > 0) {
                 this.bindDocSig('rfc-batch', 'Requested by signature');
+                const pollSig = () => {
+                    this.syncBatchSigPreview();
+                };
+                setTimeout(pollSig, 120);
+                setTimeout(pollSig, 400);
+                document.addEventListener('change', (e) => {
+                    if (e.target && (e.target.id === 'purSigImage-rfc-batch' || e.target.id === 'purSigName-rfc-batch')) pollSig();
+                }, true);
+                document.addEventListener('click', (e) => {
+                    if (this.batchOpen && e.target && e.target.closest && e.target.closest('#purSigSlot-rfc-batch')) {
+                        setTimeout(pollSig, 60);
+                    }
+                }, true);
+                document.addEventListener('pointerup', (e) => {
+                    if (this.batchOpen && e.target && e.target.closest && e.target.closest('#purSigSlot-rfc-batch')) {
+                        setTimeout(pollSig, 60);
+                    }
+                }, true);
             } else if (this.editOpen && this.selectedRfc) {
                 this.bindDocSig('rfc-' + this.selectedRfc, 'Requested by signature');
             } else if (this.createOpen) {
@@ -689,10 +716,10 @@
                                             type="button"
                                             @click="toggleRfcGroup('{{ $rgKey }}')"
                                             class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                            :title="expandedRfcGroups['{{ $rgKey }}'] ? 'Hide RFCs' : 'Show RFCs'"
-                                            :aria-label="expandedRfcGroups['{{ $rgKey }}'] ? 'Hide RFCs' : 'Show RFCs'"
+                                            :title="expandedRfcGroups['{{ $rgKey }}'] ? 'Collapse RFCs' : 'Expand RFCs'"
+                                            :aria-label="expandedRfcGroups['{{ $rgKey }}'] ? 'Collapse RFCs' : 'Expand RFCs'"
                                         >
-                                            <svg class="h-4 w-4 transition-transform duration-150" :class="expandedRfcGroups['{{ $rgKey }}'] ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                            <svg class="h-4 w-4 transition-transform duration-150" :class="expandedRfcGroups['{{ $rgKey }}'] ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -1100,44 +1127,100 @@
 
                     <div class="flex-1 space-y-4 overflow-y-auto bg-slate-100 p-4 sm:p-6">
                         <template x-for="(bItem, bIdx) in batchItems" :key="bItem.atp_id">
-                            <div x-show="batchIdx === bIdx" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                            <div x-show="batchIdx === bIdx" class="mx-auto w-full max-w-[920px] rounded-2xl border border-slate-200 bg-white px-8 py-8 shadow-sm sm:px-12 sm:py-10" style="font-family: Arial, Helvetica, sans-serif;">
                                 <input type="hidden" :name="'items[' + bIdx + '][atp_id]'" :value="bItem.atp_id">
                                 <input type="hidden" :name="'items[' + bIdx + '][amount]'" :value="bItem.amount">
 
-                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                                    <div>
-                                        <p class="text-sm font-bold text-slate-900">STI COLLEGE - ORMOC, INC. · REQUEST FOR CHECK</p>
-                                        <p class="mt-0.5 text-xs text-slate-500">
-                                            <span class="font-semibold text-blue-700" x-text="bItem.atp_number"></span>
-                                            <span x-show="bItem.request_no" x-text="' · ' + bItem.request_no"></span>
-                                        </p>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <label class="text-xs font-semibold text-slate-600">Date:</label>
-                                        <input type="date" :name="'items[' + bIdx + '][date]'" x-model="bItem.date" required class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500">
+                                {{-- Top ATP reference pill --}}
+                                <div class="mb-3 flex items-center justify-between text-[11px] text-slate-500">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 font-semibold text-[#0025cc]" x-text="bItem.atp_number"></span>
+                                    <span x-show="bItem.request_no" class="font-medium text-slate-500" x-text="bItem.request_no"></span>
+                                </div>
+
+                                {{-- Formal RFC Paper Header --}}
+                                <div class="text-center">
+                                    <div class="text-xl font-bold tracking-wide text-black sm:text-2xl">STI COLLEGE- ORMOC, INC.</div>
+                                    <div class="mt-1 text-lg font-bold italic tracking-wide text-black sm:text-xl">REQUEST FOR CHECK</div>
+                                </div>
+
+                                {{-- Date line (right-aligned) --}}
+                                <div class="mt-7 flex items-end justify-end gap-2">
+                                    <label class="text-sm font-bold text-black">Date:</label>
+                                    <div class="w-48 border-b border-black pb-0.5">
+                                        <input
+                                            type="date"
+                                            :name="'items[' + bIdx + '][date]'"
+                                            x-model="bItem.date"
+                                            required
+                                            class="w-full border-0 bg-transparent px-1 text-sm text-black outline-none focus:bg-blue-50/40"
+                                        >
                                     </div>
                                 </div>
 
-                                <div class="grid gap-3 sm:grid-cols-2">
-                                    <div>
-                                        <label class="mb-1 block text-xs font-semibold text-slate-700">Payee <span class="text-red-500">*</span></label>
-                                        <input type="text" :name="'items[' + bIdx + '][payee]'" x-model="bItem.payee" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500">
+                                {{-- Payee / Amount / For lined rows --}}
+                                <div class="mt-8 space-y-6">
+                                    <div class="flex items-end gap-4">
+                                        <label class="w-24 shrink-0 text-sm font-bold text-black">Payee:</label>
+                                        <div class="flex-1 border-b border-black pb-0.5">
+                                            <input
+                                                type="text"
+                                                :name="'items[' + bIdx + '][payee]'"
+                                                x-model="bItem.payee"
+                                                required
+                                                class="w-full border-0 bg-transparent px-1 text-sm text-black outline-none focus:bg-blue-50/40"
+                                            >
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="mb-1 block text-xs font-semibold text-slate-700">Amount (Locked from ATP)</label>
-                                        <div class="flex h-[38px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold tabular-nums text-slate-900" x-text="'₱' + Number(bItem.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></div>
+
+                                    <div class="flex items-end gap-4">
+                                        <label class="w-24 shrink-0 text-sm font-bold text-black">Amount:</label>
+                                        <div
+                                            class="flex-1 border-b border-black px-1 pb-1 text-sm font-medium tabular-nums text-black"
+                                            x-text="'₱' + Number(bItem.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
+                                        ></div>
                                     </div>
+
+                                    <div class="flex items-end gap-4">
+                                        <label class="w-24 shrink-0 text-sm font-bold text-black">For:</label>
+                                        <div class="flex-1 border-b border-black pb-0.5">
+                                            <input
+                                                type="text"
+                                                :name="'items[' + bIdx + '][purpose]'"
+                                                x-model="bItem.purpose"
+                                                required
+                                                class="w-full border-0 bg-transparent px-1 text-sm text-black outline-none focus:bg-blue-50/40"
+                                            >
+                                        </div>
+                                    </div>
+
+                                    {{-- Full-width continuation line below For: --}}
+                                    <div class="border-b border-black pt-3"></div>
                                 </div>
 
-                                <div>
-                                    <label class="mb-1 block text-xs font-semibold text-slate-700">For (Particulars / Purpose) <span class="text-red-500">*</span></label>
-                                    <input type="text" :name="'items[' + bIdx + '][purpose]'" x-model="bItem.purpose" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500">
+                                {{-- Signatory footer (Requested by / Approved by) --}}
+                                <div class="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-20">
+                                    <div>
+                                        <div class="text-sm font-bold text-black">Requested by:</div>
+                                        <div class="relative mt-9 flex min-h-[26px] items-end justify-center border-b border-black pb-1">
+                                            <img
+                                                x-show="batchSigUrl && batchSigUrl.indexOf('data:image/') === 0"
+                                                :src="batchSigUrl"
+                                                alt="Requested by signature"
+                                                class="pointer-events-none absolute -top-5 left-1/2 max-h-14 -translate-x-1/2 object-contain"
+                                            >
+                                            <span class="relative z-10 text-sm text-black" x-text="batchSignerName"></span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-bold text-black">Approved by:</div>
+                                        <div class="mt-9 min-h-[26px] border-b border-black pb-1"></div>
+                                    </div>
                                 </div>
                             </div>
                         </template>
 
                         {{-- Collapsible Purchaser Signature --}}
-                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="mx-auto w-full max-w-[920px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                             <div id="purSigOverlay-rfc-batch" class="hidden"></div>
                             <div id="purSigSlot-rfc-batch"></div>
                         </div>

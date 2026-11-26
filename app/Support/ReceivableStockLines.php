@@ -80,8 +80,11 @@ class ReceivableStockLines
     private static function attachRisBrands(Collection $lines): Collection
     {
         $lines->each(function ($line) {
-            $line->brand = null;
-            $line->brand_presets = [];
+            $rrBrand = trim((string) ($line->rr_brand ?? ''));
+            $line->brand = $rrBrand !== '' ? $rrBrand : null;
+            $line->brand_presets = $rrBrand !== ''
+                ? [['name' => $rrBrand, 'quantity' => max(1, (int) ($line->quantity ?? 1))]]
+                : [];
         });
 
         if (
@@ -172,8 +175,16 @@ class ReceivableStockLines
             }
 
             $presets = self::brandPresetsForItem($item, $brandNames, $hasSplits);
-            $line->brand_presets = $presets;
-            $line->brand = $presets[0]['name'] ?? null;
+            if ($presets !== []) {
+                $rrBrand = trim((string) ($line->rr_brand ?? ''));
+                if ($rrBrand !== '' && count($presets) === 1) {
+                    $line->brand = $rrBrand;
+                    $line->brand_presets = [['name' => $rrBrand, 'quantity' => max(1, (int) ($line->quantity ?? 1))]];
+                } else {
+                    $line->brand_presets = $presets;
+                    $line->brand = $presets[0]['name'] ?? ($rrBrand !== '' ? $rrBrand : null);
+                }
+            }
 
             return $line;
         })->values();
@@ -305,6 +316,8 @@ class ReceivableStockLines
             'receiving_report_items_table' => [
                 'receiving_report_item_ordered_qty' => 'ri.receiving_report_item_ordered_qty',
                 'receiving_report_item_damaged_qty' => 'ri.receiving_report_item_damaged_qty',
+                'receiving_report_item_serial_number' => 'ri.receiving_report_item_serial_number',
+                'receiving_report_item_brand' => 'ri.receiving_report_item_brand',
                 'receiving_report_item_unit_price' => 'ri.receiving_report_item_unit_price',
                 'receiving_report_item_amount' => 'ri.receiving_report_item_amount',
                 'receiving_report_item_condition' => 'ri.receiving_report_item_condition',
@@ -474,6 +487,11 @@ class ReceivableStockLines
                 ?? ($atp->authority_purchase_date ?? null);
 
             $article = trim((string) ($row->receiving_report_item_article ?? 'Received item'));
+            $rrBrand = trim((string) ($row->receiving_report_item_brand ?? ''));
+            $serialRaw = trim((string) ($row->receiving_report_item_serial_number ?? ''));
+            $serialList = $serialRaw !== ''
+                ? array_values(array_filter(array_map('trim', preg_split('/[\r\n,;]+/', $serialRaw) ?: []), fn ($s) => $s !== ''))
+                : [];
             $rrNumber = trim((string) ($row->receiving_report_form_number ?? ''));
             if ($rrNumber === '') {
                 $rrNumber = 'RR #'.$row->receiving_report_id;
@@ -493,6 +511,9 @@ class ReceivableStockLines
                 'atp_number' => $atpNumber !== '' ? $atpNumber : null,
                 'authority_purchase_id' => $atpId > 0 ? $atpId : null,
                 'article' => $article,
+                'rr_brand' => $rrBrand !== '' ? $rrBrand : null,
+                'serial_number' => $serialRaw !== '' ? $serialRaw : null,
+                'serial_numbers' => $serialList,
                 'quantity' => $qty,
                 'ordered_qty' => $ordered,
                 'unit' => $row->receiving_report_item_unit ?? null,

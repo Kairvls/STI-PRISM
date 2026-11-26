@@ -182,14 +182,18 @@ class AuthorityToPurchaseController extends Controller
             }
         }
 
+        $needsPaymentSql = Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_payment_path')
+            ? "TRIM(COALESCE(authority_to_purchase_table.authority_purchase_payment_path, '')) = ''"
+            : '1 = 0';
+
         $query->orderByRaw("CASE
-            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' AND NOT ({$hasLinkedRfcSql}) THEN 0
-            WHEN authority_to_purchase_table.authority_purchase_status = 'Pending' AND TRIM(COALESCE(authority_to_purchase_table.authority_purchase_rejection_reason, '')) != '' THEN 1
-            WHEN authority_to_purchase_table.authority_purchase_status = 'Pending' THEN 2
-            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' THEN 3
-            ELSE 4
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' AND ({$needsPaymentSql}) AND NOT ({$hasLinkedRfcSql}) THEN 0
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' AND NOT ({$hasLinkedRfcSql}) THEN 1
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Pending' AND TRIM(COALESCE(authority_to_purchase_table.authority_purchase_rejection_reason, '')) != '' THEN 2
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Pending' THEN 3
+            WHEN authority_to_purchase_table.authority_purchase_status = 'Approved' THEN 4
+            ELSE 5
         END ASC");
-        DocumentUrgency::orderUrgentFirst($query, 'ATP');
 
         $atps = $query
             ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
@@ -419,8 +423,18 @@ class AuthorityToPurchaseController extends Controller
         });
 
         return $grouped->map(function ($items, $key) use ($atpItems) {
-            $items = $items->values();
+            // Stack order inside group: needs payment method first, then newest ATP ID first
+            $items = $items->sort(function ($a, $b) {
+                $aNeeds = (($a->authority_purchase_status ?? null) === 'Approved' && blank($a->authority_purchase_payment_path ?? null) && empty($a->has_rfc)) ? 0 : 1;
+                $bNeeds = (($b->authority_purchase_status ?? null) === 'Approved' && blank($b->authority_purchase_payment_path ?? null) && empty($b->has_rfc)) ? 0 : 1;
+                if ($aNeeds !== $bNeeds) {
+                    return $aNeeds <=> $bNeeds;
+                }
+
+                return (int) ($b->authority_purchase_id ?? 0) <=> (int) ($a->authority_purchase_id ?? 0);
+            })->values();
             $first = $items->first();
+            $maxAtpId = (int) $items->max('authority_purchase_id');
             $risId = (int) ($first->authority_purchase_ris_id ?? 0);
             $labels = $items->map(function ($atp) {
                 return \App\Support\RisWorkflow::atpStatusLabel($atp);
@@ -475,7 +489,17 @@ class AuthorityToPurchaseController extends Controller
                 'unchosen_count' => $unchosen->count(),
                 'unchosen_total' => round(array_sum(array_column($unchosenPayload, 'total')), 2),
                 'unchosen_payload' => $unchosenPayload,
+                'max_atp_id' => $maxAtpId,
             ];
+        })->sort(function ($a, $b) {
+            // Stack order: groups needing payment method first, then newest (highest ATP ID) first
+            $aNeeds = ($a['unchosen_count'] ?? 0) > 0 ? 0 : 1;
+            $bNeeds = ($b['unchosen_count'] ?? 0) > 0 ? 0 : 1;
+            if ($aNeeds !== $bNeeds) {
+                return $aNeeds <=> $bNeeds;
+            }
+
+            return (int) ($b['max_atp_id'] ?? 0) <=> (int) ($a['max_atp_id'] ?? 0);
         })->values();
     }
 
@@ -866,10 +890,7 @@ class AuthorityToPurchaseController extends Controller
         $validated = $request->validate([
             'authority_purchase_payment_path' => [
                 'required',
-                Rule::in([
-                    ProcurementPaymentPath::DIRECT_PAYMENT,
-                    ProcurementPaymentPath::CASH_ADVANCE,
-                ]),
+                Rule::in(ProcurementPaymentPath::choices()),
             ],
             'atp_ids' => ['required', 'array', 'min:1'],
             'atp_ids.*' => ['integer'],

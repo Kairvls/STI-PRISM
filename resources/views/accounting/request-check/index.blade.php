@@ -129,6 +129,11 @@
                 <span id="rfcFormPreviewPaymentBadge" class="hidden inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"></span>
             </div>
             <div class="flex shrink-0 items-center gap-2">
+                <div id="rfcFormPreviewCarouselNav" class="hidden inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1">
+                    <button type="button" id="rfcFormPreviewPrev" class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-700 shadow-xs transition hover:bg-slate-100 disabled:opacity-40" title="Previous RFC">‹</button>
+                    <span id="rfcFormPreviewCounter" class="min-w-[56px] text-center text-xs font-semibold tabular-nums text-slate-700">1 / 1</span>
+                    <button type="button" id="rfcFormPreviewNext" class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-700 shadow-xs transition hover:bg-slate-100 disabled:opacity-40" title="Next RFC">›</button>
+                </div>
                 <button
                     type="button"
                     id="rfcFormPreviewFullscreen"
@@ -317,6 +322,8 @@
         window.executeRfcListDecision();
     };
 
+    let rfcGroupBatchQueue = null;
+
     window.executeRfcListDecision = function () {
         if (rfcListDecideInFlight) return;
         const form = document.getElementById('rfcListDecisionForm');
@@ -330,20 +337,35 @@
             confirmBtn.textContent = 'Sending...';
         }
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        fetch(form.action, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
-            body: new FormData(form)
-        })
-        .then(async response => {
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to save decision.');
+
+        const targets = Array.isArray(rfcGroupBatchQueue) && rfcGroupBatchQueue.length > 0
+            ? rfcGroupBatchQueue.slice()
+            : [{ url: form.action }];
+
+        (async () => {
+            for (let i = 0; i < targets.length; i++) {
+                if (confirmBtn && targets.length > 1) {
+                    confirmBtn.textContent = 'Approving ' + (i + 1) + ' of ' + targets.length + '...';
+                }
+                const response = await fetch(targets[i].url, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
+                    body: new FormData(form)
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.ok === false) {
+                    throw new Error(data.message || 'Unable to save decision.');
+                }
+            }
             window.closeRfcListDecision();
             if (typeof window.showMpToast === 'function') {
-                showMpToast('RFC approved. Purchaser notified and sent to Accounting for check release.', { title: 'Approved', type: 'success' });
+                const msg = targets.length > 1
+                    ? targets.length + ' RFCs approved. Purchaser notified and sent to Accounting for check release.'
+                    : 'RFC approved. Purchaser notified and sent to Accounting for check release.';
+                showMpToast(msg, { title: 'Approved', type: 'success' });
             }
             setTimeout(() => window.location.reload(), 900);
-        })
+        })()
         .catch(error => {
             window.closeRfcListFinalConfirm();
             if (typeof window.showMpToast === 'function') {
@@ -501,10 +523,153 @@
             }
         }
 
+        const carouselNav = document.getElementById('rfcFormPreviewCarouselNav');
+        const carouselCounter = document.getElementById('rfcFormPreviewCounter');
+        const carouselPrev = document.getElementById('rfcFormPreviewPrev');
+        const carouselNext = document.getElementById('rfcFormPreviewNext');
+        let groupCarouselPayload = null;
+        let groupCarouselIdx = 0;
+
+        async function renderGroupCarouselSlide() {
+            if (!groupCarouselPayload || !Array.isArray(groupCarouselPayload.slides) || !groupCarouselPayload.slides.length) return;
+            const slide = groupCarouselPayload.slides[groupCarouselIdx];
+            if (!slide) return;
+            const total = groupCarouselPayload.slides.length;
+            const canApproveAll = !!groupCarouselPayload.can_approve_all;
+
+            if (carouselNav) carouselNav.classList.remove('hidden');
+            if (carouselCounter) carouselCounter.textContent = (groupCarouselIdx + 1) + ' / ' + total;
+            if (carouselPrev) carouselPrev.disabled = groupCarouselIdx <= 0;
+            if (carouselNext) carouselNext.disabled = groupCarouselIdx >= total - 1;
+
+            previewRfcId = String(slide.id);
+            if (previewTitle) previewTitle.textContent = slide.title + ' (' + groupCarouselPayload.request_no + ')';
+            if (previewPaymentBadge) {
+                if (slide.payment_label) {
+                    const paymentStyles = {
+                        direct_payment: 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
+                        cash_installment: 'background:#fffbeb;color:#b45309;border:1px solid #fde68a;',
+                        cash_advance: 'background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;',
+                    };
+                    previewPaymentBadge.textContent = slide.payment_label;
+                    previewPaymentBadge.setAttribute('style', paymentStyles[slide.payment_method] || 'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;');
+                    previewPaymentBadge.classList.remove('hidden');
+                } else {
+                    previewPaymentBadge.classList.add('hidden');
+                }
+            }
+            if (previewReview) {
+                previewReview.href = slide.review_url || '#';
+                previewReview.classList.toggle('hidden', !slide.review_url);
+            }
+            const previewSignWrap = document.getElementById('rfcFormPreviewSignWrap');
+            const decisionForm = document.getElementById('rfcListDecisionForm');
+            if (previewApprove) {
+                previewApprove.classList.toggle('hidden', !canApproveAll);
+                previewApprove.innerHTML = '<i data-lucide="check-check" class="h-3.5 w-3.5"></i> Approve All (' + total + ')';
+            }
+            if (previewSignWrap) {
+                previewSignWrap.classList.toggle('hidden', !canApproveAll);
+            }
+            if (canApproveAll) {
+                rfcGroupBatchQueue = groupCarouselPayload.slides.map(s => ({ url: '/school-admin/request-check/' + s.id + '/approve' }));
+                if (decisionForm) decisionForm.action = rfcGroupBatchQueue[0].url;
+                rfcListDecisionTitle = total + ' RFCs (' + groupCarouselPayload.request_no + ')';
+                const uniquePayees = Array.from(new Set(groupCarouselPayload.slides.map(s => s.payee).filter(Boolean)));
+                rfcListDecisionMeta = {
+                    payment: slide.payment_label || '—',
+                    payee: uniquePayees.length === 1 ? uniquePayees[0] : (uniquePayees.length + ' payees'),
+                    amount: '₱' + Number(groupCarouselPayload.total_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    purchaser: slide.purchaser || 'Purchaser',
+                };
+            } else {
+                rfcGroupBatchQueue = null;
+            }
+
+            previewBody.dataset.previewUrl = slide.preview_url;
+            previewBody.innerHTML = previewSkeleton;
+            try {
+                const html = await window.saFormPreview.load(slide.preview_url);
+                if (previewBody.dataset.previewUrl !== slide.preview_url) return;
+                previewBody.innerHTML = html;
+                if (canApproveAll) {
+                    const sigInput = document.getElementById('signatureData');
+                    if (sigInput && String(sigInput.value || '').indexOf('data:image/') !== 0) {
+                        const firstSaved = document.querySelector('#accSavedList .acc-use-saved');
+                        if (firstSaved) firstSaved.click();
+                    }
+                    if (typeof window.syncRfcPreviewPaperSignature === 'function') {
+                        window.syncRfcPreviewPaperSignature();
+                    }
+                }
+                if (window.lucide) lucide.createIcons();
+            } catch (_) {
+                previewBody.innerHTML = '<p class="px-5 py-10 text-center text-sm text-red-600">Could not load this RFC form.</p>';
+            }
+        }
+
+        carouselPrev?.addEventListener('click', function () {
+            if (groupCarouselIdx > 0) {
+                groupCarouselIdx--;
+                renderGroupCarouselSlide();
+            }
+        });
+        carouselNext?.addEventListener('click', function () {
+            if (groupCarouselPayload && groupCarouselIdx < groupCarouselPayload.slides.length - 1) {
+                groupCarouselIdx++;
+                renderGroupCarouselSlide();
+            }
+        });
+
         document.addEventListener('click', function (event) {
+            const carouselBtn = event.target.closest('[data-sa-rfc-group-carousel]');
+            if (carouselBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                try {
+                    groupCarouselPayload = JSON.parse(carouselBtn.getAttribute('data-group-payload') || '{}');
+                } catch (_) {
+                    return;
+                }
+                if (!groupCarouselPayload.slides || !groupCarouselPayload.slides.length) return;
+                groupCarouselIdx = 0;
+                if (previewModal.parentElement !== document.body) document.body.appendChild(previewModal);
+                setRfcPreviewFullscreen(false);
+                previewModal.classList.remove('hidden');
+                previewModal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+                renderGroupCarouselSlide();
+                return;
+            }
+
+            const toggleBtn = event.target.closest('[data-sa-rfc-toggle]');
+            const groupRow = !toggleBtn ? event.target.closest('tr[data-sa-rfc-group]') : null;
+            const gKey = toggleBtn
+                ? toggleBtn.getAttribute('data-sa-rfc-toggle')
+                : (groupRow ? groupRow.getAttribute('data-sa-rfc-group') : null);
+            if (gKey) {
+                event.preventDefault();
+                const row = document.querySelector('tr[data-sa-rfc-group="' + gKey + '"]');
+                const isOpen = row && row.dataset.open === '1';
+                const nextOpen = !isOpen;
+                if (row) row.dataset.open = nextOpen ? '1' : '0';
+                document.querySelectorAll('tr[data-sa-rfc-child="' + gKey + '"]').forEach(function (tr) {
+                    tr.style.display = nextOpen ? '' : 'none';
+                });
+                const chev = row ? row.querySelector('[data-sa-rfc-chevron]') : null;
+                if (chev) chev.classList.toggle('rotate-90', nextOpen);
+                return;
+            }
+
             const trigger = event.target.closest('[data-rfc-preview]');
             if (!trigger) return;
             event.preventDefault();
+            groupCarouselPayload = null;
+            rfcGroupBatchQueue = null;
+            if (carouselNav) carouselNav.classList.add('hidden');
+            if (previewApprove) {
+                previewApprove.innerHTML = '<i data-lucide="check" class="h-3.5 w-3.5"></i> Approve RFC';
+            }
             openRfcPreview(trigger);
         });
 
@@ -525,7 +690,9 @@
             if (paperName && panelName) {
                 panelName.value = paperName.value;
             }
-            rfcListDecisionTitle = previewTitle ? previewTitle.textContent : 'Request Check';
+            if (!rfcGroupBatchQueue) {
+                rfcListDecisionTitle = previewTitle ? previewTitle.textContent : 'Request Check';
+            }
             window.submitRfcListDecision();
         });
         document.addEventListener('keydown', function (event) {

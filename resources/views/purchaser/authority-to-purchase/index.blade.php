@@ -1606,26 +1606,28 @@
                                             <button
                                                 type="button"
                                                 @click='openGroupPayModal(@json($gGroupPayload))'
-                                                class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition hover:opacity-90"
-                                                style="background:#fffbeb;border-color:#fde68a;color:#b45309;"
+                                                class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition"
+                                                style="background:#0025cc;color:#ffffff;"
+                                                onmouseenter="this.style.background='#001db3'"
+                                                onmouseleave="this.style.background='#0025cc'"
                                                 title="Choose payment method for all {{ $gUnchosenCount }} ATPs"
                                                 aria-label="Choose payment method for all {{ $gUnchosenCount }} ATPs"
                                             >
-                                                <i data-lucide="wallet" class="h-4 w-4"></i>
-                                                <span class="pointer-events-none absolute -right-1 -top-1 flex h-2.5 w-2.5">
-                                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
-                                                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></span>
-                                                </span>
+                                                <i data-lucide="wallet-cards" class="h-4 w-4"></i>
+                                                <span
+                                                    class="pointer-events-none absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white"
+                                                    style="background:#f59e0b;"
+                                                >{{ $gUnchosenCount }}</span>
                                             </button>
                                         @endif
                                         <button
                                             type="button"
                                             @click="toggleAtpGroup('{{ $gKey }}')"
                                             class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                            :title="expandedAtpGroups['{{ $gKey }}'] ? 'Hide ATPs' : 'Show ATPs'"
-                                            :aria-label="expandedAtpGroups['{{ $gKey }}'] ? 'Hide ATPs' : 'Show ATPs'"
+                                            :title="expandedAtpGroups['{{ $gKey }}'] ? 'Collapse ATPs' : 'Expand ATPs'"
+                                            :aria-label="expandedAtpGroups['{{ $gKey }}'] ? 'Collapse ATPs' : 'Expand ATPs'"
                                         >
-                                            <svg class="h-4 w-4 transition-transform duration-150" :class="expandedAtpGroups['{{ $gKey }}'] ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                            <svg class="h-4 w-4 transition-transform duration-150" :class="expandedAtpGroups['{{ $gKey }}'] ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -1713,52 +1715,59 @@
                 </div>
 
                 <div class="space-y-4 px-6 py-5">
-                    <div class="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 divide-y divide-slate-200/70">
-                        <template x-for="item in (groupPayData?.atps || [])" :key="item.id">
-                            <div class="flex items-center justify-between gap-3 px-3.5 py-2 text-xs">
-                                <div class="min-w-0">
-                                    <p class="font-semibold text-slate-900" x-text="item.form_number"></p>
-                                    <p class="truncate text-[11px] text-slate-500" x-text="item.supplier"></p>
+                    <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        <div class="max-h-[268px] overflow-y-auto divide-y divide-slate-200/70">
+                            <template x-for="item in (groupPayData?.atps || [])" :key="item.id">
+                                <div class="flex items-center justify-between gap-3 px-3.5 py-2 text-xs">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-slate-900" x-text="item.form_number"></p>
+                                        <p class="truncate text-[11px] text-slate-500" x-text="item.supplier"></p>
+                                    </div>
+                                    <span class="shrink-0 font-semibold tabular-nums text-slate-800" x-text="'₱' + Number(item.total || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
                                 </div>
-                                <span class="shrink-0 font-semibold tabular-nums text-slate-800" x-text="'₱' + Number(item.total || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
-                            </div>
-                        </template>
-                        <div class="flex items-center justify-between bg-white px-3.5 py-2 text-xs font-bold text-slate-900">
+                            </template>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-900">
                             <span>Combined Total</span>
                             <span class="tabular-nums" x-text="'₱' + Number(groupPayData?.total || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                        <button
-                            type="button"
-                            @click="groupPayPath = 'cash_advance'"
-                            class="rounded-xl border p-3.5 text-left transition"
-                            :style="groupPayPath === 'cash_advance' ? 'background:#eff6ff;border-color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;'"
-                        >
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="text-xs font-bold text-slate-900">Cash Advance</span>
-                                <span class="h-3.5 w-3.5 rounded-full border-2" :style="groupPayPath === 'cash_advance' ? 'border-color:#0025cc;background:#0025cc;' : 'border-color:#cbd5e1;'"></span>
-                            </div>
-                            <p class="mt-1 text-[11px] text-slate-500">Payee is the Purchaser. Requires Liquidation after delivery.</p>
-                        </button>
+                    <div class="grid grid-cols-3 gap-2.5">
                         <button
                             type="button"
                             @click="groupPayPath = 'direct_payment'"
-                            class="rounded-xl border p-3.5 text-left transition"
-                            :style="groupPayPath === 'direct_payment' ? 'background:#eff6ff;border-color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;'"
+                            title="Direct Payment — Payee is each supplier directly. No liquidation required."
+                            aria-label="Direct Payment"
+                            class="flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition"
+                            :style="groupPayPath === 'direct_payment' ? 'background:#eff6ff;border-color:#0025cc;color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;color:#475569;'"
                         >
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="text-xs font-bold text-slate-900">Direct Payment</span>
-                                <span class="h-3.5 w-3.5 rounded-full border-2" :style="groupPayPath === 'direct_payment' ? 'border-color:#0025cc;background:#0025cc;' : 'border-color:#cbd5e1;'"></span>
-                            </div>
-                            <p class="mt-1 text-[11px] text-slate-500">Payee is each supplier directly. No liquidation required.</p>
+                            <i data-lucide="landmark" class="h-6 w-6"></i>
+                            <span class="text-xs font-semibold">Direct Payment</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="groupPayPath = 'cash_installment'"
+                            title="Cash Installment — Pay suppliers in installment terms. No liquidation required."
+                            aria-label="Cash Installment"
+                            class="flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition"
+                            :style="groupPayPath === 'cash_installment' ? 'background:#eff6ff;border-color:#0025cc;color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;color:#475569;'"
+                        >
+                            <i data-lucide="calendar-clock" class="h-6 w-6"></i>
+                            <span class="text-xs font-semibold">Cash Installment</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="groupPayPath = 'cash_advance'"
+                            title="Cash Advance — Payee is the Purchaser. Requires Liquidation after delivery."
+                            aria-label="Cash Advance"
+                            class="flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition"
+                            :style="groupPayPath === 'cash_advance' ? 'background:#eff6ff;border-color:#0025cc;color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;color:#475569;'"
+                        >
+                            <i data-lucide="wallet" class="h-6 w-6"></i>
+                            <span class="text-xs font-semibold">Cash Advance</span>
                         </button>
                     </div>
-
-                    <p class="text-[11px] text-slate-500">
-                        Need <strong>Cash Installment</strong> or a different method for a specific supplier? Expand the RIS group and choose per individual ATP.
-                    </p>
                 </div>
 
                 <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">

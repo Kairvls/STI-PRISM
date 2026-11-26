@@ -104,28 +104,9 @@ class RequestForCheckController extends Controller
             ? ' AND (rr_chk.receiving_report_is_archived IS NULL OR rr_chk.receiving_report_is_archived = 0)'
             : '';
 
-        $priorityCases = [
-            "WHEN request_check_table.request_check_status IN ('Draft', 'Minor Revision') THEN 0",
-        ];
-        if ($hasReadyCol && $hasReleasedCol) {
-            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_check_ready_at IS NOT NULL AND request_check_table.request_check_funds_released_at IS NULL THEN 1";
-        }
-        if ($hasReleasedCol && $hasRrTable) {
-            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM receiving_reports_table rr_chk WHERE rr_chk.receiving_report_request_check_id = request_check_table.request_check_id AND rr_chk.receiving_report_status != 'Returned'{$rrArchiveClause}) THEN 2";
-        } elseif ($hasReleasedCol) {
-            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NOT NULL THEN 2";
-        }
-        if ($hasReleasedCol) {
-            $priorityCases[] = "WHEN request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NULL THEN 3";
-        }
-        $priorityCases[] = "WHEN request_check_table.request_check_status IN ('Pending', 'Submitted') THEN 3";
-        $priorityCases[] = "ELSE 4";
-
-        $query->orderByRaw('CASE '.implode(' ', $priorityCases).' END ASC');
-        DocumentUrgency::orderUrgentFirst($query, 'RFC');
-
+        // Pure STACK (LIFO) ordering: newest RFCs always appear at the top.
         $rfcs = $query
-            ->orderByDesc($this->rfcSortColumn())
+            ->orderByDesc('request_check_table.request_check_id')
             ->paginate(10)
             ->withQueryString();
 
@@ -268,12 +249,13 @@ class RequestForCheckController extends Controller
                 return 'rfc-'.(int) $rfc->request_check_id;
             })
             ->map(function ($items, $key) {
-                $items = $items->values();
+                $items = $items->sortByDesc('request_check_id')->values();
                 $first = $items->first();
                 $payees = $items->pluck('request_check_payee')->filter()->unique()->values();
                 $dates = $items->pluck('request_check_date')->filter()->sort()->values();
                 $totalAmount = (float) $items->sum(fn ($r) => (float) ($r->request_check_amount_figures ?? 0));
                 $urgent = $items->contains(fn ($r) => \App\Support\DocumentUrgency::isUrgent('RFC', $r));
+                $maxId = (int) $items->max('request_check_id');
 
                 return [
                     'key' => (string) $key,
@@ -287,8 +269,10 @@ class RequestForCheckController extends Controller
                         ? (string) $payees->first()
                         : ($payees->count() > 1 ? $payees->count().' payees' : '—'),
                     'rfc_ids' => $items->pluck('request_check_id')->map(fn ($id) => (int) $id)->values()->all(),
+                    'max_rfc_id' => $maxId,
                 ];
             })
+            ->sortByDesc('max_rfc_id')
             ->values();
 
         return view('purchaser.request-check.index', [
@@ -423,10 +407,7 @@ class RequestForCheckController extends Controller
     public function batchStore(Request $request)
     {
         $validated = $request->validate([
-            'funding_type' => ['required', Rule::in([
-                ProcurementPaymentPath::DIRECT_PAYMENT,
-                ProcurementPaymentPath::CASH_ADVANCE,
-            ])],
+            'funding_type' => ['required', Rule::in(ProcurementPaymentPath::choices())],
             'request_check_requested_by' => ['nullable', 'string', 'max:255'],
             'request_check_requested_by_signature' => ['required', 'string'],
             'items' => ['required', 'array', 'min:1'],

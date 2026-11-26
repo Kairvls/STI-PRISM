@@ -11,6 +11,8 @@
     $conditionRemarks = is_array($row) ? ($row['condition_remarks'] ?? '') : ($row->receiving_report_item_condition_remarks ?? '');
     $unit = is_array($row) ? ($row['unit'] ?? '') : ($row->receiving_report_item_unit ?? '');
     $article = is_array($row) ? ($row['article'] ?? '') : ($row->receiving_report_item_article ?? '');
+    $serialNumber = is_array($row) ? ($row['serial_number'] ?? '') : ($row->receiving_report_item_serial_number ?? '');
+    $brand = is_array($row) ? ($row['brand'] ?? '') : ($row->receiving_report_item_brand ?? '');
     $unitPrice = is_array($row) ? ($row['unit_price'] ?? '') : ($row->receiving_report_item_unit_price ?? '');
     $supplierId = is_array($row) ? ($row['supplier_id'] ?? '') : ($row->receiving_report_item_supplier_id ?? '');
     $supplierName = is_array($row) ? ($row['supplier_name'] ?? '') : ($row->receiving_report_item_supplier_name ?? '');
@@ -70,6 +72,37 @@
             <span class="{{ $damagedQty > 0 ? 'font-semibold text-red-700' : '' }}">{{ $damagedQty > 0 ? $damagedQty : ($article !== '' ? '0' : '') }}</span>
         @endif
     </td>
+    <td class="border border-black px-1 text-left">
+        @if($cellsEditable)
+            <input type="text" name="items[{{ $i }}][serial_number]" value="{{ $serialNumber }}" maxlength="1000" placeholder="SN-001, SN-002" title="Serial number(s) — separate multiple units with commas" class="h-7 w-full border-0 bg-transparent text-left text-[11px] outline-none">
+        @else
+            <span class="block break-words text-[11px]">{{ $serialNumber !== '' ? $serialNumber : '—' }}</span>
+        @endif
+    </td>
+    <td class="border border-black px-1.5 text-left">
+        @if($cellsEditable)
+            <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="Item name" class="h-7 w-full border-0 bg-transparent text-[12px] outline-none">
+            <input type="hidden" name="items[{{ $i }}][equipment_id]" value="" data-rr-equipment-id>
+            @if($backOrderId !== '' && $backOrderId !== null)
+                <input type="hidden" name="items[{{ $i }}][back_order_id]" value="{{ $backOrderId }}">
+            @endif
+        @else
+            <span class="text-[12px]">{{ $article }}</span>
+        @endif
+        @if($replacement)
+            <span class="block text-[10px] font-semibold {{ $replacement['new'] ? 'text-violet-700' : 'text-sky-700' }}">↳ {{ $replacement['label'] }}</span>
+        @endif
+        @if($editable && $isVerified)
+            <span class="block text-[10px] font-medium text-emerald-700">Verified at second count · locked</span>
+        @endif
+    </td>
+    <td class="border border-black px-1">
+        @if($cellsEditable)
+            <input type="text" name="items[{{ $i }}][brand]" value="{{ $brand }}" maxlength="150" placeholder="Brand" class="h-7 w-full border-0 bg-transparent text-center text-[11px] outline-none">
+        @else
+            <span class="text-[11px]">{{ $brand !== '' ? $brand : '—' }}</span>
+        @endif
+    </td>
     <td
         class="border border-black {{ $unitLocked ? 'bg-slate-50/80' : '' }}"
         @if($unitLocked) title="Unit is locked from the purchase authority" @endif
@@ -82,36 +115,27 @@
                     'inputName' => 'items['.$i.'][unit]',
                     'uomNames' => $uomNames,
                     'pp' => $pp ?? null,
-                    'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[12px] outline-none focus:ring-0',
+                    'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[11px] outline-none focus:ring-0',
                 ])
             </div>
-            <span data-rr-unit-display class="{{ $unitLocked ? 'block' : 'hidden' }} text-center text-[12px] text-slate-700">{{ $unitHasValue ? $unit : '—' }}</span>
+            <span data-rr-unit-display class="{{ $unitLocked ? 'block' : 'hidden' }} text-center text-[11px] text-slate-700">{{ $unitHasValue ? $unit : '—' }}</span>
         @else
-            {{ $unit }}
+            <span class="text-[11px]">{{ $unit }}</span>
         @endif
     </td>
-    <td class="border border-black text-left px-2">
+    <td class="border border-black px-1.5 text-left">
         @if($cellsEditable)
-            <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" maxlength="{{ \App\Support\InputLimits::NAME }}" class="h-7 w-full border-0 bg-transparent outline-none">
-            <input type="hidden" name="items[{{ $i }}][equipment_id]" value="" data-rr-equipment-id>
-            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" placeholder="Remarks for missing / damaged units" class="mt-0.5 h-5 w-full border-0 bg-transparent text-[10px] text-amber-800 outline-none">
-            @if($backOrderId !== '' && $backOrderId !== null)
-                <input type="hidden" name="items[{{ $i }}][back_order_id]" value="{{ $backOrderId }}">
-            @endif
+            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" placeholder="Specs, notes, or damage remarks" class="h-7 w-full border-0 bg-transparent text-[11px] text-slate-700 outline-none">
         @else
-            {{ $article }}
             @if($conditionRemarks)
-                <span class="block text-[10px] text-amber-700">{{ $conditionRemarks }}</span>
+                <span class="block text-[11px] text-slate-700">{{ $conditionRemarks }}</span>
             @endif
             @if($damagedQty > 0 && $damageRemarks !== '' && $damageRemarks !== $conditionRemarks)
                 <span class="block text-[10px] text-red-700">{{ $damageRemarks }}</span>
             @endif
-        @endif
-        @if($replacement)
-            <span class="block text-[10px] font-semibold {{ $replacement['new'] ? 'text-violet-700' : 'text-sky-700' }}">↳ {{ $replacement['label'] }}</span>
-        @endif
-        @if($editable && $isVerified)
-            <span class="block text-[10px] font-medium text-emerald-700">Verified at second count · locked</span>
+            @if(!$conditionRemarks && !($damagedQty > 0 && $damageRemarks !== ''))
+                <span class="text-[11px] text-slate-400">—</span>
+            @endif
         @endif
     </td>
     @php

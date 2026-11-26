@@ -114,9 +114,13 @@ Route::middleware('auth')->group(function () {
 
     // Paper-form preview for pipeline / Request No. Open links (any authorized portal role).
     Route::get('/procurement/documents/{type}/{id}/preview', [\App\Http\Controllers\ProcurementRecordPackageController::class, 'sharedPreviewDocument'])
-        ->where('type', 'ris|atp|rfc|dv|rr|liq')
+        ->where('type', 'ris|atp|rfc|dv|rr|liq|canvass')
         ->whereNumber('id')
         ->name('procurement.documents.preview');
+
+    Route::get('/procurement/canvass-attachments/{attachmentId}/preview', [\App\Http\Controllers\ProcurementRecordPackageController::class, 'sharedPreviewCanvassAttachment'])
+        ->whereNumber('attachmentId')
+        ->name('procurement.canvass-attachments.preview');
 
 });
 

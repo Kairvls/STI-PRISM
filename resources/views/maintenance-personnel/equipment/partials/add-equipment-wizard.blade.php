@@ -2244,6 +2244,7 @@
                 purchaseDate: '',
                 purchaseCost: '',
                 brandPresets: [],
+                rrSerialNumbers: [],
                 _brandFromRis: false,
                 _brandManual: false,
                 get rrGroups() {
@@ -2546,6 +2547,8 @@
                             const article = String(line.article || '').trim();
                             if (article) previous[id].name = article;
                             previous[id].brand_presets = Array.isArray(line.brand_presets) ? line.brand_presets : (previous[id].brand_presets || []);
+                            previous[id].serial_number = line.serial_number || previous[id].serial_number || '';
+                            previous[id].serial_numbers = Array.isArray(line.serial_numbers) ? line.serial_numbers : (previous[id].serial_numbers || []);
                             previous[id]._brandManual = false;
                             this.applyExpressDefaultsToRow(previous[id], false);
                             return previous[id];
@@ -2565,8 +2568,10 @@
                             name: article,
                             category: detected ? String(detected) : '',
                             categoryManual: false,
-                            brand: '',
+                            brand: line.brand || '',
                             brand_presets: Array.isArray(line.brand_presets) ? line.brand_presets : [],
+                            serial_number: line.serial_number || '',
+                            serial_numbers: Array.isArray(line.serial_numbers) ? line.serial_numbers : [],
                             _brandFromRis: false,
                             _brandManual: false,
                             _piecesManual: false,
@@ -2687,6 +2692,8 @@
                         this.purchaseDate = '';
                         this.purchaseCost = '';
                         this.brandPresets = [];
+                        this.rrSerialNumbers = [];
+                        this.serial = '';
                         this.applyRrTrackingLock();
                         return;
                     }
@@ -2697,6 +2704,8 @@
                     this.purchaseDate = line.purchase_date || '';
                     this.purchaseCost = line.unit_cost != null ? String(line.unit_cost) : '';
                     this.brandPresets = Array.isArray(line.brand_presets) ? line.brand_presets : [];
+                    this.rrSerialNumbers = Array.isArray(line.serial_numbers) ? line.serial_numbers : [];
+                    this.serial = this.rrSerialNumbers[0] || line.serial_number || '';
                     this._brandManual = false;
                     if (line.brand) {
                         this.brand = line.brand;
@@ -2962,9 +2971,11 @@
                         row.units = Array.from({ length: count }, (_, i) => {
                             const prev = previous[i] || {};
                             const roomManual = deploying && !!prev._roomManual;
+                            const presetSerial = (Array.isArray(row.serial_numbers) && row.serial_numbers[i])
+                                || (i === 0 ? (row.serial_number || '') : '');
                             return {
                                 asset_tag: prev._tagManual ? prev.asset_tag : '',
-                                serial: prev.serial || '',
+                                serial: prev.serial || presetSerial,
                                 purchase_date: prev._purchaseManual ? (prev.purchase_date || '') : (this.purchaseDate || ''),
                                 cost: prev._costManual ? (prev.cost ?? '') : (row.cost || this.purchaseCost || ''),
                                 useful_life_years: prev._lifeManual ? (prev.useful_life_years ?? '') : (row.useful_life_years || this.usefulLifeYears || ''),
@@ -3673,6 +3684,7 @@
                     this.purchaseDate = '';
                     this.purchaseCost = '';
                     this.brandPresets = [];
+                    this.rrSerialNumbers = [];
                     this._brandFromRis = false;
                     this._brandManual = false;
                     this.clearAllItemImages();
@@ -3877,9 +3889,10 @@
                     this.items = Array.from({ length: qty }, (_, i) => {
                         const prev = previous[i] || {};
                         const roomManual = deploying && !!prev._roomManual;
+                        const presetSerial = (Array.isArray(this.rrSerialNumbers) && this.rrSerialNumbers[i]) || '';
                         return {
                             equipment_asset_tag: prev._tagManual ? prev.equipment_asset_tag : '',
-                            equipment_serial_number: prev.equipment_serial_number ?? '',
+                            equipment_serial_number: prev.equipment_serial_number || presetSerial,
                             equipment_brand_name: lockedBrand
                                 ? (this.presetBrandAt(i) || this.brand || '')
                                 : (prev._brandManual

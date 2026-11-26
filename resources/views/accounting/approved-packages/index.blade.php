@@ -216,6 +216,10 @@
                                         data-rfc-url="{{ $item->rfc_preview }}"
                                         data-atp-url="{{ $item->atp_preview }}"
                                         data-atp-label="{{ $item->atp_no ?: 'ATP' }}"
+                                        data-ris-url="{{ $item->ris_preview ?? '' }}"
+                                        data-ris-label="{{ $item->ris_no ?: 'Requisition Slip' }}"
+                                        data-canvass-url="{{ $item->canvass_preview ?? '' }}"
+                                        data-canvass-label="{{ $item->canvass_no ?: 'Canvass' }}"
                                         data-ready="{{ !empty($item->check_ready) ? '1' : '0' }}"
                                         data-released="{{ !empty($item->check_released) ? '1' : '0' }}"
                                         data-rfc-id="{{ $item->rfc_id }}"
@@ -253,9 +257,9 @@
     <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
         <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
             <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2.5">
                     <h3 id="pkgViewTitle" class="truncate text-base font-semibold text-gray-900"></h3>
-                    <span id="pkgViewFund" class="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-800 ring-1 ring-inset ring-violet-200"></span>
+                    <span id="pkgViewFund" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold tracking-wide shadow-xs"></span>
                 </div>
                 <p id="pkgViewSlideLabel" class="mt-0.5 text-xs text-gray-500"></p>
             </div>
@@ -276,17 +280,11 @@
             <span>Check is ready for pickup — click <strong>Mark as Released</strong> once the Purchaser has collected the check.</span>
         </div>
         <div class="relative min-h-0 flex-1 overflow-hidden bg-slate-100">
-            <div id="pkgViewTrack" class="flex h-[72vh] w-[200%] transition-transform duration-300">
-                <iframe id="pkgViewRfc" title="Funding request" class="h-full w-1/2 shrink-0 border-0 bg-white"></iframe>
-                <iframe id="pkgViewAtp" title="Authority to Purchase" class="h-full w-1/2 shrink-0 border-0 bg-white"></iframe>
-            </div>
+            <div id="pkgViewTrack" class="flex h-[72vh] transition-transform duration-300"></div>
         </div>
         <div class="flex items-center justify-between gap-3 border-t border-gray-200 px-4 py-3">
             <span class="w-[8.5rem]"></span>
-            <div class="flex items-center justify-center gap-2">
-                <button type="button" data-pkg-dot="0" class="pkg-dot rounded-full px-3 py-1 text-xs font-semibold">RFC</button>
-                <button type="button" data-pkg-dot="1" class="pkg-dot rounded-full px-3 py-1 text-xs font-semibold">ATP</button>
-            </div>
+            <div id="pkgViewDots" class="flex flex-wrap items-center justify-center gap-2"></div>
             <form id="pkgCheckForm" method="POST" class="flex min-w-[8.5rem] justify-end">
                 @csrf
                 <button id="pkgCheckButton" type="button" class="inline-flex h-9 items-center whitespace-nowrap rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white hover:bg-[#001db3]" style="background:#0025cc;color:#ffffff;">Release Check</button>
@@ -348,8 +346,7 @@
         var title = document.getElementById('pkgViewTitle');
         var fund = document.getElementById('pkgViewFund');
         var slideLabel = document.getElementById('pkgViewSlideLabel');
-        var rfcFrame = document.getElementById('pkgViewRfc');
-        var atpFrame = document.getElementById('pkgViewAtp');
+        var dotsWrap = document.getElementById('pkgViewDots');
         var checkForm = document.getElementById('pkgCheckForm');
         var checkButton = document.getElementById('pkgCheckButton');
         var readyBanner = document.getElementById('pkgReadyBanner');
@@ -366,21 +363,24 @@
         var confirmCancel = document.getElementById('pkgCheckConfirmCancel');
         var confirmProceed = document.getElementById('pkgCheckConfirmProceed');
         var index = 0;
+        var slides = [];
         var currentPkg = { ref: '', atp: '', payee: '', fund: '', ready: false };
-        var labels = ['Funding request', 'Authority to Purchase'];
 
         if (confirmModal && confirmModal.parentElement !== document.body) {
             document.body.appendChild(confirmModal);
         }
 
         function paint() {
-            track.style.transform = 'translateX(' + (-index * 50) + '%)';
-            slideLabel.textContent = labels[index] + ' · ' + (index + 1) + ' of 2';
+            var count = slides.length || 1;
+            var pct = 100 / count;
+            track.style.transform = 'translateX(' + (-index * pct) + '%)';
+            var active = slides[index] || { label: 'Document' };
+            slideLabel.textContent = active.label + ' · ' + (index + 1) + ' of ' + count;
             document.querySelectorAll('.pkg-dot').forEach(function (dot) {
                 var on = Number(dot.getAttribute('data-pkg-dot')) === index;
-                dot.className = 'pkg-dot rounded-full px-3 py-1 text-xs font-semibold ' + (on
+                dot.className = 'pkg-dot rounded-full px-3 py-1 text-xs font-semibold transition ' + (on
                     ? 'bg-[#0025cc] text-white'
-                    : 'bg-gray-100 text-gray-600');
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200');
             });
         }
 
@@ -434,8 +434,21 @@
 
             currentPkg = { ref: ref, atp: atpLabel, payee: payee, requester: requester, fund: method, ready: ready, released: released };
             title.textContent = ref;
-            fund.textContent = method;
-            fund.hidden = method === '' || method === 'Not chosen';
+            if (method && method !== 'Not chosen') {
+                var mKey = method.toLowerCase();
+                var pillStyle = mKey.indexOf('advance') !== -1
+                    ? { bg: '#f3e8ff', fg: '#6b21a8', border: '#c084fc', dot: '#9333ea' }
+                    : (mKey.indexOf('installment') !== -1
+                        ? { bg: '#fffbeb', fg: '#b45309', border: '#fcd34d', dot: '#d97706' }
+                        : { bg: '#eff6ff', fg: '#1d4ed8', border: '#93c5fd', dot: '#2563eb' });
+                fund.innerHTML = '<span style="width:8px;height:8px;border-radius:9999px;background:' + pillStyle.dot + ';display:inline-block;flex-shrink:0;"></span><span>' + method + '</span>';
+                fund.setAttribute('style', 'background:' + pillStyle.bg + ';color:' + pillStyle.fg + ';border:1.5px solid ' + pillStyle.border + ';');
+                fund.hidden = false;
+            } else {
+                fund.textContent = '';
+                fund.removeAttribute('style');
+                fund.hidden = true;
+            }
             if (readyBanner) {
                 readyBanner.classList.toggle('hidden', !ready || released);
             }
@@ -447,9 +460,41 @@
             checkButton.className = 'inline-flex h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-xs font-semibold text-white transition hover:opacity-95';
             checkButton.style.background = ready ? '#059669' : '#0025cc';
             checkButton.style.color = '#ffffff';
-            rfcFrame.src = button.getAttribute('data-rfc-url') || 'about:blank';
-            atpFrame.src = button.getAttribute('data-atp-url') || 'about:blank';
-            labels[1] = atpLabel;
+            var rfcUrl = button.getAttribute('data-rfc-url') || '';
+            var atpUrl = button.getAttribute('data-atp-url') || '';
+            var risUrl = button.getAttribute('data-ris-url') || '';
+            var risLabel = button.getAttribute('data-ris-label') || 'Requisition Slip';
+            var canvassUrl = button.getAttribute('data-canvass-url') || '';
+            var canvassLabel = button.getAttribute('data-canvass-label') || 'Canvass';
+
+            slides = [];
+            if (rfcUrl) slides.push({ pill: 'RFC', label: 'Funding request', url: rfcUrl });
+            if (atpUrl) slides.push({ pill: 'ATP', label: atpLabel, url: atpUrl });
+            if (risUrl) slides.push({ pill: 'RIS', label: risLabel, url: risUrl });
+            if (canvassUrl) slides.push({ pill: 'Canvass', label: canvassLabel, url: canvassUrl });
+
+            var count = slides.length || 1;
+            track.style.width = (count * 100) + '%';
+            track.innerHTML = '';
+            if (dotsWrap) dotsWrap.innerHTML = '';
+            slides.forEach(function (s, idx) {
+                var iframe = document.createElement('iframe');
+                iframe.title = s.label;
+                iframe.src = s.url;
+                iframe.className = 'h-full shrink-0 border-0 bg-white';
+                iframe.style.width = (100 / count) + '%';
+                track.appendChild(iframe);
+
+                if (dotsWrap) {
+                    var dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.setAttribute('data-pkg-dot', String(idx));
+                    dot.className = 'pkg-dot rounded-full px-3 py-1 text-xs font-semibold';
+                    dot.textContent = s.pill;
+                    dotsWrap.appendChild(dot);
+                }
+            });
+
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             paint();
@@ -460,8 +505,9 @@
             closeConfirmModal();
             modal.classList.add('hidden');
             modal.classList.remove('flex');
-            rfcFrame.src = 'about:blank';
-            atpFrame.src = 'about:blank';
+            track.innerHTML = '';
+            if (dotsWrap) dotsWrap.innerHTML = '';
+            slides = [];
         }
 
         if (checkButton) {
@@ -496,11 +542,13 @@
             }
         });
         document.getElementById('pkgViewPrev').addEventListener('click', function () {
-            index = index === 0 ? 1 : 0;
+            if (!slides.length) return;
+            index = (index - 1 + slides.length) % slides.length;
             paint();
         });
         document.getElementById('pkgViewNext').addEventListener('click', function () {
-            index = index === 0 ? 1 : 0;
+            if (!slides.length) return;
+            index = (index + 1) % slides.length;
             paint();
         });
         document.getElementById('pkgViewClose').addEventListener('click', closeModal);
