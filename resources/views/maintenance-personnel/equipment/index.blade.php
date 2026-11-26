@@ -93,7 +93,7 @@
                         <button
                             type="button"
                             id="inventoryToolsMenuBtn"
-                            onclick="toggleEqMenu(this, 'inventoryToolsMenu')"
+                            onclick="toggleEqMenu(this, 'inventoryToolsMenu', event)"
                             aria-haspopup="menu"
                             aria-expanded="false"
                             class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
@@ -212,7 +212,7 @@
                         <button
                             type="button"
                             id="allEquipmentUtilitiesBtn"
-                            onclick="toggleEqMenu(this, 'allEquipmentUtilitiesMenu')"
+                            onclick="toggleEqMenu(this, 'allEquipmentUtilitiesMenu', event)"
                             aria-haspopup="menu"
                             aria-expanded="false"
                             class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
@@ -820,7 +820,7 @@
                                 {{ $isStockPage ? 'Added' : 'Next maintenance' }}
                             </th>
 
-                            <th class="w-32 px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                            <th class="w-32 px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                                 Actions
                             </th>
                         </tr>
@@ -1040,8 +1040,8 @@
                                     @endif
                                 </td>
 
-                                <td class="px-4 py-2 text-right align-middle">
-                                    <div class="inline-flex items-center justify-end gap-1">
+                                <td class="px-4 py-2 text-left align-middle">
+                                    <div class="flex items-center justify-start gap-1">
                                         {{-- PRIMARY ROW ACTION --}}
                                         <button
                                             type="button"
@@ -1058,7 +1058,7 @@
                                         @if ($rowHasMenu)
                                             <button
                                                 type="button"
-                                                onclick="toggleEqMenu(this, '{{ $rowMenuId }}')"
+                                                onclick="toggleEqMenu(this, '{{ $rowMenuId }}', event)"
                                                 aria-haspopup="menu"
                                                 aria-expanded="false"
                                                 aria-label="More actions for {{ $item->equipment_name }}"
@@ -3183,6 +3183,7 @@
         (function () {
             let activeMenu = null;
             let activeTrigger = null;
+            let menuOpenedAt = 0;
 
             function closeEqMenus() {
                 document.querySelectorAll('[data-eq-menu]').forEach(function (menu) {
@@ -3196,10 +3197,16 @@
             }
 
             function positionEqMenu(trigger, menu) {
-                const rect = trigger.getBoundingClientRect();
+                if (menu.parentNode !== document.body) {
+                    document.body.appendChild(menu);
+                }
+
+                menu.style.position = 'fixed';
+                menu.style.zIndex = '9999';
                 menu.style.visibility = 'hidden';
                 menu.classList.remove('hidden');
 
+                const rect = trigger.getBoundingClientRect();
                 const menuWidth = menu.offsetWidth || 200;
                 const menuHeight = menu.offsetHeight || 160;
                 const gap = 6;
@@ -3210,13 +3217,16 @@
                     left = Math.max(margin, rect.left);
                 }
                 if (left + menuWidth > window.innerWidth - margin) {
-                    left = window.innerWidth - menuWidth - margin;
+                    left = Math.max(margin, window.innerWidth - menuWidth - margin);
                 }
 
                 const spaceBelow = window.innerHeight - rect.bottom - margin;
                 let top = rect.bottom + gap;
                 if (spaceBelow < menuHeight && rect.top - margin > menuHeight) {
                     top = rect.top - menuHeight - gap;
+                }
+                if (top < margin) {
+                    top = margin;
                 }
 
                 menu.style.left = Math.round(left) + 'px';
@@ -3226,7 +3236,11 @@
 
             window.closeEqMenus = closeEqMenus;
 
-            window.toggleEqMenu = function (trigger, menuId) {
+            window.toggleEqMenu = function (trigger, menuId, evt) {
+                if (evt && typeof evt.stopPropagation === 'function') {
+                    evt.stopPropagation();
+                }
+
                 const menu = document.getElementById(menuId);
                 if (!menu || !trigger) return;
 
@@ -3238,8 +3252,9 @@
                 trigger.setAttribute('aria-expanded', 'true');
                 activeMenu = menu;
                 activeTrigger = trigger;
+                menuOpenedAt = Date.now();
 
-                if (window.lucide) {
+                if (window.lucide && menu.querySelector('i[data-lucide]')) {
                     window.lucide.createIcons();
                 }
             };
@@ -3268,8 +3283,11 @@
                 }
             });
 
-            window.addEventListener('scroll', function () {
-                if (activeMenu) closeEqMenus();
+            window.addEventListener('scroll', function (event) {
+                if (!activeMenu) return;
+                if (Date.now() - menuOpenedAt < 100) return;
+                if (event.target && activeMenu.contains(event.target)) return;
+                closeEqMenus();
             }, true);
 
             window.addEventListener('resize', function () {
