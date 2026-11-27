@@ -131,168 +131,53 @@
                         </div>
 
                         {{-- CONTACT DETAILS --}}
-                        <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                            <div class="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-3">
-                                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-gray-200">
+                        <div
+                            class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                            x-data="{ onlinePlatform: @js((string) old('app_used', '')) }"
+                        >
+                            <div class="flex items-center gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200">
                                     <i data-lucide="id-card" class="h-4 w-4"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-900">Supplier details</p>
+                                    <p class="text-sm font-semibold text-slate-900">Supplier details</p>
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
-                                <div class="sm:col-span-2" style="order: 0">
+                                <div class="sm:col-span-2">
                                     @include('purchaser.suppliers._logo-field', [
                                         'inputId' => 'add-supplier-logo',
                                     ])
                                 </div>
 
-                                <div class="sm:col-span-2" style="order: 1">
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">
-                                        Company / Shop Name <span class="text-red-500">*</span>
+                                <div :class="supplierType === 'Online Store' ? '' : 'sm:col-span-2'">
+                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                                        <span x-text="supplierType === 'Online Store' ? 'Shop / Store Name' : 'Company Name'">Company Name</span>
+                                        <span style="color:#dc2626;">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         name="supplier_name"
                                         value="{{ old('supplier_name', old('company_name', old('shop_name'))) }}"
                                         required
+                                        autocomplete="off"
                                         maxlength="{{ \App\Support\InputLimits::NAME }}"
-                                        placeholder="Enter supplier name"
-                                        class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
+                                        :placeholder="supplierType === 'Online Store' ? 'e.g. Octagon Official Store' : 'e.g. Wilcon Depot Ormoc'"
+                                        class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
                                     >
                                 </div>
 
-                                <div class="sm:col-span-2" style="order: 2">
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Check Name</label>
-                                    <input
-                                        type="text"
-                                        name="supplier_check_name"
-                                        value="{{ old('supplier_check_name') }}"
-                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
-                                        placeholder="e.g. Wilcon Depot Ormoc for Computer"
-                                        class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                                    >
-                                    <p class="mt-1 text-[11px] text-slate-400">Printed as the Payee on Direct Payment and Cash Installment. Leave blank to use the supplier name.</p>
-                                </div>
-
-                                <div style="order: 3">
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Contact Person</label>
-                                    <input
-                                        type="text"
-                                        name="contact_person"
-                                        value="{{ old('contact_person') }}"
-                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
-                                        placeholder="Enter contact person"
-                                        class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                                    >
-                                </div>
-
-                                <div
-                                    x-bind:style="supplierType === 'Physical Store' ? 'order: 3' : 'order: 5'"
-                                    x-bind:class="supplierType === 'Online Store' ? 'sm:col-span-2' : ''"
-                                >
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Email Address</label>
-                                    <input
-                                        type="email"
-                                        name="email_address"
-                                        value="{{ old('email_address') }}"
-                                        maxlength="{{ \App\Support\InputLimits::EMAIL }}"
-                                        placeholder="name@example.com"
-                                        class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                                    >
-                                </div>
-
-                                <div
-                                    x-bind:style="supplierType === 'Physical Store' ? 'order: 4' : 'order: 3'"
-                                >
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Contact Number</label>
-                                    @include('partials.phone-input', [
-                                        'name' => 'contact_number',
-                                        'value' => old('contact_number'),
-                                        'id' => 'supplier-contact-number',
-                                    ])
-                                </div>
-
-                                <template x-if="supplierType === 'Physical Store'">
-                                    <div
-                                        style="order: 5"
-                                        x-init="$nextTick(() => { const el = document.getElementById('supplier-landline-number'); if (el && window.initPrismLandlineInput) window.initPrismLandlineInput(el); window.lucide && window.lucide.createIcons(); })"
-                                    >
-                                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Landline Number</label>
-                                        @include('partials.landline-input', [
-                                            'name' => 'landline_number',
-                                            'value' => old('landline_number'),
-                                            'id' => 'supplier-landline-number',
-                                            'placeholder' => '(0XX) XXX-XXXX',
-                                        ])
-                                    </div>
-                                </template>
-
-                                <div class="sm:col-span-2" style="order: 6">
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Operating Hours</label>
-                                    <input
-                                        type="text"
-                                        name="operating_hours"
-                                        value="{{ old('operating_hours') }}"
-                                        placeholder="e.g. Mon-Fri 9:00 AM - 6:00 PM"
-                                        maxlength="255"
-                                        class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                                    >
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- PHYSICAL LOCATION --}}
-                        <template x-if="supplierType === 'Physical Store'">
-                            <div
-                                class="overflow-hidden rounded-2xl border border-gray-200 bg-white"
-                                x-init="$nextTick(() => window.lucide && window.lucide.createIcons())"
-                            >
-                                <div class="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-3">
-                                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-gray-200">
-                                        <i data-lucide="map-pin" class="h-4 w-4"></i>
-                                    </div>
+                                <template x-if="supplierType === 'Online Store'">
                                     <div>
-                                        <p class="text-sm font-semibold text-gray-900">Physical location</p>
-                                    </div>
-                                </div>
-                                <div class="p-4">
-                                    <label class="mb-1.5 block text-xs font-medium text-gray-600">Company Address</label>
-                                    <textarea
-                                        name="company_address"
-                                        rows="3"
-                                        maxlength="{{ \App\Support\InputLimits::NOTES }}"
-                                        placeholder="Street, barangay, city..."
-                                        class="box-border w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
-                                    >{{ old('company_address') }}</textarea>
-                                </div>
-                            </div>
-                        </template>
-
-                        {{-- ONLINE INFORMATION --}}
-                        <template x-if="supplierType === 'Online Store'">
-                            <div
-                                class="overflow-hidden rounded-2xl border border-gray-200 bg-white"
-                                x-init="$nextTick(() => window.lucide && window.lucide.createIcons())"
-                            >
-                                <div class="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-3">
-                                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-gray-200">
-                                        <i data-lucide="shopping-bag" class="h-4 w-4"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm font-semibold text-gray-900">Online platform</p>
-                                    </div>
-                                </div>
-                                <div class="space-y-4 p-4">
-                                    <div>
-                                        <label class="mb-1.5 block text-xs font-medium text-gray-600">
-                                            Primary Platform <span class="text-red-500">*</span>
+                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                                            Primary Platform <span style="color:#dc2626;">*</span>
                                         </label>
                                         <select
                                             name="app_used"
+                                            x-model="onlinePlatform"
                                             required
-                                            class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition focus:border-gray-300 focus:bg-white"
+                                            class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0025cc]"
                                         >
                                             <option value="">Select platform</option>
                                             @foreach(['Shopee', 'Lazada', 'Facebook', 'TikTok Shop', 'Website', 'Other'] as $platform)
@@ -302,26 +187,218 @@
                                             @endforeach
                                         </select>
                                     </div>
+                                </template>
+
+                                <div class="sm:col-span-2">
+                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                                        Payee / Check Name <span class="font-normal text-slate-400">(optional)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="supplier_check_name"
+                                        value="{{ old('supplier_check_name') }}"
+                                        autocomplete="off"
+                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
+                                        :placeholder="supplierType === 'Online Store' ? 'e.g. Octagon Computer Superstore' : 'e.g. Wilcon Depot, Inc.'"
+                                        class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
+                                    >
+                                </div>
+
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">Contact Person</label>
+                                    <input
+                                        type="text"
+                                        name="contact_person"
+                                        value="{{ old('contact_person') }}"
+                                        autocomplete="off"
+                                        maxlength="{{ \App\Support\InputLimits::NAME }}"
+                                        placeholder="e.g. Juan Dela Cruz"
+                                        class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
+                                    >
+                                </div>
+
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">Email Address</label>
+                                    <input
+                                        type="email"
+                                        name="email_address"
+                                        value="{{ old('email_address') }}"
+                                        autocomplete="off"
+                                        maxlength="{{ \App\Support\InputLimits::EMAIL }}"
+                                        placeholder="name@example.com"
+                                        class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
+                                    >
+                                </div>
+
+                                <div :class="supplierType === 'Online Store' ? 'sm:col-span-2' : ''">
+                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">Mobile / Contact Number</label>
+                                    @include('partials.phone-input', [
+                                        'name' => 'contact_number',
+                                        'value' => old('contact_number'),
+                                        'id' => 'supplier-contact-number',
+                                    ])
+                                </div>
+
+                                <template x-if="supplierType === 'Physical Store'">
+                                    <div
+                                        x-init="$nextTick(() => { const el = document.getElementById('supplier-landline-number'); if (el && window.initPrismLandlineInput) window.initPrismLandlineInput(el); window.lucide && window.lucide.createIcons(); })"
+                                    >
+                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Landline Number</label>
+                                        @include('partials.landline-input', [
+                                            'name' => 'landline_number',
+                                            'value' => old('landline_number'),
+                                            'id' => 'supplier-landline-number',
+                                            'placeholder' => '(0XX) XXX-XXXX',
+                                        ])
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- PHYSICAL LOCATION & HOURS --}}
+                        <template x-if="supplierType === 'Physical Store'">
+                            <div
+                                class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                                x-init="$nextTick(() => window.lucide && window.lucide.createIcons())"
+                            >
+                                <div class="flex items-center gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200">
+                                        <i data-lucide="map-pin" class="h-4 w-4"></i>
+                                    </div>
                                     <div>
-                                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Store URL</label>
+                                        <p class="text-sm font-semibold text-slate-900">Physical location &amp; hours</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-4 p-4">
+                                    <div>
+                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Company Address</label>
+                                        <textarea
+                                            name="company_address"
+                                            rows="2"
+                                            autocomplete="off"
+                                            maxlength="{{ \App\Support\InputLimits::NOTES }}"
+                                            placeholder="Street, barangay, city..."
+                                            class="box-border w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
+                                        >{{ old('company_address') }}</textarea>
+                                    </div>
+                                    <div
+                                        x-data="{
+                                            days: '',
+                                            openTime: '',
+                                            closeTime: '',
+                                            fmtTime(val) {
+                                                if (!val || !val.includes(':')) return '';
+                                                const parts = val.split(':');
+                                                let h = parseInt(parts[0], 10);
+                                                const m = parts[1];
+                                                if (isNaN(h)) return '';
+                                                const ap = h >= 12 ? 'PM' : 'AM';
+                                                h = h % 12 || 12;
+                                                return h + ':' + m + ' ' + ap;
+                                            },
+                                            formatted() {
+                                                const open = this.fmtTime(this.openTime);
+                                                const close = this.fmtTime(this.closeTime);
+                                                const timePart = (open && close) ? (open + ' – ' + close) : (open || close);
+                                                if (this.days && timePart) return this.days + ', ' + timePart;
+                                                return this.days || timePart || '';
+                                            },
+                                            clearHours() {
+                                                this.days = '';
+                                                this.openTime = '';
+                                                this.closeTime = '';
+                                            }
+                                        }"
+                                    >
+                                        <div class="mb-1.5 flex items-center justify-between gap-2">
+                                            <label class="block text-xs font-medium text-slate-600">
+                                                Operating Hours <span class="font-normal text-slate-400">(optional)</span>
+                                            </label>
+                                            <button
+                                                type="button"
+                                                x-show="days || openTime || closeTime"
+                                                @click="clearHours()"
+                                                class="text-[11px] font-semibold text-slate-400 transition hover:text-rose-600"
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                        <input type="hidden" name="operating_hours" :value="formatted()">
+                                        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                                            <select
+                                                x-model="days"
+                                                class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0025cc]"
+                                            >
+                                                <option value="">Days (e.g. Mon–Sat)</option>
+                                                <option value="Mon–Fri">Mon–Fri</option>
+                                                <option value="Mon–Sat">Mon–Sat</option>
+                                                <option value="Daily (Mon–Sun)">Daily (Mon–Sun)</option>
+                                                <option value="Tue–Sun">Tue–Sun</option>
+                                            </select>
+                                            <div class="relative">
+                                                <input
+                                                    type="time"
+                                                    x-model="openTime"
+                                                    aria-label="Opening time"
+                                                    title="Opening time"
+                                                    class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0025cc]"
+                                                >
+                                            </div>
+                                            <div class="relative">
+                                                <input
+                                                    type="time"
+                                                    x-model="closeTime"
+                                                    aria-label="Closing time"
+                                                    title="Closing time"
+                                                    class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0025cc]"
+                                                >
+                                            </div>
+                                        </div>
+                                        <p x-show="formatted()" x-cloak class="mt-1.5 text-[11px] font-medium text-slate-500">
+                                            Saved as: <span class="font-semibold text-slate-700" x-text="formatted()"></span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- ONLINE INFORMATION --}}
+                        <template x-if="supplierType === 'Online Store'">
+                            <div
+                                class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                                x-init="$nextTick(() => window.lucide && window.lucide.createIcons())"
+                            >
+                                <div class="flex items-center gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200">
+                                        <i data-lucide="shopping-bag" class="h-4 w-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold text-slate-900">Store link &amp; ID <span class="font-normal text-xs text-slate-400">(optional)</span></p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
+                                    <div>
+                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Store URL</label>
                                         <input
-                                            type="text"
+                                            type="url"
                                             name="store_url"
                                             value="{{ old('store_url') }}"
-                                            maxlength="{{ \App\Support\InputLimits::NAME }}"
+                                            autocomplete="off"
+                                            maxlength="500"
                                             placeholder="https://shopee.ph/shop/..."
-                                            class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
+                                            class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
                                         >
                                     </div>
                                     <div>
-                                        <label class="mb-1.5 block text-xs font-medium text-gray-600">Seller / Store ID</label>
+                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Seller / Store ID</label>
                                         <input
                                             type="text"
                                             name="seller_id"
                                             value="{{ old('seller_id') }}"
-                                            maxlength="{{ \App\Support\InputLimits::SHORT }}"
+                                            autocomplete="off"
+                                            maxlength="100"
                                             placeholder="Platform seller or store ID"
-                                            class="box-border h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
+                                            class="box-border h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0025cc]"
                                         >
                                     </div>
                                 </div>

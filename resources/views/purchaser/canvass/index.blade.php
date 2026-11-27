@@ -28,10 +28,65 @@
             this.risModal.printUrl = '';
         },
         printRisSheet() {
-            if (this.risModal.printUrl) {
-                const sep = this.risModal.printUrl.includes('?') ? '&' : '?';
-                window.open(this.risModal.printUrl + sep + 'auto=1', '_blank', 'noopener');
+            const body = document.getElementById('canvassRisModalBody');
+            if (!body) {
+                window.print();
+                return;
             }
+            const atpPane = body.querySelector('[data-canvass-doc-pane=\'atp\']');
+            const isAtp = Boolean(atpPane && !atpPane.classList.contains('hidden'));
+            let targetEl = null;
+            if (isAtp) {
+                const activeAtpWrap = atpPane.querySelector('[data-canvass-atp-sheet]:not(.hidden)')
+                    || atpPane.querySelector('[data-canvass-atp-sheet]');
+                targetEl = activeAtpWrap
+                    ? (activeAtpWrap.querySelector('.atp-print-sheet') || activeAtpWrap.firstElementChild || activeAtpWrap)
+                    : null;
+            } else {
+                const risPane = body.querySelector('[data-canvass-doc-pane=\'ris\']') || body;
+                targetEl = risPane.querySelector('.ris-original-form, .ris-document') || risPane.firstElementChild || risPane;
+            }
+            if (!targetEl) {
+                window.print();
+                return;
+            }
+
+            const existing = document.getElementById('purchaser-print-mount');
+            if (existing) existing.remove();
+            const oldPageStyle = document.getElementById('canvass-dynamic-print-page');
+            if (oldPageStyle) oldPageStyle.remove();
+
+            const pageStyle = document.createElement('style');
+            pageStyle.id = 'canvass-dynamic-print-page';
+            pageStyle.textContent = isAtp
+                ? '@media print { @page { size: A4 portrait; margin: 8mm; } #purchaser-print-mount { width: 100% !important; max-width: none !important; } #purchaser-print-mount .canvass-dyn-print { width: 100% !important; max-width: 100% !important; margin: 0 !important; box-shadow: none !important; } }'
+                : '@media print { @page { size: A4 landscape; margin: 8mm; } #purchaser-print-mount { width: 100% !important; max-width: none !important; } #purchaser-print-mount .canvass-dyn-print, #purchaser-print-mount .canvass-dyn-print .ris-original-form, #purchaser-print-mount .canvass-dyn-print .ris-document { width: 100% !important; max-width: 100% !important; min-height: 0 !important; height: auto !important; zoom: 1 !important; transform: none !important; margin: 0 !important; box-shadow: none !important; } #purchaser-print-mount .ris-items-table tfoot { display: table-row-group !important; } }';
+            document.head.appendChild(pageStyle);
+
+            const mount = document.createElement('div');
+            mount.id = 'purchaser-print-mount';
+            mount.setAttribute('aria-hidden', 'true');
+            mount.className = 'purchaser-print-mount';
+
+            const holder = document.createElement('div');
+            holder.className = 'purchaser-print-sheet canvass-dyn-print';
+            const clone = targetEl.cloneNode(true);
+            clone.removeAttribute('id');
+            holder.appendChild(clone);
+            mount.appendChild(holder);
+            document.body.appendChild(mount);
+
+            let cleaned = false;
+            const cleanup = () => {
+                if (cleaned) return;
+                cleaned = true;
+                if (mount.parentNode) mount.parentNode.removeChild(mount);
+                if (pageStyle.parentNode) pageStyle.parentNode.removeChild(pageStyle);
+                window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            window.print();
+            window.setTimeout(cleanup, 1500);
         }
     }"
 >
@@ -241,17 +296,32 @@
                                             </span>
                                         @endif
 
-                                        <form method="POST" action="{{ route($routePrefix.'.canvass.archive', $row->canvass_id) }}" class="inline">
-                                            @csrf
-                                            <button
-                                                type="submit"
-                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                                                title="Archive canvass"
-                                                onclick="return confirm('Archive this canvass?')"
-                                            >
-                                                <i data-lucide="archive" class="h-3.5 w-3.5"></i>
-                                            </button>
-                                        </form>
+                                        @php
+                                            $canArchiveCanvass = in_array(
+                                                (string) ($row->canvass_status ?? ''),
+                                                [
+                                                    \App\Support\CanvassWorkflow::STATUS_APPROVED,
+                                                    \App\Support\CanvassWorkflow::STATUS_APPROVED_SCHOOL_ADMIN,
+                                                    \App\Support\CanvassWorkflow::STATUS_APPROVED_PRESIDENT,
+                                                    \App\Support\CanvassWorkflow::STATUS_CONVERTED,
+                                                ],
+                                                true
+                                            );
+                                        @endphp
+                                        @if ($canArchiveCanvass)
+                                            <form method="POST" action="{{ route($routePrefix.'.canvass.archive', $row->canvass_id) }}" class="inline">
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition hover:opacity-90"
+                                                    style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;"
+                                                    title="Archive canvass"
+                                                    onclick="return confirm('Archive this canvass?')"
+                                                >
+                                                    <i data-lucide="archive" class="h-3.5 w-3.5"></i>
+                                                </button>
+                                            </form>
+                                        @endif
                                     @else
                                         <form method="POST" action="{{ route($routePrefix.'.canvass.restore', $row->canvass_id) }}" class="inline">
                                             @csrf
@@ -276,7 +346,7 @@
                                     {{ $archiveView ? 'No archived canvasses' : 'No purchase canvasses yet' }}
                                 </p>
                                 <p class="mt-1 text-xs text-slate-500">
-                                    Create a canvass to compare 2–3 suppliers and up to 10 brand offers per item before generating an RIS.
+                                    Create a canvass to compare 2–3 suppliers and up to 5 brand offers per supplier before generating an RIS.
                                 </p>
                                 @unless ($archiveView)
                                     <a
@@ -453,7 +523,7 @@
                         <button
                             type="button"
                             @click="printRisSheet()"
-                            title="Print RIS"
+                            title="Print current document"
                             class="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white transition hover:opacity-90"
                             style="background:#0025cc;color:#ffffff;"
                         >
@@ -474,7 +544,7 @@
                     </div>
                 </div>
                 <div class="flex-1 overflow-y-auto bg-gray-100 p-4 md:p-6">
-                    <div x-html="risModal.inlineHtml"></div>
+                    <div id="canvassRisModalBody" x-html="risModal.inlineHtml"></div>
                 </div>
             </div>
         </div>

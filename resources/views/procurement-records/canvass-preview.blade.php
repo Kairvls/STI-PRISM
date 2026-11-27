@@ -64,6 +64,8 @@
                 'qty' => $qty,
                 'uom' => $uom,
                 'status' => $status,
+                'isSoleSource' => !empty($it->canvass_item_is_sole_source),
+                'soleSourceReason' => trim((string) ($it->canvass_item_sole_source_reason ?? '')),
                 'reviewNote' => trim((string) ($it->canvass_item_review_note ?? '')),
                 'allocatedUnits' => $allocatedUnits,
                 'estimatedTotal' => round($estimatedTotal, 2),
@@ -167,8 +169,13 @@
                     <div data-cvs-panel="{{ $idx }}" style="{{ $idx === 0 ? '' : 'display:none;' }}">
                         {{-- Item Header Row --}}
                         <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-1 pb-4">
-                            <div class="text-[15px] font-bold text-slate-900">
-                                Item {{ $idx + 1 }}: {{ $it['name'] }}
+                            <div class="flex flex-wrap items-center gap-2 text-[15px] font-bold text-slate-900">
+                                <span>Item {{ $idx + 1 }}: {{ $it['name'] }}</span>
+                                @if(!empty($it['isSoleSource']))
+                                    <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide" style="background:#fffbeb;border-color:#fde68a;color:#b45309;">
+                                        Sole Source
+                                    </span>
+                                @endif
                             </div>
                             <div class="flex flex-wrap items-center gap-3 text-xs">
                                 <span class="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -183,6 +190,13 @@
                                 @endif
                             </div>
                         </div>
+
+                        @if(!empty($it['isSoleSource']) && !empty($it['soleSourceReason']))
+                            <div class="mx-6 mb-4 rounded-xl border px-4 py-2.5 text-xs" style="border-color:#fde68a;background:#fffbeb;color:#92400e;">
+                                <span class="font-bold">Sole Source justification:</span>
+                                <span>{{ $it['soleSourceReason'] }}</span>
+                            </div>
+                        @endif
 
                         {{-- Quotations Table --}}
                         <div class="overflow-x-auto">

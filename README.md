@@ -378,3 +378,5 @@ Question	Correct Real-World Decision	Already in STI-PRISM?
 4. What happens when the supplier delivers the remaining 7?	Purchaser records the replacement delivery on Back Orders → adds a replacement line to the same RR → Receiving Officer performs Second Count on only the new unverified line(s) → those newly verified good units (+7) immediately appear in Add to Inventory (no double-counting of the original 3) → RR flips to Completed.
 
 in the entire system can you make all the loads to not use loads insead we make it shows directly (specially on switching sidebar modules)
+
+Most suppliers only quote 1–3 brands for a single item (e.g., budget, mid-range, and premium options, or piece vs. box pricing).

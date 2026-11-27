@@ -194,6 +194,8 @@
                                 'qty' => max(1, (int) $it->canvass_item_quantity),
                                 'uom' => (string) ($it->uom_name ?: 'Pc'),
                                 'status' => (string) $it->canvass_item_status,
+                                'isSoleSource' => !empty($it->canvass_item_is_sole_source),
+                                'soleSourceReason' => trim((string) ($it->canvass_item_sole_source_reason ?? '')),
                                 'reviewNote' => (string) ($it->canvass_item_review_note ?? ''),
                                 'offers' => $it->comparison_offers->map(fn ($o) => [
                                     'id' => (int) $o->canvass_offer_id,
@@ -610,8 +612,13 @@
                                                                 {{-- Item Header Row --}}
                                                                 <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-1 pb-4">
                                                                     <div>
-                                                                        <div class="text-[15px] font-bold text-slate-900">
+                                                                        <div class="flex flex-wrap items-center gap-2 text-[15px] font-bold text-slate-900">
                                                                             <span x-text="'Item ' + (activeItemIdx + 1) + ': ' + currentItem().name"></span>
+                                                                            <span
+                                                                                x-show="currentItem().isSoleSource"
+                                                                                class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                                                                                style="background:#fffbeb;border-color:#fde68a;color:#b45309;"
+                                                                            >Sole Source</span>
                                                                         </div>
                                                                     </div>
                                                                     <div class="flex flex-wrap items-center gap-3 text-xs">
@@ -685,6 +692,14 @@
                                                                         </div>
                                                                     </div>
                                                                 </div>
+
+                                                                {{-- Sole Source Justification Banner --}}
+                                                                <template x-if="currentItem().isSoleSource && currentItem().soleSourceReason">
+                                                                    <div class="mx-6 mb-4 rounded-xl border px-4 py-2.5 text-xs" style="border-color:#fde68a;background:#fffbeb;color:#92400e;">
+                                                                        <span class="font-bold">Sole Source justification:</span>
+                                                                        <span x-text="currentItem().soleSourceReason"></span>
+                                                                    </div>
+                                                                </template>
 
                                                                 {{-- Quotations Table --}}
                                                                 <div class="overflow-x-auto">

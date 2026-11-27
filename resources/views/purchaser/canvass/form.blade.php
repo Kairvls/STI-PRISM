@@ -191,52 +191,223 @@
             </div>
         </div>
 
-        <div class="flex items-center justify-end">
-            <button
-                type="button"
-                @click="addItem()"
-                :disabled="items.length >= 30"
-                class="inline-flex items-center gap-1.5 rounded-xl border border-[#0025cc] bg-white px-4 py-2 text-xs font-semibold text-[#0025cc] shadow-sm transition hover:!bg-[#0025cc] hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
+        {{-- ITEM SWITCHER (pills for 1-5 items, compact dropdown navigator for 6+ items) + ADD ITEM --}}
+        <div class="flex flex-wrap items-center justify-between gap-2.5">
+            {{-- Pills mode (1–5 items) --}}
+            <div x-show="items.length <= 5" class="flex flex-wrap items-center gap-2">
+                <template x-for="(itTab, tIdx) in items" :key="'item-tab-' + itTab._uid">
+                    <button
+                        type="button"
+                        @click="activeItemIdx = tIdx"
+                        class="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold shadow-xs transition"
+                        :style="activeItemIdx === tIdx
+                            ? 'border-color:#0025cc;background:#eff6ff;color:#0025cc;'
+                            : 'border-color:#e2e8f0;background:#ffffff;color:#475569;'"
+                    >
+                        <span
+                            class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                            :style="isItemReady(itTab)
+                                ? 'background:#16a34a;color:#ffffff;'
+                                : (activeItemIdx === tIdx
+                                    ? 'background:#dbeafe;color:#0025cc;'
+                                    : 'background:#f1f5f9;color:#64748b;')"
+                            x-text="isItemReady(itTab) ? '✓' : (tIdx + 1)"
+                        ></span>
+                        <span
+                            class="max-w-[160px] truncate"
+                            x-text="itemDisplayName(itTab) ? ('Item ' + (tIdx + 1) + ' · ' + itemDisplayName(itTab)) : ('Item ' + (tIdx + 1))"
+                        ></span>
+                        <span
+                            x-show="itTab.is_sole_source"
+                            class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                            style="background:#fef3c7;color:#92400e;"
+                        >Sole</span>
+                    </button>
+                </template>
+            </div>
+
+            {{-- Compact Dropdown Navigator mode (6+ items) --}}
+            <div
+                x-show="items.length > 5"
+                x-cloak
+                class="flex flex-wrap items-center gap-2"
+                x-data="{ navOpen: false }"
+                @click.outside="navOpen = false"
+                @keydown.escape.window="navOpen = false"
             >
-                <span>+ Add another item</span>
-            </button>
+                <button
+                    type="button"
+                    @click="if (activeItemIdx > 0) activeItemIdx--"
+                    :disabled="activeItemIdx === 0"
+                    title="Previous item"
+                    aria-label="Previous item"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-xs transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                </button>
+
+                <div class="relative">
+                    <button
+                        type="button"
+                        @click="navOpen = !navOpen"
+                        class="inline-flex h-9 min-w-[220px] max-w-[320px] items-center justify-between gap-2.5 rounded-xl border bg-white px-3.5 text-xs font-semibold shadow-xs transition"
+                        style="border-color:#0025cc;color:#0f172a;"
+                    >
+                        <span class="flex min-w-0 items-center gap-2">
+                            <span
+                                class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                                :style="items[activeItemIdx] && isItemReady(items[activeItemIdx])
+                                    ? 'background:#16a34a;color:#ffffff;'
+                                    : 'background:#dbeafe;color:#0025cc;'"
+                                x-text="items[activeItemIdx] && isItemReady(items[activeItemIdx]) ? '✓' : (activeItemIdx + 1)"
+                            ></span>
+                            <span
+                                class="truncate"
+                                x-text="(items[activeItemIdx] && itemDisplayName(items[activeItemIdx]))
+                                    ? ('Item ' + (activeItemIdx + 1) + ' · ' + itemDisplayName(items[activeItemIdx]))
+                                    : ('Item ' + (activeItemIdx + 1))"
+                            ></span>
+                        </span>
+                        <span class="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                            <span x-text="(activeItemIdx + 1) + ' / ' + items.length"></span>
+                            <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                        </span>
+                    </button>
+
+                    <div
+                        x-show="navOpen"
+                        x-cloak
+                        class="absolute left-0 z-40 mt-1.5 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+                    >
+                        <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3.5 py-2 text-[11px] font-bold text-slate-600">
+                            <span>Jump to item</span>
+                            <span x-text="items.filter(it => isItemReady(it)).length + ' / ' + items.length + ' ready'"></span>
+                        </div>
+                        <div class="max-h-64 overflow-y-auto py-1">
+                            <template x-for="(itOpt, oIdx) in items" :key="'item-opt-' + itOpt._uid">
+                                <button
+                                    type="button"
+                                    @click="activeItemIdx = oIdx; navOpen = false"
+                                    class="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left text-xs transition hover:bg-blue-50"
+                                    :style="activeItemIdx === oIdx ? 'background:#eff6ff;color:#0025cc;font-weight:700;' : 'color:#334155;'"
+                                >
+                                    <span class="flex min-w-0 items-center gap-2">
+                                        <span
+                                            class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                                            :style="isItemReady(itOpt)
+                                                ? 'background:#16a34a;color:#ffffff;'
+                                                : (activeItemIdx === oIdx ? 'background:#dbeafe;color:#0025cc;' : 'background:#f1f5f9;color:#64748b;')"
+                                            x-text="isItemReady(itOpt) ? '✓' : (oIdx + 1)"
+                                        ></span>
+                                        <span
+                                            class="truncate"
+                                            x-text="itemDisplayName(itOpt) ? ('Item ' + (oIdx + 1) + ' · ' + itemDisplayName(itOpt)) : ('Item ' + (oIdx + 1))"
+                                        ></span>
+                                    </span>
+                                    <span class="flex shrink-0 items-center gap-1">
+                                        <span
+                                            x-show="itOpt.is_sole_source"
+                                            class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                                            style="background:#fef3c7;color:#92400e;"
+                                        >Sole</span>
+                                        <span x-show="activeItemIdx === oIdx" class="text-xs text-blue-600">✓</span>
+                                    </span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    @click="if (activeItemIdx < items.length - 1) activeItemIdx++"
+                    :disabled="activeItemIdx >= items.length - 1"
+                    title="Next item"
+                    aria-label="Next item"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-xs transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                </button>
+
+                <span
+                    class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+                    x-text="items.filter(it => isItemReady(it)).length + ' / ' + items.length + ' ready'"
+                ></span>
+            </div>
+
+            <div class="flex shrink-0 items-center gap-2">
+                <button
+                    type="button"
+                    x-show="items.length > 1"
+                    @click="removeItem(activeItemIdx)"
+                    class="inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold shadow-xs transition hover:!border-[#dc2626] hover:!bg-[#dc2626] hover:!text-white"
+                    style="background:#fef2f2;border-color:#fecaca;color:#dc2626;"
+                    title="Remove the current item"
+                >
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                    </svg>
+                    <span>Remove item</span>
+                </button>
+                <button
+                    type="button"
+                    @click="addItem()"
+                    :disabled="items.length >= 30"
+                    class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#0025cc] bg-white px-4 py-2 text-xs font-semibold text-[#0025cc] shadow-sm transition hover:!bg-[#0025cc] hover:!text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    <span>+ Add another item</span>
+                </button>
+            </div>
         </div>
 
-        {{-- ITEM CARDS --}}
+        {{-- ITEM CARDS (one active card visible at a time; all stay in DOM for submit) --}}
         <template x-for="(item, iIdx) in items" :key="item._uid">
-            <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                {{-- Blue Item Header Bar (matches Image 1) --}}
-                <div class="flex items-center justify-between rounded-t-2xl bg-[#0d6efd] px-5 py-3 text-white">
+            <div
+                x-show="activeItemIdx === iIdx"
+                :id="'canvass-item-' + item._uid"
+                class="rounded-2xl border border-slate-200 bg-white shadow-sm"
+            >
+                {{-- Clean Light Slate Item Header Bar --}}
+                <div class="flex items-center justify-between rounded-t-2xl border-b border-slate-200/80 bg-slate-50/90 px-5 py-3.5 text-slate-900">
                     <div class="flex flex-wrap items-center gap-2.5">
-                        <span class="text-sm font-semibold" x-text="'Item ' + (iIdx + 1)"></span>
+                        <span class="h-4 w-1 shrink-0 rounded-full" style="background:#0025cc;"></span>
+                        <span class="text-sm font-bold text-slate-900" x-text="'Item ' + (iIdx + 1)"></span>
                         <span
                             x-show="itemDisplayName(item)"
-                            class="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium"
+                            class="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-semibold text-slate-700"
                             x-text="itemDisplayName(item)"
                         ></span>
                         <span
-                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                            :style="isItemReady(item) ? 'background:#16a34a;color:#fff;' : 'background:rgba(255,255,255,0.18);color:#fff;'"
-                            x-text="isItemReady(item) ? '✓ Ready' : (validSupplierCount(item) + ' / ' + item.suppliers.length + ' suppliers ready')"
+                            x-show="item.is_sole_source"
+                            class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                            style="background:#fffbeb;border-color:#fde68a;color:#b45309;"
+                        >Sole Source</span>
+                        <span
+                            class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                            :style="isItemReady(item)
+                                ? 'background:#ecfdf5;border-color:#a7f3d0;color:#047857;'
+                                : 'background:#ffffff;border-color:#e2e8f0;color:#64748b;'"
+                            x-text="isItemReady(item) ? '✓ Ready' : (validSupplierCount(item) + ' / ' + (item.is_sole_source ? 1 : item.suppliers.length) + ' supplier' + (item.is_sole_source ? '' : 's') + ' ready')"
                         ></span>
                     </div>
                     <div class="flex items-center gap-2">
                         <button
                             type="button"
                             @click="item.collapsed = !item.collapsed"
-                            class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/15"
+                            class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-800"
                             :title="item.collapsed ? 'Expand item' : 'Collapse item'"
+                            :aria-label="item.collapsed ? 'Expand item' : 'Collapse item'"
                         >
-                            <span class="text-base font-bold leading-none" x-text="item.collapsed ? '+' : '−'"></span>
-                        </button>
-                        <button
-                            type="button"
-                            x-show="items.length > 1"
-                            @click="removeItem(iIdx)"
-                            class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/15"
-                            title="Remove item"
-                        >
-                            <span class="text-base font-bold leading-none">×</span>
+                            <svg
+                                class="h-4 w-4 transition-transform duration-150"
+                                :class="item.collapsed ? '' : 'rotate-180'"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2.3"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -253,7 +424,7 @@
                     {{-- STEP 1: REQUESTED ITEM --}}
                     <div>
                         <div class="mb-3 flex items-center gap-2.5">
-                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0d6efd] text-xs font-bold text-white">1</span>
+                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0025cc] text-xs font-bold text-white">1</span>
                             <h3 class="text-sm font-semibold text-slate-900">Requested item</h3>
                         </div>
 
@@ -265,7 +436,7 @@
                                 @click.outside="open = false"
                                 @keydown.escape.window="open = false"
                             >
-                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Item</label>
+                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Item <span style="color: #dc2626;">*</span></label>
                                 <input type="hidden" :name="`items[${iIdx}][item_id]`" :value="item.item_id">
                                 <input type="hidden" :name="`items[${iIdx}][item_name]`" :value="item.item_name">
                                 <button
@@ -296,12 +467,14 @@
                                         <template x-for="cat in filterList(itemsCatalog, q)" :key="cat.id">
                                             <button
                                                 type="button"
-                                                @click="item.item_id = cat.id; item.item_name = cat.name; open = false; q = ''"
-                                                class="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-blue-50"
+                                                :disabled="itemTakenInIndex(iIdx, cat.id) > 0"
+                                                @click="if (itemTakenInIndex(iIdx, cat.id) === 0) { item.item_id = cat.id; item.item_name = cat.name; open = false; q = ''; }"
+                                                class="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-45"
                                                 :class="String(item.item_id) === String(cat.id) ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-800'"
                                             >
                                                 <span class="truncate" x-text="cat.name"></span>
                                                 <span x-show="String(item.item_id) === String(cat.id)" class="text-xs text-blue-600">✓</span>
+                                                <span x-show="itemTakenInIndex(iIdx, cat.id) > 0" class="ml-2 shrink-0 text-[11px] font-medium text-slate-400" x-text="'In Item ' + itemTakenInIndex(iIdx, cat.id)"></span>
                                             </button>
                                         </template>
                                         <p x-show="filterList(itemsCatalog, q).length === 0" class="px-3.5 py-3 text-center text-xs text-slate-400">No matching items</p>
@@ -312,19 +485,22 @@
                                             <input
                                                 type="text"
                                                 x-model="newName"
-                                                @keydown.enter.prevent="quickAdd('item', newName, (r) => { item.item_id = r.id; item.item_name = r.name; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
+                                                @keydown.enter.prevent="if (!isExistingItemTaken(iIdx, newName)) quickAdd('item', newName, (r) => { item.item_id = r.id; item.item_name = r.name; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
                                                 placeholder="New item name"
                                                 class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500"
                                             >
                                             <button
                                                 type="button"
-                                                :disabled="busy || !newName.trim()"
-                                                @click="quickAdd('item', newName, (r) => { item.item_id = r.id; item.item_name = r.name; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
-                                                class="shrink-0 rounded-xl bg-[#0025cc] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#001db3] disabled:opacity-50"
+                                                :disabled="busy || !newName.trim() || isExistingItemTaken(iIdx, newName)"
+                                                @click="if (!isExistingItemTaken(iIdx, newName)) quickAdd('item', newName, (r) => { item.item_id = r.id; item.item_name = r.name; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
+                                                class="shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                                                :style="isExistingItemTaken(iIdx, newName) ? 'background:#94a3b8;' : (findExisting('item', newName) ? 'background:#d97706;' : 'background:#0025cc;')"
                                             >
-                                                <span x-text="busy ? '...' : 'Add'"></span>
+                                                <span x-text="busy ? '...' : (isExistingItemTaken(iIdx, newName) ? 'Already added' : (findExisting('item', newName) ? 'Use existing' : 'Add'))"></span>
                                             </button>
                                         </div>
+                                        <p x-show="isExistingItemTaken(iIdx, newName)" class="mt-1 text-[11px] font-medium" style="color:#dc2626;" x-text="'Already added in Item ' + existingItemTakenIndex(iIdx, newName) + '.'"></p>
+                                        <p x-show="!isExistingItemTaken(iIdx, newName) && findExisting('item', newName)" class="mt-1 text-[11px] font-medium" style="color:#b45309;">Already exists — click “Use existing” to select it.</p>
                                         <p x-show="err" x-text="err" class="mt-1 text-[11px] font-medium text-rose-600"></p>
                                     </div>
                                 </div>
@@ -337,7 +513,7 @@
                                 @click.outside="open = false"
                                 @keydown.escape.window="open = false"
                             >
-                                <label class="mb-1.5 block text-xs font-medium text-slate-600">UOM</label>
+                                <label class="mb-1.5 block text-xs font-medium text-slate-600">UOM <span style="color: #dc2626;">*</span></label>
                                 <input type="hidden" :name="`items[${iIdx}][uom_id]`" :value="item.uom_id">
                                 <button
                                     type="button"
@@ -391,18 +567,20 @@
                                                 type="button"
                                                 :disabled="busy || !newName.trim()"
                                                 @click="quickAdd('uom', newName, (r) => { item.uom_id = r.id; syncDefaultOfferUoms(item); newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
-                                                class="shrink-0 rounded-xl bg-[#0025cc] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#001db3] disabled:opacity-50"
+                                                class="shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50"
+                                                :style="findExisting('uom', newName) ? 'background:#d97706;' : 'background:#0025cc;'"
                                             >
-                                                <span x-text="busy ? '...' : 'Add'"></span>
+                                                <span x-text="busy ? '...' : (findExisting('uom', newName) ? 'Use existing' : 'Add')"></span>
                                             </button>
                                         </div>
+                                        <p x-show="findExisting('uom', newName)" class="mt-1 text-[11px] font-medium" style="color:#b45309;">Already exists — click “Use existing” to select it.</p>
                                         <p x-show="err" x-text="err" class="mt-1 text-[11px] font-medium text-rose-600"></p>
                                     </div>
                                 </div>
                             </div>
 
                             <div>
-                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Requested quantity</label>
+                                <label class="mb-1.5 block text-xs font-medium text-slate-600">Requested quantity <span style="color: #dc2626;">*</span></label>
                                 <input
                                     type="number"
                                     min="1"
@@ -417,30 +595,76 @@
                     </div>
 
                     {{-- STEP 2: SUPPLIER QUOTATIONS --}}
-                    <div>
-                        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div class="border-t border-slate-100 pt-5">
+                        <div class="mb-3.5 flex flex-wrap items-center justify-between gap-3">
                             <div class="flex items-start gap-2.5">
-                                <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0d6efd] text-xs font-bold text-white">2</span>
+                                <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0025cc] text-xs font-bold text-white">2</span>
                                 <div>
                                     <h3 class="text-sm font-semibold text-slate-900">Supplier quotations</h3>
-                                    <p class="text-xs text-slate-500">Add 2–3 suppliers. Each supplier can offer multiple brands.</p>
+                                    <p class="text-xs text-slate-500" x-text="item.is_sole_source ? 'Sole Source enabled — 1 supplier required with justification.' : 'Add 2–3 suppliers. Each supplier can offer multiple brands.'"></p>
                                 </div>
                             </div>
 
-                            <button
-                                type="button"
-                                @click="if (item.suppliers.length < 3) addSupplier(item)"
-                                :disabled="item.suppliers.length >= 3"
-                                :aria-disabled="item.suppliers.length >= 3"
-                                :title="item.suppliers.length >= 3 ? 'Maximum of 3 suppliers per item reached' : 'Add another supplier (up to 3)'"
-                                class="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
-                                :class="item.suppliers.length >= 3 ? 'cursor-not-allowed' : 'cursor-pointer hover:!bg-blue-50'"
-                                :style="item.suppliers.length >= 3
-                                    ? 'border-color:#e2e8f0;background:#f8fafc;color:#94a3b8;opacity:0.75;'
-                                    : 'border-color:#3b82f6;background:#ffffff;color:#2563eb;'"
-                            >
-                                <span>+ Add supplier</span>
-                            </button>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="hidden" :name="`items[${iIdx}][is_sole_source]`" :value="item.is_sole_source ? '1' : '0'">
+                                <label
+                                    class="inline-flex select-none items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
+                                    :class="canToggleSoleSource(item) ? 'cursor-pointer' : 'cursor-not-allowed'"
+                                    :style="!canToggleSoleSource(item)
+                                        ? 'border-color:#e2e8f0;background:#f8fafc;color:#94a3b8;opacity:0.7;'
+                                        : (item.is_sole_source
+                                            ? 'border-color:#f59e0b;background:#fffbeb;color:#b45309;'
+                                            : 'border-color:#cbd5e1;background:#ffffff;color:#475569;')"
+                                    :title="!canToggleSoleSource(item)
+                                        ? 'Disabled because more than 1 supplier is filled — clear or remove extra suppliers to use Sole Source'
+                                        : 'Allow 1 supplier for exclusive distributor / sole-source items (requires justification)'"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        x-model="item.is_sole_source"
+                                        :disabled="!canToggleSoleSource(item)"
+                                        @change="toggleSoleSource(item)"
+                                        class="h-3.5 w-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 disabled:cursor-not-allowed"
+                                    >
+                                    <span>Sole Source (1 supplier)</span>
+                                </label>
+
+                                <button
+                                    type="button"
+                                    @click="if (!item.is_sole_source && item.suppliers.length < 3) addSupplier(item)"
+                                    :disabled="item.is_sole_source || item.suppliers.length >= 3"
+                                    :aria-disabled="item.is_sole_source || item.suppliers.length >= 3"
+                                    :title="item.is_sole_source ? 'Disabled while Sole Source is enabled' : (item.suppliers.length >= 3 ? 'Maximum of 3 suppliers per item reached' : 'Add another supplier (up to 3)')"
+                                    class="inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
+                                    :class="(item.is_sole_source || item.suppliers.length >= 3) ? 'cursor-not-allowed' : 'cursor-pointer hover:!bg-[#0025cc] hover:!text-white'"
+                                    :style="(item.is_sole_source || item.suppliers.length >= 3)
+                                        ? 'border-color:#e2e8f0;background:#f8fafc;color:#94a3b8;opacity:0.75;'
+                                        : 'border-color:#0025cc;background:#ffffff;color:#0025cc;'"
+                                >
+                                    <span>+ Add supplier</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Sole Source Justification (required when Sole Source is enabled) --}}
+                        <div
+                            x-show="item.is_sole_source"
+                            x-cloak
+                            class="mb-3 rounded-xl border p-3.5"
+                            style="border-color:#fde68a;background:#fffbeb;"
+                        >
+                            <label class="mb-1.5 flex items-center justify-between text-xs font-bold" style="color:#92400e;">
+                                <span>Sole Source justification <span style="color:#dc2626;">*</span></span>
+                                <span class="font-normal text-[11px]" style="color:#b45309;">Shown to School Admin during review</span>
+                            </label>
+                            <textarea
+                                rows="2"
+                                :name="`items[${iIdx}][sole_source_reason]`"
+                                x-model="item.sole_source_reason"
+                                maxlength="1000"
+                                placeholder="Explain why only 1 supplier is available (e.g., exclusive distributor, proprietary brand/part, urgent local availability)..."
+                                class="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-amber-500"
+                            ></textarea>
                         </div>
 
                         {{-- Supplier Carousel Tabs with Completion Indicators --}}
@@ -471,33 +695,35 @@
                         <div class="space-y-4">
                             <template x-for="(sup, sIdx) in item.suppliers" :key="sup._uid">
                                 <div x-show="item.activeSupplierIdx === sIdx" class="rounded-xl border border-slate-200 bg-white p-4">
-                                    <div class="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                                        <span class="text-sm font-medium text-slate-800" x-text="'Supplier ' + (sIdx + 1)"></span>
+                                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400" x-text="'Supplier ' + (sIdx + 1)"></span>
                                         <button
                                             type="button"
-                                            x-show="item.suppliers.length > 2"
+                                            x-show="item.suppliers.length > (item.is_sole_source ? 1 : 2)"
                                             @click="removeSupplier(item, sIdx)"
-                                            class="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition hover:!border-[#dc2626] hover:!bg-[#dc2626] hover:!text-white"
+                                            class="inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-semibold transition hover:!border-[#dc2626] hover:!bg-[#dc2626] hover:!text-white"
                                             style="background: #fef2f2; border-color: #fecaca; color: #dc2626;"
                                         >
                                             Remove supplier
                                         </button>
                                     </div>
 
-                                    <div class="mb-4 flex flex-wrap items-center gap-3">
-                                        <label class="w-32 text-xs font-medium text-slate-700">Supplier name:</label>
+                                    <div class="mb-4">
                                         <div
-                                            class="relative w-full max-w-xs"
+                                            class="relative w-full max-w-sm"
                                             x-data="{ open: false, q: '' }"
                                             @click.outside="open = false"
                                             @keydown.escape.window="open = false"
                                         >
+                                            <label class="mb-1.5 block text-xs font-medium text-slate-600">
+                                                Supplier name <span style="color: #dc2626;">*</span>
+                                            </label>
                                             <input type="hidden" :name="`items[${iIdx}][suppliers][${sIdx}][supplier_id]`" :value="sup.supplier_id">
                                             <button
                                                 type="button"
                                                 @click="open = !open; if (open) $nextTick(() => $refs.supSearch?.focus())"
-                                                class="flex w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm outline-none transition focus:border-blue-500"
-                                                :class="sup.supplier_id ? 'text-slate-900' : 'text-slate-600'"
+                                                class="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm outline-none transition focus:border-blue-500"
+                                                :class="sup.supplier_id ? 'text-slate-900' : 'text-slate-400'"
                                             >
                                                 <span class="truncate" x-text="sup.supplier_id ? supplierName(sup.supplier_id) : 'Select supplier'"></span>
                                                 <svg class="ml-2 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
@@ -558,38 +784,38 @@
                                         </div>
                                     </div>
 
-                                    {{-- BRAND OFFERS (1..10) --}}
+                                    {{-- BRAND OFFERS --}}
                                     <div class="space-y-3">
                                         <template x-for="(offer, oIdx) in sup.offers" :key="offer._uid">
-                                            <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3.5">
-                                                <div class="mb-2 flex items-center justify-between">
-                                                    <span class="text-xs font-bold text-slate-800" x-text="'Brand offer ' + (oIdx + 1)"></span>
+                                            <div class="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
+                                                <div class="mb-3 flex items-center justify-between">
+                                                    <span class="text-xs font-bold text-slate-700" x-text="'Brand offer ' + (oIdx + 1)"></span>
                                                     <button
                                                         type="button"
                                                         x-show="sup.offers.length > 1"
                                                         @click="removeOffer(sup, oIdx)"
-                                                        class="text-xs font-medium hover:underline"
+                                                        class="text-xs font-semibold hover:underline"
                                                         style="color: #dc2626;"
                                                     >
                                                         Remove
                                                     </button>
                                                 </div>
 
-                                                <div class="flex flex-wrap items-end gap-3">
+                                                <div class="grid grid-cols-1 items-end gap-3 sm:grid-cols-12">
                                                     {{-- BRAND SEARCHABLE + QUICK-ADD DROPDOWN --}}
                                                     <div
-                                                        class="relative w-full sm:w-64"
+                                                        class="relative sm:col-span-5"
                                                         x-data="{ open: false, q: '', newName: '', busy: false, err: '' }"
                                                         @click.outside="open = false"
                                                         @keydown.escape.window="open = false"
                                                     >
-                                                        <label class="mb-1 block text-xs font-medium text-slate-700">Brand</label>
+                                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Brand <span style="color: #dc2626;">*</span></label>
                                                         <input type="hidden" :name="`items[${iIdx}][suppliers][${sIdx}][offers][${oIdx}][brand_id]`" :value="offer.brand_id">
                                                         <button
                                                             type="button"
                                                             @click="open = !open; if (open) $nextTick(() => $refs.brandSearch?.focus())"
-                                                            class="flex w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm outline-none transition focus:border-blue-500"
-                                                            :class="offer.brand_id ? 'text-slate-900' : 'text-slate-600'"
+                                                            class="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm outline-none transition focus:border-blue-500"
+                                                            :class="offer.brand_id ? 'text-slate-900' : 'text-slate-400'"
                                                         >
                                                             <span class="truncate" x-text="offer.brand_id ? brandName(offer.brand_id) : 'Select brand'"></span>
                                                             <svg class="ml-2 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
@@ -613,12 +839,14 @@
                                                                 <template x-for="b in filterList(brands, q)" :key="b.id">
                                                                     <button
                                                                         type="button"
-                                                                        @click="offer.brand_id = b.id; open = false; q = ''"
-                                                                        class="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-blue-50"
+                                                                        :disabled="brandTakenForOfferIndex(item, sup, oIdx, b.id) > 0"
+                                                                        @click="if (brandTakenForOfferIndex(item, sup, oIdx, b.id) === 0) { offer.brand_id = b.id; open = false; q = ''; }"
+                                                                        class="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-45"
                                                                         :class="String(offer.brand_id) === String(b.id) ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-800'"
                                                                     >
                                                                         <span class="truncate" x-text="b.name"></span>
                                                                         <span x-show="String(offer.brand_id) === String(b.id)" class="text-xs text-blue-600">✓</span>
+                                                                        <span x-show="brandTakenForOfferIndex(item, sup, oIdx, b.id) > 0" class="ml-2 shrink-0 text-[11px] font-medium text-slate-400" x-text="'In Offer ' + brandTakenForOfferIndex(item, sup, oIdx, b.id)"></span>
                                                                     </button>
                                                                 </template>
                                                                 <p x-show="filterList(brands, q).length === 0" class="px-3.5 py-3 text-center text-xs text-slate-400">No matching brands</p>
@@ -629,19 +857,22 @@
                                                                     <input
                                                                         type="text"
                                                                         x-model="newName"
-                                                                        @keydown.enter.prevent="quickAdd('brand', newName, (r) => { offer.brand_id = r.id; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
+                                                                        @keydown.enter.prevent="if (existingBrandTakenIndex(item, sup, oIdx, newName) === 0) quickAdd('brand', newName, (r) => { offer.brand_id = r.id; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
                                                                         placeholder="New brand name"
                                                                         class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500"
                                                                     >
                                                                     <button
                                                                         type="button"
-                                                                        :disabled="busy || !newName.trim()"
-                                                                        @click="quickAdd('brand', newName, (r) => { offer.brand_id = r.id; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
-                                                                        class="shrink-0 rounded-xl bg-[#0025cc] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#001db3] disabled:opacity-50"
+                                                                        :disabled="busy || !newName.trim() || existingBrandTakenIndex(item, sup, oIdx, newName) > 0"
+                                                                        @click="if (existingBrandTakenIndex(item, sup, oIdx, newName) === 0) quickAdd('brand', newName, (r) => { offer.brand_id = r.id; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
+                                                                        class="shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                                                                        :style="existingBrandTakenIndex(item, sup, oIdx, newName) > 0 ? 'background:#94a3b8;' : (findExisting('brand', newName) ? 'background:#d97706;' : 'background:#0025cc;')"
                                                                     >
-                                                                        <span x-text="busy ? '...' : 'Add'"></span>
+                                                                        <span x-text="busy ? '...' : (existingBrandTakenIndex(item, sup, oIdx, newName) > 0 ? 'Already added' : (findExisting('brand', newName) ? 'Use existing' : 'Add'))"></span>
                                                                     </button>
                                                                 </div>
+                                                                <p x-show="existingBrandTakenIndex(item, sup, oIdx, newName) > 0" class="mt-1 text-[11px] font-medium" style="color:#dc2626;" x-text="'Already added in Offer ' + existingBrandTakenIndex(item, sup, oIdx, newName) + ' with this unit.'"></p>
+                                                                <p x-show="existingBrandTakenIndex(item, sup, oIdx, newName) === 0 && findExisting('brand', newName)" class="mt-1 text-[11px] font-medium" style="color:#b45309;">Already exists — click “Use existing” to select it.</p>
                                                                 <p x-show="err" x-text="err" class="mt-1 text-[11px] font-medium text-rose-600"></p>
                                                             </div>
                                                         </div>
@@ -649,18 +880,18 @@
 
                                                     {{-- SOLD AS (UNIT) SEARCHABLE + QUICK-ADD DROPDOWN --}}
                                                     <div
-                                                        class="relative w-full sm:w-36"
+                                                        class="relative sm:col-span-3"
                                                         x-data="{ open: false, q: '', newName: '', busy: false, err: '' }"
                                                         @click.outside="open = false"
                                                         @keydown.escape.window="open = false"
                                                     >
-                                                        <label class="mb-1 block text-xs font-medium text-slate-700">Sold as</label>
+                                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Sold as <span style="color: #dc2626;">*</span></label>
                                                         <input type="hidden" :name="`items[${iIdx}][suppliers][${sIdx}][offers][${oIdx}][offer_uom_id]`" :value="offer.offer_uom_id">
                                                         <button
                                                             type="button"
                                                             @click="open = !open; if (open) $nextTick(() => $refs.soldAsSearch?.focus())"
-                                                            class="flex w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm outline-none transition focus:border-blue-500"
-                                                            :class="offer.offer_uom_id ? 'text-slate-900' : 'text-slate-600'"
+                                                            class="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm outline-none transition focus:border-blue-500"
+                                                            :class="offer.offer_uom_id ? 'text-slate-900' : 'text-slate-400'"
                                                         >
                                                             <span class="truncate" x-text="offer.offer_uom_id ? uomName(offer.offer_uom_id) : 'Unit'"></span>
                                                             <svg class="ml-2 h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
@@ -684,12 +915,14 @@
                                                                 <template x-for="u in filterList(uoms, q)" :key="u.id">
                                                                     <button
                                                                         type="button"
-                                                                        @click="offer.offer_uom_id = u.id; if (String(offer.offer_uom_id) === String(item.uom_id)) offer.units_per_pack = '1'; open = false; q = ''"
-                                                                        class="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-blue-50"
+                                                                        :disabled="uomTakenForOfferIndex(sup, oIdx, u.id) > 0"
+                                                                        @click="if (uomTakenForOfferIndex(sup, oIdx, u.id) === 0) { offer.offer_uom_id = u.id; if (String(offer.offer_uom_id) === String(item.uom_id)) offer.units_per_pack = '1'; open = false; q = ''; }"
+                                                                        class="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-45"
                                                                         :class="String(offer.offer_uom_id) === String(u.id) ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-800'"
                                                                     >
                                                                         <span class="truncate" x-text="u.name"></span>
                                                                         <span x-show="String(offer.offer_uom_id) === String(u.id)" class="text-xs text-blue-600">✓</span>
+                                                                        <span x-show="uomTakenForOfferIndex(sup, oIdx, u.id) > 0" class="ml-2 shrink-0 text-[11px] font-medium text-slate-400" x-text="'In Offer ' + uomTakenForOfferIndex(sup, oIdx, u.id)"></span>
                                                                     </button>
                                                                 </template>
                                                                 <p x-show="filterList(uoms, q).length === 0" class="px-3.5 py-3 text-center text-xs text-slate-400">No matching units</p>
@@ -708,18 +941,20 @@
                                                                         type="button"
                                                                         :disabled="busy || !newName.trim()"
                                                                         @click="quickAdd('uom', newName, (r) => { offer.offer_uom_id = r.id; if (String(offer.offer_uom_id) === String(item.uom_id)) offer.units_per_pack = '1'; newName = ''; q = ''; open = false; }, (e) => err = e, (b) => busy = b)"
-                                                                        class="shrink-0 rounded-xl bg-[#0025cc] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#001db3] disabled:opacity-50"
+                                                                        class="shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white transition disabled:opacity-50"
+                                                                        :style="findExisting('uom', newName) ? 'background:#d97706;' : 'background:#0025cc;'"
                                                                     >
-                                                                        <span x-text="busy ? '...' : 'Add'"></span>
+                                                                        <span x-text="busy ? '...' : (findExisting('uom', newName) ? 'Use existing' : 'Add')"></span>
                                                                     </button>
                                                                 </div>
+                                                                <p x-show="findExisting('uom', newName)" class="mt-1 text-[11px] font-medium" style="color:#b45309;">Already exists — click “Use existing” to select it.</p>
                                                                 <p x-show="err" x-text="err" class="mt-1 text-[11px] font-medium text-rose-600"></p>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div class="w-full sm:w-48">
-                                                        <label class="mb-1 block text-xs font-medium text-slate-700">Price per offer unit</label>
+                                                    <div class="sm:col-span-4">
+                                                        <label class="mb-1.5 block text-xs font-medium text-slate-600">Price per offer unit <span style="color: #dc2626;">*</span></label>
                                                         <input
                                                             type="number"
                                                             min="0"
@@ -727,7 +962,7 @@
                                                             :name="`items[${iIdx}][suppliers][${sIdx}][offers][${oIdx}][unit_price]`"
                                                             x-model="offer.unit_price"
                                                             placeholder="0.00"
-                                                            class="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-blue-500"
+                                                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500"
                                                         >
                                                     </div>
                                                 </div>
@@ -739,7 +974,7 @@
                                                 >
                                                     <div class="flex flex-wrap items-center gap-3">
                                                         <label class="text-xs font-medium text-blue-900">
-                                                            Requested units (<span x-text="uomName(item.uom_id)"></span>) per 1 <span x-text="uomName(offer.offer_uom_id)"></span>:
+                                                            How many <span class="font-bold" x-text="uomName(item.uom_id)"></span> per 1 <span class="font-bold" x-text="uomName(offer.offer_uom_id)"></span>? <span style="color: #dc2626;">*</span>
                                                         </label>
                                                         <input
                                                             type="number"
@@ -764,28 +999,68 @@
                                                     Duplicate brand and unit combination under this supplier.
                                                 </p>
 
-                                                {{-- Live estimate bar (matches Image 1) --}}
-                                                <div class="mt-3 flex items-center justify-between rounded-md bg-white/80 px-3 py-2 text-xs">
+                                                {{-- Live estimate bar --}}
+                                                <div class="mt-3 flex items-center justify-between rounded-xl border border-slate-200/70 bg-white px-3.5 py-2 text-xs">
                                                     <span class="text-slate-500">Estimated quantity and total</span>
-                                                    <span class="font-bold text-slate-900" x-text="offerEstimateText(item, offer)"></span>
+                                                    <span class="font-bold tabular-nums text-slate-900" x-text="offerEstimateText(item, offer)"></span>
                                                 </div>
                                             </div>
                                         </template>
                                     </div>
 
-                                    <div class="mt-3 flex items-center justify-between">
-                                        <span class="text-xs text-slate-500" x-text="sup.offers.length + ' / 10 brand offers'"></span>
+                                    <div class="mt-3.5 flex items-center justify-between">
+                                        <span class="text-xs font-medium text-slate-400" x-text="sup.offers.length + ' / 5 brand offers'"></span>
                                         <button
                                             type="button"
                                             @click="addOffer(item, sup)"
-                                            :disabled="sup.offers.length >= 10"
-                                            class="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:!border-[#0025cc] hover:!bg-[#0025cc] hover:!text-white disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:!border-slate-200 disabled:hover:!bg-white disabled:hover:!text-slate-400"
+                                            :disabled="sup.offers.length >= 5"
+                                            class="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:!border-[#0025cc] hover:!bg-[#0025cc] hover:!text-white disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:!border-slate-200 disabled:hover:!bg-white disabled:hover:!text-slate-400"
                                         >
                                             <span>+ Add another brand</span>
                                         </button>
                                     </div>
                                 </div>
                             </template>
+                        </div>
+
+                        {{-- Live Compact Price Comparison Strip --}}
+                        <div
+                            x-show="itemComparisonSummary(item).length > 0"
+                            x-cloak
+                            class="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3"
+                        >
+                            <div class="mb-2 flex items-center justify-between gap-2">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Live Price Comparison</span>
+                                <span class="text-[11px] text-slate-500" x-text="itemComparisonSummary(item).length + ' priced supplier' + (itemComparisonSummary(item).length === 1 ? '' : 's')"></span>
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                <template x-for="row in itemComparisonSummary(item)" :key="'cmp-' + row.supplierIdx">
+                                    <button
+                                        type="button"
+                                        @click="item.activeSupplierIdx = row.supplierIdx"
+                                        class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition hover:border-blue-300"
+                                        :style="row.isLowest
+                                            ? 'border-color:#86efac;background:#f0fdf4;'
+                                            : 'border-color:#e2e8f0;background:#ffffff;'"
+                                    >
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="truncate text-xs font-bold text-slate-900" x-text="row.supplierName"></span>
+                                                <span
+                                                    x-show="row.isLowest"
+                                                    class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                                                    style="background:#dcfce7;color:#15803d;"
+                                                >Lowest</span>
+                                            </div>
+                                            <div class="truncate text-[11px] text-slate-500" x-text="row.brandName + ' · ' + row.unitLabel"></div>
+                                        </div>
+                                        <div class="shrink-0 text-right">
+                                            <div class="text-xs font-bold tabular-nums text-slate-900" x-text="row.totalFormatted"></div>
+                                            <div class="text-[10px] tabular-nums text-slate-500" x-text="row.unitPriceFormatted"></div>
+                                        </div>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
 
                         {{-- Supplier Carousel Prev / Next Controls --}}
@@ -948,7 +1223,7 @@
         <div class="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3">
-                    <span class="text-sm font-bold text-slate-900">Purchaser signature:</span>
+                    <span class="text-sm font-bold text-slate-900">Purchaser signature: <span style="color: #dc2626;">*</span></span>
                     <div
                         x-show="signatureData"
                         x-cloak
@@ -1144,6 +1419,12 @@
                                     </tr>
                                 </template>
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="7" class="ris-total-label">TOTAL AMOUNT</td>
+                                    <td class="ris-total-value" x-text="previewLowestTotalText()"></td>
+                                </tr>
+                            </tfoot>
                         </table>
 
                         <div class="ris-purpose-area">
@@ -1300,9 +1581,9 @@
                         </div>
                     </div>
 
-                    <p class="text-xs leading-relaxed text-slate-500">
+                    <!--<p class="text-xs leading-relaxed text-slate-500">
                         Once submitted, this canvass will appear in the <strong>School Administrator's Canvass Review</strong> queue. Editing will be locked as soon as the School Administrator starts reviewing it.
-                    </p>
+                    </p>-->
                 </div>
 
                 <div class="flex items-center justify-end gap-2.5 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
@@ -1405,15 +1686,20 @@ function canvassBuilder(boot) {
 
     const normalizeItem = (it) => {
         const uomId = String(it?.uom_id || '');
+        const isSoleSource = Boolean(it?.is_sole_source || false);
         const sups = Array.isArray(it?.suppliers) && it.suppliers.length
             ? it.suppliers.map(s => normalizeSupplier(s, uomId))
-            : [normalizeSupplier({}, uomId), normalizeSupplier({}, uomId)];
+            : (isSoleSource
+                ? [normalizeSupplier({}, uomId)]
+                : [normalizeSupplier({}, uomId), normalizeSupplier({}, uomId)]);
         return {
             _uid: nextUid(),
             item_id: String(it?.item_id || ''),
             item_name: String(it?.item_name || ''),
             uom_id: uomId,
             quantity: it?.quantity !== undefined && it?.quantity !== null ? String(it.quantity) : '',
+            is_sole_source: isSoleSource,
+            sole_source_reason: String(it?.sole_source_reason || ''),
             review_note: String(it?.review_note || ''),
             collapsed: Boolean(it?.collapsed || false),
             activeSupplierIdx: 0,
@@ -1435,10 +1721,23 @@ function canvassBuilder(boot) {
             return list.filter(x => String(x.name || '').toLowerCase().includes(q));
         },
 
+        findExisting(kind, rawName) {
+            const norm = String(rawName || '').trim().replace(/\s+/g, ' ').toLowerCase();
+            if (!norm) return null;
+            const listMap = { item: 'itemsCatalog', uom: 'uoms', brand: 'brands' };
+            const list = this[listMap[kind]] || [];
+            return list.find(x => String(x.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === norm) || null;
+        },
+
         async quickAdd(kind, rawName, onSuccess, onError, setBusy) {
             const name = String(rawName || '').trim();
             if (!name) return;
             onError('');
+            const existing = this.findExisting(kind, name);
+            if (existing) {
+                onSuccess(existing);
+                return;
+            }
             setBusy(true);
             const url = this.quickStoreUrls[kind];
             const fieldMap = { item: 'item_name', uom: 'uom_name', brand: 'brand_name' };
@@ -1555,6 +1854,7 @@ function canvassBuilder(boot) {
         },
         todayDisplay: boot.todayDisplay || '',
         items: (boot.initial?.items || [{}]).map(normalizeItem),
+        activeItemIdx: 0,
         drawing: false,
 
         init() {
@@ -1611,6 +1911,7 @@ function canvassBuilder(boot) {
         addItem() {
             if (this.items.length >= 30) return;
             this.items.push(normalizeItem({}));
+            this.activeItemIdx = this.items.length - 1;
         },
 
         formHasData() {
@@ -1660,11 +1961,17 @@ function canvassBuilder(boot) {
                 return;
             }
             this.items.splice(idx, 1);
+            if (this.activeItemIdx >= this.items.length) {
+                this.activeItemIdx = Math.max(0, this.items.length - 1);
+            }
         },
 
         confirmRemoveItem() {
             if (this.pendingRemoveItemIdx !== null && this.items.length > 1) {
                 this.items.splice(this.pendingRemoveItemIdx, 1);
+                if (this.activeItemIdx >= this.items.length) {
+                    this.activeItemIdx = Math.max(0, this.items.length - 1);
+                }
             }
             this.cancelRemoveItem();
         },
@@ -1675,14 +1982,45 @@ function canvassBuilder(boot) {
             this.pendingRemoveItemLabel = '';
         },
 
+        supplierHasData(sup) {
+            if (!sup) return false;
+            return Boolean(sup.supplier_id)
+                || (sup.offers || []).some(o => Boolean(o.brand_id) || this.parseMoney(o.unit_price) > 0);
+        },
+
+        filledSupplierCount(item) {
+            return (item?.suppliers || []).filter(s => this.supplierHasData(s)).length;
+        },
+
+        canToggleSoleSource(item) {
+            return Boolean(item?.is_sole_source) || this.filledSupplierCount(item) <= 1;
+        },
+
+        toggleSoleSource(item) {
+            if (item.is_sole_source) {
+                if (this.filledSupplierCount(item) > 1) {
+                    item.is_sole_source = false;
+                    return;
+                }
+                const filled = item.suppliers.filter(s => this.supplierHasData(s));
+                item.suppliers = filled.length ? [filled[0]] : [item.suppliers[0] || normalizeSupplier({}, item.uom_id)];
+                item.activeSupplierIdx = 0;
+            } else {
+                while (item.suppliers.length < 2) {
+                    item.suppliers.push(normalizeSupplier({}, item.uom_id));
+                }
+            }
+        },
+
         addSupplier(item) {
-            if (item.suppliers.length >= 3) return;
+            if (item.is_sole_source || item.suppliers.length >= 3) return;
             item.suppliers.push(normalizeSupplier({}, item.uom_id));
             item.activeSupplierIdx = item.suppliers.length - 1;
         },
 
         removeSupplier(item, sIdx) {
-            if (item.suppliers.length <= 2) return;
+            const minSups = item.is_sole_source ? 1 : 2;
+            if (item.suppliers.length <= minSups) return;
             item.suppliers.splice(sIdx, 1);
             if (item.activeSupplierIdx >= item.suppliers.length) {
                 item.activeSupplierIdx = Math.max(0, item.suppliers.length - 1);
@@ -1713,14 +2051,51 @@ function canvassBuilder(boot) {
         },
 
         isItemReady(item) {
+            const minSups = item.is_sole_source ? 1 : 2;
+            const soleOk = !item.is_sole_source || String(item.sole_source_reason || '').trim() !== '';
             return Boolean(item.item_id)
                 && Boolean(item.uom_id)
                 && (parseInt(item.quantity, 10) || 0) >= 1
-                && this.validSupplierCount(item) >= 2;
+                && soleOk
+                && this.validSupplierCount(item) >= minSups;
+        },
+
+        itemComparisonSummary(item) {
+            const rows = [];
+            (item.suppliers || []).forEach((sup, sIdx) => {
+                if (!sup.supplier_id) return;
+                let best = null;
+                (sup.offers || []).forEach((o) => {
+                    const price = this.parseMoney(o.unit_price);
+                    if (!o.brand_id || price <= 0) return;
+                    const stats = this.computeOfferStats(item, o);
+                    if (!best || stats.effectiveUnitCost < best.effectiveUnitCost) {
+                        best = {
+                            supplierIdx: sIdx,
+                            supplierName: this.supplierName(sup.supplier_id),
+                            brandName: this.brandName(o.brand_id),
+                            unitLabel: this.uomName(o.offer_uom_id || item.uom_id),
+                            effectiveUnitCost: stats.effectiveUnitCost,
+                            total: stats.total,
+                            unitPriceFormatted: '₱' + price.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / ' + this.uomName(o.offer_uom_id || item.uom_id),
+                            totalFormatted: '₱' + stats.total.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                            isLowest: false,
+                        };
+                    }
+                });
+                if (best) rows.push(best);
+            });
+            if (rows.length > 0) {
+                const minCost = Math.min(...rows.map(r => r.effectiveUnitCost));
+                rows.forEach(r => {
+                    r.isLowest = Math.abs(r.effectiveUnitCost - minCost) < 0.0001;
+                });
+            }
+            return rows;
         },
 
         addOffer(item, sup) {
-            if (sup.offers.length >= 10) return;
+            if (sup.offers.length >= 5) return;
             sup.offers.push(normalizeOffer({}, item.uom_id));
         },
 
@@ -1729,9 +2104,56 @@ function canvassBuilder(boot) {
             sup.offers.splice(oIdx, 1);
         },
 
+        itemTakenInIndex(currentIdx, itemId) {
+            if (!itemId) return 0;
+            const foundIdx = (this.items || []).findIndex(
+                (it, idx) => idx !== currentIdx && String(it.item_id) === String(itemId)
+            );
+            return foundIdx >= 0 ? (foundIdx + 1) : 0;
+        },
+
+        existingItemTakenIndex(currentIdx, rawName) {
+            const existing = this.findExisting('item', rawName);
+            return existing ? this.itemTakenInIndex(currentIdx, existing.id) : 0;
+        },
+
+        isExistingItemTaken(currentIdx, rawName) {
+            return this.existingItemTakenIndex(currentIdx, rawName) > 0;
+        },
+
         isSupplierTaken(item, currentIdx, supplierId) {
             if (!supplierId) return false;
             return item.suppliers.some((s, idx) => idx !== currentIdx && String(s.supplier_id) === String(supplierId));
+        },
+
+        brandTakenForOfferIndex(item, sup, currentIdx, brandId) {
+            if (!brandId || !sup) return 0;
+            const cur = (sup.offers || [])[currentIdx];
+            const curUom = String(cur?.offer_uom_id || item?.uom_id || '');
+            if (!curUom) return 0;
+            const foundIdx = (sup.offers || []).findIndex((o, idx) =>
+                idx !== currentIdx
+                && String(o.brand_id) === String(brandId)
+                && String(o.offer_uom_id || item?.uom_id || '') === curUom
+            );
+            return foundIdx >= 0 ? (foundIdx + 1) : 0;
+        },
+
+        existingBrandTakenIndex(item, sup, currentIdx, rawName) {
+            const existing = this.findExisting('brand', rawName);
+            return existing ? this.brandTakenForOfferIndex(item, sup, currentIdx, existing.id) : 0;
+        },
+
+        uomTakenForOfferIndex(sup, currentIdx, uomId) {
+            if (!uomId || !sup) return 0;
+            const cur = (sup.offers || [])[currentIdx];
+            if (!cur || !cur.brand_id) return 0;
+            const foundIdx = (sup.offers || []).findIndex((o, idx) =>
+                idx !== currentIdx
+                && String(o.brand_id) === String(cur.brand_id)
+                && String(o.offer_uom_id) === String(uomId)
+            );
+            return foundIdx >= 0 ? (foundIdx + 1) : 0;
         },
 
         isDuplicateOffer(sup, currentIdx) {
@@ -1996,6 +2418,16 @@ function canvassBuilder(boot) {
             return rows;
         },
 
+        previewLowestTotalText() {
+            let sum = 0;
+            (this.items || []).forEach(item => {
+                const cmp = this.itemComparisonSummary(item);
+                const lowest = cmp.find(r => r.isLowest);
+                if (lowest && lowest.total > 0) sum += lowest.total;
+            });
+            return '₱' + sum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+
         previewItemCards() {
             return this.items.map(item => {
                 const qtyText = item.quantity
@@ -2041,11 +2473,22 @@ function canvassBuilder(boot) {
             if (!this.items || this.items.length < 1) {
                 errs.push('Add at least one item to the canvass.');
             } else {
+                const seenItems = new Map();
                 this.items.forEach((item, iIdx) => {
                     const label = 'Item ' + (iIdx + 1);
                     if (!item.item_id && !String(item.item_name || '').trim()) {
                         errs.push(label + ': Please select an item.');
                         markInvalid(iIdx);
+                    } else {
+                        const itemKey = item.item_id
+                            ? ('id:' + String(item.item_id))
+                            : ('name:' + String(item.item_name || '').trim().replace(/\s+/g, ' ').toLowerCase());
+                        if (seenItems.has(itemKey)) {
+                            errs.push(label + ': This item is already added in Item ' + seenItems.get(itemKey) + '.');
+                            markInvalid(iIdx);
+                        } else {
+                            seenItems.set(itemKey, iIdx + 1);
+                        }
                     }
                     if (!item.uom_id) {
                         errs.push(label + ': Please select a unit (UOM).');
@@ -2117,8 +2560,23 @@ function canvassBuilder(boot) {
                         });
                     });
 
-                    if (validSupplierCount < 2) {
-                        errs.push(label + ': Add at least 2 distinct suppliers before submitting.');
+                    if (item.is_sole_source && !String(item.sole_source_reason || '').trim()) {
+                        errs.push(label + ': Please enter a justification note for Sole Source.');
+                        markInvalid(iIdx);
+                    }
+
+                    if (item.is_sole_source && validSupplierCount > 1) {
+                        errs.push(label + ': Sole Source items can only have 1 supplier.');
+                        markInvalid(iIdx);
+                    }
+
+                    const minRequiredSuppliers = item.is_sole_source ? 1 : 2;
+                    if (validSupplierCount < minRequiredSuppliers) {
+                        errs.push(
+                            item.is_sole_source
+                                ? (label + ': Add at least 1 supplier for this Sole Source item before submitting.')
+                                : (label + ': Add at least 2 distinct suppliers before submitting.')
+                        );
                         markInvalid(iIdx);
                     }
                 });
@@ -2140,6 +2598,7 @@ function canvassBuilder(boot) {
             }
 
             if (errs.length > 0 && firstInvalidItemIdx !== null && this.items[firstInvalidItemIdx]) {
+                this.activeItemIdx = firstInvalidItemIdx;
                 this.items[firstInvalidItemIdx].collapsed = false;
                 if (firstInvalidSupIdx !== null) {
                     this.items[firstInvalidItemIdx].activeSupplierIdx = firstInvalidSupIdx;
