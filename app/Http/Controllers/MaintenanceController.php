@@ -8686,6 +8686,8 @@ class MaintenanceController extends Controller
                 'article' => $line->article,
                 'brand' => $line->brand ?? null,
                 'brand_presets' => $line->brand_presets ?? [],
+                'serial_number' => $line->serial_number ?? null,
+                'serial_numbers' => $line->serial_numbers ?? [],
                 'quantity' => $line->quantity,
                 'received_qty' => $received,
                 'ordered_qty' => $ordered,

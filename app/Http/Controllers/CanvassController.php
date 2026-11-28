@@ -366,12 +366,24 @@ class CanvassController extends Controller
 
         $this->authorizeOwner($loaded['canvass']);
 
+        $linkedRis = null;
+        $linkedRisItems = collect();
+        $risId = (int) ($loaded['canvass']->canvass_ris_id ?? 0);
+        if ($risId > 0 && Schema::hasTable('requisition_issue_slip_table')) {
+            $linkedRis = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+            if ($linkedRis) {
+                $linkedRisItems = RisWorkflow::sheetItemsByRisIds([$risId])->get($risId, collect())->values();
+            }
+        }
+
         return view('purchaser.canvass.show', [
             'canvass' => $loaded['canvass'],
             'items' => $loaded['items'],
             'attachments' => $loaded['attachments'],
             'lowestTotalSum' => $loaded['lowest_total_sum'],
             'approvedTotalSum' => $loaded['approved_total_sum'],
+            'linkedRis' => $linkedRis,
+            'linkedRisItems' => $linkedRisItems,
         ]);
     }
 
@@ -406,7 +418,9 @@ class CanvassController extends Controller
                 ];
             })->values()->all();
 
-            while (count($suppliers) < 2) {
+            $isSoleSource = ! empty($item->canvass_item_is_sole_source);
+            $minSups = $isSoleSource ? 1 : 2;
+            while (count($suppliers) < $minSups) {
                 $suppliers[] = [
                     'supplier_id' => '',
                     'offers' => [['brand_id' => '', 'offer_uom_id' => '', 'units_per_pack' => '1', 'unit_price' => '']],
@@ -418,6 +432,8 @@ class CanvassController extends Controller
                 'item_name' => (string) ($item->canvass_item_name ?: $item->catalog_item_name),
                 'uom_id' => $item->uom_id ? (string) $item->uom_id : '',
                 'quantity' => max(1, (int) $item->canvass_item_quantity),
+                'is_sole_source' => $isSoleSource,
+                'sole_source_reason' => (string) ($item->canvass_item_sole_source_reason ?? ''),
                 'review_note' => (string) ($item->canvass_item_review_note ?? ''),
                 'item_status' => (string) ($item->canvass_item_status ?? CanvassWorkflow::ITEM_PENDING),
                 'collapsed' => false,
@@ -847,6 +863,7 @@ class CanvassController extends Controller
             : [];
 
         $normalizedItems = [];
+        $seenItemKeys = [];
 
         foreach (array_values($rawItems) as $iIdx => $rawItem) {
             $label = 'Item '.($iIdx + 1);
@@ -864,6 +881,17 @@ class CanvassController extends Controller
                 } else {
                     continue;
                 }
+            } else {
+                $itemKey = $itemId
+                    ? ('id:'.$itemId)
+                    : ('name:'.mb_strtolower(trim(preg_replace('/\s+/u', ' ', $itemName) ?? $itemName)));
+                if (isset($seenItemKeys[$itemKey])) {
+                    if ($strict) {
+                        $errors["items.{$iIdx}.item_id"] = "{$label}: This item is already added in Item {$seenItemKeys[$itemKey]}.";
+                    }
+                    continue;
+                }
+                $seenItemKeys[$itemKey] = $iIdx + 1;
             }
 
             if ($strict && ! $uomId) {
@@ -960,11 +988,23 @@ class CanvassController extends Controller
                 ];
             }
 
-            if ($strict && count($normalizedSuppliers) < CanvassWorkflow::MIN_SUPPLIERS_PER_ITEM) {
-                $errors["items.{$iIdx}.suppliers"] = "{$label}: Add at least ".CanvassWorkflow::MIN_SUPPLIERS_PER_ITEM.' distinct suppliers before submitting.';
+            $isSoleSource = filter_var($rawItem['is_sole_source'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $soleSourceReason = trim((string) ($rawItem['sole_source_reason'] ?? ''));
+            if ($strict && $isSoleSource && $soleSourceReason === '') {
+                $errors["items.{$iIdx}.sole_source_reason"] = "{$label}: Please enter a justification note for Sole Source.";
             }
-            if (count($normalizedSuppliers) > CanvassWorkflow::MAX_SUPPLIERS_PER_ITEM) {
-                $errors["items.{$iIdx}.suppliers"] = "{$label}: Maximum ".CanvassWorkflow::MAX_SUPPLIERS_PER_ITEM.' suppliers per item.';
+
+            $minSuppliers = $isSoleSource ? 1 : CanvassWorkflow::MIN_SUPPLIERS_PER_ITEM;
+            if ($strict && count($normalizedSuppliers) < $minSuppliers) {
+                $errors["items.{$iIdx}.suppliers"] = $isSoleSource
+                    ? "{$label}: Add at least 1 supplier for this Sole Source item before submitting."
+                    : "{$label}: Add at least ".CanvassWorkflow::MIN_SUPPLIERS_PER_ITEM.' distinct suppliers before submitting.';
+            }
+            $maxSuppliers = $isSoleSource ? 1 : CanvassWorkflow::MAX_SUPPLIERS_PER_ITEM;
+            if (count($normalizedSuppliers) > $maxSuppliers) {
+                $errors["items.{$iIdx}.suppliers"] = $isSoleSource
+                    ? "{$label}: Sole Source items can only have 1 supplier."
+                    : "{$label}: Maximum ".CanvassWorkflow::MAX_SUPPLIERS_PER_ITEM.' suppliers per item.';
             }
 
             $normalizedItems[] = [
@@ -972,6 +1012,8 @@ class CanvassController extends Controller
                 'item_name' => $itemName,
                 'uom_id' => $uomId,
                 'quantity' => max(1, $qty),
+                'is_sole_source' => $isSoleSource,
+                'sole_source_reason' => $isSoleSource && $soleSourceReason !== '' ? mb_substr($soleSourceReason, 0, 1000) : null,
                 'suppliers' => $normalizedSuppliers,
             ];
         }
@@ -999,8 +1041,11 @@ class CanvassController extends Controller
 
     private function persistItems(int $canvassId, array $items, $now): void
     {
+        $hasSoleSource = Schema::hasColumn('canvass_items_table', 'canvass_item_is_sole_source');
+        $hasSoleReason = Schema::hasColumn('canvass_items_table', 'canvass_item_sole_source_reason');
+
         foreach ($items as $iIdx => $item) {
-            $itemRowId = DB::table('canvass_items_table')->insertGetId([
+            $itemPayload = [
                 'canvass_id' => $canvassId,
                 'item_id' => $item['item_id'],
                 'canvass_item_name' => $item['item_name'],
@@ -1012,7 +1057,14 @@ class CanvassController extends Controller
                 'canvass_item_sort_order' => $iIdx,
                 'canvass_item_created_at' => $now,
                 'canvass_item_updated_at' => $now,
-            ]);
+            ];
+            if ($hasSoleSource) {
+                $itemPayload['canvass_item_is_sole_source'] = ! empty($item['is_sole_source']) ? 1 : 0;
+            }
+            if ($hasSoleReason) {
+                $itemPayload['canvass_item_sole_source_reason'] = $item['sole_source_reason'] ?? null;
+            }
+            $itemRowId = DB::table('canvass_items_table')->insertGetId($itemPayload);
 
             foreach ($item['suppliers'] as $sIdx => $sup) {
                 $supRowId = DB::table('canvass_suppliers_table')->insertGetId([
@@ -1108,7 +1160,9 @@ class CanvassController extends Controller
                 ];
             }
 
-            while (count($suppliers) < 2) {
+            $isSoleSource = filter_var($rawItem['is_sole_source'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $minSups = $isSoleSource ? 1 : 2;
+            while (count($suppliers) < $minSups) {
                 $suppliers[] = [
                     'supplier_id' => '',
                     'offers' => [['brand_id' => '', 'offer_uom_id' => $uomId, 'units_per_pack' => '1', 'unit_price' => '']],
@@ -1120,6 +1174,8 @@ class CanvassController extends Controller
                 'item_name' => (string) ($rawItem['item_name'] ?? ''),
                 'uom_id' => $uomId,
                 'quantity' => (string) ($rawItem['quantity'] ?? ''),
+                'is_sole_source' => $isSoleSource,
+                'sole_source_reason' => (string) ($rawItem['sole_source_reason'] ?? ''),
                 'collapsed' => false,
                 'suppliers' => $suppliers,
             ];

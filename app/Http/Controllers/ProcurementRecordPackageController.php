@@ -383,8 +383,19 @@ class ProcurementRecordPackageController extends Controller
      */
     public function sharedPreviewDocument(string $type, int $docId)
     {
-        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq'], true), 404);
+        abort_unless(in_array($type, ['ris', 'atp', 'rfc', 'dv', 'rr', 'liq', 'canvass'], true), 404);
         abort_unless(\App\Support\RequestExplorer::userCanOpenDocuments(), 403);
+
+        if ($type === 'canvass') {
+            $loaded = \App\Support\CanvassWorkflow::loadFull($docId);
+            abort_if(! $loaded, 404);
+
+            return view('procurement-records.canvass-preview', [
+                'canvass' => $loaded['canvass'],
+                'items' => $loaded['items'],
+                'attachments' => $loaded['attachments'],
+            ]);
+        }
 
         $atpId = ProcurementRecordCompiler::resolveAtpIdForDocument($type, $docId);
         $atpRow = $atpId
@@ -404,6 +415,26 @@ class ProcurementRecordPackageController extends Controller
         $payload['type'] = $type;
 
         return view('procurement-records.document-view', $payload);
+    }
+
+    public function sharedPreviewCanvassAttachment(int $attachmentId)
+    {
+        abort_unless(\App\Support\RequestExplorer::userCanOpenDocuments(), 403);
+        abort_unless(Schema::hasTable('canvass_attachments_table'), 404);
+
+        $att = DB::table('canvass_attachments_table')
+            ->where('canvass_attachment_id', $attachmentId)
+            ->first();
+        abort_if(! $att, 404);
+
+        $path = (string) ($att->canvass_attachment_stored_path ?? '');
+        abort_unless($path !== '' && \Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404);
+
+        $name = (string) ($att->canvass_attachment_original_name ?? 'attachment');
+
+        return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($path), [
+            'Content-Disposition' => 'inline; filename="'.addslashes($name).'"',
+        ]);
     }
 
     public function accountingViewDocument($packageId, $type, $docId)

@@ -6,6 +6,7 @@
 @section('content')
 
 <script type="application/json" id="rfc-atp-prefill">{!! json_encode($atpPrefill ?? []) !!}</script>
+<script type="application/json" id="rfc-batch-items">{!! json_encode($batchRfcItems ?? []) !!}</script>
 
 <div
     x-data="{
@@ -17,6 +18,81 @@
         selectedRfc: {{ session('edit_rfc_id') ? (int) session('edit_rfc_id') : (!empty($viewRfcId) ? (int) $viewRfcId : 'null') }},
         atpPrefill: JSON.parse(document.getElementById('rfc-atp-prefill').textContent || '{}'),
         today: '{{ now()->toDateString() }}',
+        expandedRfcGroups: {},
+        rfcCarouselOpen: false,
+        rfcCarouselTitle: '',
+        rfcCarouselIds: [],
+        rfcCarouselIdx: 0,
+        batchOpen: {{ !empty($batchRfcItems) ? 'true' : 'false' }},
+        batchItems: JSON.parse(document.getElementById('rfc-batch-items').textContent || '[]'),
+        batchIdx: 0,
+        batchConfirmOpen: false,
+        batchSubmitting: false,
+        batchSigUrl: '',
+        batchSignerName: @js(auth()->user()->user_full_name ?? 'Purchaser'),
+
+        syncBatchSigPreview() {
+            const hidden = document.getElementById('purSigImage-rfc-batch');
+            const nameEl = document.getElementById('purSigName-rfc-batch');
+            if (hidden) this.batchSigUrl = String(hidden.value || '');
+            if (nameEl && nameEl.value) this.batchSignerName = String(nameEl.value);
+        },
+
+        toggleRfcGroup(key) {
+            this.expandedRfcGroups[key] = !this.expandedRfcGroups[key];
+            this.$nextTick(() => {
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
+
+        openRfcGroupCarousel(title, ids) {
+            this.rfcCarouselTitle = title || 'Request Checks';
+            this.rfcCarouselIds = Array.isArray(ids) ? ids : [];
+            this.rfcCarouselIdx = 0;
+            this.rfcCarouselOpen = true;
+            this.$nextTick(() => this.renderRfcCarouselSlide());
+        },
+
+        renderRfcCarouselSlide() {
+            const box = this.$refs.rfcCarouselBody;
+            if (!box) return;
+            const id = this.rfcCarouselIds[this.rfcCarouselIdx];
+            const tpl = id ? document.getElementById('pur-rfc-carousel-sheet-' + id) : null;
+            box.innerHTML = tpl ? tpl.innerHTML : '';
+            if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+        },
+
+        stepRfcCarousel(delta) {
+            if (!this.rfcCarouselIds.length) return;
+            const next = this.rfcCarouselIdx + delta;
+            if (next < 0 || next >= this.rfcCarouselIds.length) return;
+            this.rfcCarouselIdx = next;
+            this.$nextTick(() => this.renderRfcCarouselSlide());
+        },
+
+        openBatchSubmitConfirm() {
+            const form = this.$refs.batchRfcForm;
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            const sig = form ? (form.querySelector('#purSigImage-rfc-batch')?.value || '') : '';
+            if (!sig || String(sig).indexOf('data:image/') !== 0) {
+                alert('Please draw or select your Purchaser signature before submitting.');
+                return;
+            }
+            this.batchConfirmOpen = true;
+        },
+
+        confirmBatchSubmit() {
+            const form = this.$refs.batchRfcForm;
+            if (!form || this.batchSubmitting) return;
+            if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
+                window.purchaserDocumentSignature.flush();
+            }
+            this.batchSubmitting = true;
+            this.batchConfirmOpen = false;
+            form.submit();
+        },
 
         init() {
             this.$watch('viewOpen', (open) => {
@@ -25,7 +101,27 @@
             this.$watch('editOpen', (open) => {
                 if (!open && window.purDialog) window.purDialog.clearDeepLink(['view_rfc', 'edit_rfc']);
             });
-            if (this.editOpen && this.selectedRfc) {
+            if (this.batchOpen && this.batchItems.length > 0) {
+                this.bindDocSig('rfc-batch', 'Requested by signature');
+                const pollSig = () => {
+                    this.syncBatchSigPreview();
+                };
+                setTimeout(pollSig, 120);
+                setTimeout(pollSig, 400);
+                document.addEventListener('change', (e) => {
+                    if (e.target && (e.target.id === 'purSigImage-rfc-batch' || e.target.id === 'purSigName-rfc-batch')) pollSig();
+                }, true);
+                document.addEventListener('click', (e) => {
+                    if (this.batchOpen && e.target && e.target.closest && e.target.closest('#purSigSlot-rfc-batch')) {
+                        setTimeout(pollSig, 60);
+                    }
+                }, true);
+                document.addEventListener('pointerup', (e) => {
+                    if (this.batchOpen && e.target && e.target.closest && e.target.closest('#purSigSlot-rfc-batch')) {
+                        setTimeout(pollSig, 60);
+                    }
+                }, true);
+            } else if (this.editOpen && this.selectedRfc) {
                 this.bindDocSig('rfc-' + this.selectedRfc, 'Requested by signature');
             } else if (this.createOpen) {
                 this.bindDocSig('rfc-create', 'Requested by signature');
@@ -520,16 +616,134 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
-                    @forelse($rfcs as $rfc)
+                    @php $rfcGroups = $rfcGroups ?? collect(); @endphp
+                    @forelse($rfcGroups as $rGroup)
+                        @php
+                            $rgKey = (string) ($rGroup['key'] ?? '');
+                            $rgRfcs = collect($rGroup['rfcs'] ?? []);
+                            $rgCount = $rgRfcs->count();
+                            $rgMulti = $rgCount > 1;
+                            $rgReqNo = $rGroup['request_no'] ?? null;
+                            $rgDate = $rGroup['date'] ?? null;
+                            $rgIds = $rGroup['rfc_ids'] ?? [];
+                        @endphp
+                        @if($rgMulti)
+                            <tr
+                                class="cursor-pointer bg-slate-50/70 transition hover:bg-blue-50/40"
+                                @click="toggleRfcGroup('{{ $rgKey }}')"
+                            >
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50/70 text-[#0025cc]">
+                                            <i data-lucide="layers" class="h-4 w-4"></i>
+                                        </div>
+                                        <div>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <p class="font-semibold text-gray-900">{{ $rgReqNo ?: 'Grouped Request Checks' }}</p>
+                                                <span
+                                                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
+                                                    style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;"
+                                                >{{ $rgCount }} RFCs</span>
+                                                @include('partials.ris-urgency-badge', [
+                                                    'urgent' => !empty($rGroup['urgent']),
+                                                    'size' => 'sm',
+                                                    'title' => 'Inherited from linked RIS',
+                                                ])
+                                            </div>
+                                            <p class="mt-0.5 text-[11px] text-slate-500">Total: ₱{{ number_format((float) ($rGroup['total_amount'] ?? 0), 2) }} · Click to expand</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4">
+                                    @include('partials.procurement-request-no', ['requestNo' => $rgReqNo, 'inline' => true, 'showLabel' => false])
+                                </td>
+                                <td class="px-5 py-4 text-xs font-medium text-gray-600">
+                                    {{ $rgCount }} ATPs
+                                </td>
+                                <td class="px-5 py-4 text-xs font-medium text-gray-600">
+                                    {{ $rGroup['payee_summary'] ?? '—' }}
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+                                    {{ $rgDate ? \Carbon\Carbon::parse($rgDate)->format('M d, Y') : '—' }}
+                                </td>
+                                <td class="px-5 py-4">
+                                    @php
+                                        $rgPending = $rgRfcs->filter(fn ($x) => in_array((string) $x->request_check_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))->count();
+                                        $rgReleased = $rgRfcs->filter(fn ($x) => !empty($x->funds_released))->count();
+                                        $rgApproved = $rgRfcs->filter(fn ($x) => (string) $x->request_check_status === 'Approved' && empty($x->funds_released))->count();
+                                    @endphp
+                                    <div class="inline-flex flex-col items-start">
+                                        @if($rgReleased === $rgCount)
+                                            <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;">
+                                                <span class="h-1.5 w-1.5 rounded-full" style="background:#2563eb;"></span>
+                                                <span>Released</span>
+                                            </span>
+                                            <span class="mt-1 text-[11px] font-medium text-slate-500">All {{ $rgCount }} checks released</span>
+                                        @elseif($rgPending > 0)
+                                            <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold" style="background:#fffbeb;color:#b45309;border-color:#fde68a;">
+                                                <span class="h-1.5 w-1.5 rounded-full" style="background:#d97706;"></span>
+                                                <span>Pending</span>
+                                            </span>
+                                            <span class="mt-1 text-[11px] font-medium text-slate-500">{{ $rgPending }} awaiting School Admin</span>
+                                        @elseif($rgApproved > 0)
+                                            <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold" style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;">
+                                                <span class="h-1.5 w-1.5 rounded-full" style="background:#059669;"></span>
+                                                <span>Approved</span>
+                                            </span>
+                                            <span class="mt-1 text-[11px] font-medium text-slate-500">By SA - Sent to Accounting</span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold" style="background:#f1f5f9;color:#475569;border-color:#cbd5e1;">
+                                                <span class="h-1.5 w-1.5 rounded-full" style="background:#64748b;"></span>
+                                                <span>Mixed</span>
+                                            </span>
+                                            <span class="mt-1 text-[11px] font-medium text-slate-500">Expand to view statuses</span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 text-right">
+                                    <div class="inline-flex items-center justify-end gap-1.5" @click.stop>
+                                        <button
+                                            type="button"
+                                            @click='openRfcGroupCarousel(@json($rgReqNo ?: "Request Checks"), @json($rgIds))'
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition hover:opacity-90"
+                                            style="background:#0025cc;color:#ffffff;"
+                                            title="View all {{ $rgCount }} RFCs in carousel"
+                                            aria-label="View all {{ $rgCount }} RFCs in carousel"
+                                        >
+                                            <i data-lucide="layers" class="h-4 w-4"></i>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            @click="toggleRfcGroup('{{ $rgKey }}')"
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                            :title="expandedRfcGroups['{{ $rgKey }}'] ? 'Collapse RFCs' : 'Expand RFCs'"
+                                            :aria-label="expandedRfcGroups['{{ $rgKey }}'] ? 'Collapse RFCs' : 'Expand RFCs'"
+                                        >
+                                            <svg class="h-4 w-4 transition-transform duration-150" :class="expandedRfcGroups['{{ $rgKey }}'] ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
+                        @foreach($rgRfcs as $rfc)
                         @php
                             $editable = in_array($rfc->request_check_status, ['Draft', 'Minor Revision'], true) && !$archiveView;
                         @endphp
-                        <tr class="transition hover:bg-gray-50/70">
-                            <td class="px-5 py-4">
+                        <tr
+                            class="{{ $rgMulti ? 'bg-white transition hover:bg-blue-50/20' : 'transition hover:bg-gray-50/70' }}"
+                            @if($rgMulti) x-show="!!expandedRfcGroups['{{ $rgKey }}']" x-cloak @endif
+                        >
+                            <td class="relative px-5 py-4 {{ $rgMulti ? 'pl-14' : '' }}">
+                                @if($rgMulti)
+                                    <span class="pointer-events-none absolute left-[37px] top-0 w-px bg-slate-200 {{ $loop->last ? 'h-1/2' : 'h-full' }}" aria-hidden="true"></span>
+                                    <span class="pointer-events-none absolute left-[37px] top-1/2 h-px w-4 bg-slate-200" aria-hidden="true"></span>
+                                @endif
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
-                                        <i data-lucide="receipt-text" class="h-4 w-4"></i>
-                                    </div>
+                                    @unless($rgMulti)
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
+                                            <i data-lucide="receipt-text" class="h-4 w-4"></i>
+                                        </div>
+                                    @endunless
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <p class="font-semibold text-gray-900">{{ $rfc->request_check_form_number ?: '—' }}</p>
@@ -788,6 +1002,7 @@
                                 </div>
                             </td>
                         </tr>
+                        @endforeach
                     @empty
                         <tr>
                             <td colspan="8" class="px-6 py-16 text-center">
@@ -819,6 +1034,237 @@
             {{ $rfcs->links() }}
         </div>
     </div>
+
+    {{-- Pre-rendered RFC paper templates for instant 0ms carousel switching --}}
+    @foreach($rfcs as $rfcSheetRow)
+        <template id="pur-rfc-carousel-sheet-{{ (int) $rfcSheetRow->request_check_id }}">
+            @include('partials.request-check-paper', [
+                'editable' => false,
+                'rfc' => $rfcSheetRow,
+            ])
+        </template>
+    @endforeach
+
+    {{-- RFC GROUP VIEW CAROUSEL MODAL --}}
+    <template x-teleport="body">
+        <div
+            x-cloak
+            x-show="rfcCarouselOpen"
+            @keydown.escape.window="if (rfcCarouselOpen) rfcCarouselOpen = false"
+            @click.self="rfcCarouselOpen = false"
+            class="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
+            style="z-index: 99990;"
+        >
+            <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" @click.stop>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900" x-text="rfcCarouselTitle"></h3>
+                        <p class="mt-0.5 text-xs text-slate-500" x-text="'RFC ' + (rfcCarouselIdx + 1) + ' of ' + rfcCarouselIds.length"></p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="stepRfcCarousel(-1)"
+                            :disabled="rfcCarouselIdx <= 0"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                            title="Previous RFC"
+                        >‹</button>
+                        <span class="min-w-[70px] text-center text-xs font-semibold tabular-nums text-slate-700" x-text="(rfcCarouselIdx + 1) + ' / ' + rfcCarouselIds.length"></span>
+                        <button
+                            type="button"
+                            @click="stepRfcCarousel(1)"
+                            :disabled="rfcCarouselIdx >= rfcCarouselIds.length - 1"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                            title="Next RFC"
+                        >›</button>
+                        <button type="button" @click="rfcCarouselOpen = false" class="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">✕</button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto bg-slate-100 p-4 sm:p-6">
+                    <div x-ref="rfcCarouselBody" class="mx-auto w-full max-w-[1000px]"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    {{-- BATCH CREATE & SUBMIT RFC CAROUSEL MODAL (from Group Choose Payment on ATP) --}}
+    @if(!empty($batchRfcItems))
+        <template x-teleport="body">
+            <div
+                x-cloak
+                x-show="batchOpen"
+                @keydown.escape.window="if (batchConfirmOpen) { batchConfirmOpen = false; } else if (batchOpen) { batchOpen = false; }"
+                @click.self="batchOpen = false"
+                class="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
+                style="z-index: 99985;"
+            >
+                <form
+                    x-ref="batchRfcForm"
+                    method="POST"
+                    action="{{ route(($pp ?? 'purchaser').'.rfc.batch-store') }}"
+                    @click.stop
+                    class="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                >
+                    @csrf
+                    <input type="hidden" name="funding_type" value="{{ $batchFundingType ?? 'cash_advance' }}">
+                    <input type="hidden" name="request_check_requested_by" id="purSigName-rfc-batch" value="{{ auth()->user()->user_full_name ?? 'Purchaser' }}">
+                    <input type="hidden" name="request_check_requested_by_signature" id="purSigImage-rfc-batch" value="">
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">
+                                Create {{ \App\Support\ProcurementPaymentPath::label($batchFundingType ?? 'cash_advance') }} Requests
+                            </h3>
+                            <p class="mt-0.5 text-xs text-slate-500" x-text="'Reviewing ' + (batchIdx + 1) + ' of ' + batchItems.length + ' ATP(s) · Sign once below to submit all together'"></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="if (batchIdx > 0) batchIdx--" :disabled="batchIdx <= 0" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40">‹</button>
+                            <span class="min-w-[64px] text-center text-xs font-semibold tabular-nums text-slate-700" x-text="(batchIdx + 1) + ' / ' + batchItems.length"></span>
+                            <button type="button" @click="if (batchIdx < batchItems.length - 1) batchIdx++" :disabled="batchIdx >= batchItems.length - 1" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40">›</button>
+                            <button type="button" @click="batchOpen = false" class="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">✕</button>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 space-y-4 overflow-y-auto bg-slate-100 p-4 sm:p-6">
+                        <template x-for="(bItem, bIdx) in batchItems" :key="bItem.atp_id">
+                            <div x-show="batchIdx === bIdx" class="mx-auto w-full max-w-[920px] rounded-2xl border border-slate-200 bg-white px-8 py-8 shadow-sm sm:px-12 sm:py-10" style="font-family: Arial, Helvetica, sans-serif;">
+                                <input type="hidden" :name="'items[' + bIdx + '][atp_id]'" :value="bItem.atp_id">
+                                <input type="hidden" :name="'items[' + bIdx + '][amount]'" :value="bItem.amount">
+
+                                {{-- Top ATP reference pill --}}
+                                <div class="mb-3 flex items-center justify-between text-[11px] text-slate-500">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 font-semibold text-[#0025cc]" x-text="bItem.atp_number"></span>
+                                    <span x-show="bItem.request_no" class="font-medium text-slate-500" x-text="bItem.request_no"></span>
+                                </div>
+
+                                {{-- Formal RFC Paper Header --}}
+                                <div class="text-center">
+                                    <div class="text-xl font-bold tracking-wide text-black sm:text-2xl">STI COLLEGE- ORMOC, INC.</div>
+                                    <div class="mt-1 text-lg font-bold italic tracking-wide text-black sm:text-xl">REQUEST FOR CHECK</div>
+                                </div>
+
+                                {{-- Date line (right-aligned) --}}
+                                <div class="mt-7 flex items-end justify-end gap-2">
+                                    <label class="text-sm font-bold text-black">Date:</label>
+                                    <div class="w-48 border-b border-black pb-0.5">
+                                        <input
+                                            type="date"
+                                            :name="'items[' + bIdx + '][date]'"
+                                            x-model="bItem.date"
+                                            required
+                                            class="w-full border-0 bg-transparent px-1 text-sm text-black outline-none focus:bg-blue-50/40"
+                                        >
+                                    </div>
+                                </div>
+
+                                {{-- Payee / Amount / For lined rows --}}
+                                <div class="mt-8 space-y-6">
+                                    <div class="flex items-end gap-4">
+                                        <label class="w-24 shrink-0 text-sm font-bold text-black">Payee:</label>
+                                        <div class="flex-1 border-b border-black pb-0.5">
+                                            <input
+                                                type="text"
+                                                :name="'items[' + bIdx + '][payee]'"
+                                                x-model="bItem.payee"
+                                                required
+                                                class="w-full border-0 bg-transparent px-1 text-sm text-black outline-none focus:bg-blue-50/40"
+                                            >
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-end gap-4">
+                                        <label class="w-24 shrink-0 text-sm font-bold text-black">Amount:</label>
+                                        <div
+                                            class="flex-1 border-b border-black px-1 pb-1 text-sm font-medium tabular-nums text-black"
+                                            x-text="'₱' + Number(bItem.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
+                                        ></div>
+                                    </div>
+
+                                    <div class="flex items-end gap-4">
+                                        <label class="w-24 shrink-0 text-sm font-bold text-black">For:</label>
+                                        <div class="flex-1 border-b border-black pb-0.5">
+                                            <input
+                                                type="text"
+                                                :name="'items[' + bIdx + '][purpose]'"
+                                                x-model="bItem.purpose"
+                                                required
+                                                class="w-full border-0 bg-transparent px-1 text-sm text-black outline-none focus:bg-blue-50/40"
+                                            >
+                                        </div>
+                                    </div>
+
+                                    {{-- Full-width continuation line below For: --}}
+                                    <div class="border-b border-black pt-3"></div>
+                                </div>
+
+                                {{-- Signatory footer (Requested by / Approved by) --}}
+                                <div class="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-20">
+                                    <div>
+                                        <div class="text-sm font-bold text-black">Requested by:</div>
+                                        <div class="relative mt-9 flex min-h-[26px] items-end justify-center border-b border-black pb-1">
+                                            <img
+                                                x-show="batchSigUrl && batchSigUrl.indexOf('data:image/') === 0"
+                                                :src="batchSigUrl"
+                                                alt="Requested by signature"
+                                                class="pointer-events-none absolute -top-5 left-1/2 max-h-14 -translate-x-1/2 object-contain"
+                                            >
+                                            <span class="relative z-10 text-sm text-black" x-text="batchSignerName"></span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-bold text-black">Approved by:</div>
+                                        <div class="mt-9 min-h-[26px] border-b border-black pb-1"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- Collapsible Purchaser Signature --}}
+                        <div class="mx-auto w-full max-w-[920px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div id="purSigOverlay-rfc-batch" class="hidden"></div>
+                            <div id="purSigSlot-rfc-batch"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-6 py-4">
+                        <span class="text-xs text-slate-500" x-text="'Total across ' + batchItems.length + ' RFC(s): ₱' + batchItems.reduce((s, x) => s + Number(x.amount || 0), 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="batchOpen = false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                            <button
+                                type="button"
+                                @click="openBatchSubmitConfirm()"
+                                class="rounded-lg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95"
+                                style="background:#0025cc;color:#ffffff;"
+                                x-text="'Submit All for Approval (' + batchItems.length + ')'"
+                            ></button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </template>
+
+        {{-- BATCH SUBMIT CONFIRMATION MODAL --}}
+        <template x-teleport="body">
+            <div x-cloak x-show="batchConfirmOpen" @click.self="batchConfirmOpen = false" class="fixed inset-0 flex items-center justify-center bg-black/55 p-4" style="z-index: 99999;">
+                <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" @click.stop>
+                    <h3 class="text-base font-bold text-slate-900" x-text="'Submit ' + batchItems.length + ' Request Check(s) for Approval?'"></h3>
+                    <p class="mt-2 text-sm text-slate-600">All <strong x-text="batchItems.length"></strong> Request Checks will be created and sent to the <strong>School Administrator</strong> for approval.</p>
+                    <div class="mt-4 max-h-40 space-y-1.5 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+                        <template x-for="bItem in batchItems" :key="bItem.atp_id">
+                            <div class="flex justify-between gap-2">
+                                <span class="truncate text-slate-600" x-text="bItem.atp_number + ' · ' + bItem.payee"></span>
+                                <span class="shrink-0 font-semibold tabular-nums text-slate-900" x-text="'₱' + Number(bItem.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="mt-5 flex items-center justify-end gap-2">
+                        <button type="button" @click="batchConfirmOpen = false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                        <button type="button" :disabled="batchSubmitting" @click="confirmBatchSubmit()" class="rounded-lg px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60" style="background:#0025cc;color:#ffffff;" x-text="batchSubmitting ? 'Submitting...' : 'Confirm & Submit All'"></button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    @endif
 
     <template x-teleport="body">
     <div

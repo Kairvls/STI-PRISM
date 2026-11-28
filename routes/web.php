@@ -114,9 +114,13 @@ Route::middleware('auth')->group(function () {
 
     // Paper-form preview for pipeline / Request No. Open links (any authorized portal role).
     Route::get('/procurement/documents/{type}/{id}/preview', [\App\Http\Controllers\ProcurementRecordPackageController::class, 'sharedPreviewDocument'])
-        ->where('type', 'ris|atp|rfc|dv|rr|liq')
+        ->where('type', 'ris|atp|rfc|dv|rr|liq|canvass')
         ->whereNumber('id')
         ->name('procurement.documents.preview');
+
+    Route::get('/procurement/canvass-attachments/{attachmentId}/preview', [\App\Http\Controllers\ProcurementRecordPackageController::class, 'sharedPreviewCanvassAttachment'])
+        ->whereNumber('attachmentId')
+        ->name('procurement.canvass-attachments.preview');
 
 });
 
@@ -1174,6 +1178,7 @@ Route::middleware(['auth', 'supply_officer'])
         Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
         Route::post('/authority-to-purchase/{id}/release-purchaser', [AuthorityToPurchaseController::class, 'releaseToPurchaser'])->name('atp.release-purchaser');
         Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
+        Route::post('/authority-to-purchase/ris/{risId}/payment-path', [AuthorityToPurchaseController::class, 'chooseGroupPaymentPath'])->name('atp.group-payment-path');
         Route::post('/authority-to-purchase/{id}/received-by', [AuthorityToPurchaseController::class, 'updateReceivedByName'])->name('atp.received-by');
         Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
         Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');

@@ -28,7 +28,7 @@ class CanvassWorkflow
 
     public const MIN_SUPPLIERS_PER_ITEM = 2;
     public const MAX_SUPPLIERS_PER_ITEM = 3;
-    public const MAX_OFFERS_PER_SUPPLIER = 10;
+    public const MAX_OFFERS_PER_SUPPLIER = 5;
     public const MAX_ITEMS = 30;
     public const MAX_ATTACHMENTS = 5;
     public const MAX_ATTACHMENT_KB = 2048; // 2 MB per file

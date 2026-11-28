@@ -661,14 +661,17 @@
     <table class="{{ $editable ? '' : 'mt-2' }} w-full border-collapse border border-black text-center">
         <thead>
             <tr>
-                <th class="w-16 border border-black py-1 font-semibold text-[10px]" title="From purchase authority — not editable">ORDERED</th>
-                <th class="w-16 border border-black py-1 font-semibold text-[10px]">RECEIVED @if($editable)<span class="text-red-500">*</span>@endif</th>
-                <th class="w-16 border border-black py-1 font-semibold text-[10px]">DAMAGED</th>
-                <th class="w-20 border border-black py-1 font-semibold">UNIT @if($editable)<span class="text-red-500">*</span>@endif</th>
-                <th class="border border-black py-1 font-semibold">ARTICLE @if($editable)<span class="text-red-500">*</span>@endif</th>
-                <th class="w-24 border border-black py-1 font-semibold text-[10px]">CONDITION</th>
+                <th class="w-14 border border-black py-1 font-semibold text-[10px]" title="From purchase authority — not editable">ORDERED</th>
+                <th class="w-14 border border-black py-1 font-semibold text-[10px]">RECEIVED @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="w-14 border border-black py-1 font-semibold text-[10px]">DAMAGED</th>
+                <th class="w-28 border border-black py-1 font-semibold text-[10px]" title="Separate multiple unit serial numbers with commas">SERIAL NO.</th>
+                <th class="min-w-[115px] border border-black py-1 font-semibold text-[10px]">ITEM @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="w-24 border border-black py-1 font-semibold text-[10px]">BRAND</th>
+                <th class="w-16 border border-black py-1 font-semibold text-[10px]">UNIT @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="border border-black py-1 font-semibold text-[10px]">DESCRIPTION / REMARKS</th>
+                <th class="w-20 border border-black py-1 font-semibold text-[10px]">CONDITION</th>
                 @if($allowMultiSupplier && $editable)
-                    <th class="w-36 border border-black py-1 font-semibold">SUPPLIER</th>
+                    <th class="w-32 border border-black py-1 font-semibold text-[10px]">SUPPLIER</th>
                     <th class="w-20 border border-black py-1 font-semibold text-[10px]">UNIT PRICE</th>
                 @endif
             </tr>

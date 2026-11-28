@@ -155,6 +155,8 @@
                 const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
                 const ordered = form.querySelector('[name=\'items[' + i + '][ordered_qty]\']');
                 const damaged = form.querySelector('[name=\'items[' + i + '][damaged_qty]\']');
+                const serialNumber = form.querySelector('[name=\'items[' + i + '][serial_number]\']');
+                const brand = form.querySelector('[name=\'items[' + i + '][brand]\']');
                 const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
                 const article = form.querySelector('[name=\'items[' + i + '][article]\']');
                 const unitPrice = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
@@ -173,6 +175,8 @@
                     }
                 }
                 if (damaged) damaged.value = '';
+                if (serialNumber) serialNumber.value = item.serial_number ?? '';
+                if (brand) brand.value = item.brand ?? '';
                 if (unit) {
                     const hasUnit = item.unit != null && String(item.unit).trim() !== '';
                     unit.value = hasUnit ? item.unit : '';
@@ -448,7 +452,7 @@
                             <td class="px-5 py-4">
                                 @php
                                     $rrRawStatus = trim((string) ($rr->receiving_report_status ?? ''));
-                                    $rrRowItems = collect($itemsByRr[$rr->receiving_report_id] ?? []);
+                                    $rrRowItems = collect(($items ?? collect())->get($rr->receiving_report_id, collect()));
                                     $rrOrderedTotal = 0;
                                     $rrGoodReceivedTotal = 0;
                                     if ($rrRawStatus === 'Incomplete') {
@@ -465,6 +469,7 @@
                                             }
                                         }
                                     }
+                                    $rrBackOrderQty = max(0, $rrOrderedTotal - min($rrGoodReceivedTotal, $rrOrderedTotal));
                                     $rrBadge = match (true) {
                                         $rrRawStatus === 'Draft' => [
                                             'pill' => 'Draft',
@@ -478,7 +483,7 @@
                                         ],
                                         $rrRawStatus === 'Incomplete' => [
                                             'pill' => 'Partial Receive',
-                                            'sub' => $rrOrderedTotal > 0 ? ('Received '.min($rrGoodReceivedTotal, $rrOrderedTotal).' of '.$rrOrderedTotal) : 'Back order open',
+                                            'sub' => $rrOrderedTotal > 0 ? ('Back Order '.$rrBackOrderQty.' of '.$rrOrderedTotal.' '.\Illuminate\Support\Str::plural('item', $rrOrderedTotal)) : 'Back Order open',
                                             'bg' => '#fffbeb', 'fg' => '#b45309', 'border' => '#fde68a', 'dot' => '#d97706',
                                         ],
                                         in_array($rrRawStatus, ['Completed', 'Accepted', 'Delivered'], true) && $rrIsCashAdvance && empty($rr->has_liq) => [

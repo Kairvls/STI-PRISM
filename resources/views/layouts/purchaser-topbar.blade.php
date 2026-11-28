@@ -20,7 +20,7 @@
                     'subcategories' => ['Sub Categories', ''],
                     default => ['Brands', ''],
                 },
-                request()->is('purchaser/canvass*') => ['Purchase Canvass', 'Compare 2–3 suppliers and up to 10 brand offers per item.'],
+                request()->is('purchaser/canvass*') => ['Purchase Canvass', 'Compare 2–3 suppliers and up to 5 brand offers per supplier.'],
                 request()->is('purchaser/ris*') => ['RIS', 'RIS records generated from approved canvasses.'],
                 request()->is('purchaser/authority-to-purchase*') => ['Authority to Purchase', 'Review approved ATPs, choose a payment method, and create the Request for Check.'],
                 request()->is('purchaser/purchase-orders*') => ['Purchase Orders', 'Group ATPs, then submit for approval.'],

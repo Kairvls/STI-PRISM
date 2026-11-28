@@ -99,6 +99,29 @@
         atpSharedReceivedBy: '',
         atpBatchSaving: false,
         expandedAtpGroups: {},
+        groupPayOpen: false,
+        groupPayData: null,
+        groupPayPath: 'cash_advance',
+        groupPaySubmitting: false,
+        toggleAtpGroup(key) {
+            this.expandedAtpGroups[key] = !this.expandedAtpGroups[key];
+            this.$nextTick(() => {
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
+        openGroupPayModal(data) {
+            this.groupPayData = data;
+            this.groupPayPath = 'cash_advance';
+            this.groupPaySubmitting = false;
+            this.groupPayOpen = true;
+            this.$nextTick(() => {
+                if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+            });
+        },
+        closeGroupPayModal() {
+            this.groupPayOpen = false;
+            this.groupPaySubmitting = false;
+        },
         atpPurchaserOwns: {{ $atpPurchaserOwns ? 'true' : 'false' }},
         risPickerOpen: false,
         risPickerQuery: '',
@@ -1498,13 +1521,137 @@
                         $atpGroups = $atpGroups ?? collect();
                     @endphp
                     @forelse($atpGroups as $group)
-                        @foreach(($group['atps'] ?? collect()) as $atp)
-                            @include('purchaser.authority-to-purchase._list-row', [
-                                'atp' => $atp,
-                                'isChildRow' => false,
-                                'fallbackRequestNo' => $group['request_no'] ?? null,
-                            ])
-                        @endforeach
+                        @php
+                            $gKey = (string) ($group['key'] ?? '');
+                            $gAtps = collect($group['atps'] ?? []);
+                            $gCount = $gAtps->count();
+                            $gUnchosenCount = (int) ($group['unchosen_count'] ?? 0);
+                            $gDate = $group['date'] ?? null;
+                            $gGroupPayload = [
+                                'ris_id' => (int) ($group['ris_id'] ?? 0),
+                                'ris_label' => (string) ($group['ris_label'] ?? '—'),
+                                'request_no' => (string) ($group['request_no'] ?? ''),
+                                'atps' => $group['unchosen_payload'] ?? [],
+                                'total' => (float) ($group['unchosen_total'] ?? 0),
+                                'action_url' => !empty($group['ris_id'])
+                                    ? route(($pp ?? 'purchaser').'.atp.group-payment-path', ['risId' => (int) $group['ris_id']])
+                                    : '',
+                            ];
+                        @endphp
+                        @if($gCount > 1)
+                            <tr
+                                class="cursor-pointer bg-slate-50/70 transition hover:bg-blue-50/40"
+                                @click="toggleAtpGroup('{{ $gKey }}')"
+                            >
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50/70 text-[#0025cc]">
+                                            <i data-lucide="layers" class="h-4 w-4"></i>
+                                        </div>
+                                        <div>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <p class="font-semibold text-gray-900">{{ $group['ris_label'] }}</p>
+                                                <span
+                                                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
+                                                    style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;"
+                                                >{{ $gCount }} ATPs</span>
+                                                @include('partials.ris-urgency-badge', [
+                                                    'urgent' => !empty($group['urgent']),
+                                                    'size' => 'sm',
+                                                    'title' => 'Inherited from linked RIS',
+                                                ])
+                                            </div>
+                                            <p class="mt-0.5 text-[11px] text-slate-500">Click to expand individual ATPs</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4">
+                                    @include('partials.procurement-request-no', ['requestNo' => $group['request_no'] ?? null, 'inline' => true, 'showLabel' => false])
+                                    @if(blank($group['request_no'] ?? null))
+                                        <span class="text-xs text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-4">
+                                    <p class="text-xs font-medium text-slate-700">{{ $group['equipment'] ?: 'Multiple items' }}</p>
+                                </td>
+                                <td class="px-5 py-4 text-xs font-medium text-gray-600">
+                                    {{ $gCount }} suppliers
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+                                    {{ $gDate ? \Carbon\Carbon::parse($gDate)->format('M d, Y') : '—' }}
+                                </td>
+                                <td class="px-5 py-4">
+                                    <div class="inline-flex flex-col items-start">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
+                                            style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;"
+                                        >
+                                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background:#059669;"></span>
+                                            <span>Approved</span>
+                                        </span>
+                                        @if($gUnchosenCount > 0)
+                                            <span class="mt-1 whitespace-nowrap text-[11px] font-semibold" style="color:#b45309;">
+                                                {{ $gUnchosenCount }} of {{ $gCount }} need payment method
+                                            </span>
+                                        @else
+                                            <span class="mt-1 whitespace-nowrap text-[11px] font-medium text-slate-500">
+                                                All payment methods chosen
+                                            </span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 text-right">
+                                    <div class="inline-flex items-center justify-end gap-1.5" @click.stop>
+                                        @if(!$archiveView && $gUnchosenCount >= 2 && !empty($group['ris_id']))
+                                            <button
+                                                type="button"
+                                                @click='openGroupPayModal(@json($gGroupPayload))'
+                                                class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition"
+                                                style="background:#0025cc;color:#ffffff;"
+                                                onmouseenter="this.style.background='#001db3'"
+                                                onmouseleave="this.style.background='#0025cc'"
+                                                title="Choose payment method for all {{ $gUnchosenCount }} ATPs"
+                                                aria-label="Choose payment method for all {{ $gUnchosenCount }} ATPs"
+                                            >
+                                                <i data-lucide="wallet-cards" class="h-4 w-4"></i>
+                                                <span
+                                                    class="pointer-events-none absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white"
+                                                    style="background:#f59e0b;"
+                                                >{{ $gUnchosenCount }}</span>
+                                            </button>
+                                        @endif
+                                        <button
+                                            type="button"
+                                            @click="toggleAtpGroup('{{ $gKey }}')"
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                                            :title="expandedAtpGroups['{{ $gKey }}'] ? 'Collapse ATPs' : 'Expand ATPs'"
+                                            :aria-label="expandedAtpGroups['{{ $gKey }}'] ? 'Collapse ATPs' : 'Expand ATPs'"
+                                        >
+                                            <svg class="h-4 w-4 transition-transform duration-150" :class="expandedAtpGroups['{{ $gKey }}'] ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            @foreach($gAtps as $atp)
+                                @include('purchaser.authority-to-purchase._list-row', [
+                                    'atp' => $atp,
+                                    'isChildRow' => true,
+                                    'isLastChild' => $loop->last,
+                                    'groupKey' => $gKey,
+                                    'rowClass' => 'bg-white transition hover:bg-blue-50/20',
+                                    'rowAttrs' => 'x-show="!!expandedAtpGroups[\''.$gKey.'\']" x-cloak',
+                                    'fallbackRequestNo' => $group['request_no'] ?? null,
+                                ])
+                            @endforeach
+                        @else
+                            @foreach($gAtps as $atp)
+                                @include('purchaser.authority-to-purchase._list-row', [
+                                    'atp' => $atp,
+                                    'isChildRow' => false,
+                                    'fallbackRequestNo' => $group['request_no'] ?? null,
+                                ])
+                            @endforeach
+                        @endif
                     @empty
                         <tr>
                             <td colspan="7" class="px-6 py-16 text-center">
@@ -1531,6 +1678,111 @@
 
 
 
+
+    {{-- GROUP CHOOSE PAYMENT METHOD MODAL (applies to all unchosen ATPs in one RIS) --}}
+    <template x-teleport="body">
+        <div
+            x-cloak
+            x-show="groupPayOpen"
+            @keydown.escape.window="if (groupPayOpen) closeGroupPayModal()"
+            @click.self="closeGroupPayModal()"
+            class="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+            style="z-index: 99999;"
+        >
+            <form
+                method="POST"
+                :action="groupPayData?.action_url || '#'"
+                @submit="groupPaySubmitting = true"
+                @click.stop
+                class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            >
+                @csrf
+                <input type="hidden" name="authority_purchase_payment_path" :value="groupPayPath">
+                <template x-for="item in (groupPayData?.atps || [])" :key="item.id">
+                    <input type="hidden" name="atp_ids[]" :value="item.id">
+                </template>
+
+                <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Choose Payment Method for All ATPs</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">
+                            <span class="font-semibold text-slate-700" x-text="groupPayData?.ris_label"></span>
+                            <span x-show="groupPayData?.request_no" x-text="' · ' + groupPayData?.request_no"></span>
+                            · <span x-text="(groupPayData?.atps || []).length + ' ATP(s)'"></span>
+                        </p>
+                    </div>
+                    <button type="button" @click="closeGroupPayModal()" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">✕</button>
+                </div>
+
+                <div class="space-y-4 px-6 py-5">
+                    <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        <div class="max-h-[268px] overflow-y-auto divide-y divide-slate-200/70">
+                            <template x-for="item in (groupPayData?.atps || [])" :key="item.id">
+                                <div class="flex items-center justify-between gap-3 px-3.5 py-2 text-xs">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-slate-900" x-text="item.form_number"></p>
+                                        <p class="truncate text-[11px] text-slate-500" x-text="item.supplier"></p>
+                                    </div>
+                                    <span class="shrink-0 font-semibold tabular-nums text-slate-800" x-text="'₱' + Number(item.total || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-900">
+                            <span>Combined Total</span>
+                            <span class="tabular-nums" x-text="'₱' + Number(groupPayData?.total || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2.5">
+                        <button
+                            type="button"
+                            @click="groupPayPath = 'direct_payment'"
+                            title="Direct Payment — Payee is each supplier directly. No liquidation required."
+                            aria-label="Direct Payment"
+                            class="flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition"
+                            :style="groupPayPath === 'direct_payment' ? 'background:#eff6ff;border-color:#0025cc;color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;color:#475569;'"
+                        >
+                            <i data-lucide="landmark" class="h-6 w-6"></i>
+                            <span class="text-xs font-semibold">Direct Payment</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="groupPayPath = 'cash_installment'"
+                            title="Cash Installment — Pay suppliers in installment terms. No liquidation required."
+                            aria-label="Cash Installment"
+                            class="flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition"
+                            :style="groupPayPath === 'cash_installment' ? 'background:#eff6ff;border-color:#0025cc;color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;color:#475569;'"
+                        >
+                            <i data-lucide="calendar-clock" class="h-6 w-6"></i>
+                            <span class="text-xs font-semibold">Cash Installment</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="groupPayPath = 'cash_advance'"
+                            title="Cash Advance — Payee is the Purchaser. Requires Liquidation after delivery."
+                            aria-label="Cash Advance"
+                            class="flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition"
+                            :style="groupPayPath === 'cash_advance' ? 'background:#eff6ff;border-color:#0025cc;color:#0025cc;' : 'background:#ffffff;border-color:#e2e8f0;color:#475569;'"
+                        >
+                            <i data-lucide="wallet" class="h-6 w-6"></i>
+                            <span class="text-xs font-semibold">Cash Advance</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                    <button type="button" @click="closeGroupPayModal()" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                    <button
+                        type="submit"
+                        :disabled="groupPaySubmitting"
+                        class="rounded-lg px-4 py-2 text-xs font-semibold text-white shadow-sm transition disabled:opacity-60"
+                        style="background:#0025cc;color:#ffffff;"
+                        x-text="groupPaySubmitting ? 'Applying...' : 'Confirm & Create RFCs'"
+                    ></button>
+                </div>
+            </form>
+        </div>
+    </template>
 
     {{-- ========================================================= --}}
     {{-- CREATE ATP MODAL (teleport to body so overlay covers topbar) --}}

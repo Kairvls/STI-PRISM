@@ -8,11 +8,17 @@
     class="{{ $rowClass }}"
     {!! $rowAttrs !!}
 >
-                            <td class="px-5 py-4 {{ $isChildRow ? 'pl-10' : '' }}">
+                            <td class="relative px-5 py-4 {{ $isChildRow ? 'pl-14' : '' }}">
+                                @if($isChildRow)
+                                    <span class="pointer-events-none absolute left-[37px] top-0 w-px bg-slate-200 {{ !empty($isLastChild) ? 'h-1/2' : 'h-full' }}" aria-hidden="true"></span>
+                                    <span class="pointer-events-none absolute left-[37px] top-1/2 h-px w-4 bg-slate-200" aria-hidden="true"></span>
+                                @endif
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
-                                        <i data-lucide="{{ $isChildRow ? 'corner-down-right' : 'file-check-2' }}" class="h-4 w-4"></i>
-                                    </div>
+                                    @unless($isChildRow)
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500">
+                                            <i data-lucide="file-check-2" class="h-4 w-4"></i>
+                                        </div>
+                                    @endunless
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <p class="font-semibold text-gray-900">

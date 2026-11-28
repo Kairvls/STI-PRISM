@@ -651,6 +651,8 @@ class ReceivingReportController extends Controller
             'items.*.condition_remarks' => ['nullable', 'string', 'max:500'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.article' => ['nullable', 'string', 'max:2000'],
+            'items.*.serial_number' => ['nullable', 'string', 'max:1000'],
+            'items.*.brand' => ['nullable', 'string', 'max:150'],
             'items.*.equipment_id' => ['nullable', 'integer', 'exists:equipment_table,equipment_id'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:'.\App\Support\InputLimits::COST],
             'items.*.supplier_id' => ['nullable', 'integer', 'exists:suppliers_table,supplier_id'],
@@ -925,6 +927,8 @@ class ReceivingReportController extends Controller
             : [];
         $hasBackOrderColumn = Schema::hasColumn($table, 'receiving_report_item_back_order_id');
         $hasDamagedColumn = Schema::hasColumn($table, 'receiving_report_item_damaged_qty');
+        $hasSerialColumn = Schema::hasColumn($table, 'receiving_report_item_serial_number');
+        $hasBrandColumn = Schema::hasColumn($table, 'receiving_report_item_brand');
 
         $newIds = [];
         $keptPhotoPaths = [];
@@ -945,6 +949,16 @@ class ReceivingReportController extends Controller
                 'receiving_report_item_unit' => $unit,
                 'receiving_report_item_article' => $article,
             ];
+            if ($hasSerialColumn) {
+                $itemRow['receiving_report_item_serial_number'] = filled($row['serial_number'] ?? null)
+                    ? mb_substr(trim((string) $row['serial_number']), 0, 1000)
+                    : null;
+            }
+            if ($hasBrandColumn) {
+                $itemRow['receiving_report_item_brand'] = filled($row['brand'] ?? null)
+                    ? mb_substr(trim((string) $row['brand']), 0, 150)
+                    : null;
+            }
 
             if (
                 Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')
@@ -1260,6 +1274,8 @@ class ReceivingReportController extends Controller
                 'ordered_qty' => $item->receiving_report_item_ordered_qty ?? null,
                 'quantity' => $item->receiving_report_item_quantity ?? null,
                 'damaged_qty' => $item->receiving_report_item_damaged_qty ?? 0,
+                'serial_number' => $item->receiving_report_item_serial_number ?? null,
+                'brand' => $item->receiving_report_item_brand ?? null,
                 'article' => $item->receiving_report_item_article ?? null,
                 'unit' => $item->receiving_report_item_unit ?? null,
                 'back_order_id' => $item->receiving_report_item_back_order_id ?? null,
@@ -1603,6 +1619,59 @@ class ReceivingReportController extends Controller
             ->get()
             ->groupBy('authority_purchase_id');
 
+        $risBrandsByRis = collect();
+        if (
+            $risIds->isNotEmpty()
+            && Schema::hasTable('requisition_issue_slip_items_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_id')
+            && Schema::hasTable('brands_table')
+        ) {
+            $brandNames = DB::table('brands_table')
+                ->pluck('brand_name', 'brand_id')
+                ->mapWithKeys(fn ($name, $id) => [(int) $id => trim((string) $name)]);
+            $hasBrandSplits = Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_brand_ids');
+            $risCols = ['i.ris_id', 'i.ris_item_name_description', 'i.ris_item_brand_id', 'b.brand_name'];
+            if ($hasBrandSplits) {
+                $risCols[] = 'i.ris_item_brand_ids';
+            }
+            $risBrandsByRis = DB::table('requisition_issue_slip_items_table as i')
+                ->leftJoin('brands_table as b', 'b.brand_id', '=', 'i.ris_item_brand_id')
+                ->whereIn('i.ris_id', $risIds->all())
+                ->get($risCols)
+                ->groupBy(fn ($r) => (int) $r->ris_id)
+                ->map(function ($group) use ($brandNames, $hasBrandSplits) {
+                    $map = [];
+                    foreach ($group as $r) {
+                        $label = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) ($r->ris_item_name_description ?? '')) ?? ''));
+                        if ($label === '') {
+                            continue;
+                        }
+                        $resolved = trim((string) ($r->brand_name ?? ''));
+                        if ($resolved === '' && ! empty($r->ris_item_brand_id)) {
+                            $resolved = (string) ($brandNames[(int) $r->ris_item_brand_id] ?? '');
+                        }
+                        if ($resolved === '' && $hasBrandSplits && ! empty($r->ris_item_brand_ids)) {
+                            $ids = json_decode((string) $r->ris_item_brand_ids, true);
+                            if (is_array($ids)) {
+                                $parts = [];
+                                foreach ($ids as $bid) {
+                                    $bn = trim((string) ($brandNames[(int) $bid] ?? ''));
+                                    if ($bn !== '' && ! in_array($bn, $parts, true)) {
+                                        $parts[] = $bn;
+                                    }
+                                }
+                                $resolved = implode(', ', $parts);
+                            }
+                        }
+                        if ($resolved !== '' && ! isset($map[$label])) {
+                            $map[$label] = $resolved;
+                        }
+                    }
+
+                    return $map;
+                });
+        }
+
         $equipmentByName = collect();
         if (Schema::hasTable('equipment_table') && Schema::hasColumn('equipment_table', 'equipment_name')) {
             $equipmentByName = DB::table('equipment_table')
@@ -1623,15 +1692,24 @@ class ReceivingReportController extends Controller
                 $rfc->authority_purchase_payment_path
                     ?? ($rfc->request_check_funding_type ?? null)
             ) ?? ProcurementPaymentPath::DIRECT_PAYMENT;
+            $risIdForBrands = (int) ($rfc->authority_purchase_ris_id ?? 0);
+            $risBrandMap = $risBrandsByRis->get($risIdForBrands, []);
             $rows = [];
             foreach (($atpItems[$rfc->authority_purchase_id] ?? collect())->take(50) as $index => $item) {
                 $article = trim((string) ($item->atp_description ?? ''));
+                $normArticle = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $article) ?? $article));
+                $brand = (string) ($risBrandMap[$normArticle] ?? '');
+                if ($brand === '' && preg_match('/^(.+?)\s*\(([^()]{2,60})\)\s*$/u', $article, $m)) {
+                    $brand = trim($m[2]);
+                }
                 $equipmentId = $equipmentByName->get(mb_strtolower($article));
                 $rows[] = [
                     'quantity' => $item->atp_quantity,
                     'ordered_qty' => $item->atp_quantity,
                     'condition' => 'ok',
                     'condition_remarks' => '',
+                    'serial_number' => '',
+                    'brand' => $brand,
                     'unit' => $item->atp_unit,
                     'article' => $item->atp_description,
                     'unit_price' => $item->atp_unit_price,

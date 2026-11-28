@@ -28,6 +28,11 @@ class SupplierRequest extends FormRequest
             ? trim((string) $this->input('supplier_store_type'))
             : 'Physical Store';
 
+        $rawStoreUrl = $this->filled('store_url') ? trim((string) $this->store_url) : null;
+        if ($rawStoreUrl !== null && ! preg_match('#^https?://#i', $rawStoreUrl)) {
+            $rawStoreUrl = 'https://'.$rawStoreUrl;
+        }
+
         $this->merge([
             'supplier_store_type' => $storeType,
             'company_name' => $companyName,
@@ -40,11 +45,13 @@ class SupplierRequest extends FormRequest
                 $this->has('landline_number') ? trim((string) $this->input('landline_number')) : null
             ),
             'company_address' => $this->filled('company_address') ? trim($this->company_address) : null,
-            'operating_hours' => $this->filled('operating_hours') ? trim($this->operating_hours) : null,
+            'operating_hours' => $storeType === 'Physical Store' && $this->filled('operating_hours')
+                ? trim($this->operating_hours)
+                : null,
             'supplier_check_name' => $this->filled('supplier_check_name') ? trim($this->supplier_check_name) : null,
             'app_used' => $this->filled('app_used') ? trim($this->app_used) : null,
             'shop_name' => $shopName,
-            'store_url' => $this->filled('store_url') ? trim($this->store_url) : null,
+            'store_url' => $rawStoreUrl,
             'seller_id' => $this->filled('seller_id') ? trim($this->seller_id) : null,
             'order_id' => $this->filled('order_id') ? trim($this->order_id) : null,
         ]);
@@ -82,7 +89,7 @@ class SupplierRequest extends FormRequest
             'contact_person' => ['nullable', 'string', 'max:255'],
             'email_address' => ['nullable', 'email', 'max:255'],
             'contact_number' => PhoneNumber::rules(),
-            'store_url' => ['nullable', 'string', 'max:500'],
+            'store_url' => ['nullable', 'url', 'max:500'],
             'seller_id' => ['nullable', 'string', 'max:100'],
             'order_id' => ['nullable', 'string', 'max:255'],
         ]);
