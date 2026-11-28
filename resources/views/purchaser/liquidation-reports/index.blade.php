@@ -507,7 +507,10 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition"
+                                                style="background:#059669;color:#ffffff;"
+                                                onmouseenter="this.style.background='#047857'"
+                                                onmouseleave="this.style.background='#059669'"
                                                 title="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}"
                                                 aria-label="{{ $liq->liquidation_report_status === 'Minor Revision' ? 'Resubmit to Accounting' : 'Submit to Accounting' }}"
                                             >

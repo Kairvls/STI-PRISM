@@ -157,6 +157,146 @@ class AccountingController extends Controller
         );
     }
 
+    public function batchMarkCheckReady(Request $request)
+    {
+        $ids = collect($request->input('rfc_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return back()->with('error', 'No Request for Check records were selected.');
+        }
+        if (! $this->rfcHas('request_check_check_ready_at')) {
+            return back()->with('error', 'Run database migrations so the check-release step can be saved.');
+        }
+
+        $processed = 0;
+        $labels = [];
+        $purchaserIds = [];
+        $now = now();
+
+        foreach ($ids as $id) {
+            $rfc = $this->lockRfc($id);
+            if (! $rfc || $rfc->request_check_status !== 'Approved') {
+                continue;
+            }
+            if (! empty($rfc->request_check_funds_released_at) || ! empty($rfc->request_check_check_ready_at)) {
+                continue;
+            }
+
+            $this->rfcUpdate($id, [
+                'request_check_check_ready_at' => $now,
+                'request_check_check_ready_by' => Auth::id(),
+                'request_check_updated_at' => $now,
+            ]);
+
+            $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+            $labels[] = $label;
+            $purchaserId = $this->purchaserIdForRfc($rfc);
+            if ($purchaserId > 0) {
+                $purchaserIds[$purchaserId] = true;
+            }
+            $this->log('RFC', $id, 'Approved', 'Check is ready for the purchaser to collect (batch release).');
+            $processed++;
+        }
+
+        if ($processed === 0) {
+            return back()->with('error', 'No eligible Request for Check records were ready to mark for pickup.');
+        }
+
+        foreach (array_keys($purchaserIds) as $purchaserId) {
+            $summary = $processed === 1
+                ? $labels[0].' is ready. Collect the check from Accounting. The receiving report opens after the check is released.'
+                : $processed.' checks ('.implode(', ', array_slice($labels, 0, 3)).($processed > 3 ? ' +'.($processed - 3).' more' : '').') are ready for collection from Accounting.';
+            $this->notifyPurchaser(
+                (int) $purchaserId,
+                $processed === 1 ? 'Check ready for collection' : $processed.' checks ready for collection',
+                $summary,
+                'rfc_check_ready',
+                'RFC',
+                (int) $ids->first(),
+                '/purchaser/request-check'
+            );
+        }
+
+        return back()->with(
+            'success',
+            $processed.' '.($processed === 1 ? 'check is' : 'checks are').' now ready for pickup. The Purchaser has been notified — mark them as released once collected.'
+        );
+    }
+
+    public function batchMarkCheckReleased(Request $request)
+    {
+        $ids = collect($request->input('rfc_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return back()->with('error', 'No Request for Check records were selected.');
+        }
+        if (! $this->rfcHas('request_check_funds_released_at')) {
+            return back()->with('error', 'Funds-release columns are not present on this Request Check table.');
+        }
+
+        $processed = 0;
+        $labels = [];
+        $purchaserIds = [];
+        $now = now();
+
+        foreach ($ids as $id) {
+            $rfc = $this->lockRfc($id);
+            if (! $rfc || $rfc->request_check_status !== 'Approved') {
+                continue;
+            }
+            if (empty($rfc->request_check_check_ready_at) || ! empty($rfc->request_check_funds_released_at)) {
+                continue;
+            }
+
+            $this->rfcUpdate($id, [
+                'request_check_funds_released_at' => $now,
+                'request_check_funds_released_by' => Auth::id(),
+                'request_check_updated_at' => $now,
+            ]);
+
+            $label = $rfc->request_check_form_number ?: ('RFC #'.$id);
+            $labels[] = $label;
+            $purchaserId = $this->purchaserIdForRfc($rfc);
+            if ($purchaserId > 0) {
+                $purchaserIds[$purchaserId] = true;
+            }
+            $this->log('RFC', $id, 'Approved', 'Check released to the purchaser (batch release).');
+            $processed++;
+        }
+
+        if ($processed === 0) {
+            return back()->with('error', 'No ready checks were eligible to mark as released.');
+        }
+
+        foreach (array_keys($purchaserIds) as $purchaserId) {
+            $summary = $processed === 1
+                ? $labels[0].' is released. The approved canvass, RIS, ATP, and RFC are back with you for reference. Create the receiving report from them.'
+                : $processed.' checks ('.implode(', ', array_slice($labels, 0, 3)).($processed > 3 ? ' +'.($processed - 3).' more' : '').') are released. You can now create the receiving reports.';
+            $this->notifyPurchaser(
+                (int) $purchaserId,
+                $processed === 1 ? 'Check released' : $processed.' checks released',
+                $summary,
+                'rfc_funds_released',
+                'RFC',
+                (int) $ids->first(),
+                '/purchaser/receiving-reports'
+            );
+        }
+
+        return back()->with(
+            'success',
+            $processed.' '.($processed === 1 ? 'check has' : 'checks have').' been marked as released. The Purchaser can now create the receiving reports.'
+        );
+    }
+
     private function purchaserIdForRfc(object $rfc): int
     {
         $atpId = (int) ($rfc->request_check_authority_purchase_id ?: 0);

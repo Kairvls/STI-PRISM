@@ -150,6 +150,8 @@ Route::put('/authority-to-purchase/{id}', [AuthorityToPurchaseController::class,
 Route::post('/authority-to-purchase/{id}/submit', [AuthorityToPurchaseController::class, 'submit'])->name('atp.submit');
 Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
 Route::post('/authority-to-purchase/ris/{risId}/payment-path', [AuthorityToPurchaseController::class, 'chooseGroupPaymentPath'])->name('atp.group-payment-path');
+Route::post('/authority-to-purchase/ris/{risId}/archive', [AuthorityToPurchaseController::class, 'archiveGroup'])->name('atp.group-archive');
+Route::post('/authority-to-purchase/ris/{risId}/restore', [AuthorityToPurchaseController::class, 'restoreGroup'])->name('atp.group-restore');
 Route::post('/authority-to-purchase/{id}/received-by', [AuthorityToPurchaseController::class, 'updateReceivedByName'])->name('atp.received-by');
 Route::post('/authority-to-purchase/{id}/cash-installment-plan', [AuthorityToPurchaseController::class, 'planCashInstallment'])->name('atp.cash-installment-plan');
 Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');

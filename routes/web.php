@@ -393,6 +393,11 @@ $schoolAdminRisActionRoutes = function () {
     )->name('digital-signatures.ris.return-revision');
 
     Route::post(
+        '/digital-signatures/ris/{ris}/reopen-canvass',
+        [AdminController::class, 'reopenRisCanvass']
+    )->name('digital-signatures.ris.reopen-canvass');
+
+    Route::post(
         '/digital-signatures/saved-signatures',
         [AdminController::class, 'storeSavedSignature']
     )->name('digital-signatures.saved-signatures.store');
@@ -1179,6 +1184,8 @@ Route::middleware(['auth', 'supply_officer'])
         Route::post('/authority-to-purchase/{id}/release-purchaser', [AuthorityToPurchaseController::class, 'releaseToPurchaser'])->name('atp.release-purchaser');
         Route::post('/authority-to-purchase/{id}/payment-path', [AuthorityToPurchaseController::class, 'choosePaymentPath'])->name('atp.payment-path');
         Route::post('/authority-to-purchase/ris/{risId}/payment-path', [AuthorityToPurchaseController::class, 'chooseGroupPaymentPath'])->name('atp.group-payment-path');
+        Route::post('/authority-to-purchase/ris/{risId}/archive', [AuthorityToPurchaseController::class, 'archiveGroup'])->name('atp.group-archive');
+        Route::post('/authority-to-purchase/ris/{risId}/restore', [AuthorityToPurchaseController::class, 'restoreGroup'])->name('atp.group-restore');
         Route::post('/authority-to-purchase/{id}/received-by', [AuthorityToPurchaseController::class, 'updateReceivedByName'])->name('atp.received-by');
         Route::post('/authority-to-purchase/{id}/archive', [AuthorityToPurchaseController::class, 'archive'])->name('atp.archive');
         Route::post('/authority-to-purchase/{id}/restore', [AuthorityToPurchaseController::class, 'restore'])->name('atp.restore');
@@ -2761,6 +2768,8 @@ Route::middleware(['auth', 'accounting'])
         Route::get('/ris/{id}', fn ($id) => redirect('/school-admin/ris/'.$id))->whereNumber('id');
 
         Route::get('/approved-packages', [AccountingController::class, 'approvedPackages'])->name('accounting.approved-packages.index');
+        Route::post('/approved-packages/batch-check-release', [AccountingController::class, 'batchMarkCheckReady'])->name('accounting.approved-packages.batch-check-release');
+        Route::post('/approved-packages/batch-check-released', [AccountingController::class, 'batchMarkCheckReleased'])->name('accounting.approved-packages.batch-check-released');
         Route::post('/approved-packages/{id}/check-release', [AccountingController::class, 'markCheckReady'])->whereNumber('id')->name('accounting.approved-packages.check-release');
         Route::post('/approved-packages/{id}/check-released', [AccountingController::class, 'markCheckReleased'])->whereNumber('id')->name('accounting.approved-packages.check-released');
         Route::get('/liquidation-reports', [AccountingController::class, 'liquidationReports'])->name('accounting.liq.index');

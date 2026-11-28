@@ -171,10 +171,9 @@
                                     @endif
                                 @endif
                                 @if(!empty($atp->linked_rfc_sent_to_accounting))
-                                    <span class="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold" style="{{ \App\Support\ProcurementStatus::style(\App\Support\ProcurementStatus::WITH_ACCOUNTING) }}">
-                                        <i data-lucide="building-2" class="h-3 w-3"></i>
-                                        With Accounting
-                                    </span>
+                                    <div class="mt-1 text-[11px] font-medium leading-tight text-slate-500">
+                                        Forwarded to Accounting
+                                    </div>
                                 @elseif($atp->authority_purchase_status === 'Approved' && !empty($atp->released_to_purchaser) && !empty($atp->has_rfc) && empty($atp->linked_rfc_sent_to_accounting) && $atpPurchaserOwns)
                                     <span class="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
                                         Approved record
@@ -205,7 +204,7 @@
                                     </p>
                                 @endif
                             </td>
-                            <td class="w-px whitespace-nowrap px-5 py-4">
+                            <td class="whitespace-nowrap px-4 py-4">
                                 @php
                                     $atpCanActOnRfc = !$archiveView
                                         && empty($atp->can_release_to_purchaser)
@@ -223,7 +222,7 @@
                                         <button
                                             type="button"
                                             @click="openView({{ $atp->authority_purchase_id }})"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                                             title="View"
                                             aria-label="View"
                                         >
@@ -312,22 +311,30 @@
                                                 || ($atp->authority_purchase_status === 'Approved' && ! empty($atp->has_rfc))
                                             );
                                     @endphp
-                                    @if($archiveView)
-                                        <form method="POST" action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}">
+                                    @if(!$isChildRow && $archiveView)
+                                        <form
+                                            method="POST"
+                                            action="{{ route(($pp ?? 'purchaser').'.atp.restore', $atp->authority_purchase_id) }}"
+                                            class="shrink-0"
+                                            data-pur-confirm="Restore this Authority to Purchase back to Active?"
+                                            data-pur-confirm-title="Restore ATP"
+                                            data-pur-confirm-ok="Restore"
+                                        >
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
                                                 title="Restore"
                                                 aria-label="Restore"
                                             >
                                                 <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                             </button>
                                         </form>
-                                    @elseif($canArchiveAtp)
+                                    @elseif(!$isChildRow && $canArchiveAtp)
                                         <form
                                             method="POST"
                                             action="{{ route(($pp ?? 'purchaser').'.atp.archive', $atp->authority_purchase_id) }}"
+                                            class="shrink-0"
                                             data-pur-confirm="Archive this Authority to Purchase?"
                                             data-pur-confirm-title="Archive ATP"
                                             data-pur-confirm-ok="Archive"
@@ -336,7 +343,7 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
                                                 title="Archive"
                                                 aria-label="Archive"
                                             >

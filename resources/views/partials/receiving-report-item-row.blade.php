@@ -67,19 +67,32 @@
     </td>
     <td class="border border-black">
         @if($cellsEditable)
-            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][damaged_qty]" value="{{ $damagedQty ?: '' }}" placeholder="0" title="Units received but damaged" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px] text-red-700">
+            <input type="number" {!! $rrQtyAttrs !!} name="items[{{ $i }}][damaged_qty]" value="{{ $damagedQty ?: '' }}" placeholder="0" title="Units received but damaged" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px] {{ $damagedQty > 0 ? 'font-semibold text-red-700' : 'text-slate-900' }}">
         @else
             <span class="{{ $damagedQty > 0 ? 'font-semibold text-red-700' : '' }}">{{ $damagedQty > 0 ? $damagedQty : ($article !== '' ? '0' : '') }}</span>
         @endif
     </td>
-    <td class="border border-black px-1 text-left">
+    <td
+        class="border border-black {{ $unitLocked ? 'bg-slate-50/80' : '' }}"
+        @if($unitLocked) title="Unit is locked from the purchase authority" @endif
+        data-rr-unit-cell
+    >
         @if($cellsEditable)
-            <input type="text" name="items[{{ $i }}][serial_number]" value="{{ $serialNumber }}" maxlength="1000" placeholder="SN-001, SN-002" title="Serial number(s) — separate multiple units with commas" class="h-7 w-full border-0 bg-transparent text-left text-[11px] outline-none">
+            <div data-rr-unit-picker class="{{ $unitLocked ? 'hidden' : '' }}">
+                @include('partials.procurement-uom-select', [
+                    'unit' => $unit,
+                    'inputName' => 'items['.$i.'][unit]',
+                    'uomNames' => $uomNames,
+                    'pp' => $pp ?? null,
+                    'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[11px] outline-none focus:ring-0',
+                ])
+            </div>
+            <span data-rr-unit-display class="{{ $unitLocked ? 'block' : 'hidden' }} text-center text-[11px] text-slate-700">{{ $unitHasValue ? $unit : '—' }}</span>
         @else
-            <span class="block break-words text-[11px]">{{ $serialNumber !== '' ? $serialNumber : '—' }}</span>
+            <span class="text-[11px]">{{ $unit }}</span>
         @endif
     </td>
-    <td class="border border-black px-1.5 text-left">
+    <td class="border border-black px-1.5 text-left" data-rr-article-cell>
         @if($cellsEditable)
             <input type="text" name="items[{{ $i }}][article]" value="{{ $article }}" maxlength="{{ \App\Support\InputLimits::NAME }}" placeholder="Item name" class="h-7 w-full border-0 bg-transparent text-[12px] outline-none">
             <input type="hidden" name="items[{{ $i }}][equipment_id]" value="" data-rr-equipment-id>
@@ -103,39 +116,11 @@
             <span class="text-[11px]">{{ $brand !== '' ? $brand : '—' }}</span>
         @endif
     </td>
-    <td
-        class="border border-black {{ $unitLocked ? 'bg-slate-50/80' : '' }}"
-        @if($unitLocked) title="Unit is locked from the purchase authority" @endif
-        data-rr-unit-cell
-    >
+    <td class="border border-black px-1 text-left">
         @if($cellsEditable)
-            <div data-rr-unit-picker class="{{ $unitLocked ? 'hidden' : '' }}">
-                @include('partials.procurement-uom-select', [
-                    'unit' => $unit,
-                    'inputName' => 'items['.$i.'][unit]',
-                    'uomNames' => $uomNames,
-                    'pp' => $pp ?? null,
-                    'buttonClass' => 'flex h-7 w-full min-w-0 items-center justify-between gap-0.5 border-0 bg-transparent px-1 text-center text-[11px] outline-none focus:ring-0',
-                ])
-            </div>
-            <span data-rr-unit-display class="{{ $unitLocked ? 'block' : 'hidden' }} text-center text-[11px] text-slate-700">{{ $unitHasValue ? $unit : '—' }}</span>
+            <input type="text" name="items[{{ $i }}][serial_number]" value="{{ $serialNumber }}" maxlength="1000" placeholder="SN-001, SN-002" title="Serial number(s) — separate multiple units with commas" class="h-7 w-full border-0 bg-transparent text-left text-[11px] outline-none">
         @else
-            <span class="text-[11px]">{{ $unit }}</span>
-        @endif
-    </td>
-    <td class="border border-black px-1.5 text-left">
-        @if($cellsEditable)
-            <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" placeholder="Specs, notes, or damage remarks" class="h-7 w-full border-0 bg-transparent text-[11px] text-slate-700 outline-none">
-        @else
-            @if($conditionRemarks)
-                <span class="block text-[11px] text-slate-700">{{ $conditionRemarks }}</span>
-            @endif
-            @if($damagedQty > 0 && $damageRemarks !== '' && $damageRemarks !== $conditionRemarks)
-                <span class="block text-[10px] text-red-700">{{ $damageRemarks }}</span>
-            @endif
-            @if(!$conditionRemarks && !($damagedQty > 0 && $damageRemarks !== ''))
-                <span class="text-[11px] text-slate-400">—</span>
-            @endif
+            <span class="block break-words text-[11px]">{{ $serialNumber !== '' ? $serialNumber : '—' }}</span>
         @endif
     </td>
     @php
@@ -157,24 +142,41 @@
         $hasRowData = $article !== '' || ($qty !== '' && $qty !== null);
         $conditionLabel = $conditionParts !== [] ? implode(' · ', $conditionParts) : ($hasRowData ? 'Good' : '');
     @endphp
-    <td class="border border-black px-1">
+    <td class="border border-black px-1.5 py-0.5 text-left">
         @if($cellsEditable)
             <input type="hidden" name="items[{{ $i }}][condition]" value="{{ $condition }}" data-rr-condition-input data-rr-condition-original="{{ $condition }}">
-            <span
-                data-rr-condition-label
-                class="text-[10px] {{ $conditionLabel === 'Good' || $conditionLabel === '' ? 'text-slate-500' : 'font-semibold text-amber-700' }}"
-                title="Worked out from Ordered, Received and Damaged"
-            >{{ $conditionLabel !== '' ? $conditionLabel : '—' }}</span>
+            <div class="flex items-center gap-1.5">
+                <span
+                    data-rr-condition-label
+                    class="shrink-0 rounded px-1.5 py-0.5 text-[9px] leading-tight {{ $conditionLabel === 'Good' ? 'bg-emerald-50 font-semibold text-emerald-700' : ($conditionLabel === '' ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 font-semibold text-amber-700') }}"
+                    title="Worked out from Ordered, Received and Damaged"
+                >{{ $conditionLabel !== '' ? $conditionLabel : '—' }}</span>
+                <input type="text" name="items[{{ $i }}][condition_remarks]" value="{{ $conditionRemarks }}" maxlength="{{ \App\Support\InputLimits::NOTES }}" placeholder="Specs, notes, or damage remarks" class="h-7 min-w-0 flex-1 border-0 bg-transparent text-[11px] text-slate-700 outline-none">
+            </div>
         @else
-            <span class="text-[10px] {{ $conditionLabel === 'Good' || $conditionLabel === '' ? '' : 'font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+                @if($conditionLabel !== '')
+                    <span class="shrink-0 rounded px-1.5 py-0.5 text-[9px] leading-tight {{ $conditionLabel === 'Good' ? 'bg-emerald-50 font-semibold text-emerald-700' : 'bg-amber-50 font-semibold text-amber-700' }}">{{ $conditionLabel }}</span>
+                @endif
+                @if($conditionRemarks)
+                    <span class="text-[11px] text-slate-700">{{ $conditionRemarks }}</span>
+                @endif
+                @if($damagedQty > 0 && $damageRemarks !== '' && $damageRemarks !== $conditionRemarks)
+                    <span class="text-[10px] text-red-700">{{ $damageRemarks }}</span>
+                @endif
+                @if($conditionLabel === '' && !$conditionRemarks && !($damagedQty > 0 && $damageRemarks !== ''))
+                    <span class="text-[11px] text-slate-400">—</span>
+                @endif
+            </div>
         @endif
     </td>
     @if($allowMultiSupplier && $editable && !$cellsEditable)
-        <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>
-        <td class="border border-black text-xs">{{ $unitPrice !== '' && $unitPrice !== null ? number_format((float) $unitPrice, 2) : '—' }}</td>
+        <td data-rr-supplier-col class="border border-black px-1 text-xs {{ ($isCashAdvanceRr ?? false) ? '' : 'hidden' }}">{{ $supplierName ?: '—' }}</td>
+        <td class="border border-black px-1.5 text-right text-xs tabular-nums">{{ $unitPrice !== '' && $unitPrice !== null ? '₱'.number_format((float) $unitPrice, 2) : '—' }}</td>
     @elseif($allowMultiSupplier && $editable)
         <td
-            class="border border-black px-1 {{ $supplierLocked ? 'bg-slate-50/80' : '' }}"
+            data-rr-supplier-col
+            class="border border-black px-1 {{ $supplierLocked ? 'bg-slate-50/80' : '' }} {{ ($isCashAdvanceRr ?? false) ? '' : 'hidden' }}"
             @if($supplierLocked) title="Supplier is locked (editable for Cash Advance only)" @endif
             data-rr-supplier-cell
         >
@@ -199,11 +201,11 @@
             <span data-rr-supplier-display class="{{ $supplierLocked ? 'block' : 'hidden' }} truncate px-1 text-center text-xs text-slate-700">{{ $resolvedSupplierName !== '' ? $resolvedSupplierName : '—' }}</span>
             <input type="hidden" name="items[{{ $i }}][supplier_name]" value="{{ $resolvedSupplierName }}">
         </td>
-        <td class="border border-black">
-            <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-center outline-none text-[11px]">
+        <td class="border border-black px-1">
+            <input type="number" step="0.01" min="0" max="{{ \App\Support\InputLimits::COST }}" inputmode="decimal" data-money name="items[{{ $i }}][unit_price]" value="{{ $unitPrice }}" class="h-7 w-full border-0 bg-transparent text-right outline-none text-[11px] tabular-nums">
         </td>
     @elseif($allowMultiSupplier && !$editable)
-        <td class="border border-black text-xs">{{ $supplierName ?: '—' }}</td>
-        <td class="border border-black text-xs">{{ $unitPrice !== '' && $unitPrice !== null ? number_format((float) $unitPrice, 2) : '—' }}</td>
+        <td data-rr-supplier-col class="border border-black px-1 text-xs {{ ($isCashAdvanceRr ?? false) ? '' : 'hidden' }}">{{ $supplierName ?: '—' }}</td>
+        <td class="border border-black px-1.5 text-right text-xs tabular-nums">{{ $unitPrice !== '' && $unitPrice !== null ? '₱'.number_format((float) $unitPrice, 2) : '—' }}</td>
     @endif
 </tr>

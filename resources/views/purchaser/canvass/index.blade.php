@@ -174,17 +174,16 @@
         </form>
 
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-100 text-sm">
+            <table class="w-full divide-y divide-slate-100 text-sm">
                 <thead class="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
-                        <th class="px-5 py-3.5">Request No.</th>
-                        <th class="px-4 py-3.5">Date Submitted</th>
-                        <th class="px-4 py-3.5">Items</th>
-                        <th class="px-4 py-3.5">Suppliers</th>
-                        <th class="px-4 py-3.5 text-right">Lowest Est. Total</th>
-                        <th class="px-4 py-3.5">Status</th>
-                        <th class="px-4 py-3.5">Request Details</th>
-                        <th class="px-5 py-3.5 text-right">Edit / Actions</th>
+                        <th class="py-3.5 pl-4 pr-2.5">Request No.</th>
+                        <th class="px-2.5 py-3.5">Submitted</th>
+                        <th class="px-2.5 py-3.5">Items</th>
+                        <th class="px-2.5 py-3.5">Suppliers</th>
+                        <th class="px-2.5 py-3.5">Status</th>
+                        <th class="px-2.5 py-3.5">Details</th>
+                        <th class="py-3.5 pl-2.5 pr-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white">
@@ -196,27 +195,29 @@
                             $displayNo = \App\Support\CanvassWorkflow::displayNumber($row);
                         @endphp
                         <tr class="transition hover:bg-slate-50/70">
-                            <td class="px-5 py-3.5 align-middle">
-                                <div class="font-semibold text-slate-900">{{ $displayNo }}</div>
+                            <td class="py-3 pl-4 pr-2.5 align-middle">
+                                <div class="whitespace-nowrap text-[13px] font-semibold text-slate-900">{{ $displayNo }}</div>
                                 @if (! empty($row->canvass_request_no))
-                                    <div class="mt-0.5 text-xs font-medium text-blue-700">{{ $row->canvass_request_no }}</div>
+                                    <div class="mt-0.5 whitespace-nowrap text-[11px] font-medium text-blue-700">{{ $row->canvass_request_no }}</div>
                                 @endif
                                 @if (! empty($row->linked_ris_number))
-                                    <div class="mt-0.5 text-[11px] text-teal-700">RIS: {{ $row->linked_ris_number }}</div>
+                                    <div class="mt-0.5 whitespace-nowrap text-[10px] text-teal-700">{{ $row->linked_ris_number }}</div>
                                 @endif
                             </td>
-                            <td class="whitespace-nowrap px-4 py-3.5 align-middle text-xs text-slate-600">
+                            <td class="whitespace-nowrap px-2.5 py-3 align-middle text-xs text-slate-600">
                                 @if ($row->canvass_submitted_at)
-                                    {{ \Carbon\Carbon::parse($row->canvass_submitted_at)->format('Y-m-d H:i:s') }}
+                                    @php $submittedCarbon = \Carbon\Carbon::parse($row->canvass_submitted_at); @endphp
+                                    <div class="font-medium text-slate-700">{{ $submittedCarbon->format('M d, Y') }}</div>
+                                    <div class="text-[11px] text-slate-400">{{ $submittedCarbon->format('h:i A') }}</div>
                                 @else
                                     <span class="text-slate-400">Not submitted</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3.5 align-middle">
-                                <span class="font-semibold text-slate-900">{{ $row->item_count }}</span>
+                            <td class="px-2.5 py-3 align-middle">
+                                <span class="text-[13px] font-semibold text-slate-900">{{ $row->item_count }}</span>
                                 @if (! empty($row->first_item_name))
-                                    <div class="mt-0.5 flex max-w-[240px] items-center gap-1.5 text-xs text-slate-500">
-                                        <span class="truncate">{{ $row->first_item_name }}</span>
+                                    <div class="mt-0.5 flex max-w-[190px] items-center gap-1.5 text-xs text-slate-500">
+                                        <span class="min-w-0 truncate">{{ $row->first_item_name }}</span>
                                         @if ($row->item_count > 1)
                                             @include('partials.closable-more-popover', [
                                                 'moreCount' => $row->item_count - 1,
@@ -231,13 +232,26 @@
                                     </div>
                                 @endif
                             </td>
-                            <td class="px-4 py-3.5 align-middle text-slate-700">
-                                {{ $row->supplier_count }}
+                            <td class="px-2.5 py-3 align-middle">
+                                <span class="text-[13px] font-semibold text-slate-900">{{ $row->supplier_count }}</span>
+                                @if (! empty($row->first_supplier_name))
+                                    <div class="mt-0.5 flex max-w-[200px] items-center gap-1.5 text-xs text-slate-500">
+                                        <span class="min-w-0 truncate">{{ $row->first_supplier_name }}</span>
+                                        @if ($row->supplier_count > 1)
+                                            @include('partials.closable-more-popover', [
+                                                'moreCount' => $row->supplier_count - 1,
+                                                'heading' => 'Canvass suppliers',
+                                                'popoverKey' => 'pur-canvass-sup-'.$row->canvass_id,
+                                                'rows' => collect($row->canvass_suppliers_preview ?? [])->map(fn ($sp) => [
+                                                    'title' => (string) ($sp->supplier_name ?: 'Supplier'),
+                                                    'meta' => ((int) ($sp->item_count ?? 1)).' '.(((int) ($sp->item_count ?? 1)) === 1 ? 'item' : 'items'),
+                                                ])->values()->all(),
+                                            ])
+                                        @endif
+                                    </div>
+                                @endif
                             </td>
-                            <td class="whitespace-nowrap px-4 py-3.5 text-right align-middle font-semibold text-slate-900">
-                                ₱{{ number_format((float) $row->lowest_total_sum, 2) }}
-                            </td>
-                            <td class="px-4 py-3.5 align-middle">
+                            <td class="px-2.5 py-3 align-middle">
                                 <span
                                     class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold"
                                     style="{{ $badge['style'] }}"
@@ -251,7 +265,7 @@
                                     </div>
                                 @endif
                             </td>
-                            <td class="px-4 py-3.5 align-middle">
+                            <td class="whitespace-nowrap px-2.5 py-3 align-middle">
                                 <a
                                     href="{{ route($routePrefix.'.canvass.show', $row->canvass_id) }}"
                                     class="text-xs font-semibold text-blue-600 underline-offset-2 hover:underline"
@@ -259,7 +273,7 @@
                                     View items
                                 </a>
                             </td>
-                            <td class="whitespace-nowrap px-5 py-3.5 text-right align-middle">
+                            <td class="whitespace-nowrap py-3 pl-2.5 pr-4 text-right align-middle">
                                 <div class="inline-flex items-center justify-end gap-1.5">
                                     @if (! empty($row->canvass_ris_id))
                                         <button
@@ -309,21 +323,35 @@
                                             );
                                         @endphp
                                         @if ($canArchiveCanvass)
-                                            <form method="POST" action="{{ route($routePrefix.'.canvass.archive', $row->canvass_id) }}" class="inline">
+                                            <form
+                                                method="POST"
+                                                action="{{ route($routePrefix.'.canvass.archive', $row->canvass_id) }}"
+                                                class="inline"
+                                                data-pur-confirm="Archive {{ $displayNo }}? You can restore it anytime from the Archive tab."
+                                                data-pur-confirm-title="Archive Canvass"
+                                                data-pur-confirm-ok="Archive"
+                                                data-pur-confirm-kind="archive"
+                                            >
                                                 @csrf
                                                 <button
                                                     type="submit"
                                                     class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition hover:opacity-90"
                                                     style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;"
                                                     title="Archive canvass"
-                                                    onclick="return confirm('Archive this canvass?')"
                                                 >
                                                     <i data-lucide="archive" class="h-3.5 w-3.5"></i>
                                                 </button>
                                             </form>
                                         @endif
                                     @else
-                                        <form method="POST" action="{{ route($routePrefix.'.canvass.restore', $row->canvass_id) }}" class="inline">
+                                        <form
+                                            method="POST"
+                                            action="{{ route($routePrefix.'.canvass.restore', $row->canvass_id) }}"
+                                            class="inline"
+                                            data-pur-confirm="Restore {{ $displayNo }} back to Active?"
+                                            data-pur-confirm-title="Restore Canvass"
+                                            data-pur-confirm-ok="Restore"
+                                        >
                                             @csrf
                                             <button
                                                 type="submit"
@@ -338,7 +366,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center">
+                            <td colspan="7" class="px-6 py-12 text-center">
                                 <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                                     <i data-lucide="scale" class="h-6 w-6"></i>
                                 </div>

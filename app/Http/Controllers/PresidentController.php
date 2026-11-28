@@ -1193,6 +1193,11 @@ class PresidentController extends Controller
         if ($decision === 'Rejected') {
             $form = RisWorkflow::formNumber($target);
             $rejectNote = trim((string) $remarks);
+            \App\Support\CanvassWorkflow::syncStatusFromRis(
+                (int) $targetId,
+                (string) ($updateValues['ris_status'] ?? RisWorkflow::PRESIDENT_REJECTED),
+                $rejectNote
+            );
             $purchaserId = RisWorkflow::ownerPurchaserId($target);
             $rejectReturnTo = array_values(array_intersect(
                 (array) $request->input('return_to', []),
@@ -1383,6 +1388,7 @@ class PresidentController extends Controller
         }
 
         $form = RisWorkflow::formNumber($target);
+        \App\Support\CanvassWorkflow::syncStatusFromRis((int) $targetId, $newStatus, $remarks);
 
         WorkflowNotifier::toRole(
             WorkflowNotifier::ROLE_SCHOOL_ADMIN,

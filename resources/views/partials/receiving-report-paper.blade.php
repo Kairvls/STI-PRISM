@@ -91,9 +91,9 @@
                 ->all()
             : []))->values()
         : collect();
-    $rrQtyAttrs = 'min="0" max="9999999" step="1" inputmode="numeric"'
+    $rrQtyAttrs = 'min="0" max="9999" maxlength="4" step="1" inputmode="numeric"'
         .' onkeydown="if ([\'e\', \'E\', \'+\', \'-\', \'.\'].includes(event.key)) event.preventDefault();"'
-        .' oninput="if (this.value.length > 7) this.value = this.value.replace(/\D/g, \'\').slice(0, 7);"';
+        .' oninput="var d = this.value.replace(/\D/g, \'\'); if (d.length > 4) this.value = d.slice(0, 4);"';
 @endphp
 
 <div
@@ -661,19 +661,21 @@
     <table class="{{ $editable ? '' : 'mt-2' }} w-full border-collapse border border-black text-center">
         <thead>
             <tr>
-                <th class="w-14 border border-black py-1 font-semibold text-[10px]" title="From purchase authority — not editable">ORDERED</th>
-                <th class="w-14 border border-black py-1 font-semibold text-[10px]">RECEIVED @if($editable)<span class="text-red-500">*</span>@endif</th>
-                <th class="w-14 border border-black py-1 font-semibold text-[10px]">DAMAGED</th>
-                <th class="w-28 border border-black py-1 font-semibold text-[10px]" title="Separate multiple unit serial numbers with commas">SERIAL NO.</th>
-                <th class="min-w-[115px] border border-black py-1 font-semibold text-[10px]">ITEM @if($editable)<span class="text-red-500">*</span>@endif</th>
-                <th class="w-24 border border-black py-1 font-semibold text-[10px]">BRAND</th>
-                <th class="w-16 border border-black py-1 font-semibold text-[10px]">UNIT @if($editable)<span class="text-red-500">*</span>@endif</th>
-                <th class="border border-black py-1 font-semibold text-[10px]">DESCRIPTION / REMARKS</th>
-                <th class="w-20 border border-black py-1 font-semibold text-[10px]">CONDITION</th>
-                @if($allowMultiSupplier && $editable)
-                    <th class="w-32 border border-black py-1 font-semibold text-[10px]">SUPPLIER</th>
-                    <th class="w-20 border border-black py-1 font-semibold text-[10px]">UNIT PRICE</th>
+                <th colspan="3" class="border border-black py-1 font-semibold text-[10px] tracking-wide">QUANTITY</th>
+                <th rowspan="2" class="w-16 border border-black py-1 font-semibold text-[10px]">UNIT @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th rowspan="2" class="min-w-[140px] border border-black py-1 font-semibold text-[10px]">ITEM @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th rowspan="2" class="w-24 border border-black py-1 font-semibold text-[10px]">BRAND</th>
+                <th rowspan="2" class="w-32 border border-black py-1 font-semibold text-[10px]" title="Separate multiple unit serial numbers with commas">SERIAL NO.</th>
+                <th rowspan="2" class="min-w-[160px] border border-black py-1 font-semibold text-[10px]">REMARKS / CONDITION</th>
+                @if($allowMultiSupplier)
+                    <th rowspan="2" data-rr-supplier-col class="w-36 border border-black py-1 font-semibold text-[10px] {{ $isCashAdvanceRr ? '' : 'hidden' }}">SUPPLIER</th>
+                    <th rowspan="2" class="w-24 border border-black py-1 font-semibold text-[10px]">UNIT COST</th>
                 @endif
+            </tr>
+            <tr>
+                <th class="w-12 border border-black py-0.5 font-semibold text-[9px]" title="From purchase authority — not editable">ORD.</th>
+                <th class="w-12 border border-black py-0.5 font-semibold text-[9px]">REC. @if($editable)<span class="text-red-500">*</span>@endif</th>
+                <th class="w-12 border border-black py-0.5 font-semibold text-[9px]">DMG.</th>
             </tr>
         </thead>
         <tbody @if($editable) data-doc-rows-body @endif>
@@ -869,21 +871,12 @@
         var problemField = null;
         var rowHasData = hasData || ordered !== null || damaged > 0;
         if (rowHasData) {
-            if (ordered === null) {
-                problem = 'Ordered qty missing';
-                problemField = 'ordered_qty';
-            } else if (received === null) {
-                problem = 'Enter received';
-                problemField = 'quantity';
-            } else if (received > ordered) {
+            if (ordered !== null && received !== null && received > ordered) {
                 problem = 'Over ordered by ' + (received - ordered);
                 problemField = 'quantity';
-            } else if (damaged > received) {
+            } else if (received !== null && damaged > received) {
                 problem = 'Damaged > received';
                 problemField = 'damaged_qty';
-            } else if (!article || article.value.trim() === '') {
-                problem = 'Enter article';
-                problemField = 'article';
             }
         }
 
@@ -892,14 +885,27 @@
             if (input) input.classList.toggle('rr-cell-invalid', field === problemField);
         });
 
-        var text = problem || (parts.length ? parts.join(' · ') : (hasData ? 'Good' : '—'));
+        var dmgInput = row.querySelector('input[name$="[damaged_qty]"]');
+        if (dmgInput) {
+            dmgInput.classList.toggle('text-red-700', damaged > 0);
+            dmgInput.classList.toggle('font-semibold', damaged > 0);
+            dmgInput.classList.toggle('text-slate-900', damaged === 0);
+        }
+
+        var text = problem || (parts.length ? parts.join(' · ') : (received !== null && hasData ? 'Good' : '—'));
         label.textContent = text;
         label.title = problem ? 'Fix this before submitting' : 'Worked out from Ordered, Received and Damaged';
         var flagged = parts.length > 0 && !problem;
-        label.classList.toggle('font-semibold', flagged || !!problem);
+        var isGood = !problem && !flagged && text === 'Good';
+        label.classList.toggle('font-semibold', flagged || !!problem || isGood);
+        label.classList.toggle('text-emerald-700', isGood);
+        label.classList.toggle('bg-emerald-50', isGood);
         label.classList.toggle('text-amber-700', flagged);
+        label.classList.toggle('bg-amber-50', flagged);
         label.classList.toggle('text-red-600', !!problem);
-        label.classList.toggle('text-slate-500', !flagged && !problem);
+        label.classList.toggle('bg-red-50', !!problem);
+        label.classList.toggle('text-slate-500', !flagged && !problem && !isGood);
+        label.classList.toggle('bg-slate-100', !flagged && !problem && !isGood);
     }
 
     function paperRoot(el) {
@@ -916,7 +922,7 @@
         var articleInput = row.querySelector('input[name$="[article]"]');
         var article = articleInput ? String(articleInput.value || '').trim() : '';
         if (!article) {
-            var articleCell = row.querySelector('td.text-left');
+            var articleCell = row.querySelector('[data-rr-article-cell]') || row.querySelector('td.text-left');
             if (articleCell) {
                 var text = (articleCell.childNodes[0] && articleCell.childNodes[0].textContent)
                     ? String(articleCell.childNodes[0].textContent).trim()
@@ -1230,6 +1236,18 @@
     window.rrSetSupplierEditable = function (root, editable) {
         var scope = root || document;
         var canEdit = !!editable;
+        var sheets = [];
+        if (scope.classList && scope.classList.contains('rr-print-sheet')) {
+            sheets.push(scope);
+        } else if (scope.querySelectorAll) {
+            scope.querySelectorAll('.rr-print-sheet').forEach(function (s) { sheets.push(s); });
+        }
+        sheets.forEach(function (s) { s.dataset.rrSupplierVisible = canEdit ? '1' : '0'; });
+
+        scope.querySelectorAll('[data-rr-supplier-col]').forEach(function (el) {
+            el.classList.toggle('hidden', !canEdit);
+        });
+
         scope.querySelectorAll('[data-rr-supplier-cell]').forEach(function (td) {
             var sel = td.querySelector('[data-rr-supplier-select]');
             var hidden = td.querySelector('[data-rr-supplier-hidden]');
@@ -1314,6 +1332,9 @@
         syncItemPhotoSlots(sheet, pendingPhotoRemoveIndex);
         pendingPhotoRemoveIndex = null;
         root.querySelectorAll('[data-rr-row]').forEach(refreshRow);
+        if (typeof sheet.dataset.rrSupplierVisible !== 'undefined' && window.rrSetSupplierEditable) {
+            window.rrSetSupplierEditable(sheet, sheet.dataset.rrSupplierVisible === '1');
+        }
     });
 
     if (document.readyState === 'loading') {

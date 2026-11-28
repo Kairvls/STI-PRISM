@@ -1127,9 +1127,16 @@ class AdminController extends Controller
     }
     $sheetItemsByRis = RisWorkflow::sheetItemsByRisIds($visibleRisIds);
     $linkedAtpsByRis = \App\Support\CanvassWorkflow::linkedAtpsByRisIds($visibleRisIds);
+    $linkedCanvassByRis = (Schema::hasTable('canvass_table') && $visibleRisIds !== [])
+        ? DB::table('canvass_table')
+            ->whereIn('canvass_ris_id', $visibleRisIds)
+            ->get(['canvass_id', 'canvass_number', 'canvass_ris_id'])
+            ->keyBy('canvass_ris_id')
+        : collect();
     foreach ($signableRisRecords->getCollection() as $rec) {
         $rec->risItems = $sheetItemsByRis->get((int) $rec->ris_id, collect())->values();
         $rec->linkedAtps = $linkedAtpsByRis->get((int) $rec->ris_id, collect())->values();
+        $rec->linkedCanvass = $linkedCanvassByRis->get((int) $rec->ris_id);
     }
 
     if ($recordRisId > 0) {
@@ -1795,6 +1802,89 @@ class AdminController extends Controller
         return redirect()
             ->to(AdminPortal::route('digital-signatures.sign-ris'))
             ->with('success', 'Successfully sent to ' . WorkflowNotifier::recipientName($ownerPurchaserId, 'the Purchaser') . '.');
+    }
+
+    public function reopenRisCanvass(Request $request, $risId)
+    {
+        abort_unless(AdminPortal::canActOnRis(), 403, 'Only the School Administrator can reopen a canvass.');
+
+        $risId = (int) $risId;
+        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->first();
+        if (! $ris) {
+            return back()->with('error', 'RIS not found.');
+        }
+
+        if (trim((string) ($ris->ris_status ?? '')) !== RisWorkflow::ACCEPTED) {
+            return back()->with('error', 'Only reviewed RIS records awaiting approval (not yet directly approved or forwarded to the President) can be reopened to Canvass.');
+        }
+
+        if (! Schema::hasTable('canvass_table')) {
+            return back()->with('error', 'Canvass module is unavailable.');
+        }
+
+        $canvass = DB::table('canvass_table')->where('canvass_ris_id', $risId)->first();
+        if (! $canvass) {
+            return back()->with('error', 'No linked canvass found for this RIS.');
+        }
+
+        $atpIds = Schema::hasTable('authority_to_purchase_table')
+            ? DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_ris_id', $risId)
+                ->pluck('authority_purchase_id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
+
+        if ($atpIds !== [] && \App\Support\RfcAtpLinks::fundedAtpIds($atpIds) !== []) {
+            return back()->with('error', 'Cannot reopen this canvass because a Request for Check has already been created.');
+        }
+
+        $canvassId = (int) $canvass->canvass_id;
+        $canvassLabel = \App\Support\CanvassWorkflow::displayNumber($canvass);
+
+        DB::transaction(function () use ($risId, $canvassId, $atpIds) {
+            $now = now();
+
+            if ($atpIds !== []) {
+                if (Schema::hasTable('authority_to_purchase_items_table')) {
+                    DB::table('authority_to_purchase_items_table')
+                        ->whereIn('authority_purchase_id', $atpIds)
+                        ->delete();
+                }
+                DB::table('authority_to_purchase_table')
+                    ->whereIn('authority_purchase_id', $atpIds)
+                    ->delete();
+            }
+
+            if (Schema::hasTable('ris_attachments_table')) {
+                DB::table('ris_attachments_table')->where('ris_id', $risId)->delete();
+            }
+
+            if (Schema::hasTable('requisition_issue_slip_items_table')) {
+                DB::table('requisition_issue_slip_items_table')->where('ris_id', $risId)->delete();
+            }
+
+            DB::table('canvass_table')
+                ->where('canvass_id', $canvassId)
+                ->update([
+                    'canvass_ris_id' => null,
+                    'canvass_status' => \App\Support\CanvassWorkflow::STATUS_REVIEWING,
+                    'canvass_updated_at' => $now,
+                ]);
+
+            DB::table('canvass_items_table')
+                ->where('canvass_id', $canvassId)
+                ->update([
+                    'canvass_item_status' => \App\Support\CanvassWorkflow::ITEM_PENDING,
+                    'canvass_item_updated_at' => $now,
+                ]);
+
+            DB::table('requisition_issue_slip_table')->where('ris_id', $risId)->delete();
+        });
+
+        return redirect()
+            ->to(AdminPortal::route('canvass-review.show', ['canvassId' => $canvassId]))
+            ->with('success', $canvassLabel.' reopened for editing. Your previous offer selections are pre-filled.');
     }
 
     public function returnRisToPurchaser($risId)

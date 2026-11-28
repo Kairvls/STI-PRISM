@@ -887,18 +887,44 @@ class AuthorityToPurchaseController extends Controller
 
     public function chooseGroupPaymentPath(Request $request, $risId)
     {
-        $validated = $request->validate([
-            'authority_purchase_payment_path' => [
-                'required',
-                Rule::in(ProcurementPaymentPath::choices()),
-            ],
-            'atp_ids' => ['required', 'array', 'min:1'],
-            'atp_ids.*' => ['integer'],
-        ]);
+        $hasPerAtpPaths = is_array($request->input('atp_paths')) && $request->input('atp_paths') !== [];
+
+        if ($hasPerAtpPaths) {
+            $validated = $request->validate([
+                'atp_paths' => ['required', 'array', 'min:1'],
+                'atp_paths.*' => ['required', Rule::in(ProcurementPaymentPath::choices())],
+            ]);
+            $pathByAtpId = [];
+            foreach ($validated['atp_paths'] as $rawId => $rawPath) {
+                $aid = (int) $rawId;
+                if ($aid > 0) {
+                    $pathByAtpId[$aid] = (string) $rawPath;
+                }
+            }
+            $atpIds = array_keys($pathByAtpId);
+        } else {
+            $validated = $request->validate([
+                'authority_purchase_payment_path' => [
+                    'required',
+                    Rule::in(ProcurementPaymentPath::choices()),
+                ],
+                'atp_ids' => ['required', 'array', 'min:1'],
+                'atp_ids.*' => ['integer'],
+            ]);
+            $singlePath = (string) $validated['authority_purchase_payment_path'];
+            $atpIds = array_values(array_unique(array_map('intval', $validated['atp_ids'])));
+            $pathByAtpId = [];
+            foreach ($atpIds as $aid) {
+                if ($aid > 0) {
+                    $pathByAtpId[$aid] = $singlePath;
+                }
+            }
+        }
 
         $risId = (int) $risId;
-        $path = (string) $validated['authority_purchase_payment_path'];
-        $atpIds = array_values(array_unique(array_map('intval', $validated['atp_ids'])));
+        if ($atpIds === []) {
+            return back()->with('error', 'No valid Authorities to Purchase were selected.');
+        }
 
         $atps = DB::table('authority_to_purchase_table')
             ->where('authority_purchase_ris_id', $risId)
@@ -910,7 +936,8 @@ class AuthorityToPurchaseController extends Controller
         }
 
         $fundedIds = RfcAtpLinks::fundedAtpIds($atpIds);
-        $updatedIds = [];
+        $updatesByPath = [];
+        $updatedCount = 0;
 
         foreach ($atps as $atp) {
             PurchaserDocumentAccess::assertOwns($atp, 'atp');
@@ -921,29 +948,58 @@ class AuthorityToPurchaseController extends Controller
             if (filled($atp->authority_purchase_payment_path ?? null) && in_array($aid, $fundedIds, true)) {
                 continue;
             }
-            $updatedIds[] = $aid;
+            $chosenPath = $pathByAtpId[$aid] ?? null;
+            if (! $chosenPath) {
+                continue;
+            }
+            $updatesByPath[$chosenPath][] = $aid;
+            $updatedCount++;
         }
 
-        if ($updatedIds === []) {
+        if ($updatedCount === 0) {
             return back()->with('error', 'No eligible ATPs were available to update.');
         }
 
-        DB::table('authority_to_purchase_table')
-            ->whereIn('authority_purchase_id', $updatedIds)
-            ->update([
-                'authority_purchase_payment_path' => $path,
-                'authority_purchase_payment_path_chosen_at' => now(),
-                'authority_purchase_updated_at' => now(),
-            ]);
+        DB::transaction(function () use ($updatesByPath) {
+            $now = now();
+            foreach ($updatesByPath as $path => $ids) {
+                DB::table('authority_to_purchase_table')
+                    ->whereIn('authority_purchase_id', $ids)
+                    ->update([
+                        'authority_purchase_payment_path' => $path,
+                        'authority_purchase_payment_path_chosen_at' => $now,
+                        'authority_purchase_updated_at' => $now,
+                    ]);
+            }
+        });
 
-        $label = ProcurementPaymentPath::label($path);
-        $count = count($updatedIds);
+        // If all updated ATPs share the same payment path, go straight to batch RFC creation.
+        if (count($updatesByPath) === 1) {
+            $onlyPath = array_key_first($updatesByPath);
+            $label = ProcurementPaymentPath::label($onlyPath);
+
+            return redirect(ProcurementPortal::route('rfc.index', [
+                'fund' => $onlyPath,
+                'funding_type' => $onlyPath,
+                'batch_ris' => $risId,
+            ]))->with('success', "Payment method set to {$label} for {$updatedCount} ATP(s). Review and submit their Request Checks below.");
+        }
+
+        $summaryParts = [];
+        foreach ($updatesByPath as $path => $ids) {
+            $summaryParts[] = count($ids).' '.ProcurementPaymentPath::label($path);
+        }
+        $firstPath = array_key_first($updatesByPath) ?: ProcurementPaymentPath::DIRECT_PAYMENT;
 
         return redirect(ProcurementPortal::route('rfc.index', [
-            'fund' => $path,
-            'funding_type' => $path,
+            'fund' => $firstPath,
+            'funding_type' => $firstPath,
             'batch_ris' => $risId,
-        ]))->with('success', "Payment method set to {$label} for {$count} ATP(s). Review and submit their Request Checks below.");
+            'batch_all' => 1,
+        ]))->with(
+            'success',
+            "Payment methods saved for {$updatedCount} ATP(s) (".implode(', ', $summaryParts).'). Review and submit all Request Checks below.'
+        );
     }
 
     public function updateReceivedByName(Request $request, $id)
@@ -1528,6 +1584,88 @@ class AuthorityToPurchaseController extends Controller
         );
 
         return back()->with('success', 'ATP restored from archive.');
+    }
+
+    public function archiveGroup(int $risId)
+    {
+        $this->assertSupplyOfficerMutatesAtp();
+
+        $atps = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_ris_id', $risId)
+            ->where('authority_purchase_is_archived', 0)
+            ->get();
+
+        if ($atps->isEmpty()) {
+            return back()->with('error', 'No active ATP records found for this group.');
+        }
+
+        $ids = $atps->pluck('authority_purchase_id')->map(fn ($v) => (int) $v)->all();
+        $fundedIds = array_flip(RfcAtpLinks::fundedAtpIds($ids));
+        $releaseReady = SupplyHandoff::atpReleaseColumnsReady();
+
+        foreach ($atps as $atp) {
+            PurchaserDocumentAccess::assertOwns($atp, 'atp');
+
+            if (! in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true)) {
+                return back()->with('error', 'All ATPs in this group must be approved or rejected before archiving.');
+            }
+
+            if ($atp->authority_purchase_status === 'Approved') {
+                if ($releaseReady && ! SupplyHandoff::atpIsReleasedToPurchaser($atp)) {
+                    return back()->with('error', 'All ATPs in this group must be released to the Purchaser before archiving.');
+                }
+                if (! isset($fundedIds[(int) $atp->authority_purchase_id])) {
+                    return back()->with('error', 'All ATPs in this group must have their funding request (RFC) created before archiving.');
+                }
+            }
+        }
+
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $atpId) {
+                DocumentWorkflowService::setArchived(
+                    'authority_to_purchase_table',
+                    'authority_purchase_id',
+                    $atpId,
+                    'authority_purchase_is_archived',
+                    'authority_purchase_updated_at',
+                    true
+                );
+            }
+        });
+
+        return back()->with('success', count($ids).' ATP(s) archived.');
+    }
+
+    public function restoreGroup(int $risId)
+    {
+        $atps = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_ris_id', $risId)
+            ->where('authority_purchase_is_archived', 1)
+            ->get();
+
+        if ($atps->isEmpty()) {
+            return back()->with('error', 'No archived ATP records found for this group.');
+        }
+
+        foreach ($atps as $atp) {
+            PurchaserDocumentAccess::assertOwns($atp, 'atp');
+        }
+
+        $ids = $atps->pluck('authority_purchase_id')->map(fn ($v) => (int) $v)->all();
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $atpId) {
+                DocumentWorkflowService::setArchived(
+                    'authority_to_purchase_table',
+                    'authority_purchase_id',
+                    $atpId,
+                    'authority_purchase_is_archived',
+                    'authority_purchase_updated_at',
+                    false
+                );
+            }
+        });
+
+        return back()->with('success', count($ids).' ATP(s) restored from archive.');
     }
 
     private function notifyAccountingAtp($id, ?string $formNumber, ?int $reviewerId = null): void

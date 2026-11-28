@@ -34,6 +34,68 @@
     @if (\App\Support\AdminPortal::canActOnRis())
         @include('admin.procurement-review._direct-approve-modal')
         @include('admin.digital-signatures._return-revision-modal')
+
+        {{-- REOPEN CANVASS CONFIRMATION MODAL --}}
+        <div
+            id="reopenCanvassModal"
+            class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/45 p-4"
+            onclick="if (event.target === this) window.closeReopenCanvassModal()"
+        >
+            <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div class="flex items-start gap-3 border-b border-slate-100 px-6 py-4">
+                    <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background:#fef3c7;color:#d97706;">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Reopen Canvass to edit selection?</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-slate-600" id="reopenCanvassModalDesc">
+                            This will remove the unapproved draft RIS &amp; ATP(s) and reopen the canvass with your previous selections pre-filled.
+                        </p>
+                    </div>
+                </div>
+                <form id="reopenCanvassForm" method="POST" action="">
+                    @csrf
+                    <div class="flex items-center justify-end gap-2 bg-slate-50 px-6 py-3.5">
+                        <button
+                            type="button"
+                            onclick="window.closeReopenCanvassModal()"
+                            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                            style="background:#d97706;"
+                        >
+                            Reopen Canvass
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script>
+            window.openReopenCanvassModal = function (url, canvassLabel, risLabel) {
+                var modal = document.getElementById('reopenCanvassModal');
+                var form = document.getElementById('reopenCanvassForm');
+                var desc = document.getElementById('reopenCanvassModalDesc');
+                if (!modal || !form) return;
+                form.action = url || '';
+                if (desc) {
+                    desc.textContent = 'This will remove the unapproved draft ' + (risLabel || 'RIS') + ' & its draft ATP(s) and reopen ' + (canvassLabel || 'the canvass') + ' with your previous offer selections pre-filled.';
+                }
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            };
+            window.closeReopenCanvassModal = function () {
+                var modal = document.getElementById('reopenCanvassModal');
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            };
+        </script>
     @endif
     @include('admin.digital-signatures._president-remarks-modal')
 

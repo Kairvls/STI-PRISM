@@ -24,6 +24,7 @@
         rfcCarouselIds: [],
         rfcCarouselIdx: 0,
         batchOpen: {{ !empty($batchRfcItems) ? 'true' : 'false' }},
+        batchError: '',
         batchItems: JSON.parse(document.getElementById('rfc-batch-items').textContent || '[]'),
         batchIdx: 0,
         batchConfirmOpen: false,
@@ -71,20 +72,29 @@
         },
 
         openBatchSubmitConfirm() {
-            const form = this.$refs.batchRfcForm;
+            this.batchError = '';
+            const form = this.$refs.batchRfcForm || document.getElementById('batchRfcForm');
             if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
                 window.purchaserDocumentSignature.flush();
             }
+            for (let i = 0; i < this.batchItems.length; i++) {
+                const it = this.batchItems[i];
+                if (!String(it.date || '').trim() || !String(it.payee || '').trim() || !String(it.purpose || '').trim()) {
+                    this.batchIdx = i;
+                    this.batchError = (it.atp_number || ('ATP ' + (i + 1))) + ': Please complete Date, Payee, and For (Purpose) before submitting.';
+                    return;
+                }
+            }
             const sig = form ? (form.querySelector('#purSigImage-rfc-batch')?.value || '') : '';
             if (!sig || String(sig).indexOf('data:image/') !== 0) {
-                alert('Please draw or select your Purchaser signature before submitting.');
+                this.batchError = 'Please draw or select your Purchaser signature below before submitting.';
                 return;
             }
             this.batchConfirmOpen = true;
         },
 
         confirmBatchSubmit() {
-            const form = this.$refs.batchRfcForm;
+            const form = this.$refs.batchRfcForm || document.getElementById('batchRfcForm');
             if (!form || this.batchSubmitting) return;
             if (window.purchaserDocumentSignature && typeof window.purchaserDocumentSignature.flush === 'function') {
                 window.purchaserDocumentSignature.flush();
@@ -612,10 +622,10 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Payee</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody class="divide-y divide-slate-200/75 bg-white">
                     @php $rfcGroups = $rfcGroups ?? collect(); @endphp
                     @forelse($rfcGroups as $rGroup)
                         @php
@@ -629,28 +639,30 @@
                         @endphp
                         @if($rgMulti)
                             <tr
-                                class="cursor-pointer bg-slate-50/70 transition hover:bg-blue-50/40"
+                                class="cursor-pointer bg-slate-100/70 transition hover:bg-slate-100"
                                 @click="toggleRfcGroup('{{ $rgKey }}')"
                             >
                                 <td class="px-5 py-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50/70 text-[#0025cc]">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-[#0025cc]">
                                             <i data-lucide="layers" class="h-4 w-4"></i>
                                         </div>
                                         <div>
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <p class="font-semibold text-gray-900">{{ $rgReqNo ?: 'Grouped Request Checks' }}</p>
                                                 <span
-                                                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold"
+                                                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold"
                                                     style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;"
-                                                >{{ $rgCount }} RFCs</span>
+                                                >
+                                                    <span>Grouped · {{ $rgCount }} RFCs</span>
+                                                </span>
                                                 @include('partials.ris-urgency-badge', [
                                                     'urgent' => !empty($rGroup['urgent']),
                                                     'size' => 'sm',
                                                     'title' => 'Inherited from linked RIS',
                                                 ])
                                             </div>
-                                            <p class="mt-0.5 text-[11px] text-slate-500">Total: ₱{{ number_format((float) ($rGroup['total_amount'] ?? 0), 2) }} · Click to expand</p>
+                                            <p class="mt-0.5 text-[11px] text-slate-500">Click to expand individual RFCs</p>
                                         </div>
                                     </div>
                                 </td>
@@ -700,17 +712,16 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-5 py-4 text-right">
-                                    <div class="inline-flex items-center justify-end gap-1.5" @click.stop>
+                                <td class="px-5 py-4 text-left">
+                                    <div class="inline-flex items-center justify-start gap-1.5" @click.stop>
                                         <button
                                             type="button"
                                             @click='openRfcGroupCarousel(@json($rgReqNo ?: "Request Checks"), @json($rgIds))'
-                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition hover:opacity-90"
-                                            style="background:#0025cc;color:#ffffff;"
-                                            title="View all {{ $rgCount }} RFCs in carousel"
-                                            aria-label="View all {{ $rgCount }} RFCs in carousel"
+                                            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/50 hover:text-[#0025cc]"
+                                            title="View all {{ $rgCount }} RFCs"
+                                            aria-label="View all {{ $rgCount }} RFCs"
                                         >
-                                            <i data-lucide="layers" class="h-4 w-4"></i>
+                                            <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
                                         <button
                                             type="button"
@@ -730,7 +741,7 @@
                             $editable = in_array($rfc->request_check_status, ['Draft', 'Minor Revision'], true) && !$archiveView;
                         @endphp
                         <tr
-                            class="{{ $rgMulti ? 'bg-white transition hover:bg-blue-50/20' : 'transition hover:bg-gray-50/70' }}"
+                            class="{{ $rgMulti ? ('bg-white transition hover:bg-blue-50/20' . ($loop->last ? ' border-b-2 border-slate-300/80' : '')) : 'bg-slate-50/80 transition hover:bg-slate-100/70' }}"
                             @if($rgMulti) x-show="!!expandedRfcGroups['{{ $rgKey }}']" x-cloak @endif
                         >
                             <td class="relative px-5 py-4 {{ $rgMulti ? 'pl-14' : '' }}">
@@ -862,7 +873,7 @@
                                 @endif
                             </td>
                             <td class="whitespace-nowrap px-5 py-4">
-                                <div class="flex flex-nowrap items-center justify-end gap-1.5">
+                                <div class="flex flex-nowrap items-center justify-start gap-1.5">
                                     @php
                                         $rfcShowsCreateRr = !$archiveView
                                             && $rfc->request_check_status === 'Approved'
@@ -889,18 +900,6 @@
                                     @else
                                         <button type="button" @click="openView({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="View" aria-label="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
                                     @endif
-                                    <button
-                                        type="button"
-                                        data-share-doc-type="rfc"
-                                        data-share-doc-id="{{ (int) $rfc->request_check_id }}"
-                                        data-share-doc-label="{{ \App\Support\RequestExplorer::shareUiLabel('rfc', $rfc->request_check_form_number ?? null) }}"
-                                        class="js-share-document inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                                        title="Share to Messages"
-                                        aria-label="Share to Messages"
-                                    >
-                                        <i data-lucide="share-2" class="h-4 w-4"></i>
-                                    </button>
-                                    <button type="button" @click="printRfc({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900" title="Print" aria-label="Print"><i data-lucide="printer" class="h-4 w-4"></i></button>
                                     @if($editable)
                                         <button type="button" @click="openEdit({{ $rfc->request_check_id }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]" title="Edit" aria-label="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
                                         @php
@@ -932,7 +931,10 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border {{ $rfcJointSubmit ? 'border-[#0025cc] bg-white text-[#0025cc] hover:bg-blue-50' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900' }} transition"
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition"
+                                                style="background:#059669;color:#ffffff;"
+                                                onmouseenter="this.style.background='#047857'"
+                                                onmouseleave="this.style.background='#059669'"
                                                 title="{{ $rfcSubmitTip }}"
                                                 aria-label="{{ $rfcSubmitTip }}"
                                             >
@@ -954,19 +956,33 @@
                                                 @csrf
                                                 <button
                                                     type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0025cc] text-white transition hover:bg-[#001db3]"
+                                                    class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition"
+                                                    style="background:#059669;color:#ffffff;"
+                                                    onmouseenter="this.style.background='#047857'"
+                                                    onmouseleave="this.style.background='#059669'"
                                                     title="Submit to Accounting"
                                                     aria-label="Submit to Accounting"
                                                 ><i data-lucide="send" class="h-4 w-4"></i></button>
                                             </form>
                                         @elseif(!empty($rfc->sent_to_accounting) && !$rfc->funds_released)
-                                            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800" title="{{ !empty($rfc->check_ready) ? 'Check is ready for collection' : 'Accounting already has this package' }}" aria-label="{{ !empty($rfc->check_ready) ? 'Check is ready for collection' : 'Accounting already has this package' }}"><i data-lucide="{{ !empty($rfc->check_ready) ? 'banknote' : 'building-2' }}" class="h-4 w-4"></i></span>
+                                            @if(!empty($rfc->check_ready))
+                                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800" title="Check is ready for collection" aria-label="Check is ready for collection"><i data-lucide="banknote" class="h-4 w-4"></i></span>
+                                            @endif
                                         @elseif(!$rfc->has_rr && $rfc->funds_released)
                                             {{-- Create RR button is rendered first in the action row --}}
                                         @elseif(!$rfc->has_rr)
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700" title="Waiting for funds" aria-label="Waiting for funds"><i data-lucide="hourglass" class="h-4 w-4"></i></span>
                                         @else
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700" title="RR Created" aria-label="RR Created"><i data-lucide="circle-check" class="h-4 w-4"></i></span>
+                                            <span
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+                                                style="background:#ecfdf5;border-color:#6ee7b7;color:#059669;"
+                                                title="RR Created"
+                                                aria-label="RR Created"
+                                            >
+                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="#10b981" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </span>
                                         @endif
                                     @endif
                                     @php
@@ -1099,6 +1115,7 @@
                 style="z-index: 99985;"
             >
                 <form
+                    id="batchRfcForm"
                     x-ref="batchRfcForm"
                     method="POST"
                     action="{{ route(($pp ?? 'purchaser').'.rfc.batch-store') }}"
@@ -1112,9 +1129,12 @@
 
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
                         <div>
-                            <h3 class="text-base font-bold text-slate-900">
-                                Create {{ \App\Support\ProcurementPaymentPath::label($batchFundingType ?? 'cash_advance') }} Requests
-                            </h3>
+                            <h3
+                                class="text-base font-bold text-slate-900"
+                                x-text="([...new Set(batchItems.map(i => i.funding_type || ''))].length > 1)
+                                    ? 'Create Request Checks'
+                                    : ('Create ' + (batchItems[0]?.funding_label || '{{ \App\Support\ProcurementPaymentPath::label($batchFundingType ?? 'cash_advance') }}') + ' Requests')"
+                            ></h3>
                             <p class="mt-0.5 text-xs text-slate-500" x-text="'Reviewing ' + (batchIdx + 1) + ' of ' + batchItems.length + ' ATP(s) · Sign once below to submit all together'"></p>
                         </div>
                         <div class="flex items-center gap-2">
@@ -1126,14 +1146,36 @@
                     </div>
 
                     <div class="flex-1 space-y-4 overflow-y-auto bg-slate-100 p-4 sm:p-6">
+                        <div
+                            x-show="batchError"
+                            x-cloak
+                            class="mx-auto flex w-full max-w-[920px] items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-xs font-semibold"
+                            style="background:#fef2f2;border-color:#fecaca;color:#b91c1c;"
+                        >
+                            <span x-text="batchError"></span>
+                            <button type="button" @click="batchError = ''" class="text-rose-500 hover:text-rose-700">✕</button>
+                        </div>
                         <template x-for="(bItem, bIdx) in batchItems" :key="bItem.atp_id">
                             <div x-show="batchIdx === bIdx" class="mx-auto w-full max-w-[920px] rounded-2xl border border-slate-200 bg-white px-8 py-8 shadow-sm sm:px-12 sm:py-10" style="font-family: Arial, Helvetica, sans-serif;">
                                 <input type="hidden" :name="'items[' + bIdx + '][atp_id]'" :value="bItem.atp_id">
+                                <input type="hidden" :name="'items[' + bIdx + '][funding_type]'" :value="bItem.funding_type || '{{ $batchFundingType ?? 'cash_advance' }}'">
                                 <input type="hidden" :name="'items[' + bIdx + '][amount]'" :value="bItem.amount">
 
-                                {{-- Top ATP reference pill --}}
-                                <div class="mb-3 flex items-center justify-between text-[11px] text-slate-500">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 font-semibold text-[#0025cc]" x-text="bItem.atp_number"></span>
+                                {{-- Top ATP reference + payment method pill --}}
+                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 font-semibold text-[#0025cc]" x-text="bItem.atp_number"></span>
+                                        <span
+                                            x-show="bItem.funding_label"
+                                            class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-bold"
+                                            :style="bItem.funding_type === 'cash_advance'
+                                                ? 'background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9;'
+                                                : (bItem.funding_type === 'cash_installment'
+                                                    ? 'background:#fffbeb;border-color:#fde68a;color:#b45309;'
+                                                    : 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;')"
+                                            x-text="bItem.funding_label"
+                                        ></span>
+                                    </div>
                                     <span x-show="bItem.request_no" class="font-medium text-slate-500" x-text="bItem.request_no"></span>
                                 </div>
 
@@ -1246,20 +1288,45 @@
         {{-- BATCH SUBMIT CONFIRMATION MODAL --}}
         <template x-teleport="body">
             <div x-cloak x-show="batchConfirmOpen" @click.self="batchConfirmOpen = false" class="fixed inset-0 flex items-center justify-center bg-black/55 p-4" style="z-index: 99999;">
-                <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" @click.stop>
-                    <h3 class="text-base font-bold text-slate-900" x-text="'Submit ' + batchItems.length + ' Request Check(s) for Approval?'"></h3>
-                    <p class="mt-2 text-sm text-slate-600">All <strong x-text="batchItems.length"></strong> Request Checks will be created and sent to the <strong>School Administrator</strong> for approval.</p>
-                    <div class="mt-4 max-h-40 space-y-1.5 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
-                        <template x-for="bItem in batchItems" :key="bItem.atp_id">
-                            <div class="flex justify-between gap-2">
-                                <span class="truncate text-slate-600" x-text="bItem.atp_number + ' · ' + bItem.payee"></span>
-                                <span class="shrink-0 font-semibold tabular-nums text-slate-900" x-text="'₱' + Number(bItem.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
-                            </div>
-                        </template>
+                <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" @click.stop>
+                    <div class="border-b border-slate-100 px-6 py-4">
+                        <h3 class="text-base font-bold text-slate-900" x-text="'Submit ' + batchItems.length + ' Request Check(s) for Approval?'"></h3>
+                        <p class="mt-1 text-xs text-slate-500">All <strong class="text-slate-700" x-text="batchItems.length"></strong> Request Checks will be created and sent to the <strong class="text-slate-700">School Administrator</strong> for approval.</p>
                     </div>
-                    <div class="mt-5 flex items-center justify-end gap-2">
-                        <button type="button" @click="batchConfirmOpen = false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-                        <button type="button" :disabled="batchSubmitting" @click="confirmBatchSubmit()" class="rounded-lg px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60" style="background:#0025cc;color:#ffffff;" x-text="batchSubmitting ? 'Submitting...' : 'Confirm & Submit All'"></button>
+                    <div class="px-6 py-4">
+                        <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <div class="max-h-56 divide-y divide-slate-100 overflow-y-auto">
+                                <template x-for="bItem in batchItems" :key="'cfm-' + bItem.atp_id">
+                                    <div class="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
+                                        <div class="min-w-0">
+                                            <p class="truncate font-bold text-slate-900" x-text="bItem.atp_number"></p>
+                                            <p class="truncate text-[11px] text-slate-500" x-text="bItem.payee"></p>
+                                        </div>
+                                        <div class="flex shrink-0 items-center gap-2">
+                                            <span
+                                                x-show="bItem.funding_label"
+                                                class="rounded-full border px-2 py-0.5 text-[10px] font-bold"
+                                                :style="bItem.funding_type === 'cash_advance'
+                                                    ? 'background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9;'
+                                                    : (bItem.funding_type === 'cash_installment'
+                                                        ? 'background:#fffbeb;border-color:#fde68a;color:#b45309;'
+                                                        : 'background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;')"
+                                                x-text="bItem.funding_label"
+                                            ></span>
+                                            <span class="min-w-[72px] text-right font-semibold tabular-nums text-slate-900" x-text="'₱' + Number(bItem.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-900">
+                                <span>Combined Total (<span x-text="batchItems.length"></span> RFCs)</span>
+                                <span class="text-sm tabular-nums" x-text="'₱' + batchItems.reduce((s, x) => s + Number(x.amount || 0), 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                        <button type="button" @click="batchConfirmOpen = false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                        <button type="button" :disabled="batchSubmitting" @click="confirmBatchSubmit()" class="rounded-lg px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60" style="background:#0025cc;color:#ffffff;" x-text="batchSubmitting ? 'Submitting...' : 'Confirm & Submit All'"></button>
                     </div>
                 </div>
             </div>

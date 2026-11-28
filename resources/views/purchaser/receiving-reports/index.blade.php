@@ -604,7 +604,10 @@
                                             @csrf
                                             <button
                                                 type="submit"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800"
+                                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition"
+                                                style="background:#059669;color:#ffffff;"
+                                                onmouseenter="this.style.background='#047857'"
+                                                onmouseleave="this.style.background='#059669'"
                                                 title="{{ $rrSubmitLabel }}"
                                                 aria-label="{{ $rrSubmitLabel }}"
                                             >

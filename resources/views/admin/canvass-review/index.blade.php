@@ -204,8 +204,14 @@
                                     'supplierId' => (int) $o->supplier_id,
                                     'supplier' => (string) $o->supplier_display_name,
                                     'blacklisted' => (bool) ($o->supplier_is_blacklisted ?? false),
+                                    'blacklistReason' => trim((string) ($o->supplier_blacklist_reason ?? '')),
                                     'caution' => (string) ($o->supplier_caution_risk ?? ''),
+                                    'cautionIssues' => (int) ($o->supplier_caution_issues ?? 0),
+                                    'cautionSummary' => trim((string) ($o->supplier_caution_summary ?? '')),
+                                    'cautionLabel' => trim((string) ($o->supplier_caution_label ?? '')),
+                                    'cautionLast' => trim((string) ($o->supplier_caution_last ?? '')),
                                     'brandAvoid' => (bool) ($o->brand_avoid ?? false),
+                                    'brandDefects' => (int) ($o->brand_defect_count ?? 0),
                                     'pack' => (float) ($o->offer_units_per_pack ?? 1),
                                     'unitCost' => (float) ($o->offer_unit_price ?? 0),
                                     'checked' => (bool) $o->is_selected,
@@ -573,10 +579,37 @@
                                                                             <!--<p class="mt-0.5 text-[11px] text-slate-500">Review competitive bids, adjust allocation quantities, and finalize order authorization.</p>-->
                                                                         </div>
                                                                     </div>
+                                                                    <div
+                                                                        class="inline-flex items-center rounded-lg border border-slate-200 p-0.5 text-[11px] font-semibold"
+                                                                        style="background:#f8fafc;"
+                                                                        role="group"
+                                                                        aria-label="Sort supplier quotations"
+                                                                    >
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="offerViewMode = 'price'"
+                                                                            class="rounded-md px-2.5 py-1 transition"
+                                                                            :style="offerViewMode === 'price'
+                                                                                ? 'background:#ffffff;color:#1d4ed8;box-shadow:0 1px 2px rgba(15,23,42,0.08);'
+                                                                                : 'background:transparent;color:#64748b;'"
+                                                                        >
+                                                                            Lowest price
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="offerViewMode = 'supplier'"
+                                                                            class="rounded-md px-2.5 py-1 transition"
+                                                                            :style="offerViewMode === 'supplier'
+                                                                                ? 'background:#ffffff;color:#1d4ed8;box-shadow:0 1px 2px rgba(15,23,42,0.08);'
+                                                                                : 'background:transparent;color:#64748b;'"
+                                                                        >
+                                                                            By supplier
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
 
-                                                                {{-- Clean Item Switcher Pills --}}
-                                                                <div class="flex flex-wrap items-center gap-2.5 px-6 pb-6">
+                                                                {{-- Hybrid Item Switcher: Pills (1-5 items) / Compact Dropdown Navigator (6+ items) --}}
+                                                                <div x-show="items.length <= 5" class="flex flex-wrap items-center gap-2.5 px-6 pb-6">
                                                                     <template x-for="(it, idx) in items" :key="'pill-' + it.id">
                                                                         <button
                                                                             type="button"
@@ -607,6 +640,102 @@
                                                                             ></span>
                                                                         </button>
                                                                     </template>
+                                                                </div>
+
+                                                                <div
+                                                                    x-show="items.length > 5"
+                                                                    x-cloak
+                                                                    class="flex flex-wrap items-center gap-2 px-6 pb-5"
+                                                                    x-data="{ revNavOpen: false }"
+                                                                    @click.outside="revNavOpen = false"
+                                                                    @keydown.escape.window="revNavOpen = false"
+                                                                >
+                                                                    <button
+                                                                        type="button"
+                                                                        @click="if (activeItemIdx > 0) activeItemIdx--"
+                                                                        :disabled="activeItemIdx === 0"
+                                                                        title="Previous item"
+                                                                        aria-label="Previous item"
+                                                                        class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                    >
+                                                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                                                                    </button>
+
+                                                                    <div class="relative">
+                                                                        <button
+                                                                            type="button"
+                                                                            @click="revNavOpen = !revNavOpen"
+                                                                            class="inline-flex h-9 min-w-[240px] max-w-[360px] items-center justify-between gap-2.5 rounded-xl border bg-white px-3.5 text-xs font-semibold transition"
+                                                                            style="border-color:#2563eb;color:#0f172a;"
+                                                                        >
+                                                                            <span class="flex min-w-0 items-center gap-2">
+                                                                                <span
+                                                                                    class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                                                                                    :style="(currentItem().status === 'Approved' || (isReviewable() && itemAllocationReady(currentItem())))
+                                                                                        ? 'background:#16a34a;color:#ffffff;'
+                                                                                        : (currentItem().status === 'Rejected'
+                                                                                            ? 'background:#dc2626;color:#ffffff;'
+                                                                                            : (currentItem().status === 'Returned'
+                                                                                                ? 'background:#d97706;color:#ffffff;'
+                                                                                                : 'background:#dbeafe;color:#2563eb;'))"
+                                                                                    x-text="(currentItem().status === 'Approved' || (isReviewable() && itemAllocationReady(currentItem()))) ? '✓' : (currentItem().status === 'Rejected' ? '✕' : (currentItem().status === 'Returned' ? '↺' : (activeItemIdx + 1)))"
+                                                                                ></span>
+                                                                                <span class="truncate" x-text="'Item ' + (activeItemIdx + 1) + ': ' + currentItem().name"></span>
+                                                                            </span>
+                                                                            <span class="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                                                                <span x-text="(activeItemIdx + 1) + ' / ' + items.length"></span>
+                                                                                <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                                                            </span>
+                                                                        </button>
+
+                                                                        <div
+                                                                            x-show="revNavOpen"
+                                                                            x-cloak
+                                                                            class="absolute left-0 z-40 mt-1.5 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+                                                                        >
+                                                                            <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3.5 py-2 text-[11px] font-bold text-slate-600">
+                                                                                <span>Jump to item</span>
+                                                                                <span x-text="items.length + ' items'"></span>
+                                                                            </div>
+                                                                            <div class="max-h-64 overflow-y-auto py-1">
+                                                                                <template x-for="(it, idx) in items" :key="'nav-opt-' + it.id">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        @click="activeItemIdx = idx; revNavOpen = false"
+                                                                                        class="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left text-xs transition hover:bg-blue-50"
+                                                                                        :style="activeItemIdx === idx ? 'background:#eff6ff;color:#2563eb;font-weight:700;' : 'color:#334155;'"
+                                                                                    >
+                                                                                        <span class="flex min-w-0 items-center gap-2">
+                                                                                            <span
+                                                                                                class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                                                                                                :style="(it.status === 'Approved' || (isReviewable() && itemAllocationReady(it)))
+                                                                                                    ? 'background:#16a34a;color:#ffffff;'
+                                                                                                    : (it.status === 'Rejected'
+                                                                                                        ? 'background:#dc2626;color:#ffffff;'
+                                                                                                        : (it.status === 'Returned'
+                                                                                                            ? 'background:#d97706;color:#ffffff;'
+                                                                                                            : (activeItemIdx === idx ? 'background:#dbeafe;color:#2563eb;' : 'background:#f1f5f9;color:#64748b;')))"
+                                                                                                x-text="(it.status === 'Approved' || (isReviewable() && itemAllocationReady(it))) ? '✓' : (it.status === 'Rejected' ? '✕' : (it.status === 'Returned' ? '↺' : (idx + 1)))"
+                                                                                            ></span>
+                                                                                            <span class="truncate" x-text="'Item ' + (idx + 1) + ': ' + it.name"></span>
+                                                                                        </span>
+                                                                                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style="background:#f1f5f9;color:#475569;" x-text="it.qty + ' ' + it.uom"></span>
+                                                                                    </button>
+                                                                                </template>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        @click="if (activeItemIdx < items.length - 1) activeItemIdx++"
+                                                                        :disabled="activeItemIdx >= items.length - 1"
+                                                                        title="Next item"
+                                                                        aria-label="Next item"
+                                                                        class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                    >
+                                                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                                                                    </button>
                                                                 </div>
 
                                                                 {{-- Item Header Row --}}
@@ -703,53 +832,116 @@
 
                                                                 {{-- Quotations Table --}}
                                                                 <div class="overflow-x-auto">
-                                                                    <table class="w-full text-left text-xs">
+                                                                    <table class="w-full border-collapse text-left text-xs">
                                                                         <thead>
-                                                                            <tr class="border-y border-slate-100 bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                                                                <th class="py-3 pl-6 pr-3">Supplier</th>
-                                                                                <th class="px-3 py-3">Brand</th>
-                                                                                <th class="px-3 py-3">Unit</th>
-                                                                                <th class="px-3 py-3 text-center">Approved Qty</th>
-                                                                                <th class="px-3 py-3 text-right">Unit Cost</th>
-                                                                                <th class="px-3 py-3 text-right">Total Amount</th>
-                                                                                <th class="py-3 pl-3 pr-6 text-center">Approval</th>
+                                                                            <tr class="border-y border-slate-200/80 bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                                                                <th class="border-r border-slate-200/60 py-3 pl-6 pr-3">Supplier</th>
+                                                                                <th class="border-r border-slate-200/60 px-3 py-3">Brand</th>
+                                                                                <th class="border-r border-slate-200/60 px-3 py-3">Unit</th>
+                                                                                <th class="border-r border-slate-200/60 px-3 py-3 text-center">Accepted Qty</th>
+                                                                                <th class="border-r border-slate-200/60 px-3 py-3 text-right">Unit Cost</th>
+                                                                                <th class="border-r border-slate-200/60 px-3 py-3 text-right">Total Amount</th>
+                                                                                <th class="py-3 pl-3 pr-6 text-center">Accept</th>
                                                                             </tr>
                                                                         </thead>
-                                                                        <tbody class="divide-y divide-slate-100">
-                                                                            <template x-for="offer in currentItem().offers" :key="offer.id">
-                                                                                <tr class="transition hover:bg-slate-50/40" :class="offer.checked ? 'bg-blue-50/20' : ''">
-                                                                                    <td class="py-4 pl-6 pr-3 align-middle">
-                                                                                        <div class="flex flex-wrap items-center gap-2">
-                                                                                            <span class="text-[13px] font-bold text-slate-900" x-text="offer.supplier"></span>
+                                                                        <tbody>
+                                                                            <template x-for="entry in displayedOffers(currentItem())" :key="offerViewMode + '-' + entry.offer.id">
+                                                                                <tr
+                                                                                    class="border-b border-slate-200/60 transition hover:bg-slate-50/40"
+                                                                                    :class="entry.offer.checked ? 'bg-blue-50/20' : ''"
+                                                                                    :style="entry.isGroupStart ? 'border-top:2px solid #cbd5e1;' : ''"
+                                                                                >
+                                                                                    <template x-if="entry.showSupplierCell">
+                                                                                        <td
+                                                                                            :rowspan="entry.rowSpan"
+                                                                                            class="py-4 pl-6 pr-3 align-middle"
+                                                                                            :class="offerViewMode === 'supplier' ? 'border-r border-slate-200 bg-white' : 'border-r border-slate-200/60'"
+                                                                                        >
+                                                                                            <div class="flex flex-wrap items-center gap-2">
+                                                                                                <span
+                                                                                                    class="group relative inline-flex items-center"
+                                                                                                    :class="(entry.offer.blacklisted || entry.offer.caution) ? 'cursor-help' : ''"
+                                                                                                >
+                                                                                                    <span
+                                                                                                        class="text-[13px] font-bold text-slate-900"
+                                                                                                        :class="(!entry.offer.blacklisted && entry.offer.caution) ? 'underline decoration-dotted decoration-amber-400 underline-offset-4' : ''"
+                                                                                                        x-text="entry.offer.supplier"
+                                                                                                    ></span>
+                                                                                                    <span
+                                                                                                        x-show="entry.offer.blacklisted || entry.offer.caution"
+                                                                                                        class="pointer-events-none absolute left-0 top-full z-40 mt-1.5 w-64 whitespace-normal rounded-xl px-3 py-2 text-left text-[11px] leading-relaxed opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100"
+                                                                                                        style="background:#0f172a;color:#f8fafc;"
+                                                                                                    >
+                                                                                                        <template x-if="entry.offer.blacklisted">
+                                                                                                            <span class="block">
+                                                                                                                <span class="block font-bold" style="color:#fda4af;">Blacklisted Supplier</span>
+                                                                                                                <span class="mt-0.5 block text-slate-200" x-text="entry.offer.blacklistReason || 'This supplier is currently blacklisted.'"></span>
+                                                                                                            </span>
+                                                                                                        </template>
+                                                                                                        <template x-if="entry.offer.caution">
+                                                                                                            <span class="block" :class="entry.offer.blacklisted ? 'mt-1.5 border-t border-slate-700 pt-1.5' : ''">
+                                                                                                                <span class="block font-bold" style="color:#fcd34d;" x-text="(entry.offer.cautionLabel || 'Delivery Caution') + (entry.offer.cautionIssues > 0 ? (' (' + entry.offer.cautionIssues + ' issue' + (entry.offer.cautionIssues === 1 ? '' : 's') + ')') : '')"></span>
+                                                                                                                <span class="mt-0.5 block text-slate-200" x-text="entry.offer.cautionSummary || 'Recorded delivery issues in past 24 months.'"></span>
+                                                                                                                <span x-show="entry.offer.cautionLast && entry.offer.cautionLast !== '—'" class="mt-0.5 block text-[10px] text-slate-400" x-text="'Last issue: ' + entry.offer.cautionLast"></span>
+                                                                                                            </span>
+                                                                                                        </template>
+                                                                                                    </span>
+                                                                                                </span>
+                                                                                                <span
+                                                                                                    x-show="offerViewMode === 'price' && isLowestOffer(currentItem(), entry.offer) && !entry.offer.blacklisted"
+                                                                                                    class="rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                                                                                                    style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;"
+                                                                                                >
+                                                                                                    Lowest Price
+                                                                                                </span>
+                                                                                                <span
+                                                                                                    x-show="entry.offer.blacklisted"
+                                                                                                    class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                                                                                                    style="background:#ffe4e6;color:#be123c;"
+                                                                                                >
+                                                                                                    Blacklisted
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </template>
+                                                                                    <td class="border-r border-slate-200/60 px-3 py-4 align-middle text-[13px] font-medium text-slate-800">
+                                                                                        <div class="flex flex-wrap items-center gap-1.5">
+                                                                                            <span x-text="entry.offer.brand"></span>
                                                                                             <span
-                                                                                                x-show="isLowestOffer(currentItem(), offer) && !offer.blacklisted"
+                                                                                                x-show="offerViewMode === 'supplier' && isLowestOffer(currentItem(), entry.offer) && !entry.offer.blacklisted"
                                                                                                 class="rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                                                                                                 style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;"
                                                                                             >
                                                                                                 Lowest Price
                                                                                             </span>
-                                                                                            <span x-show="offer.blacklisted" class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style="background:#ffe4e6;color:#be123c;">Blacklisted</span>
-                                                                                            <span x-show="!offer.blacklisted && offer.caution" class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style="background:#fef3c7;color:#92400e;">Caution</span>
+                                                                                            <span
+                                                                                                x-show="entry.offer.brandAvoid"
+                                                                                                class="group relative inline-flex cursor-help items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                                                                                                style="background:#ffe4e6;color:#be123c;"
+                                                                                            >
+                                                                                                <span>Avoid</span>
+                                                                                                <span
+                                                                                                    class="pointer-events-none absolute left-0 top-full z-40 mt-1.5 w-max max-w-[220px] whitespace-normal rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium normal-case tracking-normal opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+                                                                                                    style="background:#0f172a;color:#ffffff;"
+                                                                                                    x-text="entry.offer.brandDefects > 0 ? ('Brand caution: ' + entry.offer.brandDefects + ' recorded defect' + (entry.offer.brandDefects === 1 ? '' : 's') + '.') : 'Flagged brand with recorded defects.'"
+                                                                                                ></span>
+                                                                                            </span>
                                                                                         </div>
                                                                                     </td>
-                                                                                    <td class="px-3 py-4 align-middle text-[13px] font-medium text-slate-800">
-                                                                                        <span x-text="offer.brand"></span>
-                                                                                        <span x-show="offer.brandAvoid" class="ml-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style="background:#ffe4e6;color:#be123c;">Avoid</span>
-                                                                                    </td>
-                                                                                    <td class="px-3 py-4 align-middle">
+                                                                                    <td class="border-r border-slate-200/60 px-3 py-4 align-middle">
                                                                                         <span
                                                                                             class="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600"
-                                                                                            x-text="offer.unit"
+                                                                                            x-text="entry.offer.unit"
                                                                                         ></span>
                                                                                     </td>
-                                                                                    <td class="px-3 py-4 text-center align-middle">
+                                                                                    <td class="border-r border-slate-200/60 px-3 py-4 text-center align-middle">
                                                                                         <div class="inline-flex items-center gap-1.5">
                                                                                             <button
                                                                                                 type="button"
-                                                                                                @click="stepOfferQty(currentItem(), offer, -1)"
-                                                                                                :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) <= 1"
+                                                                                                @click="stepOfferQty(currentItem(), entry.offer, -1)"
+                                                                                                :disabled="!canAct || !entry.offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(entry.offer.approvedQty, 10) || 0) <= 1"
                                                                                                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed"
-                                                                                                :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) <= 1)
+                                                                                                :style="(!canAct || !entry.offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(entry.offer.approvedQty, 10) || 0) <= 1)
                                                                                                     ? 'background:#f8fafc;border-color:#e2e8f0;color:#cbd5e1;'
                                                                                                     : 'background:#eff6ff;border-color:#93c5fd;color:#0025cc;'"
                                                                                                 aria-label="Decrease quantity"
@@ -759,23 +951,23 @@
                                                                                             <input
                                                                                                 type="number"
                                                                                                 min="1"
-                                                                                                :max="maxOfferUnits(currentItem(), offer)"
+                                                                                                :max="maxOfferUnits(currentItem(), entry.offer)"
                                                                                                 step="1"
-                                                                                                x-model="offer.approvedQty"
-                                                                                                @input="onQtyInput(currentItem(), offer)"
-                                                                                                :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected'"
+                                                                                                x-model="entry.offer.approvedQty"
+                                                                                                @input="onQtyInput(currentItem(), entry.offer)"
+                                                                                                :disabled="!canAct || !entry.offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected'"
                                                                                                 placeholder="0"
                                                                                                 class="h-8 w-12 rounded-lg border text-center text-xs font-semibold tabular-nums outline-none focus:border-blue-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                                                                :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected')
+                                                                                                :style="(!canAct || !entry.offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected')
                                                                                                     ? 'background:#ffffff;border-color:#e2e8f0;color:#64748b;cursor:not-allowed;'
                                                                                                     : 'background:#ffffff;border-color:#93c5fd;color:#0f172a;'"
                                                                                             >
                                                                                             <button
                                                                                                 type="button"
-                                                                                                @click="stepOfferQty(currentItem(), offer, 1)"
-                                                                                                :disabled="!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), offer)"
+                                                                                                @click="stepOfferQty(currentItem(), entry.offer, 1)"
+                                                                                                :disabled="!canAct || !entry.offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(entry.offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), entry.offer)"
                                                                                                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed"
-                                                                                                :style="(!canAct || !offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), offer))
+                                                                                                :style="(!canAct || !entry.offer.checked || !isReviewable() || currentItem().status === 'Approved' || currentItem().status === 'Rejected' || (parseInt(entry.offer.approvedQty, 10) || 0) >= maxOfferUnits(currentItem(), entry.offer))
                                                                                                     ? 'background:#f8fafc;border-color:#e2e8f0;color:#cbd5e1;'
                                                                                                     : 'background:#eff6ff;border-color:#93c5fd;color:#0025cc;'"
                                                                                                 aria-label="Increase quantity"
@@ -784,19 +976,19 @@
                                                                                             </button>
                                                                                         </div>
                                                                                     </td>
-                                                                                    <td class="px-3 py-4 text-right align-middle text-[13px] font-semibold tabular-nums text-slate-900" x-text="formatPeso(offer.unitCost)"></td>
+                                                                                    <td class="border-r border-slate-200/60 px-3 py-4 text-right align-middle text-[13px] font-semibold tabular-nums text-slate-900" x-text="formatPeso(entry.offer.unitCost)"></td>
                                                                                     <td
-                                                                                        class="px-3 py-4 text-right align-middle text-[13px] font-semibold tabular-nums"
-                                                                                        :class="offerAmount(offer) > 0 ? 'text-slate-900' : 'text-slate-400'"
-                                                                                        x-text="formatPeso(offerAmount(offer))"
+                                                                                        class="border-r border-slate-200/60 px-3 py-4 text-right align-middle text-[13px] font-semibold tabular-nums"
+                                                                                        :class="offerAmount(entry.offer) > 0 ? 'text-slate-900' : 'text-slate-400'"
+                                                                                        x-text="formatPeso(offerAmount(entry.offer))"
                                                                                     ></td>
                                                                                     <td class="py-4 pl-3 pr-6 text-center align-middle">
                                                                                         <input
                                                                                             type="checkbox"
-                                                                                            :checked="offer.checked"
-                                                                                            @change="onToggleOffer(currentItem(), offer, $event.target.checked)"
-                                                                                            :disabled="isOfferCheckboxDisabled(currentItem(), offer)"
-                                                                                            :title="(!offer.checked && itemAllocationFull(currentItem())) ? 'Requested quantity already reached. Lower an allocated qty or uncheck an offer to select this row.' : 'Select offer for approval'"
+                                                                                            :checked="entry.offer.checked"
+                                                                                            @change="onToggleOffer(currentItem(), entry.offer, $event.target.checked)"
+                                                                                            :disabled="isOfferCheckboxDisabled(currentItem(), entry.offer)"
+                                                                                            :title="(!entry.offer.checked && itemAllocationFull(currentItem())) ? 'Requested quantity already reached. Lower an allocated qty or uncheck an offer to select this row.' : 'Select offer to accept'"
                                                                                             class="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
                                                                                         >
                                                                                     </td>
@@ -1363,70 +1555,147 @@
                                         @click.self="if (!busy) approveModal.open = false"
                                     >
                                         <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                                            <div class="border-b border-slate-100 px-6 py-4">
-                                                <h3 class="text-base font-bold text-slate-900" x-text="approveModal.title"></h3>
-                                                <p class="mt-0.5 text-xs text-slate-500">Review the selected items and supplier totals to accept this canvass and generate the RIS &amp; ATP(s) for approval.</p>
-                                            </div>
-                                            <div class="max-h-80 space-y-3 overflow-y-auto px-6 py-4">
+                                            {{-- STEP 1: Unreviewed Items Validation Gate --}}
+                                            <template x-if="approveModal.step === 'warn'">
                                                 <div>
-                                                    <p class="mb-1.5 text-[11px] font-bold uppercase tracking-wider" style="color: #166534;" x-text="'Will be Accepted (' + approveModal.summary.length + ')'"></p>
-                                                    <div class="space-y-2">
-                                                        <template x-for="row in approveModal.summary" :key="row.itemId">
-                                                            <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs">
-                                                                <div class="min-w-0">
-                                                                    <div class="truncate font-bold text-slate-900" x-text="row.name"></div>
-                                                                    <div class="mt-0.5 text-slate-500" x-text="row.detail"></div>
+                                                    <div class="flex items-start gap-3.5 border-b border-slate-100 px-6 py-4">
+                                                        <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background:#fef3c7;color:#d97706;">
+                                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                                                        </div>
+                                                        <div>
+                                                            <h3 class="text-base font-bold text-slate-900" x-text="approveModal.unselected.length + ' item(s) still need your review'"></h3>
+                                                            <p class="mt-0.5 text-xs leading-relaxed text-slate-600" x-text="'You have selected offers for ' + approveModal.summary.length + ' of ' + (approveModal.summary.length + approveModal.unselected.length) + ' pending item(s). Review the remaining item(s) first, or proceed to mark them Rejected.'"></p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="max-h-72 space-y-2.5 overflow-y-auto px-6 py-4">
+                                                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Still unreviewed (click an item to jump to it)</p>
+                                                        <div class="space-y-1.5">
+                                                            <template x-for="u in approveModal.unselected" :key="'warn-' + u.itemId">
+                                                                <button
+                                                                    type="button"
+                                                                    @click="jumpToUnreviewedItem(u.itemIdx)"
+                                                                    class="flex w-full items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-left text-xs transition hover:border-amber-300 hover:bg-amber-50"
+                                                                >
+                                                                    <span class="font-semibold text-slate-900" x-text="u.name"></span>
+                                                                    <span class="shrink-0 text-[11px] font-bold" style="color:#b45309;">Review →</span>
+                                                                </button>
+                                                            </template>
+                                                        </div>
+                                                        <p class="rounded-lg border px-3 py-2 text-[11px] leading-relaxed" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;">
+                                                            If you continue without selecting offers for these item(s), they will be marked <strong>Rejected</strong> and excluded from the generated RIS &amp; ATP(s).
+                                                        </p>
+                                                    </div>
+                                                    <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                                                        <button
+                                                            type="button"
+                                                            @click="approveModal.step = 'confirm'"
+                                                            class="rounded-lg border px-3.5 py-2 text-xs font-semibold transition hover:opacity-90"
+                                                            style="background:#ffffff;border-color:#fecaca;color:#b91c1c;"
+                                                        >
+                                                            Proceed &amp; reject unselected
+                                                        </button>
+                                                        <div class="flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                @click="approveModal.open = false"
+                                                                class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                @click="jumpToUnreviewedItem(approveModal.unselected[0]?.itemIdx ?? 0)"
+                                                                class="rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                                                                style="background:#0025cc;"
+                                                                x-text="'Review Item ' + ((approveModal.unselected[0]?.itemIdx ?? 0) + 1) + ' →'"
+                                                            ></button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+
+                                            {{-- STEP 2: Final Accept Confirmation --}}
+                                            <template x-if="approveModal.step === 'confirm'">
+                                                <div>
+                                                    <div class="border-b border-slate-100 px-6 py-4">
+                                                        <h3 class="text-base font-bold text-slate-900" x-text="approveModal.title"></h3>
+                                                        <p class="mt-0.5 text-xs text-slate-500">Review the selected items and supplier totals to accept this canvass and generate the RIS &amp; ATP(s) for approval.</p>
+                                                    </div>
+                                                    <div class="max-h-80 space-y-3 overflow-y-auto px-6 py-4">
+                                                        <div>
+                                                            <p class="mb-1.5 text-[11px] font-bold uppercase tracking-wider" style="color: #166534;" x-text="'Will be Accepted (' + approveModal.summary.length + ')'"></p>
+                                                            <div class="space-y-2">
+                                                                <template x-for="row in approveModal.summary" :key="row.itemId">
+                                                                    <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs">
+                                                                        <div class="min-w-0">
+                                                                            <div class="truncate font-bold text-slate-900" x-text="row.name"></div>
+                                                                            <div class="mt-0.5 text-slate-500" x-text="row.detail"></div>
+                                                                        </div>
+                                                                        <span class="shrink-0 font-bold text-slate-900" x-text="formatPeso(row.total)"></span>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="flex items-center justify-between border-t border-slate-200 pt-2.5 text-xs font-bold text-slate-900">
+                                                            <span>Total estimated amount</span>
+                                                            <span class="text-base font-extrabold tabular-nums text-slate-900" x-text="formatPeso(approveModal.grandTotal)"></span>
+                                                        </div>
+
+                                                        <template x-if="approveModal.unselected.length > 0">
+                                                            <div class="rounded-xl border p-3.5 text-xs" style="background:#fef2f2;border-color:#fecaca;">
+                                                                <p class="font-bold" style="color:#991b1b;" x-text="'Not selected — will be marked Rejected (' + approveModal.unselected.length + ')'"></p>
+                                                                <ul class="mt-1.5 list-disc space-y-0.5 pl-4" style="color:#dc2626;">
+                                                                    <template x-for="u in approveModal.unselected" :key="u.itemId">
+                                                                        <li x-text="u.name"></li>
+                                                                    </template>
+                                                                </ul>
+                                                                <div class="mt-2.5">
+                                                                    <label class="mb-1 block text-[11px] font-semibold" style="color:#991b1b;">Optional note for unselected items</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        x-model="approveModal.unselectedNote"
+                                                                        maxlength="500"
+                                                                        placeholder="e.g. Budget deferred to next quarter"
+                                                                        class="w-full rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-red-400"
+                                                                    >
                                                                 </div>
-                                                                <span class="shrink-0 font-bold text-slate-900" x-text="formatPeso(row.total)"></span>
                                                             </div>
                                                         </template>
                                                     </div>
-                                                </div>
-
-                                                <div class="flex items-center justify-between border-t border-slate-200 pt-2.5 text-xs font-bold text-slate-900">
-                                                    <span>Total estimated amount</span>
-                                                    <span class="text-base font-extrabold tabular-nums text-slate-900" x-text="formatPeso(approveModal.grandTotal)"></span>
-                                                </div>
-
-                                                <template x-if="approveModal.unselected.length > 0">
-                                                    <div class="rounded-xl border p-3.5 text-xs" style="background:#fef2f2;border-color:#fecaca;">
-                                                        <p class="font-bold" style="color:#991b1b;" x-text="'Not selected — will be marked Rejected (' + approveModal.unselected.length + ')'"></p>
-                                                        <ul class="mt-1.5 list-disc space-y-0.5 pl-4" style="color:#dc2626;">
-                                                            <template x-for="u in approveModal.unselected" :key="u.itemId">
-                                                                <li x-text="u.name"></li>
-                                                            </template>
-                                                        </ul>
-                                                        <div class="mt-2.5">
-                                                            <label class="mb-1 block text-[11px] font-semibold" style="color:#991b1b;">Optional note for unselected items</label>
-                                                            <input
-                                                                type="text"
-                                                                x-model="approveModal.unselectedNote"
-                                                                maxlength="500"
-                                                                placeholder="e.g. Budget deferred to next quarter"
-                                                                class="w-full rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-red-400"
+                                                    <div class="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+                                                        <div>
+                                                            <button
+                                                                x-show="approveModal.unselected.length > 0"
+                                                                type="button"
+                                                                :disabled="busy"
+                                                                @click="approveModal.step = 'warn'"
+                                                                class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                                                             >
+                                                                ← Back
+                                                            </button>
+                                                        </div>
+                                                        <div class="flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                :disabled="busy"
+                                                                @click="approveModal.open = false"
+                                                                class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                :disabled="busy"
+                                                                @click="confirmBulkApprove()"
+                                                                class="rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                                                                style="background:#198754;"
+                                                                x-text="busy ? 'Accepting...' : approveModal.confirmLabel"
+                                                            ></button>
                                                         </div>
                                                     </div>
-                                                </template>
-                                            </div>
-                                            <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
-                                                <button
-                                                    type="button"
-                                                    :disabled="busy"
-                                                    @click="approveModal.open = false"
-                                                    class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    :disabled="busy"
-                                                    @click="confirmBulkApprove()"
-                                                    class="rounded-lg px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                                                    style="background:#198754;"
-                                                    x-text="busy ? 'Accepting...' : approveModal.confirmLabel"
-                                                ></button>
-                                            </div>
+                                                </div>
+                                            </template>
                                         </div>
                                     </div>
                                 </template>
@@ -1535,12 +1804,13 @@ function canvassReviewCard(boot) {
         items: boot.items || [],
         activeItemIdx: 0,
         activeSupplierIdx: 0,
+        offerViewMode: 'price',
         busy: false,
         feedbackMsg: '',
         feedbackOk: true,
         drawing: false,
         reasonModal: { open: false, type: 'return', scope: 'all', title: '', subtitle: '', itemLabel: '', itemQtyLabel: '', warning: '', confirmLabel: '', note: '', error: '' },
-        approveModal: { open: false, all: false, title: '', confirmLabel: '', summary: [], unselected: [], unselectedNote: '', grandTotal: 0, payloadItems: [] },
+        approveModal: { open: false, step: 'confirm', all: false, title: '', confirmLabel: '', summary: [], unselected: [], unselectedNote: '', grandTotal: 0, payloadItems: [] },
         closeConfirmOpen: false,
         initialSnapshot: '',
 
@@ -1646,6 +1916,43 @@ function canvassReviewCard(boot) {
 
         currentItem() {
             return this.items[this.activeItemIdx] || null;
+        },
+
+        displayedOffers(item) {
+            const offers = (item && Array.isArray(item.offers)) ? item.offers : [];
+            if (this.offerViewMode !== 'supplier') {
+                return offers.map((offer) => ({
+                    offer,
+                    showSupplierCell: true,
+                    rowSpan: 1,
+                    isGroupStart: false,
+                }));
+            }
+
+            const groups = [];
+            const byKey = new Map();
+            offers.forEach((offer) => {
+                const key = String(offer.supplier || '').trim().toLowerCase();
+                if (!byKey.has(key)) {
+                    const group = { offers: [] };
+                    byKey.set(key, group);
+                    groups.push(group);
+                }
+                byKey.get(key).offers.push(offer);
+            });
+
+            const rows = [];
+            groups.forEach((group, groupIdx) => {
+                group.offers.forEach((offer, idx) => {
+                    rows.push({
+                        offer,
+                        showSupplierCell: idx === 0,
+                        rowSpan: group.offers.length,
+                        isGroupStart: idx === 0 && groupIdx > 0,
+                    });
+                });
+            });
+            return rows;
         },
 
         isReviewable() {
@@ -2149,6 +2456,7 @@ function canvassReviewCard(boot) {
                 } else {
                     unselected.push({
                         itemId: it.id,
+                        itemIdx: idx,
                         name: `Item ${idx + 1}: ${it.name} (${it.qty} ${it.uom})`,
                     });
                 }
@@ -2157,6 +2465,7 @@ function canvassReviewCard(boot) {
             const allSelected = unselected.length === 0;
             this.approveModal = {
                 open: true,
+                step: allSelected ? 'confirm' : 'warn',
                 all: allSelected,
                 title: allSelected
                     ? `Accept all ${summary.length} item(s)?`
@@ -2168,6 +2477,13 @@ function canvassReviewCard(boot) {
                 grandTotal,
                 payloadItems,
             };
+        },
+
+        jumpToUnreviewedItem(idx) {
+            this.approveModal.open = false;
+            if (typeof idx === 'number' && idx >= 0 && idx < this.items.length) {
+                this.activeItemIdx = idx;
+            }
         },
 
         async confirmBulkApprove() {

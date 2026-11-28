@@ -98,13 +98,37 @@ class RequestForCheckController extends Controller
 
         $hasReadyCol = Schema::hasColumn('request_check_table', 'request_check_check_ready_at');
         $hasReleasedCol = Schema::hasColumn('request_check_table', 'request_check_funds_released_at');
+        $hasSentCol = Schema::hasColumn('request_check_table', 'request_check_sent_to_accounting_at');
         $hasRrTable = Schema::hasTable('receiving_reports_table')
             && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id');
         $rrArchiveClause = $hasRrTable && Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')
             ? ' AND (rr_chk.receiving_report_is_archived IS NULL OR rr_chk.receiving_report_is_archived = 0)'
             : '';
 
-        // Pure STACK (LIFO) ordering: newest RFCs always appear at the top.
+        // Active view: Action-needed first (0), Waiting on others (1), Completed/Rejected (2),
+        // maintaining STACK (LIFO by request_check_id DESC) inside each tier.
+        if (! $archiveView) {
+            $noRrExists = $hasRrTable
+                ? "NOT EXISTS (SELECT 1 FROM receiving_reports_table as rr_chk WHERE rr_chk.receiving_report_request_check_id = request_check_table.request_check_id{$rrArchiveClause})"
+                : '1 = 1';
+            $tier0Parts = ["request_check_table.request_check_status IN ('Minor Revision', 'Draft')"];
+            if ($hasReleasedCol) {
+                $tier0Parts[] = "(request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_funds_released_at IS NOT NULL AND {$noRrExists})";
+            }
+            if ($hasSentCol) {
+                $notReleasedClause = $hasReleasedCol ? ' AND request_check_table.request_check_funds_released_at IS NULL' : '';
+                $tier0Parts[] = "(request_check_table.request_check_status = 'Approved' AND request_check_table.request_check_sent_to_accounting_at IS NULL{$notReleasedClause})";
+            }
+            $tier1NotReleased = $hasReleasedCol ? ' AND request_check_table.request_check_funds_released_at IS NULL' : '';
+            $prioritySql = 'CASE'
+                .' WHEN '.implode(' OR ', $tier0Parts).' THEN 0'
+                ." WHEN request_check_table.request_check_status IN ('Pending', 'Submitted', 'Under Review', 'Resubmitted')"
+                ." OR (request_check_table.request_check_status = 'Approved'{$tier1NotReleased}) THEN 1"
+                .' ELSE 2 END';
+
+            $query->orderByRaw($prioritySql);
+        }
+
         $rfcs = $query
             ->orderByDesc('request_check_table.request_check_id')
             ->paginate(10)
@@ -210,36 +234,101 @@ class RequestForCheckController extends Controller
         }
 
         $batchRisId = (int) $request->query('batch_ris', 0);
+        $batchAllModes = $request->boolean('batch_all');
         $batchFundingType = $this->resolveFundingType($request);
         $batchRfcItems = [];
         if ($batchRisId > 0 && ! $request->ajax()) {
-            $batchEligible = $this->eligibleAtpQuery($batchFundingType)
-                ->where('authority_to_purchase_table.authority_purchase_ris_id', $batchRisId)
-                ->get();
-            if ($batchEligible->isNotEmpty()) {
-                $prefills = $this->buildAtpPrefill($batchEligible, $batchFundingType);
+            if ($batchAllModes) {
                 $todayIso = now()->toDateString();
-                $risNo = \App\Support\RisWorkflow::formNumber($batchEligible->first(), $batchRisId);
-                foreach ($batchEligible as $bAtp) {
-                    $aid = (int) $bAtp->authority_purchase_id;
-                    $pf = $prefills[$aid] ?? [];
-                    $amt = isset($pf['amount']) && is_numeric($pf['amount']) ? (float) $pf['amount'] : 0.0;
-                    $batchRfcItems[] = [
-                        'atp_id' => $aid,
-                        'atp_number' => (string) ($bAtp->authority_purchase_form_number ?: ('ATP #'.$aid)),
-                        'ris_number' => (string) $risNo,
-                        'request_no' => (string) ($bAtp->authority_purchase_request_no ?? ''),
-                        'payee' => (string) ($pf['payee'] ?? ''),
-                        'amount' => round($amt, 2),
-                        'amount_words' => $this->amountInWords($amt),
-                        'purpose' => (string) ($pf['purpose'] ?? ''),
-                        'date' => $todayIso,
-                    ];
+                $collected = collect();
+                foreach (ProcurementPaymentPath::choices() as $modePath) {
+                    $modeRows = $this->eligibleAtpQuery($modePath)
+                        ->where('authority_to_purchase_table.authority_purchase_ris_id', $batchRisId)
+                        ->get();
+                    if ($modeRows->isEmpty()) {
+                        continue;
+                    }
+                    $prefills = $this->buildAtpPrefill($modeRows, $modePath);
+                    $risNo = \App\Support\RisWorkflow::formNumber($modeRows->first(), $batchRisId);
+                    foreach ($modeRows as $bAtp) {
+                        $aid = (int) $bAtp->authority_purchase_id;
+                        $pf = $prefills[$aid] ?? [];
+                        $amt = isset($pf['amount']) && is_numeric($pf['amount']) ? (float) $pf['amount'] : 0.0;
+                        $collected->push([
+                            'atp_id' => $aid,
+                            'atp_number' => (string) ($bAtp->authority_purchase_form_number ?: ('ATP #'.$aid)),
+                            'ris_number' => (string) $risNo,
+                            'request_no' => (string) ($bAtp->authority_purchase_request_no ?? ''),
+                            'funding_type' => $modePath,
+                            'funding_label' => ProcurementPaymentPath::label($modePath),
+                            'payee' => (string) ($pf['payee'] ?? ''),
+                            'amount' => round($amt, 2),
+                            'amount_words' => $this->amountInWords($amt),
+                            'purpose' => (string) ($pf['purpose'] ?? ''),
+                            'date' => $todayIso,
+                        ]);
+                    }
+                }
+                $batchRfcItems = $collected->sortByDesc('atp_id')->values()->all();
+            } else {
+                $batchEligible = $this->eligibleAtpQuery($batchFundingType)
+                    ->where('authority_to_purchase_table.authority_purchase_ris_id', $batchRisId)
+                    ->get();
+                if ($batchEligible->isNotEmpty()) {
+                    $prefills = $this->buildAtpPrefill($batchEligible, $batchFundingType);
+                    $todayIso = now()->toDateString();
+                    $risNo = \App\Support\RisWorkflow::formNumber($batchEligible->first(), $batchRisId);
+                    foreach ($batchEligible as $bAtp) {
+                        $aid = (int) $bAtp->authority_purchase_id;
+                        $pf = $prefills[$aid] ?? [];
+                        $amt = isset($pf['amount']) && is_numeric($pf['amount']) ? (float) $pf['amount'] : 0.0;
+                        $batchRfcItems[] = [
+                            'atp_id' => $aid,
+                            'atp_number' => (string) ($bAtp->authority_purchase_form_number ?: ('ATP #'.$aid)),
+                            'ris_number' => (string) $risNo,
+                            'request_no' => (string) ($bAtp->authority_purchase_request_no ?? ''),
+                            'funding_type' => $batchFundingType,
+                            'funding_label' => ProcurementPaymentPath::label($batchFundingType),
+                            'payee' => (string) ($pf['payee'] ?? ''),
+                            'amount' => round($amt, 2),
+                            'amount_words' => $this->amountInWords($amt),
+                            'purpose' => (string) ($pf['purpose'] ?? ''),
+                            'date' => $todayIso,
+                        ];
+                    }
                 }
             }
         }
 
         // Group current page's RFCs by Request No. (same RIS) for collapsible rows + carousel
+        $actionTierFor = function ($r) use ($archiveView): int {
+            if ($archiveView) {
+                return 0;
+            }
+            $st = (string) ($r->request_check_status ?? '');
+            if (in_array($st, ['Minor Revision', 'Draft'], true)) {
+                return 0;
+            }
+            if ($st === 'Approved') {
+                if (! empty($r->can_send_to_accounting)) {
+                    return 0;
+                }
+                if (! empty($r->funds_released) && empty($r->has_rr)) {
+                    return 0;
+                }
+                if (empty($r->funds_released)) {
+                    return 1;
+                }
+
+                return 2;
+            }
+            if (in_array($st, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
+                return 1;
+            }
+
+            return 2;
+        };
+
         $rfcGroups = $rfcs->getCollection()
             ->groupBy(function ($rfc) {
                 $reqNo = trim((string) ($rfc->request_check_request_no ?? ''));
@@ -248,14 +337,23 @@ class RequestForCheckController extends Controller
                 }
                 return 'rfc-'.(int) $rfc->request_check_id;
             })
-            ->map(function ($items, $key) {
-                $items = $items->sortByDesc('request_check_id')->values();
+            ->map(function ($items, $key) use ($actionTierFor) {
+                $items = $items->sort(function ($a, $b) use ($actionTierFor) {
+                    $ta = $actionTierFor($a);
+                    $tb = $actionTierFor($b);
+                    if ($ta !== $tb) {
+                        return $ta <=> $tb;
+                    }
+
+                    return ((int) $b->request_check_id) <=> ((int) $a->request_check_id);
+                })->values();
                 $first = $items->first();
                 $payees = $items->pluck('request_check_payee')->filter()->unique()->values();
                 $dates = $items->pluck('request_check_date')->filter()->sort()->values();
                 $totalAmount = (float) $items->sum(fn ($r) => (float) ($r->request_check_amount_figures ?? 0));
                 $urgent = $items->contains(fn ($r) => \App\Support\DocumentUrgency::isUrgent('RFC', $r));
                 $maxId = (int) $items->max('request_check_id');
+                $minTier = (int) $items->min(fn ($r) => $actionTierFor($r));
 
                 return [
                     'key' => (string) $key,
@@ -270,9 +368,16 @@ class RequestForCheckController extends Controller
                         : ($payees->count() > 1 ? $payees->count().' payees' : '—'),
                     'rfc_ids' => $items->pluck('request_check_id')->map(fn ($id) => (int) $id)->values()->all(),
                     'max_rfc_id' => $maxId,
+                    'action_tier' => $minTier,
                 ];
             })
-            ->sortByDesc('max_rfc_id')
+            ->sort(function ($a, $b) {
+                if ($a['action_tier'] !== $b['action_tier']) {
+                    return $a['action_tier'] <=> $b['action_tier'];
+                }
+
+                return $b['max_rfc_id'] <=> $a['max_rfc_id'];
+            })
             ->values();
 
         return view('purchaser.request-check.index', [
@@ -412,6 +517,7 @@ class RequestForCheckController extends Controller
             'request_check_requested_by_signature' => ['required', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.atp_id' => ['required', 'integer'],
+            'items.*.funding_type' => ['nullable', Rule::in(ProcurementPaymentPath::choices())],
             'items.*.payee' => ['required', 'string', 'max:255'],
             'items.*.amount' => ['required', 'numeric', 'min:0.01'],
             'items.*.purpose' => ['required', 'string', 'max:1000'],
@@ -430,8 +536,9 @@ class RequestForCheckController extends Controller
         $alreadyFunded = RfcAtpLinks::fundedAtpIds($atpIds);
 
         $createdCount = 0;
+        $createdByPath = [];
 
-        DB::transaction(function () use ($request, $validated, $fundingType, $requestedSig, $requestedBy, $alreadyFunded, &$createdCount) {
+        DB::transaction(function () use ($request, $validated, $fundingType, $requestedSig, $requestedBy, $alreadyFunded, &$createdCount, &$createdByPath) {
             $now = now();
             $reviewerId = ReviewerAssignment::resolve($request, \App\Support\ProcurementReviewPortal::ROLE);
 
@@ -446,13 +553,17 @@ class RequestForCheckController extends Controller
                 }
                 PurchaserDocumentAccess::assertOwns($atp, 'atp');
 
+                $itemFunding = ProcurementPaymentPath::normalize($entry['funding_type'] ?? null)
+                    ?? ProcurementPaymentPath::normalize($atp->authority_purchase_payment_path ?? null)
+                    ?? $fundingType;
+
                 $amt = round((float) $entry['amount'], 2);
                 $payload = [
                     'request_check_authority_purchase_id' => $atpId,
                     'request_check_purchase_order_id' => null,
-                    'request_check_funding_type' => $fundingType,
+                    'request_check_funding_type' => $itemFunding,
                     'request_check_date' => $entry['date'],
-                    'request_check_payee' => $this->payeeForFunding($fundingType, $entry['payee']),
+                    'request_check_payee' => $this->payeeForFunding($itemFunding, $entry['payee']),
                     'request_check_amount_figures' => $amt,
                     'request_check_amount_words' => $this->amountInWords($amt),
                     'request_check_particulars_purpose' => trim((string) $entry['purpose']),
@@ -487,16 +598,29 @@ class RequestForCheckController extends Controller
 
                 $this->notifyAccountingRfc($id, $reviewerId);
                 $createdCount++;
+                $createdByPath[$itemFunding] = ($createdByPath[$itemFunding] ?? 0) + 1;
             }
         });
 
-        $fundLabel = ProcurementPaymentPath::label($fundingType);
-        $fundParams = ['fund' => $fundingType];
+        $primaryFund = array_key_first($createdByPath) ?: $fundingType;
+        $fundParams = ['fund' => $primaryFund];
 
         if ($createdCount === 0) {
             return ProcurementPortal::redirect('rfc.index', $fundParams)
                 ->with('error', 'No new Request Checks were created (the selected ATPs may already have funding requests).');
         }
+
+        if (count($createdByPath) > 1) {
+            $parts = [];
+            foreach ($createdByPath as $p => $cnt) {
+                $parts[] = $cnt.' '.ProcurementPaymentPath::label($p);
+            }
+
+            return ProcurementPortal::redirect('rfc.index', $fundParams)
+                ->with('success', "{$createdCount} Request Checks submitted to the School Administrator (".implode(', ', $parts).').');
+        }
+
+        $fundLabel = ProcurementPaymentPath::label($primaryFund);
 
         return ProcurementPortal::redirect('rfc.index', $fundParams)
             ->with('success', "{$createdCount} {$fundLabel} request(s) submitted to the School Administrator.");

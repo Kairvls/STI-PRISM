@@ -448,8 +448,15 @@ class CanvassReviewController extends Controller
         $canvass = DB::table('canvass_table')->where('canvass_id', $canvassId)->first();
         abort_if(! $canvass, 404);
 
+        if (! CanvassWorkflow::canReview($canvass)) {
+            return response()->json(['ok' => false, 'message' => 'This canvass is no longer open for review.'], 422);
+        }
+
         DB::transaction(function () use ($canvassId, $itemId, $canvass, $note) {
             $now = now();
+            if (Schema::hasTable('canvass_item_allocations_table')) {
+                DB::table('canvass_item_allocations_table')->where('canvass_item_id', $itemId)->delete();
+            }
             DB::table('canvass_items_table')
                 ->where('canvass_id', $canvassId)
                 ->where('canvass_item_id', $itemId)
@@ -756,6 +763,10 @@ class CanvassReviewController extends Controller
         $canvass = DB::table('canvass_table')->where('canvass_id', $canvassId)->first();
         abort_if(! $canvass, 404);
 
+        if (! CanvassWorkflow::canReview($canvass)) {
+            return response()->json(['ok' => false, 'message' => 'This canvass is no longer open for review.'], 422);
+        }
+
         $itemIds = array_values(array_filter(array_map('intval', (array) $request->input('item_ids', []))));
         $returnAll = (bool) $request->input('all', false) || $itemIds === [];
 
@@ -768,6 +779,9 @@ class CanvassReviewController extends Controller
             $targetIds = $q->pluck('canvass_item_id')->map(fn ($id) => (int) $id)->all();
 
             if ($targetIds !== []) {
+                if (Schema::hasTable('canvass_item_allocations_table')) {
+                    DB::table('canvass_item_allocations_table')->whereIn('canvass_item_id', $targetIds)->delete();
+                }
                 DB::table('canvass_items_table')
                     ->where('canvass_id', $canvassId)
                     ->whereIn('canvass_item_id', $targetIds)

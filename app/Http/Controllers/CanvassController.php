@@ -190,8 +190,40 @@ class CanvassController extends Controller
                 ->get()
                 ->groupBy('canvass_id');
         }
+        $canvassSuppliersByCanvass = collect();
+        if ($visibleCanvassIds !== [] && Schema::hasTable('canvass_suppliers_table') && Schema::hasTable('suppliers_table')) {
+            $canvassSuppliersByCanvass = DB::table('canvass_suppliers_table as cs')
+                ->join('canvass_items_table as ci', 'ci.canvass_item_id', '=', 'cs.canvass_item_id')
+                ->join('suppliers_table as s', 's.supplier_id', '=', 'cs.supplier_id')
+                ->leftJoin('physical_suppliers_table as ps', 'ps.supplier_id', '=', 's.supplier_id')
+                ->leftJoin('online_suppliers_table as os', 'os.supplier_id', '=', 's.supplier_id')
+                ->whereIn('ci.canvass_id', $visibleCanvassIds)
+                ->orderBy('ci.canvass_item_sort_order')
+                ->orderBy('cs.canvass_supplier_id')
+                ->select(
+                    'ci.canvass_id',
+                    'cs.supplier_id',
+                    DB::raw('COALESCE(ps.company_name, os.shop_name, CONCAT("Supplier #", s.supplier_id)) as supplier_name'),
+                    'ci.canvass_item_id'
+                )
+                ->get()
+                ->groupBy('canvass_id')
+                ->map(function ($rows) {
+                    return $rows->groupBy('supplier_id')->map(function ($sRows) {
+                        $first = $sRows->first();
+                        return (object) [
+                            'supplier_id' => (int) $first->supplier_id,
+                            'supplier_name' => trim((string) ($first->supplier_name ?? 'Supplier')),
+                            'item_count' => $sRows->pluck('canvass_item_id')->unique()->count(),
+                        ];
+                    })->values();
+                });
+        }
         foreach ($canvasses->getCollection() as $cRow) {
             $cRow->canvass_items_preview = $canvassItemsByCanvass->get((int) $cRow->canvass_id, collect())->values();
+            $supList = $canvassSuppliersByCanvass->get((int) $cRow->canvass_id, collect())->values();
+            $cRow->canvass_suppliers_preview = $supList;
+            $cRow->first_supplier_name = (string) ($supList->first()->supplier_name ?? '');
         }
 
         $linkedRisIds = $canvasses->getCollection()
@@ -512,6 +544,7 @@ class CanvassController extends Controller
                     'canvass_purpose' => $payload['purpose'],
                     'canvass_urgency' => $payload['urgency'],
                     'canvass_status' => $nextStatus,
+                    'canvass_review_note' => $isSubmit ? null : $canvass->canvass_review_note,
                     'canvass_purchaser_signature' => $payload['signature'] ?: $canvass->canvass_purchaser_signature,
                     'canvass_submitted_by' => $isSubmit ? (int) Auth::id() : $canvass->canvass_submitted_by,
                     'canvass_submitted_at' => $isSubmit ? $now : $canvass->canvass_submitted_at,

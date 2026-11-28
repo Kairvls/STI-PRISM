@@ -74,12 +74,14 @@ class CanvassWorkflow
     public static function resolveDisplayStatus(string $canvassStatus, ?string $linkedRisStatus = null): string
     {
         $risStatus = trim((string) ($linkedRisStatus ?? ''));
-        if ($risStatus !== '' && in_array($canvassStatus, self::completedReviewStatuses(), true)) {
+        if ($risStatus !== '' && in_array($canvassStatus, array_merge(self::completedReviewStatuses(), [self::STATUS_RETURNED, self::STATUS_REJECTED]), true)) {
             return match ($risStatus) {
                 RisWorkflow::ACCEPTED => self::STATUS_REVIEWED_AWAITING,
                 RisWorkflow::FORWARDED => self::STATUS_FORWARDED_PRESIDENT,
                 RisWorkflow::DIRECTLY_APPROVED => self::STATUS_APPROVED_SCHOOL_ADMIN,
                 RisWorkflow::PRESIDENT_APPROVED, RisWorkflow::APPROVED_LEGACY => self::STATUS_APPROVED_PRESIDENT,
+                RisWorkflow::RETURNED_BY_PRESIDENT, RisWorkflow::MINOR_REVISION, RisWorkflow::PRESIDENT_REVISION => self::STATUS_RETURNED,
+                RisWorkflow::PRESIDENT_REJECTED, RisWorkflow::PRESIDENT_REJECTED_LEGACY, 'Rejected' => self::STATUS_REJECTED,
                 default => $canvassStatus,
             };
         }
@@ -87,7 +89,7 @@ class CanvassWorkflow
         return $canvassStatus;
     }
 
-    public static function syncStatusFromRis(int $risId, string $risStatus): void
+    public static function syncStatusFromRis(int $risId, string $risStatus, ?string $reviewNote = null): void
     {
         if ($risId <= 0 || ! Schema::hasTable('canvass_table')) {
             return;
@@ -98,6 +100,8 @@ class CanvassWorkflow
             RisWorkflow::FORWARDED => self::STATUS_FORWARDED_PRESIDENT,
             RisWorkflow::DIRECTLY_APPROVED => self::STATUS_APPROVED_SCHOOL_ADMIN,
             RisWorkflow::PRESIDENT_APPROVED, RisWorkflow::APPROVED_LEGACY => self::STATUS_APPROVED_PRESIDENT,
+            RisWorkflow::RETURNED_BY_PRESIDENT, RisWorkflow::MINOR_REVISION, RisWorkflow::PRESIDENT_REVISION => self::STATUS_RETURNED,
+            RisWorkflow::PRESIDENT_REJECTED, RisWorkflow::PRESIDENT_REJECTED_LEGACY, 'Rejected' => self::STATUS_REJECTED,
             default => null,
         };
 
@@ -105,12 +109,17 @@ class CanvassWorkflow
             return;
         }
 
+        $update = [
+            'canvass_status' => $mapped,
+            'canvass_updated_at' => now(),
+        ];
+        if ($reviewNote !== null && trim($reviewNote) !== '' && Schema::hasColumn('canvass_table', 'canvass_review_note')) {
+            $update['canvass_review_note'] = trim($reviewNote);
+        }
+
         DB::table('canvass_table')
             ->where('canvass_ris_id', $risId)
-            ->update([
-                'canvass_status' => $mapped,
-                'canvass_updated_at' => now(),
-            ]);
+            ->update($update);
     }
 
     public static function pendingReviewStatuses(): array
@@ -122,12 +131,16 @@ class CanvassWorkflow
     }
 
     /**
-     * Editable by Purchaser while Draft, Awaiting for review, or Returned.
+     * Editable by Purchaser while Draft, Awaiting for review, or Returned (before an official RIS is created).
      * Locked once School Admin starts reviewing, approves, or converts to RIS.
      */
     public static function canEdit(?object $canvass): bool
     {
         if (! $canvass || (int) ($canvass->canvass_is_archived ?? 0) === 1) {
+            return false;
+        }
+
+        if (! empty($canvass->canvass_ris_id)) {
             return false;
         }
 
@@ -442,6 +455,9 @@ class CanvassWorkflow
                 $supInsight = $supplierInsights[(int) $sup->supplier_id] ?? null;
                 $sup->caution_risk = $supInsight->risk ?? null;
                 $sup->caution_issues = (int) ($supInsight->issue_count ?? 0);
+                $sup->caution_summary = trim((string) ($supInsight->pattern_summary ?? ''));
+                $sup->caution_label = trim((string) ($supInsight->risk_label ?? ''));
+                $sup->caution_last = trim((string) ($supInsight->last_issue ?? ''));
 
                 $offers = ($offersBySupplier->get($sup->canvass_supplier_id) ?? collect())->map(function ($offer) use (
                     $qty,
@@ -463,7 +479,12 @@ class CanvassWorkflow
                     $offer->supplier_id = (int) $sup->supplier_id;
                     $offer->supplier_display_name = (string) $sup->supplier_display_name;
                     $offer->supplier_is_blacklisted = (bool) ($sup->supplier_is_blacklisted ?? false);
+                    $offer->supplier_blacklist_reason = trim((string) ($sup->supplier_blacklist_reason ?? ''));
                     $offer->supplier_caution_risk = $sup->caution_risk;
+                    $offer->supplier_caution_issues = (int) ($sup->caution_issues ?? 0);
+                    $offer->supplier_caution_summary = (string) ($sup->caution_summary ?? '');
+                    $offer->supplier_caution_label = (string) ($sup->caution_label ?? '');
+                    $offer->supplier_caution_last = (string) ($sup->caution_last ?? '');
                     $offer->is_selected = $alloc !== null
                         || (int) ($item->canvass_item_selected_offer_id ?? 0) === (int) $offer->canvass_offer_id;
                     $offer->approved_offer_units = $alloc ? (int) $alloc->approved_offer_units : ($offer->is_selected ? $offerUnits : 0);

@@ -218,6 +218,25 @@
                                     </svg>
                                 </button>
                             @endif
+                            @if(!empty($ris->linkedCanvass) && trim((string) ($ris->ris_status ?? '')) === \App\Support\RisWorkflow::ACCEPTED)
+                                @php
+                                    $reopenUrl = \App\Support\AdminPortal::route('digital-signatures.ris.reopen-canvass', ['ris' => $ris->ris_id]);
+                                    $reopenCanvassLabel = \App\Support\CanvassWorkflow::displayNumber($ris->linkedCanvass);
+                                @endphp
+                                <button
+                                    type="button"
+                                    onclick="window.openReopenCanvassModal(@js($reopenUrl), @js($reopenCanvassLabel), @js($risNumberLabel ?: ('RIS #'.$ris->ris_id)))"
+                                    data-tip="Reopen Canvass (edit selection)"
+                                    data-tip-place="above"
+                                    aria-label="Reopen Canvass (edit selection)"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:opacity-90"
+                                    style="background:#fffbeb;border-color:#fde68a;color:#b45309;"
+                                >
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
+                                    </svg>
+                                </button>
+                            @endif
                         @endif
 
                         @php
