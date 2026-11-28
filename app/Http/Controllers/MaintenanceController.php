@@ -5427,6 +5427,7 @@ class MaintenanceController extends Controller
         if ($isStockPage) {
             $equipment = $query
                 ->orderBy('equipment_table.equipment_created_at', 'desc')
+                ->orderByDesc('equipment_table.equipment_id')
                 ->paginate(10)
                 ->withQueryString();
         } else {
@@ -5701,21 +5702,41 @@ class MaintenanceController extends Controller
                 ->addSelect('unit_dept.department_name as unit_department_name');
         }
 
+        $hasTransferHistory = Schema::hasTable('equipment_transfer_history_table');
+        $fallbackTimestamp = Schema::hasColumn('equipment_table', 'equipment_created_at')
+            ? 'equipment_table.equipment_created_at'
+            : (Schema::hasColumn('equipment_table', 'created_at') ? 'equipment_table.created_at' : 'equipment_table.equipment_acquired_date');
+
+        if ($hasTransferHistory) {
+            $unitQuery->selectRaw(
+                '(SELECT MAX(created_at) FROM equipment_transfer_history_table
+                  WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id) as last_deployed_at'
+            );
+            $unitQuery
+                ->orderByRaw("COALESCE((SELECT MAX(created_at) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), {$fallbackTimestamp}) DESC")
+                ->orderByRaw('COALESCE((SELECT MAX(transfer_id) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), 0) DESC')
+                ->orderByDesc('equipment_table.equipment_id');
+        } else {
+            $unitQuery
+                ->orderByDesc($fallbackTimestamp)
+                ->orderByDesc('equipment_table.equipment_id');
+        }
+
         $equipment = $unitQuery
-            ->orderBy('rooms_table.room_name')
-            ->orderBy('equipment_table.equipment_name')
-            ->orderBy('equipment_table.equipment_asset_tag')
             ->paginate(15)
             ->withQueryString();
 
         $pendingTransferIds = TransferRequests::pendingEquipmentIds();
         $pendingDisposalIds = DisposalRequests::pendingEquipmentIds();
-        $openLoans = TransferLocks::openLoans($equipment->pluck('equipment_id')->all());
+        $pageEquipmentIds = $equipment->pluck('equipment_id')->all();
+        $openLoans = TransferLocks::openLoans($pageEquipmentIds);
+        $activeAssignments = PropertyAssignments::activeByEquipment($pageEquipmentIds);
         foreach ($equipment as $row) {
             $row->transfer_pending = isset($pendingTransferIds[(int) $row->equipment_id]);
             $row->disposal_pending = isset($pendingDisposalIds[(int) $row->equipment_id]);
             $row->open_loan = $openLoans->get((int) $row->equipment_id);
             $row->transfer_lock = TransferLocks::reason($row, $openLoans);
+            $row->active_assignment = $activeAssignments[(int) $row->equipment_id] ?? null;
         }
 
         $filteredDeployedIds = (clone $base)
@@ -5994,10 +6015,22 @@ class MaintenanceController extends Controller
                 ->addSelect('unit_dept.department_name as unit_department_name');
         }
 
+        $fallbackTimestamp = Schema::hasColumn('equipment_table', 'equipment_created_at')
+            ? 'equipment_table.equipment_created_at'
+            : (Schema::hasColumn('equipment_table', 'created_at') ? 'equipment_table.created_at' : 'equipment_table.equipment_acquired_date');
+
+        if (Schema::hasTable('equipment_transfer_history_table')) {
+            $unitQuery
+                ->orderByRaw("COALESCE((SELECT MAX(created_at) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), {$fallbackTimestamp}) DESC")
+                ->orderByRaw('COALESCE((SELECT MAX(transfer_id) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), 0) DESC')
+                ->orderByDesc('equipment_table.equipment_id');
+        } else {
+            $unitQuery
+                ->orderByDesc($fallbackTimestamp)
+                ->orderByDesc('equipment_table.equipment_id');
+        }
+
         $rows = $unitQuery
-            ->orderBy('rooms_table.room_name')
-            ->orderBy('equipment_table.equipment_name')
-            ->orderBy('equipment_table.equipment_asset_tag')
             ->limit(2000)
             ->get()
             ->map(function ($row) use ($hasDepartment) {
@@ -8493,7 +8526,9 @@ class MaintenanceController extends Controller
 
                 'equipment_categories_table.equipment_category_name',
 
-                'rooms_table.room_name'
+                'rooms_table.room_name',
+
+                'rooms_table.room_type'
 
             )
 
@@ -8541,6 +8576,47 @@ class MaintenanceController extends Controller
             ? \App\Support\Custodians::assignable()
             : collect();
 
+        $isAdminPortal = RoleAccess::hasRole(RoleAccess::ADMIN);
+        $canMaintainRole = RoleAccess::hasRole(RoleAccess::MAINTENANCE);
+        $isStorageItem = RoomCategories::isStorageType($equipment->room_type ?? null);
+        $transferLockReason = TransferLocks::reason($equipment);
+        $isDisposalStatus = in_array($equipment->equipment_inventory_status ?? '', [
+            EquipmentInventoryStatuses::DISPOSED,
+            EquipmentInventoryStatuses::PENDING_DISPOSAL,
+        ], true);
+        $canTransferItem = ($isAdminPortal || $canMaintainRole) && $transferLockReason === null && ! $isDisposalStatus;
+        $hasPendingTransfer = ($isAdminPortal || $canMaintainRole)
+            && isset(TransferRequests::pendingEquipmentIds()[(int) $equipment->equipment_id]);
+        $transferNeedsApproval = $canTransferItem && TransferRequests::requiresApproval();
+        $transferActionUrl = $isAdminPortal
+            ? url('/admin/inventory/transfer')
+            : url('/maintenance/equipment/transfer');
+        $transferRequestsUrl = $isAdminPortal
+            ? url('/admin/inventory/transfer-requests')
+            : url('/maintenance/equipment/transfer-requests');
+
+        $allActiveRooms = $canTransferItem
+            ? DB::table('rooms_table')
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where('room_is_archived', false)
+                )
+                ->orderByRaw(
+                    'CASE WHEN room_type = ? THEN 1 ELSE 0 END',
+                    [RoomCategories::STORAGE_TYPE]
+                )
+                ->orderBy('room_name')
+                ->get()
+            : collect();
+
+        $deployRooms = $allActiveRooms
+            ->reject(fn ($room) => RoomCategories::isStorageType($room->room_type ?? null))
+            ->values();
+
+        $transferRoomOptions = $isStorageItem ? $deployRooms : $allActiveRooms;
+        $transferPeople = $canTransferItem ? \App\Support\Custodians::assignable() : collect();
+        $transferDepartments = $canTransferItem ? Departments::options() : collect();
+
         return view(
             'maintenance-personnel.equipment.view',
             compact(
@@ -8555,7 +8631,17 @@ class MaintenanceController extends Controller
                 'assignmentHistory',
                 'assignmentBlocker',
                 'assignablePeople',
-                'stockMovements'
+                'stockMovements',
+                'isStorageItem',
+                'canTransferItem',
+                'hasPendingTransfer',
+                'transferNeedsApproval',
+                'transferActionUrl',
+                'transferRequestsUrl',
+                'deployRooms',
+                'transferRoomOptions',
+                'transferPeople',
+                'transferDepartments'
             ) + ['reportSummary' => $lifecycle['report_summary'] ?? null]
         );
     }
@@ -8568,26 +8654,13 @@ class MaintenanceController extends Controller
     */
     public function createEquipment()
     {
-        $categories = DB::table(
-            'equipment_categories_table'
-        )->get();
+        $inventoryUrl = request()->is('admin/*')
+            ? url('/admin/inventory')
+            : url('/maintenance/equipment/inventory');
 
-        $rooms = DB::table(
-            'rooms_table'
-        )
-            ->when(
-                Schema::hasColumn('rooms_table', 'room_is_archived'),
-                fn ($query) => $query->where('room_is_archived', false)
-            )
-            ->get();
+        $query = array_merge(request()->query(), ['add' => 1]);
 
-        return view(
-            'maintenance-personnel.equipment.create',
-            compact(
-                'categories',
-                'rooms'
-            )
-        );
+        return redirect()->to($inventoryUrl . '?' . http_build_query($query));
     }
 
 
@@ -8709,9 +8782,19 @@ class MaintenanceController extends Controller
                 'max:'.\App\Support\InputLimits::ASSET_TAG,
             ],
 
-            'equipment_brand_name' => 'required|string|'.\App\Support\InputLimits::name(),
+            'equipment_brand_name' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'string',
+                \App\Support\InputLimits::name(),
+            ],
 
-            'equipment_model' => 'required|string|'.\App\Support\InputLimits::name(),
+            'equipment_model' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'string',
+                \App\Support\InputLimits::name(),
+            ],
 
             'equipment_serial_number' => [
                 \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
@@ -8729,11 +8812,27 @@ class MaintenanceController extends Controller
                 $request->filled('equipment_purchase_date') ? 'after_or_equal:equipment_purchase_date' : null,
             ])),
 
-            'equipment_purchase_cost' => 'required|numeric|min:0|max:'.\App\Support\InputLimits::COST,
+            'equipment_purchase_cost' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:'.\App\Support\InputLimits::COST,
+            ],
 
-            'equipment_warranty_expiration' => 'required|date',
+            'equipment_warranty_expiration' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'date',
+            ],
 
-            'equipment_useful_life_years' => 'required|integer|min:1|max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
+            'equipment_useful_life_years' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
+            ],
 
             'receiving_report_item_id' => 'nullable|integer|min:1',
 
@@ -8767,6 +8866,8 @@ class MaintenanceController extends Controller
 
             'deploy_room_id' => 'nullable|integer|min:1',
             'items.*.deploy_room_id' => 'nullable|integer|min:0',
+            'items.*.custodian_id' => 'nullable|integer|min:0',
+            'items.*.replaces_equipment_id' => 'nullable|integer|min:0',
 
             'custodian_id' => 'nullable|integer|min:1',
 
@@ -8826,13 +8927,16 @@ class MaintenanceController extends Controller
                         ->withInput();
                 }
 
-                if ($quantity > (int) $rrLine->quantity) {
+                $rrAvailableQty = max(1, (int) ($rrLine->remaining_qty ?? $rrLine->quantity ?? 1));
+                if ($quantity !== $rrAvailableQty) {
                     return back()
                         ->withErrors([
-                            'equipment_quantity' => 'Quantity cannot exceed the quantity still available to add ('.$rrLine->quantity.') on '.$rrLine->rr_number.'.',
+                            'equipment_quantity' => 'Quantity must match the remaining available quantity ('.$rrAvailableQty.') on '.$rrLine->rr_number.'.',
                         ])
                         ->withInput();
                 }
+                $quantity = $rrAvailableQty;
+                $validated['equipment_quantity'] = $rrAvailableQty;
 
                 $validated['equipment_condition_status'] = 'Good';
                 foreach ($items as $index => $item) {
@@ -8974,7 +9078,7 @@ class MaintenanceController extends Controller
         }
 
         $itemRooms = collect();
-        if ($deployRoom && $trackingMode === 'Individual' && count($items) > 0) {
+        if ($trackingMode === 'Individual' && count($items) > 0) {
             $itemRooms = \App\Support\RrLineIntake::deployRooms(array_column($items, 'deploy_room_id'));
         }
 
@@ -8994,6 +9098,8 @@ class MaintenanceController extends Controller
 
         $createdIds = [];
         $createdRooms = [];
+        $createdCustodians = [];
+        $createdReplaces = [];
         $deployedRoomNames = [];
 
         // Shared photo applies to Bulk / single Individual units only.
@@ -9028,6 +9134,8 @@ class MaintenanceController extends Controller
             $custodianId,
             &$createdIds,
             &$createdRooms,
+            &$createdCustodians,
+            &$createdReplaces,
             &$deployedRoomNames
         ) {
 
@@ -9164,6 +9272,8 @@ class MaintenanceController extends Controller
                     );
                     $createdIds[] = (int) $equipmentId;
                     $createdRooms[(int) $equipmentId] = $itemRooms->get((int) ($item['deploy_room_id'] ?? 0)) ?? $deployRoom;
+                    $createdCustodians[(int) $equipmentId] = (int) ($item['custodian_id'] ?? 0);
+                    $createdReplaces[(int) $equipmentId] = (int) ($item['replaces_equipment_id'] ?? 0);
                 }
             }
 
@@ -9187,28 +9297,36 @@ class MaintenanceController extends Controller
             if ($replacesId < 1 && $rrLine) {
                 $replacesId = $this->resolveReplacedEquipmentIdFromRr((int) $rrLine->receiving_report_id);
             }
-            if (
-                $replacesId > 0
-                && ! empty($createdIds)
-                && Schema::hasColumn('equipment_table', 'equipment_replaces_id')
-            ) {
+            if (! empty($createdIds) && Schema::hasColumn('equipment_table', 'equipment_replaces_id')) {
+                $linkedOldIds = [];
                 foreach ($createdIds as $newId) {
-                    DB::table('equipment_table')
-                        ->where('equipment_id', $newId)
-                        ->update(['equipment_replaces_id' => $replacesId]);
+                    $targetReplace = ($createdReplaces[$newId] ?? 0) > 0 ? (int) $createdReplaces[$newId] : $replacesId;
+                    if ($targetReplace > 0) {
+                        DB::table('equipment_table')
+                            ->where('equipment_id', $newId)
+                            ->update(['equipment_replaces_id' => $targetReplace]);
+                        if (! isset($linkedOldIds[$targetReplace])) {
+                            $linkedOldIds[$targetReplace] = $newId;
+                        }
+                    }
                 }
                 if (Schema::hasColumn('equipment_table', 'equipment_replaced_by_id')) {
-                    DB::table('equipment_table')
-                        ->where('equipment_id', $replacesId)
-                        ->update(['equipment_replaced_by_id' => (int) $createdIds[0]]);
+                    foreach ($linkedOldIds as $oldId => $firstNewId) {
+                        DB::table('equipment_table')
+                            ->where('equipment_id', $oldId)
+                            ->update(['equipment_replaced_by_id' => $firstNewId]);
+                    }
                 }
             }
 
-            if ($deployRoom && ! empty($createdIds)) {
+            if (! empty($createdIds)) {
                 $storageRoomId = (int) $validated['equipment_room_id'];
                 $hasTransferHistory = Schema::hasTable('equipment_transfer_history_table');
                 foreach ($createdIds as $newId) {
                     $toRoom = $createdRooms[$newId] ?? $deployRoom;
+                    if (! $toRoom) {
+                        continue;
+                    }
                     if ($hasTransferHistory) {
                         DB::table('equipment_transfer_history_table')->insert([
                             'equipment_id' => $newId,
@@ -9226,10 +9344,22 @@ class MaintenanceController extends Controller
                 }
             }
 
-            if ($custodianId > 0 && ! empty($createdIds)) {
-                PropertyAssignments::issueMany($createdIds, $custodianId, [
-                    'notes' => 'Issued on intake',
-                ]);
+            if (! empty($createdIds)) {
+                $byCustodian = [];
+                foreach ($createdIds as $newId) {
+                    $toRoom = $createdRooms[$newId] ?? $deployRoom;
+                    $unitCustodian = ($createdCustodians[$newId] ?? 0) > 0
+                        ? (int) $createdCustodians[$newId]
+                        : $custodianId;
+                    if ($unitCustodian > 0 && $toRoom) {
+                        $byCustodian[$unitCustodian][] = $newId;
+                    }
+                }
+                foreach ($byCustodian as $cId => $idsForCustodian) {
+                    PropertyAssignments::issueMany($idsForCustodian, (int) $cId, [
+                        'notes' => 'Issued on intake',
+                    ]);
+                }
             }
 
             $count = count($createdIds);

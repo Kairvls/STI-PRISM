@@ -170,7 +170,7 @@ class EquipmentAcquisition
                 fn ($q) => $q->whereNull('e.equipment_replaced_by_id')
             )
             ->orderBy('e.equipment_name')
-            ->get(['e.equipment_id', 'e.equipment_name', 'e.equipment_asset_tag', 'room.room_name']);
+            ->get(['e.equipment_id', 'e.equipment_name', 'e.equipment_category_id', 'e.equipment_room_id', 'e.equipment_asset_tag', 'room.room_name']);
     }
 
     /**
