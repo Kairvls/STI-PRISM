@@ -11872,6 +11872,32 @@ class MaintenanceController extends Controller
         $eventTypes = \App\Support\EventTypes::options();
         $eventNames = \App\Support\EventNames::options();
 
+        $activeView = $request->query('view') === 'borrowers' && ! $showArchived ? 'borrowers' : 'records';
+        $borrowerDirectoryStats = \App\Support\Borrowers::stats();
+        $borrowerDirFilter = (string) $request->query('borrower_filter', 'all');
+        if (! in_array($borrowerDirFilter, ['all', 'registered', 'history'], true)) {
+            $borrowerDirFilter = 'all';
+        }
+        $borrowerDirQuery = trim((string) $request->query('borrower_q', ''));
+        if ($activeView === 'borrowers') {
+            $allDirectoryRows = \App\Support\Borrowers::directory($borrowerDirQuery !== '' ? $borrowerDirQuery : null, $borrowerDirFilter);
+            $dirPage = max(1, (int) $request->query('borrowers_page', 1));
+            $dirPerPage = 15;
+            $borrowerDirectory = new \Illuminate\Pagination\LengthAwarePaginator(
+                $allDirectoryRows->forPage($dirPage, $dirPerPage)->values(),
+                $allDirectoryRows->count(),
+                $dirPerPage,
+                $dirPage,
+                [
+                    'path' => $request->url(),
+                    'pageName' => 'borrowers_page',
+                    'query' => $request->query(),
+                ]
+            );
+        } else {
+            $borrowerDirectory = collect();
+        }
+
         return view(
             'admin.borrowing.index',
 
@@ -11889,6 +11915,11 @@ class MaintenanceController extends Controller
                 'dateFrom',
                 'dateTo',
                 'showArchived',
+                'activeView',
+                'borrowerDirectory',
+                'borrowerDirectoryStats',
+                'borrowerDirFilter',
+                'borrowerDirQuery',
 
                 // =================================================
                 // BORROWING DASHBOARD VARIABLES
@@ -11925,33 +11956,17 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Borrowers directory from External registry + real borrow history (not campus staff list).
+     * Redirect legacy /admin/borrowing/borrowers URL into Borrowing's integrated Borrowers List view.
      */
     public function borrowers(Request $request)
     {
-        $filter = (string) $request->query('filter', 'all');
-        if (! in_array($filter, ['all', 'registered', 'history'], true)) {
-            $filter = 'all';
-        }
-        $q = trim((string) $request->query('q', ''));
+        $query = array_filter([
+            'view' => 'borrowers',
+            'borrower_q' => trim((string) $request->query('q', $request->query('borrower_q', ''))),
+            'borrower_filter' => (string) $request->query('filter', $request->query('borrower_filter', '')),
+        ], fn ($value) => $value !== '');
 
-        $all = \App\Support\Borrowers::directory($q !== '' ? $q : null, $filter);
-        $stats = \App\Support\Borrowers::stats();
-
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 20;
-        $borrowers = new \Illuminate\Pagination\LengthAwarePaginator(
-            $all->forPage($page, $perPage)->values(),
-            $all->count(),
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
-
-        return view('admin.borrowing.borrowers', compact('borrowers', 'filter', 'q', 'stats'));
+        return redirect()->route('admin.borrowing.index', $query);
     }
 
     /**
@@ -12223,9 +12238,9 @@ class MaintenanceController extends Controller
             ]);
         }
 
-        if ($request->input('redirect_to') === 'borrowers' || str_contains((string) $request->headers->get('referer'), '/borrowing/borrowers')) {
+        if ($request->input('redirect_to') === 'borrowers' || str_contains((string) $request->headers->get('referer'), 'view=borrowers') || str_contains((string) $request->headers->get('referer'), '/borrowing/borrowers')) {
             return redirect()
-                ->route('admin.borrowing.borrowers', ['affiliation' => 'External'])
+                ->route('admin.borrowing.index', ['view' => 'borrowers'])
                 ->with('success', 'External borrower registered: '.$payload['name'].'.');
         }
 

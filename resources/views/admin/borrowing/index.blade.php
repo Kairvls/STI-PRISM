@@ -6,552 +6,398 @@
 
 @section ("content")
 
-    <div
-        class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
-    >
-        @if (!empty($showArchived))
-            <a
-                href="{{ route('admin.borrowing.index') }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="list" class="h-4 w-4"></i>
-                Show active records
-            </a>
-        @else
-            <a
-                href="{{ route('admin.borrowing.index', ['archived' => 1]) }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="archive" class="h-4 w-4"></i>
-                Show archived
-            </a>
+@php
+    $activeView = ($activeView ?? 'records') === 'borrowers' && empty($showArchived) ? 'borrowers' : 'records';
+    $borrowFeeRates = \App\Support\BorrowingFees::rates();
+    $canEditBorrowFees = \App\Support\RoleAccess::isAdmin();
+    $overdueCount = (int) ($overdueBorrowings ?? 0);
+    $borrowersTotalCount = (int) ($borrowerDirectoryStats['total'] ?? 0);
+    $isOverdueOnly = request('status') === 'Overdue' || !empty($attentionFocus);
 
-            @if (($overdueBorrowings ?? 0) > 0)
-                @if (request('status') === 'Overdue' || !empty($attentionFocus))
-                    <a
-                        href="{{ route('admin.borrowing.index') }}"
-                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                        <i data-lucide="list" class="h-4 w-4"></i>
-                        Show all records
-                    </a>
-                @else
-                    <a
-                        href="{{ route('admin.borrowing.index', ['status' => 'Overdue']) }}"
-                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] font-semibold text-amber-900 transition hover:bg-amber-100"
-                    >
-                        <i data-lucide="alert-triangle" class="h-4 w-4"></i>
-                        Show overdue only
-                        <span class="inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">
-                            {{ $overdueBorrowings }}
-                        </span>
-                    </a>
-                @endif
-            @endif
+    $hasActiveSearch = request()->filled('search');
+    $hasActiveStatus = request()->filled('status');
+    $hasActiveBorrower = filled($borrowerFilter ?? request('borrower'));
+    $hasActiveSource = request()->filled('source');
+    $hasDateFilter = filled($dateFrom ?? request('date_from')) || filled($dateTo ?? request('date_to'));
+    $secondaryFilterCount = ($hasActiveBorrower ? 1 : 0)
+        + ($hasActiveSource ? 1 : 0)
+        + ($hasDateFilter ? 1 : 0);
+    $hasAnyRecordFilter = $hasActiveSearch || $hasActiveStatus || $secondaryFilterCount > 0;
+@endphp
 
-            <a
-                href="{{ route('admin.borrowing.borrowers') }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="users" class="h-4 w-4"></i>
-                Borrowers list
-            </a>
-
-            <button
-                type="button"
-                onclick="openBorrowModal()"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
-            >
-                <i data-lucide="plus" class="h-4 w-4"></i>
-                Borrow for event/use
-            </button>
-        @endif
-    </div>
-
-    <!--@if (($overdueBorrowings ?? 0) > 0 && request('status') !== 'Overdue')
-        <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {{ $overdueBorrowings }} overdue {{ \Illuminate\Support\Str::plural('record', $overdueBorrowings) }} need attention.
-        </div>
-    @endif-->
-
-    @php
-        $borrowingMonthlyHint = $borrowingMonthlyPercentage === null
-            ? 'New activity vs last month'
-            : (($borrowingMonthlyPercentage > 0 ? '+' : '') . number_format($borrowingMonthlyPercentage, 2) . '% vs last month');
-    @endphp
-    <div class="mb-6 mt-6">
-    </div>
-
-    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $borrowings->total()])
-
-    <div class="rounded-3xl bg-white">
-        <!--<div class="mb-6 flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-black">Borrowing Records</h1>
-
-            <button
-                onclick="openBorrowModal()"
-                class="rounded-xl bg-blue-600 px-5 py-3 text-white hover:bg-blue-700"
-            >
-                Borrow Equipment
-            </button>
-        </div>-->
-
-        {{-- ========================================================= --}}
-        {{-- BORROWING RECORDS TABLE --}}
-        {{-- ========================================================= --}}
-
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-
-            {{-- ===================================================== --}}
-            {{-- TABLE HEADER INFORMATION --}}
-            {{-- ===================================================== --}}
-
-            <div
-                class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4
-                    sm:flex-row sm:items-center sm:justify-between"
-            >
-
-                <div class="flex items-center gap-3">
-
-                    <div
-                        class="flex h-9 w-9 shrink-0 items-center justify-center
-                            rounded-lg bg-slate-100 text-slate-600"
-                    >
-                        <i
-                            data-lucide="clipboard-list"
-                            class="h-4 w-4"
-                        ></i>
-                    </div>
-
-
-                    <div>
-
-                        <h2 class="text-sm font-semibold text-slate-900">
-                            {{ !empty($showArchived) ? 'Archived Borrowing Records' : 'Borrowing Records' }}
-                        </h2>
-
-                    </div>
-
-                </div>
-
-
-                {{-- TOTAL RECORDS --}}
-                @php
-                    $borrowFeeRates = \App\Support\BorrowingFees::rates();
-                    $canEditBorrowFees = \App\Support\RoleAccess::isAdmin();
-                @endphp
-                <div class="flex flex-wrap items-center gap-2">
-                    @if ($canEditBorrowFees)
-                        <button
-                            type="button"
-                            onclick="openBorrowFeesModal()"
-                            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                        >
-                            <i data-lucide="banknote" class="h-3.5 w-3.5 text-slate-500"></i>
-                            Fees · ₱{{ number_format($borrowFeeRates['late_fee_per_day'], 2) }}/day
-                        </button>
-                    @endif
-                    <div
-                        class="inline-flex w-fit items-center gap-2
-                            rounded-lg border border-slate-200
-                            bg-slate-50 px-3 py-2
-                            text-xs font-medium text-slate-500"
-                    >
-                        <i
-                            data-lucide="package"
-                            class="h-3.5 w-3.5"
-                        ></i>
-
-                        {{ $borrowings->total() }} total
-
-                    </div>
-                </div>
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- SEARCH AND FILTER BAR --}}
-            {{-- ADD BETWEEN TABLE HEADER INFORMATION AND TABLE --}}
-            {{-- ===================================================== --}}
-
-            <form method="GET" action="{{ url()->current() }}" data-auto-filter
-                class="border-b border-slate-200 px-5 py-4"
-            >
+<div class="space-y-4">
+    {{-- COMPACT PAGE HEADER (matching Equipment Inventory) --}}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-2">
+            <h1 class="truncate text-lg font-semibold tracking-tight text-slate-900">
                 @if (!empty($showArchived))
-                    <input type="hidden" name="archived" value="1">
+                    Archived Borrowing
+                @elseif ($activeView === 'borrowers')
+                    Borrowers List
+                @else
+                    Borrowing
                 @endif
+            </h1>
+            <span class="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                @if ($activeView === 'borrowers')
+                    {{ number_format($borrowersTotalCount) }} {{ \Illuminate\Support\Str::plural('borrower', $borrowersTotalCount) }}
+                @else
+                    {{ number_format($borrowings->total()) }} {{ \Illuminate\Support\Str::plural('record', $borrowings->total()) }}
+                @endif
+            </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- ... Actions dropdown (matching Equipment Inventory) --}}
+            <div class="relative">
+                <button
+                    type="button"
+                    id="borrowingToolsMenuBtn"
+                    onclick="toggleBrwMenu(this, 'borrowingToolsMenu', event)"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    <i data-lucide="more-horizontal" class="h-4 w-4 text-slate-500"></i>
+                    <span>Actions</span>
+                    @if ($overdueCount > 0 && empty($showArchived))
+                        <span class="inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $overdueCount }}</span>
+                    @endif
+                    <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-slate-400"></i>
+                </button>
 
                 <div
-                    class="flex flex-col gap-3
-                        sm:flex-row sm:items-center"
+                    id="borrowingToolsMenu"
+                    data-brw-menu
+                    role="menu"
+                    class="fixed z-[90] hidden w-60 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/10"
                 >
-
-                    {{-- ================================================= --}}
-                    {{-- SEARCH --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative min-w-0 flex-1">
-
-                        <i
-                            data-lucide="search"
-                            class="pointer-events-none absolute
-                                left-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
-                        ></i>
-
-                        <input
-                            type="search"
-
-                            name="search"
-
-                            value="{{ request('search') }}"
-
-                            placeholder="Search slip no., event, equipment, or borrower..."
-
-                            class="h-9 w-full rounded-lg
-                                border border-slate-200
-                                bg-white pl-10 pr-3
-                                text-sm text-slate-700
-                                outline-none transition
-                                placeholder:text-slate-400
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-
-                    </div>
-
-
-                    {{-- ================================================= --}}
-                    {{-- BORROWER FILTER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative">
-                        <select
-                            name="borrower"
-                            data-searchable="1"
-                            data-search-placeholder="Search borrower…"
-                            class="h-9 min-w-[180px]
-                                appearance-none rounded-lg
-                                border border-slate-200
-                                bg-white pl-3 pr-9
-                                text-sm text-slate-600
-                                outline-none transition
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-                            <option value="">All borrowers</option>
-                            @foreach (($borrowers ?? collect()) as $borrowerName)
-                                <option value="{{ $borrowerName }}" @selected(($borrowerFilter ?? request('borrower')) === $borrowerName)>
-                                    {{ $borrowerName }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                        ></i>
-                    </div>
-
-                    {{-- ================================================= --}}
-                    {{-- STATUS FILTER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative">
-
-                        <select
-                            name="status"
-
-                            class="h-9 min-w-[150px]
-                                appearance-none rounded-lg
-                                border border-slate-200
-                                bg-white pl-3 pr-9
-                                text-sm text-slate-600
-                                outline-none transition
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-
-                            <option value="">
-                                All Status
-                            </option>
-
-                            <option
-                                value="Pending"
-                                @selected(request('status') === 'Pending')
+                    @if ($overdueCount > 0)
+                        @if ($isOverdueOnly && $activeView === 'records' && empty($showArchived))
+                            <a
+                                href="{{ route('admin.borrowing.index') }}"
+                                role="menuitem"
+                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                             >
-                                Pending
-                            </option>
-
-                            <option
-                                value="Borrowed"
-                                @selected(request('status') === 'Borrowed')
+                                <i data-lucide="list" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span>Show all records</span>
+                            </a>
+                        @else
+                            <a
+                                href="{{ route('admin.borrowing.index', ['status' => 'Overdue']) }}"
+                                role="menuitem"
+                                class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-50"
                             >
-                                Borrowed
-                            </option>
-
-                            <option
-                                value="Returned"
-                                @selected(request('status') === 'Returned')
-                            >
-                                Returned
-                            </option>
-
-                            <option
-                                value="Overdue"
-                                @selected(request('status') === 'Overdue' || !empty($attentionFocus))
-                            >
-                                Overdue
-                            </option>
-
-                            <option
-                                value="Denied"
-                                @selected(request('status') === 'Denied')
-                            >
-                                Denied
-                            </option>
-
-                        </select>
-
-
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute
-                                right-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
-                        ></i>
-
-                    </div>
-
-                    {{-- ================================================= --}}
-                    {{-- SOURCE FILTER --}}
-                    {{-- ================================================= --}}
-
-                    @if (\Illuminate\Support\Facades\Schema::hasColumn('borrowing_records_table', 'borrowing_source'))
-                    <div class="relative">
-                        <select
-                            name="source"
-                            class="h-9 min-w-[150px]
-                                appearance-none rounded-lg
-                                border border-slate-200
-                                bg-white pl-3 pr-9
-                                text-sm text-slate-600
-                                outline-none transition
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-                            <option value="">All sources</option>
-                            <option value="online" @selected(request('source') === 'online')>Online requests</option>
-                            <option value="admin" @selected(request('source') === 'admin')>Desk / admin</option>
-                        </select>
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute
-                                right-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
-                        ></i>
-                    </div>
+                                <span class="inline-flex items-center gap-2">
+                                    <i data-lucide="alert-triangle" class="h-3.5 w-3.5 text-amber-600"></i>
+                                    <span>Show overdue only</span>
+                                </span>
+                                <span class="inline-flex min-w-[1.2rem] items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $overdueCount }}</span>
+                            </a>
+                        @endif
+                        <div class="my-1 border-t border-slate-100"></div>
                     @endif
 
-                    {{-- ================================================= --}}
-                    {{-- CALENDAR DATE FILTER --}}
-                    {{-- ================================================= --}}
+                    @if (!empty($showArchived))
+                        <a
+                            href="{{ route('admin.borrowing.index') }}"
+                            role="menuitem"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        >
+                            <i data-lucide="clipboard-list" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Show active records</span>
+                        </a>
+                    @else
+                        <a
+                            href="{{ route('admin.borrowing.index', ['archived' => 1]) }}"
+                            role="menuitem"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        >
+                            <i data-lucide="archive" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Show archived</span>
+                        </a>
+                    @endif
 
-                    @php
-                        $hasDateFilter = filled($dateFrom ?? request('date_from')) || filled($dateTo ?? request('date_to'));
-                    @endphp
-                    <div
-                        class="relative"
-                        x-data="{
-                            open: {{ $hasDateFilter ? 'true' : 'false' }},
-                            from: @js($dateFrom ?? request('date_from', '')),
-                            to: @js($dateTo ?? request('date_to', '')),
-                        }"
-                        @keydown.escape.window="open = false"
-                    >
+                    @if ($activeView === 'borrowers')
                         <button
                             type="button"
-                            @click="open = !open"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition
-                                {{ $hasDateFilter
-                                    ? 'border-[#0025cc]/30 bg-blue-50 text-[#0025cc]'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50' }}"
-                            aria-label="Filter by borrow date"
-                            title="Filter by borrow date"
+                            role="menuitem"
+                            onclick="closeBrwMenus(); openBorrowModal()"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
-                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                            <i data-lucide="plus" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Borrow for event/use</span>
                         </button>
-
-                        <div
-                            x-show="open"
-                            x-cloak
-                            @click.outside="open = false"
-                            x-transition
-                            class="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
+                    @else
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onclick="closeBrwMenus(); openRegisterBorrowerModal()"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Borrow date</p>
-                            <div class="mt-3 space-y-3">
-                                <div>
-                                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">From</label>
-                                    <input
-                                        type="date"
-                                        name="date_from"
-                                        x-model="from"
-                                        class="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                                    >
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">To</label>
-                                    <input
-                                        type="date"
-                                        name="date_to"
-                                        x-model="to"
-                                        class="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                                    >
-                                </div>
-                            </div>
-                            <div class="mt-4 flex items-center justify-between gap-2">
-                                <button
-                                    type="button"
-                                    class="text-xs font-semibold text-slate-500 hover:text-slate-800"
-                                    @click="from = ''; to = ''; $el.closest('form').requestSubmit()"
-                                >
-                                    Clear dates
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="inline-flex h-8 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white hover:bg-blue-800"
-                                >
-                                    Apply dates
-                                </button>
-                            </div>
-                            @if ($hasDateFilter)
-                                <p class="mt-3 text-[11px] text-slate-500">
-                                    {{ filled($dateFrom ?? request('date_from')) ? \Carbon\Carbon::parse($dateFrom ?? request('date_from'))->format('M j, Y') : '…' }}
-                                    –
-                                    {{ filled($dateTo ?? request('date_to')) ? \Carbon\Carbon::parse($dateTo ?? request('date_to'))->format('M j, Y') : '…' }}
-                                </p>
-                            @endif
-                        </div>
-                    </div>
-
-
-                    {{-- ================================================= --}}
-                    {{-- APPLY BUTTON --}}
-                    {{-- ================================================= --}}
-
-                    <button
-                        type="submit"
-
-                        class="inline-flex h-9 items-center
-                            justify-center gap-2 rounded-lg
-                            bg-[#0025cc] px-4
-                            text-sm font-semibold text-white
-                            transition hover:bg-blue-800"
-                    >
-
-                        <i
-                            data-lucide="filter"
-                            class="h-4 w-4"
-                        ></i>
-
-                        Apply
-
-                    </button>
-
-
-                    {{-- ================================================= --}}
-                    {{-- CLEAR BUTTON --}}
-                    {{-- ================================================= --}}
-
-                    @if (
-                        request()->filled('search')
-                        || request()->filled('status')
-                        || request()->filled('source')
-                        || request()->filled('borrower')
-                        || request()->filled('date_from')
-                        || request()->filled('date_to')
-                    )
-
-                        <a
-                            href="{{ url()->current() }}"
-
-                            class="inline-flex h-9 items-center
-                                justify-center gap-2 rounded-lg
-                                border border-slate-200
-                                bg-white px-4
-                                text-sm font-medium text-slate-600
-                                transition
-                                hover:bg-slate-50
-                                hover:text-slate-900"
-                        >
-
-                            <i
-                                data-lucide="x"
-                                class="h-4 w-4"
-                            ></i>
-
-                            Clear
-
-                        </a>
-
+                            <i data-lucide="user-plus" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Register borrower</span>
+                        </button>
                     @endif
 
-                </div>
-
-            </form>
-
-
-
-            {{-- ===================================================== --}}
-            {{-- TABLE --}}
-            {{-- ===================================================== --}}
-
-            <div class="overflow-x-auto">
-
-                <table class="w-full  text-left">
-
-                    {{-- ================================================= --}}
-                    {{-- TABLE HEADER --}}
-                    {{-- ================================================= --}}
-
-                    <thead class="border-b border-slate-200 bg-slate-50/70">
-
-                        <tr
-                            class="text-[11px] font-semibold uppercase
-                                tracking-[0.08em] text-slate-400"
+                    @if ($canEditBorrowFees)
+                        <div class="my-1 border-t border-slate-100"></div>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onclick="closeBrwMenus(); openBorrowFeesModal()"
+                            class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
+                            <span class="inline-flex items-center gap-2">
+                                <i data-lucide="banknote" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span>Fee settings</span>
+                            </span>
+                            <span class="text-[11px] font-semibold text-slate-500">₱{{ number_format($borrowFeeRates['late_fee_per_day'], 0) }}/day</span>
+                        </button>
+                    @endif
+                </div>
+            </div>
 
-                            <th class="px-5 py-3">
-                                Equipment
-                            </th>
+            {{-- Primary CTA --}}
+            @if ($activeView === 'borrowers')
+                <button
+                    type="button"
+                    onclick="openRegisterBorrowerModal()"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                >
+                    <i data-lucide="user-plus" class="h-4 w-4"></i>
+                    <span>Register borrower</span>
+                </button>
+            @else
+                <button
+                    type="button"
+                    onclick="openBorrowModal()"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    <span>Borrow for event/use</span>
+                </button>
+            @endif
+        </div>
+    </div>
 
-                            <th class="px-5 py-3">
-                                Borrower
-                            </th>
+    {{-- SEGMENTED VIEW TABS (matching Equipment Inventory: Borrowing records | Borrowers list) --}}
+    <div id="borrowing-tables" class="flex flex-wrap items-center justify-between gap-2 scroll-mt-24">
+        <div class="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Borrowing view">
+            <a
+                href="{{ route('admin.borrowing.index') }}"
+                role="tab"
+                aria-selected="{{ ($activeView === 'records' && empty($showArchived)) ? 'true' : 'false' }}"
+                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition {{ ($activeView === 'records' && empty($showArchived)) ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}"
+            >
+                <i data-lucide="clipboard-list" class="h-4 w-4"></i>
+                <span>Borrowing records</span>
+                <span class="rounded-full px-1.5 text-[11px] font-semibold {{ ($activeView === 'records' && empty($showArchived)) ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-500' }}">{{ number_format($totalBorrowingRecords ?? $borrowings->total()) }}</span>
+            </a>
 
-                            <th class="px-5 py-3">
-                                Status
-                            </th>
+            <a
+                href="{{ route('admin.borrowing.index', ['view' => 'borrowers']) }}"
+                role="tab"
+                aria-selected="{{ $activeView === 'borrowers' ? 'true' : 'false' }}"
+                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition {{ $activeView === 'borrowers' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}"
+            >
+                <i data-lucide="users" class="h-4 w-4"></i>
+                <span>Borrowers list</span>
+                <span class="rounded-full px-1.5 text-[11px] font-semibold {{ $activeView === 'borrowers' ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-500' }}">{{ number_format($borrowersTotalCount) }}</span>
+            </a>
 
-                            <th class="px-5 py-3">
-                                Borrow Date
-                            </th>
+            @if (!empty($showArchived))
+                <span
+                    role="tab"
+                    aria-selected="true"
+                    class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm"
+                >
+                    <i data-lucide="archive" class="h-4 w-4"></i>
+                    <span>Archived</span>
+                    <span class="rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600">{{ number_format($borrowings->total()) }}</span>
+                </span>
+            @endif
+        </div>
+    </div>
 
-                            <th class="px-5 py-3">
-                                Expected Return
-                            </th>
+    @if ($activeView === 'borrowers')
+        @include('admin.borrowing.partials.borrowers-tab')
+    @else
+        @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $borrowings->total()])
 
-                            <th class="px-5 py-3">
-                                Actual Return
-                            </th>
+        {{-- BORROWING RECORDS TABLE (matching Equipment Inventory compact table style) --}}
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            {{-- CONSOLIDATED FILTER BAR + COLLAPSIBLE SECONDARY PANEL --}}
+            <div class="border-b border-slate-200 bg-white px-4 py-2.5">
+                <form
+                    id="borrowingFilterForm"
+                    method="GET"
+                    action="{{ route('admin.borrowing.index') }}"
+                    class="space-y-2"
+                >
+                    @if (!empty($showArchived))
+                        <input type="hidden" name="archived" value="1">
+                    @endif
 
-                            <th class="w-[130px] px-5 py-3 text-center">
-                                Actions
-                            </th>
+                    <div class="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+                        {{-- Search --}}
+                        <div class="relative min-w-[200px] flex-1">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="search"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Search slip no., event, equipment, or borrower…"
+                                class="h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
+                            >
+                        </div>
 
+                        {{-- Primary Filter: Status (auto-submits) --}}
+                        <div class="relative w-full sm:w-44 lg:shrink-0">
+                            <i data-lucide="list-filter" class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                            <select
+                                name="status"
+                                aria-label="Filter by status"
+                                onchange="this.form.submit()"
+                                class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-8 pr-8 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            >
+                                <option value="">All Status</option>
+                                <option value="Pending" @selected(request('status') === 'Pending')>Pending</option>
+                                <option value="Borrowed" @selected(request('status') === 'Borrowed')>Borrowed</option>
+                                <option value="Returned" @selected(request('status') === 'Returned')>Returned</option>
+                                <option value="Overdue" @selected($isOverdueOnly)>Overdue</option>
+                                <option value="Denied" @selected(request('status') === 'Denied')>Denied</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                        </div>
+
+                        {{-- Secondary Filters Toggle --}}
+                        <button
+                            type="button"
+                            id="brwSecondaryFiltersBtn"
+                            onclick="toggleBrwSecondaryFilters()"
+                            aria-expanded="false"
+                            aria-controls="brwSecondaryFiltersPanel"
+                            class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition {{ $secondaryFilterCount > 0 ? 'border-blue-200 bg-blue-50/70 text-[#0025cc] hover:bg-blue-50' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}"
+                        >
+                            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+                            <span>Filters</span>
+                            @if ($secondaryFilterCount > 0)
+                                <span class="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#0025cc] px-1 text-[10px] font-bold leading-none text-white">{{ $secondaryFilterCount }}</span>
+                            @endif
+                        </button>
+
+                        @if ($hasAnyRecordFilter)
+                            <a
+                                href="{{ !empty($showArchived) ? route('admin.borrowing.index', ['archived' => 1]) : route('admin.borrowing.index') }}"
+                                class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                            >
+                                <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                                <span>Clear</span>
+                            </a>
+                        @endif
+                    </div>
+
+                    {{-- Collapsible Secondary Filters Panel --}}
+                    <div
+                        id="brwSecondaryFiltersPanel"
+                        class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3"
+                    >
+                        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                                <label for="brwFilterBorrower" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Borrower</label>
+                                <div class="relative">
+                                    <select
+                                        id="brwFilterBorrower"
+                                        name="borrower"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search borrower…"
+                                        class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                    >
+                                        <option value="">All borrowers</option>
+                                        @foreach (($borrowers ?? collect()) as $borrowerName)
+                                            <option value="{{ $borrowerName }}" @selected(($borrowerFilter ?? request('borrower')) === $borrowerName)>
+                                                {{ $borrowerName }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                </div>
+                            </div>
+
+                            @if (\Illuminate\Support\Facades\Schema::hasColumn('borrowing_records_table', 'borrowing_source'))
+                                <div>
+                                    <label for="brwFilterSource" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Source</label>
+                                    <div class="relative">
+                                        <select
+                                            id="brwFilterSource"
+                                            name="source"
+                                            class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                        >
+                                            <option value="">All sources</option>
+                                            <option value="online" @selected(request('source') === 'online')>Online requests</option>
+                                            <option value="admin" @selected(request('source') === 'admin')>Desk / admin</option>
+                                        </select>
+                                        <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div>
+                                <label for="brwFilterDateFrom" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Borrow date from</label>
+                                <input
+                                    id="brwFilterDateFrom"
+                                    type="date"
+                                    name="date_from"
+                                    value="{{ $dateFrom ?? request('date_from', '') }}"
+                                    class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                >
+                            </div>
+
+                            <div>
+                                <label for="brwFilterDateTo" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Borrow date to</label>
+                                <input
+                                    id="brwFilterDateTo"
+                                    type="date"
+                                    name="date_to"
+                                    value="{{ $dateTo ?? request('date_to', '') }}"
+                                    class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="mt-3 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2.5">
+                            <a
+                                href="{{ !empty($showArchived) ? route('admin.borrowing.index', ['archived' => 1]) : route('admin.borrowing.index') }}"
+                                class="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-200/60"
+                            >
+                                Reset
+                            </a>
+                            <button
+                                type="submit"
+                                class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-blue-800"
+                            >
+                                <i data-lucide="filter" class="h-3.5 w-3.5"></i>
+                                Apply filters
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {{-- TABLE --}}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="border-b border-slate-200 bg-slate-50/70">
+                        <tr class="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                            <th class="px-5 py-2.5">Equipment</th>
+                            <th class="px-4 py-2.5">Borrower</th>
+                            <th class="px-4 py-2.5">Status</th>
+                            <th class="px-4 py-2.5">Borrow Date</th>
+                            <th class="px-4 py-2.5">Expected Return</th>
+                            <th class="px-4 py-2.5">Actual Return</th>
+                            <th class="w-[140px] px-4 py-2.5 text-left">Actions</th>
                         </tr>
-
                     </thead>
 
 
@@ -926,134 +772,148 @@
                                     ];
                                 @endphp
 
-                                <td class="px-5 py-4">
+                                @php
+                                    $rowMenuId = 'brwRowMenu_' . (int) $actionRecord->borrowing_record_id . '_' . $loop->index;
+                                    $rowHasExtraActions = $canDecidePending || $canReturn || $canArchive || $canUnarchive;
+                                @endphp
 
-                                    <div class="flex items-center justify-center gap-2">
-
+                                <td class="px-4 py-3 text-left">
+                                    <div class="inline-flex items-center gap-1.5">
                                         <button
                                             type="button"
                                             onclick="viewBorrowing(@js($viewPayload))"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                            data-tooltip="View"
-                                            aria-label="View"
-                                            title="View"
+                                            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                                         >
-                                            <i data-lucide="eye" class="h-4 w-4"></i>
+                                            <i data-lucide="eye" class="h-3.5 w-3.5 text-slate-500"></i>
+                                            <span>View</span>
                                         </button>
 
-                                        @if ($canDecidePending)
-                                            <form
-                                                method="POST"
-                                                action="{{ route('admin.borrowing.accept') }}"
-                                                class="inline"
-                                                data-pur-confirm="Accept this online borrow request? Stock will be marked borrowed and ready for release."
-                                                data-pur-confirm-title="Accept online borrow?"
-                                                data-pur-confirm-ok="Accept"
-                                            >
-                                                @csrf
-                                                <input type="hidden" name="slip" value="{{ $slipNo }}">
-                                                <button
-                                                    type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
-                                                    data-tooltip="Accept"
-                                                    aria-label="Accept online borrow"
-                                                    title="Accept"
-                                                >
-                                                    <i data-lucide="check" class="h-4 w-4"></i>
-                                                </button>
-                                            </form>
-                                            <form
-                                                method="POST"
-                                                action="{{ route('admin.borrowing.deny') }}"
-                                                class="inline"
-                                                onsubmit="return submitDenyOnlineBorrow(event, @js($slipNo));"
-                                            >
-                                                @csrf
-                                                <input type="hidden" name="slip" value="{{ $slipNo }}">
-                                                <input type="hidden" name="reason" value="">
-                                                <button
-                                                    type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
-                                                    data-tooltip="Deny"
-                                                    aria-label="Deny online borrow"
-                                                    title="Deny"
-                                                >
-                                                    <i data-lucide="x" class="h-4 w-4"></i>
-                                                </button>
-                                            </form>
-                                        @endif
-
-                                        @if ($canReturn)
+                                        @if ($rowHasExtraActions)
                                             <button
                                                 type="button"
-                                                onclick="openReturnModal({
-                                                    id: {{ (int) $actionRecord->borrowing_record_id }},
-                                                    equipment: @js($slipEquipment),
-                                                    assetTag: @js($slipAssetTag),
-                                                    uniqueness: @js($slipUniqueness),
-                                                    tracking: @js($slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode),
-                                                    quantity: {{ $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : (int) ($actionRecord->borrowing_quantity ?? 1)) }},
-                                                    fromRoom: @js($actionRecord->borrowed_from_room_name),
-                                                    expectedReturn: @js($actionRecord->borrowing_expected_return_date),
-                                                    status: @js($actionRecord->borrowing_status),
-                                                })"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#0025cc]/25 bg-[#0025cc]/5 text-[#0025cc] transition hover:bg-[#0025cc]/10 hover:text-[#001fa8]"
-                                                data-tooltip="Return"
-                                                aria-label="Return equipment"
-                                                title="Return"
+                                                onclick="toggleBrwMenu(this, '{{ $rowMenuId }}', event)"
+                                                aria-haspopup="menu"
+                                                aria-expanded="false"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                                                title="More actions"
                                             >
-                                                <i data-lucide="archive-restore" class="h-4 w-4"></i>
+                                                <i data-lucide="more-horizontal" class="h-4 w-4"></i>
                                             </button>
-                                        @endif
 
-                                        @if ($canArchive)
-                                            <form
-                                                method="POST"
-                                                action="{{ route('admin.borrowing.archive', $actionRecord->borrowing_record_id) }}"
-                                                data-pur-confirm="This returned record will be hidden from the active list. You can restore it anytime from Show archived."
-                                                data-pur-confirm-title="Archive borrowing record?"
-                                                data-pur-confirm-ok="Archive"
-                                                data-pur-confirm-kind="archive"
-                                                class="inline"
+                                            <div
+                                                id="{{ $rowMenuId }}"
+                                                data-brw-menu
+                                                role="menu"
+                                                class="fixed z-[90] hidden w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/10"
                                             >
-                                                @csrf
-                                                <button
-                                                    type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
-                                                    data-tooltip="Archive"
-                                                    aria-label="Archive"
-                                                    title="Archive"
-                                                >
-                                                    <i data-lucide="archive" class="h-4 w-4"></i>
-                                                </button>
-                                            </form>
-                                        @endif
+                                                @if ($canDecidePending)
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route('admin.borrowing.accept') }}"
+                                                        data-pur-confirm="Accept this online borrow request? Stock will be marked borrowed and ready for release."
+                                                        data-pur-confirm-title="Accept online borrow?"
+                                                        data-pur-confirm-ok="Accept"
+                                                    >
+                                                        @csrf
+                                                        <input type="hidden" name="slip" value="{{ $slipNo }}">
+                                                        <button
+                                                            type="submit"
+                                                            role="menuitem"
+                                                            onclick="closeBrwMenus()"
+                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-emerald-700 transition hover:bg-emerald-50"
+                                                        >
+                                                            <i data-lucide="check" class="h-3.5 w-3.5"></i>
+                                                            <span>Accept request</span>
+                                                        </button>
+                                                    </form>
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route('admin.borrowing.deny') }}"
+                                                        onsubmit="return submitDenyOnlineBorrow(event, @js($slipNo));"
+                                                    >
+                                                        @csrf
+                                                        <input type="hidden" name="slip" value="{{ $slipNo }}">
+                                                        <input type="hidden" name="reason" value="">
+                                                        <button
+                                                            type="submit"
+                                                            role="menuitem"
+                                                            onclick="closeBrwMenus()"
+                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-rose-700 transition hover:bg-rose-50"
+                                                        >
+                                                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                                                            <span>Deny request</span>
+                                                        </button>
+                                                    </form>
+                                                @endif
 
-                                        @if ($canUnarchive)
-                                            <form
-                                                method="POST"
-                                                action="{{ route('admin.borrowing.unarchive', $actionRecord->borrowing_record_id) }}"
-                                                data-pur-confirm="This record will return to the active borrowing list."
-                                                data-pur-confirm-title="Restore from archive?"
-                                                data-pur-confirm-ok="Unarchive"
-                                                data-pur-confirm-kind="archive"
-                                                class="inline"
-                                            >
-                                                @csrf
-                                                <button
-                                                    type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
-                                                    data-tooltip="Unarchive"
-                                                    aria-label="Unarchive"
-                                                    title="Unarchive"
-                                                >
-                                                    <i data-lucide="archive-restore" class="h-4 w-4"></i>
-                                                </button>
-                                            </form>
-                                        @endif
+                                                @if ($canReturn)
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onclick="closeBrwMenus(); openReturnModal({
+                                                            id: {{ (int) $actionRecord->borrowing_record_id }},
+                                                            equipment: @js($slipEquipment),
+                                                            assetTag: @js($slipAssetTag),
+                                                            uniqueness: @js($slipUniqueness),
+                                                            tracking: @js($slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode),
+                                                            quantity: {{ $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : (int) ($actionRecord->borrowing_quantity ?? 1)) }},
+                                                            fromRoom: @js($actionRecord->borrowed_from_room_name),
+                                                            expectedReturn: @js($actionRecord->borrowing_expected_return_date),
+                                                            status: @js($actionRecord->borrowing_status),
+                                                        })"
+                                                        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-[#0025cc] transition hover:bg-blue-50"
+                                                    >
+                                                        <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
+                                                        <span>Return equipment</span>
+                                                    </button>
+                                                @endif
 
+                                                @if ($canArchive)
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route('admin.borrowing.archive', $actionRecord->borrowing_record_id) }}"
+                                                        data-pur-confirm="This returned record will be hidden from the active list. You can restore it anytime from Show archived."
+                                                        data-pur-confirm-title="Archive borrowing record?"
+                                                        data-pur-confirm-ok="Archive"
+                                                        data-pur-confirm-kind="archive"
+                                                    >
+                                                        @csrf
+                                                        <button
+                                                            type="submit"
+                                                            role="menuitem"
+                                                            onclick="closeBrwMenus()"
+                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                                        >
+                                                            <i data-lucide="archive" class="h-3.5 w-3.5 text-emerald-600"></i>
+                                                            <span>Archive record</span>
+                                                        </button>
+                                                    </form>
+                                                @endif
+
+                                                @if ($canUnarchive)
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route('admin.borrowing.unarchive', $actionRecord->borrowing_record_id) }}"
+                                                        data-pur-confirm="This record will return to the active borrowing list."
+                                                        data-pur-confirm-title="Restore from archive?"
+                                                        data-pur-confirm-ok="Unarchive"
+                                                        data-pur-confirm-kind="archive"
+                                                    >
+                                                        @csrf
+                                                        <button
+                                                            type="submit"
+                                                            role="menuitem"
+                                                            onclick="closeBrwMenus()"
+                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-[#0025cc] transition hover:bg-blue-50"
+                                                        >
+                                                            <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
+                                                            <span>Restore from archive</span>
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
-
                                 </td>
 
                             </tr>
@@ -1186,7 +1046,10 @@
             @endif
 
         </section>
-    </div>
+    @endif
+</div>
+
+    @include('admin.borrowing.partials.borrowers-modals')
 
     <!-- ===================================================== -->
     <!-- BORROW MODAL -->
@@ -2494,6 +2357,63 @@
                 },
             };
         }
+
+        function closeBrwMenus() {
+            document.querySelectorAll('[data-brw-menu]').forEach((menu) => {
+                menu.classList.add('hidden');
+            });
+            document.querySelectorAll('[aria-haspopup="menu"][aria-expanded="true"]').forEach((btn) => {
+                btn.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        function toggleBrwMenu(trigger, menuId, event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById(menuId);
+            if (!menu || !trigger) return;
+            const isOpen = !menu.classList.contains('hidden');
+            closeBrwMenus();
+            if (isOpen) return;
+
+            if (menu.parentElement !== document.body) {
+                document.body.appendChild(menu);
+            }
+            menu.classList.remove('hidden');
+            const rect = trigger.getBoundingClientRect();
+            const menuWidth = menu.offsetWidth || 210;
+            const menuHeight = menu.offsetHeight || 160;
+            const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+            const spaceBelow = window.innerHeight - rect.bottom - 8;
+            const openUp = spaceBelow < menuHeight && rect.top > menuHeight;
+            const top = openUp
+                ? Math.max(8, rect.top - menuHeight - 6)
+                : Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 6);
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            trigger.setAttribute('aria-expanded', 'true');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function toggleBrwSecondaryFilters() {
+            const panel = document.getElementById('brwSecondaryFiltersPanel');
+            const btn = document.getElementById('brwSecondaryFiltersBtn');
+            if (!panel || !btn) return;
+            const opening = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !opening);
+            btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+            if (opening && window.lucide) window.lucide.createIcons();
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-brw-menu]')) {
+                closeBrwMenus();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeBrwMenus();
+        });
+        window.addEventListener('scroll', closeBrwMenus, true);
+        window.addEventListener('resize', closeBrwMenus);
 
         @if (request()->boolean('open_borrow'))
             document.addEventListener('DOMContentLoaded', function () {
