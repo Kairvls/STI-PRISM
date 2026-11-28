@@ -233,7 +233,7 @@ class EquipmentIdentity
      * @param  \Illuminate\Support\Collection<int, object>  $rows
      * @return \Illuminate\Support\Collection<int, object>
      */
-    public static function presentAllEquipment(\Illuminate\Support\Collection $rows): \Illuminate\Support\Collection
+    public static function presentAllEquipment(\Illuminate\Support\Collection $rows, string $sort = 'created_desc'): \Illuminate\Support\Collection
     {
         $buckets = [];
         foreach ($rows as $row) {
@@ -259,11 +259,20 @@ class EquipmentIdentity
             $units = [];
             $quantity = 0;
             $newest = (string) ($primary->equipment_created_at ?? '');
+            $oldest = (string) ($primary->equipment_created_at ?? '');
+            $latestEdited = (string) ($primary->equipment_last_edited_at ?? $primary->equipment_created_at ?? '');
             foreach ($items as $item) {
                 $quantity += max(1, (int) ($item->equipment_quantity ?? 1));
                 $created = (string) ($item->equipment_created_at ?? '');
-                if ($created > $newest) {
+                if ($created !== '' && ($newest === '' || $created > $newest)) {
                     $newest = $created;
+                }
+                if ($created !== '' && ($oldest === '' || $created < $oldest)) {
+                    $oldest = $created;
+                }
+                $edited = (string) ($item->equipment_last_edited_at ?? $created);
+                if ($edited !== '' && ($latestEdited === '' || $edited > $latestEdited)) {
+                    $latestEdited = $edited;
                 }
                 $tags = self::unitTags($item);
                 if ($tags === []) {
@@ -283,14 +292,31 @@ class EquipmentIdentity
 
             $primary->equipment_quantity = $quantity;
             $primary->equipment_tracking_mode = 'Bulk';
-            $primary->equipment_created_at = $newest;
+            $primary->equipment_created_at = $sort === 'created_asc' ? $oldest : $newest;
+            $primary->equipment_last_edited_at = $latestEdited;
             $primary->grouped_units = $units;
             $primary->grouped_bulk = true;
             $presented[] = $primary;
         }
 
-        usort($presented, function ($left, $right) {
-            return strcmp((string) ($right->equipment_created_at ?? ''), (string) ($left->equipment_created_at ?? ''));
+        usort($presented, function ($left, $right) use ($sort) {
+            if ($sort === 'updated_desc') {
+                return strcmp(
+                    (string) ($right->equipment_last_edited_at ?? $right->equipment_created_at ?? ''),
+                    (string) ($left->equipment_last_edited_at ?? $left->equipment_created_at ?? '')
+                );
+            }
+            if ($sort === 'created_asc') {
+                return strcmp(
+                    (string) ($left->equipment_created_at ?? ''),
+                    (string) ($right->equipment_created_at ?? '')
+                );
+            }
+
+            return strcmp(
+                (string) ($right->equipment_created_at ?? ''),
+                (string) ($left->equipment_created_at ?? '')
+            );
         });
 
         return collect($presented)->values();

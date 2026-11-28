@@ -393,9 +393,9 @@
                             <th class="px-5 py-2.5">Equipment</th>
                             <th class="px-4 py-2.5">Borrower</th>
                             <th class="px-4 py-2.5">Status</th>
-                            <th class="px-4 py-2.5">Borrow Date</th>
+                            <th class="px-4 py-2.5">Claim / Borrow</th>
                             <th class="px-4 py-2.5">Expected Return</th>
-                            <th class="px-4 py-2.5">Actual Return</th>
+                            <th class="px-4 py-2.5">Return &amp; Condition</th>
                             <th class="w-[140px] px-4 py-2.5 text-left">Actions</th>
                         </tr>
                     </thead>
@@ -561,17 +561,6 @@
                                                         <i data-lucide="alert-triangle" class="h-3 w-3"></i>
                                                         Caution
                                                     </span>
-                                                @elseif ($borrowerOpen > 1)
-                                                    <span
-                                                        class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-100"
-                                                        title="{{ $borrowerOpen }} items still borrowed."
-                                                        data-pur-tip-title="Open borrows"
-                                                        data-pur-tip="{{ $borrowerOpen }} items still out for this borrower."
-                                                        data-pur-tip-accent="#b45309"
-                                                    >
-                                                        <i data-lucide="clock-3" class="h-3 w-3"></i>
-                                                        {{ $borrowerOpen }} out
-                                                    </span>
                                                 @endif
                                             </div>
                                             @if ($borrowerDept !== '')
@@ -601,21 +590,14 @@
                                 {{-- BORROW DATE --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
-
-                                    <span
-                                        class="whitespace-nowrap
-                                            text-[13px] text-slate-600"
-                                    >
-                                        {{
-                                            $record->borrowing_date
-                                                ? Carbon::parse(
-                                                    $record->borrowing_date
-                                                )->format("M d, Y")
-                                                : "—"
-                                        }}
-                                    </span>
-
+                                <td class="px-4 py-3">
+                                    @if ($record->borrowing_date)
+                                        @php $borrowDt = Carbon::parse($record->borrowing_date); @endphp
+                                        <p class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ $borrowDt->format("M d, Y") }}</p>
+                                        <p class="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">{{ $borrowDt->format("g:i A") }}</p>
+                                    @else
+                                        <span class="text-[13px] text-slate-400">—</span>
+                                    @endif
                                 </td>
 
 
@@ -624,60 +606,103 @@
                                 {{-- EXPECTED RETURN --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
-
-                                    <span
-                                        class="whitespace-nowrap
-                                            text-[13px] font-medium
-                                            text-slate-700"
-                                    >
-                                        {{
-                                            $record->borrowing_expected_return_date
-                                                ? Carbon::parse(
-                                                    $record->borrowing_expected_return_date
-                                                )->format("M d, Y")
-                                                : "—"
-                                        }}
-                                    </span>
-
+                                <td class="px-4 py-3">
+                                    @if ($record->borrowing_expected_return_date)
+                                        @php $expectedDt = Carbon::parse($record->borrowing_expected_return_date); @endphp
+                                        <p class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ $expectedDt->format("M d, Y") }}</p>
+                                        <p class="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">{{ $expectedDt->format("g:i A") }}</p>
+                                    @else
+                                        <span class="text-[13px] text-slate-400">—</span>
+                                    @endif
                                 </td>
 
 
 
                                 {{-- ===================================== --}}
-                                {{-- ACTUAL RETURN --}}
+                                {{-- ACTUAL RETURN & CONDITION --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
+                                <td class="px-4 py-3">
+                                    @php
+                                        $condCounts = [
+                                            'Good' => 0,
+                                            'Damaged' => 0,
+                                            'Missing' => 0,
+                                        ];
+                                        $totalSlipFine = 0.0;
+                                        $returnedDestRoom = null;
+                                        foreach ($slipItems as $sItem) {
+                                            if (($sItem->borrowing_status ?? '') === 'Returned') {
+                                                $c = (string) ($sItem->borrowing_return_condition ?? 'Good');
+                                                $q = max(1, (int) ($sItem->borrowing_quantity ?? 1));
+                                                if (isset($condCounts[$c])) {
+                                                    $condCounts[$c] += $q;
+                                                } else {
+                                                    $condCounts['Good'] += $q;
+                                                }
+                                                $totalSlipFine += (float) ($sItem->borrowing_damage_fee ?? 0) + (float) ($sItem->borrowing_late_fee ?? 0);
+                                                if (! $returnedDestRoom && filled($sItem->returned_to_room_name ?? null)) {
+                                                    $returnedDestRoom = (string) $sItem->returned_to_room_name;
+                                                }
+                                            }
+                                        }
+                                    @endphp
 
                                     @if ($allReturned && $anyReturnedDate)
-
-                                        <div class="flex items-center gap-1.5">
-
-                                            <i
-                                                data-lucide="check"
-                                                class="h-3.5 w-3.5
-                                                    text-emerald-500"
-                                            ></i>
-
-                                            <span
-                                                class="whitespace-nowrap
-                                                    text-[13px] text-slate-600"
-                                            >
-                                                {{
-                                                    Carbon::parse(
-                                                        $anyReturnedDate
-                                                    )->format("M d, Y")
-                                                }}
-                                            </span>
-
+                                        @php $actualDt = Carbon::parse($anyReturnedDate); @endphp
+                                        <div class="space-y-1">
+                                            <div class="flex items-start gap-1.5">
+                                                <i data-lucide="check" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500"></i>
+                                                <div>
+                                                    <p class="whitespace-nowrap text-[13px] text-slate-700">{{ $actualDt->format("M d, Y") }}</p>
+                                                    <p class="whitespace-nowrap text-[11px] text-slate-400">{{ $actualDt->format("g:i A") }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-wrap items-center gap-1">
+                                                @if ($condCounts['Good'] > 0)
+                                                    <span class="inline-flex rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">
+                                                        Good{{ $condCounts['Good'] > 1 ? ' ×'.$condCounts['Good'] : '' }}
+                                                    </span>
+                                                @endif
+                                                @if ($condCounts['Damaged'] > 0)
+                                                    <span class="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200/70">
+                                                        Damaged{{ $condCounts['Damaged'] > 1 ? ' ×'.$condCounts['Damaged'] : '' }}
+                                                    </span>
+                                                @endif
+                                                @if ($condCounts['Missing'] > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">
+                                                        Missing{{ $condCounts['Missing'] > 1 ? ' ×'.$condCounts['Missing'] : '' }}
+                                                    </span>
+                                                @endif
+                                                @if ($totalSlipFine > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">
+                                                        Fine ₱{{ number_format($totalSlipFine, 2) }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            @if ($returnedDestRoom)
+                                                <p class="text-[11px] text-slate-400">→ {{ $returnedDestRoom }}</p>
+                                            @endif
                                         </div>
 
                                     @elseif ($isMultiSlip && ! $allReturned && $anyReturnedDate)
-
-                                        <span class="whitespace-nowrap text-[13px] font-medium text-amber-700">
-                                            Partially returned
-                                        </span>
+                                        <div class="space-y-1">
+                                            <span class="whitespace-nowrap text-[13px] font-medium text-amber-700">Partially returned</span>
+                                            <div class="flex flex-wrap items-center gap-1">
+                                                @if ($condCounts['Good'] > 0)
+                                                    <span class="inline-flex rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">Good ×{{ $condCounts['Good'] }}</span>
+                                                @endif
+                                                @if ($condCounts['Damaged'] > 0)
+                                                    <span class="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200/70">Damaged ×{{ $condCounts['Damaged'] }}</span>
+                                                @endif
+                                                @if ($condCounts['Missing'] > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">Missing ×{{ $condCounts['Missing'] }}</span>
+                                                @endif
+                                                @if ($totalSlipFine > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">Fine ₱{{ number_format($totalSlipFine, 2) }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
 
                                     @elseif ($borrowingStatus === 'Overdue' && $record->borrowing_expected_return_date)
 
@@ -735,6 +760,34 @@
                                         })
                                         ->values()
                                         ->all();
+                                    $openReturnUnits = ($openReturnItems->isNotEmpty() ? $openReturnItems : $slipItems)
+                                        ->flatMap(function ($item) {
+                                            $qty = max(1, (int) ($item->borrowing_quantity ?? 1));
+                                            $labels = \App\Support\EquipmentIdentity::borrowedUnitLabels($item, $qty);
+                                            if (empty($labels)) {
+                                                $fallback = trim((string) ($item->equipment_asset_tag ?? ''));
+                                                $labels = array_fill(0, $qty, $fallback !== '' ? $fallback : 'Unit');
+                                            }
+                                            $unitCost = (float) ($item->equipment_purchase_cost ?? 0);
+                                            $eqName = trim((string) ($item->equipment_name ?? 'Equipment'));
+                                            $recId = (int) $item->borrowing_record_id;
+                                            $eqId = (int) $item->borrowing_equipment_id;
+                                            $out = [];
+                                            foreach (array_values($labels) as $uIdx => $lbl) {
+                                                $out[] = [
+                                                    'key' => $recId.':'.$uIdx,
+                                                    'record_id' => $recId,
+                                                    'equipment_id' => $eqId,
+                                                    'name' => $eqName,
+                                                    'label' => $lbl,
+                                                    'unit_cost' => $unitCost,
+                                                ];
+                                            }
+
+                                            return $out;
+                                        })
+                                        ->values()
+                                        ->all();
                                     $openReturnQuantity = (int) $openReturnItems->sum(fn ($item) => max(1, (int) ($item->borrowing_quantity ?? 1)));
                                     $viewPayload = [
                                         'id' => $actionRecord->borrowing_record_id,
@@ -788,130 +841,117 @@
                                             <span>View</span>
                                         </button>
 
-                                        @if ($rowHasExtraActions)
+                                        @if ($canDecidePending)
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.borrowing.accept') }}"
+                                                class="inline"
+                                                data-pur-confirm="Accept this online borrow request? Stock will be marked borrowed and ready for release."
+                                                data-pur-confirm-title="Accept online borrow?"
+                                                data-pur-confirm-ok="Accept"
+                                            >
+                                                @csrf
+                                                <input type="hidden" name="slip" value="{{ $slipNo }}">
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                                                    data-tooltip="Accept request"
+                                                    aria-label="Accept request"
+                                                    title="Accept request"
+                                                >
+                                                    <i data-lucide="check" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.borrowing.deny') }}"
+                                                class="inline"
+                                                onsubmit="return submitDenyOnlineBorrow(event, @js($slipNo));"
+                                            >
+                                                @csrf
+                                                <input type="hidden" name="slip" value="{{ $slipNo }}">
+                                                <input type="hidden" name="reason" value="">
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                                                    data-tooltip="Deny request"
+                                                    aria-label="Deny request"
+                                                    title="Deny request"
+                                                >
+                                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+
+                                        @if ($canReturn)
                                             <button
                                                 type="button"
-                                                onclick="toggleBrwMenu(this, '{{ $rowMenuId }}', event)"
-                                                aria-haspopup="menu"
-                                                aria-expanded="false"
-                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                                                title="More actions"
+                                                onclick="openReturnModal({
+                                                    id: {{ (int) $actionRecord->borrowing_record_id }},
+                                                    equipment: @js($slipEquipment),
+                                                    assetTag: @js($slipAssetTag),
+                                                    uniqueness: @js($slipUniqueness),
+                                                    units: @js($openReturnUnits),
+                                                    tracking: @js($slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode),
+                                                    quantity: {{ $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : (int) ($actionRecord->borrowing_quantity ?? 1)) }},
+                                                    fromRoomId: {{ (int) ($actionRecord->borrowing_from_room_id ?? 0) }},
+                                                    fromRoom: @js($actionRecord->borrowed_from_room_name),
+                                                    expectedReturn: @js($actionRecord->borrowing_expected_return_date),
+                                                    status: @js($actionRecord->borrowing_status),
+                                                })"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#0025cc]/25 bg-[#0025cc]/5 text-[#0025cc] transition hover:bg-[#0025cc]/10 hover:text-[#001fa8]"
+                                                data-tooltip="Return equipment"
+                                                aria-label="Return equipment"
+                                                title="Return equipment"
                                             >
-                                                <i data-lucide="more-horizontal" class="h-4 w-4"></i>
+                                                <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                             </button>
+                                        @endif
 
-                                            <div
-                                                id="{{ $rowMenuId }}"
-                                                data-brw-menu
-                                                role="menu"
-                                                class="fixed z-[90] hidden w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/10"
+                                        @if ($canArchive)
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.borrowing.archive', $actionRecord->borrowing_record_id) }}"
+                                                class="inline"
+                                                data-pur-confirm="This returned record will be hidden from the active list. You can restore it anytime from Show archived."
+                                                data-pur-confirm-title="Archive borrowing record?"
+                                                data-pur-confirm-ok="Archive"
+                                                data-pur-confirm-kind="archive"
                                             >
-                                                @if ($canDecidePending)
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route('admin.borrowing.accept') }}"
-                                                        data-pur-confirm="Accept this online borrow request? Stock will be marked borrowed and ready for release."
-                                                        data-pur-confirm-title="Accept online borrow?"
-                                                        data-pur-confirm-ok="Accept"
-                                                    >
-                                                        @csrf
-                                                        <input type="hidden" name="slip" value="{{ $slipNo }}">
-                                                        <button
-                                                            type="submit"
-                                                            role="menuitem"
-                                                            onclick="closeBrwMenus()"
-                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-emerald-700 transition hover:bg-emerald-50"
-                                                        >
-                                                            <i data-lucide="check" class="h-3.5 w-3.5"></i>
-                                                            <span>Accept request</span>
-                                                        </button>
-                                                    </form>
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route('admin.borrowing.deny') }}"
-                                                        onsubmit="return submitDenyOnlineBorrow(event, @js($slipNo));"
-                                                    >
-                                                        @csrf
-                                                        <input type="hidden" name="slip" value="{{ $slipNo }}">
-                                                        <input type="hidden" name="reason" value="">
-                                                        <button
-                                                            type="submit"
-                                                            role="menuitem"
-                                                            onclick="closeBrwMenus()"
-                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-rose-700 transition hover:bg-rose-50"
-                                                        >
-                                                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
-                                                            <span>Deny request</span>
-                                                        </button>
-                                                    </form>
-                                                @endif
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-emerald-700 transition hover:bg-slate-50"
+                                                    data-tooltip="Archive record"
+                                                    aria-label="Archive record"
+                                                    title="Archive record"
+                                                >
+                                                    <i data-lucide="archive" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
+                                        @endif
 
-                                                @if ($canReturn)
-                                                    <button
-                                                        type="button"
-                                                        role="menuitem"
-                                                        onclick="closeBrwMenus(); openReturnModal({
-                                                            id: {{ (int) $actionRecord->borrowing_record_id }},
-                                                            equipment: @js($slipEquipment),
-                                                            assetTag: @js($slipAssetTag),
-                                                            uniqueness: @js($slipUniqueness),
-                                                            tracking: @js($slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode),
-                                                            quantity: {{ $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : (int) ($actionRecord->borrowing_quantity ?? 1)) }},
-                                                            fromRoom: @js($actionRecord->borrowed_from_room_name),
-                                                            expectedReturn: @js($actionRecord->borrowing_expected_return_date),
-                                                            status: @js($actionRecord->borrowing_status),
-                                                        })"
-                                                        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-[#0025cc] transition hover:bg-blue-50"
-                                                    >
-                                                        <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
-                                                        <span>Return equipment</span>
-                                                    </button>
-                                                @endif
-
-                                                @if ($canArchive)
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route('admin.borrowing.archive', $actionRecord->borrowing_record_id) }}"
-                                                        data-pur-confirm="This returned record will be hidden from the active list. You can restore it anytime from Show archived."
-                                                        data-pur-confirm-title="Archive borrowing record?"
-                                                        data-pur-confirm-ok="Archive"
-                                                        data-pur-confirm-kind="archive"
-                                                    >
-                                                        @csrf
-                                                        <button
-                                                            type="submit"
-                                                            role="menuitem"
-                                                            onclick="closeBrwMenus()"
-                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                                                        >
-                                                            <i data-lucide="archive" class="h-3.5 w-3.5 text-emerald-600"></i>
-                                                            <span>Archive record</span>
-                                                        </button>
-                                                    </form>
-                                                @endif
-
-                                                @if ($canUnarchive)
-                                                    <form
-                                                        method="POST"
-                                                        action="{{ route('admin.borrowing.unarchive', $actionRecord->borrowing_record_id) }}"
-                                                        data-pur-confirm="This record will return to the active borrowing list."
-                                                        data-pur-confirm-title="Restore from archive?"
-                                                        data-pur-confirm-ok="Unarchive"
-                                                        data-pur-confirm-kind="archive"
-                                                    >
-                                                        @csrf
-                                                        <button
-                                                            type="submit"
-                                                            role="menuitem"
-                                                            onclick="closeBrwMenus()"
-                                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-[#0025cc] transition hover:bg-blue-50"
-                                                        >
-                                                            <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
-                                                            <span>Restore from archive</span>
-                                                        </button>
-                                                    </form>
-                                                @endif
-                                            </div>
+                                        @if ($canUnarchive)
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.borrowing.unarchive', $actionRecord->borrowing_record_id) }}"
+                                                class="inline"
+                                                data-pur-confirm="This record will return to the active borrowing list."
+                                                data-pur-confirm-title="Restore from archive?"
+                                                data-pur-confirm-ok="Unarchive"
+                                                data-pur-confirm-kind="archive"
+                                            >
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
+                                                    data-tooltip="Restore from archive"
+                                                    aria-label="Restore from archive"
+                                                    title="Restore from archive"
+                                                >
+                                                    <i data-lucide="archive-restore" class="h-4 w-4"></i>
+                                                </button>
+                                            </form>
                                         @endif
                                     </div>
                                 </td>
@@ -1100,7 +1140,7 @@
 
                         <div class="relative" @click.outside="open = false">
                             <label for="adminBorrowSearch" class="mb-1 block text-sm font-medium text-slate-700">Add equipment</label>
-                            <p id="adminBorrowSearchHint" class="mb-2 text-xs text-slate-500">Only available storage stock is shown. Identical units are grouped — select an item to add it.</p>
+                            <p id="adminBorrowSearchHint" class="mb-2 text-xs text-slate-500">All available equipment (in storage and deployed) is shown. Identical units in the same room are grouped — select an item to add it.</p>
                             <div class="relative">
                                 <i data-lucide="search" aria-hidden="true" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                                 <input
@@ -1311,37 +1351,81 @@
                         </div>
                     </div>
 
+                    @php
+                        $adminOfficeTimeSlots = [];
+                        for ($h = 9; $h <= 17; $h++) {
+                            foreach ([0, 30] as $m) {
+                                if ($h === 17 && $m > 0) {
+                                    continue;
+                                }
+                                $val = sprintf('%02d:%02d', $h, $m);
+                                $adminOfficeTimeSlots[$val] = Carbon::createFromTime($h, $m)->format('g:i A');
+                            }
+                        }
+                    @endphp
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
-                            <p class="mt-1 text-sm text-slate-600">One borrow and return window for all selected items.</p>
+                            <p class="mt-1 text-sm text-slate-600">Equipment claiming and returns are available from <span class="font-semibold text-slate-800">9:00 AM to 5:00 PM</span>.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <label for="borrowDate" class="mb-1.5 block text-sm font-medium text-slate-700">
-                                    Borrow from <span class="text-red-500" aria-hidden="true">*</span>
+                                <label for="borrowDatePart" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Claim / borrow time <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
-                                <input
-                                    id="borrowDate"
-                                    type="date"
-                                    name="borrowing_date"
-                                    required
-                                    onchange="syncBorrowScheduleDates()"
-                                    oninput="syncBorrowScheduleDates()"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
-                                />
+                                <input type="hidden" id="borrowDate" name="borrowing_date" />
+                                <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                    <input
+                                        id="borrowDatePart"
+                                        type="date"
+                                        required
+                                        aria-label="Claim date"
+                                        onchange="syncBorrowScheduleDates()"
+                                        oninput="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    />
+                                    <select
+                                        id="borrowTimePart"
+                                        required
+                                        aria-label="Claim time (9:00 AM to 5:00 PM)"
+                                        onchange="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    >
+                                        @foreach ($adminOfficeTimeSlots as $slotVal => $slotLabel)
+                                            <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-500">When the borrower should claim the items (9:00 AM – 5:00 PM).</p>
                             </div>
                             <div>
-                                <label for="borrowExpectedReturn" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                <label for="borrowReturnDatePart" class="mb-1.5 block text-sm font-medium text-slate-700">
                                     Expected return by <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
-                                <input
-                                    id="borrowExpectedReturn"
-                                    type="date"
-                                    name="borrowing_expected_return_date"
-                                    required
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
-                                />
+                                <input type="hidden" id="borrowExpectedReturn" name="borrowing_expected_return_date" />
+                                <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                    <input
+                                        id="borrowReturnDatePart"
+                                        type="date"
+                                        required
+                                        aria-label="Expected return date"
+                                        onchange="syncBorrowScheduleDates()"
+                                        oninput="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    />
+                                    <select
+                                        id="borrowReturnTimePart"
+                                        required
+                                        aria-label="Expected return time (9:00 AM to 5:00 PM)"
+                                        onchange="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    >
+                                        @foreach ($adminOfficeTimeSlots as $slotVal => $slotLabel)
+                                            <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-500">When items are expected back (9:00 AM – 5:00 PM).</p>
                             </div>
                         </div>
                     </div>
@@ -1484,42 +1568,57 @@
 
                 <div class="space-y-3">
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="returnQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
+                            Quantity to process <span class="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            id="returnQuantity"
+                            name="return_quantity"
+                            min="1"
+                            step="1"
+                            inputmode="numeric"
+                            required
+                            oninput="syncReturnQuantities()"
+                            onblur="syncReturnQuantities(true)"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                        <p id="returnQuantityHint" class="mt-1 text-xs text-slate-400"></p>
+                    </div>
+
+                    <input type="hidden" id="returnDamagedQuantity" name="damaged_quantity" value="0">
+                    <input type="hidden" id="returnMissingQuantity" name="missing_quantity" value="0">
+
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {{-- Damaged items checkbox dropdown --}}
                         <div>
-                            <label for="returnQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
-                                Quantity returned
-                            </label>
-                            <input
-                                type="number"
-                                id="returnQuantity"
-                                name="return_quantity"
-                                min="1"
-                                step="1"
-                                inputmode="numeric"
-                                required
-                                oninput="syncReturnQuantities()"
-                                onblur="syncReturnQuantities(true)"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                            <p id="returnQuantityHint" class="mt-1 text-xs text-slate-400"></p>
+                            <div class="mb-1.5 flex items-center justify-between gap-2">
+                                <span class="text-sm font-medium text-slate-700">Damaged items</span>
+                                <span id="returnDamageFeeLabel" class="text-[11px] text-slate-400"></span>
+                            </div>
+                            <details id="returnDamagedDropdown" class="group">
+                                <summary class="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 [&::-webkit-details-marker]:hidden">
+                                    <span id="returnDamagedSummary" class="truncate text-xs font-medium text-slate-500">None selected</span>
+                                    <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180"></i>
+                                </summary>
+                                <div id="returnDamagedList" class="mt-1.5 max-h-40 space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-50/80 p-2"></div>
+                            </details>
                         </div>
+
+                        {{-- Missing items checkbox dropdown --}}
                         <div>
-                            <label for="returnDamagedQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
-                                Damaged
-                            </label>
-                            <input
-                                type="number"
-                                id="returnDamagedQuantity"
-                                name="damaged_quantity"
-                                min="0"
-                                step="1"
-                                inputmode="numeric"
-                                value="0"
-                                oninput="syncReturnQuantities()"
-                                onblur="syncReturnQuantities(true)"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                            <p id="returnDamageFeeLabel" class="mt-1 text-xs text-slate-400"></p>
+                            <div class="mb-1.5 flex items-center justify-between gap-2">
+                                <span class="text-sm font-medium text-slate-700">Missing items</span>
+                                <span class="text-[11px] text-rose-500">Charged at item cost</span>
+                            </div>
+                            <details id="returnMissingDropdown" class="group">
+                                <summary class="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 [&::-webkit-details-marker]:hidden">
+                                    <span id="returnMissingSummary" class="truncate text-xs font-medium text-slate-500">None selected</span>
+                                    <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180"></i>
+                                </summary>
+                                <div id="returnMissingList" class="mt-1.5 max-h-40 space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-50/80 p-2"></div>
+                            </details>
                         </div>
                     </div>
 
@@ -1528,25 +1627,18 @@
                             for="returnRoom"
                             class="mb-1.5 block text-sm font-medium text-slate-700"
                         >
-                            Return to storage room
+                            Return to
                         </label>
 
-                        @if (($returnStorageRooms ?? collect())->isNotEmpty())
-                            <select
-                                id="returnRoom"
-                                name="return_room_id"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                                @foreach ($returnStorageRooms as $storageRoom)
-                                    <option value="{{ $storageRoom->room_id }}">{{ $storageRoom->room_name }}</option>
-                                @endforeach
-                            </select>
-                            
-                        @else
-                            <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                No storage room is set up, so the equipment stays in the room it was taken from.
-                            </p>
-                        @endif
+                        <select
+                            id="returnRoom"
+                            name="return_room_id"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            @foreach (($returnStorageRooms ?? collect()) as $storageRoom)
+                                <option value="{{ $storageRoom->room_id }}" data-storage-room="1">{{ $storageRoom->room_name }} (Storage)</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 px-3.5 py-2.5">
@@ -1563,6 +1655,10 @@
                         <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
                             <span class="text-slate-500">Damage fee</span>
                             <span id="returnDamageFee" class="font-medium text-slate-950">₱0.00</span>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
+                            <span class="text-slate-500">Missing item fine</span>
+                            <span id="returnMissingFine" class="font-medium text-rose-700">₱0.00</span>
                         </div>
                         <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
                             <span class="font-medium text-slate-700">Amount due</span>
@@ -1918,17 +2014,37 @@
                         }
                     }
 
+                    const bTimeVal = document.getElementById('borrowTimePart')?.value || '';
+                    const rTimeVal = document.getElementById('borrowReturnTimePart')?.value || '';
+                    if (bTimeVal && (bTimeVal < '09:00' || bTimeVal > '17:00')) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowTimePart'),
+                            'Claim / borrow time must be between 9:00 AM and 5:00 PM.'
+                        );
+                        return;
+                    }
+                    if (rTimeVal && (rTimeVal < '09:00' || rTimeVal > '17:00')) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowReturnTimePart'),
+                            'Expected return time must be between 9:00 AM and 5:00 PM.'
+                        );
+                        return;
+                    }
+
                     const borrowDate = document.getElementById('borrowDate')?.value || '';
                     const expectedReturn = document.getElementById('borrowExpectedReturn')?.value || '';
-                    const borrowAt = borrowDate ? new Date(borrowDate + 'T00:00:00') : null;
-                    const returnAt = expectedReturn ? new Date(expectedReturn + 'T00:00:00') : null;
+                    const parseDt = (v) => v ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? v + 'T00:00:00' : v) : null;
+                    const borrowAt = parseDt(borrowDate);
+                    const returnAt = parseDt(expectedReturn);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     if (!borrowAt || Number.isNaN(borrowAt.getTime()) || !returnAt || Number.isNaN(returnAt.getTime())) {
                         event.preventDefault();
                         this.focusInvalidField(
                             document.getElementById('borrowDate'),
-                            'Enter a valid borrow / return date.'
+                            'Enter a valid borrow / return date and time.'
                         );
                         return;
                     }
@@ -1944,7 +2060,7 @@
                         event.preventDefault();
                         this.focusInvalidField(
                             document.getElementById('borrowExpectedReturn'),
-                            'Expected return must be on or after the borrow date.'
+                            'Expected return must be on or after the borrow date and time.'
                         );
                         return;
                     }
@@ -2050,42 +2166,76 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        function toLocalDateValue(date) {
+        function toLocalDatePart(date) {
             const pad = (n) => String(n).padStart(2, '0');
             return date.getFullYear()
                 + '-' + pad(date.getMonth() + 1)
                 + '-' + pad(date.getDate());
         }
 
+        function toLocalTimePart(date) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return pad(date.getHours()) + ':' + pad(date.getMinutes());
+        }
+
         function syncBorrowScheduleDates() {
-            const borrow = document.getElementById('borrowDate');
-            const expected = document.getElementById('borrowExpectedReturn');
-            if (!borrow || !expected) return;
+            const bDate = document.getElementById('borrowDatePart');
+            const bTime = document.getElementById('borrowTimePart');
+            const rDate = document.getElementById('borrowReturnDatePart');
+            const rTime = document.getElementById('borrowReturnTimePart');
+            const borrowHidden = document.getElementById('borrowDate');
+            const expectedHidden = document.getElementById('borrowExpectedReturn');
+            if (!bDate || !rDate || !borrowHidden || !expectedHidden) return;
 
-            const borrowValue = String(borrow.value || '').trim();
-            if (!borrowValue) {
-                expected.removeAttribute('min');
-                return;
+            const bDateVal = String(bDate.value || '').trim();
+            if (bDateVal) {
+                rDate.min = bDateVal;
+                if (rDate.value && rDate.value < bDateVal) {
+                    rDate.value = bDateVal;
+                }
+                if (rDate.value === bDateVal && bTime?.value && rTime?.value && rTime.value < bTime.value) {
+                    rTime.value = bTime.value;
+                }
+            } else {
+                rDate.removeAttribute('min');
             }
 
-            expected.min = borrowValue;
-            if (expected.value && expected.value < borrowValue) {
-                expected.value = borrowValue;
-            }
+            borrowHidden.value = bDateVal ? (bDateVal + 'T' + (bTime?.value || '00:00')) : '';
+            const rDateVal = String(rDate.value || '').trim();
+            expectedHidden.value = rDateVal ? (rDateVal + 'T' + (rTime?.value || '23:59')) : '';
+        }
+
+        function clampAdminOfficeTime(hm) {
+            const val = String(hm || '').trim();
+            if (!/^\d{2}:\d{2}$/.test(val)) return '09:00';
+            if (val <= '09:00') return '09:00';
+            if (val >= '17:00') return '17:00';
+            const [hStr, mStr] = val.split(':');
+            let h = Number(hStr);
+            let m = Number(mStr);
+            if (m === 0) return String(h).padStart(2, '0') + ':00';
+            if (m <= 30) return String(h).padStart(2, '0') + ':30';
+            h += 1;
+            if (h >= 17) return '17:00';
+            return String(h).padStart(2, '0') + ':00';
         }
 
         function seedBorrowScheduleDefaults() {
-            const borrow = document.getElementById('borrowDate');
-            const expected = document.getElementById('borrowExpectedReturn');
-            if (!borrow || !expected) return;
+            const bDate = document.getElementById('borrowDatePart');
+            const bTime = document.getElementById('borrowTimePart');
+            const rDate = document.getElementById('borrowReturnDatePart');
+            const rTime = document.getElementById('borrowReturnTimePart');
+            if (!bDate || !rDate) return;
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const later = new Date(today.getTime() + (1 * 24 * 60 * 60 * 1000));
+            const now = new Date();
+            now.setSeconds(0, 0);
+            const later = new Date(now.getTime() + (1 * 24 * 60 * 60 * 1000));
 
-            if (!borrow.value) borrow.value = toLocalDateValue(today);
-            if (!expected.value) expected.value = toLocalDateValue(later);
-            borrow.min = toLocalDateValue(today);
+            if (!bDate.value) bDate.value = toLocalDatePart(now);
+            if (bTime && !bTime.value) bTime.value = clampAdminOfficeTime(toLocalTimePart(now));
+            if (!rDate.value) rDate.value = toLocalDatePart(later);
+            if (rTime && !rTime.value) rTime.value = '17:00';
+            bDate.min = toLocalDatePart(now);
             syncBorrowScheduleDates();
         }
 
@@ -2179,53 +2329,159 @@
             return Math.min(max, Math.max(0, value));
         }
 
+        let returnUnitItems = [];
+
+        function getCheckedReturnKeys(name) {
+            return Array.from(document.querySelectorAll('#returnModal input[name="' + name + '"]:checked'))
+                .map((el) => el.value);
+        }
+
+        function onReturnUnitToggle(kind, key, checked) {
+            if (checked) {
+                const otherName = kind === 'damaged' ? 'missing_units[]' : 'damaged_units[]';
+                const other = document.querySelector('#returnModal input[name="' + otherName + '"][value="' + CSS.escape(key) + '"]');
+                if (other) other.checked = false;
+            }
+            const damagedKeys = getCheckedReturnKeys('damaged_units[]');
+            const missingKeys = getCheckedReturnKeys('missing_units[]');
+            const minNeeded = damagedKeys.length + missingKeys.length;
+            const qtyInput = document.getElementById('returnQuantity');
+            const max = returnOutstanding();
+            if (qtyInput && minNeeded > Number(qtyInput.value || 0)) {
+                qtyInput.value = String(Math.min(max, minNeeded));
+            }
+            syncReturnQuantities(false);
+        }
+
+        function renderReturnUnitCheckboxes() {
+            const damagedList = document.getElementById('returnDamagedList');
+            const missingList = document.getElementById('returnMissingList');
+            if (!damagedList || !missingList) return;
+
+            damagedList.replaceChildren();
+            missingList.replaceChildren();
+
+            const units = returnUnitItems.length
+                ? returnUnitItems
+                : returnUniquenessLines.map((line, idx) => ({
+                    key: '0:' + idx,
+                    name: document.getElementById('returnEquipmentName')?.innerText || 'Equipment',
+                    label: line,
+                    unit_cost: 0,
+                }));
+
+            units.forEach((unit) => {
+                const makeRow = (kind) => {
+                    const label = document.createElement('label');
+                    label.className = 'flex cursor-pointer items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 transition hover:bg-slate-50';
+                    const left = document.createElement('span');
+                    left.className = 'flex min-w-0 items-center gap-2';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.name = kind === 'damaged' ? 'damaged_units[]' : 'missing_units[]';
+                    cb.value = unit.key;
+                    cb.className = kind === 'damaged'
+                        ? 'h-3.5 w-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500/30'
+                        : 'h-3.5 w-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500/30';
+                    cb.addEventListener('change', () => onReturnUnitToggle(kind, unit.key, cb.checked));
+                    const txt = document.createElement('span');
+                    txt.className = 'truncate font-medium text-slate-800';
+                    txt.textContent = (unit.name ? (unit.name + ' · ') : '') + (unit.label || 'Unit');
+                    txt.title = txt.textContent;
+                    left.appendChild(cb);
+                    left.appendChild(txt);
+                    label.appendChild(left);
+
+                    if (kind === 'missing') {
+                        const costBadge = document.createElement('span');
+                        costBadge.className = 'shrink-0 font-mono text-[11px] font-semibold text-rose-700';
+                        costBadge.textContent = peso(Number(unit.unit_cost || 0));
+                        label.appendChild(costBadge);
+                    }
+                    return label;
+                };
+                damagedList.appendChild(makeRow('damaged'));
+                missingList.appendChild(makeRow('missing'));
+            });
+        }
+
         function syncReturnQuantities(finalize) {
             const max = returnOutstanding();
             const qtyInput = document.getElementById('returnQuantity');
             const damagedInput = document.getElementById('returnDamagedQuantity');
-            let qty = readReturnCount(qtyInput, finalize ? max : 0, max);
-            if (qty < 1) qty = finalize ? max : 0;
+            const missingInput = document.getElementById('returnMissingQuantity');
+
+            const damagedKeys = getCheckedReturnKeys('damaged_units[]');
+            const missingKeys = getCheckedReturnKeys('missing_units[]');
+            const damaged = damagedKeys.length;
+            const missing = missingKeys.length;
+            const minQty = Math.max(1, damaged + missing);
+
+            let qty = readReturnCount(qtyInput, finalize ? max : minQty, max);
+            if (qty < minQty) qty = finalize ? Math.min(max, minQty) : qty;
             if (qtyInput && (finalize || String(qtyInput.value).trim() !== '')) {
                 if (finalize || Number(qtyInput.value) > max || Number(qtyInput.value) < 1) {
-                    qtyInput.value = String(Math.max(1, qty));
+                    qtyInput.value = String(Math.max(minQty, Math.min(max, qty)));
                 }
-                qty = Math.max(1, Math.min(max, Math.floor(Number(qtyInput.value) || 1)));
-            }
-            const damagedMax = Math.max(0, qty);
-            let damaged = readReturnCount(damagedInput, 0, damagedMax);
-            if (damagedInput && (finalize || String(damagedInput.value).trim() !== '')) {
-                if (finalize || Number(damagedInput.value) > damagedMax || Number(damagedInput.value) < 0) {
-                    damagedInput.value = String(damaged);
-                }
-                damaged = Math.min(damagedMax, Math.max(0, Math.floor(Number(damagedInput.value) || 0)));
             }
             if (qtyInput) qtyInput.max = String(max);
-            if (damagedInput) damagedInput.max = String(damagedMax);
+            if (damagedInput) damagedInput.value = String(damaged);
+            if (missingInput) missingInput.value = String(missing);
+
+            const damagedSummary = document.getElementById('returnDamagedSummary');
+            if (damagedSummary) {
+                damagedSummary.textContent = damaged > 0 ? (damaged + ' damaged selected') : 'None selected';
+                damagedSummary.className = damaged > 0
+                    ? 'truncate text-xs font-semibold text-amber-700'
+                    : 'truncate text-xs font-medium text-slate-500';
+            }
+
+            const missingFine = missingKeys.reduce((sum, key) => {
+                const found = returnUnitItems.find((u) => u.key === key);
+                return sum + Number(found?.unit_cost || 0);
+            }, 0);
+            const missingSummary = document.getElementById('returnMissingSummary');
+            if (missingSummary) {
+                missingSummary.textContent = missing > 0
+                    ? (missing + ' missing · ' + peso(missingFine))
+                    : 'None selected';
+                missingSummary.className = missing > 0
+                    ? 'truncate text-xs font-semibold text-rose-700'
+                    : 'truncate text-xs font-medium text-slate-500';
+            }
+
             renderReturnUniqueness();
             refreshReturnFees();
         }
 
         function renderReturnUniqueness() {
-            const lines = returnUniquenessLines.slice();
             const uniquenessList = document.getElementById('returnEquipmentUniqueness');
             const uniquenessSummary = document.getElementById('returnUniquenessSummary');
-            const uniquenessDetails = document.getElementById('returnUniquenessDetails');
             if (!uniquenessList || !uniquenessSummary) return;
-            const damaged = Math.min(lines.length, readReturnCount(document.getElementById('returnDamagedQuantity'), 0, lines.length));
+
+            const damagedSet = new Set(getCheckedReturnKeys('damaged_units[]'));
+            const missingSet = new Set(getCheckedReturnKeys('missing_units[]'));
+            const units = returnUnitItems.length
+                ? returnUnitItems
+                : returnUniquenessLines.map((line, idx) => ({ key: '0:' + idx, label: line }));
+
             uniquenessList.replaceChildren();
-            lines.forEach((line, index) => {
+            units.forEach((unit) => {
                 const item = document.createElement('li');
                 item.className = 'break-words';
-                item.textContent = index < damaged ? ('Damaged · ' + line) : line;
+                if (missingSet.has(unit.key)) {
+                    item.className = 'break-words font-semibold text-rose-700';
+                    item.textContent = 'Missing · ' + unit.label;
+                } else if (damagedSet.has(unit.key)) {
+                    item.className = 'break-words font-semibold text-amber-700';
+                    item.textContent = 'Damaged · ' + unit.label;
+                } else {
+                    item.textContent = unit.label;
+                }
                 uniquenessList.appendChild(item);
             });
-            uniquenessSummary.textContent = lines.length === 1 ? '1 item' : (lines.length + ' items');
+            uniquenessSummary.textContent = units.length === 1 ? '1 item' : (units.length + ' items');
             uniquenessList.classList.remove('hidden');
-            if (uniquenessDetails) {
-                uniquenessDetails.onclick = null;
-                const chevron = uniquenessDetails.querySelector('[data-lucide="chevron-down"], svg');
-                if (chevron) chevron.classList.remove('hidden');
-            }
         }
 
         function refreshReturnFees() {
@@ -2233,16 +2489,26 @@
             const perDay = Number(borrowFeeRates.late_fee_per_day || 0);
             const damageRate = Number(borrowFeeRates.damage_fee || 0);
             const max = returnOutstanding();
+            const damagedKeys = getCheckedReturnKeys('damaged_units[]');
+            const missingKeys = getCheckedReturnKeys('missing_units[]');
+            const damaged = damagedKeys.length;
+            const missing = missingKeys.length;
             const qty = Math.max(1, Math.min(max, readReturnCount(document.getElementById('returnQuantity'), max, max) || max));
-            const damaged = Math.min(qty, readReturnCount(document.getElementById('returnDamagedQuantity'), 0, qty));
             const lateFee = days * perDay * qty;
             const damageFee = damaged * damageRate;
+            const missingFine = missingKeys.reduce((sum, key) => {
+                const found = returnUnitItems.find((u) => u.key === key);
+                return sum + Number(found?.unit_cost || 0);
+            }, 0);
+
             const daysEl = document.getElementById('returnLateDays');
             const lateEl = document.getElementById('returnLateFee');
             const damageLabel = document.getElementById('returnDamageFeeLabel');
             const damageEl = document.getElementById('returnDamageFee');
+            const missingEl = document.getElementById('returnMissingFine');
             const totalEl = document.getElementById('returnFeeTotal');
             const hint = document.getElementById('returnQuantityHint');
+
             if (daysEl) daysEl.textContent = String(days);
             if (lateEl) {
                 lateEl.textContent = peso(lateFee) + (days > 0 && perDay > 0
@@ -2255,8 +2521,13 @@
                     ? ' (' + damaged + ' × ' + peso(damageRate) + ')'
                     : '');
             }
+            if (missingEl) {
+                missingEl.textContent = peso(missingFine) + (missing > 0
+                    ? ' (' + missing + ' ' + (missing === 1 ? 'item' : 'items') + ')'
+                    : '');
+            }
             if (hint) hint.textContent = 'Up to ' + max + ' still out';
-            if (totalEl) totalEl.textContent = peso(lateFee + damageFee);
+            if (totalEl) totalEl.textContent = peso(lateFee + damageFee + missingFine);
         }
 
         function prepareReturnSubmit() {
@@ -2264,12 +2535,13 @@
             const max = returnOutstanding();
             const qty = Math.floor(Number(document.getElementById('returnQuantity')?.value || 0));
             const damaged = Math.floor(Number(document.getElementById('returnDamagedQuantity')?.value || 0));
+            const missing = Math.floor(Number(document.getElementById('returnMissingQuantity')?.value || 0));
             if (qty < 1 || qty > max) {
-                window.alert('Enter a return quantity from 1 to ' + max + '.');
+                window.alert('Enter a quantity from 1 to ' + max + '.');
                 return false;
             }
-            if (damaged < 0 || damaged > qty) {
-                window.alert('Damaged quantity cannot be more than the quantity returned.');
+            if ((damaged + missing) > qty) {
+                window.alert('Damaged and missing items combined cannot exceed the quantity processed.');
                 return false;
             }
             return true;
@@ -2357,6 +2629,7 @@
             const uniqueness = Array.isArray(data.uniqueness)
                 ? data.uniqueness.map((line) => String(line || '').trim()).filter(Boolean)
                 : [];
+            const fromRoomId = Number(data.fromRoomId || 0);
             const fromRoom = String(data.fromRoom || '').trim();
             const days = returnDaysLate(data.expectedReturn);
             const overdue = days > 0 || String(data.status || '') === 'Overdue';
@@ -2366,9 +2639,29 @@
             returnUniquenessLines = uniqueness.length
                 ? uniqueness
                 : [assetTag ? ('Tag ' + assetTag) : 'No asset tag / serial'];
+            returnUnitItems = Array.isArray(data.units) ? data.units : [];
             document.getElementById("returnEquipmentTracking").innerText = tracking;
             document.getElementById("returnEquipmentQty").innerText = String(qty);
             document.getElementById("returnEquipmentFrom").innerText = fromRoom || '—';
+
+            // Populate "Return to" dropdown with Storage Room(s) + Borrowed From room.
+            const roomSelect = document.getElementById('returnRoom');
+            if (roomSelect) {
+                Array.from(roomSelect.querySelectorAll('option[data-borrowed-room="1"]')).forEach((opt) => opt.remove());
+                if (fromRoomId > 0 && fromRoom) {
+                    const exists = Array.from(roomSelect.options).some((opt) => Number(opt.value) === fromRoomId);
+                    if (!exists) {
+                        const opt = document.createElement('option');
+                        opt.value = String(fromRoomId);
+                        opt.dataset.borrowedRoom = '1';
+                        opt.textContent = fromRoom + ' (Borrowed from)';
+                        roomSelect.appendChild(opt);
+                    }
+                }
+                if (roomSelect.options.length > 0) {
+                    roomSelect.selectedIndex = 0;
+                }
+            }
 
             const notice = document.getElementById('returnOverdueNotice');
             const modal = document.getElementById('returnModal');
@@ -2386,14 +2679,19 @@
             }
             const qtyInput = document.getElementById('returnQuantity');
             const damagedInput = document.getElementById('returnDamagedQuantity');
+            const missingInput = document.getElementById('returnMissingQuantity');
             if (qtyInput) {
                 qtyInput.max = String(qty);
                 qtyInput.value = String(qty);
             }
-            if (damagedInput) {
-                damagedInput.max = String(qty);
-                damagedInput.value = '0';
-            }
+            if (damagedInput) damagedInput.value = '0';
+            if (missingInput) missingInput.value = '0';
+            const damagedDd = document.getElementById('returnDamagedDropdown');
+            const missingDd = document.getElementById('returnMissingDropdown');
+            if (damagedDd) damagedDd.open = false;
+            if (missingDd) missingDd.open = false;
+            renderReturnUnitCheckboxes();
+
             const remarks = document.getElementById('returnRemarks');
             if (remarks) remarks.value = '';
             const uniquenessDetails = document.getElementById('returnUniquenessDetails');
@@ -2402,6 +2700,7 @@
 
             document.getElementById("returnModal").classList.remove("hidden");
             document.getElementById("returnModal").classList.add("flex");
+            if (window.lucide) window.lucide.createIcons();
         }
 
         function closeReturnModal() {

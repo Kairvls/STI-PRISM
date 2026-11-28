@@ -59,7 +59,7 @@
 
                     <div class="relative">
                         <label for="teacherBorrowSearch" class="mb-1 block text-sm font-medium text-slate-700">Add equipment</label>
-                        <p id="teacherBorrowSearchHint" class="mb-2 text-xs text-slate-500">Only available storage stock is shown. Select an item to add it to your request.</p>
+                        <p id="teacherBorrowSearchHint" class="mb-2 text-xs text-slate-500">All available equipment (in storage and deployed) is shown. Select an item to add it to your request.</p>
                         <div class="relative">
                             <i data-lucide="search" aria-hidden="true" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                             <input
@@ -98,33 +98,74 @@
 
 
                 {{-- Schedule --}}
+                @php
+                    $officeTimeSlots = [];
+                    for ($h = 9; $h <= 17; $h++) {
+                        foreach ([0, 30] as $m) {
+                            if ($h === 17 && $m > 0) {
+                                continue;
+                            }
+                            $val = sprintf('%02d:%02d', $h, $m);
+                            $label = \Carbon\Carbon::createFromTime($h, $m)->format('g:i A');
+                            $officeTimeSlots[$val] = $label;
+                        }
+                    }
+                @endphp
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
-                        <p class="mt-1 text-sm text-slate-600">One borrow and return window for all selected items.</p>
+                        <p class="mt-1 text-sm text-slate-600">Equipment claiming and returns are available from <span class="font-semibold text-slate-800">9:00 AM to 5:00 PM</span>.</p>
                     </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label for="teacherBorrowDate" class="mb-1.5 block text-sm font-medium text-slate-700">
-                                Borrow from <span class="text-red-500" aria-hidden="true">*</span>
+                                Claim / borrow time <span class="text-red-500" aria-hidden="true">*</span>
                             </label>
-                            <input
-                                id="teacherBorrowDate"
-                                type="date"
-                                required
-                                class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
-                            >
+                            <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                <input
+                                    id="teacherBorrowDate"
+                                    type="date"
+                                    required
+                                    aria-label="Claim date"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                <select
+                                    id="teacherBorrowTime"
+                                    required
+                                    aria-label="Claim time (9:00 AM to 5:00 PM)"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                    @foreach ($officeTimeSlots as $slotVal => $slotLabel)
+                                        <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">When you will claim the borrowed items (9:00 AM – 5:00 PM).</p>
                         </div>
                         <div>
                             <label for="teacherBorrowReturn" class="mb-1.5 block text-sm font-medium text-slate-700">
                                 Expected return by <span class="text-red-500" aria-hidden="true">*</span>
                             </label>
-                            <input
-                                id="teacherBorrowReturn"
-                                type="date"
-                                required
-                                class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
-                            >
+                            <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                <input
+                                    id="teacherBorrowReturn"
+                                    type="date"
+                                    required
+                                    aria-label="Expected return date"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                <select
+                                    id="teacherBorrowReturnTime"
+                                    required
+                                    aria-label="Expected return time (9:00 AM to 5:00 PM)"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                    @foreach ($officeTimeSlots as $slotVal => $slotLabel)
+                                        <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">When items will be returned (9:00 AM – 5:00 PM).</p>
                         </div>
                     </div>
                 </div>
@@ -242,7 +283,9 @@
     const formError = document.getElementById('teacherBorrowFormError');
     const submitBtn = document.getElementById('teacherBorrowSubmitBtn');
     const dateInput = document.getElementById('teacherBorrowDate');
+    const timeInput = document.getElementById('teacherBorrowTime');
     const returnInput = document.getElementById('teacherBorrowReturn');
+    const returnTimeInput = document.getElementById('teacherBorrowReturnTime');
     const purposeInput = document.getElementById('teacherBorrowPurpose');
     const locationInput = document.getElementById('teacherBorrowLocation');
     const cautionWrap = document.getElementById('teacherBorrowCautionWrap');
@@ -665,6 +708,41 @@
             + '-' + pad(date.getDate());
     }
 
+    function toLocalTimeValue(date) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return pad(date.getHours()) + ':' + pad(date.getMinutes());
+    }
+
+    function clampOfficeTime(hm) {
+        const val = String(hm || '').trim();
+        if (!/^\d{2}:\d{2}$/.test(val)) return '09:00';
+        if (val <= '09:00') return '09:00';
+        if (val >= '17:00') return '17:00';
+        const [hStr, mStr] = val.split(':');
+        let h = Number(hStr);
+        let m = Number(mStr);
+        if (m === 0) return String(h).padStart(2, '0') + ':00';
+        if (m <= 30) return String(h).padStart(2, '0') + ':30';
+        h += 1;
+        if (h >= 17) return '17:00';
+        return String(h).padStart(2, '0') + ':00';
+    }
+
+    function isOfficeTime(hm) {
+        const val = String(hm || '').trim();
+        return /^\d{2}:\d{2}$/.test(val) && val >= '09:00' && val <= '17:00';
+    }
+
+    function combinedBorrowFrom() {
+        if (!dateInput.value) return '';
+        return dateInput.value + 'T' + (timeInput?.value || '09:00');
+    }
+
+    function combinedReturnBy() {
+        if (!returnInput.value) return '';
+        return returnInput.value + 'T' + (returnTimeInput?.value || '17:00');
+    }
+
     function resetFormFields() {
         catalog = [];
         cart = [];
@@ -684,15 +762,17 @@
         renderCart();
         showBorrowView('form');
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const later = new Date(today.getTime() + (1 * 24 * 60 * 60 * 1000));
-        dateInput.value = toLocalDateValue(today);
+        const now = new Date();
+        now.setSeconds(0, 0);
+        const later = new Date(now.getTime() + (1 * 24 * 60 * 60 * 1000));
+        dateInput.value = toLocalDateValue(now);
+        if (timeInput) timeInput.value = clampOfficeTime(toLocalTimeValue(now));
         returnInput.value = toLocalDateValue(later);
-        dateInput.min = toLocalDateValue(today);
+        if (returnTimeInput) returnTimeInput.value = '17:00';
+        dateInput.min = toLocalDateValue(now);
         syncReturnMin();
-        defaultBorrowDate = dateInput.value;
-        defaultReturnDate = returnInput.value;
+        defaultBorrowDate = combinedBorrowFrom();
+        defaultReturnDate = combinedReturnBy();
     }
 
     function formHasInput() {
@@ -700,8 +780,8 @@
         if (String(searchInput.value || '').trim() !== '') return true;
         if (String(purposeInput.value || '').trim() !== '') return true;
         if (locationInput && String(locationInput.value || '').trim() !== '') return true;
-        if (String(dateInput.value || '') !== defaultBorrowDate) return true;
-        if (String(returnInput.value || '') !== defaultReturnDate) return true;
+        if (combinedBorrowFrom() !== defaultBorrowDate) return true;
+        if (combinedReturnBy() !== defaultReturnDate) return true;
         return false;
     }
 
@@ -714,6 +794,9 @@
         returnInput.min = borrowDate;
         if (returnInput.value && returnInput.value < borrowDate) {
             returnInput.value = borrowDate;
+        }
+        if (returnInput.value === borrowDate && timeInput?.value && returnTimeInput?.value && returnTimeInput.value < timeInput.value) {
+            returnTimeInput.value = timeInput.value;
         }
     }
 
@@ -993,6 +1076,11 @@
 
     dateInput.addEventListener('change', syncReturnMin);
     dateInput.addEventListener('input', syncReturnMin);
+    if (timeInput) {
+        timeInput.addEventListener('change', syncReturnMin);
+        timeInput.addEventListener('input', syncReturnMin);
+    }
+    returnInput.addEventListener('change', syncReturnMin);
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -1013,22 +1101,34 @@
             line.quantity = qty;
         });
         renderCart();
-        if (!dateInput.value) {
-            showText(formError, 'Enter the borrow date.', true);
-            dateInput.focus();
+        if (!dateInput.value || (timeInput && !timeInput.value)) {
+            showText(formError, 'Enter the claim / borrow date and time.', true);
+            (!dateInput.value ? dateInput : timeInput).focus();
             return;
         }
-        if (!returnInput.value) {
-            showText(formError, 'Enter the expected return date.', true);
-            returnInput.focus();
+        if (timeInput && !isOfficeTime(timeInput.value)) {
+            showText(formError, 'Claim / borrow time must be between 9:00 AM and 5:00 PM.', true);
+            timeInput.focus();
             return;
         }
-        const borrowAt = new Date(dateInput.value + 'T00:00:00');
-        const returnAt = new Date(returnInput.value + 'T00:00:00');
+        if (!returnInput.value || (returnTimeInput && !returnTimeInput.value)) {
+            showText(formError, 'Enter the expected return date and time.', true);
+            (!returnInput.value ? returnInput : returnTimeInput).focus();
+            return;
+        }
+        if (returnTimeInput && !isOfficeTime(returnTimeInput.value)) {
+            showText(formError, 'Expected return time must be between 9:00 AM and 5:00 PM.', true);
+            returnTimeInput.focus();
+            return;
+        }
+        const borrowIso = combinedBorrowFrom();
+        const returnIso = combinedReturnBy();
+        const borrowAt = new Date(borrowIso);
+        const returnAt = new Date(returnIso);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (Number.isNaN(borrowAt.getTime()) || Number.isNaN(returnAt.getTime())) {
-            showText(formError, 'Enter a valid borrow / return date.', true);
+            showText(formError, 'Enter a valid borrow / return date and time.', true);
             return;
         }
         if (borrowAt < today) {
@@ -1037,7 +1137,7 @@
             return;
         }
         if (returnAt < borrowAt) {
-            showText(formError, 'Expected return must be on or after the borrow date.', true);
+            showText(formError, 'Expected return must be on or after the borrow date and time.', true);
             returnInput.focus();
             return;
         }
@@ -1073,8 +1173,8 @@
                 },
                 credentials: 'same-origin',
                 body: JSON.stringify({
-                    borrowing_date: dateInput.value,
-                    borrowing_expected_return_date: returnInput.value,
+                    borrowing_date: borrowIso,
+                    borrowing_expected_return_date: returnIso,
                     borrowing_event_location: locationInput ? String(locationInput.value || '').trim() : '',
                     borrowing_purpose: String(purposeInput.value || '').trim(),
                     items: cart.map((line) => ({
@@ -1101,10 +1201,12 @@
                 const raw = String(value).trim();
                 const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw + 'T00:00:00' : raw.replace(' ', 'T'));
                 if (Number.isNaN(d.getTime())) return raw;
-                return d.toLocaleDateString('en-US', {
+                return d.toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
                 });
             };
 

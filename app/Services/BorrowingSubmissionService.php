@@ -88,7 +88,10 @@ class BorrowingSubmissionService
                 $query->whereNull('equipment_table.equipment_condition_status')
                     ->orWhereNotIn('equipment_table.equipment_condition_status', EquipmentConditions::NOT_BORROWABLE);
             })
-            ->where('rooms_table.room_type', RoomCategories::STORAGE_TYPE);
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where(fn ($inner) => $inner->whereNull('rooms_table.room_is_archived')->orWhere('rooms_table.room_is_archived', false))
+            );
 
         $select = [
             'equipment_table.equipment_id',
@@ -267,12 +270,6 @@ class BorrowingSubmissionService
             : (int) ($seed->equipment_room_id ?? 0);
         if ($roomId < 1) {
             return [];
-        }
-        if (Schema::hasTable('rooms_table')) {
-            $roomType = DB::table('rooms_table')->where('room_id', $roomId)->value('room_type');
-            if ((string) $roomType !== RoomCategories::STORAGE_TYPE) {
-                return [];
-            }
         }
         $poolKey = $this->borrowPoolKey((string) ($seed->equipment_name ?? ''), $roomId);
 
@@ -473,6 +470,16 @@ class BorrowingSubmissionService
 
                     if ($borrowDay->lt(now()->startOfDay())) {
                         $fail('Borrow date cannot be in the past.');
+
+                        return;
+                    }
+
+                    $rawBorrow = trim((string) $value);
+                    if (preg_match('/[T\s]\d{1,2}:\d{2}/', $rawBorrow)) {
+                        $hm = Carbon::parse($rawBorrow)->format('H:i');
+                        if ($hm < '09:00' || $hm > '17:00') {
+                            $fail('Claim / borrow time must be between 9:00 AM and 5:00 PM.');
+                        }
                     }
                 },
             ],
@@ -482,22 +489,32 @@ class BorrowingSubmissionService
                 'after_or_equal:borrowing_date',
                 function (string $attribute, mixed $value, \Closure $fail) use ($input) {
                     try {
-                        $borrowDay = Carbon::parse((string) ($input['borrowing_date'] ?? ''))->startOfDay();
-                        $returnDay = Carbon::parse((string) $value)->startOfDay();
+                        $borrowAt = Carbon::parse((string) ($input['borrowing_date'] ?? ''));
+                        $returnAt = Carbon::parse((string) $value);
                     } catch (\Throwable $e) {
-                        $fail('Enter a valid expected return date.');
+                        $fail('Enter a valid expected return date and time.');
 
                         return;
                     }
 
-                    if ($returnDay->lt($borrowDay)) {
-                        $fail('Expected return must be on or after the borrow date.');
+                    $rawReturn = trim((string) $value);
+                    if (preg_match('/[T\s]\d{1,2}:\d{2}/', $rawReturn)) {
+                        $hm = $returnAt->format('H:i');
+                        if ($hm < '09:00' || $hm > '17:00') {
+                            $fail('Expected return time must be between 9:00 AM and 5:00 PM.');
+
+                            return;
+                        }
+                    }
+
+                    if ($returnAt->lt($borrowAt)) {
+                        $fail('Expected return must be on or after the claim / borrow date and time.');
 
                         return;
                     }
 
                     // Soft max window: 30 days keeps campus equipment circulating.
-                    if ($returnDay->gt($borrowDay->copy()->addDays(30))) {
+                    if ($returnAt->gt($borrowAt->copy()->addDays(30))) {
                         $fail('Expected return cannot be more than 30 days after the borrow date.');
                     }
                 },
@@ -547,9 +564,19 @@ class BorrowingSubmissionService
             'borrowing_event_location.max' => 'Location may not be longer than 150 characters.',
         ])->validate();
 
-        // Store calendar days only: borrow at start of day, return due through end of day.
-        $validated['borrowing_date'] = Carbon::parse($validated['borrowing_date'])->startOfDay()->format('Y-m-d H:i:s');
-        $validated['borrowing_expected_return_date'] = Carbon::parse($validated['borrowing_expected_return_date'])->endOfDay()->format('Y-m-d H:i:s');
+        // Preserve user-selected time (validated within 09:00–17:00);
+        // fall back to 09:00 / 17:00 for date-only submissions.
+        $rawBorrowDate = trim((string) $validated['borrowing_date']);
+        $rawReturnDate = trim((string) $validated['borrowing_expected_return_date']);
+        $hasBorrowTime = (bool) preg_match('/[T\s]\d{1,2}:\d{2}/', $rawBorrowDate);
+        $hasReturnTime = (bool) preg_match('/[T\s]\d{1,2}:\d{2}/', $rawReturnDate);
+
+        $validated['borrowing_date'] = $hasBorrowTime
+            ? Carbon::parse($rawBorrowDate)->format('Y-m-d H:i:s')
+            : Carbon::parse($rawBorrowDate)->setTime(9, 0, 0)->format('Y-m-d H:i:s');
+        $validated['borrowing_expected_return_date'] = $hasReturnTime
+            ? Carbon::parse($rawReturnDate)->format('Y-m-d H:i:s')
+            : Carbon::parse($rawReturnDate)->setTime(17, 0, 0)->format('Y-m-d H:i:s');
 
         $borrowerCustodianId = (int) ($validated['borrowing_borrower_custodian_id'] ?? 0);
         if (
@@ -639,7 +666,6 @@ class BorrowingSubmissionService
                     throw new RuntimeException('One or more selected equipment items are not available.');
                 }
 
-                $this->assertStoredInInventory($equipment);
                 $this->assertBorrowableCondition($equipment);
 
                 if (($equipment->equipment_inventory_status ?? '') === 'Disposed') {
@@ -832,7 +858,6 @@ class BorrowingSubmissionService
                 $available = 0;
 
                 if ($isBulk) {
-                    $this->assertStoredInInventory($equipment);
                     $this->assertBorrowableCondition($equipment);
                     if (($equipment->equipment_inventory_status ?? '') !== EquipmentInventoryStatuses::ACTIVE) {
                         throw new RuntimeException(

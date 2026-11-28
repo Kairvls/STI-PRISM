@@ -54,21 +54,42 @@
             $hasActiveCategory = request()->filled('category');
             $hasActiveRoom = ! $isStockPage && request()->filled('room');
             $hasActiveCondition = request()->filled('condition');
+            $hasActiveDateFrom = request()->filled('date_from');
+            $hasActiveDateTo = request()->filled('date_to');
+            $hasActiveDate = $hasActiveDateFrom || $hasActiveDateTo;
+            $hasActiveEditedFrom = request()->filled('edited_from');
+            $hasActiveEditedTo = request()->filled('edited_to');
+            $hasActiveEditedDate = $hasActiveEditedFrom || $hasActiveEditedTo;
+            $activeSort = in_array((string) request('sort', ''), ['created_desc', 'updated_desc', 'created_asc'], true)
+                ? (string) request('sort')
+                : '';
+            $hasActiveSort = $activeSort !== '';
+            $sortLabels = [
+                'created_desc' => 'Recently Added',
+                'updated_desc' => 'Recently Edited',
+                'created_asc' => 'Oldest Added',
+            ];
             $secondaryFilterCount = ($hasActiveCategory ? 1 : 0)
                 + ($hasActiveRoom ? 1 : 0)
-                + ($hasActiveCondition ? 1 : 0);
+                + ($hasActiveCondition ? 1 : 0)
+                + ($hasActiveDate ? 1 : 0)
+                + ($hasActiveEditedDate ? 1 : 0)
+                + ($hasActiveSort ? 1 : 0);
             $hasActiveFilters = $hasActiveSearch
                 || $hasActiveStatus
                 || $hasActiveCategory
                 || $hasActiveRoom
-                || $hasActiveCondition;
+                || $hasActiveCondition
+                || $hasActiveDate
+                || $hasActiveEditedDate
+                || $hasActiveSort;
 
             $openBalanceReports = $openBalance['reports'] ?? [];
             $openBalancePending = (int) (($openBalance['totals']['pending_stock'] ?? 0));
             $openBalancePendingReplacement = (int) (($openBalance['totals']['pending_replacement'] ?? 0));
             $showOpenBalanceBtn = $isStockPage && $canManage && ! empty($openBalanceReports);
 
-            $exportQuery = http_build_query(request()->only(['search', 'category', 'condition', 'status', 'room']));
+            $exportQuery = http_build_query(request()->only(['search', 'category', 'condition', 'status', 'room', 'date_from', 'date_to', 'edited_from', 'edited_to', 'sort']));
             $inventoryUrl = $inAdminPortal ? url('/admin/inventory') : url('/maintenance/equipment/inventory');
             $addEquipmentUrl = $inAdminPortal ? url('/admin/inventory/create') : $inventoryUrl;
             $disposalUrl = $inAdminPortal ? url('/admin/disposal') : url('/maintenance/disposal');
@@ -614,9 +635,10 @@
                         {{-- COMPACT COLLAPSIBLE FILTER DRAWER (Single submit path) --}}
                         <div
                             id="eqSecondaryFiltersPanel"
-                            class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3"
+                            class="hidden space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3"
                         >
-                            <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 {{ $isStockPage ? 'lg:grid-cols-2' : 'lg:grid-cols-3' }}">
+                            {{-- Row 1: Classification, Room (All Equipment), Condition, Sort by --}}
+                            <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 {{ $isStockPage ? 'lg:grid-cols-3' : 'lg:grid-cols-4' }}">
                                 {{-- CLASSIFICATION --}}
                                 <div>
                                     <label for="eqFilterCategory" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -699,24 +721,59 @@
                                         <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
                                     </div>
                                 </div>
+
+                                {{-- SORT BY / RECENCY --}}
+                                <div>
+                                    <label for="eqFilterSort" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                        Sort by
+                                    </label>
+                                    <div class="relative">
+                                        <select
+                                            id="eqFilterSort"
+                                            name="sort"
+                                            class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                        >
+                                            <option value="" @selected($activeSort === '')>{{ $isStockPage ? 'Default (Recent returns & added)' : 'Default (Recently added)' }}</option>
+                                            <option value="created_desc" @selected($activeSort === 'created_desc')>Recently Added</option>
+                                            <option value="updated_desc" @selected($activeSort === 'updated_desc')>Recently Edited / Updated</option>
+                                            <option value="created_asc" @selected($activeSort === 'created_asc')>Oldest Added</option>
+                                        </select>
+                                        <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="mt-2.5 flex items-center justify-end gap-2 border-t border-slate-200/80 pt-2.5">
-                                @if ($hasActiveFilters)
-                                    <a
-                                        href="{{ url()->current() }}"
-                                        class="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200/60 hover:text-slate-900"
+                            {{-- Quick Recency Presets + Reset / Apply --}}
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-2.5">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Quick sort:</span>
+                                    @foreach ($sortLabels as $sortKey => $sortLabel)
+                                        <a
+                                            href="{{ request()->fullUrlWithQuery(['sort' => $activeSort === $sortKey ? null : $sortKey, 'page' => null]) }}"
+                                            class="inline-flex h-7 items-center rounded-full border px-2.5 text-[11px] font-semibold transition {{ $activeSort === $sortKey ? 'border-[#0025cc] bg-[#0025cc] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900' }}"
+                                        >
+                                            {{ $sortLabel }}
+                                        </a>
+                                    @endforeach
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    @if ($hasActiveFilters)
+                                        <a
+                                            href="{{ url()->current() }}"
+                                            class="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200/60 hover:text-slate-900"
+                                        >
+                                            <i data-lucide="rotate-ccw" class="h-3 w-3"></i>
+                                            <span>Reset</span>
+                                        </a>
+                                    @endif
+                                    <button
+                                        type="submit"
+                                        class="inline-flex h-8 items-center rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-blue-800"
                                     >
-                                        <i data-lucide="rotate-ccw" class="h-3 w-3"></i>
-                                        <span>Reset</span>
-                                    </a>
-                                @endif
-                                <button
-                                    type="submit"
-                                    class="inline-flex h-8 items-center rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-blue-800"
-                                >
-                                    Apply filters
-                                </button>
+                                        Apply filters
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -767,6 +824,51 @@
                                     >
                                         <span>Condition: {{ request('condition') }}</span>
                                         <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                                    </a>
+                                @endif
+                                @if ($hasActiveDate)
+                                    @php
+                                        $dateFromLabel = $hasActiveDateFrom ? \Carbon\Carbon::parse(request('date_from'))->format('M j, Y') : null;
+                                        $dateToLabel = $hasActiveDateTo ? \Carbon\Carbon::parse(request('date_to'))->format('M j, Y') : null;
+                                        $dateChipLabel = match (true) {
+                                            $dateFromLabel && $dateToLabel => $dateFromLabel . ' – ' . $dateToLabel,
+                                            (bool) $dateFromLabel => 'From ' . $dateFromLabel,
+                                            default => 'Until ' . $dateToLabel,
+                                        };
+                                    @endphp
+                                    <a
+                                        href="{{ request()->fullUrlWithQuery(['date_from' => null, 'date_to' => null, 'page' => null]) }}"
+                                        class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                                    >
+                                        <span>Added: {{ $dateChipLabel }}</span>
+                                        <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                                    </a>
+                                @endif
+                                @if ($hasActiveEditedDate)
+                                    @php
+                                        $editedFromLabel = $hasActiveEditedFrom ? \Carbon\Carbon::parse(request('edited_from'))->format('M j, Y') : null;
+                                        $editedToLabel = $hasActiveEditedTo ? \Carbon\Carbon::parse(request('edited_to'))->format('M j, Y') : null;
+                                        $editedChipLabel = match (true) {
+                                            $editedFromLabel && $editedToLabel => $editedFromLabel . ' – ' . $editedToLabel,
+                                            (bool) $editedFromLabel => 'From ' . $editedFromLabel,
+                                            default => 'Until ' . $editedToLabel,
+                                        };
+                                    @endphp
+                                    <a
+                                        href="{{ request()->fullUrlWithQuery(['edited_from' => null, 'edited_to' => null, 'page' => null]) }}"
+                                        class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                                    >
+                                        <span>Edited: {{ $editedChipLabel }}</span>
+                                        <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                                    </a>
+                                @endif
+                                @if ($hasActiveSort)
+                                    <a
+                                        href="{{ request()->fullUrlWithQuery(['sort' => null, 'page' => null]) }}"
+                                        class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50/70 px-2 py-0.5 font-medium text-[#0025cc] transition hover:bg-blue-100"
+                                    >
+                                        <span>Sort: {{ $sortLabels[$activeSort] ?? $activeSort }}</span>
+                                        <i data-lucide="x" class="h-3 w-3 text-blue-500"></i>
                                     </a>
                                 @endif
                             </div>
@@ -999,8 +1101,15 @@
                                             $stockedDays = filled($stockedAt)
                                                 ? (int) \Carbon\Carbon::parse($stockedAt)->startOfDay()->diffInDays(today(), false)
                                                 : null;
+                                            $returnedAt = $item->equipment_latest_returned_at ?? null;
                                         @endphp
-                                        @if ($stockedDays !== null)
+                                        @if (filled($returnedAt))
+                                            <p class="text-[13px] font-medium leading-tight text-slate-700">{{ \Carbon\Carbon::parse($returnedAt)->format('M j, Y') }}</p>
+                                            <p class="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold leading-tight text-sky-700">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>
+                                                Returned from borrow
+                                            </p>
+                                        @elseif ($stockedDays !== null)
                                             <p class="text-[13px] font-medium leading-tight text-slate-700">{{ \Carbon\Carbon::parse($stockedAt)->format('M j, Y') }}</p>
                                             <p class="mt-0.5 text-[11px] leading-tight {{ $stockedDays > 90 ? 'font-medium text-amber-600' : 'text-slate-400' }}">
                                                 @if ($stockedDays <= 0)
