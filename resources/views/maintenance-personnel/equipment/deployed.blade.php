@@ -16,50 +16,225 @@
         return asset('storage/'.$path);
     };
 
-    $hasFilters = filled($filters['search'] ?? null)
-        || filled($filters['room'] ?? null)
-        || filled($filters['category'] ?? null)
-        || filled($filters['department'] ?? null)
-        || filled($filters['status'] ?? null);
+    $hasActiveSearch = filled($filters['search'] ?? null);
+    $hasActiveStatus = filled($filters['status'] ?? null);
+    $hasActiveRoom = filled($filters['room'] ?? null);
+    $hasActiveCategory = filled($filters['category'] ?? null);
+    $hasActiveDepartment = filled($filters['department'] ?? null);
+    $secondaryFilterCount = ($hasActiveRoom ? 1 : 0)
+        + ($hasActiveCategory ? 1 : 0)
+        + ($hasActiveDepartment ? 1 : 0);
+    $hasFilters = $hasActiveSearch
+        || $hasActiveStatus
+        || $hasActiveRoom
+        || $hasActiveCategory
+        || $hasActiveDepartment;
+
+    $selectedRoomName = $hasActiveRoom
+        ? optional($rooms->firstWhere('room_id', (int) $filters['room']))->room_name
+        : null;
+    $selectedCategoryName = $hasActiveCategory
+        ? optional($categories->firstWhere('equipment_category_id', (int) $filters['category']))->equipment_category_name
+        : null;
+    $selectedDepartmentName = $hasActiveDepartment
+        ? optional(($transferDepartments ?? collect())->firstWhere('department_id', (int) $filters['department']))->department_name
+        : null;
 
     $equipmentTotal = $equipment->total();
 
     $conditionClass = fn ($condition) => match ($condition) {
-        'Good' => 'bg-emerald-50 text-emerald-700',
-        'Under Maintenance' => 'bg-amber-50 text-amber-700',
-        'Defective' => 'bg-orange-50 text-orange-700',
-        'Damaged' => 'bg-rose-50 text-rose-700',
-        'Disposed' => 'bg-slate-200 text-slate-700',
-        default => 'bg-slate-100 text-slate-600',
+        'Good' => 'bg-emerald-50 text-emerald-700 ring-emerald-200/80',
+        'Under Maintenance' => 'bg-amber-50 text-amber-700 ring-amber-200/80',
+        'Defective' => 'bg-orange-50 text-orange-700 ring-orange-200/80',
+        'Damaged' => 'bg-rose-50 text-rose-700 ring-rose-200/80',
+        'Disposed' => 'bg-slate-100 text-slate-600 ring-slate-200/80',
+        default => 'bg-slate-100 text-slate-600 ring-slate-200/80',
     };
+    $conditionDotClass = fn ($condition) => match ($condition) {
+        'Good' => 'bg-emerald-500',
+        'Under Maintenance' => 'bg-amber-500',
+        'Defective' => 'bg-orange-500',
+        'Damaged' => 'bg-rose-500',
+        default => 'bg-slate-400',
+    };
+
     $statusClass = fn ($status) => match ($status) {
-        'Active' => 'bg-emerald-50 text-emerald-700',
-        'Borrowed' => 'bg-sky-50 text-sky-700',
-        'Under Maintenance' => 'bg-amber-50 text-amber-700',
-        'For Replacement' => 'bg-orange-50 text-orange-700',
-        'Replaced' => 'bg-blue-50 text-blue-700',
-        default => 'bg-slate-100 text-slate-600',
+        'Active' => 'bg-emerald-50 text-emerald-700 ring-emerald-200/80',
+        'Borrowed' => 'bg-sky-50 text-sky-700 ring-sky-200/80',
+        'Under Maintenance' => 'bg-amber-50 text-amber-700 ring-amber-200/80',
+        'For Replacement' => 'bg-orange-50 text-orange-700 ring-orange-200/80',
+        'Replaced' => 'bg-blue-50 text-blue-700 ring-blue-200/80',
+        default => 'bg-slate-100 text-slate-600 ring-slate-200/80',
+    };
+    $statusDotClass = fn ($status) => match ($status) {
+        'Active' => 'bg-emerald-500',
+        'Borrowed' => 'bg-sky-500',
+        'Under Maintenance' => 'bg-amber-500',
+        'For Replacement' => 'bg-orange-500',
+        'Replaced' => 'bg-blue-500',
+        default => 'bg-slate-400',
     };
 
     $transferLabel = $transferNeedsApproval ? 'Send for approval' : 'Transfer';
     $disposalNeedsApproval = $disposalNeedsApproval ?? false;
     $pendingDisposalCount = $pendingDisposalCount ?? 0;
-    $selectClass = 'box-border h-9 shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm leading-none text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white';
+    $deployedExportPdfUrl = request()->is('admin/*')
+        ? '/admin/inventory/deployed/export-pdf'
+        : '/maintenance/equipment/deployed/export-pdf';
+    $exportQuery = http_build_query(request()->only(['search', 'room', 'category', 'department', 'status', 'on_floor', 'include_storage']));
+    $pendingApprovalsBadge = (! $transferNeedsApproval ? (int) $pendingTransferCount : 0)
+        + (! $disposalNeedsApproval ? (int) $pendingDisposalCount : 0);
 @endphp
 
-<link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+<div class="space-y-4">
+    {{-- COMPACT PAGE HEADER (matching All Equipment) --}}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-2">
+            <h1 class="truncate text-lg font-semibold tracking-tight text-slate-900">
+                Deployed Equipment
+            </h1>
+            <span class="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                {{ number_format($equipmentTotal) }} {{ \Illuminate\Support\Str::plural('item', $equipmentTotal) }}
+            </span>
+        </div>
 
-<div class="space-y-6">
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="relative">
+                <button
+                    type="button"
+                    id="deployedActionsMenuBtn"
+                    onclick="toggleDeployedMenu(this, 'deployedActionsMenu', event)"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    <i data-lucide="more-horizontal" class="h-4 w-4 text-slate-500"></i>
+                    <span>Actions</span>
+                    <span
+                        id="deployedActionsBadge"
+                        data-base-count="{{ $pendingApprovalsBadge }}"
+                        class="{{ $pendingApprovalsBadge > 0 ? '' : 'hidden' }} inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                    >{{ $pendingApprovalsBadge }}</span>
+                    <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-slate-400"></i>
+                </button>
+
+                <div
+                    id="deployedActionsMenu"
+                    data-deployed-menu
+                    role="menu"
+                    class="fixed z-[90] hidden w-60 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl shadow-slate-950/10"
+                >
+                    <p class="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Bulk tools</p>
+                    <button
+                        type="button"
+                        id="deployedTransferSelectedBtn"
+                        role="menuitem"
+                        onclick="closeDeployedMenus(); openDeployedBatchTransfer()"
+                        disabled
+                        class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                        <span class="inline-flex items-center gap-2">
+                            <i data-lucide="arrow-right-left" class="h-3.5 w-3.5 text-sky-600"></i>
+                            <span>Transfer selected</span>
+                        </span>
+                        <span id="deployedSelectedCount" class="hidden rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold text-white">0</span>
+                    </button>
+                    <button
+                        type="button"
+                        id="deployedDisposeSelectedBtn"
+                        role="menuitem"
+                        onclick="closeDeployedMenus(); openDeployedBatchDispose()"
+                        disabled
+                        class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                        <span class="inline-flex items-center gap-2">
+                            <i data-lucide="archive-x" class="h-3.5 w-3.5 text-rose-600"></i>
+                            <span>Dispose selected</span>
+                        </span>
+                        <span id="deployedDisposeSelectedCount" class="hidden rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">0</span>
+                    </button>
+                    <button
+                        type="button"
+                        id="deployedTransferAllBtn"
+                        role="menuitem"
+                        onclick="closeDeployedMenus(); openDeployedTransferAll()"
+                        @if (empty($deployedTransferIds ?? [])) disabled @endif
+                        class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                        <span class="inline-flex items-center gap-2">
+                            <i data-lucide="boxes" class="h-3.5 w-3.5 text-slate-500"></i>
+                            <span>Transfer all filtered</span>
+                        </span>
+                        @if (! empty($deployedTransferIds ?? []))
+                            <span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{{ number_format(count($deployedTransferIds)) }}</span>
+                        @endif
+                    </button>
+
+                    @if ((! $transferNeedsApproval && $pendingTransferCount > 0) || (! $disposalNeedsApproval && $pendingDisposalCount > 0))
+                        <div class="my-1 border-t border-slate-100"></div>
+                        <p class="px-2.5 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Approvals</p>
+                        @if (! $transferNeedsApproval && $pendingTransferCount > 0)
+                            <a
+                                href="{{ $transferRequestsUrl }}"
+                                role="menuitem"
+                                class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <i data-lucide="shield-check" class="h-3.5 w-3.5 text-slate-400"></i>
+                                    <span>Transfer requests</span>
+                                </span>
+                                <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
+                            </a>
+                        @endif
+                        @if (! $disposalNeedsApproval && $pendingDisposalCount > 0)
+                            <a
+                                href="{{ $disposalRequestsUrl }}"
+                                role="menuitem"
+                                class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <i data-lucide="clipboard-check" class="h-3.5 w-3.5 text-slate-400"></i>
+                                    <span>Disposal approvals</span>
+                                </span>
+                                <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingDisposalCount }}</span>
+                            </a>
+                        @endif
+                    @endif
+
+                    <div class="my-1 border-t border-slate-100"></div>
+                    <a
+                        href="{{ $deployedExportPdfUrl }}?{{ $exportQuery }}"
+                        role="menuitem"
+                        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                    >
+                        <i data-lucide="file-down" class="h-3.5 w-3.5 text-slate-400"></i>
+                        <span>Export PDF</span>
+                    </a>
+                </div>
+            </div>
+
+            <a
+                href="{{ $deployedExportPdfUrl }}?{{ $exportQuery }}"
+                class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+            >
+                <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
+                <span>Export PDF</span>
+            </a>
+        </div>
+    </div>
+
     @if ($transferNeedsApproval || $disposalNeedsApproval)
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <p class="flex items-start gap-2">
-                <i data-lucide="shield-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
-                {{ $transferNeedsApproval && $disposalNeedsApproval ? 'Transfers and disposals need' : ($transferNeedsApproval ? 'Transfers need' : 'Disposals need') }}
-                the Administrator's approval. Nothing changes until the request is approved.
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900">
+            <p class="flex items-center gap-2">
+                <i data-lucide="shield-alert" class="h-4 w-4 shrink-0"></i>
+                <span>
+                    {{ $transferNeedsApproval && $disposalNeedsApproval ? 'Transfers and disposals require' : ($transferNeedsApproval ? 'Transfers require' : 'Disposals require') }}
+                    Administrator approval before taking effect.
+                </span>
             </p>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 @if ($transferNeedsApproval)
-                    <a href="{{ $transferRequestsUrl }}" class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100">
+                    <a href="{{ $transferRequestsUrl }}" class="inline-flex h-7 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100">
                         Transfer requests
                         @if ($pendingTransferCount > 0)
                             <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
@@ -67,7 +242,7 @@
                     </a>
                 @endif
                 @if ($disposalNeedsApproval)
-                    <a href="{{ $disposalRequestsUrl }}?status=all" class="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100">
+                    <a href="{{ $disposalRequestsUrl }}?status=all" class="inline-flex h-7 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100">
                         Disposal requests
                         @if ($pendingDisposalCount > 0)
                             <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingDisposalCount }}</span>
@@ -78,209 +253,293 @@
         </div>
     @endif
 
-    @php
-        $deployedExportPdfUrl = request()->is('admin/*')
-            ? '/admin/inventory/deployed/export-pdf'
-            : '/maintenance/equipment/deployed/export-pdf';
-    @endphp
-    <div class="flex flex-wrap items-center justify-end gap-2">
-        @if (! $transferNeedsApproval && $pendingTransferCount > 0)
-            <a href="{{ $transferRequestsUrl }}" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                <i data-lucide="shield-check" class="h-4 w-4"></i>
-                Transfer requests
-                <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingTransferCount }}</span>
-            </a>
-        @endif
-        @if (! $disposalNeedsApproval && $pendingDisposalCount > 0)
-            <a href="{{ $disposalRequestsUrl }}" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-                Disposal approvals
-                <span class="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $pendingDisposalCount }}</span>
-            </a>
-        @endif
-        <button
-            type="button"
-            id="deployedDisposeSelectedBtn"
-            onclick="openDeployedBatchDispose()"
-            disabled
-            data-pur-tip-title="Dispose selected"
-            data-pur-tip="Move selected Defective or Damaged units into Equipment Disposal."
-            data-pur-tip-accent="#fb7185"
-            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 transition disabled:cursor-not-allowed enabled:border-[#e32626] enabled:bg-[#e32626] enabled:text-white enabled:hover:bg-red-700"
-        >
-            <i data-lucide="archive-x" class="h-4 w-4"></i>
-            Dispose selected
-            <span id="deployedDisposeSelectedCount" class="hidden rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#e32626]">0</span>
-        </button>
-        <button
-            type="button"
-            id="deployedTransferSelectedBtn"
-            onclick="openDeployedBatchTransfer()"
-            disabled
-            data-pur-tip-title="Transfer selected"
-            data-pur-tip="Move selected deployed units to another room"
-            data-pur-tip-accent="#38bdf8"
-            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 transition disabled:cursor-not-allowed enabled:border-sky-200 enabled:bg-sky-50 enabled:text-sky-800 enabled:hover:bg-sky-100"
-        >
-            <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
-            Transfer selected
-            <span id="deployedSelectedCount" class="hidden rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold text-white">0</span>
-        </button>
-        <button
-            type="button"
-            id="deployedTransferAllBtn"
-            onclick="openDeployedTransferAll()"
-            @if (empty($deployedTransferIds ?? [])) disabled @endif
-            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-            <i data-lucide="boxes" class="h-4 w-4"></i>
-            Transfer all
-            @if (! empty($deployedTransferIds ?? []))
-                <span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">{{ number_format(count($deployedTransferIds)) }}</span>
-            @endif
-        </button>
-    </div>
-
     @if (($onLoanOffCampus ?? 0) > 0)
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-sky-300 bg-sky-50 px-4 py-3.5 text-sm text-sky-900 shadow-sm shadow-sky-100/80">
-            <i data-lucide="hand-helping" class="h-5 w-5 shrink-0 text-sky-700"></i>
-            <span class="min-w-0 flex-1 font-medium leading-snug">
-                {{ $onLoanOffCampus }} borrowed {{ $onLoanOffCampus === 1 ? 'equipment is' : 'equipments are' }} off campus and not listed here. Returns go to Inventory.
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs text-sky-900">
+            <i data-lucide="hand-helping" class="h-4 w-4 shrink-0 text-sky-700"></i>
+            <span class="min-w-0 flex-1 font-medium">
+                {{ $onLoanOffCampus }} borrowed {{ $onLoanOffCampus === 1 ? 'item is' : 'items are' }} off campus and not listed here.
             </span>
-            <a href="{{ $deployedUrl }}?status=Borrowed" class="shrink-0 font-semibold underline-offset-2 hover:underline">View borrowed equipment</a>
+            <a href="{{ $deployedUrl }}?status=Borrowed" class="shrink-0 font-semibold text-sky-800 hover:underline">View borrowed</a>
             @if (! empty($borrowingUrl))
-                <a href="{{ $borrowingUrl }}" class="shrink-0 font-semibold underline-offset-2 hover:underline">Open Borrowing</a>
+                <a href="{{ $borrowingUrl }}" class="shrink-0 font-semibold text-sky-800 hover:underline">Open Borrowing</a>
             @endif
         </div>
     @endif
 
-    <div class="pur-card">
-        <div class="border-b border-gray-100 px-5 py-5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <h2 class="text-base font-semibold text-gray-950">Deployed equipment</h2>
-                    <div
-                        class="inline-flex w-fit items-center gap-2
-                            rounded-lg border border-slate-200
-                            bg-slate-50 px-3 py-2
-                            text-xs font-medium text-slate-500"
-                    >
-                        <i data-lucide="package" class="h-3.5 w-3.5"></i>
-                        {{ number_format($equipmentTotal) }} total
-                    </div>
-                </div>
-                <a
-                    href="{{ $deployedExportPdfUrl }}?{{ http_build_query(request()->only(['search', 'room', 'category', 'department', 'status', 'on_floor', 'include_storage'])) }}"
-                    class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                    data-pur-tip-title="Export PDF"
-                    data-pur-tip="Download the current deployed equipment list as a PDF"
-                    data-pur-tip-accent="#64748b"
-                >
-                    <i data-lucide="file-down" class="h-4 w-4"></i>
-                    Export PDF
-                </a>
-            </div>
-
+    {{-- DEPLOYED EQUIPMENT TABLE CARD (matching All Equipment) --}}
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div class="border-b border-slate-200 bg-white px-4 py-2.5">
             @if (! empty($attentionFocus))
-                <div class="mt-4">
+                <div class="mb-2.5">
                     @include('partials.attention-focus-chip', ['focus' => $attentionFocus, 'total' => $equipmentTotal])
                 </div>
             @endif
 
-            <form data-auto-filter
+            <form
+                id="deployedFilterForm"
                 method="GET"
                 action="{{ $deployedUrl }}"
-                class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center"
+                class="space-y-2"
             >
-                <div class="relative min-w-0 flex-1">
-                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
-                    </svg>
-                    <input
-                        type="search"
-                        name="search"
-                        value="{{ $filters['search'] }}"
-                        placeholder="Search name, tag, serial, room..."
-                        class="box-border h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm leading-none text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                {{-- COMPACT SINGLE-ROW TOOLBAR (Search + Status + Filters toggle) --}}
+                <div class="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+                    <div class="relative min-w-[200px] flex-1">
+                        <i
+                            data-lucide="search"
+                            class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                        ></i>
+                        <input
+                            type="search"
+                            name="search"
+                            value="{{ $filters['search'] }}"
+                            placeholder="Search name, tag, serial, room…"
+                            class="h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
+                        >
+                    </div>
+
+                    <div class="relative w-full sm:w-44 lg:shrink-0">
+                        <i
+                            data-lucide="list-filter"
+                            class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                        ></i>
+                        <select
+                            name="status"
+                            aria-label="Filter by status"
+                            onchange="this.form.submit()"
+                            class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-8 pr-8 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                        >
+                            <option value="">All Status</option>
+                            @foreach (['Active', 'Borrowed', 'Under Maintenance', 'For Replacement', 'Replaced'] as $status)
+                                <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $status }}</option>
+                            @endforeach
+                        </select>
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                        ></i>
+                    </div>
+
+                    <button
+                        type="button"
+                        id="deployedSecondaryFiltersBtn"
+                        onclick="toggleDeployedSecondaryFilters()"
+                        aria-expanded="false"
+                        aria-controls="deployedSecondaryFiltersPanel"
+                        class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition {{ $secondaryFilterCount > 0 ? 'border-blue-200 bg-blue-50/70 text-[#0025cc] hover:bg-blue-50' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}"
                     >
+                        <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+                        <span>Filters</span>
+                        @if ($secondaryFilterCount > 0)
+                            <span class="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#0025cc] px-1 text-[10px] font-bold leading-none text-white">{{ $secondaryFilterCount }}</span>
+                        @endif
+                    </button>
                 </div>
 
-                <select name="room" class="{{ $selectClass }}">
-                    <option value="">All rooms</option>
-                    @foreach ($rooms as $room)
-                        <option value="{{ $room->room_id }}" @selected((string) $filters['room'] === (string) $room->room_id)>
-                            {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
-                        </option>
-                    @endforeach
-                </select>
-
-                <select name="category" class="{{ $selectClass }}">
-                    <option value="">All classifications</option>
-                    @foreach ($categories as $category)
-                        <option value="{{ $category->equipment_category_id }}" @selected((string) $filters['category'] === (string) $category->equipment_category_id)>
-                            {{ $category->equipment_category_name }}
-                        </option>
-                    @endforeach
-                </select>
-
-                @if (($transferDepartments ?? collect())->isNotEmpty())
-                    <select name="department" class="{{ $selectClass }}" title="Office the equipment is charged to">
-                        <option value="">All departments</option>
-                        @foreach ($transferDepartments as $department)
-                            <option value="{{ $department->department_id }}" @selected((string) ($filters['department'] ?? '') === (string) $department->department_id)>
-                                {{ $department->department_name }}
-                            </option>
-                        @endforeach
-                    </select>
-                @endif
-
-                <select name="status" class="{{ $selectClass }}">
-                    <option value="">All status</option>
-                    @foreach (['Active', 'Borrowed', 'Under Maintenance', 'For Replacement', 'Replaced'] as $status)
-                        <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $status }}</option>
-                    @endforeach
-                </select>
-
-                <button
-                    type="submit"
-                    class="box-border inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-[13px] font-semibold leading-none text-white transition hover:bg-blue-800"
+                {{-- COMPACT COLLAPSIBLE FILTER DRAWER --}}
+                <div
+                    id="deployedSecondaryFiltersPanel"
+                    class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3"
                 >
-                    <i data-lucide="filter" class="h-4 w-4 shrink-0"></i>
-                    Apply
-                </button>
+                    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 {{ ($transferDepartments ?? collect())->isNotEmpty() ? 'lg:grid-cols-3' : 'lg:grid-cols-2' }}">
+                        <div>
+                            <label for="deployedFilterRoom" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                Location / Room
+                            </label>
+                            <div class="relative">
+                                <select
+                                    id="deployedFilterRoom"
+                                    name="room"
+                                    data-searchable="1"
+                                    data-search-placeholder="Search room…"
+                                    class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                >
+                                    <option value="">All Rooms</option>
+                                    @foreach ($rooms as $room)
+                                        <option value="{{ $room->room_id }}" @selected((string) $filters['room'] === (string) $room->room_id)>
+                                            {{ \App\Support\RoomCategories::isStorageType($room->room_type ?? null) ? 'Storage · '.$room->room_name : $room->room_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                            </div>
+                        </div>
 
+                        <div>
+                            <label for="deployedFilterCategory" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                Classification
+                            </label>
+                            <div class="relative">
+                                <select
+                                    id="deployedFilterCategory"
+                                    name="category"
+                                    data-searchable="1"
+                                    data-search-placeholder="Search classification…"
+                                    class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                >
+                                    <option value="">All Classifications</option>
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->equipment_category_id }}" @selected((string) $filters['category'] === (string) $category->equipment_category_id)>
+                                            {{ $category->equipment_category_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                            </div>
+                        </div>
+
+                        @if (($transferDepartments ?? collect())->isNotEmpty())
+                            <div>
+                                <label for="deployedFilterDepartment" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                    Department
+                                </label>
+                                <div class="relative">
+                                    <select
+                                        id="deployedFilterDepartment"
+                                        name="department"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search department…"
+                                        class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                    >
+                                        <option value="">All Departments</option>
+                                        @foreach ($transferDepartments as $department)
+                                            <option value="{{ $department->department_id }}" @selected((string) ($filters['department'] ?? '') === (string) $department->department_id)>
+                                                {{ $department->department_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="mt-2.5 flex items-center justify-end gap-2 border-t border-slate-200/80 pt-2.5">
+                        @if ($hasFilters)
+                            <a
+                                href="{{ $deployedUrl }}"
+                                class="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200/60 hover:text-slate-900"
+                            >
+                                <i data-lucide="rotate-ccw" class="h-3 w-3"></i>
+                                <span>Reset</span>
+                            </a>
+                        @endif
+                        <button
+                            type="submit"
+                            class="inline-flex h-8 items-center rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-blue-800"
+                        >
+                            Apply filters
+                        </button>
+                    </div>
+                </div>
+
+                {{-- ACTIVE FILTER CHIPS --}}
                 @if ($hasFilters)
-                    <a
-                        href="{{ $deployedUrl }}"
-                        class="box-border inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-medium leading-none text-gray-600 transition hover:bg-gray-50"
-                    >
-                        Clear
-                    </a>
+                    <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                        <span class="font-medium text-slate-400">Active:</span>
+                        @if ($hasActiveSearch)
+                            <a
+                                href="{{ request()->fullUrlWithQuery(['search' => null, 'page' => null]) }}"
+                                class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                            >
+                                <span>Search: "{{ \Illuminate\Support\Str::limit($filters['search'], 24) }}"</span>
+                                <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                            </a>
+                        @endif
+                        @if ($hasActiveStatus)
+                            <a
+                                href="{{ request()->fullUrlWithQuery(['status' => null, 'page' => null]) }}"
+                                class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                            >
+                                <span>Status: {{ $filters['status'] }}</span>
+                                <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                            </a>
+                        @endif
+                        @if ($selectedRoomName)
+                            <a
+                                href="{{ request()->fullUrlWithQuery(['room' => null, 'page' => null]) }}"
+                                class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                            >
+                                <span>Room: {{ $selectedRoomName }}</span>
+                                <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                            </a>
+                        @endif
+                        @if ($selectedCategoryName)
+                            <a
+                                href="{{ request()->fullUrlWithQuery(['category' => null, 'page' => null]) }}"
+                                class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                            >
+                                <span>Classification: {{ $selectedCategoryName }}</span>
+                                <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                            </a>
+                        @endif
+                        @if ($selectedDepartmentName)
+                            <a
+                                href="{{ request()->fullUrlWithQuery(['department' => null, 'page' => null]) }}"
+                                class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                            >
+                                <span>Department: {{ $selectedDepartmentName }}</span>
+                                <i data-lucide="x" class="h-3 w-3 text-slate-400"></i>
+                            </a>
+                        @endif
+                    </div>
                 @endif
             </form>
         </div>
 
+        {{-- CONTEXTUAL SELECTION BAR (shown only when rows are checked) --}}
+        <div
+            id="deployedSelectionBar"
+            class="hidden flex-wrap items-center justify-between gap-2 border-b border-blue-100 bg-blue-50/70 px-4 py-2 text-xs text-slate-700"
+        >
+            <span class="font-semibold text-slate-900">
+                <span id="deployedSelectionSummary">0</span> selected
+            </span>
+            <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                    type="button"
+                    id="deployedQuickTransferBtn"
+                    onclick="openDeployedBatchTransfer()"
+                    disabled
+                    class="inline-flex h-7 items-center gap-1.5 rounded-md border border-sky-200 bg-white px-2.5 text-xs font-semibold text-sky-800 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                    <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
+                    <span>Transfer selected</span>
+                </button>
+                <button
+                    type="button"
+                    id="deployedQuickDisposeBtn"
+                    onclick="openDeployedBatchDispose()"
+                    disabled
+                    class="inline-flex h-7 items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                    <i data-lucide="archive-x" class="h-3.5 w-3.5"></i>
+                    <span>Dispose selected</span>
+                </button>
+            </div>
+        </div>
+
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[1000px] text-sm">
-                <thead class="bg-gray-50/70">
-                    <tr class="border-b border-gray-100">
-                        <th class="w-10 py-3 pl-5 pr-0">
+            <table class="w-full text-left">
+                <thead class="border-b border-slate-200 bg-slate-50/80">
+                    <tr>
+                        <th class="w-10 px-3 py-2 text-center">
                             <input
                                 type="checkbox"
                                 id="deployedSelectAll"
-                                class="h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
+                                class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
                                 aria-label="Select every unit on this page"
                             >
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Equipment</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Location</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Department</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Condition</th>
-                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                        <th class="px-5 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
+                        <th class="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Equipment</th>
+                        <th class="px-3.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Location</th>
+                        <th class="px-3.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Assigned To</th>
+                        <th class="px-3.5 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500">Condition</th>
+                        <th class="px-3.5 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                        <th class="px-3.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Deployed</th>
+                        <th class="w-32 px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody class="divide-y divide-slate-100 bg-white">
                     @forelse ($equipment as $item)
                         @php
                             $isBulk = ($item->equipment_tracking_mode ?? 'Individual') === 'Bulk';
@@ -301,13 +560,15 @@
                                 && ! $item->open_loan
                                 && ! $item->transfer_pending
                                 && ! $item->disposal_pending;
+                            $deployedAt = $item->last_deployed_at ?? $item->equipment_created_at ?? $item->equipment_acquired_date ?? null;
+                            $rowMenuId = 'deployedRowMenu_' . (int) $item->equipment_id . '_' . $loop->index;
                         @endphp
-                        <tr class="transition hover:bg-gray-50/70">
-                            <td class="py-4 pl-5 pr-0">
+                        <tr class="align-middle transition-colors duration-150 hover:bg-slate-50/80">
+                            <td class="px-3 py-3 text-center align-middle">
                                 @if ($canTransferRow || $canDisposeRow || $canMarkReplacedRow)
                                     <input
                                         type="checkbox"
-                                        class="deployed-unit-checkbox h-4 w-4 rounded border-gray-300 text-[#0025cc] focus:ring-[#0025cc]"
+                                        class="deployed-unit-checkbox h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
                                         value="{{ $item->equipment_id }}"
                                         data-label="{{ $unitLabel }}"
                                         data-name="{{ $item->equipment_name }}"
@@ -319,174 +580,263 @@
                                         aria-label="Select {{ $unitLabel }}"
                                     >
                                 @elseif ($item->transfer_pending)
-                                    <input type="checkbox" disabled class="h-4 w-4 cursor-not-allowed rounded border-gray-200 bg-gray-100" aria-label="{{ $unitLabel }} is awaiting transfer approval">
+                                    <input type="checkbox" disabled class="h-4 w-4 cursor-not-allowed rounded border-slate-200 opacity-40" aria-label="{{ $unitLabel }} is awaiting transfer approval" title="Awaiting transfer approval">
                                 @else
-                                    <input type="checkbox" disabled class="h-4 w-4 cursor-not-allowed rounded border-gray-200 bg-gray-100" title="{{ $item->transfer_lock }}" aria-label="{{ $item->transfer_lock }}">
+                                    <input type="checkbox" disabled class="h-4 w-4 cursor-not-allowed rounded border-slate-200 opacity-40" title="{{ $item->transfer_lock }}" aria-label="{{ $item->transfer_lock }}">
                                 @endif
                             </td>
-                            <td class="px-5 py-4">
-                                <p class="text-base font-semibold text-slate-900">{{ $item->equipment_name }}</p>
-                                <p class="mt-0.5 text-xs text-gray-500">{{ $item->equipment_asset_tag ?: 'No asset tag' }}</p>
-                                <p class="mt-0.5 text-xs text-gray-400">
-                                    {{ $item->equipment_category_name ?: 'Uncategorized' }}
-                                    ·
-                                    @if ($isBulk)
-                                        Qty {{ number_format((int) $item->equipment_quantity) }}
-                                    @else
-                                        Serial {{ $item->equipment_serial_number ?: 'No serial' }}
-                                    @endif
-                                </p>
-                            </td>
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-2">
-                                    <p class="text-gray-800">{{ $item->room_name ?: 'No room' }}</p>
-                                    @if ($inStorage)
-                                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Storage</span>
-                                    @endif
+
+                            <td class="px-4 py-3 align-middle">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-slate-200/80">
+                                        @if (filled($item->equipment_image ?? null))
+                                            <button
+                                                type="button"
+                                                onclick="event.stopPropagation(); openEquipmentPhotoViewer({{ json_encode($eqImageUrl($item->equipment_image)) }}, {{ json_encode($item->equipment_name) }})"
+                                                class="group relative h-full w-full"
+                                                aria-label="View {{ $item->equipment_name }} photo fullscreen"
+                                            >
+                                                <img
+                                                    src="{{ $eqImageUrl($item->equipment_image) }}"
+                                                    alt="{{ $item->equipment_name }}"
+                                                    class="h-full w-full object-cover"
+                                                >
+                                                <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                                    <i data-lucide="expand" class="h-3 w-3 text-white opacity-0 transition group-hover:opacity-100"></i>
+                                                </span>
+                                            </button>
+                                        @else
+                                            <span
+                                                class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                                data-equipment-layout-icon="{{ $item->equipment_name }}"
+                                            ></span>
+                                        @endif
+                                    </div>
+                                    <div class="flex min-w-0 flex-col">
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span class="truncate text-[15px] font-semibold leading-snug text-slate-900">
+                                                {{ $item->equipment_name }}
+                                            </span>
+                                            <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ring-1 ring-inset {{ $inStorage ? 'bg-amber-50 text-amber-700 ring-amber-200/80' : 'bg-sky-50 text-sky-700 ring-sky-200/80' }}">
+                                                {{ $inStorage ? 'In storage' : 'Deployed' }}
+                                            </span>
+                                        </div>
+                                        <div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-tight text-slate-500">
+                                            <span class="font-mono text-[11px] text-slate-500">{{ $item->equipment_asset_tag ?: 'No Asset Tag' }}</span>
+                                            <span class="text-slate-300">·</span>
+                                            <span>{{ $item->equipment_category_name ?: 'Uncategorized' }}</span>
+                                            <span class="text-slate-300">·</span>
+                                            @if ($isBulk)
+                                                <span>Qty {{ number_format((int) $item->equipment_quantity) }}</span>
+                                            @else
+                                                <span>{{ $item->equipment_serial_number ? 'SN ' . $item->equipment_serial_number : 'No serial' }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </div>
+                            </td>
+
+                            <td class="px-3.5 py-3 align-middle">
+                                <p class="text-[13px] font-medium leading-tight {{ filled($item->room_name) ? 'text-slate-700' : 'text-slate-400' }}">
+                                    {{ $item->room_name ?: 'Unassigned' }}
+                                </p>
                                 @if (filled($zone) && strcasecmp((string) $zone, 'Holding') !== 0)
-                                    <p class="mt-0.5 text-xs text-gray-400">{{ $zone }}</p>
+                                    <p class="mt-0.5 text-[11px] leading-tight text-slate-400">{{ $zone }}</p>
                                 @endif
                             </td>
-                            <td class="px-5 py-4 text-gray-600">{{ ($item->unit_department_name ?? null) ?: 'No department' }}</td>
-                            <td class="px-5 py-4">
-                                <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium {{ $conditionClass($item->equipment_condition_status) }}">
+
+                            <td class="px-3.5 py-3 align-middle">
+                                @php
+                                    $custodianName = $item->active_assignment['name'] ?? null;
+                                    $custodianUrl = $item->active_assignment['person_url'] ?? null;
+                                    $deptName = $item->unit_department_name ?? null;
+                                @endphp
+                                @if (filled($custodianName))
+                                    @if (filled($custodianUrl))
+                                        <a href="{{ $custodianUrl }}" class="inline-flex items-center gap-1.5 text-[13px] font-medium leading-tight text-slate-800 transition hover:text-[#0025cc] hover:underline">
+                                            <i data-lucide="user-round-check" class="h-3.5 w-3.5 shrink-0 text-teal-600"></i>
+                                            <span class="truncate">{{ $custodianName }}</span>
+                                        </a>
+                                    @else
+                                        <p class="inline-flex items-center gap-1.5 text-[13px] font-medium leading-tight text-slate-800">
+                                            <i data-lucide="user-round-check" class="h-3.5 w-3.5 shrink-0 text-teal-600"></i>
+                                            <span class="truncate">{{ $custodianName }}</span>
+                                        </p>
+                                    @endif
+                                    @if (filled($deptName))
+                                        <p class="mt-0.5 text-[11px] leading-tight text-slate-500">{{ $deptName }}</p>
+                                    @endif
+                                @elseif (filled($deptName))
+                                    <p class="text-[13px] font-medium leading-tight text-slate-700">{{ $deptName }}</p>
+                                @else
+                                    <span class="text-xs text-slate-400">—</span>
+                                @endif
+                            </td>
+
+                            <td class="px-3.5 py-3 text-center align-middle">
+                                <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $conditionClass($item->equipment_condition_status) }}">
+                                    <span class="h-1.5 w-1.5 rounded-full {{ $conditionDotClass($item->equipment_condition_status) }}"></span>
                                     {{ $item->equipment_condition_status ?: '—' }}
                                 </span>
                             </td>
-                            <td class="px-5 py-4">
-                                <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium {{ $statusClass($item->equipment_inventory_status) }}">
+
+                            <td class="px-3.5 py-3 text-center align-middle">
+                                <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $statusClass($item->equipment_inventory_status) }}">
+                                    <span class="h-1.5 w-1.5 rounded-full {{ $statusDotClass($item->equipment_inventory_status) }}"></span>
                                     {{ $item->equipment_inventory_status ?: '—' }}
                                 </span>
                                 @if ($item->open_loan)
-                                    <p class="mt-1 text-xs text-gray-500">
+                                    <p class="mt-0.5 text-[11px] text-slate-500">
                                         {{ $isBulk && $item->open_loan->quantity > 0 ? $item->open_loan->quantity.' borrowed · ' : '' }}{{ $item->open_loan->borrower ?: 'Borrower not recorded' }}
                                     </p>
                                     @if ($item->open_loan->due)
-                                        <p class="text-xs {{ $item->open_loan->overdue ? 'font-semibold text-rose-600' : 'text-gray-400' }}">
-                                            {{ $item->open_loan->overdue ? 'Overdue since' : 'Due' }} {{ \Illuminate\Support\Carbon::parse($item->open_loan->due)->format('M j, Y') }}
+                                        <p class="text-[11px] {{ $item->open_loan->overdue ? 'font-semibold text-rose-600' : 'text-slate-400' }}">
+                                            {{ $item->open_loan->overdue ? 'Overdue' : 'Due' }} {{ \Illuminate\Support\Carbon::parse($item->open_loan->due)->format('M j, Y') }}
                                         </p>
                                     @endif
                                 @endif
                             </td>
-                            <td class="px-5 py-4">
-                                <div class="flex items-center justify-start gap-1.5">
+
+                            <td class="whitespace-nowrap px-3.5 py-3 text-left align-middle">
+                                @if (filled($deployedAt))
+                                    @php
+                                        $deployedCarbon = \Illuminate\Support\Carbon::parse($deployedAt);
+                                    @endphp
+                                    <p class="text-[13px] font-medium leading-tight text-slate-700">{{ $deployedCarbon->format('M j, Y') }}</p>
+                                    <p class="mt-0.5 text-[11px] leading-tight text-slate-400">{{ $deployedCarbon->format('g:i A') }}</p>
+                                @else
+                                    <span class="text-xs text-slate-400">—</span>
+                                @endif
+                            </td>
+
+                            <td class="px-4 py-3 text-left align-middle">
+                                <div class="flex items-center justify-start gap-1">
                                     <button
                                         type="button"
                                         onclick='openEquipmentModal(@json(\App\Support\LayoutEquipmentPayload::fromRow($item, $eqImageUrl($item->equipment_image ?? null))))'
-                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                        data-pur-tip-title="View"
-                                        data-pur-tip="Open asset details for this unit"
-                                        aria-label="View"
-                                        title="View"
+                                        class="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+                                        aria-label="View {{ $item->equipment_name }}"
+                                        title="View details"
                                     >
-                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                        <i data-lucide="eye" class="h-3.5 w-3.5 text-slate-500"></i>
+                                        <span>View</span>
                                     </button>
-                                    @if ($item->transfer_pending)
-                                        <span
-                                            class="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-3 text-xs font-semibold text-amber-700"
-                                            data-pur-tip-title="Awaiting approval"
-                                            data-pur-tip="Transfer waiting for Administrator approval"
-                                        >
-                                            <i data-lucide="hourglass" class="h-3.5 w-3.5"></i>
-                                            Awaiting approval
-                                        </span>
-                                    @elseif ($item->disposal_pending)
-                                        <span
-                                            class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-3 text-xs font-semibold text-rose-700"
-                                            data-pur-tip-title="Disposal pending"
-                                            data-pur-tip="Disposal waiting for Administrator approval"
-                                        >
-                                            <i data-lucide="hourglass" class="h-3.5 w-3.5"></i>
-                                            Disposal pending
-                                        </span>
-                                    @elseif ($item->transfer_lock)
-                                        <span
-                                            class="inline-flex h-10 items-center justify-center rounded-lg bg-gray-100 px-3 text-gray-400"
-                                            data-pur-tip-title="Transfer locked"
-                                            data-pur-tip="{{ $item->transfer_lock }}"
-                                            aria-label="{{ $item->transfer_lock }}"
-                                        >
-                                            <i data-lucide="lock" class="h-3.5 w-3.5"></i>
-                                        </span>
-                                    @else
-                                        <button
-                                            type="button"
-                                            onclick="openDeployedTransfer(this)"
-                                            data-id="{{ $item->equipment_id }}"
-                                            data-name="{{ $item->equipment_name }}"
-                                            data-room="{{ $item->room_name }}"
-                                            data-tag="{{ $item->equipment_asset_tag }}"
-                                            data-serial="{{ $item->equipment_serial_number }}"
-                                            data-tracking="{{ $item->equipment_tracking_mode ?? 'Individual' }}"
-                                            data-qty="{{ (int) ($item->equipment_quantity ?? 1) }}"
-                                            class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-800 transition hover:bg-sky-100"
-                                            data-pur-tip-title="{{ $transferNeedsApproval ? 'Send for approval' : 'Transfer' }}"
-                                            data-pur-tip="Move this deployed unit to another room"
-                                            data-pur-tip-accent="#38bdf8"
-                                            aria-label="Transfer {{ $unitLabel }}"
-                                        >
-                                            <i data-lucide="arrow-right-left" class="h-3.5 w-3.5"></i>
-                                        </button>
-                                    @endif
+
                                     <button
                                         type="button"
-                                        onclick="openDeployedTransferLogs(this)"
-                                        data-id="{{ $item->equipment_id }}"
-                                        data-title="{{ $identifier ? $item->equipment_name.' · '.$identifier : $item->equipment_name }}"
-                                        class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-                                        data-pur-tip-title="Transfer history"
-                                        data-pur-tip="See where this unit has been moved"
-                                        aria-label="Transfer history for {{ $unitLabel }}"
+                                        onclick="toggleDeployedMenu(this, '{{ $rowMenuId }}', event)"
+                                        aria-haspopup="menu"
+                                        aria-expanded="false"
+                                        aria-label="More actions for {{ $item->equipment_name }}"
+                                        title="More actions"
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
                                     >
-                                        <i data-lucide="route" class="h-3.5 w-3.5"></i>
+                                        <i data-lucide="more-horizontal" class="h-3.5 w-3.5"></i>
                                     </button>
-                                    @if ($canMarkReplacedRow)
+
+                                    <div
+                                        id="{{ $rowMenuId }}"
+                                        data-deployed-menu
+                                        role="menu"
+                                        class="fixed z-[90] hidden w-48 rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl shadow-slate-950/10"
+                                    >
+                                        @if ($item->transfer_pending)
+                                            <a
+                                                href="{{ $transferRequestsUrl }}"
+                                                role="menuitem"
+                                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50"
+                                            >
+                                                <i data-lucide="hourglass" class="h-3.5 w-3.5"></i>
+                                                <span>Awaiting transfer approval</span>
+                                            </a>
+                                        @elseif ($item->disposal_pending)
+                                            <a
+                                                href="{{ $disposalRequestsUrl }}"
+                                                role="menuitem"
+                                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-50"
+                                            >
+                                                <i data-lucide="hourglass" class="h-3.5 w-3.5"></i>
+                                                <span>Disposal pending</span>
+                                            </a>
+                                        @elseif ($item->transfer_lock)
+                                            <div class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-400" title="{{ $item->transfer_lock }}">
+                                                <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0"></i>
+                                                <span class="truncate">{{ $item->transfer_lock }}</span>
+                                            </div>
+                                        @else
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onclick="closeDeployedMenus(); openDeployedTransfer(this)"
+                                                data-id="{{ $item->equipment_id }}"
+                                                data-name="{{ $item->equipment_name }}"
+                                                data-room="{{ $item->room_name }}"
+                                                data-tag="{{ $item->equipment_asset_tag }}"
+                                                data-serial="{{ $item->equipment_serial_number }}"
+                                                data-tracking="{{ $item->equipment_tracking_mode ?? 'Individual' }}"
+                                                data-qty="{{ (int) ($item->equipment_quantity ?? 1) }}"
+                                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                                            >
+                                                <i data-lucide="arrow-right-left" class="h-3.5 w-3.5 text-sky-600"></i>
+                                                <span>{{ $transferLabel }}</span>
+                                            </button>
+                                        @endif
+
                                         <button
                                             type="button"
-                                            onclick="openDeployedMarkReplaced(this)"
+                                            role="menuitem"
+                                            onclick="closeDeployedMenus(); openDeployedTransferLogs(this)"
                                             data-id="{{ $item->equipment_id }}"
-                                            data-label="{{ $unitLabel }}"
-                                            class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100"
-                                            data-pur-tip-title="Mark as Replaced"
-                                            data-pur-tip="No successor will be installed. Closes For Replacement. Dispose it from Equipment Disposal if the condition is Defective or Damaged."
-                                            data-pur-tip-accent="#60a5fa"
-                                            aria-label="Mark {{ $unitLabel }} as Replaced"
+                                            data-title="{{ $identifier ? $item->equipment_name.' · '.$identifier : $item->equipment_name }}"
+                                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                                         >
-                                            <i data-lucide="replace" class="h-3.5 w-3.5"></i>
+                                            <i data-lucide="route" class="h-3.5 w-3.5 text-slate-400"></i>
+                                            <span>Transfer history</span>
                                         </button>
-                                    @elseif ($canDisposeRow)
-                                        <button
-                                            type="button"
-                                            onclick="openDeployedDispose(this)"
-                                            data-id="{{ $item->equipment_id }}"
-                                            data-label="{{ $unitLabel }}"
-                                            data-room="{{ $item->room_name }}"
-                                            data-room-id="{{ (int) ($item->equipment_room_id ?? 0) }}"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#e32626] text-white transition hover:bg-red-700"
-                                            data-pur-tip-title="{{ $disposalNeedsApproval ? 'Request disposal' : 'Dispose equipment' }}"
-                                            data-pur-tip="{{ $disposalNeedsApproval ? 'Ask the Administrator to move this replaced deployed unit into Disposal' : 'Move this replaced deployed unit into Disposal' }}"
-                                            data-pur-tip-accent="#e32626"
-                                            aria-label="Dispose {{ $unitLabel }}"
-                                            title="Dispose"
-                                        >
-                                            <i data-lucide="archive-x" class="h-4 w-4"></i>
-                                        </button>
-                                    @endif
+
+                                        @if ($canMarkReplacedRow)
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onclick="closeDeployedMenus(); openDeployedMarkReplaced(this)"
+                                                data-id="{{ $item->equipment_id }}"
+                                                data-label="{{ $unitLabel }}"
+                                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-blue-700 transition hover:bg-blue-50"
+                                            >
+                                                <i data-lucide="replace" class="h-3.5 w-3.5"></i>
+                                                <span>Mark as Replaced</span>
+                                            </button>
+                                        @elseif ($canDisposeRow)
+                                            <div class="my-1 border-t border-slate-100"></div>
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                onclick="closeDeployedMenus(); openDeployedDispose(this)"
+                                                data-id="{{ $item->equipment_id }}"
+                                                data-label="{{ $unitLabel }}"
+                                                data-room="{{ $item->room_name }}"
+                                                data-room-id="{{ (int) ($item->equipment_room_id ?? 0) }}"
+                                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-rose-700 transition hover:bg-rose-50"
+                                            >
+                                                <i data-lucide="archive-x" class="h-3.5 w-3.5 text-rose-600"></i>
+                                                <span>{{ $disposalNeedsApproval ? 'Request disposal' : 'Dispose equipment' }}</span>
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-5 py-16 text-center">
-                                <p class="text-sm font-semibold text-gray-900">No deployed equipment matches your filters</p>
-                                <p class="mt-1 text-sm text-gray-500">Try another filter, or transfer from Inventory.</p>
+                            <td colspan="8" class="px-4 py-12 text-center">
+                                <p class="text-sm font-semibold text-slate-900">No deployed equipment matches your filters</p>
+                                <p class="mt-1 text-xs text-slate-500">Try another filter, or transfer items from Inventory.</p>
                                 @if ($hasFilters)
                                     <a
                                         href="{{ $deployedUrl }}"
-                                        class="mt-4 inline-flex text-sm font-semibold text-[#0025cc] hover:underline"
+                                        class="mt-3 inline-flex text-xs font-semibold text-[#0025cc] hover:underline"
                                     >
-                                        Clear filters
+                                        Reset filters
                                     </a>
                                 @endif
                             </td>
@@ -497,7 +847,7 @@
         </div>
 
         @if ($equipment->hasPages() || $equipmentTotal > 0)
-            <div class="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/40 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <p class="text-xs text-slate-500">
                     Showing <span class="font-semibold text-slate-700">{{ $equipment->firstItem() }}</span>
                     to <span class="font-semibold text-slate-700">{{ $equipment->lastItem() }}</span>
@@ -510,6 +860,8 @@
 </div>
 
 @include('maintenance-personnel.equipment.partials.equipment-asset-drawer')
+@include('layouts.partials.equipment-layout-icons')
+@include('layouts.partials.equipment-photo-viewer')
 
 {{-- Transfer one unit --}}
 <div
@@ -907,9 +1259,32 @@
     function updateDeployedSelection() {
         const boxes = deployedUnitCheckboxes();
         const selected = boxes.filter((box) => box.checked);
+        const transferableCount = deployedSelected('transferable').length;
+        const disposableCount = deployedSelected('disposable').length;
 
-        syncDeployedSelectionButton('deployedTransferSelectedBtn', 'deployedSelectedCount', deployedSelected('transferable').length);
-        syncDeployedSelectionButton('deployedDisposeSelectedBtn', 'deployedDisposeSelectedCount', deployedSelected('disposable').length);
+        syncDeployedSelectionButton('deployedTransferSelectedBtn', 'deployedSelectedCount', transferableCount);
+        syncDeployedSelectionButton('deployedDisposeSelectedBtn', 'deployedDisposeSelectedCount', disposableCount);
+
+        const quickTransfer = document.getElementById('deployedQuickTransferBtn');
+        const quickDispose = document.getElementById('deployedQuickDisposeBtn');
+        if (quickTransfer) quickTransfer.disabled = transferableCount === 0;
+        if (quickDispose) quickDispose.disabled = disposableCount === 0;
+
+        const bar = document.getElementById('deployedSelectionBar');
+        const summary = document.getElementById('deployedSelectionSummary');
+        if (summary) summary.textContent = String(selected.length);
+        if (bar) {
+            bar.classList.toggle('hidden', selected.length === 0);
+            bar.classList.toggle('flex', selected.length > 0);
+        }
+
+        const actionsBadge = document.getElementById('deployedActionsBadge');
+        if (actionsBadge) {
+            const base = Number(actionsBadge.dataset.baseCount || 0);
+            const totalBadge = base + selected.length;
+            actionsBadge.textContent = String(totalBadge);
+            actionsBadge.classList.toggle('hidden', totalBadge === 0);
+        }
 
         const selectAll = document.getElementById('deployedSelectAll');
         if (selectAll) {
@@ -1063,7 +1438,113 @@
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
-        ['deployedTransferModal', 'deployedBatchTransferModal', 'deployedTransferAllModal', 'deployedLogsModal', 'deployedDisposeModal'].forEach(closeDeployedModal);
+        closeDeployedMenus();
+        ['deployedTransferModal', 'deployedBatchTransferModal', 'deployedTransferAllModal', 'deployedLogsModal', 'deployedMarkReplacedModal', 'deployedDisposeModal'].forEach(closeDeployedModal);
     });
+
+    (function () {
+        let activeMenu = null;
+        let activeTrigger = null;
+        let menuOpenedAt = 0;
+
+        function closeDeployedMenus() {
+            document.querySelectorAll('[data-deployed-menu]').forEach(function (menu) {
+                menu.classList.add('hidden');
+            });
+            if (activeTrigger) {
+                activeTrigger.setAttribute('aria-expanded', 'false');
+            }
+            activeMenu = null;
+            activeTrigger = null;
+        }
+
+        function positionDeployedMenu(trigger, menu) {
+            if (menu.parentNode !== document.body) {
+                document.body.appendChild(menu);
+            }
+
+            menu.style.position = 'fixed';
+            menu.style.zIndex = '9999';
+            menu.style.visibility = 'hidden';
+            menu.classList.remove('hidden');
+
+            const rect = trigger.getBoundingClientRect();
+            const menuWidth = menu.offsetWidth || 200;
+            const menuHeight = menu.offsetHeight || 160;
+            const gap = 6;
+            const margin = 12;
+
+            let left = rect.right - menuWidth;
+            if (left < margin) left = Math.max(margin, rect.left);
+            if (left + menuWidth > window.innerWidth - margin) {
+                left = Math.max(margin, window.innerWidth - menuWidth - margin);
+            }
+
+            const spaceBelow = window.innerHeight - rect.bottom - margin;
+            let top = rect.bottom + gap;
+            if (spaceBelow < menuHeight && rect.top - margin > menuHeight) {
+                top = rect.top - menuHeight - gap;
+            }
+            if (top < margin) top = margin;
+
+            menu.style.left = Math.round(left) + 'px';
+            menu.style.top = Math.round(top) + 'px';
+            menu.style.visibility = '';
+        }
+
+        window.closeDeployedMenus = closeDeployedMenus;
+
+        window.toggleDeployedMenu = function (trigger, menuId, evt) {
+            if (evt && typeof evt.stopPropagation === 'function') {
+                evt.stopPropagation();
+            }
+
+            const menu = document.getElementById(menuId);
+            if (!menu || !trigger) return;
+
+            const isSame = activeMenu === menu && !menu.classList.contains('hidden');
+            closeDeployedMenus();
+            if (isSame) return;
+
+            positionDeployedMenu(trigger, menu);
+            trigger.setAttribute('aria-expanded', 'true');
+            activeMenu = menu;
+            activeTrigger = trigger;
+            menuOpenedAt = Date.now();
+
+            if (window.lucide && menu.querySelector('i[data-lucide]')) {
+                window.lucide.createIcons();
+            }
+        };
+
+        window.toggleDeployedSecondaryFilters = function () {
+            const panel = document.getElementById('deployedSecondaryFiltersPanel');
+            const btn = document.getElementById('deployedSecondaryFiltersBtn');
+            if (!panel || !btn) return;
+            const willOpen = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !willOpen);
+            btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            if (willOpen && window.lucide) {
+                window.lucide.createIcons();
+            }
+        };
+
+        document.addEventListener('click', function (event) {
+            if (!activeMenu || !activeTrigger) return;
+            if (activeMenu.contains(event.target) || activeTrigger.contains(event.target)) return;
+            closeDeployedMenus();
+        });
+
+        window.addEventListener('scroll', function (event) {
+            if (!activeMenu) return;
+            if (Date.now() - menuOpenedAt < 100) return;
+            if (event.target && activeMenu.contains(event.target)) return;
+            closeDeployedMenus();
+        }, true);
+
+        window.addEventListener('resize', function () {
+            if (activeMenu) closeDeployedMenus();
+        });
+    })();
 </script>
 @endsection

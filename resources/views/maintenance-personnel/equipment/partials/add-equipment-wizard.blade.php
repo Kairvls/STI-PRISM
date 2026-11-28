@@ -2,7 +2,9 @@
     $wizardRooms = \App\Support\EquipmentAcquisition::intakeRooms();
     $storageRooms = $storageRooms ?? $wizardRooms['storage'];
     $deployRooms = $deployRooms ?? $wizardRooms['deploy'];
-    $defaultStorageRoomId = $defaultStorageRoomId ?? optional($storageRooms->first())->room_id;
+    $defaultStorageRoom = $storageRooms->first();
+    $defaultStorageRoomId = $defaultStorageRoomId ?? optional($defaultStorageRoom)->room_id;
+    $defaultStorageRoomName = optional($defaultStorageRoom)->room_name ?: 'Storage Room';
     $acquisitionReady = $acquisitionReady ?? \App\Support\EquipmentAcquisition::ready();
     $acquisitionSuppliers = $acquisitionSuppliers ?? \App\Support\EquipmentAcquisition::supplierOptions();
     $equipmentBrands = ($equipmentBrands ?? collect())->isNotEmpty() ? $equipmentBrands : \App\Support\EquipmentBrands::options();
@@ -12,8 +14,8 @@
         : \App\Support\EquipmentCategoryTypes::options();
     $acquisitionPeople = ($acquisitionPeople ?? collect())->isNotEmpty() ? $acquisitionPeople : \App\Support\Custodians::assignable();
     $replacementCandidates = ($replacementCandidates ?? collect())->isNotEmpty() ? $replacementCandidates : \App\Support\EquipmentAcquisition::replacementCandidates();
-    $eqField = $eqField ?? 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
-    $eqLabel = $eqLabel ?? 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
+    $eqField = $eqField ?? 'h-9 w-full rounded-lg border-0 bg-slate-50 px-3 text-xs text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+    $eqLabel = $eqLabel ?? 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500';
     $wizardTitle = $wizardTitle ?? 'Add to inventory';
     $wizardErrorKeys = [
         'equipment_name', 'equipment_category_id', 'equipment_room_id', 'equipment_quantity',
@@ -29,7 +31,7 @@
         x-show="open"
         x-cloak
         x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (reviewOpen) { closeReview(); } else if (fullscreen) { fullscreen = false; } else { close(); } }"
+        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (discardPromptOpen) { discardPromptOpen = false; } else if (reviewOpen) { closeReview(); } else if (fullscreen) { fullscreen = false; } else { requestClose(); } }"
         @if ($errors->hasAny($wizardErrorKeys))
         x-init="
             open = true;
@@ -60,6 +62,7 @@
             action="/admin/inventory/store"
             method="POST"
             enctype="multipart/form-data"
+            novalidate
             @submit="prepareSubmit($event)"
             class="flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
             :class="fullscreen
@@ -79,32 +82,32 @@
                 <input type="hidden" name="equipment_purchase_cost" :value="purchaseCost || ''" :disabled="intakeBasis === 'non_procurement'">
             @endif
 
-            <div class="flex items-center justify-between px-6 pt-6">
+            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
                 <div>
-                    <h2 class="text-lg font-semibold tracking-tight text-slate-900">{{ $wizardTitle }}</h2>
+                    <h2 class="text-base font-semibold tracking-tight text-slate-900">{{ $wizardTitle }}</h2>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
                     <button
                         type="button"
                         @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
-                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                         :title="fullscreen ? 'Exit full screen' : 'Full screen'"
                         :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
                     >
                         <i :data-lucide="fullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
                     </button>
-                    <button type="button" @click="close()" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <button type="button" @click="requestClose()" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
             </div>
 
-            <ol class="mx-6 mt-4 flex flex-wrap items-center gap-x-1 gap-y-2 text-xs">
+            <ol class="mx-5 mt-3 flex flex-wrap items-center gap-x-1 gap-y-1.5 text-xs">
                 <template x-for="(wizardStep, index) in wizardSteps()" :key="wizardStep.key">
                     <li class="flex items-center gap-1">
                         <button
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold transition"
+                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
                             :class="index === currentStepIndex()
                                 ? 'bg-[#0025cc] text-white'
                                 : (index <= furthestStepIndex ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-white text-slate-400 ring-1 ring-slate-200')"
@@ -126,22 +129,36 @@
             <div
                 x-show="formError"
                 x-cloak
-                class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
+                class="mx-5 mt-3 flex items-start gap-2.5 rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700 ring-1 ring-rose-100"
             >
-                <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                <i data-lucide="circle-alert" class="mt-0.5 h-3.5 w-3.5 shrink-0"></i>
                 <p class="min-w-0 flex-1 leading-relaxed" x-text="formError"></p>
                 <button type="button" @click="formError = ''" class="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700" aria-label="Dismiss">
                     <i data-lucide="x" class="h-3.5 w-3.5"></i>
                 </button>
             </div>
 
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
+            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4" x-show="step === 1">
                 @if ($isStockPage)
                 <div class="space-y-3" x-show="page === 1">
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Procurement basis</p>
+                        </div>
+                        <div class="inline-flex rounded-lg bg-slate-200/70 p-0.5 text-[11px] font-semibold">
+                            <button
+                                type="button"
+                                @click="setIntakeBasis('receiving')"
+                                class="rounded-md px-2.5 py-1 transition"
+                                :class="intakeBasis !== 'non_procurement' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                            >Delivered RR</button>
+                            <button
+                                type="button"
+                                @click="setIntakeBasis('non_procurement')"
+                                class="rounded-md px-2.5 py-1 transition"
+                                :class="intakeBasis === 'non_procurement' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                            >Non-procurement</button>
                         </div>
                     </div>
 
@@ -560,111 +577,146 @@
                     </div>
                 </div>
 
-                <!-- <div
+                <div
                     x-show="intakeBasis !== 'non_procurement' && !rrLoading && rrLines.length === 0"
                     x-cloak
-                    class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-600 ring-1"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3.5 py-2.5 text-xs text-slate-600 ring-1"
                     :class="errors.rr ? 'ring-2 ring-rose-400' : 'ring-slate-200/80'"
                 >
-                    <div class="flex min-w-0 flex-1 items-start gap-2.5">
-                        <i data-lucide="package-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                    <div class="flex min-w-0 flex-1 items-center gap-2">
+                        <i data-lucide="package-check" class="h-4 w-4 shrink-0 text-slate-400"></i>
                         <p x-text="rrGuide.length > 0
-                            ? 'Nothing left to add: every delivered RR line above is already in inventory. New deliveries appear here after the next Receiving Report is completed.'
-                            : 'No completed Receiving Reports yet. Deliveries appear here after receiving finishes the second count on an RR.'"></p>
+                            ? 'All delivered RR lines are already in inventory.'
+                            : 'No completed Receiving Reports yet.'"></p>
                     </div>
                     <button
                         type="button"
-                        class="inline-flex h-9 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-semibold text-[#0025cc] ring-1 ring-slate-200 transition hover:bg-slate-50"
+                        class="inline-flex h-8 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-semibold text-[#0025cc] ring-1 ring-slate-200 transition hover:bg-slate-50"
                         @click="setIntakeBasis('non_procurement')"
                     >Use non-procurement intake</button>
-                </div> -->
+                </div>
                 </div>
                 @endif
                 <div x-show="page === 2" x-cloak>
-                <div x-show="!isMulti()">
+                <div x-show="!isMulti()" class="space-y-3.5">
+                {{-- Auto-filled procurement summary strip (RR / ATP / PO / Supplier / Date / Cost / Qty) --}}
                 <div
-                    class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
+                    x-show="!manualIntake() && selectedRrLine"
+                    x-cloak
+                    class="rounded-xl border border-blue-100 bg-blue-50/50 px-3.5 py-2.5"
+                >
+                    <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                        <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#0025cc]">
+                            <i data-lucide="file-check-2" class="h-3.5 w-3.5"></i>
+                            Fetched from Procurement Documents
+                        </span>
+                        <span class="text-[11px] text-slate-500" x-text="selectedRrLine?.rr_number || ''"></span>
+                    </div>
+                    <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-3 lg:grid-cols-6">
+                        <div class="min-w-0">
+                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">RR #</dt>
+                            <dd class="truncate font-mono text-[11px] font-semibold text-slate-900" x-text="selectedRrLine?.rr_number || '—'"></dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">ATP / PO #</dt>
+                            <dd class="truncate font-mono text-[11px] font-semibold text-slate-900" x-text="[selectedRrLine?.atp_number, selectedRrLine?.po_number].filter(Boolean).join(' · ') || '—'"></dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Supplier</dt>
+                            <dd class="truncate text-[11px] font-semibold text-slate-900" x-text="selectedRrLine?.supplier_name || '—'"></dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Date</dt>
+                            <dd class="truncate text-[11px] font-semibold text-slate-900" x-text="purchaseDate || selectedRrLine?.rr_date || '—'"></dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Unit Cost</dt>
+                            <dd class="truncate text-[11px] font-semibold text-slate-900" x-text="formatPeso(purchaseCost)"></dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Available Qty</dt>
+                            <dd class="truncate text-[11px] font-semibold text-[#0025cc]" x-text="quantity + ' pcs'"></dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <div
+                    class="rounded-xl bg-slate-50/80 px-3.5 py-2.5 ring-1 ring-slate-200/80"
                     x-show="!needsItemStep()"
                     x-cloak
                 >
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo (optional)</p>
-                    <div class="mt-3 flex items-center gap-4">
+                    <div class="flex items-center gap-3">
                         <button
                             type="button"
                             x-show="imagePreview"
                             x-cloak
                             @click="openEquipmentPhotoViewer(imagePreview, name || 'Equipment photo')"
-                            class="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                            class="group relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-slate-200/80"
                             aria-label="View equipment photo fullscreen"
                         >
                             <img :src="imagePreview" alt="Equipment photo preview" class="h-full w-full object-cover">
                             <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
-                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
+                                <i data-lucide="expand" class="h-3.5 w-3.5 text-white opacity-0 transition group-hover:opacity-100"></i>
                             </span>
                         </button>
                         <div
                             x-show="!imagePreview"
-                            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-slate-200/80"
                         >
                             <span
-                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                class="inline-flex h-6 w-6 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
                                 x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
                             ></span>
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-slate-900">Add equipment photo</p>
-                            <p class="mt-0.5 text-xs text-slate-400">JPG, PNG, WebP, or GIF. Max 5 MB.</p>
-                            <p x-show="imagePreview" x-cloak class="mt-0.5 text-xs text-slate-500">Click the photo to view it full screen.</p>
-                            <div class="mt-2 flex flex-wrap items-center gap-2">
-                                <label class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
-                                    Choose image
-                                    <input
-                                        type="file"
-                                        :name="needsItemStep() ? null : 'equipment_image'"
-                                        accept="image/jpeg,image/png,image/webp,image/gif"
-                                        class="sr-only"
-                                        x-ref="imageInput"
-                                        :disabled="needsItemStep()"
-                                        @change="onImageChange($event)"
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-800">Equipment photo</p>
+                                    <p x-show="errors.image" x-cloak class="mt-0.5 text-xs font-medium text-rose-600" x-text="errors.image"></p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="inline-flex h-8 cursor-pointer items-center rounded-lg bg-white px-2.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
+                                        Choose image
+                                        <input
+                                            type="file"
+                                            :name="needsItemStep() ? null : 'equipment_image'"
+                                            accept="image/jpeg,image/png,image/webp,image/gif"
+                                            class="sr-only"
+                                            x-ref="imageInput"
+                                            :disabled="needsItemStep()"
+                                            @change="onImageChange($event)"
+                                        >
+                                    </label>
+                                    <button
+                                        type="button"
+                                        x-show="imagePreview"
+                                        x-cloak
+                                        @click="clearImage()"
+                                        class="inline-flex h-8 items-center rounded-lg px-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                                     >
-                                </label>
-                                <button
-                                    type="button"
-                                    x-show="imagePreview"
-                                    x-cloak
-                                    @click="clearImage()"
-                                    class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
-                                >
-                                    Remove
-                                </button>
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
-                            <p x-show="errors.image" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="errors.image"></p>
                         </div>
                     </div>
                 </div>
-                <div
-                    class="mb-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
-                    x-show="needsItemStep()"
-                    x-cloak
-                >
-                    Qty is more than 1 with Individual tracking — asset tag, serial number, and photos are entered per unit on the <span class="font-semibold text-slate-800">Units</span> step.
-                </div>
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What it is</p>
+                <div class="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                    <div class="space-y-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Identity &amp; specifications</p>
                         <div>
                             <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
                             <div
                                 x-show="!manualIntake()"
                                 x-cloak
-                                class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
                                 title="The equipment name comes from the Receiving Report line."
                             >
-                                <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
                                     <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
                                     <span class="truncate" x-text="name || '—'"></span>
                                 </span>
-                                <span class="shrink-0 text-[11px] text-slate-400">From the RR</span>
+                                <span class="shrink-0 text-[10px] font-medium text-slate-400">From RR</span>
                             </div>
                             <input type="hidden" name="equipment_name" :value="name" :disabled="manualIntake()">
                             <select
@@ -722,20 +774,20 @@
                             <p x-show="errors.category" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.category"></p>
                             <!--<p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name list. You can still choose another category.</p>-->
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-2 gap-3" x-show="!needsItemStep()" x-cloak>
                             <div>
                                 <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name <span class="text-red-500">*</span></label>
                                 <div
                                     x-show="!manualIntake() && _brandFromRis"
                                     x-cloak
-                                    class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                    class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
                                     title="The brand was recorded on the RIS for this equipment."
                                 >
-                                    <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                    <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
                                         <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
                                         <span class="truncate" x-text="brand || '—'"></span>
                                     </span>
-                                    <span class="shrink-0 text-[11px] text-slate-400">From the RIS</span>
+                                    <span class="shrink-0 text-[10px] font-medium text-slate-400">From RIS</span>
                                 </div>
                                 <input type="hidden" name="equipment_brand_name" :value="brand" :disabled="manualIntake() || !_brandFromRis">
                                 <select
@@ -785,7 +837,7 @@
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3" x-show="!needsItemStep()" x-cloak>
-                            <div>
+                            <div class="relative group">
                                 <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag <span class="text-red-500">*</span></label>
                                 <input
                                     id="add_equipment_asset_tag"
@@ -795,9 +847,16 @@
                                     maxlength="{{ \App\Support\InputLimits::ASSET_TAG }}"
                                     @input="assetTagManual = true; clearError('asset_tag')"
                                     :class="errors.asset_tag ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    class="{{ $eqField }}"
+                                    class="{{ $eqField }} font-mono"
                                 />
-                                <p x-show="errors.asset_tag" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.asset_tag"></p>
+                                <div
+                                    x-show="String(assetTag || '').trim() !== ''"
+                                    x-cloak
+                                    class="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-1.5 max-w-[min(24rem,80vw)] whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100"
+                                >
+                                    <span x-text="assetTag"></span>
+                                </div>
+                                <p x-show="errors.asset_tag" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.asset_tag"></p>
                             </div>
                             <div>
                                 <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number <span class="text-red-500">*</span></label>
@@ -815,26 +874,30 @@
                                 <p x-show="errors.serial" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.serial"></p>
                             </div>
                         </div>
-                        <div
-                            x-show="needsItemStep()"
-                            x-cloak
-                            class="rounded-xl bg-white px-3.5 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
-                        >
-                            <p class="font-medium text-slate-800">Asset tag &amp; serial number</p>
-                            <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                                Hidden here because each of the <span class="font-semibold text-slate-700" x-text="quantity"></span> units needs its own values on the <span class="font-semibold text-slate-700">Units</span> step.
-                            </p>
-                        </div>
                     </div>
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                    <div class="space-y-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Quantity, condition &amp; tracking</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty <span class="text-red-500">*</span></label>
+                                <div
+                                    x-show="!manualIntake()"
+                                    x-cloak
+                                    class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
+                                    title="Quantity is fetched from the selected Receiving Report line."
+                                >
+                                    <span class="inline-flex items-center gap-1.5 font-semibold text-slate-900">
+                                        <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                        <span x-text="quantity"></span>
+                                    </span>
+                                    <span class="shrink-0 text-[10px] font-medium text-slate-400">From RR</span>
+                                </div>
                                 <input
                                     id="add_equipment_quantity"
                                     type="number"
-                                    name="equipment_quantity"
+                                    x-show="manualIntake()"
+                                    x-cloak
+                                    :disabled="!manualIntake()"
                                     data-qty
                                     min="1"
                                     :max="maxAddQty()"
@@ -843,20 +906,20 @@
                                     class="{{ $eqField }}"
                                     :class="errors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                 />
-                                <p x-show="errors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.quantity"></p>
+                                <p x-show="errors.quantity" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.quantity"></p>
                             </div>
                             <div>
                                 <label for="add_equipment_condition" class="{{ $eqLabel }}">Condition</label>
                                 <div
                                     x-show="!manualIntake()"
-                                    class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                    class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
                                     title="New deliveries from a Receiving Report are always recorded as Good."
                                 >
-                                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-900">
+                                    <span class="inline-flex items-center gap-1.5 font-semibold text-slate-900">
                                         <i data-lucide="lock" class="h-3.5 w-3.5 text-slate-400"></i>
                                         Good
                                     </span>
-                                    <span class="text-[11px] text-slate-400">New delivery</span>
+                                    <span class="text-[10px] font-medium text-slate-400">New delivery</span>
                                 </div>
                                 <select
                                     id="add_equipment_condition"
@@ -876,23 +939,369 @@
                         </div>
                         <div>
                             <label class="{{ $eqLabel }}">Tracking mode</label>
-                            <div class="flex h-11 rounded-xl bg-slate-100 p-1">
+                            <div class="flex h-9 rounded-lg bg-slate-100 p-1">
                                 <button
                                     type="button"
                                     @click="if (categoryLocksIndividual()) return; tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()"
-                                    class="flex-1 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+                                    class="flex-1 rounded-md text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                                     :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
                                     :disabled="categoryLocksIndividual()"
                                 >Bulk</button>
-                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
+                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange(); if (needsItemStep()) buildItems()" class="flex-1 rounded-md text-xs font-semibold transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                             </div>
-                            <p class="mt-1.5 text-xs text-slate-400" x-text="categoryLocksIndividual()
-                                ? 'Computer Equipment must be Individual (one identity per unit). Use quantity to add many.'
-                                : (tracking === 'Bulk'
-                                    ? 'One quantity pile — you can later transfer part of it to other rooms.'
-                                    : 'Creates separate trackable assets (asset tag, serial, QR per unit).')"></p>
                         </div>
                     </div>
+                </div>
+
+                {{-- PER-UNIT HORIZONTAL CAROUSEL (Single RR / Manual item with Qty > 1 Individual) --}}
+                <div x-show="needsItemStep()" x-cloak class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                            <template x-for="(item, uIdx) in items" :key="'unit-pill-' + uIdx">
+                                <button
+                                    type="button"
+                                    @click="goToUnitSlide(uIdx)"
+                                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition"
+                                    :class="activeUnitIndex === uIdx
+                                        ? 'bg-[#0025cc] text-white shadow-sm'
+                                        : (isUnitComplete(item)
+                                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 hover:bg-emerald-100'
+                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200')"
+                                >
+                                    <span
+                                        class="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                                        :class="activeUnitIndex === uIdx
+                                            ? 'bg-white/20 text-white'
+                                            : (isUnitComplete(item) ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600')"
+                                        x-text="isUnitComplete(item) ? '✓' : (uIdx + 1)"
+                                    ></span>
+                                    <span x-text="'Unit ' + (uIdx + 1)"></span>
+                                </button>
+                            </template>
+                        </div>
+
+                        <div class="flex shrink-0 items-center gap-1.5">
+                            <button
+                                type="button"
+                                @click="copyActiveUnitToAll()"
+                                class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-[#0025cc] transition hover:bg-blue-50"
+                                title="Copy Model, Warranty, Lifespan, and Placement from this unit to all units"
+                            >
+                                <i data-lucide="copy" class="h-3 w-3"></i>
+                                <span>Copy to all</span>
+                            </button>
+                            <span class="text-[11px] font-semibold text-slate-500" x-text="'Unit ' + (activeUnitIndex + 1) + ' of ' + items.length"></span>
+                            <button
+                                type="button"
+                                @click="prevUnitSlide()"
+                                :disabled="activeUnitIndex <= 0"
+                                class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Previous unit"
+                            >
+                                <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                                <span>Prev</span>
+                            </button>
+                            <button
+                                type="button"
+                                @click="nextUnitSlide()"
+                                :disabled="activeUnitIndex >= items.length - 1"
+                                class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Next unit"
+                            >
+                                <span>Next</span>
+                                <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <template x-for="(item, index) in items" :key="'unit-slide-' + index">
+                        <div
+                            x-show="activeUnitIndex === index"
+                            class="rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80"
+                        >
+                            <input type="hidden" :name="'items[' + index + '][equipment_purchase_date]'" :value="item.equipment_purchase_date || purchaseDate || ''">
+                            <input type="hidden" :name="'items[' + index + '][equipment_purchase_cost]'" :value="item.equipment_purchase_cost !== '' && item.equipment_purchase_cost != null ? item.equipment_purchase_cost : (purchaseCost ?? '')">
+                            <input type="hidden" :name="'items[' + index + '][equipment_condition_status]'" :value="manualIntake() ? (item.equipment_condition_status || condition || 'Good') : 'Good'">
+
+                            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500" x-text="'Unit ' + (index + 1) + ' of ' + items.length"></p>
+                                    <span class="text-slate-300">·</span>
+                                    <span class="text-xs font-semibold text-slate-900" x-text="name || 'Equipment'"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        x-show="item._imagePreview"
+                                        x-cloak
+                                        @click="openEquipmentPhotoViewer(item._imagePreview, (item.equipment_asset_tag || name || 'Equipment') + ' photo')"
+                                        class="h-7 w-7 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
+                                    >
+                                        <img :src="item._imagePreview" alt="" class="h-full w-full object-cover">
+                                    </button>
+                                    <label class="inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                                        <i data-lucide="image" class="h-3 w-3 text-slate-400"></i>
+                                        <span x-text="item._imagePreview ? 'Change photo' : 'Photo'"></span>
+                                        <input
+                                            type="file"
+                                            :name="'items[' + index + '][equipment_image]'"
+                                            :data-item-image-index="index"
+                                            accept="image/jpeg,image/png,image/webp,image/gif"
+                                            class="sr-only"
+                                            @change="onItemImageChange(index, $event)"
+                                        >
+                                    </label>
+                                    <button
+                                        type="button"
+                                        x-show="item._imagePreview"
+                                        x-cloak
+                                        @click="clearItemImage(index)"
+                                        class="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                    >×</button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                                {{-- Left: Unit Identity --}}
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="{{ $eqLabel }}">Brand name <span class="text-rose-500">*</span></label>
+                                            <div
+                                                x-show="!manualIntake() && _brandFromRis"
+                                                x-cloak
+                                                class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
+                                            >
+                                                <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
+                                                    <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                    <span class="truncate" x-text="item.equipment_brand_name || brand || '—'"></span>
+                                                </span>
+                                                <span class="shrink-0 text-[10px] font-medium text-slate-400">From RIS</span>
+                                            </div>
+                                            <input
+                                                type="hidden"
+                                                :name="'items[' + index + '][equipment_brand_name]'"
+                                                :value="item.equipment_brand_name || brand"
+                                                :disabled="manualIntake() || !_brandFromRis"
+                                            >
+                                            <select
+                                                x-show="manualIntake() || !_brandFromRis"
+                                                x-cloak
+                                                :name="(manualIntake() || !_brandFromRis) ? ('items[' + index + '][equipment_brand_name]') : null"
+                                                :disabled="!manualIntake() && _brandFromRis"
+                                                :id="'carousel_unit_brand_' + index"
+                                                x-model="item.equipment_brand_name"
+                                                data-searchable="1"
+                                                data-search-placeholder="Search brands…"
+                                                data-add-url="{{ url('/admin/inventory/brands/quick-add') }}"
+                                                data-add-label="Add new brand"
+                                                data-add-placeholder="New brand name"
+                                                @change="item._brandManual = true; syncCatalogOption($el, item.equipment_brand_name)"
+                                                class="{{ $eqField }}"
+                                            >
+                                                <option value="">Select brand</option>
+                                                @foreach ($equipmentBrands as $brandOption)
+                                                    <option value="{{ $brandOption }}">{{ $brandOption }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="{{ $eqLabel }}" :for="'carousel_unit_model_' + index">Model <span class="text-rose-500">*</span></label>
+                                            <select
+                                                :id="'carousel_unit_model_' + index"
+                                                :name="'items[' + index + '][equipment_model]'"
+                                                x-model="item.equipment_model"
+                                                data-searchable="1"
+                                                data-search-placeholder="Search models…"
+                                                data-add-url="{{ url('/admin/inventory/models/quick-add') }}"
+                                                data-add-label="Add new model"
+                                                data-add-placeholder="New model name"
+                                                @change="syncCatalogOption($el, item.equipment_model)"
+                                                class="{{ $eqField }}"
+                                            >
+                                                <option value="">Select model</option>
+                                                @foreach ($equipmentModels as $modelOption)
+                                                    <option value="{{ $modelOption }}">{{ $modelOption }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="group relative">
+                                            <label class="{{ $eqLabel }}" :for="'carousel_unit_tag_' + index">Asset tag <span class="text-rose-500">*</span></label>
+                                            <input
+                                                :id="'carousel_unit_tag_' + index"
+                                                type="text"
+                                                :name="'items[' + index + '][equipment_asset_tag]'"
+                                                x-model="item.equipment_asset_tag"
+                                                maxlength="{{ \App\Support\InputLimits::ASSET_TAG }}"
+                                                @input="item._tagManual = true"
+                                                class="{{ $eqField }} font-mono"
+                                            />
+                                            <div
+                                                x-show="String(item.equipment_asset_tag || '').trim() !== ''"
+                                                x-cloak
+                                                class="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-1.5 max-w-[min(24rem,80vw)] whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100"
+                                            >
+                                                <span x-text="item.equipment_asset_tag"></span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="{{ $eqLabel }}" :for="'carousel_unit_serial_' + index">Serial number <span class="text-rose-500">*</span></label>
+                                            <input
+                                                :id="'carousel_unit_serial_' + index"
+                                                type="text"
+                                                :name="'items[' + index + '][equipment_serial_number]'"
+                                                x-model="item.equipment_serial_number"
+                                                maxlength="{{ \App\Support\InputLimits::SERIAL }}"
+                                                placeholder="Enter serial number"
+                                                @input="item.equipment_serial_number = String(item.equipment_serial_number || '').slice(0, {{ \App\Support\InputLimits::SERIAL }})"
+                                                class="{{ $eqField }}"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 items-end gap-3">
+                                        <div>
+                                            <label class="{{ $eqLabel }} whitespace-nowrap" :for="'carousel_unit_warranty_' + index">Warranty expiration <span class="text-rose-500">*</span></label>
+                                            <input
+                                                :id="'carousel_unit_warranty_' + index"
+                                                type="date"
+                                                :name="'items[' + index + '][equipment_warranty_expiration]'"
+                                                x-model="item.equipment_warranty_expiration"
+                                                @input="item._warrantyManual = true"
+                                                class="{{ $eqField }}"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="{{ $eqLabel }} whitespace-nowrap" :for="'carousel_unit_life_' + index">Lifespan (years) <span class="text-rose-500">*</span></label>
+                                            <input
+                                                :id="'carousel_unit_life_' + index"
+                                                type="number"
+                                                min="1"
+                                                max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                                step="1"
+                                                :name="'items[' + index + '][equipment_useful_life_years]'"
+                                                x-model="item.equipment_useful_life_years"
+                                                @input="item._lifeManual = true; item.equipment_useful_life_years = clampUsefulLife(item.equipment_useful_life_years)"
+                                                placeholder="5"
+                                                class="{{ $eqField }}"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- Right: Unit Placement, Accountability & Replacement --}}
+                                @if ($isStockPage)
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="{{ $eqLabel }}">Placement</label>
+                                            <div class="flex h-9 rounded-lg bg-slate-100 p-1">
+                                                <button
+                                                    type="button"
+                                                    @click="setItemPlacement(item, 'storage')"
+                                                    class="flex-1 rounded-md text-xs font-semibold transition"
+                                                    :class="item.placement !== 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                                                >Keep in storage</button>
+                                                <button
+                                                    type="button"
+                                                    @click="setItemPlacement(item, 'deploy')"
+                                                    class="flex-1 rounded-md text-xs font-semibold transition"
+                                                    :class="item.placement === 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                                                >Deploy to a room now</button>
+                                            </div>
+                                        </div>
+
+                                        <div x-show="item.placement !== 'deploy'">
+                                            <label class="{{ $eqLabel }}">Storage room</label>
+                                            <div class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80">
+                                                <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
+                                                    <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                    <span class="truncate" x-text="defaultStorageRoomName"></span>
+                                                </span>
+                                                <span class="shrink-0 text-[10px] font-medium text-slate-400">Auto</span>
+                                            </div>
+                                        </div>
+
+                                        <div x-show="item.placement === 'deploy'" x-cloak>
+                                            <label class="{{ $eqLabel }}" :for="'carousel_unit_deploy_room_' + index">Deploy to <span class="text-rose-500">*</span></label>
+                                            <select
+                                                :id="'carousel_unit_deploy_room_' + index"
+                                                :name="item.placement === 'deploy' ? ('items[' + index + '][deploy_room_id]') : null"
+                                                :disabled="item.placement !== 'deploy'"
+                                                x-model="item.deploy_room_id"
+                                                @change="onItemRoomChange(item); syncItemReplacementSelection(item)"
+                                                data-searchable="1"
+                                                data-search-placeholder="Search rooms…"
+                                                class="{{ $eqField }}"
+                                            >
+                                                <option value="">Select room</option>
+                                                @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                                    <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            <div>
+                                                <label class="{{ $eqLabel }}" :for="'carousel_unit_custodian_' + index">Accountable person</label>
+                                                <select
+                                                    :id="'carousel_unit_custodian_' + index"
+                                                    :name="item.placement === 'deploy' ? ('items[' + index + '][custodian_id]') : null"
+                                                    :disabled="item.placement !== 'deploy'"
+                                                    x-model="item.custodian_id"
+                                                    data-searchable="1"
+                                                    data-search-placeholder="Search people…"
+                                                    class="{{ $eqField }} disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <option value="">No one yet</option>
+                                                    @foreach ($acquisitionPeople as $person)
+                                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}{{ $person->custodian_department ? ' · '.$person->custodian_department : '' }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            <div x-effect="syncItemReplacementSelection(item)">
+                                                <label class="{{ $eqLabel }}" :for="'carousel_unit_replaces_' + index">Replaces equipment</label>
+                                                <div
+                                                    x-show="item.placement !== 'deploy' || itemReplacementCandidates(item).length === 0"
+                                                    x-cloak
+                                                    class="flex h-9 cursor-not-allowed items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 text-xs opacity-60 ring-1 ring-slate-200/80"
+                                                >
+                                                    <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-500">
+                                                        <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                        <span class="truncate">Not a replacement</span>
+                                                    </span>
+                                                    <span class="shrink-0 text-[10px] font-medium text-slate-400" x-text="item.placement !== 'deploy' ? 'In storage' : (!item.deploy_room_id ? 'Select room' : 'None found')"></span>
+                                                </div>
+                                                <select
+                                                    :id="'carousel_unit_replaces_' + index"
+                                                    x-show="item.placement === 'deploy' && itemReplacementCandidates(item).length > 0"
+                                                    x-cloak
+                                                    :name="(item.placement === 'deploy' && itemReplacementCandidates(item).length > 0) ? ('items[' + index + '][replaces_equipment_id]') : null"
+                                                    :disabled="item.placement !== 'deploy' || itemReplacementCandidates(item).length === 0"
+                                                    x-model="item.replaces_equipment_id"
+                                                    data-searchable="1"
+                                                    data-search-placeholder="Search matching equipment…"
+                                                    class="{{ $eqField }}"
+                                                >
+                                                    <option value="">Not a replacement</option>
+                                                    <template x-for="candidate in itemReplacementCandidates(item)" :key="'unit-rep-' + index + '-' + candidate.equipment_id">
+                                                        <option
+                                                            :value="String(candidate.equipment_id)"
+                                                            :selected="String(item.replaces_equipment_id || '') === String(candidate.equipment_id)"
+                                                            x-text="[candidate.room_name, candidate.equipment_name, candidate.equipment_asset_tag].filter(Boolean).join(' · ')"
+                                                        ></option>
+                                                    </template>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </template>
                 </div>
                 @if ($isStockPage)
                     <button
@@ -900,58 +1309,127 @@
                         x-show="manualIntake()"
                         x-cloak
                         @click="startManualMulti()"
-                        class="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-[#0025cc] transition hover:border-[#0025cc]/50 hover:bg-[#0025cc]/5"
+                        class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-[#0025cc] transition hover:border-[#0025cc]/50 hover:bg-[#0025cc]/5"
                     >
-                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        <i data-lucide="plus" class="h-3.5 w-3.5"></i>
                         Add another equipment
-                        <span class="font-normal text-slate-400">(e.g. monitor + mouse + keyboard at once)</span>
                     </button>
                 @endif
                 </div>
 
-                <div x-show="isMulti()" x-cloak class="space-y-4">
-                    <div x-show="isMultiManual()" class="flex items-start gap-2.5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80">
-                        <i data-lucide="layers" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
-                        <p>
-                            Adding <span class="font-semibold text-slate-900" x-text="multiLines.length + ' different equipment'"></span>
-                            in one go. They share the acquisition details from the first step; set cost, warranty, and lifespan per item on the next page.
-                        </p>
-                    </div>
-                    <div x-show="isMultiRr()" class="flex items-start gap-2.5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80">
-                        <i data-lucide="package-check" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
-                        <p>
-                            <span class="font-semibold text-slate-900" x-text="multiLines.length + ' items'"></span>
-                            fetched from
-                            <span class="font-semibold text-slate-900" x-text="selectedRrCount + ' RR' + (selectedRrCount === 1 ? '' : 's')"></span>.
-                            <span class="font-semibold text-slate-900">Classification is required</span> for every line (Express cannot skip it).
-                            Names come from the RR. A brand recorded on the RIS stays as recorded. Model is required for every line.
-                            Condition is <span class="font-semibold text-slate-900">Good</span> because these are new deliveries.
-                        </p>
-                    </div>
-                    <div
-                        x-show="canExpressResume()"
-                        x-cloak
-                        class="flex flex-col gap-2 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                        <p class="text-xs leading-relaxed text-slate-700">
-                            All classifications are set. Run <span class="font-semibold text-slate-900">Express stock</span> to finish without the remaining steps.
-                        </p>
+                <div x-show="isMulti()" x-cloak class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                            <span class="inline-flex items-center gap-1.5 font-semibold text-slate-900">
+                                <i :data-lucide="isMultiRr() ? 'package-check' : 'layers'" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span x-text="multiLines.length + ' items'"></span>
+                            </span>
+                            <template x-if="isMultiRr()">
+                                <span class="text-slate-400">·</span>
+                            </template>
+                            <span x-show="isMultiRr()" class="text-slate-500" x-text="selectedRrCount + ' RR' + (selectedRrCount === 1 ? '' : 's')"></span>
+                            <span x-show="isMultiRr()" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">
+                                <i data-lucide="lock" class="h-2.5 w-2.5"></i>
+                                Good · new
+                            </span>
+                        </div>
                         <button
                             type="button"
+                            x-show="canExpressResume()"
+                            x-cloak
                             @click="expressStock()"
                             :disabled="submitting"
-                            class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                            class="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#0025cc] px-2.5 text-[11px] font-semibold text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
                         >
-                            <i data-lucide="zap" class="h-4 w-4"></i>
-                            <span x-text="submitting ? 'Stocking…' : 'Express stock now'"></span>
+                            <i data-lucide="zap" class="h-3 w-3"></i>
+                            <span x-text="submitting ? 'Stocking…' : 'Express stock'"></span>
                         </button>
                     </div>
+
+                    {{-- Carousel navigation bar (clickable item pills + Previous / Next) --}}
+                    <div
+                        x-show="multiLines.length > 1"
+                        x-cloak
+                        class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
+                    >
+                        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                            <template x-for="(row, idx) in multiLines" :key="'pill-' + row.id">
+                                <button
+                                    type="button"
+                                    @click="goToMultiSlide(idx)"
+                                    class="inline-flex max-w-[13rem] items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition"
+                                    :class="activeMultiIndex === idx
+                                        ? (multiRowHasError(row)
+                                            ? 'bg-rose-600 text-white shadow-sm'
+                                            : 'bg-[#0025cc] text-white shadow-sm')
+                                        : (multiRowHasError(row)
+                                            ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100'
+                                            : (isMultiRowComplete(row)
+                                                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 hover:bg-emerald-100'
+                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'))"
+                                >
+                                    <span
+                                        class="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                                        :class="activeMultiIndex === idx
+                                            ? 'bg-white/20 text-white'
+                                            : (multiRowHasError(row)
+                                                ? 'bg-rose-500 text-white'
+                                                : (isMultiRowComplete(row)
+                                                    ? 'bg-emerald-500 text-white'
+                                                    : 'bg-slate-200 text-slate-600'))"
+                                        x-text="multiRowHasError(row) ? '!' : (isMultiRowComplete(row) ? '✓' : (idx + 1))"
+                                    ></span>
+                                    <span class="truncate" x-text="row.name || row.article || ('Item ' + (idx + 1))"></span>
+                                    <span
+                                        class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
+                                        :class="activeMultiIndex === idx
+                                            ? 'bg-white/20 text-white'
+                                            : (multiRowHasError(row)
+                                                ? 'bg-rose-200/70 text-rose-800'
+                                                : (isMultiRowComplete(row)
+                                                    ? 'bg-emerald-200/70 text-emerald-800'
+                                                    : 'bg-slate-200/80 text-slate-600'))"
+                                        x-text="'×' + (Number(row.quantity) || 1)"
+                                    ></span>
+                                </button>
+                            </template>
+                        </div>
+
+                        <div class="flex shrink-0 items-center gap-1.5">
+                            <span class="text-[11px] font-semibold text-slate-500" x-text="'Item ' + (activeMultiIndex + 1) + ' of ' + multiLines.length"></span>
+                            <button
+                                type="button"
+                                @click="prevMultiSlide()"
+                                :disabled="activeMultiIndex <= 0"
+                                class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Previous item"
+                            >
+                                <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                                <span>Prev</span>
+                            </button>
+                            <button
+                                type="button"
+                                @click="nextMultiSlide()"
+                                :disabled="activeMultiIndex >= multiLines.length - 1"
+                                class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Next item"
+                            >
+                                <span>Next</span>
+                                <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     <template x-for="(row, index) in multiLines" :key="'multi-' + row.id">
-                        <div class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                            <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
-                                <div class="min-w-0">
+                        <div
+                            x-show="activeMultiIndex === index"
+                            class="rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80"
+                        >
+                            <div class="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex min-w-0 flex-wrap items-center gap-2">
                                     <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400" x-text="'Item ' + (index + 1) + ' of ' + multiLines.length"></p>
-                                    <p x-show="row.source" class="mt-0.5 truncate text-[11px] text-slate-500" x-text="row.source"></p>
+                                    <span x-show="row.source" class="text-slate-300">·</span>
+                                    <p x-show="row.source" class="truncate text-[11px] text-slate-500" x-text="row.source"></p>
                                 </div>
                                 <span x-show="isMultiRr()" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
                                     <i data-lucide="lock" class="h-3 w-3"></i>
@@ -984,14 +1462,14 @@
                                     <div
                                         x-show="isMultiRr()"
                                         x-cloak
-                                        class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                        class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
                                         title="The equipment name comes from the Receiving Report line."
                                     >
-                                        <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                        <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
                                             <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
                                             <span class="truncate" x-text="row.name || row.article || '—'"></span>
                                         </span>
-                                        <span class="shrink-0 text-[11px] text-slate-400">From the RR</span>
+                                        <span class="shrink-0 text-[10px] font-medium text-slate-400">From RR</span>
                                     </div>
                                     <select
                                         :id="'multi_name_' + row.id"
@@ -1053,14 +1531,14 @@
                                         <div
                                             x-show="isMultiRr() && row._brandFromRis"
                                             x-cloak
-                                            class="flex h-11 items-center justify-between gap-2 rounded-xl bg-white px-3 text-sm ring-1 ring-slate-200/80"
+                                            class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
                                             title="The brand was recorded on the RIS for this equipment."
                                         >
-                                            <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-900">
+                                            <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
                                                 <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
                                                 <span class="truncate" x-text="row.brand || '—'"></span>
                                             </span>
-                                            <span class="shrink-0 text-[11px] text-slate-400">From the RIS</span>
+                                            <span class="shrink-0 text-[10px] font-medium text-slate-400">From RIS</span>
                                         </div>
                                         <select
                                             :id="'multi_brand_' + row.id"
@@ -1090,7 +1568,6 @@
                                         </label>
                                         <select
                                             :id="'multi_model_' + row.id"
-                                            name="equipment_model"
                                             x-model="row.model"
                                             data-searchable="1"
                                             data-search-placeholder="Search models…"
@@ -1112,10 +1589,24 @@
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="{{ $eqLabel }}" :for="'multi_qty_' + row.id">Qty <span class="text-red-500">*</span></label>
+                                        <div
+                                            x-show="isMultiRr()"
+                                            x-cloak
+                                            class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80"
+                                            title="Quantity is fetched from the selected Receiving Report line."
+                                        >
+                                            <span class="inline-flex items-center gap-1.5 font-semibold text-slate-900">
+                                                <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                <span x-text="row.quantity"></span>
+                                            </span>
+                                            <span class="shrink-0 text-[10px] font-medium text-slate-400">From RR</span>
+                                        </div>
                                         <input
                                             :id="'multi_qty_' + row.id"
                                             type="number"
-                                            name="equipment_quantity"
+                                            x-show="isMultiManual()"
+                                            x-cloak
+                                            :disabled="!isMultiManual()"
                                             data-qty
                                             min="1"
                                             :max="Math.min(row.max || {{ \App\Support\InputLimits::QTY }}, {{ \App\Support\InputLimits::QTY }})"
@@ -1124,20 +1615,20 @@
                                             class="{{ $eqField }}"
                                             :class="multiError(row, 'quantity') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                         />
-                                        <p x-show="multiError(row, 'quantity')" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="multiError(row, 'quantity')"></p>
-                                        <p x-show="!multiError(row, 'quantity')" class="mt-1.5 text-[11px] text-slate-400" x-text="isMultiManual() ? 'Up to ' + row.max : (row.max + ' left on this RR line')"></p>
+                                        <p x-show="multiError(row, 'quantity')" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="multiError(row, 'quantity')"></p>
+                                        <p x-show="!multiError(row, 'quantity') && isMultiManual()" class="mt-1 text-[11px] text-slate-400" x-text="'Up to ' + row.max"></p>
                                     </div>
                                     <div>
                                         <p class="{{ $eqLabel }}">Tracking</p>
-                                        <div class="flex h-11 rounded-xl bg-slate-100 p-1">
+                                        <div class="flex h-9 rounded-lg bg-slate-100 p-1">
                                             <button
                                                 type="button"
                                                 @click="if (!rowAllowsBulk(row)) return; row.tracking = 'Bulk'"
-                                                class="flex-1 rounded-lg text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+                                                class="flex-1 rounded-md text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                                                 :class="row.tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
                                                 :disabled="!rowAllowsBulk(row)"
                                             >Bulk</button>
-                                            <button type="button" @click="row.tracking = 'Individual'; syncPieces(row)" class="flex-1 rounded-lg text-xs font-medium transition" :class="row.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
+                                            <button type="button" @click="row.tracking = 'Individual'; syncPieces(row)" class="flex-1 rounded-md text-xs font-semibold transition" :class="row.tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                                         </div>
                                     </div>
                                 </div>
@@ -1248,11 +1739,111 @@
                                     </div>
                                 </div>
                             </div>
-                            <p class="mt-3 text-[11px] text-slate-400" x-text="!rowAllowsBulk(row)
-                                ? 'Computer Equipment must be Individual (one identity per unit). Use quantity to add many.'
-                                : (row.tracking === 'Bulk'
-                                    ? 'One quantity pile — you can later transfer part of it to other rooms.'
-                                    : ('Creates ' + (Number(row.quantity) || 0) + ' separate assets, each with its own asset tag and QR.'))"></p>
+                            @if ($isStockPage)
+                                <div class="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200/70 pt-3 sm:grid-cols-2">
+                                    {{-- Per-item Placement & Room --}}
+                                    <div class="space-y-2.5">
+                                        <div>
+                                            <label class="{{ $eqLabel }}">Placement</label>
+                                            <div class="flex h-8 rounded-lg bg-slate-100 p-0.5">
+                                                <button
+                                                    type="button"
+                                                    @click="setRowPlacement(row, 'storage')"
+                                                    class="flex-1 rounded-md text-[11px] font-semibold transition"
+                                                    :class="row.placement !== 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                                                >Keep in storage</button>
+                                                <button
+                                                    type="button"
+                                                    @click="setRowPlacement(row, 'deploy')"
+                                                    class="flex-1 rounded-md text-[11px] font-semibold transition"
+                                                    :class="row.placement === 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+                                                >Deploy to a room now</button>
+                                            </div>
+                                        </div>
+                                        <div x-show="row.placement !== 'deploy'">
+                                            <label class="{{ $eqLabel }}">Storage room</label>
+                                            <div class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80">
+                                                <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
+                                                    <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                    <span class="truncate" x-text="defaultStorageRoomName"></span>
+                                                </span>
+                                                <span class="shrink-0 text-[10px] font-medium text-slate-400">Auto</span>
+                                            </div>
+                                        </div>
+                                        <div x-show="row.placement === 'deploy'" x-cloak>
+                                            <label class="{{ $eqLabel }}" :for="'multi_deploy_room_' + row.id">Deploy to <span class="text-rose-500">*</span></label>
+                                            <select
+                                                :id="'multi_deploy_room_' + row.id"
+                                                x-model="row.deployRoom"
+                                                @change="clearMultiError(row, 'deploy'); syncRowReplacementSelection(row)"
+                                                data-searchable="1"
+                                                data-search-placeholder="Search rooms…"
+                                                class="{{ $eqField }}"
+                                                :class="multiError(row, 'deploy') ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                            >
+                                                <option value="">Select room</option>
+                                                @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                                    <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <p x-show="multiError(row, 'deploy')" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="multiError(row, 'deploy')"></p>
+                                        </div>
+                                    </div>
+
+                                    {{-- Per-item Accountability & Replacement --}}
+                                    <div class="space-y-2.5">
+                                        <div>
+                                            <label class="{{ $eqLabel }}" :for="'multi_custodian_' + row.id">Accountable person</label>
+                                            <select
+                                                :id="'multi_custodian_' + row.id"
+                                                x-model="row.custodianId"
+                                                :disabled="!rowCanAssign(row)"
+                                                data-searchable="1"
+                                                data-search-placeholder="Search people…"
+                                                class="{{ $eqField }} disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                <option value="">No one yet</option>
+                                                @foreach ($acquisitionPeople as $person)
+                                                    <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}{{ $person->custodian_department ? ' · '.$person->custodian_department : '' }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div x-effect="syncRowReplacementSelection(row)">
+                                            <label class="{{ $eqLabel }}" :for="'multi_replaces_' + row.id">Replaces equipment</label>
+                                            <div
+                                                x-show="row.placement !== 'deploy' || rowReplacementCandidates(row).length === 0"
+                                                x-cloak
+                                                class="flex h-9 cursor-not-allowed items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 text-xs opacity-60 ring-1 ring-slate-200/80"
+                                            >
+                                                <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-500">
+                                                    <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                    <span class="truncate">Not a replacement</span>
+                                                </span>
+                                                <span class="shrink-0 text-[10px] font-medium text-slate-400" x-text="row.placement !== 'deploy' ? 'In storage' : (!row.deployRoom ? 'Select room' : 'None found')"></span>
+                                            </div>
+                                            <select
+                                                :id="'multi_replaces_' + row.id"
+                                                x-show="row.placement === 'deploy' && rowReplacementCandidates(row).length > 0"
+                                                x-cloak
+                                                :disabled="row.placement !== 'deploy' || rowReplacementCandidates(row).length === 0"
+                                                x-model="row.replacesId"
+                                                data-searchable="1"
+                                                data-search-placeholder="Search matching equipment…"
+                                                class="{{ $eqField }}"
+                                            >
+                                                <option value="">Not a replacement</option>
+                                                <template x-for="candidate in rowReplacementCandidates(row)" :key="'rep-' + row.id + '-' + candidate.equipment_id">
+                                                    <option
+                                                        :value="String(candidate.equipment_id)"
+                                                        :selected="String(row.replacesId || '') === String(candidate.equipment_id)"
+                                                        x-text="[candidate.room_name, candidate.equipment_name, candidate.equipment_asset_tag].filter(Boolean).join(' · ')"
+                                                    ></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </template>
                     <button
@@ -1267,401 +1858,402 @@
                 </div>
                 </div>
 
-                <div x-show="page === 3" x-cloak class="space-y-5">
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purchase</p>
-                        <template x-if="!manualIntake()">
-                            <div class="space-y-3">
-                                <p class="text-xs text-slate-500" x-text="isMulti()
-                                    ? 'Taken from each Receiving Report line. Correct it on the RR if something is wrong.'
-                                    : 'Taken from the Receiving Report line. Correct it on the RR if something is wrong.'"></p>
-                                <div x-show="isMulti()" class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
-                                    <template x-for="row in multiLines" :key="'buy-' + row.id">
-                                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0">
-                                            <div class="min-w-0">
-                                                <p class="truncate text-sm font-medium text-slate-900" x-text="row.name || row.article"></p>
-                                                <p class="truncate text-[11px] text-slate-500" x-text="[row.rr_number, row.supplier_name].filter(Boolean).join(' · ')"></p>
+                <div x-show="page === 2 && (isMulti() || !needsItemStep())" x-cloak class="mt-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                    <div :class="isMulti() ? 'lg:col-span-2 grid grid-cols-1 gap-3.5 lg:grid-cols-2' : 'space-y-3.5'">
+                        <div x-show="manualIntake() || isMulti()" x-cloak class="space-y-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purchase</p>
+                            <template x-if="!manualIntake()">
+                                <div class="space-y-2.5">
+                                    <div x-show="isMulti()" class="overflow-hidden rounded-lg bg-white ring-1 ring-slate-200/80">
+                                        <template x-for="row in multiLines" :key="'buy-' + row.id">
+                                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                                                <div class="min-w-0">
+                                                    <p class="truncate text-xs font-semibold text-slate-900" x-text="row.name || row.article"></p>
+                                                    <p class="truncate text-[11px] text-slate-500" x-text="[row.rr_number, row.supplier_name].filter(Boolean).join(' · ')"></p>
+                                                </div>
+                                                <p class="shrink-0 text-[11px] text-slate-500">
+                                                    <span x-text="row.purchase_date || 'No date'"></span>
+                                                    <span class="mx-1 text-slate-300">·</span>
+                                                    <span class="font-semibold text-slate-900" x-text="formatPeso(row.unit_cost)"></span> each
+                                                </p>
                                             </div>
-                                            <p class="shrink-0 text-xs text-slate-500">
-                                                <span x-text="row.purchase_date || 'No date'"></span>
-                                                <span class="mx-1 text-slate-300">·</span>
-                                                <span class="font-semibold text-slate-900" x-text="formatPeso(row.unit_cost)"></span> each
-                                            </p>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="manualIntake()" class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                                <div>
+                                    <label for="add_manual_purchase_date" class="{{ $eqLabel }}" x-text="acqSource === 'donation' ? 'Donation date' : 'Purchase date'"></label>
+                                    <input
+                                        id="add_manual_purchase_date"
+                                        type="date"
+                                        name="equipment_purchase_date"
+                                        x-model="purchaseDate"
+                                        :max="todayIso()"
+                                        :disabled="!manualIntake()"
+                                        @input="clearError('purchase_date'); clearError('received_date')"
+                                        :class="errors.purchase_date ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        class="{{ $eqField }}"
+                                    />
+                                    <p x-show="errors.purchase_date" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.purchase_date"></p>
+                                </div>
+                                <div x-show="!isMultiManual()">
+                                    <label for="add_manual_purchase_cost" class="{{ $eqLabel }}">
+                                        <span x-text="acqSource === 'donation' ? 'Est. value / unit (₱)' : 'Cost / unit (₱)'"></span> <span class="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        id="add_manual_purchase_cost"
+                                        type="number"
+                                        name="equipment_purchase_cost"
+                                        x-model="purchaseCost"
+                                        :disabled="!manualIntake()"
+                                        min="0"
+                                        max="{{ \App\Support\InputLimits::COST }}"
+                                        step="0.01"
+                                        inputmode="decimal"
+                                        data-money
+                                        placeholder="0.00"
+                                        @input="clearError('purchase_cost')"
+                                        :class="errors.purchase_cost ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        class="{{ $eqField }}"
+                                    />
+                                    <p x-show="errors.purchase_cost" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.purchase_cost"></p>
+                                </div>
+                                <div>
+                                    <label for="add_received_date" class="{{ $eqLabel }}">Received on</label>
+                                    <input
+                                        id="add_received_date"
+                                        type="date"
+                                        name="equipment_acquired_date"
+                                        x-model="receivedDate"
+                                        :max="todayIso()"
+                                        :min="purchaseDate || null"
+                                        :disabled="!manualIntake()"
+                                        @input="clearError('received_date')"
+                                        :class="errors.received_date ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        class="{{ $eqField }}"
+                                    />
+                                    <p x-show="errors.received_date" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.received_date"></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Warranty &amp; lifespan</p>
+                            <div x-show="!isMulti()" class="grid grid-cols-1 items-end gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label for="add_warranty_expiration" class="{{ $eqLabel }} whitespace-nowrap">
+                                        <span>Warranty expiration</span> <span class="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        id="add_warranty_expiration"
+                                        type="date"
+                                        name="equipment_warranty_expiration"
+                                        x-model="warranty"
+                                        @input="clearError('warranty')"
+                                        :class="errors.warranty ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        class="{{ $eqField }}"
+                                    />
+                                    <p x-show="errors.warranty" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.warranty"></p>
+                                </div>
+                                <div>
+                                    <label for="add_useful_life_years" class="{{ $eqLabel }} whitespace-nowrap">
+                                        <span>Lifespan (years)</span> <span class="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        id="add_useful_life_years"
+                                        type="number"
+                                        name="equipment_useful_life_years"
+                                        min="1"
+                                        max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                        step="1"
+                                        x-model="usefulLifeYears"
+                                        placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                        @input="onUsefulLifeInput()"
+                                        :class="(errors.useful_life || isInvalidUsefulLife(usefulLifeYears)) ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        class="{{ $eqField }}"
+                                    />
+                                    <p x-show="errors.useful_life" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.useful_life"></p>
+                                    <p x-show="!errors.useful_life && isInvalidUsefulLife(usefulLifeYears)" x-cloak class="mt-1 text-xs font-medium text-rose-600">Enter a whole number from 1 to {{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}.</p>
+                                </div>
+                            </div>
+                            <div x-show="isMulti()" x-cloak class="space-y-2">
+                                <div class="overflow-hidden rounded-lg bg-white ring-1 ring-slate-200/80">
+                                    <div
+                                        class="hidden gap-2 border-b border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:grid"
+                                        :class="isMultiManual() ? 'grid-cols-[minmax(0,1fr)_6.5rem_9.5rem_5.5rem]' : 'grid-cols-[minmax(0,1fr)_9.5rem_6rem]'"
+                                    >
+                                        <span>Item</span>
+                                        <span x-show="isMultiManual()" x-text="acqSource === 'donation' ? 'Value (₱)' : 'Cost (₱)'"></span>
+                                        <span>Warranty <span class="text-rose-500">*</span></span>
+                                        <span>Lifespan <span class="text-rose-500">*</span></span>
+                                    </div>
+                                    <template x-for="row in multiLines" :key="'warranty-' + row.id">
+                                        <div
+                                            class="grid grid-cols-1 items-center gap-2 border-b border-slate-100 px-2.5 py-2 last:border-b-0"
+                                            :class="isMultiManual() ? 'sm:grid-cols-[minmax(0,1fr)_6.5rem_9.5rem_5.5rem]' : 'sm:grid-cols-[minmax(0,1fr)_9.5rem_6rem]'"
+                                        >
+                                            <div class="min-w-0">
+                                                <p class="truncate text-xs font-semibold text-slate-900" x-text="row.name || row.article || 'Unnamed item'"></p>
+                                                <p class="truncate text-[10px] text-slate-500" x-text="[row.tracking === 'Bulk' ? 'Bulk · ' + row.quantity : (row.quantity + ' units'), row.rr_number].filter(Boolean).join(' · ')"></p>
+                                            </div>
+                                            <template x-if="isMultiManual()">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="{{ \App\Support\InputLimits::COST }}"
+                                                    step="0.01"
+                                                    inputmode="decimal"
+                                                    data-money
+                                                    x-model="row.cost"
+                                                    placeholder="0.00"
+                                                    class="h-8 w-full min-w-0 rounded-md border border-slate-200 px-2 text-xs"
+                                                    :aria-label="'Cost per unit for ' + (row.name || 'item')"
+                                                />
+                                            </template>
+                                            <input
+                                                type="date"
+                                                x-model="row.warranty"
+                                                @input="clearError('warranty')"
+                                                class="h-8 w-full min-w-0 rounded-md border border-slate-200 px-2 text-xs"
+                                                :class="row.warranty ? 'text-slate-900' : 'text-slate-400'"
+                                                :aria-label="'Warranty expiration for ' + (row.name || row.article)"
+                                            />
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
+                                                step="1"
+                                                x-model="row.useful_life_years"
+                                                @input="row.useful_life_years = clampUsefulLife(row.useful_life_years); clearError('useful_life')"
+                                                placeholder="5"
+                                                class="h-8 w-full min-w-0 rounded-md border border-slate-200 px-2 text-xs"
+                                                :class="isInvalidUsefulLife(row.useful_life_years) ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                                :aria-label="'Useful lifespan in years for ' + (row.name || row.article)"
+                                            />
                                         </div>
                                     </template>
                                 </div>
-                                <dl x-show="!isMulti()" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                    <div class="rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200/80">
-                                        <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Purchase date</dt>
-                                        <dd class="mt-1 text-sm font-semibold text-slate-900" x-text="purchaseDate || '—'"></dd>
-                                    </div>
-                                    <div class="rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200/80">
-                                        <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Cost per unit</dt>
-                                        <dd class="mt-1 text-sm font-semibold text-slate-900" x-text="formatPeso(purchaseCost)"></dd>
-                                    </div>
-                                    <div class="rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200/80">
-                                        <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Supplier</dt>
-                                        <dd class="mt-1 truncate text-sm font-semibold text-slate-900" x-text="selectedRrLine?.supplier_name || '—'"></dd>
-                                    </div>
-                                </dl>
-                                <p class="text-xs text-slate-400">The date added to inventory is recorded as today when you save.</p>
-                            </div>
-                        </template>
-                        <div x-show="manualIntake()" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div>
-                                <label for="add_manual_purchase_date" class="{{ $eqLabel }}" x-text="acqSource === 'donation' ? 'Donation date' : 'Purchase date'"></label>
-                                <input
-                                    id="add_manual_purchase_date"
-                                    type="date"
-                                    name="equipment_purchase_date"
-                                    x-model="purchaseDate"
-                                    :max="todayIso()"
-                                    :disabled="!manualIntake()"
-                                    @input="clearError('purchase_date'); clearError('received_date')"
-                                    :class="errors.purchase_date ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    class="{{ $eqField }}"
-                                />
-                                <p x-show="errors.purchase_date" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.purchase_date"></p>
-                                <p x-show="!errors.purchase_date" class="mt-1.5 text-xs text-slate-400">Past dates are allowed. Future dates are not.</p>
-                            </div>
-                            <div x-show="!isMultiManual()">
-                                <label for="add_manual_purchase_cost" class="{{ $eqLabel }}">
-                                    <span x-text="acqSource === 'donation' ? 'Estimated value per unit (₱)' : 'Cost per unit (₱)'"></span> <span class="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="add_manual_purchase_cost"
-                                    type="number"
-                                    name="equipment_purchase_cost"
-                                    x-model="purchaseCost"
-                                    :disabled="!manualIntake()"
-                                    min="0"
-                                    max="{{ \App\Support\InputLimits::COST }}"
-                                    step="0.01"
-                                    inputmode="decimal"
-                                    data-money
-                                    placeholder="0.00"
-                                    @input="clearError('purchase_cost')"
-                                    :class="errors.purchase_cost ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    class="{{ $eqField }}"
-                                />
-                                <p x-show="errors.purchase_cost" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.purchase_cost"></p>
-                            </div>
-                            <div>
-                                <label for="add_received_date" class="{{ $eqLabel }}">Received on</label>
-                                <input
-                                    id="add_received_date"
-                                    type="date"
-                                    name="equipment_acquired_date"
-                                    x-model="receivedDate"
-                                    :max="todayIso()"
-                                    :min="purchaseDate || null"
-                                    :disabled="!manualIntake()"
-                                    @input="clearError('received_date')"
-                                    :class="errors.received_date ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    class="{{ $eqField }}"
-                                />
-                                <p x-show="errors.received_date" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.received_date"></p>
-                                <p x-show="!errors.received_date" class="mt-1.5 text-xs text-slate-400">When it entered campus stock. Cannot be after today or before the purchase date.</p>
+                                <p x-show="errors.warranty" x-cloak class="text-xs font-medium text-rose-600" x-text="errors.warranty"></p>
+                                <p x-show="errors.useful_life" x-cloak class="text-xs font-medium text-rose-600" x-text="errors.useful_life"></p>
                             </div>
                         </div>
                     </div>
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Warranty &amp; lifespan</p>
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div>
-                                <label for="add_warranty_expiration" class="{{ $eqLabel }}">
-                                    <span x-text="isMulti() ? 'Warranty expiration (all items)' : 'Warranty expiration'"></span> <span class="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="add_warranty_expiration"
-                                    type="date"
-                                    name="equipment_warranty_expiration"
-                                    x-model="warranty"
-                                    @input="clearError('warranty')"
-                                    :class="errors.warranty ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    class="{{ $eqField }}"
-                                />
-                                <p x-show="errors.warranty" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.warranty"></p>
-                            </div>
-                            <div>
-                                <label for="add_useful_life_years" class="{{ $eqLabel }}">
-                                    <span x-text="isMulti() ? 'Useful lifespan, years (all items)' : 'Useful lifespan (years)'"></span> <span class="text-red-500">*</span>
-                                </label>
-                                <input
-                                    id="add_useful_life_years"
-                                    type="number"
-                                    name="equipment_useful_life_years"
-                                    min="1"
-                                    max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
-                                    step="1"
-                                    x-model="usefulLifeYears"
-                                    placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
-                                    @input="onUsefulLifeInput()"
-                                    :class="(errors.useful_life || isInvalidUsefulLife(usefulLifeYears)) ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                    class="{{ $eqField }}"
-                                />
-                                <p x-show="errors.useful_life" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.useful_life"></p>
-                                <p x-show="!errors.useful_life && isInvalidUsefulLife(usefulLifeYears)" x-cloak class="mt-1.5 text-xs font-medium text-rose-600">Enter a whole number from 1 to {{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}.</p>
-                                <p x-show="!errors.useful_life && !isInvalidUsefulLife(usefulLifeYears)" class="mt-1.5 text-xs text-slate-400">1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }} years · used for replacement alerts near end of life.</p>
-                            </div>
-                        </div>
-                        <div x-show="isMulti()" x-cloak class="space-y-2">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="text-xs text-slate-500">Per item. Leave a field blank to use the value for all items above.</p>
-                                <button type="button" @click="applyWarrantyToAll()" class="text-xs font-semibold text-[#0025cc] hover:underline">Copy to every item</button>
-                            </div>
-                            <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
-                                <div
-                                    class="hidden gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid"
-                                    :class="isMultiManual() ? 'grid-cols-[minmax(0,1fr)_8rem_11rem_7rem]' : 'grid-cols-[minmax(0,1fr)_11rem_8rem]'"
-                                >
-                                    <span>Item</span>
-                                    <span x-show="isMultiManual()" x-text="acqSource === 'donation' ? 'Value / unit (₱)' : 'Cost / unit (₱)'"></span>
-                                    <span>Warranty expiration</span>
-                                    <span>Lifespan (yrs)</span>
-                                </div>
-                                <template x-for="row in multiLines" :key="'warranty-' + row.id">
-                                    <div
-                                        class="grid grid-cols-1 items-center gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0 sm:gap-3"
-                                        :class="isMultiManual() ? 'sm:grid-cols-[minmax(0,1fr)_8rem_11rem_7rem]' : 'sm:grid-cols-[minmax(0,1fr)_11rem_8rem]'"
-                                    >
-                                        <div class="min-w-0">
-                                            <p class="truncate text-sm font-medium text-slate-900" x-text="row.name || row.article || 'Unnamed item'"></p>
-                                            <p class="truncate text-[11px] text-slate-500" x-text="[row.tracking === 'Bulk' ? 'Bulk · ' + row.quantity : (row.quantity + ' units'), row.rr_number].filter(Boolean).join(' · ')"></p>
-                                        </div>
-                                        <template x-if="isMultiManual()">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="{{ \App\Support\InputLimits::COST }}"
-                                                step="0.01"
-                                                inputmode="decimal"
-                                                data-money
-                                                x-model="row.cost"
-                                                placeholder="0.00"
-                                                class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                                :aria-label="'Cost per unit for ' + (row.name || 'item')"
-                                            />
-                                        </template>
-                                        <input
-                                            type="date"
-                                            x-model="row.warranty"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                            :class="row.warranty ? 'text-slate-900' : 'text-slate-400'"
-                                            :aria-label="'Warranty expiration for ' + (row.name || row.article)"
-                                        />
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
-                                            step="1"
-                                            x-model="row.useful_life_years"
-                                            @input="row.useful_life_years = clampUsefulLife(row.useful_life_years)"
-                                            :placeholder="usefulLifeYears ? String(usefulLifeYears) : '5'"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                            :class="isInvalidUsefulLife(row.useful_life_years) ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                            :aria-label="'Useful lifespan in years for ' + (row.name || row.article)"
-                                        />
-                                    </div>
-                                </template>
-                            </div>
-                            <p class="text-xs text-slate-400" x-text="isMultiManual()
-                                ? 'Warranty, lifespan, and cost are required. These defaults apply to every unit; change a unit on the Units step only if it differs.'
-                                : 'Warranty and lifespan are required. Cost stays the amount on each Receiving Report line. These defaults apply to every unit; change a unit on the Units step only if it differs.'"></p>
-                        </div>
-                    </div>
-                </div>
 
-                <div x-show="page === 4" x-cloak class="space-y-5">
-                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Where it goes</p>
-                        @if ($isStockPage)
-                            <div>
-                                <label class="{{ $eqLabel }}">After adding to inventory</label>
-                                <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                    <button type="button" @click="setPlacement('storage')" class="flex-1 rounded-lg text-sm font-medium transition" :class="placement === 'storage' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Keep in storage</button>
-                                    <button type="button" @click="setPlacement('deploy')" class="flex-1 rounded-lg text-sm font-medium transition" :class="placement === 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Deploy to a room now</button>
+                    <div x-show="!isMulti()" x-cloak class="space-y-3.5">
+                        <div class="space-y-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Placement &amp; room</p>
+                            @if ($isStockPage)
+                                <div>
+                                    <label class="{{ $eqLabel }}">After adding to inventory</label>
+                                    <div class="flex h-9 rounded-lg bg-slate-100 p-1">
+                                        <button type="button" @click="setPlacement('storage')" class="flex-1 rounded-md text-xs font-semibold transition" :class="placement === 'storage' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Keep in storage</button>
+                                        <button type="button" @click="setPlacement('deploy')" class="flex-1 rounded-md text-xs font-semibold transition" :class="placement === 'deploy' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Deploy to a room now</button>
+                                    </div>
                                 </div>
-                                <p class="mt-1.5 text-xs text-slate-400" x-text="placement === 'deploy'
-                                    ? ('Recorded in ' + (optionText('add_equipment_room') || 'the storage room') + ' first, then transferred to the room you choose.')
-                                    : 'Stays in storage until you transfer it to a classroom, lab, or office.'"></p>
+                            @endif
+                            <div x-show="placement !== 'deploy'">
+                                @if ($isStockPage)
+                                    <label class="{{ $eqLabel }}">Storage room</label>
+                                    <input type="hidden" id="add_equipment_room" name="equipment_room_id" :value="room">
+                                    <div class="flex h-9 items-center justify-between gap-2 rounded-lg bg-white px-3 text-xs ring-1 ring-slate-200/80">
+                                        <span class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-slate-900">
+                                            <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                            <span class="truncate" x-text="defaultStorageRoomName"></span>
+                                        </span>
+                                        <span class="shrink-0 text-[10px] font-medium text-slate-400">Auto</span>
+                                    </div>
+                                @else
+                                    <label for="add_equipment_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
+                                    <select
+                                        id="add_equipment_room"
+                                        name="equipment_room_id"
+                                        x-model="room"
+                                        @change="clearError('room'); syncAssetTag()"
+                                        class="{{ $eqField }}"
+                                        :class="errors.room ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    >
+                                        <option value="">Select room</option>
+                                        @foreach ($rooms as $room)
+                                            @php
+                                                $isStorageRoom = \App\Support\RoomCategories::isStorageType($room->room_type ?? null);
+                                                $roomLabel = $isStorageRoom ? 'Storage · '.$room->room_name : $room->room_name;
+                                            @endphp
+                                            <option value="{{ $room->room_id }}">{{ $roomLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
+                                <p x-show="errors.room" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.room"></p>
                             </div>
-                        @endif
-                        <div x-show="placement !== 'deploy'">
-                            <label for="add_equipment_room" class="{{ $eqLabel }}">{{ $isStockPage ? 'Storage room' : 'Room' }} <span class="text-rose-500">*</span></label>
-                            <select
-                                id="add_equipment_room"
-                                name="equipment_room_id"
-                                x-model="room"
-                                @change="clearError('room'); syncAssetTag()"
-                                class="{{ $eqField }}"
-                                :class="errors.room ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                            >
-                                <option value="">{{ $isStockPage ? 'Select storage room' : 'Select room' }}</option>
-                                @foreach (($isStockPage ? ($storageRooms ?? $rooms) : $rooms) as $room)
-                                    @php
-                                        $isStorageRoom = \App\Support\RoomCategories::isStorageType($room->room_type ?? null);
-                                        $roomLabel = $isStockPage
-                                            ? $room->room_name
-                                            : ($isStorageRoom ? 'Storage · '.$room->room_name : $room->room_name);
-                                    @endphp
-                                    <option value="{{ $room->room_id }}">{{ $roomLabel }}</option>
-                                @endforeach
-                            </select>
-                            <p x-show="errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.room"></p>
+                            @if ($isStockPage)
+                                <div x-show="placement === 'deploy'" x-cloak>
+                                    <label for="add_deploy_room" class="{{ $eqLabel }}" x-text="hasUnitsStep() ? 'Deploy to (default room)' : 'Deploy to'"></label>
+                                    <select
+                                        id="add_deploy_room"
+                                        name="deploy_room_id"
+                                        x-model="deployRoom"
+                                        @change="clearError('deploy'); syncAssetTag(); syncReplacementSelection()"
+                                        :disabled="placement !== 'deploy'"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search rooms…"
+                                        class="{{ $eqField }}"
+                                        :class="errors.deploy ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                    >
+                                        <option value="">Select room</option>
+                                        @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                            <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <p x-show="errors.deploy || errors.room" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.deploy || errors.room"></p>
+                                </div>
+                            @endif
                         </div>
                         @if ($isStockPage)
-                            <div x-show="placement === 'deploy'" x-cloak>
-                                <label for="add_deploy_room" class="{{ $eqLabel }}" x-text="hasUnitsStep() ? 'Deploy to (default room)' : 'Deploy to'"></label>
-                                <select
-                                    id="add_deploy_room"
-                                    name="deploy_room_id"
-                                    x-model="deployRoom"
-                                    @change="clearError('deploy'); syncAssetTag()"
-                                    :disabled="placement !== 'deploy'"
-                                    data-searchable="1"
-                                    data-search-placeholder="Search rooms…"
-                                    class="{{ $eqField }}"
-                                    :class="errors.deploy ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                >
-                                    <option value="">Select room</option>
-                                    @foreach (($deployRooms ?? collect()) as $deployRoomOption)
-                                        <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
-                                    @endforeach
-                                </select>
-                                <p x-show="errors.deploy || errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.deploy || errors.room"></p>
-                                <p x-show="!errors.deploy && !errors.room && hasUnitsStep()" class="mt-1.5 text-xs text-slate-400">Every unit goes here unless you pick another room for it on the Units step, so you can split the equipment across several rooms.</p>
+                            <div class="space-y-3 rounded-xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/80">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Accountability &amp; replacement</p>
+                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div :class="isMulti() ? 'sm:col-span-2' : ''">
+                                        <label for="add_custodian" class="{{ $eqLabel }}" x-text="isMulti() ? 'Accountable person (default)' : 'Accountable person'"></label>
+                                        <select
+                                            id="add_custodian"
+                                            name="custodian_id"
+                                            x-model="custodianId"
+                                            @change="clearError('custodian')"
+                                            :disabled="!canAssignPerson()"
+                                            data-searchable="1"
+                                            data-search-placeholder="Search people…"
+                                            class="{{ $eqField }}"
+                                            :class="errors.custodian ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                                        >
+                                            <option value="">No one yet</option>
+                                            @foreach ($acquisitionPeople as $person)
+                                                <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}{{ $person->custodian_department ? ' · '.$person->custodian_department : '' }}</option>
+                                            @endforeach
+                                        </select>
+                                        <p x-show="errors.custodian" x-cloak class="mt-1 text-xs font-medium text-rose-600" x-text="errors.custodian"></p>
+                                    </div>
+                                    <div x-show="!isMulti()" x-effect="syncReplacementSelection()">
+                                        <label for="add_replaces" class="{{ $eqLabel }}">Replaces equipment</label>
+                                        <div
+                                            x-show="(!stockAndLinkMode && placement !== 'deploy') || filteredReplacementCandidates().length === 0"
+                                            x-cloak
+                                            class="flex h-9 cursor-not-allowed items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 text-xs opacity-60 ring-1 ring-slate-200/80"
+                                        >
+                                            <span class="inline-flex min-w-0 items-center gap-1.5 font-medium text-slate-500">
+                                                <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                                <span class="truncate">Not a replacement</span>
+                                            </span>
+                                            <span class="shrink-0 text-[10px] font-medium text-slate-400" x-text="placement !== 'deploy' ? 'In storage' : (!deployRoom ? 'Select room' : 'None found')"></span>
+                                        </div>
+                                        <input
+                                            type="hidden"
+                                            name="replaces_equipment_id"
+                                            value=""
+                                            :disabled="(stockAndLinkMode || placement === 'deploy') && filteredReplacementCandidates().length > 0"
+                                        >
+                                        <select
+                                            id="add_replaces"
+                                            x-show="(stockAndLinkMode || placement === 'deploy') && filteredReplacementCandidates().length > 0"
+                                            x-cloak
+                                            :name="((stockAndLinkMode || placement === 'deploy') && filteredReplacementCandidates().length > 0) ? 'replaces_equipment_id' : null"
+                                            :disabled="(!stockAndLinkMode && placement !== 'deploy') || filteredReplacementCandidates().length === 0"
+                                            x-model="replacesId"
+                                            data-searchable="1"
+                                            data-search-placeholder="Search matching equipment…"
+                                            class="{{ $eqField }}"
+                                        >
+                                            <option value="">Not a replacement</option>
+                                            <template x-for="candidate in filteredReplacementCandidates()" :key="candidate.equipment_id">
+                                                <option
+                                                    :value="String(candidate.equipment_id)"
+                                                    :selected="String(replacesId) === String(candidate.equipment_id)"
+                                                    x-text="[candidate.room_name, candidate.equipment_name, candidate.equipment_asset_tag].filter(Boolean).join(' · ')"
+                                                ></option>
+                                            </template>
+                                        </select>
+                                        <p
+                                            x-show="stockAndLinkMode || replacesId"
+                                            x-cloak
+                                            class="mt-1 text-[11px] font-medium text-violet-700"
+                                        >Stock &amp; Link: tied to this replaced equipment.</p>
+                                    </div>
+                                </div>
                             </div>
                         @endif
                     </div>
-                    @if ($isStockPage)
-                        <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Accountability (optional)</p>
-                            <div>
-                                <label for="add_custodian" class="{{ $eqLabel }}" x-text="isMulti() ? 'Accountable person (default for all units)' : 'Accountable person'"></label>
-                                <select
-                                    id="add_custodian"
-                                    name="custodian_id"
-                                    x-model="custodianId"
-                                    @change="clearError('custodian')"
-                                    :disabled="!canAssignPerson()"
-                                    data-searchable="1"
-                                    data-search-placeholder="Search people…"
-                                    class="{{ $eqField }}"
-                                    :class="errors.custodian ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
-                                >
-                                    <option value="">No one yet</option>
-                                    @foreach ($acquisitionPeople as $person)
-                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}{{ $person->custodian_department ? ' · '.$person->custodian_department : '' }}</option>
-                                    @endforeach
-                                </select>
-                                <p x-show="errors.custodian" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.custodian"></p>
-                                <p x-show="!errors.custodian" class="mt-1.5 text-xs text-slate-400" x-text="custodianHint()"></p>
-                            </div>
-                            <p x-show="isMulti()" x-cloak class="text-xs text-slate-500">
-                                Replacement links are set per item from the equipment page.<span x-show="isMultiRr()"> RR lines raised from a replacement request still link automatically.</span>
-                            </p>
-                            <div x-show="!isMulti()">
-                                <label for="add_replaces" class="{{ $eqLabel }}">Replaces equipment</label>
-                                <select
-                                    id="add_replaces"
-                                    name="replaces_equipment_id"
-                                    x-model="replacesId"
-                                    data-searchable="1"
-                                    data-search-placeholder="Search equipment…"
-                                    class="{{ $eqField }}"
-                                >
-                                    <option value="">Not a replacement</option>
-                                    @foreach ($replacementCandidates as $candidate)
-                                        <option value="{{ $candidate->equipment_id }}">{{ $candidate->equipment_name }}{{ $candidate->equipment_asset_tag ? ' · '.$candidate->equipment_asset_tag : '' }}{{ $candidate->room_name ? ' · '.$candidate->room_name : '' }}</option>
-                                    @endforeach
-                                </select>
-                                <p
-                                    class="mt-1.5 text-xs"
-                                    :class="stockAndLinkMode || replacesId ? 'font-medium text-violet-700' : 'text-slate-400'"
-                                    x-text="stockAndLinkMode || replacesId
-                                        ? 'Stock & Link: new Individual units will be tied to this replaced equipment in the audit trail.'
-                                        : 'Links the old unit marked “For replacement” to this new one. RR deliveries from a replacement request link automatically.'"
-                                ></p>
-                            </div>
-                        </div>
-                    @endif
                 </div>
             </div>
 
-            <div class="eq-modal-scroll min-h-0 flex-1 overflow-auto px-6 py-5" x-show="step === 2" x-cloak>
-                <div x-show="!isMulti()">
-                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
-                    <div class="text-sm text-slate-600">
-                        <span class="font-medium text-slate-900" x-text="name"></span>
-                        <span class="text-slate-400"> · </span>
-                        <span x-text="items.length + ' individually tracked units'"></span>
-                        <span class="text-slate-400"> · </span>
-                        <span class="text-slate-500" x-text="deploying() ? ('Going to ' + roomCount(items.map((item) => item.deploy_room_id)) + ' room(s)') : 'Optional photo per unit'"></span>
+            <div class="eq-modal-scroll min-h-0 flex-1 overflow-auto px-5 py-4" x-show="step === 2" x-cloak>
+                <template x-if="step === 2 && !isMulti()">
+                <div class="space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2">
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                        <span class="font-semibold text-slate-900" x-text="name"></span>
+                        <span class="text-slate-300">·</span>
+                        <span x-text="items.length + ' units'"></span>
+                        <span class="text-slate-300">·</span>
+                        <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200" x-text="deploying() ? (roomCount(items.map((item) => item.deploy_room_id)) + ' room(s)') : (optionText('add_equipment_room') || 'Storage')"></span>
+                        <span x-show="purchaseCost !== '' && purchaseCost != null" class="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200" x-text="formatPeso(purchaseCost) + ' each'"></span>
+                        <span x-show="warranty" class="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200" x-text="'Warranty ' + warranty"></span>
                     </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
-                        <button type="button" @click="applyDefaults()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" @click="regenerateAssetTags()" class="h-7 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50">Regenerate tags</button>
+                        <button type="button" @click="applyDefaults()" x-show="showUnitOverrides" x-cloak class="h-7 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50">Re-apply defaults</button>
+                        <button
+                            type="button"
+                            @click="showUnitOverrides = !showUnitOverrides; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
+                            class="inline-flex h-7 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition"
+                            :class="showUnitOverrides ? 'border-blue-200 bg-blue-50 text-[#0025cc]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                        >
+                            <i data-lucide="sliders-horizontal" class="h-3 w-3"></i>
+                            <span x-text="showUnitOverrides ? 'Hide overrides' : 'Overrides'"></span>
+                        </button>
                     </div>
                 </div>
-                <div class="rounded-xl ring-1 ring-slate-200">
-                    <table class="min-w-[72rem] w-full table-fixed divide-y divide-slate-200 text-left text-sm">
-                        <colgroup>
-                            <col class="w-[3%]">
-                            <col class="w-[10%]">
-                            <col class="w-[12%]">
-                            <col class="w-[10%]">
-                            <col class="w-[9%]">
-                            <col class="w-[8%]">
-                            <col class="w-[8%]">
-                            <col class="w-[8%]">
-                            <col class="w-[9%]">
-                            <col class="w-[8%]">
-                            <col class="w-[7%]">
-                            <col class="w-[8%]">
-                        </colgroup>
-                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                    <table class="w-full divide-y divide-slate-200 text-left text-xs" :class="showUnitOverrides ? 'min-w-[72rem]' : ''">
+                        <thead class="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
-                                <th class="px-2 py-2.5">#</th>
-                                <th class="px-2 py-2.5">Photo</th>
-                                <th class="px-2 py-2.5">Asset tag</th>
-                                <th class="px-2 py-2.5">Room</th>
-                                <th class="px-2 py-2.5">Serial</th>
-                                <th class="px-2 py-2.5">Brand</th>
-                                <th class="px-2 py-2.5">Model</th>
-                                <th class="px-2 py-2.5">Condition</th>
-                                <th class="px-2 py-2.5">Purchase</th>
-                                <th class="px-2 py-2.5">Cost</th>
-                                <th class="px-2 py-2.5">Life (yrs)</th>
-                                <th class="px-2 py-2.5">Warranty</th>
+                                <th class="w-10 px-3 py-2">#</th>
+                                <th class="w-32 px-2.5 py-2">Photo</th>
+                                <th class="min-w-[14rem] px-2.5 py-2">Asset tag <span class="text-rose-500">*</span></th>
+                                <th class="min-w-[12rem] px-2.5 py-2">Serial number <span class="text-rose-500">*</span></th>
+                                <th x-show="deploying()" class="min-w-[10rem] px-2.5 py-2">Deploy room</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Brand</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Model</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Condition</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Purchase</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Cost</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Life (yrs)</th>
+                                <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Warranty</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <template x-for="(item, index) in items" :key="index">
-                                <tr>
-                                    <td class="px-2 py-2 text-slate-400" x-text="index + 1"></td>
-                                    <td class="px-2 py-2">
-                                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                                <tr class="hover:bg-slate-50/50">
+                                    <td class="px-3 py-2 font-medium text-slate-400" x-text="index + 1"></td>
+                                    <td class="px-2.5 py-2">
+                                        <div class="flex min-w-0 items-center gap-1.5">
                                             <button
                                                 type="button"
                                                 x-show="item._imagePreview"
                                                 x-cloak
                                                 @click="openEquipmentPhotoViewer(item._imagePreview, (item.equipment_asset_tag || name || 'Equipment') + ' photo')"
-                                                class="group relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
+                                                class="group relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
                                                 aria-label="View unit photo"
                                             >
                                                 <img :src="item._imagePreview" alt="" class="h-full w-full object-cover">
                                             </button>
                                             <div
                                                 x-show="!item._imagePreview"
-                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 ring-1 ring-slate-200"
+                                                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 ring-1 ring-slate-200"
                                             >
                                                 <span
                                                     class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
                                                     x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
                                                 ></span>
                                             </div>
-                                            <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                                            <label class="inline-flex h-7 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
                                                 <span x-text="item._imagePreview ? 'Change' : 'Add'"></span>
                                                 <input
                                                     type="file"
@@ -1679,60 +2271,58 @@
                                                 @click="clearItemImage(index)"
                                                 class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
                                             >
-                                                Remove
+                                                ×
                                             </button>
                                         </div>
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td class="px-2.5 py-2">
                                         <div class="group/eqtip relative min-w-0">
-                                            <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-8 w-full min-w-0 truncate rounded-lg border border-slate-200 px-2.5 font-mono text-xs text-slate-900 focus:border-[#0025cc] focus:outline-none focus:ring-2 focus:ring-[#0025cc]/15" />
                                             <div
                                                 x-show="String(item.equipment_asset_tag || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none invisible absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_asset_tag"
                                             ></div>
                                         </div>
                                     </td>
-                                    <td class="px-2 py-2">
-                                        <select
-                                            x-show="deploying()"
-                                            :name="'items[' + index + '][deploy_room_id]'"
-                                            x-model="item.deploy_room_id"
-                                            :disabled="!deploying()"
-                                            @change="onItemRoomChange(item)"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                        >
-                                            @foreach (($deployRooms ?? collect()) as $deployRoomOption)
-                                                <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <p x-show="!deploying()" class="truncate text-xs text-slate-500" x-text="optionText('add_equipment_room') || 'Storage'"></p>
-                                    </td>
-                                    <td class="px-2 py-2">
+                                    <td class="px-2.5 py-2">
                                         <div class="group/eqtip relative min-w-0">
                                             <input
                                                 type="text"
                                                 :name="'items[' + index + '][equipment_serial_number]'"
                                                 x-model="item.equipment_serial_number"
                                                 maxlength="{{ \App\Support\InputLimits::SERIAL }}"
-                                                placeholder="e.g. SN-ABC/12+34"
+                                                placeholder="Enter serial number"
                                                 @input="item.equipment_serial_number = String(item.equipment_serial_number || '').slice(0, {{ \App\Support\InputLimits::SERIAL }})"
-                                                class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm"
+                                                class="h-8 w-full min-w-0 truncate rounded-lg border border-slate-200 px-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#0025cc] focus:outline-none focus:ring-2 focus:ring-[#0025cc]/15"
                                             />
                                             <div
                                                 x-show="String(item.equipment_serial_number || '').trim()"
                                                 x-cloak
-                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-medium leading-snug text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.14)] opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                class="pointer-events-none invisible absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/eqtip:visible group-hover/eqtip:opacity-100"
                                                 x-text="item.equipment_serial_number"
                                             ></div>
                                         </div>
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="deploying()" class="px-2.5 py-2">
+                                        <select
+                                            :name="'items[' + index + '][deploy_room_id]'"
+                                            x-model="item.deploy_room_id"
+                                            :disabled="!deploying()"
+                                            @change="onItemRoomChange(item)"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2 text-xs"
+                                        >
+                                            @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                                <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <div
                                             x-show="!manualIntake() && _brandFromRis"
                                             x-cloak
-                                            class="flex h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700"
+                                            class="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-700"
                                             title="The brand was recorded on the RIS for this equipment."
                                         >
                                             <i data-lucide="lock" class="h-3 w-3 shrink-0 text-slate-400"></i>
@@ -1757,7 +2347,7 @@
                                             data-add-label="Add new brand"
                                             data-add-placeholder="New brand name"
                                             @change="item._brandManual = true; syncCatalogOption($el, item.equipment_brand_name)"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2 text-xs"
                                         >
                                             <option value="">Select brand</option>
                                             @foreach ($equipmentBrands as $brandOption)
@@ -1765,7 +2355,7 @@
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <select
                                             :name="'items[' + index + '][equipment_model]'"
                                             :id="'unit_model_' + index"
@@ -1776,7 +2366,7 @@
                                             data-add-label="Add new model"
                                             data-add-placeholder="New model name"
                                             @change="syncCatalogOption($el, item.equipment_model)"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2 text-xs"
                                         >
                                             <option value="">Select model</option>
                                             @foreach ($equipmentModels as $modelOption)
@@ -1784,10 +2374,10 @@
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <div
                                             x-show="!manualIntake()"
-                                            class="flex h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 text-sm text-slate-700"
+                                            class="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-700"
                                             title="New deliveries from a Receiving Report are always recorded as Good."
                                         >
                                             <i data-lucide="lock" class="h-3 w-3 shrink-0 text-slate-400"></i>
@@ -1798,7 +2388,7 @@
                                             x-model="item.equipment_condition_status"
                                             x-show="manualIntake()"
                                             :disabled="!manualIntake()"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2 text-xs"
                                         >
                                             <option value="Good">Good</option>
                                             <option value="Under Maintenance">Under Maintenance</option>
@@ -1806,17 +2396,17 @@
                                             <option value="Damaged">Damaged</option>
                                         </select>
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <input
                                             type="date"
                                             :name="'items[' + index + '][equipment_purchase_date]'"
                                             x-model="item.equipment_purchase_date"
                                             :max="todayIso()"
                                             @input="item._purchaseManual = true"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-1.5 text-xs"
                                         />
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <input
                                             type="number"
                                             min="0"
@@ -1828,10 +2418,10 @@
                                             x-model="item.equipment_purchase_cost"
                                             @input="item._costManual = true"
                                             placeholder="0.00"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-1.5 text-xs"
                                         />
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <input
                                             type="number"
                                             min="1"
@@ -1841,17 +2431,17 @@
                                             x-model="item.equipment_useful_life_years"
                                             @input="item._lifeManual = true; item.equipment_useful_life_years = clampUsefulLife(item.equipment_useful_life_years)"
                                             placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
-                                            class="h-9 w-full min-w-0 rounded-md border px-1.5 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border px-1.5 text-xs"
                                             :class="isInvalidUsefulLife(item.equipment_useful_life_years) ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200'"
                                         />
                                     </td>
-                                    <td class="px-2 py-2">
+                                    <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                         <input
                                             type="date"
                                             :name="'items[' + index + '][equipment_warranty_expiration]'"
                                             x-model="item.equipment_warranty_expiration"
                                             @input="item._warrantyManual = true"
-                                            class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                            class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-1.5 text-xs"
                                         />
                                     </td>
                                 </tr>
@@ -1860,84 +2450,87 @@
                     </table>
                 </div>
                 </div>
+                </template>
 
-                <div x-show="isMulti()" x-cloak class="space-y-4">
-                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
-                        <div class="text-sm text-slate-600">
-                            <span class="font-medium text-slate-900" x-text="multiLines.length + ' items'"></span>
-                            <span class="text-slate-400"> · </span>
-                            <span x-text="multiUnitCount() + ' records to create'"></span>
-                            <span class="text-slate-400"> · </span>
-                            <span class="text-slate-500" x-text="deploying() ? ('Going to ' + roomCount(multiUnits().map((unit) => unit.deploy_room_id)) + ' room(s)') : 'Optional photo per unit'"></span>
+                <div x-show="isMulti()" x-cloak class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2">
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                            <span class="font-semibold text-slate-900" x-text="multiLines.length + ' items'"></span>
+                            <span class="text-slate-300">·</span>
+                            <span x-text="multiUnitCount() + ' records'"></span>
+                            <span class="text-slate-300">·</span>
+                            <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200" x-text="deploying() ? (roomCount(multiUnits().map((unit) => unit.deploy_room_id)) + ' room(s)') : (optionText('add_equipment_room') || 'Storage')"></span>
                         </div>
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" @click="fillMultiTags(true)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
-                            <button type="button" x-show="deploying()" @click="useDefaultRoomForAll()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Send all to default room</button>
-                            <button type="button" x-show="canAssignPerson()" @click="useDefaultCustodianForAll()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" x-text="custodianId ? 'Assign all to ' + custodianName(custodianId) : 'Clear all assignments'"></button>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button type="button" @click="fillMultiTags(true)" class="h-7 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50">Regenerate tags</button>
+                            <button type="button" x-show="deploying()" @click="useDefaultRoomForAll()" class="h-7 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50">Default room for all</button>
+                            <button type="button" x-show="canAssignPerson()" @click="useDefaultCustodianForAll()" class="h-7 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50" x-text="custodianId ? 'Assign all to ' + custodianName(custodianId) : 'Clear assignments'"></button>
+                            <button
+                                type="button"
+                                @click="showUnitOverrides = !showUnitOverrides; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
+                                class="inline-flex h-7 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition"
+                                :class="showUnitOverrides ? 'border-blue-200 bg-blue-50 text-[#0025cc]' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                            >
+                                <i data-lucide="sliders-horizontal" class="h-3 w-3"></i>
+                                <span x-text="showUnitOverrides ? 'Hide overrides' : 'Overrides'"></span>
+                            </button>
                         </div>
                     </div>
                     <template x-for="row in multiLines" :key="'units-' + row.id">
-                        <div class="rounded-xl ring-1 ring-slate-200">
-                            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2">
+                        <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-3.5 py-2">
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-semibold text-slate-900" x-text="row.name || row.article"></p>
-                                    <p class="truncate text-[11px] text-slate-500" x-text="row.source || [row.brand, row.model].filter(Boolean).join(' ') || (isMultiManual() ? row.condition : '')"></p>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="truncate text-xs font-semibold text-slate-900" x-text="row.name || row.article"></p>
+                                        <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200" x-text="row.tracking === 'Bulk' ? ('Bulk · ' + row.quantity) : (row.quantity + ' unit' + (Number(row.quantity) === 1 ? '' : 's'))"></span>
+                                    </div>
+                                    <p class="mt-0.5 truncate text-[11px] text-slate-500" x-text="row.source || [row.brand, row.model].filter(Boolean).join(' ') || (isMultiManual() ? row.condition : '')"></p>
                                 </div>
-                                <span
-                                    class="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200"
-                                    x-text="row.tracking === 'Bulk' ? ('Bulk · ' + row.quantity + ' in one record') : (row.quantity + ' individual unit' + (Number(row.quantity) === 1 ? '' : 's'))"
-                                ></span>
+                                <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
+                                    <span x-show="row.cost !== '' && row.cost != null" class="rounded-md bg-white px-2 py-0.5 font-medium ring-1 ring-slate-200/80" x-text="formatPeso(row.cost)"></span>
+                                    <span class="rounded-md bg-white px-2 py-0.5 font-medium ring-1 ring-slate-200/80" x-text="(row.useful_life_years || usefulLifeYears || 5) + ' yrs'"></span>
+                                    <span x-show="row.warranty || warranty" class="rounded-md bg-white px-2 py-0.5 font-medium ring-1 ring-slate-200/80" x-text="'Warranty ' + (row.warranty || warranty)"></span>
+                                </div>
                             </div>
-                            <table class="w-full table-fixed divide-y divide-slate-100 text-left text-sm">
-                                <colgroup>
-                                    <col class="w-[3%]">
-                                    <col class="w-[10%]">
-                                    <col class="w-[12%]">
-                                    <col class="w-[9%]">
-                                    <col class="w-[10%]">
-                                    <col class="w-[8%]">
-                                    <col class="w-[7%]">
-                                    <col class="w-[10%]">
-                                    <col class="w-[15%]">
-                                    <col class="w-[16%]">
-                                </colgroup>
-                                <thead class="bg-white text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            <div class="overflow-x-auto">
+                            <table class="w-full divide-y divide-slate-100 text-left text-xs" :class="showUnitOverrides ? 'min-w-[64rem]' : ''">
+                                <thead class="bg-white text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                                     <tr>
-                                        <th class="px-2 py-2">#</th>
-                                        <th class="px-2 py-2">Photo</th>
-                                        <th class="px-2 py-2">Asset tag</th>
-                                        <th class="px-2 py-2">Serial</th>
-                                        <th class="px-2 py-2">Purchase</th>
-                                        <th class="px-2 py-2">Cost</th>
-                                        <th class="px-2 py-2">Life</th>
-                                        <th class="px-2 py-2">Warranty</th>
-                                        <th class="px-2 py-2">Room</th>
-                                        <th class="px-2 py-2">Assign to</th>
+                                        <th class="w-10 px-3 py-2">#</th>
+                                        <th class="w-32 px-2.5 py-2">Photo</th>
+                                        <th class="min-w-[14rem] px-2.5 py-2">Asset tag <span class="text-rose-500">*</span></th>
+                                        <th class="min-w-[12rem] px-2.5 py-2">Serial number <span class="text-rose-500">*</span></th>
+                                        <th x-show="deploying()" class="min-w-[10rem] px-2.5 py-2">Deploy room</th>
+                                        <th x-show="canAssignPerson()" class="min-w-[10rem] px-2.5 py-2">Assign to</th>
+                                        <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Purchase</th>
+                                        <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Cost</th>
+                                        <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Life</th>
+                                        <th x-show="showUnitOverrides" x-cloak class="px-2 py-2">Warranty</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     <template x-for="(unit, unitIndex) in row.units" :key="row.id + '-' + unitIndex">
-                                        <tr>
-                                            <td class="px-2 py-2 text-slate-400" x-text="unitIndex + 1"></td>
-                                            <td class="px-2 py-2">
-                                                <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                                        <tr class="hover:bg-slate-50/50">
+                                            <td class="px-3 py-2 font-medium text-slate-400" x-text="unitIndex + 1"></td>
+                                            <td class="px-2.5 py-2">
+                                                <div class="flex min-w-0 items-center gap-1.5">
                                                     <button
                                                         type="button"
                                                         x-show="unit._imagePreview"
                                                         x-cloak
                                                         @click="openEquipmentPhotoViewer(unit._imagePreview, (unit.asset_tag || row.name || 'Equipment') + ' photo')"
-                                                        class="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
+                                                        class="h-8 w-8 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
                                                         aria-label="View unit photo"
                                                     >
                                                         <img :src="unit._imagePreview" alt="" class="h-full w-full object-cover">
                                                     </button>
-                                                    <div x-show="!unit._imagePreview" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-50 ring-1 ring-slate-200">
+                                                    <div x-show="!unit._imagePreview" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-50 ring-1 ring-slate-200">
                                                         <span
                                                             class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
                                                             x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(row.name || '') : ''"
                                                         ></span>
                                                     </div>
-                                                    <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                                                    <label class="inline-flex h-7 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
                                                         <span x-text="unit._imagePreview ? 'Change' : 'Add'"></span>
                                                         <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="sr-only" @change="onMultiUnitImage(unit, $event)">
                                                     </label>
@@ -1947,31 +2540,68 @@
                                                         x-cloak
                                                         @click="clearMultiUnitImage(unit)"
                                                         class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-                                                    >Remove</button>
+                                                    >×</button>
                                                 </div>
                                             </td>
-                                            <td class="px-2 py-2">
-                                                <input type="text" x-model="unit.asset_tag" @input="unit._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" :title="unit.asset_tag" />
+                                            <td class="px-2.5 py-2">
+                                                <div class="group/eqtip relative min-w-0">
+                                                    <input type="text" x-model="unit.asset_tag" @input="unit._tagManual = true" class="h-8 w-full min-w-0 truncate rounded-lg border border-slate-200 px-2.5 font-mono text-xs text-slate-900 focus:border-[#0025cc] focus:outline-none focus:ring-2 focus:ring-[#0025cc]/15" />
+                                                    <div
+                                                        x-show="String(unit.asset_tag || '').trim()"
+                                                        x-cloak
+                                                        class="pointer-events-none invisible absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-[11px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                        x-text="unit.asset_tag"
+                                                    ></div>
+                                                </div>
                                                 <p
                                                     x-show="pieceBrandModel(row, unitIndex)"
                                                     class="mt-1 truncate text-[11px] text-slate-500"
                                                     x-text="pieceBrandModel(row, unitIndex)"
                                                 ></p>
                                             </td>
-                                            <td class="px-2 py-2">
-                                                <input type="text" x-model="unit.serial" placeholder="Required" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <td class="px-2.5 py-2">
+                                                <input type="text" x-model="unit.serial" placeholder="Enter serial number" class="h-8 w-full min-w-0 truncate rounded-lg border border-slate-200 px-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#0025cc] focus:outline-none focus:ring-2 focus:ring-[#0025cc]/15" />
                                             </td>
-                                            <td class="px-2 py-2">
+                                            <td x-show="deploying()" class="px-2.5 py-2">
+                                                <select
+                                                    x-show="rowDeploying(row)"
+                                                    x-model="unit.deploy_room_id"
+                                                    @change="onMultiUnitRoomChange(unit)"
+                                                    class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2 text-xs"
+                                                >
+                                                    @foreach (($deployRooms ?? collect()) as $deployRoomOption)
+                                                        <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <span x-show="!rowDeploying(row)" class="text-[11px] text-slate-500" x-text="storageRoomName(row.room || room) || 'Storage'"></span>
+                                            </td>
+                                            <td x-show="canAssignPerson()" class="px-2.5 py-2">
+                                                <select
+                                                    x-show="unitCanAssign(row)"
+                                                    x-model="unit.custodian_id"
+                                                    @change="unit._custodianManual = true"
+                                                    class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2 text-xs"
+                                                    :class="unit.custodian_id ? 'text-slate-900' : 'text-slate-400'"
+                                                    :aria-label="'Accountable person for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
+                                                >
+                                                    <option value="">No one yet</option>
+                                                    @foreach ($acquisitionPeople as $person)
+                                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <span x-show="!unitCanAssign(row)" class="text-[11px] text-slate-400">—</span>
+                                            </td>
+                                            <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                                 <input
                                                     type="date"
                                                     x-model="unit.purchase_date"
                                                     :max="todayIso()"
                                                     @input="unit._purchaseManual = true"
-                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-1.5 text-xs"
                                                     :aria-label="'Purchase date for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
                                                 />
                                             </td>
-                                            <td class="px-2 py-2">
+                                            <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                                 <input
                                                     type="number"
                                                     min="0"
@@ -1982,11 +2612,11 @@
                                                     x-model="unit.cost"
                                                     @input="unit._costManual = true"
                                                     placeholder="0.00"
-                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-1.5 text-xs"
                                                     :aria-label="'Cost for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
                                                 />
                                             </td>
-                                            <td class="px-2 py-2">
+                                            <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                                 <input
                                                     type="number"
                                                     min="1"
@@ -1995,70 +2625,37 @@
                                                     x-model="unit.useful_life_years"
                                                     @input="unit._lifeManual = true; unit.useful_life_years = clampUsefulLife(unit.useful_life_years)"
                                                     placeholder="1–{{ \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }}"
-                                                    class="h-9 w-full min-w-0 rounded-md border px-1.5 text-sm"
+                                                    class="h-8 w-full min-w-0 rounded-lg border px-1.5 text-xs"
                                                     :class="isInvalidUsefulLife(unit.useful_life_years) ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200'"
                                                     :aria-label="'Useful lifespan for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
                                                 />
                                             </td>
-                                            <td class="px-2 py-2">
+                                            <td x-show="showUnitOverrides" x-cloak class="px-2 py-2">
                                                 <input
                                                     type="date"
                                                     x-model="unit.warranty"
                                                     @input="unit._warrantyManual = true"
-                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-1.5 text-sm"
+                                                    class="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-1.5 text-xs"
                                                     :aria-label="'Warranty expiration for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
                                                 />
-                                            </td>
-                                            <td class="px-2 py-2">
-                                                <select
-                                                    x-show="deploying()"
-                                                    x-model="unit.deploy_room_id"
-                                                    @change="onMultiUnitRoomChange(unit)"
-                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                                >
-                                                    @foreach (($deployRooms ?? collect()) as $deployRoomOption)
-                                                        <option value="{{ $deployRoomOption->room_id }}">{{ $deployRoomOption->room_name }}</option>
-                                                    @endforeach
-                                                </select>
-                                                <p x-show="!deploying()" class="truncate text-xs text-slate-500" x-text="optionText('add_equipment_room') || 'Storage'"></p>
-                                            </td>
-                                            <td class="px-2 py-2">
-                                                <select
-                                                    x-show="unitCanAssign(row)"
-                                                    x-model="unit.custodian_id"
-                                                    @change="unit._custodianManual = true"
-                                                    class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm"
-                                                    :class="unit.custodian_id ? 'text-slate-900' : 'text-slate-400'"
-                                                    :aria-label="'Accountable person for ' + (row.name || row.article) + ' #' + (unitIndex + 1)"
-                                                >
-                                                    <option value="">No one yet</option>
-                                                    @foreach ($acquisitionPeople as $person)
-                                                        <option value="{{ $person->custodian_id }}">{{ $person->custodian_full_name }}</option>
-                                                    @endforeach
-                                                </select>
-                                                <p
-                                                    x-show="!unitCanAssign(row)"
-                                                    class="truncate text-xs text-slate-400"
-                                                    :title="unitAssignHint(row)"
-                                                    x-text="unitAssignHint(row)"
-                                                ></p>
                                             </td>
                                         </tr>
                                     </template>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </template>
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-end gap-2 px-6 py-4">
-                <button type="button" @click="back()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100" x-text="isFirstStep() ? 'Cancel' : 'Back'"></button>
+            <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
+                <button type="button" @click="back()" class="h-9 rounded-lg px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-100" x-text="isFirstStep() ? 'Cancel' : 'Back'"></button>
                 <button
                     type="button"
                     x-show="!canSaveNow()"
                     @click="next()"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
+                    class="h-9 rounded-lg bg-[#0025cc] px-4 text-xs font-semibold text-white transition hover:bg-blue-800"
                 >
                     Next
                 </button>
@@ -2068,12 +2665,12 @@
                     x-cloak
                     @click="saveNow()"
                     :disabled="submitting"
-                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                    class="h-9 rounded-lg bg-[#0025cc] px-4 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
                     x-text="submitting
                         ? 'Saving…'
                         : (isMulti()
-                            ? ('Save ' + multiLines.length + ' items now')
-                            : (needsItemStep() ? ('Save ' + items.length + ' assets now') : 'Save now'))"
+                            ? ('Save ' + multiLines.length + ' items to Inventory')
+                            : (needsItemStep() ? ('Save ' + items.length + ' assets to Inventory') : 'Save to Inventory'))"
                 ></button>
             </div>
         </form>
@@ -2081,19 +2678,32 @@
         <div
             x-show="reviewOpen"
             x-cloak
-            class="absolute inset-0 z-30 flex items-center justify-center bg-[#0b1220]/50 p-4 sm:p-6"
+            class="absolute inset-0 z-30 flex items-center justify-center bg-[#0b1220]/55 p-4 backdrop-blur-[2px] sm:p-6"
             @click.self="closeReview()"
         >
-            <div class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20" role="dialog" aria-modal="true" aria-labelledby="addEquipmentReviewHeading">
-                <div class="flex items-start justify-between gap-4 px-6 pt-6">
-                    <div class="min-w-0">
-                        <h2 id="addEquipmentReviewHeading" class="text-lg font-semibold tracking-tight text-slate-900">Review</h2>
-                        <p class="mt-1 text-sm text-slate-500">Check everything before saving. These fill the equipment page.</p>
+            <div class="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-950/25" role="dialog" aria-modal="true" aria-labelledby="addEquipmentReviewHeading">
+                {{-- Header --}}
+                <div class="flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-6 py-4">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#0025cc] ring-1 ring-blue-100">
+                            <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 id="addEquipmentReviewHeading" class="text-base font-semibold tracking-tight text-slate-900">Review &amp; confirm</h2>
+                                <span
+                                    class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-[#0025cc] ring-1 ring-blue-100"
+                                    x-text="reviewTotalBadge()"
+                                ></span>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" @click="closeReview()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close review" :disabled="submitting">
+                    <button type="button" @click="closeReview()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close review" :disabled="submitting">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
+
+                {{-- Error Banner --}}
                 <div
                     x-show="formError"
                     x-cloak
@@ -2102,69 +2712,287 @@
                     <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
                     <p class="min-w-0 flex-1 leading-relaxed" x-text="formError"></p>
                 </div>
-                <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Identity</p>
-                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p2')">Edit</button>
-                            </div>
-                            <dl class="mt-3 space-y-2 text-sm">
-                                <template x-for="row in reviewIdentity()" :key="row[0]">
-                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                                </template>
-                            </dl>
-                        </section>
-                        @if ($isStockPage)
-                            <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                                <div class="flex items-center justify-between">
-                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Source</p>
-                                    <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p1')">Edit</button>
+
+                {{-- Scrollable Review Content --}}
+                <div class="eq-modal-scroll min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/40 px-6 py-5">
+                    @if ($isStockPage)
+                        {{-- Shared Source Strip --}}
+                        <section class="rounded-xl border border-blue-100/90 bg-gradient-to-r from-blue-50/60 via-white to-white px-4 py-3 shadow-xs">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="file-text" class="h-3.5 w-3.5 text-[#0025cc]"></i>
+                                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Source</span>
                                 </div>
-                                <dl class="mt-3 space-y-2 text-sm">
-                                    <template x-for="row in reviewSource()" :key="row[0]">
-                                        <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
+                                <button type="button" class="text-xs font-semibold text-[#0025cc] transition hover:text-blue-800 hover:underline" @click="editFromReview('p1')">Edit source</button>
+                            </div>
+                            <div class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-3">
+                                <template x-for="row in reviewSource()" :key="row[0]">
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-medium uppercase tracking-wide text-slate-400" x-text="row[0]"></p>
+                                        <p class="truncate text-xs font-semibold text-slate-800" :title="row[1]" x-text="row[1]"></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+                    @endif
+
+                    {{-- Horizontal Carousel Bar (shown when more than 1 unit/item) --}}
+                    <div
+                        x-show="reviewSlides().length > 1"
+                        x-cloak
+                        class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-xs"
+                    >
+                        <div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5">
+                            <template x-for="(slide, idx) in reviewSlides()" :key="slide.key">
+                                <button
+                                    type="button"
+                                    @click="goToReviewSlide(idx)"
+                                    class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+                                    :class="idx === reviewSlideIndex
+                                        ? 'bg-[#0025cc] text-white shadow-sm shadow-blue-900/20'
+                                        : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'"
+                                >
+                                    <span
+                                        class="h-1.5 w-1.5 rounded-full"
+                                        :class="idx === reviewSlideIndex
+                                            ? 'bg-blue-200'
+                                            : (slide.deploying ? 'bg-sky-500' : 'bg-amber-500')"
+                                    ></span>
+                                    <span x-text="slide.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <span class="text-xs font-medium tabular-nums text-slate-500" x-text="(reviewSlideIndex + 1) + ' of ' + reviewSlides().length"></span>
+                            <div class="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    @click="prevReviewSlide()"
+                                    :disabled="reviewSlideIndex <= 0"
+                                    class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                                    <span>Prev</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="nextReviewSlide()"
+                                    :disabled="reviewSlideIndex >= reviewSlides().length - 1"
+                                    class="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    <span>Next</span>
+                                    <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Active Asset Detail Card --}}
+                    <template x-if="activeReviewSlide()">
+                        <div class="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+                            {{-- Asset Hero Header --}}
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-4">
+                                <div class="flex min-w-0 items-center gap-3.5">
+                                    <template x-if="activeReviewSlide().image">
+                                        <img
+                                            :src="activeReviewSlide().image"
+                                            :alt="activeReviewSlide().name"
+                                            class="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+                                        >
                                     </template>
-                                </dl>
-                            </section>
-                        @endif
-                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Purchase &amp; warranty</p>
-                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p3')">Edit</button>
+                                    <template x-if="!activeReviewSlide().image">
+                                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#0025cc] shadow-xs ring-1 ring-slate-200/90">
+                                            <i data-lucide="package" class="h-5 w-5"></i>
+                                        </div>
+                                    </template>
+                                    <div class="min-w-0">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <h3 class="truncate text-[16px] font-semibold tracking-tight text-slate-900" x-text="activeReviewSlide().name || 'Unnamed equipment'"></h3>
+                                            <span
+                                                class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70"
+                                                x-text="activeReviewSlide().condition"
+                                            ></span>
+                                            <span
+                                                class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200/80"
+                                                x-text="activeReviewSlide().tracking"
+                                            ></span>
+                                        </div>
+                                        <p class="mt-0.5 truncate text-xs text-slate-500">
+                                            <span x-text="activeReviewSlide().classification || 'No classification'"></span>
+                                            <template x-if="activeReviewSlide().source">
+                                                <span x-text="' · ' + activeReviewSlide().source"></span>
+                                            </template>
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="editSlideFromReview(activeReviewSlide())"
+                                    class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#0025cc] shadow-2xs transition hover:border-blue-200 hover:bg-blue-50/60"
+                                >
+                                    <i data-lucide="pencil" class="h-3 w-3"></i>
+                                    <span>Edit</span>
+                                </button>
                             </div>
-                            <dl class="mt-3 space-y-2 text-sm">
-                                <template x-for="row in reviewPurchase()" :key="row[0]">
-                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                                </template>
-                            </dl>
-                        </section>
-                        <section class="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Placement &amp; accountability</p>
-                                <button type="button" class="text-xs font-semibold text-[#0025cc] hover:underline" @click="editFromReview('p4')">Edit</button>
+
+                            {{-- Asset Tag & Serial Highlight Strip --}}
+                            <div class="grid grid-cols-1 gap-3 border-b border-slate-100 bg-white px-5 py-3.5 sm:grid-cols-2">
+                                <div class="min-w-0 rounded-xl bg-slate-50/90 px-3.5 py-2.5 ring-1 ring-slate-200/70">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Asset tag</p>
+                                    <p
+                                        class="mt-1 truncate font-mono text-xs font-semibold text-slate-900"
+                                        :title="activeReviewSlide().asset_tag"
+                                        x-text="activeReviewSlide().asset_tag || '—'"
+                                    ></p>
+                                </div>
+                                <div class="min-w-0 rounded-xl bg-slate-50/90 px-3.5 py-2.5 ring-1 ring-slate-200/70">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Serial number</p>
+                                    <p
+                                        class="mt-1 truncate font-mono text-xs font-medium"
+                                        :class="activeReviewSlide().serial && activeReviewSlide().serial !== '—' ? 'text-slate-800' : 'text-slate-400'"
+                                        :title="activeReviewSlide().serial"
+                                        x-text="activeReviewSlide().serial || '—'"
+                                    ></p>
+                                </div>
                             </div>
-                            <dl class="mt-3 space-y-2 text-sm">
-                                <template x-for="row in reviewPlacement()" :key="row[0]">
-                                    <div class="flex justify-between gap-4"><dt class="text-slate-400" x-text="row[0]"></dt><dd class="text-right font-medium text-slate-900" x-text="row[1]"></dd></div>
-                                </template>
-                            </dl>
-                        </section>
+
+                            {{-- Specifications & Placement Grid --}}
+                            <div class="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-2 md:divide-x md:divide-y-0">
+                                {{-- Specifications & Coverage --}}
+                                <div class="p-5">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Specifications &amp; coverage</p>
+                                    <dl class="mt-3 space-y-2.5 text-sm">
+                                        <div class="flex items-center justify-between gap-4">
+                                            <dt class="text-slate-500">Brand</dt>
+                                            <dd class="text-right font-medium text-slate-900" x-text="activeReviewSlide().brand || '—'"></dd>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-4">
+                                            <dt class="text-slate-500">Model</dt>
+                                            <dd class="text-right font-medium text-slate-900" x-text="activeReviewSlide().model || '—'"></dd>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-4">
+                                            <dt class="text-slate-500" x-text="acqSource === 'donation' ? 'Est. value / unit' : 'Cost / unit'"></dt>
+                                            <dd class="text-right font-semibold tabular-nums text-slate-900" x-text="activeReviewSlide().cost || '—'"></dd>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-4">
+                                            <dt class="text-slate-500" x-text="acqSource === 'donation' ? 'Donation date' : 'Purchase date'"></dt>
+                                            <dd class="text-right font-medium tabular-nums text-slate-900" x-text="activeReviewSlide().purchase_date || '—'"></dd>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-4">
+                                            <dt class="text-slate-500">Warranty expiration</dt>
+                                            <dd class="text-right font-medium tabular-nums text-slate-900" x-text="activeReviewSlide().warranty || '—'"></dd>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-4">
+                                            <dt class="text-slate-500">Useful lifespan</dt>
+                                            <dd class="text-right font-medium text-slate-900" x-text="activeReviewSlide().lifespan || '5 years'"></dd>
+                                        </div>
+                                    </dl>
+                                </div>
+
+                                {{-- Placement & Accountability --}}
+                                <div class="p-5">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Placement &amp; accountability</p>
+                                    <div class="mt-3 space-y-3">
+                                        {{-- Destination Room Card --}}
+                                        <div
+                                            class="flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 ring-1"
+                                            :class="activeReviewSlide().deploying
+                                                ? 'bg-sky-50/70 ring-sky-200/80'
+                                                : 'bg-amber-50/70 ring-amber-200/80'"
+                                        >
+                                            <div class="min-w-0">
+                                                <p class="text-[10px] font-semibold uppercase tracking-wider"
+                                                   :class="activeReviewSlide().deploying ? 'text-sky-600' : 'text-amber-700'"
+                                                   x-text="activeReviewSlide().deploying ? 'Deployed to room' : 'Kept in storage'"></p>
+                                                <p class="mt-0.5 truncate text-sm font-semibold text-slate-900" x-text="activeReviewSlide().room || '—'"></p>
+                                            </div>
+                                            <span
+                                                class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                                :class="activeReviewSlide().deploying
+                                                    ? 'bg-sky-100 text-sky-700'
+                                                    : 'bg-amber-100 text-amber-800'"
+                                            >
+                                                <span class="h-1.5 w-1.5 rounded-full" :class="activeReviewSlide().deploying ? 'bg-sky-500' : 'bg-amber-500'"></span>
+                                                <span x-text="activeReviewSlide().deploying ? 'Deployed' : 'In storage'"></span>
+                                            </span>
+                                        </div>
+
+                                        <dl class="space-y-2.5 text-sm">
+                                            <div class="flex items-center justify-between gap-4">
+                                                <dt class="text-slate-500">Accountable person</dt>
+                                                <dd
+                                                    class="text-right font-medium"
+                                                    :class="activeReviewSlide().custodian && activeReviewSlide().custodian !== 'No one yet' ? 'text-teal-700 font-semibold' : 'text-slate-400'"
+                                                    x-text="activeReviewSlide().custodian || 'No one yet'"
+                                                ></dd>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-4">
+                                                <dt class="text-slate-500">Replaces equipment</dt>
+                                                <dd
+                                                    class="max-w-[220px] truncate text-right font-medium"
+                                                    :class="activeReviewSlide().replaces && activeReviewSlide().replaces !== 'Not a replacement' ? 'text-violet-700 font-semibold' : 'text-slate-400'"
+                                                    :title="activeReviewSlide().replaces"
+                                                    x-text="activeReviewSlide().replaces || 'Not a replacement'"
+                                                ></dd>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-4">
+                                                <dt class="text-slate-500">Received on</dt>
+                                                <dd class="text-right font-medium text-slate-900" x-text="activeReviewSlide().received_on || 'Today (date added)'"></dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                {{-- Footer --}}
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-6 py-4">
+                    <p class="text-xs text-slate-500" x-show="reviewSlides().length > 1" x-cloak>
+                        Viewing <span class="font-semibold text-slate-800" x-text="activeReviewSlide()?.label || ''"></span>
+                        (<span class="tabular-nums" x-text="(reviewSlideIndex + 1) + ' of ' + reviewSlides().length"></span>)
+                    </p>
+                    <div class="ml-auto flex items-center gap-2">
+                        <button type="button" @click="closeReview()" :disabled="submitting" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-60">Back</button>
+                        <button
+                            type="button"
+                            @click="confirmReview()"
+                            :disabled="submitting"
+                            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/20 transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                        >
+                            <i data-lucide="check" class="h-4 w-4" x-show="!submitting"></i>
+                            <span x-text="submitting ? 'Adding…' : 'Add to inventory'"></span>
+                        </button>
                     </div>
                 </div>
-                <div class="flex flex-wrap items-center justify-end gap-2 px-6 py-4">
-                    <button type="button" @click="closeReview()" :disabled="submitting" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-60">Back</button>
+            </div>
+        </div>
+        {{-- Conditional discard changes confirmation dialog --}}
+        <div
+            x-show="discardPromptOpen"
+            x-cloak
+            class="absolute inset-0 z-40 flex items-center justify-center bg-[#0b1220]/50 p-4"
+            @click.self="discardPromptOpen = false"
+        >
+            <div class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/20" role="dialog" aria-modal="true" aria-labelledby="discardEquipmentChangesTitle">
+                <h3 id="discardEquipmentChangesTitle" class="text-sm font-semibold text-slate-900">Discard unsaved changes?</h3>
+                <p class="mt-1.5 text-xs leading-relaxed text-slate-500">Your current selections and entered details will be lost if you close now.</p>
+                <div class="mt-4 flex items-center justify-end gap-2">
                     <button
                         type="button"
-                        @click="confirmReview()"
-                        :disabled="submitting"
-                        class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
-                        x-text="submitting
-                            ? 'Saving…'
-                            : (isMulti()
-                                ? ('Add ' + multiLines.length + ' items to inventory')
-                                : (needsItemStep() ? ('Create ' + items.length + ' assets') : {{ json_encode($wizardTitle) }}))"
-                    ></button>
+                        @click="discardPromptOpen = false"
+                        class="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        Keep editing
+                    </button>
+                    <button
+                        type="button"
+                        @click="close()"
+                        class="h-8 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700"
+                    >
+                        Discard &amp; close
+                    </button>
                 </div>
             </div>
         </div>
@@ -2182,6 +3010,10 @@
                 open: false,
                 reviewOpen: false,
                 reviewConfirmed: false,
+                reviewSlideIndex: 0,
+                discardPromptOpen: false,
+                showUnitOverrides: false,
+                replacementCandidates: @json(($replacementCandidates ?? collect())->values()),
                 step: 1,
                 page: firstPage,
                 furthestStepIndex: 0,
@@ -2208,6 +3040,8 @@
                 name: '',
                 category: '',
                 categoryManual: false,
+                defaultStorageRoomId: @json((string) ($defaultStorageRoomId ?? '')),
+                defaultStorageRoomName: @json($defaultStorageRoomName),
                 room: @json((string) (old('equipment_room_id', $defaultStorageRoomId ?? ''))),
                 quantity: 1,
                 condition: 'Good',
@@ -2239,6 +3073,8 @@
                 rrMultiLines: [],
                 manualLines: [],
                 manualSeq: 0,
+                activeMultiIndex: 0,
+                activeUnitIndex: 0,
                 multiErrors: {},
                 submitting: false,
                 purchaseDate: '',
@@ -2397,7 +3233,12 @@
                         condition: 'Good',
                         cost: '',
                         warranty: '',
-                        useful_life_years: '',
+                        useful_life_years: 5,
+                        placement: 'storage',
+                        room: String(this.room || @json((string) ($defaultStorageRoomId ?? ''))),
+                        deployRoom: '',
+                        custodianId: '',
+                        replacesId: '',
                         perPiece: false,
                         pieces: [],
                         ...values,
@@ -2426,6 +3267,7 @@
                 addManualLine() {
                     const line = this.newManualLine();
                     this.manualLines = [...this.manualLines, line];
+                    this.activeMultiIndex = Math.max(0, this.manualLines.length - 1);
                     this.$nextTick(() => {
                         const input = document.getElementById('multi_name_' + line.id);
                         input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2441,8 +3283,10 @@
                     const rest = this.manualLines.filter((_, i) => i !== index);
                     if (rest.length > 1) {
                         this.manualLines = rest;
+                        this.activeMultiIndex = Math.min(this.activeMultiIndex, rest.length - 1);
                         return;
                     }
+                    this.activeMultiIndex = 0;
                     const only = rest[0];
                     this.manualLines = [];
                     if (!only) return;
@@ -2580,8 +3424,13 @@
                             max,
                             tracking: 'Individual',
                             warranty: '',
-                            useful_life_years: '',
+                            useful_life_years: 5,
                             cost: line.unit_cost != null ? String(line.unit_cost) : '',
+                            placement: 'storage',
+                            room: String(this.room || @json((string) ($defaultStorageRoomId ?? ''))),
+                            deployRoom: '',
+                            custodianId: '',
+                            replacesId: line.replaces_equipment_id ? String(line.replaces_equipment_id) : '',
                             perPiece: false,
                             pieces: [],
                         };
@@ -2594,6 +3443,43 @@
                         if (ids.includes(id)) errors[id] = this.multiErrors[id];
                     });
                     this.multiErrors = errors;
+                    if (this.activeMultiIndex >= this.rrMultiLines.length) {
+                        this.activeMultiIndex = Math.max(0, this.rrMultiLines.length - 1);
+                    }
+                },
+                goToMultiSlide(index) {
+                    const len = (this.multiLines || []).length;
+                    if (!len) {
+                        this.activeMultiIndex = 0;
+                        return;
+                    }
+                    this.activeMultiIndex = Math.max(0, Math.min(len - 1, Number(index) || 0));
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                prevMultiSlide() {
+                    this.goToMultiSlide(this.activeMultiIndex - 1);
+                },
+                nextMultiSlide() {
+                    this.goToMultiSlide(this.activeMultiIndex + 1);
+                },
+                multiRowHasError(row) {
+                    if (!row || !this.multiErrors) return false;
+                    const err = this.multiErrors[row.id];
+                    return !!(err && Object.keys(err).length > 0);
+                },
+                isMultiRowComplete(row) {
+                    if (!row || this.multiRowHasError(row)) return false;
+                    if (!String(row.name || row.article || '').trim()) return false;
+                    if (!String(row.category || '').trim()) return false;
+                    if (!String(row.brand || '').trim()) return false;
+                    if (!String(row.model || '').trim()) return false;
+                    const qty = Number(row.quantity);
+                    if (!Number.isInteger(qty) || qty < 1) return false;
+                    if (isStockPage) {
+                        if (this.rowDeploying(row) && !String(row.deployRoom || '').trim()) return false;
+                        if (!this.rowDeploying(row) && !String(row.room || this.room || '').trim()) return false;
+                    }
+                    return true;
                 },
                 applyExpressDefaultsToRow(row, forceTracking = true) {
                     if (!row) return;
@@ -2844,7 +3730,7 @@
                     return !this.isMulti() && this.tracking === 'Individual' && Number(this.quantity) > 1;
                 },
                 hasUnitsStep() {
-                    return this.isMulti() || this.needsItemStep();
+                    return this.isMulti();
                 },
                 maxUsefulLife() {
                     return {{ (int) \App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS }};
@@ -2907,7 +3793,34 @@
                         this.quantity = max;
                     }
                 },
+                rowDeploying(row) {
+                    return isStockPage && row && row.placement === 'deploy';
+                },
+                setRowPlacement(row, placement) {
+                    if (!row) return;
+                    row.placement = placement;
+                    if (placement === 'storage') {
+                        row.deployRoom = '';
+                        row.custodianId = '';
+                        row.replacesId = '';
+                        this.clearMultiError(row, 'deploy');
+                    } else if (!String(row.room || '').trim()) {
+                        const first = document.querySelector('#add_equipment_room option:not([value=""])');
+                        row.room = String(this.room || (first ? first.value : ''));
+                    }
+                    this.clearMultiError(row, 'room');
+                },
+                storageRoomName(roomId) {
+                    if (isStockPage) return this.defaultStorageRoomName || 'Storage Room';
+                    const id = String(roomId || '');
+                    if (!id) return this.optionText('add_equipment_room');
+                    const option = document.querySelector('#add_equipment_room option[value="' + id + '"]');
+                    return option ? (option.text || '').trim() : this.optionText('add_equipment_room');
+                },
                 deploying() {
+                    if (this.isMulti()) {
+                        return isStockPage && (this.multiLines || []).some((row) => this.rowDeploying(row));
+                    }
                     return isStockPage && this.placement === 'deploy';
                 },
                 setPlacement(placement) {
@@ -2946,13 +3859,94 @@
                     window.equipmentAssetTags?.resetReserved?.();
                     (this.items || []).forEach((item) => {
                         if (item._tagManual && !force) return;
-                        item.equipment_asset_tag = this.generateTag(this.unitRoomName(item.deploy_room_id), this.name);
+                        const roomLabel = item.placement === 'deploy'
+                            ? this.deployRoomName(item.deploy_room_id)
+                            : this.storageRoomName(this.room);
+                        item.equipment_asset_tag = this.generateTag(roomLabel || this.storageRoomName(this.room), this.name);
                         if (force) item._tagManual = false;
                     });
                 },
                 onItemRoomChange(item) {
                     item._roomManual = true;
                     this.fillItemTags(false);
+                },
+                goToUnitSlide(index) {
+                    const len = (this.items || []).length;
+                    if (!len) {
+                        this.activeUnitIndex = 0;
+                        return;
+                    }
+                    this.activeUnitIndex = Math.max(0, Math.min(len - 1, Number(index) || 0));
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                prevUnitSlide() {
+                    this.goToUnitSlide(this.activeUnitIndex - 1);
+                },
+                nextUnitSlide() {
+                    this.goToUnitSlide(this.activeUnitIndex + 1);
+                },
+                setItemPlacement(item, placement) {
+                    if (!item) return;
+                    item.placement = placement;
+                    if (placement !== 'deploy') {
+                        item.deploy_room_id = '';
+                        item.custodian_id = '';
+                        item.replaces_equipment_id = '';
+                    }
+                    this.fillItemTags(false);
+                },
+                itemReplacementCandidates(item) {
+                    if (!item) return [];
+                    return this.filteredReplacementCandidatesFor(this.name, this.category, item.replaces_equipment_id, item.placement || 'storage', item.deploy_room_id || '');
+                },
+                syncItemReplacementSelection(item) {
+                    if (!item || !item.replaces_equipment_id) return;
+                    const allowed = this.itemReplacementCandidates(item);
+                    if (!allowed.some((c) => String(c.equipment_id) === String(item.replaces_equipment_id))) {
+                        item.replaces_equipment_id = '';
+                    }
+                },
+                isUnitComplete(item) {
+                    if (!item) return false;
+                    if (!String(item.equipment_asset_tag || '').trim()) return false;
+                    if (!String(item.equipment_serial_number || '').trim()) return false;
+                    if (!String(item.equipment_brand_name || this.brand || '').trim()) return false;
+                    if (!String(item.equipment_model || '').trim()) return false;
+                    if (!String(item.equipment_warranty_expiration || '').trim()) return false;
+                    const life = Number(item.equipment_useful_life_years);
+                    if (!Number.isInteger(life) || life < 1 || life > this.maxUsefulLife()) return false;
+                    if (item.placement === 'deploy' && !String(item.deploy_room_id || '').trim()) return false;
+                    return true;
+                },
+                copyActiveUnitToAll() {
+                    const src = (this.items || [])[this.activeUnitIndex];
+                    if (!src) return;
+                    this.items.forEach((item, idx) => {
+                        if (idx === this.activeUnitIndex) return;
+                        if (this.manualIntake() || !this._brandFromRis) {
+                            item.equipment_brand_name = src.equipment_brand_name || '';
+                            item._brandManual = true;
+                        }
+                        item.equipment_model = src.equipment_model || '';
+                        item.equipment_warranty_expiration = src.equipment_warranty_expiration || '';
+                        item._warrantyManual = true;
+                        item.equipment_useful_life_years = src.equipment_useful_life_years || 5;
+                        item._lifeManual = true;
+                        item.placement = src.placement || 'storage';
+                        item.deploy_room_id = src.placement === 'deploy' ? String(src.deploy_room_id || '') : '';
+                        item._roomManual = src.placement === 'deploy';
+                        item.custodian_id = src.placement === 'deploy' ? String(src.custodian_id || '') : '';
+                        if (src.placement !== 'deploy') item.replaces_equipment_id = '';
+                    });
+                    this.fillItemTags(false);
+                },
+                syncTopLevelFromItems() {
+                    if (this.isMulti() || !this.needsItemStep() || !(this.items || []).length) return;
+                    const first = this.items[0];
+                    if (first.equipment_brand_name) this.brand = first.equipment_brand_name;
+                    if (first.equipment_model) this.model = first.equipment_model;
+                    if (first.equipment_warranty_expiration) this.warranty = first.equipment_warranty_expiration;
+                    if (first.equipment_useful_life_years) this.usefulLifeYears = first.equipment_useful_life_years;
                 },
                 multiUnits() {
                     return (this.multiLines || []).flatMap((row) => row.units || []);
@@ -2961,8 +3955,8 @@
                     return (this.multiLines || []).reduce((sum, row) => sum + (row.tracking === 'Bulk' ? 1 : (Number(row.quantity) || 0)), 0);
                 },
                 buildMultiUnits() {
-                    const deploying = this.deploying();
                     this.multiLines.forEach((row) => {
+                        const rowDeploy = this.rowDeploying(row);
                         const count = row.tracking === 'Bulk' ? 1 : Math.min(200, Math.max(1, Number(row.quantity) || 1));
                         const previous = Array.isArray(row.units) ? row.units : [];
                         previous.slice(count).forEach((unit) => {
@@ -2970,6 +3964,13 @@
                         });
                         row.units = Array.from({ length: count }, (_, i) => {
                             const prev = previous[i] || {};
+<<<<<<< HEAD
+                            const roomManual = rowDeploy && !!prev._roomManual;
+                            return {
+                                asset_tag: prev._tagManual ? prev.asset_tag : '',
+                                serial: prev.serial || '',
+                                purchase_date: prev._purchaseManual ? (prev.purchase_date || '') : (row.purchase_date || this.purchaseDate || ''),
+=======
                             const roomManual = deploying && !!prev._roomManual;
                             const presetSerial = (Array.isArray(row.serial_numbers) && row.serial_numbers[i])
                                 || (i === 0 ? (row.serial_number || '') : '');
@@ -2977,6 +3978,7 @@
                                 asset_tag: prev._tagManual ? prev.asset_tag : '',
                                 serial: prev.serial || presetSerial,
                                 purchase_date: prev._purchaseManual ? (prev.purchase_date || '') : (this.purchaseDate || ''),
+>>>>>>> bda3ca10f31195123df88d54c088ad0a09915eb6
                                 cost: prev._costManual ? (prev.cost ?? '') : (row.cost || this.purchaseCost || ''),
                                 useful_life_years: prev._lifeManual ? (prev.useful_life_years ?? '') : (row.useful_life_years || this.usefulLifeYears || ''),
                                 warranty: prev._warrantyManual ? prev.warranty : (row.warranty || this.warranty || ''),
@@ -2984,9 +3986,9 @@
                                 _costManual: !!prev._costManual,
                                 _lifeManual: !!prev._lifeManual,
                                 _warrantyManual: !!prev._warrantyManual,
-                                deploy_room_id: roomManual ? prev.deploy_room_id : (deploying ? String(this.deployRoom || '') : ''),
+                                deploy_room_id: roomManual ? prev.deploy_room_id : (rowDeploy ? String(row.deployRoom || '') : ''),
                                 _roomManual: roomManual,
-                                custodian_id: prev._custodianManual ? prev.custodian_id : String(this.custodianId || ''),
+                                custodian_id: prev._custodianManual ? prev.custodian_id : (this.rowCanAssign(row) ? String(row.custodianId || '') : ''),
                                 _custodianManual: !!prev._custodianManual,
                                 _tagManual: !!prev._tagManual,
                                 _imageFile: prev._imageFile || null,
@@ -2999,9 +4001,13 @@
                 fillMultiTags(force) {
                     window.equipmentAssetTags?.resetReserved?.();
                     (this.multiLines || []).forEach((row) => {
+                        const rowDeploy = this.rowDeploying(row);
                         (row.units || []).forEach((unit) => {
                             if (unit._tagManual && !force) return;
-                            unit.asset_tag = this.generateTag(this.unitRoomName(unit.deploy_room_id), row.name);
+                            const roomLabel = rowDeploy
+                                ? this.deployRoomName(unit.deploy_room_id || row.deployRoom)
+                                : this.storageRoomName(row.room || this.room);
+                            unit.asset_tag = this.generateTag(roomLabel, row.name);
                             if (force) unit._tagManual = false;
                         });
                     });
@@ -3011,16 +4017,22 @@
                     this.fillMultiTags(false);
                 },
                 useDefaultRoomForAll() {
-                    this.multiUnits().forEach((unit) => {
-                        unit.deploy_room_id = String(this.deployRoom || '');
-                        unit._roomManual = false;
+                    (this.multiLines || []).forEach((row) => {
+                        if (!this.rowDeploying(row)) return;
+                        (row.units || []).forEach((unit) => {
+                            unit.deploy_room_id = String(row.deployRoom || '');
+                            unit._roomManual = false;
+                        });
                     });
                     this.fillMultiTags(false);
                 },
                 useDefaultCustodianForAll() {
-                    this.multiUnits().forEach((unit) => {
-                        unit.custodian_id = String(this.custodianId || '');
-                        unit._custodianManual = false;
+                    (this.multiLines || []).forEach((row) => {
+                        if (!this.rowCanAssign(row)) return;
+                        (row.units || []).forEach((unit) => {
+                            unit.custodian_id = String(row.custodianId || '');
+                            unit._custodianManual = false;
+                        });
                     });
                 },
                 hasPieces(row) {
@@ -3158,7 +4170,7 @@
                                 this.formError = 'Purchase date for ' + label + ' cannot be in the future.';
                                 return false;
                             }
-                            if (this.deploying() && !String(unit.deploy_room_id || this.deployRoom || '').trim()) {
+                            if (this.rowDeploying(row) && !String(unit.deploy_room_id || row.deployRoom || '').trim()) {
                                 this.formError = 'Choose a room for ' + label + '.';
                                 return false;
                             }
@@ -3218,18 +4230,22 @@
                 manualIntake() {
                     return !isStockPage || this.intakeBasis === 'non_procurement';
                 },
-                canAssignPerson() {
-                    if (!isStockPage || this.placement !== 'deploy') return false;
-                    if (this.isMulti()) return this.multiLines.some((row) => this.unitCanAssign(row));
-                    return this.tracking === 'Individual' && this.condition !== 'Disposed';
-                },
-                unitCanAssign(row) {
-                    return this.deploying()
+                rowCanAssign(row) {
+                    return this.rowDeploying(row)
                         && row.tracking === 'Individual'
                         && (!this.isMultiManual() || row.condition !== 'Disposed');
                 },
+                canAssignPerson() {
+                    if (!isStockPage) return false;
+                    if (this.isMulti()) return (this.multiLines || []).some((row) => this.rowCanAssign(row));
+                    if (this.placement !== 'deploy') return false;
+                    return this.tracking === 'Individual' && this.condition !== 'Disposed';
+                },
+                unitCanAssign(row) {
+                    return this.rowCanAssign(row);
+                },
                 unitAssignHint(row) {
-                    if (!this.deploying()) return 'Stays in storage';
+                    if (!this.rowDeploying(row)) return 'Stays in storage';
                     if (row.tracking !== 'Individual') return 'Bulk stays with the room';
                     if (row.condition === 'Disposed') return 'Disposed items can’t be assigned';
                     return '';
@@ -3266,13 +4282,13 @@
                 wizardSteps() {
                     const steps = [];
                     if (isStockPage) {
-                        steps.push({ key: 'p1', label: 'Source', hint: 'Where the equipment came from: a delivered Receiving Report line, or a non-procurement source.' });
+                        steps.push({ key: 'p1', label: 'Source', hint: 'Select a delivered Receiving Report line or non-procurement source.' });
                     }
-                    steps.push(
-                        { key: 'p2', label: 'Identity', hint: 'What the equipment is: name, category, brand, model, and how it is tracked.' },
-                        { key: 'p3', label: 'Purchase & warranty', hint: 'When it was bought or received, what it cost, and how long it is covered.' },
-                        { key: 'p4', label: 'Placement', hint: 'Where it goes after it is added to inventory, who is accountable for it, and what it replaces.' },
-                    );
+                    steps.push({
+                        key: 'p2',
+                        label: 'Details & placement',
+                        hint: 'Confirm fetched procurement fields, fill identity & warranty details, and set placement.',
+                    });
                     if (this.hasUnitsStep()) {
                         steps.push({
                             key: 'units',
@@ -3330,8 +4346,11 @@
                                 this.onRrLineChange();
                             }
                         }
-                        if (this.page < 4) {
-                            this.page += 1;
+                        if (this.page < 2) {
+                            this.page = 2;
+                            if (!this.isMulti() && this.needsItemStep()) {
+                                this.buildItems();
+                            }
                             this.markFurthest();
                             this.scrollToTop();
                             return;
@@ -3352,9 +4371,9 @@
                     this.clearErrors();
                     if (this.step === 2) {
                         this.step = 1;
-                        this.page = 4;
+                        this.page = 2;
                     } else if (this.page > firstPage) {
-                        this.page -= 1;
+                        this.page = firstPage;
                     } else {
                         this.close();
                         return;
@@ -3377,64 +4396,78 @@
                                 : 'Tick at least one received equipment line from the RR list.';
                         }
                     }
-                    if (page === 2 && this.isMulti()) {
-                        if (this.isMultiRr() && !this.multiLines.length) this.syncMultiLines();
-                        const rowErrors = {};
-                        this.multiLines.forEach((row) => {
-                            const rowError = {};
-                            if (!String(row.name || '').trim()) rowError.name = 'Equipment name is required.';
-                            if (!String(row.category || '').trim()) rowError.category = 'Please select a classification.';
-                            if (!String(row.brand || '').trim()) rowError.brand = 'Brand name is required.';
-                            if (!String(row.model || '').trim()) rowError.model = 'Model is required.';
-                            const qty = Number(row.quantity);
-                            if (!Number.isInteger(qty) || qty < 1) {
-                                rowError.quantity = 'Quantity must be at least 1.';
-                            } else if (qty > row.max) {
-                                rowError.quantity = this.isMultiManual()
-                                    ? 'Quantity cannot exceed ' + row.max + '.'
-                                    : 'Only ' + row.max + ' left on this RR line.';
+                    if (page === 2) {
+                        if (this.isMulti()) {
+                            if (this.isMultiRr() && !this.multiLines.length) this.syncMultiLines();
+                            const rowErrors = {};
+                            this.multiLines.forEach((row) => {
+                                const rowError = {};
+                                if (!String(row.name || '').trim()) rowError.name = 'Equipment name is required.';
+                                if (!String(row.category || '').trim()) rowError.category = 'Please select a classification.';
+                                if (!String(row.brand || '').trim()) rowError.brand = 'Brand name is required.';
+                                if (!String(row.model || '').trim()) rowError.model = 'Model is required.';
+                                const qty = Number(row.quantity);
+                                if (!Number.isInteger(qty) || qty < 1) {
+                                    rowError.quantity = 'Quantity must be at least 1.';
+                                } else if (qty > row.max) {
+                                    rowError.quantity = this.isMultiManual()
+                                        ? 'Quantity cannot exceed ' + row.max + '.'
+                                        : 'Only ' + row.max + ' left on this RR line.';
+                                }
+                                if (isStockPage) {
+                                    if (this.rowDeploying(row)) {
+                                        if (!String(row.deployRoom || '').trim()) {
+                                            rowError.deploy = 'Choose the room to deploy to.';
+                                        }
+                                    } else if (!String(row.room || this.room || '').trim()) {
+                                        rowError.room = 'Please select a storage room.';
+                                    }
+                                }
+                                if (Object.keys(rowError).length) rowErrors[row.id] = rowError;
+                            });
+                            this.multiErrors = rowErrors;
+                            const count = Object.keys(rowErrors).length;
+                            if (count) {
+                                const firstErrIdx = this.multiLines.findIndex((row) => !!rowErrors[row.id]);
+                                if (firstErrIdx >= 0) {
+                                    this.activeMultiIndex = firstErrIdx;
+                                }
+                                next.multi = count === 1
+                                    ? 'Fix the highlighted item before continuing.'
+                                    : ('Fix the ' + count + ' highlighted items before continuing.');
                             }
-                            if (Object.keys(rowError).length) rowErrors[row.id] = rowError;
-                        });
-                        this.multiErrors = rowErrors;
-                        const count = Object.keys(rowErrors).length;
-                        if (count) {
-                            next.multi = count === 1
-                                ? 'Fix the highlighted item before continuing.'
-                                : ('Fix the ' + count + ' highlighted items before continuing.');
-                        }
-                    } else if (page === 2) {
-                        if (!String(this.name || '').trim()) {
-                            next.name = 'Equipment name is required.';
-                        }
-                        if (!String(this.category || '').trim()) {
-                            next.category = 'Please select a classification.';
-                        }
-                        if (!String(this.brand || '').trim()) {
-                            next.brand = 'Brand name is required.';
-                        }
-                        if (!String(this.model || '').trim()) {
-                            next.model = 'Model is required.';
-                        }
-                        if (!this.needsItemStep()) {
-                            if (!String(this.assetTag || '').trim()) {
-                                next.asset_tag = 'Asset tag is required.';
+                        } else {
+                            if (!String(this.name || '').trim()) {
+                                next.name = 'Equipment name is required.';
                             }
-                            if (!String(this.serial || '').trim()) {
-                                next.serial = 'Serial number is required.';
+                            if (!String(this.category || '').trim()) {
+                                next.category = 'Please select a classification.';
+                            }
+                            if (!this.needsItemStep()) {
+                                if (!String(this.brand || '').trim()) {
+                                    next.brand = 'Brand name is required.';
+                                }
+                                if (!String(this.model || '').trim()) {
+                                    next.model = 'Model is required.';
+                                }
+                                if (!String(this.assetTag || '').trim()) {
+                                    next.asset_tag = 'Asset tag is required.';
+                                }
+                                if (!String(this.serial || '').trim()) {
+                                    next.serial = 'Serial number is required.';
+                                }
+                            }
+                            const qty = Number(this.quantity);
+                            const maxQty = this.maxAddQty();
+                            if (!Number.isFinite(qty) || qty < 1) {
+                                next.quantity = 'Quantity must be at least 1.';
+                            } else if (qty > maxQty) {
+                                next.quantity = isStockPage && this.intakeBasis !== 'non_procurement'
+                                    ? ('Quantity cannot exceed ' + maxQty + ' left on this RR line.')
+                                    : ('Quantity cannot exceed ' + maxQty + '.');
                             }
                         }
-                        const qty = Number(this.quantity);
-                        const maxQty = this.maxAddQty();
-                        if (!Number.isFinite(qty) || qty < 1) {
-                            next.quantity = 'Quantity must be at least 1.';
-                        } else if (qty > maxQty) {
-                            next.quantity = isStockPage && this.intakeBasis !== 'non_procurement'
-                                ? ('Quantity cannot exceed ' + maxQty + ' left on this RR line.')
-                                : ('Quantity cannot exceed ' + maxQty + '.');
-                        }
-                    }
-                    if (page === 3) {
+
                         if (this.manualIntake()) {
                             const purchaseLabel = this.acqSource === 'donation' ? 'Donation date' : 'Purchase date';
                             if (this.isFutureDate(this.purchaseDate)) {
@@ -3446,21 +4479,29 @@
                                 next.received_date = 'Received on cannot be before the ' + purchaseLabel.toLowerCase() + '.';
                             }
                         }
-                        if (!String(this.warranty || '').trim()) {
-                            next.warranty = 'Warranty expiration is required.';
-                        }
-                        const lifeMissing = this.usefulLifeYears === '' || this.usefulLifeYears === null || this.usefulLifeYears === undefined;
-                        const life = Number(this.usefulLifeYears);
                         const lifeMax = this.maxUsefulLife();
-                        if (lifeMissing || !Number.isInteger(life) || life < 1 || life > lifeMax) {
-                            next.useful_life = 'Useful lifespan must be a whole number from 1 to ' + lifeMax + ' years.';
-                        } else if (this.isMulti()) {
-                            const row = this.multiLines.find((line) => {
-                                if (line.useful_life_years === '' || line.useful_life_years === null || line.useful_life_years === undefined) return false;
+                        if (this.isMulti()) {
+                            const missingWarranty = this.multiLines.find((line) => !String(line.warranty || '').trim());
+                            if (missingWarranty) {
+                                next.warranty = 'Warranty expiration is required for ' + (missingWarranty.name || missingWarranty.article || 'each item') + '.';
+                            }
+                            const badLife = this.multiLines.find((line) => {
+                                if (line.useful_life_years === '' || line.useful_life_years === null || line.useful_life_years === undefined) return true;
                                 const years = Number(line.useful_life_years);
                                 return !Number.isInteger(years) || years < 1 || years > lifeMax;
                             });
-                            if (row) next.useful_life = 'Lifespan for ' + (row.name || row.article) + ' must be a whole number from 1 to ' + lifeMax + ' years.';
+                            if (badLife) {
+                                next.useful_life = 'Lifespan for ' + (badLife.name || badLife.article || 'each item') + ' must be a whole number from 1 to ' + lifeMax + ' years.';
+                            }
+                        } else if (!this.needsItemStep()) {
+                            if (!String(this.warranty || '').trim()) {
+                                next.warranty = 'Warranty expiration is required.';
+                            }
+                            const lifeMissing = this.usefulLifeYears === '' || this.usefulLifeYears === null || this.usefulLifeYears === undefined;
+                            const life = Number(this.usefulLifeYears);
+                            if (lifeMissing || !Number.isInteger(life) || life < 1 || life > lifeMax) {
+                                next.useful_life = 'Useful lifespan must be a whole number from 1 to ' + lifeMax + ' years.';
+                            }
                         }
                         if (this.isMulti()) {
                             const row = this.multiLines.find((line) => {
@@ -3472,17 +4513,22 @@
                         } else if (this.purchaseCost === '' || this.purchaseCost === null || this.purchaseCost === undefined || !Number.isFinite(Number(this.purchaseCost)) || Number(this.purchaseCost) < 0) {
                             next.purchase_cost = 'Cost per unit is required.';
                         }
-                    }
-                    if (page === 4) {
-                        if (this.deploying() && !String(this.room || '').trim()) {
-                            const first = document.querySelector('#add_equipment_room option:not([value=""])');
-                            if (first) this.room = first.value;
-                        }
-                        if (!String(this.room || '').trim()) {
-                            next.room = 'Please select a room.';
-                        }
-                        if (isStockPage && this.placement === 'deploy' && !String(this.deployRoom || '').trim()) {
-                            next.deploy = 'Choose the room to deploy to.';
+
+                        if (!this.isMulti()) {
+                            if (this.deploying() && !String(this.room || '').trim()) {
+                                const first = document.querySelector('#add_equipment_room option:not([value=""])');
+                                if (first) this.room = first.value;
+                            }
+                            if (!String(this.room || '').trim()) {
+                                next.room = 'Please select a room.';
+                            }
+                            if (isStockPage && this.placement === 'deploy' && !String(this.deployRoom || '').trim()) {
+                                next.deploy = 'Choose the room to deploy to.';
+                            }
+                        } else if (!String(this.room || '').trim()) {
+                            const firstRowRoom = (this.multiLines || []).find((r) => String(r.room || '').trim())?.room;
+                            const firstOpt = document.querySelector('#add_equipment_room option:not([value=""])');
+                            this.room = String(firstRowRoom || (firstOpt ? firstOpt.value : ''));
                         }
                     }
                     return next;
@@ -3490,16 +4536,14 @@
                 pageForErrors() {
                     const keys = Object.keys(this.errors || {});
                     if (isStockPage && keys.some((k) => ['rr', 'intake_reason', 'acq_source'].includes(k))) return 1;
-                    if (keys.some((k) => ['name', 'category', 'quantity', 'image', 'multi', 'brand', 'model', 'asset_tag', 'serial'].includes(k))) return 2;
-                    if (keys.some((k) => ['useful_life', 'purchase_date', 'received_date', 'warranty', 'purchase_cost'].includes(k))) return 3;
-                    if (keys.some((k) => ['room', 'deploy', 'custodian'].includes(k))) return 4;
+                    if (keys.length) return 2;
                     return firstPage;
                 },
                 validatePage(page) {
                     return this.applyErrors(this.pageErrors(page));
                 },
                 validateStep1() {
-                    for (let page = firstPage; page <= 4; page++) {
+                    for (let page = firstPage; page <= 2; page++) {
                         const next = this.pageErrors(page);
                         if (Object.keys(next).length) {
                             this.step = 1;
@@ -3539,27 +4583,38 @@
                             ? item.equipment_purchase_cost
                             : this.purchaseCost;
                         if (!tag) {
-                            this.formError = `Asset tag is required on row ${row}.`;
+                            this.activeUnitIndex = i;
+                            this.formError = `Asset tag is required on Unit ${row}.`;
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return false;
                         }
                         if (!serial) {
-                            this.formError = `Serial number is required on row ${row}.`;
+                            this.activeUnitIndex = i;
+                            this.formError = `Serial number is required on Unit ${row}.`;
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return false;
                         }
                         if (!brand) {
-                            this.formError = `Brand name is required on row ${row}.`;
+                            this.activeUnitIndex = i;
+                            this.formError = `Brand name is required on Unit ${row}.`;
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return false;
                         }
                         if (!model) {
-                            this.formError = `Model is required on row ${row}.`;
+                            this.activeUnitIndex = i;
+                            this.formError = `Model is required on Unit ${row}.`;
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return false;
                         }
                         if (!warranty) {
-                            this.formError = `Warranty expiration is required on row ${row}.`;
+                            this.activeUnitIndex = i;
+                            this.formError = `Warranty expiration is required on Unit ${row}.`;
+                            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                            return false;
+                        }
+                        if (item.placement === 'deploy' && !String(item.deploy_room_id || '').trim()) {
+                            this.activeUnitIndex = i;
+                            this.formError = `Choose a room to deploy to on Unit ${row}.`;
                             this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                             return false;
                         }
@@ -3641,6 +4696,7 @@
                 reset() {
                     this.reviewOpen = false;
                     this.reviewConfirmed = false;
+                    this.reviewSlideIndex = 0;
                     this.step = 1;
                     this.page = firstPage;
                     this.furthestStepIndex = 0;
@@ -3679,6 +4735,8 @@
                     });
                     this.rrMultiLines = [];
                     this.manualLines = [];
+                    this.activeMultiIndex = 0;
+                    this.activeUnitIndex = 0;
                     this.multiErrors = {};
                     this.submitting = false;
                     this.purchaseDate = '';
@@ -3718,7 +4776,100 @@
                         if (window.lucide) window.lucide.createIcons();
                     });
                 },
+                filteredReplacementCandidatesFor(rawName, rawCategory, rawSelectedId = '', rawPlacement = 'storage', rawDeployRoomId = '') {
+                    const all = Array.isArray(this.replacementCandidates) ? this.replacementCandidates : [];
+                    const targetName = String(rawName || '').trim().toLowerCase();
+                    const targetCategory = String(rawCategory || '').trim();
+                    const selectedId = String(rawSelectedId || '').trim();
+                    const isDeploy = rawPlacement === 'deploy';
+                    const deployRoomId = String(rawDeployRoomId || '').trim();
+
+                    if (!isDeploy && !this.stockAndLinkMode) {
+                        return [];
+                    }
+                    if (isDeploy && !deployRoomId) {
+                        return [];
+                    }
+
+                    return all.filter((candidate) => {
+                        if (this.stockAndLinkMode && selectedId && String(candidate.equipment_id) === selectedId) {
+                            return true;
+                        }
+                        if (isDeploy && deployRoomId) {
+                            if (String(candidate.equipment_room_id || '').trim() !== deployRoomId) {
+                                return false;
+                            }
+                        }
+                        const candName = String(candidate.equipment_name || '').trim().toLowerCase();
+                        const candCat = String(candidate.equipment_category_id || '').trim();
+
+                        if (targetName) {
+                            const nameMatch = candName === targetName
+                                || candName.includes(targetName)
+                                || targetName.includes(candName);
+                            if (!nameMatch) return false;
+                            if (targetCategory && candCat && candCat !== targetCategory) return false;
+                            return true;
+                        }
+                        if (targetCategory) {
+                            return candCat === targetCategory;
+                        }
+                        return true;
+                    });
+                },
+                filteredReplacementCandidates() {
+                    return this.filteredReplacementCandidatesFor(this.name, this.category, this.replacesId, this.placement, this.deployRoom);
+                },
+                rowReplacementCandidates(row) {
+                    if (!row) return [];
+                    return this.filteredReplacementCandidatesFor(row.name || row.article, row.category, row.replacesId, row.placement, row.deployRoom);
+                },
+                syncRowReplacementSelection(row) {
+                    if (!row || !row.replacesId) return;
+                    const allowed = this.rowReplacementCandidates(row);
+                    if (!allowed.some((c) => String(c.equipment_id) === String(row.replacesId))) {
+                        row.replacesId = '';
+                    }
+                },
+                syncReplacementSelection() {
+                    if (!this.replacesId || this.stockAndLinkMode) return;
+                    const allowed = this.filteredReplacementCandidates();
+                    if (!allowed.some((c) => String(c.equipment_id) === String(this.replacesId))) {
+                        this.replacesId = '';
+                    }
+                },
+                hasUnsavedChanges() {
+                    if (this.step > 1 || this.page > firstPage) return true;
+                    if ((this.rrSelected || []).length > 0) return true;
+                    if (this.intakeBasis === 'non_procurement') return true;
+                    if (this.placement !== 'storage') return true;
+                    if (String(this.name || '').trim() !== '') return true;
+                    if (String(this.category || '').trim() !== '') return true;
+                    if (String(this.brand || '').trim() !== '') return true;
+                    if (String(this.model || '').trim() !== '') return true;
+                    if (String(this.serial || '').trim() !== '') return true;
+                    if (String(this.warranty || '').trim() !== '') return true;
+                    if (String(this.deployRoom || '').trim() !== '') return true;
+                    if (String(this.custodianId || '').trim() !== '') return true;
+                    if (String(this.replacesId || '').trim() !== '' && !this.stockAndLinkMode) return true;
+                    if (String(this.intakeReason || '').trim() !== '') return true;
+                    if (String(this.acqSource || '').trim() !== '') return true;
+                    if (this.assetTagManual) return true;
+                    if (this.imagePreview) return true;
+                    if ((this.manualLines || []).length > 0) return true;
+                    return false;
+                },
+                requestClose() {
+                    if (this.submitting) return;
+                    if (!this.hasUnsavedChanges()) {
+                        this.close();
+                        return;
+                    }
+                    this.discardPromptOpen = true;
+                },
                 close() {
+                    this.discardPromptOpen = false;
+                    this.showUnitOverrides = false;
                     this.open = false;
                     this.reset();
                     document.body.style.overflow = '';
@@ -3734,9 +4885,13 @@
                 },
                 selectedRoomName() {
                     const deploying = this.placement === 'deploy' && String(this.deployRoom || '') !== '';
-                    return this.optionText(deploying ? 'add_deploy_room' : 'add_equipment_room');
+                    if (deploying) return this.optionText('add_deploy_room');
+                    return isStockPage ? (this.defaultStorageRoomName || 'Storage Room') : this.optionText('add_equipment_room');
                 },
                 optionText(selectId) {
+                    if (isStockPage && selectId === 'add_equipment_room') {
+                        return this.defaultStorageRoomName || 'Storage Room';
+                    }
                     const select = document.getElementById(selectId);
                     const option = select?.selectedOptions?.[0];
                     return option && option.value !== '' ? (option.text || '').trim() : '';
@@ -3888,8 +5043,13 @@
                     const lockedBrand = !this.manualIntake() && this._brandFromRis;
                     this.items = Array.from({ length: qty }, (_, i) => {
                         const prev = previous[i] || {};
+<<<<<<< HEAD
+                        const unitPlacement = prev.placement || (deploying ? 'deploy' : 'storage');
+                        const roomManual = unitPlacement === 'deploy' && !!prev._roomManual;
+=======
                         const roomManual = deploying && !!prev._roomManual;
                         const presetSerial = (Array.isArray(this.rrSerialNumbers) && this.rrSerialNumbers[i]) || '';
+>>>>>>> bda3ca10f31195123df88d54c088ad0a09915eb6
                         return {
                             equipment_asset_tag: prev._tagManual ? prev.equipment_asset_tag : '',
                             equipment_serial_number: prev.equipment_serial_number || presetSerial,
@@ -3899,13 +5059,16 @@
                                     ? (prev.equipment_brand_name || '')
                                     : (this.presetBrandAt(i) || this.brand || '')),
                             _brandManual: lockedBrand ? false : !!prev._brandManual,
-                            equipment_model: this.model || '',
-                            equipment_condition_status: this.manualIntake() ? this.condition : 'Good',
+                            equipment_model: prev.equipment_model ?? (this.model || ''),
+                            equipment_condition_status: this.manualIntake() ? (prev.equipment_condition_status || this.condition) : 'Good',
                             equipment_purchase_date: prev._purchaseManual ? (prev.equipment_purchase_date || '') : (this.purchaseDate || ''),
                             equipment_purchase_cost: prev._costManual ? (prev.equipment_purchase_cost ?? '') : (this.purchaseCost ?? ''),
-                            equipment_useful_life_years: prev._lifeManual ? (prev.equipment_useful_life_years ?? '') : (this.usefulLifeYears ?? ''),
+                            equipment_useful_life_years: prev._lifeManual ? (prev.equipment_useful_life_years ?? 5) : (this.usefulLifeYears || 5),
                             equipment_warranty_expiration: prev._warrantyManual ? (prev.equipment_warranty_expiration || '') : (this.warranty || ''),
-                            deploy_room_id: roomManual ? prev.deploy_room_id : (deploying ? String(this.deployRoom || '') : ''),
+                            placement: unitPlacement,
+                            deploy_room_id: roomManual ? prev.deploy_room_id : (unitPlacement === 'deploy' ? String(this.deployRoom || '') : ''),
+                            custodian_id: prev.custodian_id || '',
+                            replaces_equipment_id: prev.replaces_equipment_id || '',
                             _roomManual: roomManual,
                             _tagManual: prev._tagManual || false,
                             _purchaseManual: !!prev._purchaseManual,
@@ -3916,6 +5079,9 @@
                             _imageFile: prev._imageFile || null,
                         };
                     });
+                    if (this.activeUnitIndex >= this.items.length) {
+                        this.activeUnitIndex = Math.max(0, this.items.length - 1);
+                    }
                     this.fillItemTags(false);
                 },
                 regenerateAssetTags() {
@@ -3968,7 +5134,7 @@
                 canSaveNow() {
                     if (this.submitting) return false;
                     if (this.step === 2) return true;
-                    return this.step === 1 && this.page === 4 && !this.hasUnitsStep();
+                    return this.step === 1 && this.page === 2 && !this.hasUnitsStep();
                 },
                 canExpressResume() {
                     if (!isStockPage || this.submitting) return false;
@@ -3978,8 +5144,194 @@
                     if (!(this.rrMultiLines || []).length) return false;
                     return this.rrMultiLines.every((row) => String(row.category || '').trim() !== '');
                 },
+                replacementCandidateLabel(id) {
+                    const target = String(id || '').trim();
+                    if (!target) return 'Not a replacement';
+                    const found = (this.replacementCandidates || []).find((c) => String(c.equipment_id) === target);
+                    if (!found) return 'Not a replacement';
+                    const parts = [found.equipment_name || 'Equipment'];
+                    if (found.equipment_asset_tag) parts.push(found.equipment_asset_tag);
+                    if (found.room_name) parts.push(found.room_name);
+                    return parts.join(' · ');
+                },
+                reviewTotalBadge() {
+                    const slides = this.reviewSlides();
+                    if (this.isMulti()) {
+                        const totalUnits = this.multiLines.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+                        return this.multiLines.length + ' items · ' + totalUnits + (totalUnits === 1 ? ' unit' : ' units');
+                    }
+                    if (this.needsItemStep()) {
+                        return slides.length + (slides.length === 1 ? ' asset' : ' assets');
+                    }
+                    const qty = Number(this.quantity) || 1;
+                    return qty > 1 ? ('1 bulk record · Qty ' + qty) : '1 asset';
+                },
+                reviewSlides() {
+                    if (this.isMulti()) {
+                        const slides = [];
+                        (this.multiLines || []).forEach((row, rowIndex) => {
+                            const units = Array.isArray(row.units) && row.units.length ? row.units : [{}];
+                            const isBulk = row.tracking === 'Bulk';
+                            const deploying = this.rowDeploying(row);
+                            const baseName = row.name || row.article || ('Item ' + (rowIndex + 1));
+                            units.forEach((unit, unitIndex) => {
+                                const brandVal = this.hasPieces(row)
+                                    ? (this.pieceValues(row, unitIndex).brand || row.brand || '—')
+                                    : (row.brand || '—');
+                                const modelVal = this.hasPieces(row)
+                                    ? (this.pieceValues(row, unitIndex).model || row.model || '—')
+                                    : (row.model || '—');
+                                const rawCost = unit.cost !== '' && unit.cost != null ? unit.cost : row.cost;
+                                const rawLife = unit.useful_life_years !== '' && unit.useful_life_years != null
+                                    ? unit.useful_life_years
+                                    : (row.useful_life_years || 5);
+                                const custodianId = unit.custodian_id || row.custodianId;
+                                const label = isBulk
+                                    ? (baseName + ' ×' + (Number(row.quantity) || 1))
+                                    : (units.length > 1 ? (baseName + ' #' + (unitIndex + 1)) : baseName);
+                                slides.push({
+                                    key: 'm-' + row.id + '-' + unitIndex,
+                                    label,
+                                    name: baseName,
+                                    classification: this.categoryName(row.category) || '—',
+                                    tracking: isBulk ? ('Bulk · Qty ' + (Number(row.quantity) || 1)) : 'Individual',
+                                    condition: this.isMultiRr() ? 'Good (new delivery)' : (row.condition || 'Good'),
+                                    brand: brandVal,
+                                    model: modelVal,
+                                    asset_tag: unit.asset_tag || '—',
+                                    serial: unit.serial || '—',
+                                    cost: this.formatPeso(rawCost),
+                                    purchase_date: unit.purchase_date || row.purchase_date || this.purchaseDate || '—',
+                                    warranty: unit.warranty || row.warranty || this.warranty || '—',
+                                    lifespan: rawLife ? (rawLife + ' years') : '5 years',
+                                    deploying,
+                                    room: deploying
+                                        ? (this.deployRoomName(unit.deploy_room_id || row.deployRoom) || '—')
+                                        : (this.storageRoomName(row.room || this.room) || 'Storage Room'),
+                                    custodian: (this.rowCanAssign(row) && custodianId)
+                                        ? (this.custodianName(custodianId) || 'No one yet')
+                                        : 'No one yet',
+                                    replaces: this.replacementCandidateLabel(row.replacesId),
+                                    received_on: this.isMultiManual() ? (this.receivedDate || '—') : 'Today (date added)',
+                                    image: unit._imagePreview || null,
+                                    source: row.source || '',
+                                    editStep: 'p2',
+                                    editMultiIndex: rowIndex,
+                                    editUnitIndex: null,
+                                });
+                            });
+                        });
+                        return slides;
+                    }
+
+                    if (this.needsItemStep() && Array.isArray(this.items) && this.items.length) {
+                        return this.items.map((item, idx) => {
+                            const deploying = item.placement === 'deploy';
+                            const rawCost = item.equipment_purchase_cost !== '' && item.equipment_purchase_cost != null
+                                ? item.equipment_purchase_cost
+                                : this.purchaseCost;
+                            const rawLife = item.equipment_useful_life_years !== '' && item.equipment_useful_life_years != null
+                                ? item.equipment_useful_life_years
+                                : (this.usefulLifeYears || 5);
+                            return {
+                                key: 'u-' + idx,
+                                label: 'Unit ' + (idx + 1),
+                                name: this.name || '—',
+                                classification: this.optionText('add_equipment_category') || this.categoryName(this.category) || '—',
+                                tracking: 'Individual',
+                                condition: this.manualIntake() ? (item.equipment_condition_status || this.condition || 'Good') : 'Good (new delivery)',
+                                brand: item.equipment_brand_name || this.brand || '—',
+                                model: item.equipment_model || this.model || '—',
+                                asset_tag: item.equipment_asset_tag || '—',
+                                serial: item.equipment_serial_number || '—',
+                                cost: this.formatPeso(rawCost),
+                                purchase_date: item.equipment_purchase_date || this.purchaseDate || '—',
+                                warranty: item.equipment_warranty_expiration || this.warranty || '—',
+                                lifespan: rawLife ? (rawLife + ' years') : '5 years',
+                                deploying,
+                                room: deploying
+                                    ? (this.deployRoomName(item.deploy_room_id) || '—')
+                                    : (this.defaultStorageRoomName || 'Storage Room'),
+                                custodian: (deploying && item.custodian_id)
+                                    ? (this.custodianName(item.custodian_id) || 'No one yet')
+                                    : 'No one yet',
+                                replaces: this.replacementCandidateLabel(item.replaces_equipment_id),
+                                received_on: this.manualIntake() ? (this.receivedDate || '—') : 'Today (date added)',
+                                image: item._imagePreview || null,
+                                source: '',
+                                editStep: 'p2',
+                                editMultiIndex: null,
+                                editUnitIndex: idx,
+                            };
+                        });
+                    }
+
+                    const deploying = this.deploying();
+                    const qty = Number(this.quantity) || 1;
+                    return [{
+                        key: 'single',
+                        label: this.name || 'Asset',
+                        name: this.name || '—',
+                        classification: this.optionText('add_equipment_category') || this.categoryName(this.category) || '—',
+                        tracking: this.tracking === 'Bulk' ? ('Bulk · Qty ' + qty) : 'Individual',
+                        condition: this.manualIntake() ? (this.condition || 'Good') : 'Good (new delivery)',
+                        brand: this.brand || '—',
+                        model: this.model || '—',
+                        asset_tag: this.assetTag || '—',
+                        serial: this.serial || '—',
+                        cost: this.formatPeso(this.purchaseCost),
+                        purchase_date: this.purchaseDate || '—',
+                        warranty: this.warranty || '—',
+                        lifespan: this.usefulLifeYears ? (this.usefulLifeYears + ' years') : '5 years',
+                        deploying,
+                        room: deploying
+                            ? (this.deployRoomName(this.deployRoom) || this.optionText('add_deploy_room') || '—')
+                            : (isStockPage ? (this.defaultStorageRoomName || 'Storage Room') : (this.optionText('add_equipment_room') || '—')),
+                        custodian: (this.canAssignPerson() && this.custodianId)
+                            ? (this.custodianName(this.custodianId) || this.optionText('add_custodian') || 'No one yet')
+                            : 'No one yet',
+                        replaces: this.replacementCandidateLabel(this.replacesId),
+                        received_on: this.manualIntake() ? (this.receivedDate || '—') : 'Today (date added)',
+                        image: this.imagePreview || null,
+                        source: '',
+                        editStep: 'p2',
+                        editMultiIndex: null,
+                        editUnitIndex: null,
+                    }];
+                },
+                activeReviewSlide() {
+                    const slides = this.reviewSlides();
+                    if (!slides.length) return null;
+                    const idx = Math.min(Math.max(0, this.reviewSlideIndex), slides.length - 1);
+                    return slides[idx] || slides[0];
+                },
+                goToReviewSlide(index) {
+                    const slides = this.reviewSlides();
+                    if (!slides.length) return;
+                    this.reviewSlideIndex = Math.min(Math.max(0, Number(index) || 0), slides.length - 1);
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                prevReviewSlide() {
+                    if (this.reviewSlideIndex > 0) this.goToReviewSlide(this.reviewSlideIndex - 1);
+                },
+                nextReviewSlide() {
+                    const slides = this.reviewSlides();
+                    if (this.reviewSlideIndex < slides.length - 1) this.goToReviewSlide(this.reviewSlideIndex + 1);
+                },
+                editSlideFromReview(slide) {
+                    if (this.submitting || !slide) return;
+                    this.reviewOpen = false;
+                    if (slide.editMultiIndex !== null && slide.editMultiIndex !== undefined) {
+                        this.activeMultiIndex = slide.editMultiIndex;
+                    }
+                    if (slide.editUnitIndex !== null && slide.editUnitIndex !== undefined) {
+                        this.activeUnitIndex = slide.editUnitIndex;
+                    }
+                    this.goToStep(slide.editStep || 'p2');
+                },
                 openReview() {
                     this.formError = '';
+                    this.reviewSlideIndex = 0;
                     this.reviewOpen = true;
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
@@ -4008,8 +5360,8 @@
                 },
                 async saveNow() {
                     if (this.submitting) return;
-                    if (this.step === 1 && this.page === 4) {
-                        if (!this.validatePage(4)) return;
+                    if (this.step === 1 && this.page === 2) {
+                        if (!this.validatePage(2)) return;
                         if (this.hasUnitsStep()) {
                             this.goToItems();
                             return;
@@ -4031,11 +5383,9 @@
                     if (this.needsItemStep()) {
                         if (!Array.isArray(this.items) || !this.items.length) this.buildItems();
                         if (!this.validateItems()) {
-                            this.step = 2;
-                            this.markFurthest();
-                            this.scrollToTop();
                             return;
                         }
+                        this.syncTopLevelFromItems();
                     } else {
                         this.items = [];
                         this.syncAssetTag();
@@ -4059,7 +5409,7 @@
                     }
                     if (!String(this.room || '').trim()) {
                         this.formError = 'Choose a storage room before Express stock.';
-                        this.page = 4;
+                        this.page = 2;
                         this.markFurthest();
                         this.scrollToTop();
                         return;
@@ -4091,6 +5441,10 @@
                         });
                         this.multiErrors = { ...this.multiErrors, ...rowErrors };
                         this.errors = { ...this.errors, multi: 'Classification is required for every line.' };
+                        const firstMissingIdx = (this.rrMultiLines || []).findIndex((row) => !String(row.category || '').trim());
+                        if (firstMissingIdx >= 0) {
+                            this.activeMultiIndex = firstMissingIdx;
+                        }
                         this.formError = missing.length === 1
                             ? 'Classification is required for “' + (missing[0].name || missing[0].article) + '”. Select it below, then Express stock now.'
                             : ('Classification is required for ' + missing.length + ' lines. Select each classification below, then Express stock now.');
@@ -4102,17 +5456,10 @@
                         return;
                     }
 
-                    // Brand / model / warranty / lifespan / cost are required before Express can finish.
+                    // Brand / model / warranty / lifespan / cost / placement are required before Express can finish.
                     if (!this.validatePage(2)) {
                         this.step = 1;
                         this.page = 2;
-                        this.furthestStepIndex = Math.max(this.furthestStepIndex, this.currentStepIndex());
-                        this.scrollToTop();
-                        return;
-                    }
-                    if (!this.validatePage(3)) {
-                        this.step = 1;
-                        this.page = 3;
                         this.furthestStepIndex = Math.max(this.furthestStepIndex, this.currentStepIndex());
                         this.scrollToTop();
                         return;
@@ -4172,13 +5519,15 @@
                     }
                 },
                 rrLinesFormFrom(lines) {
-                    const deploying = this.deploying();
                     const form = new FormData();
-                    form.append('storage_room_id', String(this.room));
-                    if (deploying && this.deployRoom) form.append('deploy_room_id', String(this.deployRoom));
-                    form.append('warranty', String(this.warranty || ''));
-                    form.append('useful_life_years', String(this.usefulLifeYears || ''));
+                    const fallbackStorage = String(this.room || (lines && lines[0] && lines[0].room) || '');
+                    const fallbackWarranty = String((lines && lines[0] && lines[0].warranty) || this.warranty || '');
+                    const fallbackLife = String((lines && lines[0] && lines[0].useful_life_years) || this.usefulLifeYears || 5);
+                    form.append('storage_room_id', fallbackStorage);
+                    form.append('warranty', fallbackWarranty);
+                    form.append('useful_life_years', fallbackLife);
                     (lines || []).forEach((row, i) => {
+                        const rowDeploy = this.rowDeploying(row);
                         const key = 'lines[' + i + ']';
                         form.append(key + '[receiving_report_item_id]', String(row.id));
                         form.append(key + '[name]', String(row.name || '').trim());
@@ -4193,6 +5542,8 @@
                                 ? row.useful_life_years
                                 : (this.usefulLifeYears || '')
                         ));
+                        if (row.room) form.append(key + '[storage_room_id]', String(row.room));
+                        if (row.replacesId) form.append(key + '[replaces_equipment_id]', String(row.replacesId));
                         (row.units || []).forEach((unit, u) => {
                             const unitKey = key + '[units][' + u + ']';
                             const warranty = String(unit.warranty || row.warranty || this.warranty || '').trim();
@@ -4216,8 +5567,8 @@
                             if (unit.purchase_date) form.append(unitKey + '[purchase_date]', unit.purchase_date);
                             form.append(unitKey + '[cost]', String(cost ?? ''));
                             form.append(unitKey + '[useful_life_years]', String(life ?? ''));
-                            if (deploying) form.append(unitKey + '[deploy_room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
-                            if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
+                            if (rowDeploy) form.append(unitKey + '[deploy_room_id]', String(unit.deploy_room_id || row.deployRoom || ''));
+                            if (this.rowCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
                             if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
                         });
                     });
@@ -4336,8 +5687,8 @@
                             if (unit.useful_life_years !== '' && unit.useful_life_years !== null && unit.useful_life_years !== undefined) {
                                 form.append(unitKey + '[useful_life_years]', String(unit.useful_life_years));
                             }
-                            if (deploying) form.append(unitKey + '[room_id]', String(unit.deploy_room_id || this.deployRoom || ''));
-                            if (this.unitCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
+                            if (this.rowDeploying(row)) form.append(unitKey + '[room_id]', String(unit.deploy_room_id || row.deployRoom || ''));
+                            if (this.rowCanAssign(row) && unit.custodian_id) form.append(unitKey + '[custodian_id]', String(unit.custodian_id));
                             if (unit._imageFile) form.append(unitKey + '[image]', unit._imageFile);
                         });
                     });

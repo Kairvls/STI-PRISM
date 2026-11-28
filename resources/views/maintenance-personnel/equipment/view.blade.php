@@ -148,9 +148,28 @@
                         </a>
                     @endif
 
+                    @if ($hasPendingTransfer ?? false)
+                        <a
+                            href="{{ $transferRequestsUrl ?? '#' }}"
+                            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+                        >
+                            <i data-lucide="clock" class="h-3.5 w-3.5"></i>
+                            Pending transfer
+                        </a>
+                    @elseif ($canTransferItem ?? false)
+                        <button
+                            type="button"
+                            onclick="openEquipmentViewTransferModal()"
+                            class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-blue-800"
+                        >
+                            <i data-lucide="{{ ($isStorageItem ?? false) ? 'send' : 'arrow-right-left' }}" class="h-3.5 w-3.5"></i>
+                            {{ ($transferNeedsApproval ?? false) ? 'Request transfer' : (($isStorageItem ?? false) ? 'Deploy' : 'Transfer') }}
+                        </button>
+                    @endif
+
                     <a
                         href="{{ url('/maintenance/equipment/audit-pack/'.$equipment->equipment_id) }}"
-                        class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white transition hover:bg-blue-800"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                     >
                         <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
                         Audit pack
@@ -493,7 +512,134 @@
         </div>
     </div>
 
+    @if (($canTransferItem ?? false) && ! ($hasPendingTransfer ?? false))
+        {{-- Deploy / Transfer Equipment Modal --}}
+        <div
+            id="equipmentViewTransferModal"
+            class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4 backdrop-blur-[1px]"
+            onclick="if (event.target === this) closeEquipmentViewTransferModal()"
+        >
+            <div class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="equipmentViewTransferTitle">
+                <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#0025cc] ring-1 ring-blue-100">
+                            <i data-lucide="{{ ($isStorageItem ?? false) ? 'send' : 'arrow-right-left' }}" class="h-4 w-4"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h2 id="equipmentViewTransferTitle" class="text-base font-semibold tracking-tight text-slate-950">
+                                {{ ($isStorageItem ?? false) ? 'Deploy equipment' : 'Transfer equipment' }}
+                            </h2>
+                            <p class="mt-0.5 text-xs text-slate-500">
+                                {{ ($isStorageItem ?? false) ? 'Send this item from storage to a room, person, or department.' : 'Move this item to another room, person, or department.' }}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="closeEquipmentViewTransferModal()"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Close"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <form action="{{ $transferActionUrl }}" method="POST" class="flex min-h-0 flex-1 flex-col">
+                    @csrf
+                    <input type="hidden" name="equipment_id" value="{{ $equipment->equipment_id }}">
+
+                    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                        <div class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70">
+                            <div class="flex items-center justify-between gap-4 px-4 py-2.5">
+                                <span class="shrink-0 text-xs text-slate-500">Equipment</span>
+                                <span class="min-w-0 truncate text-right text-xs font-semibold text-slate-950">{{ $equipment->equipment_name }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 px-4 py-2.5">
+                                <span class="shrink-0 text-xs text-slate-500">Asset tag</span>
+                                <span class="min-w-0 truncate text-right font-mono text-xs font-medium text-slate-800">{{ $na($displayAssetTag) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 px-4 py-2.5">
+                                <span class="shrink-0 text-xs text-slate-500">Current room</span>
+                                <span class="min-w-0 truncate text-right text-xs font-medium text-slate-800">{{ $na($equipment->room_name) }}</span>
+                            </div>
+                        </div>
+
+                        @include('maintenance-personnel.equipment.partials.inventory-transfer-destination', [
+                            'prefix' => 'equipmentViewTransfer',
+                            'roomOptions' => $transferRoomOptions ?? collect(),
+                            'roomPlaceholder' => ($isStorageItem ?? false) ? 'Select classroom / lab / office' : 'Select destination room',
+                        ])
+
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between gap-4">
+                                <label for="equipmentViewTransferRemarks" class="text-sm font-medium text-slate-700">Remarks</label>
+                                <span class="text-xs text-slate-400">Optional</span>
+                            </div>
+                            <textarea
+                                id="equipmentViewTransferRemarks"
+                                name="remarks"
+                                rows="3"
+                                placeholder="{{ ($isStorageItem ?? false) ? 'e.g. Deployed for room use' : 'Why is it moving?' }}"
+                                class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-3.5">
+                        <button
+                            type="button"
+                            onclick="closeEquipmentViewTransferModal()"
+                            class="inline-flex h-9 items-center justify-center rounded-lg px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-200/60 hover:text-slate-950"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0025cc] px-4 text-xs font-semibold text-white transition hover:bg-blue-800"
+                        >
+                            <i data-lucide="{{ ($isStorageItem ?? false) ? 'send' : 'arrow-right-left' }}" class="h-3.5 w-3.5"></i>
+                            {{ ($transferNeedsApproval ?? false) ? 'Send for approval' : (($isStorageItem ?? false) ? 'Deploy equipment' : 'Transfer equipment') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
     <script>
+        function openEquipmentViewTransferModal() {
+            const modal = document.getElementById('equipmentViewTransferModal');
+            if (!modal) return;
+            if (typeof resetInventoryTransferDestination === 'function') {
+                resetInventoryTransferDestination('equipmentViewTransfer');
+            }
+            if (typeof setInventoryTransferQuantity === 'function') {
+                setInventoryTransferQuantity(
+                    'equipmentViewTransfer',
+                    @json($equipment->equipment_tracking_mode ?? 'Individual'),
+                    @json((int) ($equipment->equipment_quantity ?? 1))
+                );
+            }
+            const remarks = document.getElementById('equipmentViewTransferRemarks');
+            if (remarks) remarks.value = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        }
+
+        function closeEquipmentViewTransferModal() {
+            const modal = document.getElementById('equipmentViewTransferModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeEquipmentViewTransferModal();
+        });
+
         (function () {
             const btn = document.getElementById('equipmentProfileMoreBtn');
             const menu = document.getElementById('equipmentProfileMoreMenu');
