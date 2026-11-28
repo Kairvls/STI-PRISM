@@ -28,8 +28,8 @@ class BorrowingDecisionMail
 
         $statusLabel = $decision === 'accepted' ? 'Approved' : 'Denied';
         $subject = $decision === 'accepted'
-            ? 'PaAyo borrow '.$slipNo.' was approved'
-            : 'PaAyo borrow '.$slipNo.' was denied';
+            ? 'PaAyo borrow request '.$slipNo.' approved'
+            : 'PaAyo borrow request '.$slipNo.' denied';
 
         try {
             Mail::send('emails.borrow-decision', [
@@ -71,7 +71,7 @@ class BorrowingDecisionMail
             return false;
         }
 
-        $subject = 'PaAyo borrow slip '.$slipNo;
+        $subject = 'PaAyo borrow request '.$slipNo.' received';
 
         try {
             Mail::send('emails.borrow-decision', [
@@ -79,12 +79,12 @@ class BorrowingDecisionMail
                 'employeeId' => $payload['reporter']->reporter_employee_id,
                 'slipNo' => $slipNo,
                 'decision' => 'submitted',
-                'statusLabel' => 'Submitted',
+                'statusLabel' => 'Pending approval',
                 'reason' => null,
                 'borrowFrom' => $payload['borrow_from'],
                 'expectedReturn' => $payload['expected_return'],
                 'items' => $payload['items'],
-                'nextStep' => 'Show this slip when you claim the equipment. Keep this email until Property / Maintenance releases the item.',
+                'nextStep' => 'Wait for the property custodian to review your request. You’ll receive another email once it’s approved and ready for pickup.',
                 'appUrl' => $payload['app_url'],
             ], function ($message) use ($payload, $subject) {
                 $message->to($payload['reporter']->reporter_email_address)->subject($subject);
@@ -99,7 +99,7 @@ class BorrowingDecisionMail
     }
 
     /**
-     * Email the borrower once a slip becomes overdue.
+     * Email the borrower once a borrow becomes overdue.
      */
     public static function sendOverdue(string $slipNo): bool
     {
@@ -123,7 +123,7 @@ class BorrowingDecisionMail
                 'borrowFrom' => $payload['borrow_from'],
                 'expectedReturn' => $payload['expected_return'],
                 'items' => $payload['items'],
-                'nextStep' => 'Return the equipment to Property / Maintenance as soon as possible. Open PaAyo → Borrow equipment → Check status if you need the slip details.',
+                'nextStep' => 'Return the equipment to Property / Maintenance as soon as possible. You can check your borrow details anytime in PaAyo using your employee ID.',
                 'appUrl' => $payload['app_url'],
             ], function ($message) use ($payload, $subject) {
                 $message->to($payload['reporter']->reporter_email_address)->subject($subject);
@@ -178,11 +178,11 @@ class BorrowingDecisionMail
 
         $status = (string) ($first->borrowing_status ?? '');
         $nextStep = match ($status) {
-            'Borrowed' => 'Show this slip from your employee or school email when you claim the equipment, then return it by the expected date.',
-            'Pending' => 'Check your employee or school email for this slip. Show that slip when you claim the equipment.',
+            'Borrowed' => 'Your equipment is ready for pickup. Visit Property / Maintenance and give your name, employee ID, or reference '.$slipNo.', then return it by the expected date.',
+            'Pending' => 'Wait for the property custodian to review your request. You’ll be notified by email once it’s approved for pickup.',
             'Overdue' => 'Return the equipment to Property / Maintenance as soon as possible.',
             'Denied' => 'This request was not approved. Submit a new borrow request if you still need the equipment.',
-            default => 'Check your employee or school email for this slip. Show that slip when you claim the equipment.',
+            default => 'You can check your request status anytime in PaAyo using your employee ID.',
         };
 
         return [

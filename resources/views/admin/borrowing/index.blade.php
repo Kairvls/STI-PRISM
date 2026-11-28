@@ -1059,26 +1059,29 @@
         id="borrowModal"
         x-data="borrowEquipmentCart(@js($borrowableEquipmentJson ?? []))"
         x-cloak
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="borrowModalTitle"
         class="fixed inset-0 z-50 hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
-        @keydown.escape.window="if (!$el.classList.contains('hidden')) closeBorrowModal()"
+        @keydown.escape.window="if (!$el.classList.contains('hidden')) { if (open) { open = false; } else { closeBorrowModal(); } }"
     >
         <div class="my-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
             <div class="flex items-start justify-between gap-4 px-6 pt-6">
                 <div class="min-w-0">
-                    <h2 class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
+                    <h2 id="borrowModalTitle" class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
                 </div>
                 <button
                     type="button"
                     onclick="closeBorrowModal()"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                     aria-label="Close modal"
                 >
-                    <i data-lucide="x" class="h-4 w-4"></i>
+                    <i data-lucide="x" aria-hidden="true" class="h-4 w-4"></i>
                 </button>
             </div>
 
             <form
-                method="POST" 
+                method="POST"
                 action="{{ route('admin.borrowing.store') }}"
                 class="flex min-h-0 flex-1 flex-col"
                 novalidate
@@ -1088,40 +1091,38 @@
 
                 <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart <span class="text-red-500">*</span></p>
-                                
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Items to borrow <span class="text-red-500" aria-hidden="true">*</span></p>
                             </div>
-                            <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>
+                            <p aria-live="polite" class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="badgeText"></p>
                         </div>
 
                         <div class="relative" @click.outside="open = false">
-                            <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
-                            <p class="mb-1.5 text-xs text-slate-400">Only equipment still in inventory. Deployed, under maintenance, damaged, and defective equipment cannot be borrowed. Identical stock is listed once as a bulk item — add it, then set how many to borrow.</p>
-                            <div class="flex gap-2">
-                                <div class="relative min-w-0 flex-1">
-                                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                                    <input
-                                        type="text"
-                                        x-model="query"
-                                        @focus="open = true"
-                                        @input="open = true"
-                                        @keydown.arrow-down.prevent="move(1)"
-                                        @keydown.arrow-up.prevent="move(-1)"
-                                        @keydown.enter.prevent="selectHighlighted()"
-                                        placeholder="Search by name, room, or asset tag"
-                                        class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                        autocomplete="off"
-                                    >
-                                </div>
-                                <button
-                                    type="button"
-                                    @click="addSelected()"
-                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
+                            <label for="adminBorrowSearch" class="mb-1 block text-sm font-medium text-slate-700">Add equipment</label>
+                            <p id="adminBorrowSearchHint" class="mb-2 text-xs text-slate-500">Only available storage stock is shown. Identical units are grouped — select an item to add it.</p>
+                            <div class="relative">
+                                <i data-lucide="search" aria-hidden="true" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                                <input
+                                    id="adminBorrowSearch"
+                                    type="text"
+                                    role="combobox"
+                                    aria-autocomplete="list"
+                                    :aria-expanded="open ? 'true' : 'false'"
+                                    aria-controls="adminBorrowSearchList"
+                                    aria-describedby="adminBorrowSearchHint"
+                                    :aria-activedescendant="(open && filtered.length) ? ('adminBorrowOpt-' + highlight) : null"
+                                    x-model="query"
+                                    @focus="openList()"
+                                    @input="openList()"
+                                    @keydown.arrow-down.prevent="move(1)"
+                                    @keydown.arrow-up.prevent="move(-1)"
+                                    @keydown.enter.prevent="selectHighlighted()"
+                                    @keydown.escape.stop="open = false"
+                                    placeholder="Search by name, room, or asset tag"
+                                    class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    autocomplete="off"
                                 >
-                                    Add
-                                </button>
                             </div>
 
                             <div
@@ -1129,41 +1130,50 @@
                                 x-cloak
                                 class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
                             >
-                                <div class="max-h-64 overflow-y-auto py-1">
+                                <div id="adminBorrowSearchList" role="listbox" aria-label="Available equipment" class="max-h-64 overflow-y-auto py-1">
                                     <template x-if="filtered.length === 0">
-                                        <p class="px-3 py-4 text-sm text-slate-400">No matching equipment.</p>
+                                        <p class="px-3.5 py-4 text-sm text-slate-500">No matching equipment available.</p>
                                     </template>
                                     <template x-for="(item, index) in filtered" :key="item.id">
                                         <button
                                             type="button"
-                                            @click="choose(item)"
-                                            class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
-                                            :class="index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'"
+                                            :id="'adminBorrowOpt-' + index"
+                                            role="option"
+                                            :aria-selected="index === highlight ? 'true' : 'false'"
+                                            :aria-disabled="isMaxed(item) ? 'true' : 'false'"
+                                            @click="addItem(item)"
+                                            class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition"
+                                            :class="[index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50', isMaxed(item) ? 'opacity-60' : '']"
                                         >
-                                            <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                                                <i data-lucide="package" class="h-4 w-4"></i>
+                                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                                                <i data-lucide="package" aria-hidden="true" class="h-4 w-4"></i>
                                             </span>
                                             <span class="min-w-0 flex-1">
                                                 <span class="block truncate text-sm font-medium text-slate-900" x-text="item.name"></span>
                                                 <span class="mt-0.5 block truncate text-xs text-slate-500" x-text="meta(item)"></span>
                                             </span>
-                                            <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" x-text="item.available + ' avail'"></span>
+                                            <template x-if="isMaxed(item)">
+                                                <span class="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Max added</span>
+                                            </template>
+                                            <template x-if="!isMaxed(item) && inCartQty(item.id) > 0">
+                                                <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" x-text="'In list (' + inCartQty(item.id) + '/' + item.available + ') · +1'"></span>
+                                            </template>
+                                            <template x-if="inCartQty(item.id) === 0">
+                                                <span class="shrink-0 rounded-md bg-[#0025cc]/10 px-2 py-0.5 text-[11px] font-semibold text-[#0025cc]">+ Add</span>
+                                            </template>
                                         </button>
                                     </template>
                                 </div>
                             </div>
-                            <p x-show="selected" x-cloak class="mt-2 text-xs text-slate-500">
-                                Selected: <span class="font-medium text-slate-800" x-text="selected?.name"></span>
-                                <span x-text="' · up to ' + (selected?.available || 0) + ' available'"></span>
-                            </p>
-                            <p x-show="pickerError" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
+                            <p class="sr-only" aria-live="polite" aria-atomic="true" x-text="liveStatus"></p>
+                            <p x-show="pickerError" x-cloak role="alert" class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
                         </div>
 
                         <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
                             <template x-if="cart.length === 0">
-                                <div class="px-4 py-8 text-center">
-                                    <p class="text-sm font-medium text-slate-700">No equipment added</p>
-                                    <p class="mt-1 text-xs text-slate-400">Add items here before creating the borrow.</p>
+                                <div class="px-4 py-7 text-center">
+                                    <p class="text-sm font-medium text-slate-700">No items selected yet</p>
+                                    <p class="mt-1 text-xs text-slate-500">Search above and click an item to add it to this borrow.</p>
                                 </div>
                             </template>
                             <template x-if="cart.length > 0">
@@ -1177,26 +1187,56 @@
                                                 <p class="mt-0.5 truncate text-xs text-slate-500" x-text="meta(line)"></p>
                                             </div>
                                             <div class="flex items-center gap-2">
-                                                <label class="sr-only" :for="'cart-qty-' + line.id">Quantity</label>
-                                                <input
-                                                    type="text"
-                                                    inputmode="numeric"
-                                                    autocomplete="off"
-                                                    :id="'cart-qty-' + line.id"
-                                                    :name="'items[' + index + '][quantity]'"
-                                                    x-model="line.quantity"
-                                                    @input="clampLine(line, false)"
-                                                    @blur="clampLine(line, true)"
-                                                    class="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm"
-                                                >
-                                                <span class="text-xs text-slate-400" x-text="'/' + line.available"></span>
+                                                <template x-if="line.available <= 1">
+                                                    <span class="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-medium text-slate-600">
+                                                        <input type="hidden" :name="'items[' + index + '][quantity]'" :value="line.quantity">
+                                                        Qty 1
+                                                    </span>
+                                                </template>
+                                                <template x-if="line.available > 1">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="inline-flex items-center rounded-lg border border-slate-200 bg-white" role="group" :aria-label="'Quantity for ' + line.name">
+                                                            <button
+                                                                type="button"
+                                                                @click="stepLine(line, -1)"
+                                                                :disabled="Number(line.quantity) <= 1"
+                                                                :aria-label="'Decrease quantity for ' + line.name"
+                                                                class="flex h-9 w-8 items-center justify-center rounded-l-lg text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <i data-lucide="minus" aria-hidden="true" class="h-3.5 w-3.5"></i>
+                                                            </button>
+                                                            <input
+                                                                type="text"
+                                                                inputmode="numeric"
+                                                                autocomplete="off"
+                                                                :id="'cart-qty-' + line.id"
+                                                                :name="'items[' + index + '][quantity]'"
+                                                                :aria-label="'Quantity for ' + line.name + ' (max ' + line.available + ')'"
+                                                                x-model="line.quantity"
+                                                                @input="clampLine(line, false)"
+                                                                @blur="clampLine(line, true)"
+                                                                class="h-9 w-11 border-x border-slate-200 bg-white text-center text-sm font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                                            >
+                                                            <button
+                                                                type="button"
+                                                                @click="stepLine(line, 1)"
+                                                                :disabled="Number(line.quantity) >= line.available"
+                                                                :aria-label="'Increase quantity for ' + line.name"
+                                                                class="flex h-9 w-8 items-center justify-center rounded-r-lg text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <i data-lucide="plus" aria-hidden="true" class="h-3.5 w-3.5"></i>
+                                                            </button>
+                                                        </div>
+                                                        <span class="text-xs font-medium text-slate-500" x-text="'of ' + line.available"></span>
+                                                    </div>
+                                                </template>
                                                 <button
                                                     type="button"
                                                     @click="removeLine(index)"
-                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
-                                                    aria-label="Remove item"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-700 transition hover:border-rose-200 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                                    :aria-label="'Remove ' + line.name"
                                                 >
-                                                    <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                                    <i data-lucide="trash-2" aria-hidden="true" class="h-4 w-4"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -1204,7 +1244,7 @@
                                 </div>
                             </template>
                         </div>
-                        <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
+                        <p x-show="cartError" x-cloak role="alert" class="text-xs font-medium text-rose-600" x-text="cartError"></p>
                     </div>
 
                     <div
@@ -1212,8 +1252,8 @@
                         x-data="borrowerPicker(@js(($registeredBorrowers ?? collect())->values()))"
                     >
                         <div>
-                            <p class="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
-                            <p class="mt-1 text-sm text-slate-500">Faculty and staff with campus accounts only.</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Borrower</p>
+                            <p class="mt-1 text-sm text-slate-600">Faculty and staff with campus accounts only.</p>
                         </div>
                         <div
                             id="borrowerCautionBanner"
@@ -1223,8 +1263,8 @@
                         <input type="hidden" name="borrowing_borrower_custodian_id" :value="custodianId || ''">
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <label for="borrowerRegistered" class="mb-1.5 block text-sm text-slate-600">
-                                    Faculty / staff <span class="text-red-500">*</span>
+                                <label for="borrowerRegistered" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Faculty / staff <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
                                 <select
                                     id="borrowerRegistered"
@@ -1233,7 +1273,7 @@
                                     required
                                     data-searchable="1"
                                     data-search-placeholder="Search faculty or staff…"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                                 >
                                     <option value="">Select faculty or staff…</option>
                                     <template x-for="person in people" :key="person.id">
@@ -1243,8 +1283,9 @@
                                 <p x-show="people.length === 0" class="mt-1.5 text-xs text-amber-700">No active faculty/staff accounts found. Add them under property custodians / faculty &amp; staff first.</p>
                             </div>
                             <div>
-                                <label class="mb-1.5 block text-sm text-slate-600">Borrower name</label>
+                                <label for="borrowerNameReadonly" class="mb-1.5 block text-sm font-medium text-slate-700">Borrower name</label>
                                 <input
+                                    id="borrowerNameReadonly"
                                     type="text"
                                     name="borrowing_borrower_name"
                                     x-model="registeredName"
@@ -1254,8 +1295,8 @@
                                 />
                             </div>
                             <div>
-                                <label for="borrowDepartment" class="mb-1.5 block text-sm text-slate-600">
-                                    Department <span class="text-slate-400">(optional)</span>
+                                <label for="borrowDepartment" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Department <span class="text-slate-500 font-normal">(optional)</span>
                                 </label>
                                 <input
                                     id="borrowDepartment"
@@ -1272,13 +1313,13 @@
 
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schedule</p>
-                            <p class="mt-1 text-sm text-slate-500">One borrow / return window (dates) for the whole cart.</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
+                            <p class="mt-1 text-sm text-slate-600">One borrow and return window for all selected items.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <label for="borrowDate" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrow from <span class="text-red-500">*</span>
+                                <label for="borrowDate" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Borrow from <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
                                 <input
                                     id="borrowDate"
@@ -1287,19 +1328,19 @@
                                     required
                                     onchange="syncBorrowScheduleDates()"
                                     oninput="syncBorrowScheduleDates()"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                                 />
                             </div>
                             <div>
-                                <label for="borrowExpectedReturn" class="mb-1.5 block text-sm text-slate-600">
-                                    Expected return by <span class="text-red-500">*</span>
+                                <label for="borrowExpectedReturn" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Expected return by <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
                                 <input
                                     id="borrowExpectedReturn"
                                     type="date"
                                     name="borrowing_expected_return_date"
                                     required
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                                 />
                             </div>
                         </div>
@@ -1307,13 +1348,12 @@
 
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
-                            <p class="mt-1 text-sm text-slate-500">Why the equipment is needed.</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notes</p>
                         </div>
                         <div class="space-y-4">
                             <div>
-                                <label for="borrowPurpose" class="mb-1.5 block text-sm text-slate-600">
-                                    Purpose <span class="text-red-500">*</span>
+                                <label for="borrowPurpose" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Purpose <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
                                 <textarea
                                     id="borrowPurpose"
@@ -1322,7 +1362,7 @@
                                     required
                                     maxlength="2000"
                                     placeholder="Describe why the equipment is being borrowed"
-                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                                 ></textarea>
                             </div>
                         </div>
@@ -1330,7 +1370,7 @@
                 </div>
 
                 <div class="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600 sm:max-w-sm" x-text="cartError"></p>
+                    <p x-show="cartError" x-cloak role="alert" class="text-xs font-medium text-rose-600 sm:max-w-sm" x-text="cartError"></p>
                     <div class="flex items-center justify-end gap-2 sm:ml-auto">
                         <button
                             type="button"
@@ -1674,13 +1714,12 @@
                 query: '',
                 open: false,
                 highlight: 0,
-                selected: null,
                 cart: [],
                 pickerError: '',
                 cartError: '',
+                liveStatus: '',
                 get filtered() {
                     const q = String(this.query || '').trim().toLowerCase();
-                    const selectedIds = new Set(this.cart.map((line) => line.id));
                     return this.catalog
                         .filter((item) => item.available > 0)
                         .filter((item) => {
@@ -1695,72 +1734,109 @@
                 get totalQty() {
                     return this.cart.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
                 },
+                get badgeText() {
+                    if (!this.cart.length) return 'No items selected';
+                    const itemLabel = this.cart.length + ' item' + (this.cart.length === 1 ? '' : 's');
+                    return this.totalQty > this.cart.length
+                        ? (itemLabel + ' · ' + this.totalQty + ' total')
+                        : itemLabel;
+                },
+                inCartQty(id) {
+                    const line = this.cart.find((row) => row.id === id);
+                    return line ? (Number(line.quantity) || 0) : 0;
+                },
+                isMaxed(item) {
+                    return this.inCartQty(item.id) >= Number(item.available || 0);
+                },
                 meta(item) {
                     const bits = [];
                     if (item.room) bits.push(item.room);
                     if (item.assetTag) bits.push(item.assetTag);
                     bits.push((item.tracking || 'Individual') + ' · ' + item.available + ' available');
+                    const pending = Number(item.pending || 0);
+                    if (pending > 0) bits.push(pending + ' pending');
                     return bits.join(' · ');
+                },
+                announce(message) {
+                    this.liveStatus = '';
+                    this.$nextTick(() => {
+                        this.liveStatus = message || '';
+                    });
+                },
+                openList() {
+                    this.pickerError = '';
+                    this.highlight = 0;
+                    this.open = true;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
                 reset() {
                     this.query = '';
                     this.open = false;
                     this.highlight = 0;
-                    this.selected = null;
                     this.cart = [];
                     this.pickerError = '';
                     this.cartError = '';
-                },
-                choose(item) {
-                    this.selected = item;
-                    this.query = item.name;
-                    this.open = false;
-                    this.pickerError = '';
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    this.liveStatus = '';
                 },
                 move(delta) {
+                    if (!this.open) {
+                        this.openList();
+                        return;
+                    }
                     if (!this.filtered.length) return;
                     this.highlight = (this.highlight + delta + this.filtered.length) % this.filtered.length;
+                    this.$nextTick(() => {
+                        const el = document.getElementById('adminBorrowOpt-' + this.highlight);
+                        if (el) el.scrollIntoView({ block: 'nearest' });
+                    });
                 },
                 selectHighlighted() {
-                    if (!this.filtered.length) return;
-                    this.choose(this.filtered[this.highlight] || this.filtered[0]);
+                    if (!this.open || !this.filtered.length) return;
+                    this.addItem(this.filtered[this.highlight] || this.filtered[0]);
                 },
-                addSelected() {
+                addItem(item) {
                     this.pickerError = '';
-                    if (!this.selected) {
-                        this.pickerError = 'Search and select an equipment item first.';
+                    if (!item || item.available < 1) {
+                        this.pickerError = 'This item is not available right now.';
                         return;
                     }
-                    const qty = 1;
-                    if (qty > this.selected.available) {
-                        this.pickerError = 'Only ' + this.selected.available + ' available for this item.';
-                        return;
-                    }
-                    const existing = this.cart.find((line) => line.id === this.selected.id);
+                    const existing = this.cart.find((line) => line.id === item.id);
                     if (existing) {
-                        const next = existing.quantity + qty;
-                        if (next > existing.available) {
-                            this.pickerError = 'Cart would exceed available quantity (' + existing.available + ').';
+                        const current = Number(existing.quantity) || 1;
+                        if (current >= existing.available) {
+                            this.pickerError = 'All available units of ' + existing.name + ' (' + existing.available + ') are already added.';
+                            this.open = false;
                             return;
                         }
-                        existing.quantity = next;
+                        existing.quantity = current + 1;
+                        this.announce('Increased ' + existing.name + ' to ' + existing.quantity + ' of ' + existing.available + '.');
                     } else {
                         this.cart.push({
-                            id: this.selected.id,
-                            name: this.selected.name,
-                            room: this.selected.room,
-                            assetTag: this.selected.assetTag,
-                            tracking: this.selected.tracking,
-                            available: this.selected.available,
-                            quantity: qty,
+                            id: item.id,
+                            name: item.name,
+                            room: item.room,
+                            assetTag: item.assetTag,
+                            tracking: item.tracking,
+                            available: item.available,
+                            pending: Number(item.pending || 0),
+                            quantity: 1,
                             condition: '',
                         });
+                        this.announce('Added ' + item.name + '.');
                     }
-                    this.selected = null;
                     this.query = '';
+                    this.highlight = 0;
+                    this.open = false;
                     this.cartError = '';
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                stepLine(line, delta) {
+                    const max = Math.max(1, Number(line.available) || 1);
+                    const current = Math.max(1, parseInt(String(line.quantity ?? 1), 10) || 1);
+                    const next = Math.min(max, Math.max(1, current + delta));
+                    if (next === current) return;
+                    line.quantity = next;
+                    this.announce(line.name + ' quantity set to ' + next + '.');
                 },
                 clampLine(line, finalize = true) {
                     const digits = String(line.quantity ?? '').replace(/\D/g, '');
@@ -1775,7 +1851,11 @@
                     line.quantity = qty < 1 ? '' : qty;
                 },
                 removeLine(index) {
+                    const removed = this.cart[index];
                     this.cart.splice(index, 1);
+                    if (removed) {
+                        this.announce('Removed ' + removed.name + '.');
+                    }
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
                 focusInvalidField(el, message) {
@@ -1795,7 +1875,10 @@
                     this.cartError = '';
                     if (!this.cart.length) {
                         event.preventDefault();
-                        this.cartError = 'Add at least one equipment item to the cart.';
+                        this.focusInvalidField(
+                            document.getElementById('adminBorrowSearch'),
+                            'Add at least one equipment item.'
+                        );
                         return;
                     }
                     for (const line of this.cart) {

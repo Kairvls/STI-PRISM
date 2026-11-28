@@ -19,14 +19,14 @@ use RuntimeException;
 
 class BorrowingSubmissionService
 {
-    /** Statuses that reserve stock (soft-hold + out). */
-    public const RESERVED_STATUSES = ['Pending', 'Borrowed', 'Overdue'];
+    /** Statuses that actually hold stock (approved & out). Pending requests do not block stock until approved. */
+    public const RESERVED_STATUSES = ['Borrowed', 'Overdue'];
 
     /**
-     * Active equipment still in inventory (storage), minus reserved qty.
-     * Deployed equipment is excluded.
+     * Active equipment still in inventory (storage), minus actually out qty.
+     * Deployed equipment is excluded. Pending requests are surfaced as demand count, not deducted.
      *
-     * @return list<array{id:int,name:string,room:string,assetTag:string,tracking:string,stock:int,available:int}>
+     * @return list<array{id:int,name:string,room:string,roomId:int,assetTag:string,tracking:string,stock:int,available:int,pending:int}>
      */
     public function borrowableCatalog(): array
     {
@@ -46,6 +46,35 @@ class BorrowingSubmissionService
             ->whereIn('borrowing_status', self::RESERVED_STATUSES)
             ->groupBy('borrowing_equipment_id')
             ->pluck('on_loan_qty', 'borrowing_equipment_id');
+
+        // Count pending demand by equipment_id (for Bulk) and by pool key (for Individual),
+        // even if a pending row currently points at a unit that was already lent out.
+        $pendingByBulkId = [];
+        $pendingByPool = [];
+        $pendingRows = DB::table('borrowing_records_table as b')
+            ->join('equipment_table as e', 'b.borrowing_equipment_id', '=', 'e.equipment_id')
+            ->where('b.borrowing_status', 'Pending')
+            ->get([
+                'b.borrowing_equipment_id',
+                'b.borrowing_from_room_id',
+                'b.borrowing_quantity',
+                'e.equipment_name',
+                'e.equipment_room_id',
+                'e.equipment_tracking_mode',
+            ]);
+
+        foreach ($pendingRows as $pRow) {
+            $qty = max(1, (int) ($pRow->borrowing_quantity ?? 1));
+            $tracking = (string) ($pRow->equipment_tracking_mode ?? 'Individual');
+            if ($tracking === 'Bulk') {
+                $eid = (int) $pRow->borrowing_equipment_id;
+                $pendingByBulkId[$eid] = ($pendingByBulkId[$eid] ?? 0) + $qty;
+                continue;
+            }
+            $roomId = (int) ($pRow->borrowing_from_room_id ?: ($pRow->equipment_room_id ?? 0));
+            $key = $this->borrowPoolKey((string) ($pRow->equipment_name ?? ''), $roomId);
+            $pendingByPool[$key] = ($pendingByPool[$key] ?? 0) + $qty;
+        }
 
         $query = DB::table('equipment_table')
             ->join(
@@ -75,20 +104,26 @@ class BorrowingSubmissionService
             ->select($select)
             ->orderBy('equipment_name', 'asc')
             ->get()
-            ->map(function ($item) use ($onLoanByEquipment) {
+            ->map(function ($item) use ($onLoanByEquipment, $pendingByBulkId, $pendingByPool) {
                 $stock = max(1, (int) ($item->equipment_quantity ?? 1));
                 $onLoan = (int) ($onLoanByEquipment[$item->equipment_id] ?? 0);
                 $available = max(0, $stock - $onLoan);
+                $tracking = (string) ($item->equipment_tracking_mode ?? 'Individual');
+                $roomId = (int) ($item->equipment_room_id ?? 0);
+                $pending = $tracking === 'Bulk'
+                    ? (int) ($pendingByBulkId[(int) $item->equipment_id] ?? 0)
+                    : (int) ($pendingByPool[$this->borrowPoolKey((string) $item->equipment_name, $roomId)] ?? 0);
 
                 return [
                     'id' => (int) $item->equipment_id,
                     'name' => (string) $item->equipment_name,
                     'room' => (string) ($item->room_name ?? ''),
-                    'roomId' => (int) ($item->equipment_room_id ?? 0),
+                    'roomId' => $roomId,
                     'assetTag' => (string) ($item->equipment_asset_tag ?? ''),
-                    'tracking' => (string) ($item->equipment_tracking_mode ?? 'Individual'),
+                    'tracking' => $tracking,
                     'stock' => $stock,
                     'available' => $available,
+                    'pending' => $pending,
                 ];
             })
             ->filter(fn (array $item) => $item['available'] > 0)
@@ -139,6 +174,7 @@ class BorrowingSubmissionService
                 'tracking' => 'Bulk',
                 'stock' => array_sum(array_map(fn (array $member) => (int) $member['stock'], $members)),
                 'available' => array_sum(array_map(fn (array $member) => (int) $member['available'], $members)),
+                'pending' => (int) ($first['pending'] ?? 0),
                 'grouped' => true,
             ];
         }
@@ -224,9 +260,20 @@ class BorrowingSubmissionService
      * @param  array<int, int>  $claimed
      * @return list<array{id:int,available:int}>
      */
-    private function lockedIndividualPool(object $seed, array $claimed): array
+    private function lockedIndividualPool(object $seed, array $claimed, ?int $overrideRoomId = null): array
     {
-        $roomId = (int) ($seed->equipment_room_id ?? 0);
+        $roomId = $overrideRoomId !== null && $overrideRoomId > 0
+            ? $overrideRoomId
+            : (int) ($seed->equipment_room_id ?? 0);
+        if ($roomId < 1) {
+            return [];
+        }
+        if (Schema::hasTable('rooms_table')) {
+            $roomType = DB::table('rooms_table')->where('room_id', $roomId)->value('room_type');
+            if ((string) $roomType !== RoomCategories::STORAGE_TYPE) {
+                return [];
+            }
+        }
         $poolKey = $this->borrowPoolKey((string) ($seed->equipment_name ?? ''), $roomId);
 
         $units = DB::table('equipment_table')
@@ -761,11 +808,12 @@ class BorrowingSubmissionService
             $lines = DB::table('borrowing_records_table')
                 ->where('borrowing_transaction_no', $slipNo)
                 ->where('borrowing_status', 'Pending')
+                ->orderBy('borrowing_record_id')
                 ->lockForUpdate()
                 ->get();
 
             if ($lines->isEmpty()) {
-                throw new RuntimeException('No pending borrow request found for that slip.');
+                throw new RuntimeException('No pending borrow request found for that reference.');
             }
 
             foreach ($lines as $row) {
@@ -775,34 +823,85 @@ class BorrowingSubmissionService
                     ->first();
 
                 if (! $equipment) {
-                    throw new RuntimeException('One or more items are no longer available.');
+                    throw new RuntimeException('One or more requested items are no longer available.');
                 }
 
-                $this->assertStoredInInventory($equipment);
-                $this->assertBorrowableCondition($equipment);
+                $qty = max(1, (int) ($row->borrowing_quantity ?? 1));
+                $isBulk = (string) ($equipment->equipment_tracking_mode ?? 'Individual') === 'Bulk';
+                $targetEquipment = $equipment;
+                $available = 0;
 
-                $stock = max(1, (int) ($equipment->equipment_quantity ?? 1));
-                $onLoan = (int) DB::table('borrowing_records_table')
-                    ->where('borrowing_equipment_id', $equipment->equipment_id)
-                    ->whereIn('borrowing_status', ['Borrowed', 'Overdue'])
-                    ->sum('borrowing_quantity');
-                // This pending line already soft-held stock; exclude it from competing holds when accepting.
-                $pendingHold = (int) $row->borrowing_quantity;
-                $otherPending = (int) DB::table('borrowing_records_table')
-                    ->where('borrowing_equipment_id', $equipment->equipment_id)
-                    ->where('borrowing_status', 'Pending')
-                    ->where('borrowing_record_id', '!=', $row->borrowing_record_id)
-                    ->sum('borrowing_quantity');
-                $available = max(0, $stock - $onLoan - $otherPending);
+                if ($isBulk) {
+                    $this->assertStoredInInventory($equipment);
+                    $this->assertBorrowableCondition($equipment);
+                    if (($equipment->equipment_inventory_status ?? '') !== EquipmentInventoryStatuses::ACTIVE) {
+                        throw new RuntimeException(
+                            ($equipment->equipment_name ?? 'Equipment')
+                            .' is no longer available to approve. Deny this request or wait for a return.'
+                        );
+                    }
 
-                if ($pendingHold > $available) {
-                    throw new RuntimeException(
-                        ($equipment->equipment_name ?? 'Equipment')
-                        .' no longer has enough stock to approve this request.'
-                    );
+                    $stock = max(1, (int) ($equipment->equipment_quantity ?? 1));
+                    $onLoan = (int) DB::table('borrowing_records_table')
+                        ->where('borrowing_equipment_id', $equipment->equipment_id)
+                        ->whereIn('borrowing_status', self::RESERVED_STATUSES)
+                        ->sum('borrowing_quantity');
+                    $available = max(0, $stock - $onLoan);
+
+                    if ($qty > $available) {
+                        throw new RuntimeException(
+                            ($equipment->equipment_name ?? 'Equipment')
+                            .' only has '.$available.' available now ('.$qty.' requested). Another borrow was already approved or issued.'
+                        );
+                    }
+                } else {
+                    // For individual units, check if the originally linked unit is still free;
+                    // if another approved request took it, transparently allocate another free unit in the same storage pool.
+                    $originRoomId = (int) ($row->borrowing_from_room_id ?: ($equipment->equipment_room_id ?? 0));
+                    $pool = $this->lockedIndividualPool($equipment, [], $originRoomId);
+
+                    $chosen = null;
+                    foreach ($pool as $unit) {
+                        if ((int) $unit['id'] === (int) $equipment->equipment_id && (int) $unit['available'] >= $qty) {
+                            $chosen = $unit;
+                            break;
+                        }
+                    }
+                    if (! $chosen) {
+                        foreach ($pool as $unit) {
+                            if ((int) $unit['available'] >= $qty) {
+                                $chosen = $unit;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (! $chosen) {
+                        $label = trim((string) ($equipment->equipment_name ?? '')) ?: 'Equipment';
+                        throw new RuntimeException(
+                            $label.' is no longer available — all units are already borrowed or unavailable. Deny this request or wait for a return.'
+                        );
+                    }
+
+                    $available = (int) $chosen['available'];
+                    if ((int) $chosen['id'] !== (int) $equipment->equipment_id) {
+                        $targetEquipment = DB::table('equipment_table')
+                            ->where('equipment_id', (int) $chosen['id'])
+                            ->lockForUpdate()
+                            ->first();
+                        if (! $targetEquipment) {
+                            throw new RuntimeException('Selected replacement unit is no longer available.');
+                        }
+                    }
                 }
 
-                $patch = ['borrowing_status' => 'Borrowed'];
+                $targetId = (int) $targetEquipment->equipment_id;
+
+                $patch = [
+                    'borrowing_status' => 'Borrowed',
+                    'borrowing_equipment_id' => $targetId,
+                    'borrowing_from_room_id' => $targetEquipment->equipment_room_id,
+                ];
                 if (Schema::hasColumn('borrowing_records_table', 'borrowing_decided_at')) {
                     $patch['borrowing_decided_at'] = now();
                 }
@@ -817,11 +916,10 @@ class BorrowingSubmissionService
                     ->where('borrowing_record_id', $row->borrowing_record_id)
                     ->update($patch);
 
-                $remaining = $available - $pendingHold;
-                $isBulk = ($equipment->equipment_tracking_mode ?? 'Individual') === 'Bulk';
+                $remaining = $available - $qty;
                 if (! $isBulk || $remaining <= 0) {
                     DB::table('equipment_table')
-                        ->where('equipment_id', $equipment->equipment_id)
+                        ->where('equipment_id', $targetId)
                         ->update(['equipment_inventory_status' => 'Borrowed']);
                 }
             }
