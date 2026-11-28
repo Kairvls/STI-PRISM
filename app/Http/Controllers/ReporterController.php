@@ -913,12 +913,8 @@ class ReporterController extends Controller
         $status = $result['status'] ?? 'Pending';
 
         $message = $lineCount > 1
-            ? "Your request for {$lineCount} equipment lines was submitted."
-            : 'Your borrow request was submitted.';
-        if ($slip) {
-            $message .= ' Slip '.$slip.'.';
-        }
-        $message .= ' Status: Pending approval.';
+            ? "Your request for {$lineCount} items was submitted."
+            : 'Your request for 1 item was submitted.';
 
         return response()->json([
             'success' => true,
@@ -929,7 +925,7 @@ class ReporterController extends Controller
             'borrower_name' => $result['borrower_name'] ?? $borrower['name'],
             'borrow_from' => $borrowFrom,
             'expected_return' => $expectedReturn,
-            'next_step' => 'Check your employee or school email for your borrow slip. Show that slip when you claim the equipment.',
+            'next_step' => 'A confirmation was sent to your email. Wait for the property custodian to review your request — you’ll be notified by email once it’s approved for pickup.',
         ]);
     }
 

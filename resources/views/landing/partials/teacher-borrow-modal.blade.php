@@ -9,11 +9,11 @@
     <div class="teacher-borrow-wrap relative flex max-h-[min(920px,92vh)] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
         <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
             <div class="min-w-0">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Online borrowing</p>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Equipment borrowing</p>
                 <h2 id="teacherBorrowTitle" class="mt-0.5 text-lg font-semibold tracking-tight text-slate-950 sm:text-xl">
-                    Borrow equipment
+                    Request equipment
                 </h2>
-                <p id="teacherBorrowIdentity" class="mt-1 truncate text-sm text-slate-500">
+                <p id="teacherBorrowIdentity" class="mt-1 truncate text-sm text-slate-600">
                     Verify your employee ID to continue.
                 </p>
             </div>
@@ -44,97 +44,137 @@
         <form id="teacherBorrowForm" class="flex min-h-0 flex-1 flex-col" novalidate>
             @csrf
             <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
-                {{-- Equipment cart --}}
+                {{-- Items to borrow --}}
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                    <div class="flex flex-wrap items-start justify-between gap-2">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            Equipment cart <span class="text-red-500">*</span>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Items to borrow <span class="text-red-500" aria-hidden="true">*</span>
                         </p>
-                        <p id="teacherBorrowCartBadge" class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80">
-                            No items yet
+                        <p id="teacherBorrowCartBadge"
+                           aria-live="polite"
+                           class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80">
+                            No items selected
                         </p>
                     </div>
 
                     <div class="relative">
-                        <label for="teacherBorrowSearch" class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
-                        <p class="mb-1.5 text-xs text-slate-400">Only equipment still in inventory. Deployed, under maintenance, damaged, and defective equipment cannot be borrowed. Identical stock is listed once as a bulk item — add it, then set how many to borrow.</p>
-                        <div class="flex gap-2">
-                            <div class="relative min-w-0 flex-1">
-                                <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                                <input
-                                    type="text"
-                                    id="teacherBorrowSearch"
-                                    placeholder="Search by name, room, or asset tag"
-                                    autocomplete="off"
-                                    class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                >
-                            </div>
-                            <button
-                                type="button"
-                                id="teacherBorrowAddBtn"
-                                class="inline-flex h-11 shrink-0 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
+                        <label for="teacherBorrowSearch" class="mb-1 block text-sm font-medium text-slate-700">Add equipment</label>
+                        <p id="teacherBorrowSearchHint" class="mb-2 text-xs text-slate-500">All available equipment (in storage and deployed) is shown. Select an item to add it to your request.</p>
+                        <div class="relative">
+                            <i data-lucide="search" aria-hidden="true" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="text"
+                                id="teacherBorrowSearch"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-expanded="false"
+                                aria-controls="teacherBorrowSearchList"
+                                aria-describedby="teacherBorrowSearchHint"
+                                placeholder="Search by equipment name or room"
+                                autocomplete="off"
+                                class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                             >
-                                Add
-                            </button>
                         </div>
                         <div id="teacherBorrowSearchResults"
                              class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                            <div id="teacherBorrowSearchList" class="max-h-64 overflow-y-auto py-1"></div>
+                            <div id="teacherBorrowSearchList"
+                                 role="listbox"
+                                 aria-label="Available equipment"
+                                 class="max-h-64 overflow-y-auto py-1"></div>
                         </div>
-                        <p id="teacherBorrowSelectedHint" class="mt-2 hidden text-xs text-slate-500"></p>
-                        <p id="teacherBorrowPickerError" class="mt-2 hidden text-xs font-medium text-rose-600"></p>
+                        <p id="teacherBorrowLiveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+                        <p id="teacherBorrowPickerError" role="alert" class="mt-2 hidden text-xs font-medium text-rose-600"></p>
                     </div>
 
                     <div id="teacherBorrowCart" class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
-                        <div id="teacherBorrowCartEmpty" class="px-4 py-8 text-center">
-                            <p class="text-sm font-medium text-slate-700">No equipment added</p>
-                            <p class="mt-1 text-xs text-slate-400">Add items here before submitting the borrow.</p>
+                        <div id="teacherBorrowCartEmpty" class="px-4 py-7 text-center">
+                            <p class="text-sm font-medium text-slate-700">No items selected yet</p>
+                            <p class="mt-1 text-xs text-slate-500">Search above and click an item to add it to your request.</p>
                         </div>
                         <div id="teacherBorrowCartLines" class="hidden divide-y divide-slate-100"></div>
                     </div>
-                    <p id="teacherBorrowCartError" class="hidden text-xs font-medium text-rose-600"></p>
+                    <p id="teacherBorrowCartError" role="alert" class="hidden text-xs font-medium text-rose-600"></p>
                 </div>
 
 
                 {{-- Schedule --}}
+                @php
+                    $officeTimeSlots = [];
+                    for ($h = 9; $h <= 17; $h++) {
+                        foreach ([0, 30] as $m) {
+                            if ($h === 17 && $m > 0) {
+                                continue;
+                            }
+                            $val = sprintf('%02d:%02d', $h, $m);
+                            $label = \Carbon\Carbon::createFromTime($h, $m)->format('g:i A');
+                            $officeTimeSlots[$val] = $label;
+                        }
+                    }
+                @endphp
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schedule</p>
-                        <p class="mt-1 text-sm text-slate-500">One borrow / return window (dates) for the whole cart.</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
+                        <p class="mt-1 text-sm text-slate-600">Equipment claiming and returns are available from <span class="font-semibold text-slate-800">9:00 AM to 5:00 PM</span>.</p>
                     </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <label for="teacherBorrowDate" class="mb-1.5 block text-sm text-slate-600">
-                                Borrow from <span class="text-red-500">*</span>
+                            <label for="teacherBorrowDate" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                Claim / borrow time <span class="text-red-500" aria-hidden="true">*</span>
                             </label>
-                            <input
-                                id="teacherBorrowDate"
-                                type="date"
-                                required
-                                class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                            >
+                            <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                <input
+                                    id="teacherBorrowDate"
+                                    type="date"
+                                    required
+                                    aria-label="Claim date"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                <select
+                                    id="teacherBorrowTime"
+                                    required
+                                    aria-label="Claim time (9:00 AM to 5:00 PM)"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                    @foreach ($officeTimeSlots as $slotVal => $slotLabel)
+                                        <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">When you will claim the borrowed items (9:00 AM – 5:00 PM).</p>
                         </div>
                         <div>
-                            <label for="teacherBorrowReturn" class="mb-1.5 block text-sm text-slate-600">
-                                Expected return by <span class="text-red-500">*</span>
+                            <label for="teacherBorrowReturn" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                Expected return by <span class="text-red-500" aria-hidden="true">*</span>
                             </label>
-                            <input
-                                id="teacherBorrowReturn"
-                                type="date"
-                                required
-                                class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                            >
+                            <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                <input
+                                    id="teacherBorrowReturn"
+                                    type="date"
+                                    required
+                                    aria-label="Expected return date"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                <select
+                                    id="teacherBorrowReturnTime"
+                                    required
+                                    aria-label="Expected return time (9:00 AM to 5:00 PM)"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                >
+                                    @foreach ($officeTimeSlots as $slotVal => $slotLabel)
+                                        <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">When items will be returned (9:00 AM – 5:00 PM).</p>
                         </div>
                     </div>
                 </div>
 
- 
-                
                 {{-- Location --}}
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div>
-                        <label for="teacherBorrowLocation" class="mb-1.5 block text-sm text-slate-600">
-                            Location <span class="text-red-500">*</span>
+                        <label for="teacherBorrowLocation" class="mb-1.5 block text-sm font-medium text-slate-700">
+                            Location <span class="text-red-500" aria-hidden="true">*</span>
                         </label>
                         <input
                             id="teacherBorrowLocation"
@@ -142,20 +182,20 @@
                             required
                             maxlength="150"
                             placeholder="Where the equipment will be used"
-                            class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                            class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                         >
                     </div>
                 </div>
-                
+
                 {{-- Notes --}}
                 <div class="space-y-3 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                     <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
-                        <p class="mt-1 text-sm text-slate-500">Why the equipment is needed.</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notes</p>
+                        <p class="mt-1 text-sm text-slate-600">Why the equipment is needed.</p>
                     </div>
                     <div>
-                        <label for="teacherBorrowPurpose" class="mb-1.5 block text-sm text-slate-600">
-                            Purpose <span class="text-red-500">*</span>
+                        <label for="teacherBorrowPurpose" class="mb-1.5 block text-sm font-medium text-slate-700">
+                            Purpose <span class="text-red-500" aria-hidden="true">*</span>
                         </label>
                         <textarea
                             id="teacherBorrowPurpose"
@@ -163,14 +203,14 @@
                             required
                             maxlength="2000"
                             placeholder="Describe why the equipment is being borrowed"
-                            class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                            class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                         ></textarea>
                     </div>
                 </div>
             </div>
 
             <div class="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <p id="teacherBorrowFormError" class="hidden text-xs font-medium text-rose-600 sm:max-w-sm"></p>
+                <p id="teacherBorrowFormError" role="alert" class="hidden text-xs font-medium text-rose-600 sm:max-w-sm"></p>
                 <div class="flex items-center justify-end gap-2 sm:ml-auto">
                     <button
                         type="button"
@@ -232,10 +272,9 @@
     const statusRefresh = document.getElementById('teacherBorrowStatusRefresh');
     const statusBack = document.getElementById('teacherBorrowStatusBack');
     const searchInput = document.getElementById('teacherBorrowSearch');
-    const addBtn = document.getElementById('teacherBorrowAddBtn');
     const resultsWrap = document.getElementById('teacherBorrowSearchResults');
     const resultsList = document.getElementById('teacherBorrowSearchList');
-    const selectedHint = document.getElementById('teacherBorrowSelectedHint');
+    const liveStatus = document.getElementById('teacherBorrowLiveStatus');
     const pickerError = document.getElementById('teacherBorrowPickerError');
     const cartBadge = document.getElementById('teacherBorrowCartBadge');
     const cartEmpty = document.getElementById('teacherBorrowCartEmpty');
@@ -244,7 +283,9 @@
     const formError = document.getElementById('teacherBorrowFormError');
     const submitBtn = document.getElementById('teacherBorrowSubmitBtn');
     const dateInput = document.getElementById('teacherBorrowDate');
+    const timeInput = document.getElementById('teacherBorrowTime');
     const returnInput = document.getElementById('teacherBorrowReturn');
+    const returnTimeInput = document.getElementById('teacherBorrowReturnTime');
     const purposeInput = document.getElementById('teacherBorrowPurpose');
     const locationInput = document.getElementById('teacherBorrowLocation');
     const cautionWrap = document.getElementById('teacherBorrowCautionWrap');
@@ -252,7 +293,6 @@
     const cautionPanel = document.getElementById('teacherBorrowCautionPanel');
 
     let catalog = [];
-    let selected = null;
     let cart = [];
     let borrower = null;
     let highlight = 0;
@@ -274,6 +314,14 @@
         el.classList.toggle('hidden', !show || !text);
     }
 
+    function announce(message) {
+        if (!liveStatus) return;
+        liveStatus.textContent = '';
+        requestAnimationFrame(() => {
+            liveStatus.textContent = message || '';
+        });
+    }
+
     function escapeHtml(value) {
         return String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -285,8 +333,11 @@
     function meta(item) {
         const bits = [];
         if (item.room) bits.push(item.room);
-        if (item.assetTag) bits.push(item.assetTag);
-        bits.push((item.tracking || 'Individual') + ' · ' + item.available + ' available');
+        bits.push(item.available + ' available');
+        const pending = Number(item.pending || 0);
+        if (pending > 0) {
+            bits.push(pending + ' pending');
+        }
         return bits.join(' · ');
     }
 
@@ -301,42 +352,117 @@
             .slice(0, 40);
     }
 
+    function openResults() {
+        resultsWrap.classList.remove('hidden');
+        searchInput.setAttribute('aria-expanded', 'true');
+        renderResults();
+    }
+
+    function closeResults() {
+        resultsWrap.classList.add('hidden');
+        searchInput.setAttribute('aria-expanded', 'false');
+        searchInput.removeAttribute('aria-activedescendant');
+    }
+
+    function updateCartBadge() {
+        const totalQty = cart.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+        if (!cart.length) {
+            cartBadge.textContent = 'No items selected';
+            return;
+        }
+        const itemLabel = cart.length + ' item' + (cart.length === 1 ? '' : 's');
+        cartBadge.textContent = totalQty > cart.length
+            ? (itemLabel + ' · ' + totalQty + ' total')
+            : itemLabel;
+    }
+
     function renderResults() {
         const rows = filtered();
         if (!rows.length) {
-            resultsList.innerHTML = '<p class="px-3 py-4 text-sm text-slate-400">No matching equipment.</p>';
+            highlight = 0;
+            searchInput.removeAttribute('aria-activedescendant');
+            resultsList.innerHTML = '<p class="px-3.5 py-4 text-sm text-slate-500">No matching equipment available.</p>';
             return;
         }
-        resultsList.innerHTML = rows.map((item, index) => `
-            <button type="button"
-                data-equip-id="${item.id}"
-                class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition ${index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'}">
-                <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                    <i data-lucide="package" class="h-4 w-4"></i>
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-medium text-slate-900">${escapeHtml(item.name)}</span>
-                    <span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(meta(item))}</span>
-                </span>
-                <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">${item.available} avail</span>
-            </button>
-        `).join('');
+        if (highlight >= rows.length) highlight = 0;
+
+        resultsList.innerHTML = rows.map((item, index) => {
+            const inCart = cart.find((line) => line.id === item.id);
+            const atMax = !!(inCart && inCart.quantity >= item.available);
+            const active = index === highlight;
+            const optId = 'teacherBorrowOpt-' + index;
+            const pill = atMax
+                ? '<span class="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Max added</span>'
+                : inCart
+                    ? `<span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">In list (${inCart.quantity}/${item.available}) · +1</span>`
+                    : '<span class="shrink-0 rounded-md bg-[#0025cc]/10 px-2 py-0.5 text-[11px] font-semibold text-[#0025cc]">+ Add</span>';
+
+            return `
+                <button type="button"
+                    id="${optId}"
+                    role="option"
+                    aria-selected="${active ? 'true' : 'false'}"
+                    aria-disabled="${atMax ? 'true' : 'false'}"
+                    data-equip-id="${item.id}"
+                    class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition ${atMax ? 'opacity-60' : ''} ${active ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'}">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <i data-lucide="package" aria-hidden="true" class="h-4 w-4"></i>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium text-slate-900">${escapeHtml(item.name)}</span>
+                        <span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(meta(item))}</span>
+                    </span>
+                    ${pill}
+                </button>
+            `;
+        }).join('');
+
+        const activeOptId = 'teacherBorrowOpt-' + highlight;
+        searchInput.setAttribute('aria-activedescendant', activeOptId);
+        const activeEl = document.getElementById(activeOptId);
+        if (activeEl) {
+            activeEl.scrollIntoView({ block: 'nearest' });
+        }
         refreshIcons();
     }
 
-    function choose(item) {
-        selected = item;
-        searchInput.value = item.name;
-        resultsWrap.classList.add('hidden');
+    function addItem(item) {
         showText(pickerError, '', false);
-        showText(selectedHint, 'Selected: ' + item.name + ' · up to ' + item.available + ' available', true);
+        if (!item || item.available < 1) {
+            showText(pickerError, 'This item is not available right now.', true);
+            return;
+        }
+        const existing = cart.find((line) => line.id === item.id);
+        if (existing) {
+            if (existing.quantity >= existing.available) {
+                showText(pickerError, 'All available units of ' + existing.name + ' (' + existing.available + ') are already added.', true);
+                closeResults();
+                return;
+            }
+            existing.quantity += 1;
+            announce('Increased ' + existing.name + ' to ' + existing.quantity + ' of ' + existing.available + '.');
+        } else {
+            cart.push({
+                id: item.id,
+                name: item.name,
+                room: item.room,
+                assetTag: item.assetTag,
+                tracking: item.tracking,
+                available: item.available,
+                pending: Number(item.pending || 0),
+                quantity: 1,
+            });
+            announce('Added ' + item.name + ' to your request.');
+        }
+        searchInput.value = '';
+        highlight = 0;
+        closeResults();
+        showText(cartError, '', false);
+        renderCart();
     }
 
     function renderCart() {
-        const totalQty = cart.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
-        cartBadge.textContent = cart.length
-            ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs')
-            : 'No items yet';
+        updateCartBadge();
 
         if (!cart.length) {
             cartEmpty.classList.remove('hidden');
@@ -347,63 +473,56 @@
 
         cartEmpty.classList.add('hidden');
         cartLines.classList.remove('hidden');
-        cartLines.innerHTML = cart.map((line, index) => `
-            <div class="flex flex-wrap items-center gap-3 px-4 py-3" data-cart-index="${index}">
-                <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-medium text-slate-900">${escapeHtml(line.name)}</p>
-                    <p class="mt-0.5 truncate text-xs text-slate-500">${escapeHtml(meta(line))}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="text" inputmode="numeric" autocomplete="off" value="${line.quantity}"
-                        data-cart-qty="${index}"
-                        class="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm">
-                    <span class="text-xs text-slate-400">/${line.available}</span>
-                    <button type="button" data-cart-remove="${index}"
-                        class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
-                        aria-label="Remove item">
-                        <i data-lucide="trash-2" class="h-4 w-4"></i>
-                    </button>
-                </div>
-            </div>
-        `).join('');
-        refreshIcons();
-    }
+        cartLines.innerHTML = cart.map((line, index) => {
+            const safeName = escapeHtml(line.name);
+            const qtyControl = line.available <= 1
+                ? '<span class="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-medium text-slate-600">Qty 1</span>'
+                : `
+                    <div class="inline-flex items-center rounded-lg border border-slate-200 bg-white" role="group" aria-label="Quantity for ${safeName}">
+                        <button type="button"
+                            data-cart-dec="${index}"
+                            ${line.quantity <= 1 ? 'disabled' : ''}
+                            aria-label="Decrease quantity for ${safeName}"
+                            class="flex h-9 w-8 items-center justify-center rounded-l-lg text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-[#0025cc]/40 disabled:cursor-not-allowed disabled:opacity-40">
+                            <i data-lucide="minus" aria-hidden="true" class="h-3.5 w-3.5"></i>
+                        </button>
+                        <input type="text"
+                            inputmode="numeric"
+                            autocomplete="off"
+                            value="${line.quantity}"
+                            data-cart-qty="${index}"
+                            aria-label="Quantity for ${safeName} (max ${line.available})"
+                            class="h-9 w-11 border-x border-slate-200 bg-white text-center text-sm font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40">
+                        <button type="button"
+                            data-cart-inc="${index}"
+                            ${line.quantity >= line.available ? 'disabled' : ''}
+                            aria-label="Increase quantity for ${safeName}"
+                            class="flex h-9 w-8 items-center justify-center rounded-r-lg text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-[#0025cc]/40 disabled:cursor-not-allowed disabled:opacity-40">
+                            <i data-lucide="plus" aria-hidden="true" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
+                    <span class="text-xs font-medium text-slate-500">of ${line.available}</span>
+                `;
 
-    function addSelected() {
-        showText(pickerError, '', false);
-        if (!selected) {
-            showText(pickerError, 'Search and select an equipment item first.', true);
-            return;
-        }
-        const qty = 1;
-        if (qty > selected.available) {
-            showText(pickerError, 'Only ' + selected.available + ' available for this item.', true);
-            return;
-        }
-        const existing = cart.find((line) => line.id === selected.id);
-        if (existing) {
-            const next = existing.quantity + qty;
-            if (next > existing.available) {
-                showText(pickerError, 'Cart would exceed available quantity (' + existing.available + ').', true);
-                return;
-            }
-            existing.quantity = next;
-        } else {
-            cart.push({
-                id: selected.id,
-                name: selected.name,
-                room: selected.room,
-                assetTag: selected.assetTag,
-                tracking: selected.tracking,
-                available: selected.available,
-                quantity: qty,
-            });
-        }
-        selected = null;
-        searchInput.value = '';
-        showText(selectedHint, '', false);
-        showText(cartError, '', false);
-        renderCart();
+            return `
+                <div class="flex flex-wrap items-center gap-3 px-4 py-3" data-cart-index="${index}">
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-sm font-medium text-slate-900">${safeName}</p>
+                        <p class="mt-0.5 truncate text-xs text-slate-500">${escapeHtml(meta(line))}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${qtyControl}
+                        <button type="button"
+                            data-cart-remove="${index}"
+                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-700 transition hover:border-rose-200 hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                            aria-label="Remove ${safeName}">
+                            <i data-lucide="trash-2" aria-hidden="true" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        refreshIcons();
     }
 
     function setIdentity(profile) {
@@ -510,7 +629,7 @@
             card.innerHTML = `
                 <div class="flex flex-wrap items-start justify-between gap-2">
                     <div class="min-w-0">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Slip</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reference #</p>
                         <p class="mt-0.5 text-base font-semibold tracking-tight text-[#0025cc]">${escapeHtml(slip.slip_no)}</p>
                     </div>
                     <span class="inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ${statusTone(slip.status)}">
@@ -573,7 +692,7 @@
         statusPanel.classList.toggle('flex', showingStatus);
 
         if (titleEl) {
-            titleEl.textContent = showingStatus ? 'Check borrow status' : 'Borrow equipment';
+            titleEl.textContent = showingStatus ? 'Check borrow status' : 'Request equipment';
         }
 
         if (showingStatus) {
@@ -589,45 +708,80 @@
             + '-' + pad(date.getDate());
     }
 
+    function toLocalTimeValue(date) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return pad(date.getHours()) + ':' + pad(date.getMinutes());
+    }
+
+    function clampOfficeTime(hm) {
+        const val = String(hm || '').trim();
+        if (!/^\d{2}:\d{2}$/.test(val)) return '09:00';
+        if (val <= '09:00') return '09:00';
+        if (val >= '17:00') return '17:00';
+        const [hStr, mStr] = val.split(':');
+        let h = Number(hStr);
+        let m = Number(mStr);
+        if (m === 0) return String(h).padStart(2, '0') + ':00';
+        if (m <= 30) return String(h).padStart(2, '0') + ':30';
+        h += 1;
+        if (h >= 17) return '17:00';
+        return String(h).padStart(2, '0') + ':00';
+    }
+
+    function isOfficeTime(hm) {
+        const val = String(hm || '').trim();
+        return /^\d{2}:\d{2}$/.test(val) && val >= '09:00' && val <= '17:00';
+    }
+
+    function combinedBorrowFrom() {
+        if (!dateInput.value) return '';
+        return dateInput.value + 'T' + (timeInput?.value || '09:00');
+    }
+
+    function combinedReturnBy() {
+        if (!returnInput.value) return '';
+        return returnInput.value + 'T' + (returnTimeInput?.value || '17:00');
+    }
+
     function resetFormFields() {
         catalog = [];
-        selected = null;
         cart = [];
         highlight = 0;
         searchInput.value = '';
         purposeInput.value = '';
         if (locationInput) locationInput.value = '';
         showText(pickerError, '', false);
-        showText(selectedHint, '', false);
         showText(cartError, '', false);
         showText(formError, '', false);
         showText(statusError, '', false);
+        if (liveStatus) liveStatus.textContent = '';
         statusEmpty.classList.add('hidden');
         statusList.innerHTML = '';
         setCaution(null);
-        resultsWrap.classList.add('hidden');
+        closeResults();
         renderCart();
         showBorrowView('form');
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const later = new Date(today.getTime() + (1 * 24 * 60 * 60 * 1000));
-        dateInput.value = toLocalDateValue(today);
+        const now = new Date();
+        now.setSeconds(0, 0);
+        const later = new Date(now.getTime() + (1 * 24 * 60 * 60 * 1000));
+        dateInput.value = toLocalDateValue(now);
+        if (timeInput) timeInput.value = clampOfficeTime(toLocalTimeValue(now));
         returnInput.value = toLocalDateValue(later);
-        dateInput.min = toLocalDateValue(today);
+        if (returnTimeInput) returnTimeInput.value = '17:00';
+        dateInput.min = toLocalDateValue(now);
         syncReturnMin();
-        defaultBorrowDate = dateInput.value;
-        defaultReturnDate = returnInput.value;
+        defaultBorrowDate = combinedBorrowFrom();
+        defaultReturnDate = combinedReturnBy();
     }
 
     function formHasInput() {
         if (cart.length > 0) return true;
-        if (selected) return true;
         if (String(searchInput.value || '').trim() !== '') return true;
         if (String(purposeInput.value || '').trim() !== '') return true;
         if (locationInput && String(locationInput.value || '').trim() !== '') return true;
-        if (String(dateInput.value || '') !== defaultBorrowDate) return true;
-        if (String(returnInput.value || '') !== defaultReturnDate) return true;
+        if (combinedBorrowFrom() !== defaultBorrowDate) return true;
+        if (combinedReturnBy() !== defaultReturnDate) return true;
         return false;
     }
 
@@ -640,6 +794,9 @@
         returnInput.min = borrowDate;
         if (returnInput.value && returnInput.value < borrowDate) {
             returnInput.value = borrowDate;
+        }
+        if (returnInput.value === borrowDate && timeInput?.value && returnTimeInput?.value && returnTimeInput.value < timeInput.value) {
+            returnTimeInput.value = timeInput.value;
         }
     }
 
@@ -784,33 +941,43 @@
     };
 
     searchInput.addEventListener('focus', () => {
-        resultsWrap.classList.remove('hidden');
-        renderResults();
+        openResults();
     });
     searchInput.addEventListener('input', () => {
-        selected = null;
-        showText(selectedHint, '', false);
+        showText(pickerError, '', false);
         highlight = 0;
-        resultsWrap.classList.remove('hidden');
-        renderResults();
+        openResults();
     });
     searchInput.addEventListener('keydown', (e) => {
+        const isOpen = !resultsWrap.classList.contains('hidden');
         const rows = filtered();
         if (e.key === 'ArrowDown') {
             e.preventDefault();
+            if (!isOpen) {
+                openResults();
+                return;
+            }
             if (!rows.length) return;
             highlight = (highlight + 1) % rows.length;
             renderResults();
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
+            if (!isOpen) {
+                openResults();
+                return;
+            }
             if (!rows.length) return;
             highlight = (highlight - 1 + rows.length) % rows.length;
             renderResults();
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (rows[highlight]) choose(rows[highlight]);
-        } else if (e.key === 'Escape') {
-            resultsWrap.classList.add('hidden');
+            if (isOpen && rows[highlight]) {
+                addItem(rows[highlight]);
+            }
+        } else if (e.key === 'Escape' && isOpen) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeResults();
         }
     });
 
@@ -819,16 +986,22 @@
         if (!btn) return;
         const id = Number(btn.getAttribute('data-equip-id'));
         const item = catalog.find((row) => row.id === id);
-        if (item) choose(item);
+        if (item) addItem(item);
     });
 
     document.addEventListener('click', (e) => {
         if (!resultsWrap.contains(e.target) && e.target !== searchInput) {
-            resultsWrap.classList.add('hidden');
+            closeResults();
         }
     });
 
-    addBtn.addEventListener('click', addSelected);
+    function syncLineButtons(rowEl, line) {
+        if (!rowEl || !line) return;
+        const decBtn = rowEl.querySelector('[data-cart-dec]');
+        const incBtn = rowEl.querySelector('[data-cart-inc]');
+        if (decBtn) decBtn.disabled = Number(line.quantity) <= 1;
+        if (incBtn) incBtn.disabled = Number(line.quantity) >= Number(line.available);
+    }
 
     function readCartQty(input, line, finalize) {
         const max = Math.max(1, Number(line.available) || 1);
@@ -837,14 +1010,18 @@
             if (finalize) {
                 line.quantity = 1;
                 input.value = '1';
+                updateCartBadge();
+                syncLineButtons(input.closest('[data-cart-index]'), line);
             }
             return;
         }
         let qty = parseInt(digits, 10);
         if (qty > max) qty = max;
         if (finalize && qty < 1) qty = 1;
-        line.quantity = qty;
-        input.value = String(qty);
+        line.quantity = qty < 1 ? 1 : qty;
+        input.value = String(line.quantity);
+        updateCartBadge();
+        syncLineButtons(input.closest('[data-cart-index]'), line);
     }
 
     cartLines.addEventListener('input', (e) => {
@@ -864,15 +1041,46 @@
     });
 
     cartLines.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-cart-remove]');
-        if (!btn) return;
-        const index = Number(btn.getAttribute('data-cart-remove'));
+        const decBtn = e.target.closest('[data-cart-dec]');
+        if (decBtn) {
+            const index = Number(decBtn.getAttribute('data-cart-dec'));
+            const line = cart[index];
+            if (line && line.quantity > 1) {
+                line.quantity -= 1;
+                renderCart();
+                announce(line.name + ' quantity set to ' + line.quantity + '.');
+            }
+            return;
+        }
+        const incBtn = e.target.closest('[data-cart-inc]');
+        if (incBtn) {
+            const index = Number(incBtn.getAttribute('data-cart-inc'));
+            const line = cart[index];
+            if (line && line.quantity < line.available) {
+                line.quantity += 1;
+                renderCart();
+                announce(line.name + ' quantity set to ' + line.quantity + '.');
+            }
+            return;
+        }
+        const removeBtn = e.target.closest('[data-cart-remove]');
+        if (!removeBtn) return;
+        const index = Number(removeBtn.getAttribute('data-cart-remove'));
+        const removed = cart[index];
         cart.splice(index, 1);
         renderCart();
+        if (removed) {
+            announce('Removed ' + removed.name + '.');
+        }
     });
 
     dateInput.addEventListener('change', syncReturnMin);
     dateInput.addEventListener('input', syncReturnMin);
+    if (timeInput) {
+        timeInput.addEventListener('change', syncReturnMin);
+        timeInput.addEventListener('input', syncReturnMin);
+    }
+    returnInput.addEventListener('change', syncReturnMin);
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -880,8 +1088,9 @@
         showText(cartError, '', false);
 
         if (!cart.length) {
-            showText(cartError, 'Add at least one equipment item to the cart.', true);
-            showText(formError, 'Add at least one equipment item to the cart.', true);
+            showText(cartError, 'Add at least one equipment item.', true);
+            showText(formError, 'Add at least one equipment item.', true);
+            searchInput.focus();
             return;
         }
         cart.forEach((line) => {
@@ -892,22 +1101,34 @@
             line.quantity = qty;
         });
         renderCart();
-        if (!dateInput.value) {
-            showText(formError, 'Enter the borrow date.', true);
-            dateInput.focus();
+        if (!dateInput.value || (timeInput && !timeInput.value)) {
+            showText(formError, 'Enter the claim / borrow date and time.', true);
+            (!dateInput.value ? dateInput : timeInput).focus();
             return;
         }
-        if (!returnInput.value) {
-            showText(formError, 'Enter the expected return date.', true);
-            returnInput.focus();
+        if (timeInput && !isOfficeTime(timeInput.value)) {
+            showText(formError, 'Claim / borrow time must be between 9:00 AM and 5:00 PM.', true);
+            timeInput.focus();
             return;
         }
-        const borrowAt = new Date(dateInput.value + 'T00:00:00');
-        const returnAt = new Date(returnInput.value + 'T00:00:00');
+        if (!returnInput.value || (returnTimeInput && !returnTimeInput.value)) {
+            showText(formError, 'Enter the expected return date and time.', true);
+            (!returnInput.value ? returnInput : returnTimeInput).focus();
+            return;
+        }
+        if (returnTimeInput && !isOfficeTime(returnTimeInput.value)) {
+            showText(formError, 'Expected return time must be between 9:00 AM and 5:00 PM.', true);
+            returnTimeInput.focus();
+            return;
+        }
+        const borrowIso = combinedBorrowFrom();
+        const returnIso = combinedReturnBy();
+        const borrowAt = new Date(borrowIso);
+        const returnAt = new Date(returnIso);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (Number.isNaN(borrowAt.getTime()) || Number.isNaN(returnAt.getTime())) {
-            showText(formError, 'Enter a valid borrow / return date.', true);
+            showText(formError, 'Enter a valid borrow / return date and time.', true);
             return;
         }
         if (borrowAt < today) {
@@ -916,7 +1137,7 @@
             return;
         }
         if (returnAt < borrowAt) {
-            showText(formError, 'Expected return must be on or after the borrow date.', true);
+            showText(formError, 'Expected return must be on or after the borrow date and time.', true);
             returnInput.focus();
             return;
         }
@@ -952,8 +1173,8 @@
                 },
                 credentials: 'same-origin',
                 body: JSON.stringify({
-                    borrowing_date: dateInput.value,
-                    borrowing_expected_return_date: returnInput.value,
+                    borrowing_date: borrowIso,
+                    borrowing_expected_return_date: returnIso,
                     borrowing_event_location: locationInput ? String(locationInput.value || '').trim() : '',
                     borrowing_purpose: String(purposeInput.value || '').trim(),
                     items: cart.map((line) => ({
@@ -980,23 +1201,36 @@
                 const raw = String(value).trim();
                 const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw + 'T00:00:00' : raw.replace(' ', 'T'));
                 if (Number.isNaN(d.getTime())) return raw;
-                return d.toLocaleDateString('en-US', {
+                return d.toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
                 });
             };
 
             const slip = data.slip_no || '';
+            const isPending = data.status === 'Pending';
+            const statusPill = isPending
+                ? '<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-size:12px;font-weight:600">Pending approval</span>'
+                : '<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-size:12px;font-weight:600">Recorded</span>';
             const nextStep = data.next_step
-                || 'Check your employee or school email for your borrow slip. Show that slip when you claim the equipment.';
+                || 'A confirmation was sent to your email. Wait for the property custodian to review your request — you’ll be notified by email once it’s approved for pickup.';
             const html = `
                 <div style="text-align:left;font-size:14px;line-height:1.55;color:#334155">
-                    <p style="margin:0 0 12px">${escapeHtml(data.message || 'Your borrow request is recorded.')}</p>
-                    ${slip ? `<p style="margin:0 0 10px"><strong style="color:#0f172a">Slip</strong><br><span style="font-size:18px;font-weight:700;color:#0025cc;letter-spacing:0.02em">${escapeHtml(slip)}</span></p>` : ''}
-                    <p style="margin:0 0 6px"><strong style="color:#0f172a">Borrow from</strong><br>${escapeHtml(formatWhen(data.borrow_from))}</p>
-                    <p style="margin:0 0 12px"><strong style="color:#0f172a">Return by</strong><br>${escapeHtml(formatWhen(data.expected_return))}</p>
-                    <p style="margin:0;padding:10px 12px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 12px">
+                        <p style="margin:0;color:#475569">${escapeHtml(data.message || 'Your borrow request was submitted.')}</p>
+                        ${statusPill}
+                    </div>
+                    <div style="margin:0 0 12px;padding:12px 14px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0">
+                        ${slip ? `<p style="margin:0 0 10px"><span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748b">Reference #</span><span style="font-size:17px;font-weight:700;color:#0025cc;letter-spacing:0.02em">${escapeHtml(slip)}</span></p>` : ''}
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                            <p style="margin:0"><span style="display:block;font-size:11px;font-weight:600;color:#64748b">Borrow from</span><strong style="color:#0f172a;font-weight:600">${escapeHtml(formatWhen(data.borrow_from))}</strong></p>
+                            <p style="margin:0"><span style="display:block;font-size:11px;font-weight:600;color:#64748b">Return by</span><strong style="color:#0f172a;font-weight:600">${escapeHtml(formatWhen(data.expected_return))}</strong></p>
+                        </div>
+                    </div>
+                    <p style="margin:0;padding:10px 12px;border-radius:12px;background:#ffffff;border:1px solid #e2e8f0;color:#475569;font-size:13px">
                         <strong style="color:#0f172a">Next step:</strong> ${escapeHtml(nextStep)}
                     </p>
                 </div>
@@ -1005,14 +1239,14 @@
             if (window.Swal) {
                 await Swal.fire({
                     icon: 'success',
-                    title: data.status === 'Pending' ? 'Request submitted' : 'Borrow recorded',
+                    title: isPending ? 'Request submitted' : 'Borrow recorded',
                     html,
-                    confirmButtonText: 'OK',
+                    confirmButtonText: 'Done',
                     confirmButtonColor: '#0025cc',
-                    width: 440,
+                    width: 460,
                 });
             } else {
-                alert((data.message || 'Request submitted.') + (slip ? (' Slip ' + slip + '.') : '') + ' ' + nextStep);
+                alert((data.message || 'Request submitted.') + (slip ? (' Reference #' + slip + '.') : '') + ' ' + nextStep);
             }
         } catch (err) {
             showText(formError, err.message || 'Could not submit the borrow request.', true);

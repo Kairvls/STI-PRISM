@@ -6,552 +6,398 @@
 
 @section ("content")
 
-    <div
-        class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
-    >
-        @if (!empty($showArchived))
-            <a
-                href="{{ route('admin.borrowing.index') }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="list" class="h-4 w-4"></i>
-                Show active records
-            </a>
-        @else
-            <a
-                href="{{ route('admin.borrowing.index', ['archived' => 1]) }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="archive" class="h-4 w-4"></i>
-                Show archived
-            </a>
+@php
+    $activeView = ($activeView ?? 'records') === 'borrowers' && empty($showArchived) ? 'borrowers' : 'records';
+    $borrowFeeRates = \App\Support\BorrowingFees::rates();
+    $canEditBorrowFees = \App\Support\RoleAccess::isAdmin();
+    $overdueCount = (int) ($overdueBorrowings ?? 0);
+    $borrowersTotalCount = (int) ($borrowerDirectoryStats['total'] ?? 0);
+    $isOverdueOnly = request('status') === 'Overdue' || !empty($attentionFocus);
 
-            @if (($overdueBorrowings ?? 0) > 0)
-                @if (request('status') === 'Overdue' || !empty($attentionFocus))
-                    <a
-                        href="{{ route('admin.borrowing.index') }}"
-                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                        <i data-lucide="list" class="h-4 w-4"></i>
-                        Show all records
-                    </a>
-                @else
-                    <a
-                        href="{{ route('admin.borrowing.index', ['status' => 'Overdue']) }}"
-                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] font-semibold text-amber-900 transition hover:bg-amber-100"
-                    >
-                        <i data-lucide="alert-triangle" class="h-4 w-4"></i>
-                        Show overdue only
-                        <span class="inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">
-                            {{ $overdueBorrowings }}
-                        </span>
-                    </a>
-                @endif
-            @endif
+    $hasActiveSearch = request()->filled('search');
+    $hasActiveStatus = request()->filled('status');
+    $hasActiveBorrower = filled($borrowerFilter ?? request('borrower'));
+    $hasActiveSource = request()->filled('source');
+    $hasDateFilter = filled($dateFrom ?? request('date_from')) || filled($dateTo ?? request('date_to'));
+    $secondaryFilterCount = ($hasActiveBorrower ? 1 : 0)
+        + ($hasActiveSource ? 1 : 0)
+        + ($hasDateFilter ? 1 : 0);
+    $hasAnyRecordFilter = $hasActiveSearch || $hasActiveStatus || $secondaryFilterCount > 0;
+@endphp
 
-            <a
-                href="{{ route('admin.borrowing.borrowers') }}"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-                <i data-lucide="users" class="h-4 w-4"></i>
-                Borrowers list
-            </a>
-
-            <button
-                type="button"
-                onclick="openBorrowModal()"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-blue-800"
-            >
-                <i data-lucide="plus" class="h-4 w-4"></i>
-                Borrow for event/use
-            </button>
-        @endif
-    </div>
-
-    <!--@if (($overdueBorrowings ?? 0) > 0 && request('status') !== 'Overdue')
-        <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {{ $overdueBorrowings }} overdue {{ \Illuminate\Support\Str::plural('record', $overdueBorrowings) }} need attention.
-        </div>
-    @endif-->
-
-    @php
-        $borrowingMonthlyHint = $borrowingMonthlyPercentage === null
-            ? 'New activity vs last month'
-            : (($borrowingMonthlyPercentage > 0 ? '+' : '') . number_format($borrowingMonthlyPercentage, 2) . '% vs last month');
-    @endphp
-    <div class="mb-6 mt-6">
-    </div>
-
-    @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $borrowings->total()])
-
-    <div class="rounded-3xl bg-white">
-        <!--<div class="mb-6 flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-black">Borrowing Records</h1>
-
-            <button
-                onclick="openBorrowModal()"
-                class="rounded-xl bg-blue-600 px-5 py-3 text-white hover:bg-blue-700"
-            >
-                Borrow Equipment
-            </button>
-        </div>-->
-
-        {{-- ========================================================= --}}
-        {{-- BORROWING RECORDS TABLE --}}
-        {{-- ========================================================= --}}
-
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-
-            {{-- ===================================================== --}}
-            {{-- TABLE HEADER INFORMATION --}}
-            {{-- ===================================================== --}}
-
-            <div
-                class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4
-                    sm:flex-row sm:items-center sm:justify-between"
-            >
-
-                <div class="flex items-center gap-3">
-
-                    <div
-                        class="flex h-9 w-9 shrink-0 items-center justify-center
-                            rounded-lg bg-slate-100 text-slate-600"
-                    >
-                        <i
-                            data-lucide="clipboard-list"
-                            class="h-4 w-4"
-                        ></i>
-                    </div>
-
-
-                    <div>
-
-                        <h2 class="text-sm font-semibold text-slate-900">
-                            {{ !empty($showArchived) ? 'Archived Borrowing Records' : 'Borrowing Records' }}
-                        </h2>
-
-                    </div>
-
-                </div>
-
-
-                {{-- TOTAL RECORDS --}}
-                @php
-                    $borrowFeeRates = \App\Support\BorrowingFees::rates();
-                    $canEditBorrowFees = \App\Support\RoleAccess::isAdmin();
-                @endphp
-                <div class="flex flex-wrap items-center gap-2">
-                    @if ($canEditBorrowFees)
-                        <button
-                            type="button"
-                            onclick="openBorrowFeesModal()"
-                            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                        >
-                            <i data-lucide="banknote" class="h-3.5 w-3.5 text-slate-500"></i>
-                            Fees · ₱{{ number_format($borrowFeeRates['late_fee_per_day'], 2) }}/day
-                        </button>
-                    @endif
-                    <div
-                        class="inline-flex w-fit items-center gap-2
-                            rounded-lg border border-slate-200
-                            bg-slate-50 px-3 py-2
-                            text-xs font-medium text-slate-500"
-                    >
-                        <i
-                            data-lucide="package"
-                            class="h-3.5 w-3.5"
-                        ></i>
-
-                        {{ $borrowings->total() }} total
-
-                    </div>
-                </div>
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- SEARCH AND FILTER BAR --}}
-            {{-- ADD BETWEEN TABLE HEADER INFORMATION AND TABLE --}}
-            {{-- ===================================================== --}}
-
-            <form method="GET" action="{{ url()->current() }}" data-auto-filter
-                class="border-b border-slate-200 px-5 py-4"
-            >
+<div class="space-y-4">
+    {{-- COMPACT PAGE HEADER (matching Equipment Inventory) --}}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-2">
+            <h1 class="truncate text-lg font-semibold tracking-tight text-slate-900">
                 @if (!empty($showArchived))
-                    <input type="hidden" name="archived" value="1">
+                    Archived Borrowing
+                @elseif ($activeView === 'borrowers')
+                    Borrowers List
+                @else
+                    Borrowing
                 @endif
+            </h1>
+            <span class="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                @if ($activeView === 'borrowers')
+                    {{ number_format($borrowersTotalCount) }} {{ \Illuminate\Support\Str::plural('borrower', $borrowersTotalCount) }}
+                @else
+                    {{ number_format($borrowings->total()) }} {{ \Illuminate\Support\Str::plural('record', $borrowings->total()) }}
+                @endif
+            </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- ... Actions dropdown (matching Equipment Inventory) --}}
+            <div class="relative">
+                <button
+                    type="button"
+                    id="borrowingToolsMenuBtn"
+                    onclick="toggleBrwMenu(this, 'borrowingToolsMenu', event)"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                >
+                    <i data-lucide="more-horizontal" class="h-4 w-4 text-slate-500"></i>
+                    <span>Actions</span>
+                    @if ($overdueCount > 0 && empty($showArchived))
+                        <span class="inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $overdueCount }}</span>
+                    @endif
+                    <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-slate-400"></i>
+                </button>
 
                 <div
-                    class="flex flex-col gap-3
-                        sm:flex-row sm:items-center"
+                    id="borrowingToolsMenu"
+                    data-brw-menu
+                    role="menu"
+                    class="fixed z-[90] hidden w-60 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/10"
                 >
-
-                    {{-- ================================================= --}}
-                    {{-- SEARCH --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative min-w-0 flex-1">
-
-                        <i
-                            data-lucide="search"
-                            class="pointer-events-none absolute
-                                left-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
-                        ></i>
-
-                        <input
-                            type="search"
-
-                            name="search"
-
-                            value="{{ request('search') }}"
-
-                            placeholder="Search slip no., event, equipment, or borrower..."
-
-                            class="h-9 w-full rounded-lg
-                                border border-slate-200
-                                bg-white pl-10 pr-3
-                                text-sm text-slate-700
-                                outline-none transition
-                                placeholder:text-slate-400
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-
-                    </div>
-
-
-                    {{-- ================================================= --}}
-                    {{-- BORROWER FILTER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative">
-                        <select
-                            name="borrower"
-                            data-searchable="1"
-                            data-search-placeholder="Search borrower…"
-                            class="h-9 min-w-[180px]
-                                appearance-none rounded-lg
-                                border border-slate-200
-                                bg-white pl-3 pr-9
-                                text-sm text-slate-600
-                                outline-none transition
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-                            <option value="">All borrowers</option>
-                            @foreach (($borrowers ?? collect()) as $borrowerName)
-                                <option value="{{ $borrowerName }}" @selected(($borrowerFilter ?? request('borrower')) === $borrowerName)>
-                                    {{ $borrowerName }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                        ></i>
-                    </div>
-
-                    {{-- ================================================= --}}
-                    {{-- STATUS FILTER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative">
-
-                        <select
-                            name="status"
-
-                            class="h-9 min-w-[150px]
-                                appearance-none rounded-lg
-                                border border-slate-200
-                                bg-white pl-3 pr-9
-                                text-sm text-slate-600
-                                outline-none transition
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-
-                            <option value="">
-                                All Status
-                            </option>
-
-                            <option
-                                value="Pending"
-                                @selected(request('status') === 'Pending')
+                    @if ($overdueCount > 0)
+                        @if ($isOverdueOnly && $activeView === 'records' && empty($showArchived))
+                            <a
+                                href="{{ route('admin.borrowing.index') }}"
+                                role="menuitem"
+                                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                             >
-                                Pending
-                            </option>
-
-                            <option
-                                value="Borrowed"
-                                @selected(request('status') === 'Borrowed')
+                                <i data-lucide="list" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span>Show all records</span>
+                            </a>
+                        @else
+                            <a
+                                href="{{ route('admin.borrowing.index', ['status' => 'Overdue']) }}"
+                                role="menuitem"
+                                class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-50"
                             >
-                                Borrowed
-                            </option>
-
-                            <option
-                                value="Returned"
-                                @selected(request('status') === 'Returned')
-                            >
-                                Returned
-                            </option>
-
-                            <option
-                                value="Overdue"
-                                @selected(request('status') === 'Overdue' || !empty($attentionFocus))
-                            >
-                                Overdue
-                            </option>
-
-                            <option
-                                value="Denied"
-                                @selected(request('status') === 'Denied')
-                            >
-                                Denied
-                            </option>
-
-                        </select>
-
-
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute
-                                right-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
-                        ></i>
-
-                    </div>
-
-                    {{-- ================================================= --}}
-                    {{-- SOURCE FILTER --}}
-                    {{-- ================================================= --}}
-
-                    @if (\Illuminate\Support\Facades\Schema::hasColumn('borrowing_records_table', 'borrowing_source'))
-                    <div class="relative">
-                        <select
-                            name="source"
-                            class="h-9 min-w-[150px]
-                                appearance-none rounded-lg
-                                border border-slate-200
-                                bg-white pl-3 pr-9
-                                text-sm text-slate-600
-                                outline-none transition
-                                focus:border-slate-400
-                                focus:ring-2 focus:ring-slate-100"
-                        >
-                            <option value="">All sources</option>
-                            <option value="online" @selected(request('source') === 'online')>Online requests</option>
-                            <option value="admin" @selected(request('source') === 'admin')>Desk / admin</option>
-                        </select>
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute
-                                right-3 top-1/2 h-4 w-4
-                                -translate-y-1/2 text-slate-400"
-                        ></i>
-                    </div>
+                                <span class="inline-flex items-center gap-2">
+                                    <i data-lucide="alert-triangle" class="h-3.5 w-3.5 text-amber-600"></i>
+                                    <span>Show overdue only</span>
+                                </span>
+                                <span class="inline-flex min-w-[1.2rem] items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $overdueCount }}</span>
+                            </a>
+                        @endif
+                        <div class="my-1 border-t border-slate-100"></div>
                     @endif
 
-                    {{-- ================================================= --}}
-                    {{-- CALENDAR DATE FILTER --}}
-                    {{-- ================================================= --}}
+                    @if (!empty($showArchived))
+                        <a
+                            href="{{ route('admin.borrowing.index') }}"
+                            role="menuitem"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        >
+                            <i data-lucide="clipboard-list" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Show active records</span>
+                        </a>
+                    @else
+                        <a
+                            href="{{ route('admin.borrowing.index', ['archived' => 1]) }}"
+                            role="menuitem"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                        >
+                            <i data-lucide="archive" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Show archived</span>
+                        </a>
+                    @endif
 
-                    @php
-                        $hasDateFilter = filled($dateFrom ?? request('date_from')) || filled($dateTo ?? request('date_to'));
-                    @endphp
-                    <div
-                        class="relative"
-                        x-data="{
-                            open: {{ $hasDateFilter ? 'true' : 'false' }},
-                            from: @js($dateFrom ?? request('date_from', '')),
-                            to: @js($dateTo ?? request('date_to', '')),
-                        }"
-                        @keydown.escape.window="open = false"
-                    >
+                    @if ($activeView === 'borrowers')
                         <button
                             type="button"
-                            @click="open = !open"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition
-                                {{ $hasDateFilter
-                                    ? 'border-[#0025cc]/30 bg-blue-50 text-[#0025cc]'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50' }}"
-                            aria-label="Filter by borrow date"
-                            title="Filter by borrow date"
+                            role="menuitem"
+                            onclick="closeBrwMenus(); openBorrowModal()"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
-                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                            <i data-lucide="plus" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Borrow for event/use</span>
                         </button>
-
-                        <div
-                            x-show="open"
-                            x-cloak
-                            @click.outside="open = false"
-                            x-transition
-                            class="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
+                    @else
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onclick="closeBrwMenus(); openRegisterBorrowerModal()"
+                            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Borrow date</p>
-                            <div class="mt-3 space-y-3">
-                                <div>
-                                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">From</label>
-                                    <input
-                                        type="date"
-                                        name="date_from"
-                                        x-model="from"
-                                        class="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                                    >
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">To</label>
-                                    <input
-                                        type="date"
-                                        name="date_to"
-                                        x-model="to"
-                                        class="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                                    >
-                                </div>
-                            </div>
-                            <div class="mt-4 flex items-center justify-between gap-2">
-                                <button
-                                    type="button"
-                                    class="text-xs font-semibold text-slate-500 hover:text-slate-800"
-                                    @click="from = ''; to = ''; $el.closest('form').requestSubmit()"
-                                >
-                                    Clear dates
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="inline-flex h-8 items-center rounded-lg bg-[#0025cc] px-3 text-xs font-semibold text-white hover:bg-blue-800"
-                                >
-                                    Apply dates
-                                </button>
-                            </div>
-                            @if ($hasDateFilter)
-                                <p class="mt-3 text-[11px] text-slate-500">
-                                    {{ filled($dateFrom ?? request('date_from')) ? \Carbon\Carbon::parse($dateFrom ?? request('date_from'))->format('M j, Y') : '…' }}
-                                    –
-                                    {{ filled($dateTo ?? request('date_to')) ? \Carbon\Carbon::parse($dateTo ?? request('date_to'))->format('M j, Y') : '…' }}
-                                </p>
-                            @endif
-                        </div>
-                    </div>
-
-
-                    {{-- ================================================= --}}
-                    {{-- APPLY BUTTON --}}
-                    {{-- ================================================= --}}
-
-                    <button
-                        type="submit"
-
-                        class="inline-flex h-9 items-center
-                            justify-center gap-2 rounded-lg
-                            bg-[#0025cc] px-4
-                            text-sm font-semibold text-white
-                            transition hover:bg-blue-800"
-                    >
-
-                        <i
-                            data-lucide="filter"
-                            class="h-4 w-4"
-                        ></i>
-
-                        Apply
-
-                    </button>
-
-
-                    {{-- ================================================= --}}
-                    {{-- CLEAR BUTTON --}}
-                    {{-- ================================================= --}}
-
-                    @if (
-                        request()->filled('search')
-                        || request()->filled('status')
-                        || request()->filled('source')
-                        || request()->filled('borrower')
-                        || request()->filled('date_from')
-                        || request()->filled('date_to')
-                    )
-
-                        <a
-                            href="{{ url()->current() }}"
-
-                            class="inline-flex h-9 items-center
-                                justify-center gap-2 rounded-lg
-                                border border-slate-200
-                                bg-white px-4
-                                text-sm font-medium text-slate-600
-                                transition
-                                hover:bg-slate-50
-                                hover:text-slate-900"
-                        >
-
-                            <i
-                                data-lucide="x"
-                                class="h-4 w-4"
-                            ></i>
-
-                            Clear
-
-                        </a>
-
+                            <i data-lucide="user-plus" class="h-3.5 w-3.5 text-slate-400"></i>
+                            <span>Register borrower</span>
+                        </button>
                     @endif
 
-                </div>
-
-            </form>
-
-
-
-            {{-- ===================================================== --}}
-            {{-- TABLE --}}
-            {{-- ===================================================== --}}
-
-            <div class="overflow-x-auto">
-
-                <table class="w-full  text-left">
-
-                    {{-- ================================================= --}}
-                    {{-- TABLE HEADER --}}
-                    {{-- ================================================= --}}
-
-                    <thead class="border-b border-slate-200 bg-slate-50/70">
-
-                        <tr
-                            class="text-[11px] font-semibold uppercase
-                                tracking-[0.08em] text-slate-400"
+                    @if ($canEditBorrowFees)
+                        <div class="my-1 border-t border-slate-100"></div>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onclick="closeBrwMenus(); openBorrowFeesModal()"
+                            class="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                         >
+                            <span class="inline-flex items-center gap-2">
+                                <i data-lucide="banknote" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span>Fee settings</span>
+                            </span>
+                            <span class="text-[11px] font-semibold text-slate-500">₱{{ number_format($borrowFeeRates['late_fee_per_day'], 0) }}/day</span>
+                        </button>
+                    @endif
+                </div>
+            </div>
 
-                            <th class="px-5 py-3">
-                                Equipment
-                            </th>
+            {{-- Primary CTA --}}
+            @if ($activeView === 'borrowers')
+                <button
+                    type="button"
+                    onclick="openRegisterBorrowerModal()"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                >
+                    <i data-lucide="user-plus" class="h-4 w-4"></i>
+                    <span>Register borrower</span>
+                </button>
+            @else
+                <button
+                    type="button"
+                    onclick="openBorrowModal()"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
+                >
+                    <i data-lucide="plus" class="h-4 w-4"></i>
+                    <span>Borrow for event/use</span>
+                </button>
+            @endif
+        </div>
+    </div>
 
-                            <th class="px-5 py-3">
-                                Borrower
-                            </th>
+    {{-- SEGMENTED VIEW TABS (matching Equipment Inventory: Borrowing records | Borrowers list) --}}
+    <div id="borrowing-tables" class="flex flex-wrap items-center justify-between gap-2 scroll-mt-24">
+        <div class="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Borrowing view">
+            <a
+                href="{{ route('admin.borrowing.index') }}"
+                role="tab"
+                aria-selected="{{ ($activeView === 'records' && empty($showArchived)) ? 'true' : 'false' }}"
+                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition {{ ($activeView === 'records' && empty($showArchived)) ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}"
+            >
+                <i data-lucide="clipboard-list" class="h-4 w-4"></i>
+                <span>Borrowing records</span>
+                <span class="rounded-full px-1.5 text-[11px] font-semibold {{ ($activeView === 'records' && empty($showArchived)) ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-500' }}">{{ number_format($totalBorrowingRecords ?? $borrowings->total()) }}</span>
+            </a>
 
-                            <th class="px-5 py-3">
-                                Status
-                            </th>
+            <a
+                href="{{ route('admin.borrowing.index', ['view' => 'borrowers']) }}"
+                role="tab"
+                aria-selected="{{ $activeView === 'borrowers' ? 'true' : 'false' }}"
+                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition {{ $activeView === 'borrowers' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800' }}"
+            >
+                <i data-lucide="users" class="h-4 w-4"></i>
+                <span>Borrowers list</span>
+                <span class="rounded-full px-1.5 text-[11px] font-semibold {{ $activeView === 'borrowers' ? 'bg-slate-100 text-slate-600' : 'bg-white text-slate-500' }}">{{ number_format($borrowersTotalCount) }}</span>
+            </a>
 
-                            <th class="px-5 py-3">
-                                Borrow Date
-                            </th>
+            @if (!empty($showArchived))
+                <span
+                    role="tab"
+                    aria-selected="true"
+                    class="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm"
+                >
+                    <i data-lucide="archive" class="h-4 w-4"></i>
+                    <span>Archived</span>
+                    <span class="rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600">{{ number_format($borrowings->total()) }}</span>
+                </span>
+            @endif
+        </div>
+    </div>
 
-                            <th class="px-5 py-3">
-                                Expected Return
-                            </th>
+    @if ($activeView === 'borrowers')
+        @include('admin.borrowing.partials.borrowers-tab')
+    @else
+        @include('partials.attention-focus-chip', ['focus' => $attentionFocus ?? null, 'total' => $borrowings->total()])
 
-                            <th class="px-5 py-3">
-                                Actual Return
-                            </th>
+        {{-- BORROWING RECORDS TABLE (matching Equipment Inventory compact table style) --}}
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            {{-- CONSOLIDATED FILTER BAR + COLLAPSIBLE SECONDARY PANEL --}}
+            <div class="border-b border-slate-200 bg-white px-4 py-2.5">
+                <form
+                    id="borrowingFilterForm"
+                    method="GET"
+                    action="{{ route('admin.borrowing.index') }}"
+                    class="space-y-2"
+                >
+                    @if (!empty($showArchived))
+                        <input type="hidden" name="archived" value="1">
+                    @endif
 
-                            <th class="w-[130px] px-5 py-3 text-center">
-                                Actions
-                            </th>
+                    <div class="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+                        {{-- Search --}}
+                        <div class="relative min-w-[200px] flex-1">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="search"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Search slip no., event, equipment, or borrower…"
+                                class="h-9 w-full rounded-lg border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
+                            >
+                        </div>
 
+                        {{-- Primary Filter: Status (auto-submits) --}}
+                        <div class="relative w-full sm:w-44 lg:shrink-0">
+                            <i data-lucide="list-filter" class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                            <select
+                                name="status"
+                                aria-label="Filter by status"
+                                onchange="this.form.submit()"
+                                class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-8 pr-8 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            >
+                                <option value="">All Status</option>
+                                <option value="Pending" @selected(request('status') === 'Pending')>Pending</option>
+                                <option value="Borrowed" @selected(request('status') === 'Borrowed')>Borrowed</option>
+                                <option value="Returned" @selected(request('status') === 'Returned')>Returned</option>
+                                <option value="Overdue" @selected($isOverdueOnly)>Overdue</option>
+                                <option value="Denied" @selected(request('status') === 'Denied')>Denied</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                        </div>
+
+                        {{-- Secondary Filters Toggle --}}
+                        <button
+                            type="button"
+                            id="brwSecondaryFiltersBtn"
+                            onclick="toggleBrwSecondaryFilters()"
+                            aria-expanded="false"
+                            aria-controls="brwSecondaryFiltersPanel"
+                            class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition {{ $secondaryFilterCount > 0 ? 'border-blue-200 bg-blue-50/70 text-[#0025cc] hover:bg-blue-50' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}"
+                        >
+                            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+                            <span>Filters</span>
+                            @if ($secondaryFilterCount > 0)
+                                <span class="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#0025cc] px-1 text-[10px] font-bold leading-none text-white">{{ $secondaryFilterCount }}</span>
+                            @endif
+                        </button>
+
+                        @if ($hasAnyRecordFilter)
+                            <a
+                                href="{{ !empty($showArchived) ? route('admin.borrowing.index', ['archived' => 1]) : route('admin.borrowing.index') }}"
+                                class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                            >
+                                <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                                <span>Clear</span>
+                            </a>
+                        @endif
+                    </div>
+
+                    {{-- Collapsible Secondary Filters Panel --}}
+                    <div
+                        id="brwSecondaryFiltersPanel"
+                        class="hidden rounded-lg border border-slate-200 bg-slate-50/80 p-3"
+                    >
+                        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                                <label for="brwFilterBorrower" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Borrower</label>
+                                <div class="relative">
+                                    <select
+                                        id="brwFilterBorrower"
+                                        name="borrower"
+                                        data-searchable="1"
+                                        data-search-placeholder="Search borrower…"
+                                        class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                    >
+                                        <option value="">All borrowers</option>
+                                        @foreach (($borrowers ?? collect()) as $borrowerName)
+                                            <option value="{{ $borrowerName }}" @selected(($borrowerFilter ?? request('borrower')) === $borrowerName)>
+                                                {{ $borrowerName }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                </div>
+                            </div>
+
+                            @if (\Illuminate\Support\Facades\Schema::hasColumn('borrowing_records_table', 'borrowing_source'))
+                                <div>
+                                    <label for="brwFilterSource" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Source</label>
+                                    <div class="relative">
+                                        <select
+                                            id="brwFilterSource"
+                                            name="source"
+                                            class="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-2.5 pr-8 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                        >
+                                            <option value="">All sources</option>
+                                            <option value="online" @selected(request('source') === 'online')>Online requests</option>
+                                            <option value="admin" @selected(request('source') === 'admin')>Desk / admin</option>
+                                        </select>
+                                        <i data-lucide="chevron-down" class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div>
+                                <label for="brwFilterDateFrom" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Borrow date from</label>
+                                <input
+                                    id="brwFilterDateFrom"
+                                    type="date"
+                                    name="date_from"
+                                    value="{{ $dateFrom ?? request('date_from', '') }}"
+                                    class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                >
+                            </div>
+
+                            <div>
+                                <label for="brwFilterDateTo" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Borrow date to</label>
+                                <input
+                                    id="brwFilterDateTo"
+                                    type="date"
+                                    name="date_to"
+                                    value="{{ $dateTo ?? request('date_to', '') }}"
+                                    class="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="mt-3 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2.5">
+                            <a
+                                href="{{ !empty($showArchived) ? route('admin.borrowing.index', ['archived' => 1]) : route('admin.borrowing.index') }}"
+                                class="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-200/60"
+                            >
+                                Reset
+                            </a>
+                            <button
+                                type="submit"
+                                class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 text-xs font-semibold text-white transition hover:bg-blue-800"
+                            >
+                                <i data-lucide="filter" class="h-3.5 w-3.5"></i>
+                                Apply filters
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {{-- TABLE --}}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="border-b border-slate-200 bg-slate-50/70">
+                        <tr class="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500">
+                            <th class="px-5 py-2.5">Equipment</th>
+                            <th class="px-4 py-2.5">Borrower</th>
+                            <th class="px-4 py-2.5">Status</th>
+                            <th class="px-4 py-2.5">Claim / Borrow</th>
+                            <th class="px-4 py-2.5">Expected Return</th>
+                            <th class="px-4 py-2.5">Return &amp; Condition</th>
+                            <th class="w-[140px] px-4 py-2.5 text-left">Actions</th>
                         </tr>
-
                     </thead>
 
 
@@ -715,17 +561,6 @@
                                                         <i data-lucide="alert-triangle" class="h-3 w-3"></i>
                                                         Caution
                                                     </span>
-                                                @elseif ($borrowerOpen > 1)
-                                                    <span
-                                                        class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-100"
-                                                        title="{{ $borrowerOpen }} items still borrowed."
-                                                        data-pur-tip-title="Open borrows"
-                                                        data-pur-tip="{{ $borrowerOpen }} items still out for this borrower."
-                                                        data-pur-tip-accent="#b45309"
-                                                    >
-                                                        <i data-lucide="clock-3" class="h-3 w-3"></i>
-                                                        {{ $borrowerOpen }} out
-                                                    </span>
                                                 @endif
                                             </div>
                                             @if ($borrowerDept !== '')
@@ -755,21 +590,14 @@
                                 {{-- BORROW DATE --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
-
-                                    <span
-                                        class="whitespace-nowrap
-                                            text-[13px] text-slate-600"
-                                    >
-                                        {{
-                                            $record->borrowing_date
-                                                ? Carbon::parse(
-                                                    $record->borrowing_date
-                                                )->format("M d, Y")
-                                                : "—"
-                                        }}
-                                    </span>
-
+                                <td class="px-4 py-3">
+                                    @if ($record->borrowing_date)
+                                        @php $borrowDt = Carbon::parse($record->borrowing_date); @endphp
+                                        <p class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ $borrowDt->format("M d, Y") }}</p>
+                                        <p class="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">{{ $borrowDt->format("g:i A") }}</p>
+                                    @else
+                                        <span class="text-[13px] text-slate-400">—</span>
+                                    @endif
                                 </td>
 
 
@@ -778,60 +606,103 @@
                                 {{-- EXPECTED RETURN --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
-
-                                    <span
-                                        class="whitespace-nowrap
-                                            text-[13px] font-medium
-                                            text-slate-700"
-                                    >
-                                        {{
-                                            $record->borrowing_expected_return_date
-                                                ? Carbon::parse(
-                                                    $record->borrowing_expected_return_date
-                                                )->format("M d, Y")
-                                                : "—"
-                                        }}
-                                    </span>
-
+                                <td class="px-4 py-3">
+                                    @if ($record->borrowing_expected_return_date)
+                                        @php $expectedDt = Carbon::parse($record->borrowing_expected_return_date); @endphp
+                                        <p class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ $expectedDt->format("M d, Y") }}</p>
+                                        <p class="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">{{ $expectedDt->format("g:i A") }}</p>
+                                    @else
+                                        <span class="text-[13px] text-slate-400">—</span>
+                                    @endif
                                 </td>
 
 
 
                                 {{-- ===================================== --}}
-                                {{-- ACTUAL RETURN --}}
+                                {{-- ACTUAL RETURN & CONDITION --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
+                                <td class="px-4 py-3">
+                                    @php
+                                        $condCounts = [
+                                            'Good' => 0,
+                                            'Damaged' => 0,
+                                            'Missing' => 0,
+                                        ];
+                                        $totalSlipFine = 0.0;
+                                        $returnedDestRoom = null;
+                                        foreach ($slipItems as $sItem) {
+                                            if (($sItem->borrowing_status ?? '') === 'Returned') {
+                                                $c = (string) ($sItem->borrowing_return_condition ?? 'Good');
+                                                $q = max(1, (int) ($sItem->borrowing_quantity ?? 1));
+                                                if (isset($condCounts[$c])) {
+                                                    $condCounts[$c] += $q;
+                                                } else {
+                                                    $condCounts['Good'] += $q;
+                                                }
+                                                $totalSlipFine += (float) ($sItem->borrowing_damage_fee ?? 0) + (float) ($sItem->borrowing_late_fee ?? 0);
+                                                if (! $returnedDestRoom && filled($sItem->returned_to_room_name ?? null)) {
+                                                    $returnedDestRoom = (string) $sItem->returned_to_room_name;
+                                                }
+                                            }
+                                        }
+                                    @endphp
 
                                     @if ($allReturned && $anyReturnedDate)
-
-                                        <div class="flex items-center gap-1.5">
-
-                                            <i
-                                                data-lucide="check"
-                                                class="h-3.5 w-3.5
-                                                    text-emerald-500"
-                                            ></i>
-
-                                            <span
-                                                class="whitespace-nowrap
-                                                    text-[13px] text-slate-600"
-                                            >
-                                                {{
-                                                    Carbon::parse(
-                                                        $anyReturnedDate
-                                                    )->format("M d, Y")
-                                                }}
-                                            </span>
-
+                                        @php $actualDt = Carbon::parse($anyReturnedDate); @endphp
+                                        <div class="space-y-1">
+                                            <div class="flex items-start gap-1.5">
+                                                <i data-lucide="check" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500"></i>
+                                                <div>
+                                                    <p class="whitespace-nowrap text-[13px] text-slate-700">{{ $actualDt->format("M d, Y") }}</p>
+                                                    <p class="whitespace-nowrap text-[11px] text-slate-400">{{ $actualDt->format("g:i A") }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-wrap items-center gap-1">
+                                                @if ($condCounts['Good'] > 0)
+                                                    <span class="inline-flex rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">
+                                                        Good{{ $condCounts['Good'] > 1 ? ' ×'.$condCounts['Good'] : '' }}
+                                                    </span>
+                                                @endif
+                                                @if ($condCounts['Damaged'] > 0)
+                                                    <span class="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200/70">
+                                                        Damaged{{ $condCounts['Damaged'] > 1 ? ' ×'.$condCounts['Damaged'] : '' }}
+                                                    </span>
+                                                @endif
+                                                @if ($condCounts['Missing'] > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">
+                                                        Missing{{ $condCounts['Missing'] > 1 ? ' ×'.$condCounts['Missing'] : '' }}
+                                                    </span>
+                                                @endif
+                                                @if ($totalSlipFine > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">
+                                                        Fine ₱{{ number_format($totalSlipFine, 2) }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            @if ($returnedDestRoom)
+                                                <p class="text-[11px] text-slate-400">→ {{ $returnedDestRoom }}</p>
+                                            @endif
                                         </div>
 
                                     @elseif ($isMultiSlip && ! $allReturned && $anyReturnedDate)
-
-                                        <span class="whitespace-nowrap text-[13px] font-medium text-amber-700">
-                                            Partially returned
-                                        </span>
+                                        <div class="space-y-1">
+                                            <span class="whitespace-nowrap text-[13px] font-medium text-amber-700">Partially returned</span>
+                                            <div class="flex flex-wrap items-center gap-1">
+                                                @if ($condCounts['Good'] > 0)
+                                                    <span class="inline-flex rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">Good ×{{ $condCounts['Good'] }}</span>
+                                                @endif
+                                                @if ($condCounts['Damaged'] > 0)
+                                                    <span class="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200/70">Damaged ×{{ $condCounts['Damaged'] }}</span>
+                                                @endif
+                                                @if ($condCounts['Missing'] > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">Missing ×{{ $condCounts['Missing'] }}</span>
+                                                @endif
+                                                @if ($totalSlipFine > 0)
+                                                    <span class="inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200/70">Fine ₱{{ number_format($totalSlipFine, 2) }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
 
                                     @elseif ($borrowingStatus === 'Overdue' && $record->borrowing_expected_return_date)
 
@@ -889,6 +760,34 @@
                                         })
                                         ->values()
                                         ->all();
+                                    $openReturnUnits = ($openReturnItems->isNotEmpty() ? $openReturnItems : $slipItems)
+                                        ->flatMap(function ($item) {
+                                            $qty = max(1, (int) ($item->borrowing_quantity ?? 1));
+                                            $labels = \App\Support\EquipmentIdentity::borrowedUnitLabels($item, $qty);
+                                            if (empty($labels)) {
+                                                $fallback = trim((string) ($item->equipment_asset_tag ?? ''));
+                                                $labels = array_fill(0, $qty, $fallback !== '' ? $fallback : 'Unit');
+                                            }
+                                            $unitCost = (float) ($item->equipment_purchase_cost ?? 0);
+                                            $eqName = trim((string) ($item->equipment_name ?? 'Equipment'));
+                                            $recId = (int) $item->borrowing_record_id;
+                                            $eqId = (int) $item->borrowing_equipment_id;
+                                            $out = [];
+                                            foreach (array_values($labels) as $uIdx => $lbl) {
+                                                $out[] = [
+                                                    'key' => $recId.':'.$uIdx,
+                                                    'record_id' => $recId,
+                                                    'equipment_id' => $eqId,
+                                                    'name' => $eqName,
+                                                    'label' => $lbl,
+                                                    'unit_cost' => $unitCost,
+                                                ];
+                                            }
+
+                                            return $out;
+                                        })
+                                        ->values()
+                                        ->all();
                                     $openReturnQuantity = (int) $openReturnItems->sum(fn ($item) => max(1, (int) ($item->borrowing_quantity ?? 1)));
                                     $viewPayload = [
                                         'id' => $actionRecord->borrowing_record_id,
@@ -926,19 +825,20 @@
                                     ];
                                 @endphp
 
-                                <td class="px-5 py-4">
+                                @php
+                                    $rowMenuId = 'brwRowMenu_' . (int) $actionRecord->borrowing_record_id . '_' . $loop->index;
+                                    $rowHasExtraActions = $canDecidePending || $canReturn || $canArchive || $canUnarchive;
+                                @endphp
 
-                                    <div class="flex items-center justify-center gap-2">
-
+                                <td class="px-4 py-3 text-left">
+                                    <div class="inline-flex items-center gap-1.5">
                                         <button
                                             type="button"
                                             onclick="viewBorrowing(@js($viewPayload))"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                                            data-tooltip="View"
-                                            aria-label="View"
-                                            title="View"
+                                            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
                                         >
-                                            <i data-lucide="eye" class="h-4 w-4"></i>
+                                            <i data-lucide="eye" class="h-3.5 w-3.5 text-slate-500"></i>
+                                            <span>View</span>
                                         </button>
 
                                         @if ($canDecidePending)
@@ -954,10 +854,10 @@
                                                 <input type="hidden" name="slip" value="{{ $slipNo }}">
                                                 <button
                                                     type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
-                                                    data-tooltip="Accept"
-                                                    aria-label="Accept online borrow"
-                                                    title="Accept"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                                                    data-tooltip="Accept request"
+                                                    aria-label="Accept request"
+                                                    title="Accept request"
                                                 >
                                                     <i data-lucide="check" class="h-4 w-4"></i>
                                                 </button>
@@ -973,10 +873,10 @@
                                                 <input type="hidden" name="reason" value="">
                                                 <button
                                                     type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
-                                                    data-tooltip="Deny"
-                                                    aria-label="Deny online borrow"
-                                                    title="Deny"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                                                    data-tooltip="Deny request"
+                                                    aria-label="Deny request"
+                                                    title="Deny request"
                                                 >
                                                     <i data-lucide="x" class="h-4 w-4"></i>
                                                 </button>
@@ -991,16 +891,18 @@
                                                     equipment: @js($slipEquipment),
                                                     assetTag: @js($slipAssetTag),
                                                     uniqueness: @js($slipUniqueness),
+                                                    units: @js($openReturnUnits),
                                                     tracking: @js($slipItems->count() > 1 ? 'Bulk' : $actionRecord->equipment_tracking_mode),
                                                     quantity: {{ $openReturnQuantity > 0 ? $openReturnQuantity : ($slipQuantity > 0 ? $slipQuantity : (int) ($actionRecord->borrowing_quantity ?? 1)) }},
+                                                    fromRoomId: {{ (int) ($actionRecord->borrowing_from_room_id ?? 0) }},
                                                     fromRoom: @js($actionRecord->borrowed_from_room_name),
                                                     expectedReturn: @js($actionRecord->borrowing_expected_return_date),
                                                     status: @js($actionRecord->borrowing_status),
                                                 })"
-                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#0025cc]/25 bg-[#0025cc]/5 text-[#0025cc] transition hover:bg-[#0025cc]/10 hover:text-[#001fa8]"
-                                                data-tooltip="Return"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#0025cc]/25 bg-[#0025cc]/5 text-[#0025cc] transition hover:bg-[#0025cc]/10 hover:text-[#001fa8]"
+                                                data-tooltip="Return equipment"
                                                 aria-label="Return equipment"
-                                                title="Return"
+                                                title="Return equipment"
                                             >
                                                 <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                             </button>
@@ -1010,19 +912,19 @@
                                             <form
                                                 method="POST"
                                                 action="{{ route('admin.borrowing.archive', $actionRecord->borrowing_record_id) }}"
+                                                class="inline"
                                                 data-pur-confirm="This returned record will be hidden from the active list. You can restore it anytime from Show archived."
                                                 data-pur-confirm-title="Archive borrowing record?"
                                                 data-pur-confirm-ok="Archive"
                                                 data-pur-confirm-kind="archive"
-                                                class="inline"
                                             >
                                                 @csrf
                                                 <button
                                                     type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#007a3f] transition hover:bg-slate-50"
-                                                    data-tooltip="Archive"
-                                                    aria-label="Archive"
-                                                    title="Archive"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-emerald-700 transition hover:bg-slate-50"
+                                                    data-tooltip="Archive record"
+                                                    aria-label="Archive record"
+                                                    title="Archive record"
                                                 >
                                                     <i data-lucide="archive" class="h-4 w-4"></i>
                                                 </button>
@@ -1033,27 +935,25 @@
                                             <form
                                                 method="POST"
                                                 action="{{ route('admin.borrowing.unarchive', $actionRecord->borrowing_record_id) }}"
+                                                class="inline"
                                                 data-pur-confirm="This record will return to the active borrowing list."
                                                 data-pur-confirm-title="Restore from archive?"
                                                 data-pur-confirm-ok="Unarchive"
                                                 data-pur-confirm-kind="archive"
-                                                class="inline"
                                             >
                                                 @csrf
                                                 <button
                                                     type="submit"
-                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
-                                                    data-tooltip="Unarchive"
-                                                    aria-label="Unarchive"
-                                                    title="Unarchive"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0025cc] transition hover:bg-slate-50"
+                                                    data-tooltip="Restore from archive"
+                                                    aria-label="Restore from archive"
+                                                    title="Restore from archive"
                                                 >
                                                     <i data-lucide="archive-restore" class="h-4 w-4"></i>
                                                 </button>
                                             </form>
                                         @endif
-
                                     </div>
-
                                 </td>
 
                             </tr>
@@ -1186,7 +1086,10 @@
             @endif
 
         </section>
-    </div>
+    @endif
+</div>
+
+    @include('admin.borrowing.partials.borrowers-modals')
 
     <!-- ===================================================== -->
     <!-- BORROW MODAL -->
@@ -1196,26 +1099,29 @@
         id="borrowModal"
         x-data="borrowEquipmentCart(@js($borrowableEquipmentJson ?? []))"
         x-cloak
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="borrowModalTitle"
         class="fixed inset-0 z-50 hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
-        @keydown.escape.window="if (!$el.classList.contains('hidden')) closeBorrowModal()"
+        @keydown.escape.window="if (!$el.classList.contains('hidden')) { if (open) { open = false; } else { closeBorrowModal(); } }"
     >
         <div class="my-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
             <div class="flex items-start justify-between gap-4 px-6 pt-6">
                 <div class="min-w-0">
-                    <h2 class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
+                    <h2 id="borrowModalTitle" class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
                 </div>
                 <button
                     type="button"
                     onclick="closeBorrowModal()"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                     aria-label="Close modal"
                 >
-                    <i data-lucide="x" class="h-4 w-4"></i>
+                    <i data-lucide="x" aria-hidden="true" class="h-4 w-4"></i>
                 </button>
             </div>
 
             <form
-                method="POST" 
+                method="POST"
                 action="{{ route('admin.borrowing.store') }}"
                 class="flex min-h-0 flex-1 flex-col"
                 novalidate
@@ -1225,40 +1131,38 @@
 
                 <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart <span class="text-red-500">*</span></p>
-                                
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Items to borrow <span class="text-red-500" aria-hidden="true">*</span></p>
                             </div>
-                            <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>
+                            <p aria-live="polite" class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="badgeText"></p>
                         </div>
 
                         <div class="relative" @click.outside="open = false">
-                            <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
-                            <p class="mb-1.5 text-xs text-slate-400">Only equipment still in inventory. Deployed, under maintenance, damaged, and defective equipment cannot be borrowed. Identical stock is listed once as a bulk item — add it, then set how many to borrow.</p>
-                            <div class="flex gap-2">
-                                <div class="relative min-w-0 flex-1">
-                                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-                                    <input
-                                        type="text"
-                                        x-model="query"
-                                        @focus="open = true"
-                                        @input="open = true"
-                                        @keydown.arrow-down.prevent="move(1)"
-                                        @keydown.arrow-up.prevent="move(-1)"
-                                        @keydown.enter.prevent="selectHighlighted()"
-                                        placeholder="Search by name, room, or asset tag"
-                                        class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
-                                        autocomplete="off"
-                                    >
-                                </div>
-                                <button
-                                    type="button"
-                                    @click="addSelected()"
-                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-[#001fad]"
+                            <label for="adminBorrowSearch" class="mb-1 block text-sm font-medium text-slate-700">Add equipment</label>
+                            <p id="adminBorrowSearchHint" class="mb-2 text-xs text-slate-500">All available equipment (in storage and deployed) is shown. Identical units in the same room are grouped — select an item to add it.</p>
+                            <div class="relative">
+                                <i data-lucide="search" aria-hidden="true" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                                <input
+                                    id="adminBorrowSearch"
+                                    type="text"
+                                    role="combobox"
+                                    aria-autocomplete="list"
+                                    :aria-expanded="open ? 'true' : 'false'"
+                                    aria-controls="adminBorrowSearchList"
+                                    aria-describedby="adminBorrowSearchHint"
+                                    :aria-activedescendant="(open && filtered.length) ? ('adminBorrowOpt-' + highlight) : null"
+                                    x-model="query"
+                                    @focus="openList()"
+                                    @input="openList()"
+                                    @keydown.arrow-down.prevent="move(1)"
+                                    @keydown.arrow-up.prevent="move(-1)"
+                                    @keydown.enter.prevent="selectHighlighted()"
+                                    @keydown.escape.stop="open = false"
+                                    placeholder="Search by name, room, or asset tag"
+                                    class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    autocomplete="off"
                                 >
-                                    Add
-                                </button>
                             </div>
 
                             <div
@@ -1266,41 +1170,50 @@
                                 x-cloak
                                 class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
                             >
-                                <div class="max-h-64 overflow-y-auto py-1">
+                                <div id="adminBorrowSearchList" role="listbox" aria-label="Available equipment" class="max-h-64 overflow-y-auto py-1">
                                     <template x-if="filtered.length === 0">
-                                        <p class="px-3 py-4 text-sm text-slate-400">No matching equipment.</p>
+                                        <p class="px-3.5 py-4 text-sm text-slate-500">No matching equipment available.</p>
                                     </template>
                                     <template x-for="(item, index) in filtered" :key="item.id">
                                         <button
                                             type="button"
-                                            @click="choose(item)"
-                                            class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
-                                            :class="index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'"
+                                            :id="'adminBorrowOpt-' + index"
+                                            role="option"
+                                            :aria-selected="index === highlight ? 'true' : 'false'"
+                                            :aria-disabled="isMaxed(item) ? 'true' : 'false'"
+                                            @click="addItem(item)"
+                                            class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition"
+                                            :class="[index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50', isMaxed(item) ? 'opacity-60' : '']"
                                         >
-                                            <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                                                <i data-lucide="package" class="h-4 w-4"></i>
+                                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                                                <i data-lucide="package" aria-hidden="true" class="h-4 w-4"></i>
                                             </span>
                                             <span class="min-w-0 flex-1">
                                                 <span class="block truncate text-sm font-medium text-slate-900" x-text="item.name"></span>
                                                 <span class="mt-0.5 block truncate text-xs text-slate-500" x-text="meta(item)"></span>
                                             </span>
-                                            <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" x-text="item.available + ' avail'"></span>
+                                            <template x-if="isMaxed(item)">
+                                                <span class="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Max added</span>
+                                            </template>
+                                            <template x-if="!isMaxed(item) && inCartQty(item.id) > 0">
+                                                <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" x-text="'In list (' + inCartQty(item.id) + '/' + item.available + ') · +1'"></span>
+                                            </template>
+                                            <template x-if="inCartQty(item.id) === 0">
+                                                <span class="shrink-0 rounded-md bg-[#0025cc]/10 px-2 py-0.5 text-[11px] font-semibold text-[#0025cc]">+ Add</span>
+                                            </template>
                                         </button>
                                     </template>
                                 </div>
                             </div>
-                            <p x-show="selected" x-cloak class="mt-2 text-xs text-slate-500">
-                                Selected: <span class="font-medium text-slate-800" x-text="selected?.name"></span>
-                                <span x-text="' · up to ' + (selected?.available || 0) + ' available'"></span>
-                            </p>
-                            <p x-show="pickerError" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
+                            <p class="sr-only" aria-live="polite" aria-atomic="true" x-text="liveStatus"></p>
+                            <p x-show="pickerError" x-cloak role="alert" class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
                         </div>
 
                         <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
                             <template x-if="cart.length === 0">
-                                <div class="px-4 py-8 text-center">
-                                    <p class="text-sm font-medium text-slate-700">No equipment added</p>
-                                    <p class="mt-1 text-xs text-slate-400">Add items here before creating the borrow.</p>
+                                <div class="px-4 py-7 text-center">
+                                    <p class="text-sm font-medium text-slate-700">No items selected yet</p>
+                                    <p class="mt-1 text-xs text-slate-500">Search above and click an item to add it to this borrow.</p>
                                 </div>
                             </template>
                             <template x-if="cart.length > 0">
@@ -1314,26 +1227,56 @@
                                                 <p class="mt-0.5 truncate text-xs text-slate-500" x-text="meta(line)"></p>
                                             </div>
                                             <div class="flex items-center gap-2">
-                                                <label class="sr-only" :for="'cart-qty-' + line.id">Quantity</label>
-                                                <input
-                                                    type="text"
-                                                    inputmode="numeric"
-                                                    autocomplete="off"
-                                                    :id="'cart-qty-' + line.id"
-                                                    :name="'items[' + index + '][quantity]'"
-                                                    x-model="line.quantity"
-                                                    @input="clampLine(line, false)"
-                                                    @blur="clampLine(line, true)"
-                                                    class="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm"
-                                                >
-                                                <span class="text-xs text-slate-400" x-text="'/' + line.available"></span>
+                                                <template x-if="line.available <= 1">
+                                                    <span class="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-medium text-slate-600">
+                                                        <input type="hidden" :name="'items[' + index + '][quantity]'" :value="line.quantity">
+                                                        Qty 1
+                                                    </span>
+                                                </template>
+                                                <template x-if="line.available > 1">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="inline-flex items-center rounded-lg border border-slate-200 bg-white" role="group" :aria-label="'Quantity for ' + line.name">
+                                                            <button
+                                                                type="button"
+                                                                @click="stepLine(line, -1)"
+                                                                :disabled="Number(line.quantity) <= 1"
+                                                                :aria-label="'Decrease quantity for ' + line.name"
+                                                                class="flex h-9 w-8 items-center justify-center rounded-l-lg text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <i data-lucide="minus" aria-hidden="true" class="h-3.5 w-3.5"></i>
+                                                            </button>
+                                                            <input
+                                                                type="text"
+                                                                inputmode="numeric"
+                                                                autocomplete="off"
+                                                                :id="'cart-qty-' + line.id"
+                                                                :name="'items[' + index + '][quantity]'"
+                                                                :aria-label="'Quantity for ' + line.name + ' (max ' + line.available + ')'"
+                                                                x-model="line.quantity"
+                                                                @input="clampLine(line, false)"
+                                                                @blur="clampLine(line, true)"
+                                                                class="h-9 w-11 border-x border-slate-200 bg-white text-center text-sm font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                                            >
+                                                            <button
+                                                                type="button"
+                                                                @click="stepLine(line, 1)"
+                                                                :disabled="Number(line.quantity) >= line.available"
+                                                                :aria-label="'Increase quantity for ' + line.name"
+                                                                class="flex h-9 w-8 items-center justify-center rounded-r-lg text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <i data-lucide="plus" aria-hidden="true" class="h-3.5 w-3.5"></i>
+                                                            </button>
+                                                        </div>
+                                                        <span class="text-xs font-medium text-slate-500" x-text="'of ' + line.available"></span>
+                                                    </div>
+                                                </template>
                                                 <button
                                                     type="button"
                                                     @click="removeLine(index)"
-                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-700 transition hover:bg-slate-50"
-                                                    aria-label="Remove item"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-700 transition hover:border-rose-200 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                                    :aria-label="'Remove ' + line.name"
                                                 >
-                                                    <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                                    <i data-lucide="trash-2" aria-hidden="true" class="h-4 w-4"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -1341,7 +1284,7 @@
                                 </div>
                             </template>
                         </div>
-                        <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
+                        <p x-show="cartError" x-cloak role="alert" class="text-xs font-medium text-rose-600" x-text="cartError"></p>
                     </div>
 
                     <div
@@ -1349,8 +1292,8 @@
                         x-data="borrowerPicker(@js(($registeredBorrowers ?? collect())->values()))"
                     >
                         <div>
-                            <p class="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
-                            <p class="mt-1 text-sm text-slate-500">Faculty and staff with campus accounts only.</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Borrower</p>
+                            <p class="mt-1 text-sm text-slate-600">Faculty and staff with campus accounts only.</p>
                         </div>
                         <div
                             id="borrowerCautionBanner"
@@ -1360,8 +1303,8 @@
                         <input type="hidden" name="borrowing_borrower_custodian_id" :value="custodianId || ''">
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <label for="borrowerRegistered" class="mb-1.5 block text-sm text-slate-600">
-                                    Faculty / staff <span class="text-red-500">*</span>
+                                <label for="borrowerRegistered" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Faculty / staff <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
                                 <select
                                     id="borrowerRegistered"
@@ -1370,7 +1313,7 @@
                                     required
                                     data-searchable="1"
                                     data-search-placeholder="Search faculty or staff…"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                                 >
                                     <option value="">Select faculty or staff…</option>
                                     <template x-for="person in people" :key="person.id">
@@ -1380,8 +1323,9 @@
                                 <p x-show="people.length === 0" class="mt-1.5 text-xs text-amber-700">No active faculty/staff accounts found. Add them under property custodians / faculty &amp; staff first.</p>
                             </div>
                             <div>
-                                <label class="mb-1.5 block text-sm text-slate-600">Borrower name</label>
+                                <label for="borrowerNameReadonly" class="mb-1.5 block text-sm font-medium text-slate-700">Borrower name</label>
                                 <input
+                                    id="borrowerNameReadonly"
                                     type="text"
                                     name="borrowing_borrower_name"
                                     x-model="registeredName"
@@ -1391,8 +1335,8 @@
                                 />
                             </div>
                             <div>
-                                <label for="borrowDepartment" class="mb-1.5 block text-sm text-slate-600">
-                                    Department <span class="text-slate-400">(optional)</span>
+                                <label for="borrowDepartment" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Department <span class="text-slate-500 font-normal">(optional)</span>
                                 </label>
                                 <input
                                     id="borrowDepartment"
@@ -1407,50 +1351,93 @@
                         </div>
                     </div>
 
+                    @php
+                        $adminOfficeTimeSlots = [];
+                        for ($h = 9; $h <= 17; $h++) {
+                            foreach ([0, 30] as $m) {
+                                if ($h === 17 && $m > 0) {
+                                    continue;
+                                }
+                                $val = sprintf('%02d:%02d', $h, $m);
+                                $adminOfficeTimeSlots[$val] = Carbon::createFromTime($h, $m)->format('g:i A');
+                            }
+                        }
+                    @endphp
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schedule</p>
-                            <p class="mt-1 text-sm text-slate-500">One borrow / return window (dates) for the whole cart.</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
+                            <p class="mt-1 text-sm text-slate-600">Equipment claiming and returns are available from <span class="font-semibold text-slate-800">9:00 AM to 5:00 PM</span>.</p>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <label for="borrowDate" class="mb-1.5 block text-sm text-slate-600">
-                                    Borrow from <span class="text-red-500">*</span>
+                                <label for="borrowDatePart" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Claim / borrow time <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
-                                <input
-                                    id="borrowDate"
-                                    type="date"
-                                    name="borrowing_date"
-                                    required
-                                    onchange="syncBorrowScheduleDates()"
-                                    oninput="syncBorrowScheduleDates()"
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
+                                <input type="hidden" id="borrowDate" name="borrowing_date" />
+                                <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                    <input
+                                        id="borrowDatePart"
+                                        type="date"
+                                        required
+                                        aria-label="Claim date"
+                                        onchange="syncBorrowScheduleDates()"
+                                        oninput="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    />
+                                    <select
+                                        id="borrowTimePart"
+                                        required
+                                        aria-label="Claim time (9:00 AM to 5:00 PM)"
+                                        onchange="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    >
+                                        @foreach ($adminOfficeTimeSlots as $slotVal => $slotLabel)
+                                            <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-500">When the borrower should claim the items (9:00 AM – 5:00 PM).</p>
                             </div>
                             <div>
-                                <label for="borrowExpectedReturn" class="mb-1.5 block text-sm text-slate-600">
-                                    Expected return by <span class="text-red-500">*</span>
+                                <label for="borrowReturnDatePart" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Expected return by <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
-                                <input
-                                    id="borrowExpectedReturn"
-                                    type="date"
-                                    name="borrowing_expected_return_date"
-                                    required
-                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
-                                />
+                                <input type="hidden" id="borrowExpectedReturn" name="borrowing_expected_return_date" />
+                                <div class="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-2">
+                                    <input
+                                        id="borrowReturnDatePart"
+                                        type="date"
+                                        required
+                                        aria-label="Expected return date"
+                                        onchange="syncBorrowScheduleDates()"
+                                        oninput="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    />
+                                    <select
+                                        id="borrowReturnTimePart"
+                                        required
+                                        aria-label="Expected return time (9:00 AM to 5:00 PM)"
+                                        onchange="syncBorrowScheduleDates()"
+                                        class="h-11 w-full rounded-xl border-0 bg-white px-2.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/90 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
+                                    >
+                                        @foreach ($adminOfficeTimeSlots as $slotVal => $slotLabel)
+                                            <option value="{{ $slotVal }}">{{ $slotLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-500">When items are expected back (9:00 AM – 5:00 PM).</p>
                             </div>
                         </div>
                     </div>
 
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
-                            <p class="mt-1 text-sm text-slate-500">Why the equipment is needed.</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Notes</p>
                         </div>
                         <div class="space-y-4">
                             <div>
-                                <label for="borrowPurpose" class="mb-1.5 block text-sm text-slate-600">
-                                    Purpose <span class="text-red-500">*</span>
+                                <label for="borrowPurpose" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Purpose <span class="text-red-500" aria-hidden="true">*</span>
                                 </label>
                                 <textarea
                                     id="borrowPurpose"
@@ -1459,7 +1446,7 @@
                                     required
                                     maxlength="2000"
                                     placeholder="Describe why the equipment is being borrowed"
-                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/90 placeholder:text-slate-400 transition focus-visible:ring-2 focus-visible:ring-[#0025cc]/40"
                                 ></textarea>
                             </div>
                         </div>
@@ -1467,7 +1454,7 @@
                 </div>
 
                 <div class="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600 sm:max-w-sm" x-text="cartError"></p>
+                    <p x-show="cartError" x-cloak role="alert" class="text-xs font-medium text-rose-600 sm:max-w-sm" x-text="cartError"></p>
                     <div class="flex items-center justify-end gap-2 sm:ml-auto">
                         <button
                             type="button"
@@ -1581,42 +1568,57 @@
 
                 <div class="space-y-3">
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="returnQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
+                            Quantity to process <span class="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            id="returnQuantity"
+                            name="return_quantity"
+                            min="1"
+                            step="1"
+                            inputmode="numeric"
+                            required
+                            oninput="syncReturnQuantities()"
+                            onblur="syncReturnQuantities(true)"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                        <p id="returnQuantityHint" class="mt-1 text-xs text-slate-400"></p>
+                    </div>
+
+                    <input type="hidden" id="returnDamagedQuantity" name="damaged_quantity" value="0">
+                    <input type="hidden" id="returnMissingQuantity" name="missing_quantity" value="0">
+
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {{-- Damaged items checkbox dropdown --}}
                         <div>
-                            <label for="returnQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
-                                Quantity returned
-                            </label>
-                            <input
-                                type="number"
-                                id="returnQuantity"
-                                name="return_quantity"
-                                min="1"
-                                step="1"
-                                inputmode="numeric"
-                                required
-                                oninput="syncReturnQuantities()"
-                                onblur="syncReturnQuantities(true)"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                            <p id="returnQuantityHint" class="mt-1 text-xs text-slate-400"></p>
+                            <div class="mb-1.5 flex items-center justify-between gap-2">
+                                <span class="text-sm font-medium text-slate-700">Damaged items</span>
+                                <span id="returnDamageFeeLabel" class="text-[11px] text-slate-400"></span>
+                            </div>
+                            <details id="returnDamagedDropdown" class="group">
+                                <summary class="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 [&::-webkit-details-marker]:hidden">
+                                    <span id="returnDamagedSummary" class="truncate text-xs font-medium text-slate-500">None selected</span>
+                                    <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180"></i>
+                                </summary>
+                                <div id="returnDamagedList" class="mt-1.5 max-h-40 space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-50/80 p-2"></div>
+                            </details>
                         </div>
+
+                        {{-- Missing items checkbox dropdown --}}
                         <div>
-                            <label for="returnDamagedQuantity" class="mb-1.5 block text-sm font-medium text-slate-700">
-                                Damaged
-                            </label>
-                            <input
-                                type="number"
-                                id="returnDamagedQuantity"
-                                name="damaged_quantity"
-                                min="0"
-                                step="1"
-                                inputmode="numeric"
-                                value="0"
-                                oninput="syncReturnQuantities()"
-                                onblur="syncReturnQuantities(true)"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                            <p id="returnDamageFeeLabel" class="mt-1 text-xs text-slate-400"></p>
+                            <div class="mb-1.5 flex items-center justify-between gap-2">
+                                <span class="text-sm font-medium text-slate-700">Missing items</span>
+                                <span class="text-[11px] text-rose-500">Charged at item cost</span>
+                            </div>
+                            <details id="returnMissingDropdown" class="group">
+                                <summary class="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 [&::-webkit-details-marker]:hidden">
+                                    <span id="returnMissingSummary" class="truncate text-xs font-medium text-slate-500">None selected</span>
+                                    <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180"></i>
+                                </summary>
+                                <div id="returnMissingList" class="mt-1.5 max-h-40 space-y-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-slate-50/80 p-2"></div>
+                            </details>
                         </div>
                     </div>
 
@@ -1625,25 +1627,18 @@
                             for="returnRoom"
                             class="mb-1.5 block text-sm font-medium text-slate-700"
                         >
-                            Return to storage room
+                            Return to
                         </label>
 
-                        @if (($returnStorageRooms ?? collect())->isNotEmpty())
-                            <select
-                                id="returnRoom"
-                                name="return_room_id"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                                @foreach ($returnStorageRooms as $storageRoom)
-                                    <option value="{{ $storageRoom->room_id }}">{{ $storageRoom->room_name }}</option>
-                                @endforeach
-                            </select>
-                            
-                        @else
-                            <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                No storage room is set up, so the equipment stays in the room it was taken from.
-                            </p>
-                        @endif
+                        <select
+                            id="returnRoom"
+                            name="return_room_id"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            @foreach (($returnStorageRooms ?? collect()) as $storageRoom)
+                                <option value="{{ $storageRoom->room_id }}" data-storage-room="1">{{ $storageRoom->room_name }} (Storage)</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="rounded-xl border border-slate-200 px-3.5 py-2.5">
@@ -1660,6 +1655,10 @@
                         <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
                             <span class="text-slate-500">Damage fee</span>
                             <span id="returnDamageFee" class="font-medium text-slate-950">₱0.00</span>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
+                            <span class="text-slate-500">Missing item fine</span>
+                            <span id="returnMissingFine" class="font-medium text-rose-700">₱0.00</span>
                         </div>
                         <div class="mt-2 flex items-center justify-between gap-4 border-t border-slate-100 pt-2 text-sm">
                             <span class="font-medium text-slate-700">Amount due</span>
@@ -1811,13 +1810,12 @@
                 query: '',
                 open: false,
                 highlight: 0,
-                selected: null,
                 cart: [],
                 pickerError: '',
                 cartError: '',
+                liveStatus: '',
                 get filtered() {
                     const q = String(this.query || '').trim().toLowerCase();
-                    const selectedIds = new Set(this.cart.map((line) => line.id));
                     return this.catalog
                         .filter((item) => item.available > 0)
                         .filter((item) => {
@@ -1832,72 +1830,109 @@
                 get totalQty() {
                     return this.cart.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
                 },
+                get badgeText() {
+                    if (!this.cart.length) return 'No items selected';
+                    const itemLabel = this.cart.length + ' item' + (this.cart.length === 1 ? '' : 's');
+                    return this.totalQty > this.cart.length
+                        ? (itemLabel + ' · ' + this.totalQty + ' total')
+                        : itemLabel;
+                },
+                inCartQty(id) {
+                    const line = this.cart.find((row) => row.id === id);
+                    return line ? (Number(line.quantity) || 0) : 0;
+                },
+                isMaxed(item) {
+                    return this.inCartQty(item.id) >= Number(item.available || 0);
+                },
                 meta(item) {
                     const bits = [];
                     if (item.room) bits.push(item.room);
                     if (item.assetTag) bits.push(item.assetTag);
                     bits.push((item.tracking || 'Individual') + ' · ' + item.available + ' available');
+                    const pending = Number(item.pending || 0);
+                    if (pending > 0) bits.push(pending + ' pending');
                     return bits.join(' · ');
+                },
+                announce(message) {
+                    this.liveStatus = '';
+                    this.$nextTick(() => {
+                        this.liveStatus = message || '';
+                    });
+                },
+                openList() {
+                    this.pickerError = '';
+                    this.highlight = 0;
+                    this.open = true;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
                 reset() {
                     this.query = '';
                     this.open = false;
                     this.highlight = 0;
-                    this.selected = null;
                     this.cart = [];
                     this.pickerError = '';
                     this.cartError = '';
-                },
-                choose(item) {
-                    this.selected = item;
-                    this.query = item.name;
-                    this.open = false;
-                    this.pickerError = '';
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    this.liveStatus = '';
                 },
                 move(delta) {
+                    if (!this.open) {
+                        this.openList();
+                        return;
+                    }
                     if (!this.filtered.length) return;
                     this.highlight = (this.highlight + delta + this.filtered.length) % this.filtered.length;
+                    this.$nextTick(() => {
+                        const el = document.getElementById('adminBorrowOpt-' + this.highlight);
+                        if (el) el.scrollIntoView({ block: 'nearest' });
+                    });
                 },
                 selectHighlighted() {
-                    if (!this.filtered.length) return;
-                    this.choose(this.filtered[this.highlight] || this.filtered[0]);
+                    if (!this.open || !this.filtered.length) return;
+                    this.addItem(this.filtered[this.highlight] || this.filtered[0]);
                 },
-                addSelected() {
+                addItem(item) {
                     this.pickerError = '';
-                    if (!this.selected) {
-                        this.pickerError = 'Search and select an equipment item first.';
+                    if (!item || item.available < 1) {
+                        this.pickerError = 'This item is not available right now.';
                         return;
                     }
-                    const qty = 1;
-                    if (qty > this.selected.available) {
-                        this.pickerError = 'Only ' + this.selected.available + ' available for this item.';
-                        return;
-                    }
-                    const existing = this.cart.find((line) => line.id === this.selected.id);
+                    const existing = this.cart.find((line) => line.id === item.id);
                     if (existing) {
-                        const next = existing.quantity + qty;
-                        if (next > existing.available) {
-                            this.pickerError = 'Cart would exceed available quantity (' + existing.available + ').';
+                        const current = Number(existing.quantity) || 1;
+                        if (current >= existing.available) {
+                            this.pickerError = 'All available units of ' + existing.name + ' (' + existing.available + ') are already added.';
+                            this.open = false;
                             return;
                         }
-                        existing.quantity = next;
+                        existing.quantity = current + 1;
+                        this.announce('Increased ' + existing.name + ' to ' + existing.quantity + ' of ' + existing.available + '.');
                     } else {
                         this.cart.push({
-                            id: this.selected.id,
-                            name: this.selected.name,
-                            room: this.selected.room,
-                            assetTag: this.selected.assetTag,
-                            tracking: this.selected.tracking,
-                            available: this.selected.available,
-                            quantity: qty,
+                            id: item.id,
+                            name: item.name,
+                            room: item.room,
+                            assetTag: item.assetTag,
+                            tracking: item.tracking,
+                            available: item.available,
+                            pending: Number(item.pending || 0),
+                            quantity: 1,
                             condition: '',
                         });
+                        this.announce('Added ' + item.name + '.');
                     }
-                    this.selected = null;
                     this.query = '';
+                    this.highlight = 0;
+                    this.open = false;
                     this.cartError = '';
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                stepLine(line, delta) {
+                    const max = Math.max(1, Number(line.available) || 1);
+                    const current = Math.max(1, parseInt(String(line.quantity ?? 1), 10) || 1);
+                    const next = Math.min(max, Math.max(1, current + delta));
+                    if (next === current) return;
+                    line.quantity = next;
+                    this.announce(line.name + ' quantity set to ' + next + '.');
                 },
                 clampLine(line, finalize = true) {
                     const digits = String(line.quantity ?? '').replace(/\D/g, '');
@@ -1912,7 +1947,11 @@
                     line.quantity = qty < 1 ? '' : qty;
                 },
                 removeLine(index) {
+                    const removed = this.cart[index];
                     this.cart.splice(index, 1);
+                    if (removed) {
+                        this.announce('Removed ' + removed.name + '.');
+                    }
                     this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
                 },
                 focusInvalidField(el, message) {
@@ -1932,7 +1971,10 @@
                     this.cartError = '';
                     if (!this.cart.length) {
                         event.preventDefault();
-                        this.cartError = 'Add at least one equipment item to the cart.';
+                        this.focusInvalidField(
+                            document.getElementById('adminBorrowSearch'),
+                            'Add at least one equipment item.'
+                        );
                         return;
                     }
                     for (const line of this.cart) {
@@ -1972,17 +2014,37 @@
                         }
                     }
 
+                    const bTimeVal = document.getElementById('borrowTimePart')?.value || '';
+                    const rTimeVal = document.getElementById('borrowReturnTimePart')?.value || '';
+                    if (bTimeVal && (bTimeVal < '09:00' || bTimeVal > '17:00')) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowTimePart'),
+                            'Claim / borrow time must be between 9:00 AM and 5:00 PM.'
+                        );
+                        return;
+                    }
+                    if (rTimeVal && (rTimeVal < '09:00' || rTimeVal > '17:00')) {
+                        event.preventDefault();
+                        this.focusInvalidField(
+                            document.getElementById('borrowReturnTimePart'),
+                            'Expected return time must be between 9:00 AM and 5:00 PM.'
+                        );
+                        return;
+                    }
+
                     const borrowDate = document.getElementById('borrowDate')?.value || '';
                     const expectedReturn = document.getElementById('borrowExpectedReturn')?.value || '';
-                    const borrowAt = borrowDate ? new Date(borrowDate + 'T00:00:00') : null;
-                    const returnAt = expectedReturn ? new Date(expectedReturn + 'T00:00:00') : null;
+                    const parseDt = (v) => v ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? v + 'T00:00:00' : v) : null;
+                    const borrowAt = parseDt(borrowDate);
+                    const returnAt = parseDt(expectedReturn);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     if (!borrowAt || Number.isNaN(borrowAt.getTime()) || !returnAt || Number.isNaN(returnAt.getTime())) {
                         event.preventDefault();
                         this.focusInvalidField(
                             document.getElementById('borrowDate'),
-                            'Enter a valid borrow / return date.'
+                            'Enter a valid borrow / return date and time.'
                         );
                         return;
                     }
@@ -1998,7 +2060,7 @@
                         event.preventDefault();
                         this.focusInvalidField(
                             document.getElementById('borrowExpectedReturn'),
-                            'Expected return must be on or after the borrow date.'
+                            'Expected return must be on or after the borrow date and time.'
                         );
                         return;
                     }
@@ -2104,42 +2166,76 @@
             if (window.lucide) window.lucide.createIcons();
         }
 
-        function toLocalDateValue(date) {
+        function toLocalDatePart(date) {
             const pad = (n) => String(n).padStart(2, '0');
             return date.getFullYear()
                 + '-' + pad(date.getMonth() + 1)
                 + '-' + pad(date.getDate());
         }
 
+        function toLocalTimePart(date) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return pad(date.getHours()) + ':' + pad(date.getMinutes());
+        }
+
         function syncBorrowScheduleDates() {
-            const borrow = document.getElementById('borrowDate');
-            const expected = document.getElementById('borrowExpectedReturn');
-            if (!borrow || !expected) return;
+            const bDate = document.getElementById('borrowDatePart');
+            const bTime = document.getElementById('borrowTimePart');
+            const rDate = document.getElementById('borrowReturnDatePart');
+            const rTime = document.getElementById('borrowReturnTimePart');
+            const borrowHidden = document.getElementById('borrowDate');
+            const expectedHidden = document.getElementById('borrowExpectedReturn');
+            if (!bDate || !rDate || !borrowHidden || !expectedHidden) return;
 
-            const borrowValue = String(borrow.value || '').trim();
-            if (!borrowValue) {
-                expected.removeAttribute('min');
-                return;
+            const bDateVal = String(bDate.value || '').trim();
+            if (bDateVal) {
+                rDate.min = bDateVal;
+                if (rDate.value && rDate.value < bDateVal) {
+                    rDate.value = bDateVal;
+                }
+                if (rDate.value === bDateVal && bTime?.value && rTime?.value && rTime.value < bTime.value) {
+                    rTime.value = bTime.value;
+                }
+            } else {
+                rDate.removeAttribute('min');
             }
 
-            expected.min = borrowValue;
-            if (expected.value && expected.value < borrowValue) {
-                expected.value = borrowValue;
-            }
+            borrowHidden.value = bDateVal ? (bDateVal + 'T' + (bTime?.value || '00:00')) : '';
+            const rDateVal = String(rDate.value || '').trim();
+            expectedHidden.value = rDateVal ? (rDateVal + 'T' + (rTime?.value || '23:59')) : '';
+        }
+
+        function clampAdminOfficeTime(hm) {
+            const val = String(hm || '').trim();
+            if (!/^\d{2}:\d{2}$/.test(val)) return '09:00';
+            if (val <= '09:00') return '09:00';
+            if (val >= '17:00') return '17:00';
+            const [hStr, mStr] = val.split(':');
+            let h = Number(hStr);
+            let m = Number(mStr);
+            if (m === 0) return String(h).padStart(2, '0') + ':00';
+            if (m <= 30) return String(h).padStart(2, '0') + ':30';
+            h += 1;
+            if (h >= 17) return '17:00';
+            return String(h).padStart(2, '0') + ':00';
         }
 
         function seedBorrowScheduleDefaults() {
-            const borrow = document.getElementById('borrowDate');
-            const expected = document.getElementById('borrowExpectedReturn');
-            if (!borrow || !expected) return;
+            const bDate = document.getElementById('borrowDatePart');
+            const bTime = document.getElementById('borrowTimePart');
+            const rDate = document.getElementById('borrowReturnDatePart');
+            const rTime = document.getElementById('borrowReturnTimePart');
+            if (!bDate || !rDate) return;
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const later = new Date(today.getTime() + (1 * 24 * 60 * 60 * 1000));
+            const now = new Date();
+            now.setSeconds(0, 0);
+            const later = new Date(now.getTime() + (1 * 24 * 60 * 60 * 1000));
 
-            if (!borrow.value) borrow.value = toLocalDateValue(today);
-            if (!expected.value) expected.value = toLocalDateValue(later);
-            borrow.min = toLocalDateValue(today);
+            if (!bDate.value) bDate.value = toLocalDatePart(now);
+            if (bTime && !bTime.value) bTime.value = clampAdminOfficeTime(toLocalTimePart(now));
+            if (!rDate.value) rDate.value = toLocalDatePart(later);
+            if (rTime && !rTime.value) rTime.value = '17:00';
+            bDate.min = toLocalDatePart(now);
             syncBorrowScheduleDates();
         }
 
@@ -2233,53 +2329,159 @@
             return Math.min(max, Math.max(0, value));
         }
 
+        let returnUnitItems = [];
+
+        function getCheckedReturnKeys(name) {
+            return Array.from(document.querySelectorAll('#returnModal input[name="' + name + '"]:checked'))
+                .map((el) => el.value);
+        }
+
+        function onReturnUnitToggle(kind, key, checked) {
+            if (checked) {
+                const otherName = kind === 'damaged' ? 'missing_units[]' : 'damaged_units[]';
+                const other = document.querySelector('#returnModal input[name="' + otherName + '"][value="' + CSS.escape(key) + '"]');
+                if (other) other.checked = false;
+            }
+            const damagedKeys = getCheckedReturnKeys('damaged_units[]');
+            const missingKeys = getCheckedReturnKeys('missing_units[]');
+            const minNeeded = damagedKeys.length + missingKeys.length;
+            const qtyInput = document.getElementById('returnQuantity');
+            const max = returnOutstanding();
+            if (qtyInput && minNeeded > Number(qtyInput.value || 0)) {
+                qtyInput.value = String(Math.min(max, minNeeded));
+            }
+            syncReturnQuantities(false);
+        }
+
+        function renderReturnUnitCheckboxes() {
+            const damagedList = document.getElementById('returnDamagedList');
+            const missingList = document.getElementById('returnMissingList');
+            if (!damagedList || !missingList) return;
+
+            damagedList.replaceChildren();
+            missingList.replaceChildren();
+
+            const units = returnUnitItems.length
+                ? returnUnitItems
+                : returnUniquenessLines.map((line, idx) => ({
+                    key: '0:' + idx,
+                    name: document.getElementById('returnEquipmentName')?.innerText || 'Equipment',
+                    label: line,
+                    unit_cost: 0,
+                }));
+
+            units.forEach((unit) => {
+                const makeRow = (kind) => {
+                    const label = document.createElement('label');
+                    label.className = 'flex cursor-pointer items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 transition hover:bg-slate-50';
+                    const left = document.createElement('span');
+                    left.className = 'flex min-w-0 items-center gap-2';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.name = kind === 'damaged' ? 'damaged_units[]' : 'missing_units[]';
+                    cb.value = unit.key;
+                    cb.className = kind === 'damaged'
+                        ? 'h-3.5 w-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500/30'
+                        : 'h-3.5 w-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500/30';
+                    cb.addEventListener('change', () => onReturnUnitToggle(kind, unit.key, cb.checked));
+                    const txt = document.createElement('span');
+                    txt.className = 'truncate font-medium text-slate-800';
+                    txt.textContent = (unit.name ? (unit.name + ' · ') : '') + (unit.label || 'Unit');
+                    txt.title = txt.textContent;
+                    left.appendChild(cb);
+                    left.appendChild(txt);
+                    label.appendChild(left);
+
+                    if (kind === 'missing') {
+                        const costBadge = document.createElement('span');
+                        costBadge.className = 'shrink-0 font-mono text-[11px] font-semibold text-rose-700';
+                        costBadge.textContent = peso(Number(unit.unit_cost || 0));
+                        label.appendChild(costBadge);
+                    }
+                    return label;
+                };
+                damagedList.appendChild(makeRow('damaged'));
+                missingList.appendChild(makeRow('missing'));
+            });
+        }
+
         function syncReturnQuantities(finalize) {
             const max = returnOutstanding();
             const qtyInput = document.getElementById('returnQuantity');
             const damagedInput = document.getElementById('returnDamagedQuantity');
-            let qty = readReturnCount(qtyInput, finalize ? max : 0, max);
-            if (qty < 1) qty = finalize ? max : 0;
+            const missingInput = document.getElementById('returnMissingQuantity');
+
+            const damagedKeys = getCheckedReturnKeys('damaged_units[]');
+            const missingKeys = getCheckedReturnKeys('missing_units[]');
+            const damaged = damagedKeys.length;
+            const missing = missingKeys.length;
+            const minQty = Math.max(1, damaged + missing);
+
+            let qty = readReturnCount(qtyInput, finalize ? max : minQty, max);
+            if (qty < minQty) qty = finalize ? Math.min(max, minQty) : qty;
             if (qtyInput && (finalize || String(qtyInput.value).trim() !== '')) {
                 if (finalize || Number(qtyInput.value) > max || Number(qtyInput.value) < 1) {
-                    qtyInput.value = String(Math.max(1, qty));
+                    qtyInput.value = String(Math.max(minQty, Math.min(max, qty)));
                 }
-                qty = Math.max(1, Math.min(max, Math.floor(Number(qtyInput.value) || 1)));
-            }
-            const damagedMax = Math.max(0, qty);
-            let damaged = readReturnCount(damagedInput, 0, damagedMax);
-            if (damagedInput && (finalize || String(damagedInput.value).trim() !== '')) {
-                if (finalize || Number(damagedInput.value) > damagedMax || Number(damagedInput.value) < 0) {
-                    damagedInput.value = String(damaged);
-                }
-                damaged = Math.min(damagedMax, Math.max(0, Math.floor(Number(damagedInput.value) || 0)));
             }
             if (qtyInput) qtyInput.max = String(max);
-            if (damagedInput) damagedInput.max = String(damagedMax);
+            if (damagedInput) damagedInput.value = String(damaged);
+            if (missingInput) missingInput.value = String(missing);
+
+            const damagedSummary = document.getElementById('returnDamagedSummary');
+            if (damagedSummary) {
+                damagedSummary.textContent = damaged > 0 ? (damaged + ' damaged selected') : 'None selected';
+                damagedSummary.className = damaged > 0
+                    ? 'truncate text-xs font-semibold text-amber-700'
+                    : 'truncate text-xs font-medium text-slate-500';
+            }
+
+            const missingFine = missingKeys.reduce((sum, key) => {
+                const found = returnUnitItems.find((u) => u.key === key);
+                return sum + Number(found?.unit_cost || 0);
+            }, 0);
+            const missingSummary = document.getElementById('returnMissingSummary');
+            if (missingSummary) {
+                missingSummary.textContent = missing > 0
+                    ? (missing + ' missing · ' + peso(missingFine))
+                    : 'None selected';
+                missingSummary.className = missing > 0
+                    ? 'truncate text-xs font-semibold text-rose-700'
+                    : 'truncate text-xs font-medium text-slate-500';
+            }
+
             renderReturnUniqueness();
             refreshReturnFees();
         }
 
         function renderReturnUniqueness() {
-            const lines = returnUniquenessLines.slice();
             const uniquenessList = document.getElementById('returnEquipmentUniqueness');
             const uniquenessSummary = document.getElementById('returnUniquenessSummary');
-            const uniquenessDetails = document.getElementById('returnUniquenessDetails');
             if (!uniquenessList || !uniquenessSummary) return;
-            const damaged = Math.min(lines.length, readReturnCount(document.getElementById('returnDamagedQuantity'), 0, lines.length));
+
+            const damagedSet = new Set(getCheckedReturnKeys('damaged_units[]'));
+            const missingSet = new Set(getCheckedReturnKeys('missing_units[]'));
+            const units = returnUnitItems.length
+                ? returnUnitItems
+                : returnUniquenessLines.map((line, idx) => ({ key: '0:' + idx, label: line }));
+
             uniquenessList.replaceChildren();
-            lines.forEach((line, index) => {
+            units.forEach((unit) => {
                 const item = document.createElement('li');
                 item.className = 'break-words';
-                item.textContent = index < damaged ? ('Damaged · ' + line) : line;
+                if (missingSet.has(unit.key)) {
+                    item.className = 'break-words font-semibold text-rose-700';
+                    item.textContent = 'Missing · ' + unit.label;
+                } else if (damagedSet.has(unit.key)) {
+                    item.className = 'break-words font-semibold text-amber-700';
+                    item.textContent = 'Damaged · ' + unit.label;
+                } else {
+                    item.textContent = unit.label;
+                }
                 uniquenessList.appendChild(item);
             });
-            uniquenessSummary.textContent = lines.length === 1 ? '1 item' : (lines.length + ' items');
+            uniquenessSummary.textContent = units.length === 1 ? '1 item' : (units.length + ' items');
             uniquenessList.classList.remove('hidden');
-            if (uniquenessDetails) {
-                uniquenessDetails.onclick = null;
-                const chevron = uniquenessDetails.querySelector('[data-lucide="chevron-down"], svg');
-                if (chevron) chevron.classList.remove('hidden');
-            }
         }
 
         function refreshReturnFees() {
@@ -2287,16 +2489,26 @@
             const perDay = Number(borrowFeeRates.late_fee_per_day || 0);
             const damageRate = Number(borrowFeeRates.damage_fee || 0);
             const max = returnOutstanding();
+            const damagedKeys = getCheckedReturnKeys('damaged_units[]');
+            const missingKeys = getCheckedReturnKeys('missing_units[]');
+            const damaged = damagedKeys.length;
+            const missing = missingKeys.length;
             const qty = Math.max(1, Math.min(max, readReturnCount(document.getElementById('returnQuantity'), max, max) || max));
-            const damaged = Math.min(qty, readReturnCount(document.getElementById('returnDamagedQuantity'), 0, qty));
             const lateFee = days * perDay * qty;
             const damageFee = damaged * damageRate;
+            const missingFine = missingKeys.reduce((sum, key) => {
+                const found = returnUnitItems.find((u) => u.key === key);
+                return sum + Number(found?.unit_cost || 0);
+            }, 0);
+
             const daysEl = document.getElementById('returnLateDays');
             const lateEl = document.getElementById('returnLateFee');
             const damageLabel = document.getElementById('returnDamageFeeLabel');
             const damageEl = document.getElementById('returnDamageFee');
+            const missingEl = document.getElementById('returnMissingFine');
             const totalEl = document.getElementById('returnFeeTotal');
             const hint = document.getElementById('returnQuantityHint');
+
             if (daysEl) daysEl.textContent = String(days);
             if (lateEl) {
                 lateEl.textContent = peso(lateFee) + (days > 0 && perDay > 0
@@ -2309,8 +2521,13 @@
                     ? ' (' + damaged + ' × ' + peso(damageRate) + ')'
                     : '');
             }
+            if (missingEl) {
+                missingEl.textContent = peso(missingFine) + (missing > 0
+                    ? ' (' + missing + ' ' + (missing === 1 ? 'item' : 'items') + ')'
+                    : '');
+            }
             if (hint) hint.textContent = 'Up to ' + max + ' still out';
-            if (totalEl) totalEl.textContent = peso(lateFee + damageFee);
+            if (totalEl) totalEl.textContent = peso(lateFee + damageFee + missingFine);
         }
 
         function prepareReturnSubmit() {
@@ -2318,12 +2535,13 @@
             const max = returnOutstanding();
             const qty = Math.floor(Number(document.getElementById('returnQuantity')?.value || 0));
             const damaged = Math.floor(Number(document.getElementById('returnDamagedQuantity')?.value || 0));
+            const missing = Math.floor(Number(document.getElementById('returnMissingQuantity')?.value || 0));
             if (qty < 1 || qty > max) {
-                window.alert('Enter a return quantity from 1 to ' + max + '.');
+                window.alert('Enter a quantity from 1 to ' + max + '.');
                 return false;
             }
-            if (damaged < 0 || damaged > qty) {
-                window.alert('Damaged quantity cannot be more than the quantity returned.');
+            if ((damaged + missing) > qty) {
+                window.alert('Damaged and missing items combined cannot exceed the quantity processed.');
                 return false;
             }
             return true;
@@ -2411,6 +2629,7 @@
             const uniqueness = Array.isArray(data.uniqueness)
                 ? data.uniqueness.map((line) => String(line || '').trim()).filter(Boolean)
                 : [];
+            const fromRoomId = Number(data.fromRoomId || 0);
             const fromRoom = String(data.fromRoom || '').trim();
             const days = returnDaysLate(data.expectedReturn);
             const overdue = days > 0 || String(data.status || '') === 'Overdue';
@@ -2420,9 +2639,29 @@
             returnUniquenessLines = uniqueness.length
                 ? uniqueness
                 : [assetTag ? ('Tag ' + assetTag) : 'No asset tag / serial'];
+            returnUnitItems = Array.isArray(data.units) ? data.units : [];
             document.getElementById("returnEquipmentTracking").innerText = tracking;
             document.getElementById("returnEquipmentQty").innerText = String(qty);
             document.getElementById("returnEquipmentFrom").innerText = fromRoom || '—';
+
+            // Populate "Return to" dropdown with Storage Room(s) + Borrowed From room.
+            const roomSelect = document.getElementById('returnRoom');
+            if (roomSelect) {
+                Array.from(roomSelect.querySelectorAll('option[data-borrowed-room="1"]')).forEach((opt) => opt.remove());
+                if (fromRoomId > 0 && fromRoom) {
+                    const exists = Array.from(roomSelect.options).some((opt) => Number(opt.value) === fromRoomId);
+                    if (!exists) {
+                        const opt = document.createElement('option');
+                        opt.value = String(fromRoomId);
+                        opt.dataset.borrowedRoom = '1';
+                        opt.textContent = fromRoom + ' (Borrowed from)';
+                        roomSelect.appendChild(opt);
+                    }
+                }
+                if (roomSelect.options.length > 0) {
+                    roomSelect.selectedIndex = 0;
+                }
+            }
 
             const notice = document.getElementById('returnOverdueNotice');
             const modal = document.getElementById('returnModal');
@@ -2440,14 +2679,19 @@
             }
             const qtyInput = document.getElementById('returnQuantity');
             const damagedInput = document.getElementById('returnDamagedQuantity');
+            const missingInput = document.getElementById('returnMissingQuantity');
             if (qtyInput) {
                 qtyInput.max = String(qty);
                 qtyInput.value = String(qty);
             }
-            if (damagedInput) {
-                damagedInput.max = String(qty);
-                damagedInput.value = '0';
-            }
+            if (damagedInput) damagedInput.value = '0';
+            if (missingInput) missingInput.value = '0';
+            const damagedDd = document.getElementById('returnDamagedDropdown');
+            const missingDd = document.getElementById('returnMissingDropdown');
+            if (damagedDd) damagedDd.open = false;
+            if (missingDd) missingDd.open = false;
+            renderReturnUnitCheckboxes();
+
             const remarks = document.getElementById('returnRemarks');
             if (remarks) remarks.value = '';
             const uniquenessDetails = document.getElementById('returnUniquenessDetails');
@@ -2456,6 +2700,7 @@
 
             document.getElementById("returnModal").classList.remove("hidden");
             document.getElementById("returnModal").classList.add("flex");
+            if (window.lucide) window.lucide.createIcons();
         }
 
         function closeReturnModal() {
@@ -2494,6 +2739,63 @@
                 },
             };
         }
+
+        function closeBrwMenus() {
+            document.querySelectorAll('[data-brw-menu]').forEach((menu) => {
+                menu.classList.add('hidden');
+            });
+            document.querySelectorAll('[aria-haspopup="menu"][aria-expanded="true"]').forEach((btn) => {
+                btn.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        function toggleBrwMenu(trigger, menuId, event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById(menuId);
+            if (!menu || !trigger) return;
+            const isOpen = !menu.classList.contains('hidden');
+            closeBrwMenus();
+            if (isOpen) return;
+
+            if (menu.parentElement !== document.body) {
+                document.body.appendChild(menu);
+            }
+            menu.classList.remove('hidden');
+            const rect = trigger.getBoundingClientRect();
+            const menuWidth = menu.offsetWidth || 210;
+            const menuHeight = menu.offsetHeight || 160;
+            const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+            const spaceBelow = window.innerHeight - rect.bottom - 8;
+            const openUp = spaceBelow < menuHeight && rect.top > menuHeight;
+            const top = openUp
+                ? Math.max(8, rect.top - menuHeight - 6)
+                : Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 6);
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            trigger.setAttribute('aria-expanded', 'true');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function toggleBrwSecondaryFilters() {
+            const panel = document.getElementById('brwSecondaryFiltersPanel');
+            const btn = document.getElementById('brwSecondaryFiltersBtn');
+            if (!panel || !btn) return;
+            const opening = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !opening);
+            btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+            if (opening && window.lucide) window.lucide.createIcons();
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-brw-menu]')) {
+                closeBrwMenus();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeBrwMenus();
+        });
+        window.addEventListener('scroll', closeBrwMenus, true);
+        window.addEventListener('resize', closeBrwMenus);
 
         @if (request()->boolean('open_borrow'))
             document.addEventListener('DOMContentLoaded', function () {

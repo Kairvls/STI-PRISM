@@ -33,6 +33,8 @@ class RrLineIntake
             'lines.*.model' => 'required|string|max:'.InputLimits::MODEL,
             'lines.*.warranty' => 'nullable|date',
             'lines.*.useful_life_years' => 'nullable|integer|min:1|max:'.EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
+            'lines.*.storage_room_id' => 'nullable|integer|min:1',
+            'lines.*.replaces_equipment_id' => 'nullable|integer|min:1',
             'lines.*.units.*.warranty' => 'required|date',
             'lines.*.units.*.purchase_date' => 'nullable|date|before_or_equal:today',
             'lines.*.units.*.cost' => 'required|numeric|min:0|max:'.InputLimits::COST,
@@ -155,10 +157,12 @@ class RrLineIntake
             if (! $categoryIds->has((int) $line['category_id'])) {
                 throw ValidationException::withMessages(["lines.$i.category_id" => 'Choose a valid category for '.$rrLine->article.'.']);
             }
+            $rrAvailableQty = max(1, (int) $rrLine->remaining_qty);
             $quantity = (int) $line['quantity'];
-            if ($quantity > (int) $rrLine->remaining_qty) {
-                throw ValidationException::withMessages(["lines.$i.quantity" => $rrLine->article.' on '.$rrLine->rr_number.' has only '.(int) $rrLine->remaining_qty.' left to add.']);
+            if ($quantity !== $rrAvailableQty) {
+                throw ValidationException::withMessages(["lines.$i.quantity" => $rrLine->article.' on '.$rrLine->rr_number.' must use the remaining available quantity ('.$rrAvailableQty.').']);
             }
+            $quantity = $rrAvailableQty;
 
             $categoryId = (int) $line['category_id'];
             if (
@@ -226,10 +230,14 @@ class RrLineIntake
                 $lineLife = filled($line['useful_life_years'] ?? null) ? (int) $line['useful_life_years'] : $usefulLife;
                 $createdIds = [];
 
+                $lineStorageRoomId = ! empty($line['storage_room_id'])
+                    ? (int) $line['storage_room_id']
+                    : (int) $storageRoom->room_id;
+
                 foreach ($entry['units'] as $unit) {
                     $payload = array_merge([
                         'equipment_category_id' => (int) $line['category_id'],
-                        'equipment_room_id' => (int) $storageRoom->room_id,
+                        'equipment_room_id' => $lineStorageRoomId,
                         'equipment_asset_tag' => self::clean($unit['tag']),
                         'equipment_name' => trim((string) $line['name']),
                         'equipment_brand_name' => $unit['brand'],
@@ -274,7 +282,7 @@ class RrLineIntake
                         if ($hasTransferHistory) {
                             DB::table('equipment_transfer_history_table')->insert([
                                 'equipment_id' => $equipmentId,
-                                'from_room_id' => (int) $storageRoom->room_id,
+                                'from_room_id' => $lineStorageRoomId,
                                 'to_room_id' => $toRoomId,
                                 'transferred_by' => $userId,
                                 'remarks' => 'Deployed on intake',
@@ -296,7 +304,9 @@ class RrLineIntake
                         ->update(['receiving_report_item_equipment_id' => $createdIds[0]]);
                 }
 
-                $replacesId = ReceivableStockImporter::resolveReplacedEquipmentIdFromRr((int) $rr->receiving_report_id);
+                $replacesId = ! empty($line['replaces_equipment_id'])
+                    ? (int) $line['replaces_equipment_id']
+                    : ReceivableStockImporter::resolveReplacedEquipmentIdFromRr((int) $rr->receiving_report_id);
                 if ($replacesId > 0 && Schema::hasColumn('equipment_table', 'equipment_replaces_id')) {
                     DB::table('equipment_table')->whereIn('equipment_id', $createdIds)->update(['equipment_replaces_id' => $replacesId]);
                     if (Schema::hasColumn('equipment_table', 'equipment_replaced_by_id')) {

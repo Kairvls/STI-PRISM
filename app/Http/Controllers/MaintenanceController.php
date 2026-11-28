@@ -5247,6 +5247,9 @@ class MaintenanceController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $hasAuditLogsTable = Schema::hasTable('audit_logs_table');
+        $hasBorrowingTable = Schema::hasTable('borrowing_records_table');
+
         $query = DB::table('equipment_table')
 
             ->leftJoin(
@@ -5261,19 +5264,41 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_room_id',
                 '=',
                 'rooms_table.room_id'
-            )
-
-            ->select(
-
-                'equipment_table.*',
-
-                'equipment_categories_table.equipment_category_name',
-
-                'rooms_table.room_name',
-
-                'rooms_table.room_type'
-
             );
+
+        if ($hasAuditLogsTable) {
+            $latestEditsSub = DB::table('audit_logs_table')
+                ->selectRaw('audit_log_reference_id as eq_id, MAX(audit_log_created_at) as last_edited_at')
+                ->where('audit_log_table_name', 'equipment_table')
+                ->groupBy('audit_log_reference_id');
+            $query->leftJoinSub($latestEditsSub, 'eq_edits', function ($join) {
+                $join->on('eq_edits.eq_id', '=', 'equipment_table.equipment_id');
+            });
+        }
+
+        if ($hasBorrowingTable) {
+            $latestReturnsSub = DB::table('borrowing_records_table')
+                ->selectRaw('borrowing_equipment_id as eq_id, MAX(borrowing_actual_return_date) as latest_returned_at')
+                ->where('borrowing_status', 'Returned')
+                ->whereNotNull('borrowing_actual_return_date')
+                ->groupBy('borrowing_equipment_id');
+            $query->leftJoinSub($latestReturnsSub, 'eq_returns', function ($join) {
+                $join->on('eq_returns.eq_id', '=', 'equipment_table.equipment_id');
+            });
+        }
+
+        $query->select(
+            'equipment_table.*',
+            'equipment_categories_table.equipment_category_name',
+            'rooms_table.room_name',
+            'rooms_table.room_type',
+            DB::raw($hasAuditLogsTable
+                ? 'COALESCE(eq_edits.last_edited_at, equipment_table.equipment_created_at) as equipment_last_edited_at'
+                : 'equipment_table.equipment_created_at as equipment_last_edited_at'),
+            DB::raw($hasBorrowingTable
+                ? 'eq_returns.latest_returned_at as equipment_latest_returned_at'
+                : 'NULL as equipment_latest_returned_at')
+        );
 
         EquipmentNextMaintenance::apply($query);
 
@@ -5410,6 +5435,63 @@ class MaintenanceController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | DATE ADDED FILTER
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('date_from')) {
+            try {
+                $fromDate = \Carbon\Carbon::parse((string) $request->date_from)->startOfDay();
+                $query->where('equipment_table.equipment_created_at', '>=', $fromDate);
+            } catch (\Throwable $e) {
+                // Ignore invalid date input.
+            }
+        }
+
+        if ($request->filled('date_to')) {
+            try {
+                $toDate = \Carbon\Carbon::parse((string) $request->date_to)->endOfDay();
+                $query->where('equipment_table.equipment_created_at', '<=', $toDate);
+            } catch (\Throwable $e) {
+                // Ignore invalid date input.
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATE EDITED / UPDATED FILTER
+        |--------------------------------------------------------------------------
+        */
+
+        $editedExpr = $hasAuditLogsTable
+            ? 'COALESCE(eq_edits.last_edited_at, equipment_table.equipment_created_at)'
+            : 'equipment_table.equipment_created_at';
+
+        if ($request->filled('edited_from')) {
+            try {
+                $editedFrom = \Carbon\Carbon::parse((string) $request->edited_from)->startOfDay()->format('Y-m-d H:i:s');
+                $query->whereRaw($editedExpr.' >= ?', [$editedFrom]);
+            } catch (\Throwable $e) {
+                // Ignore invalid date input.
+            }
+        }
+
+        if ($request->filled('edited_to')) {
+            try {
+                $editedTo = \Carbon\Carbon::parse((string) $request->edited_to)->endOfDay()->format('Y-m-d H:i:s');
+                $query->whereRaw($editedExpr.' <= ?', [$editedTo]);
+            } catch (\Throwable $e) {
+                // Ignore invalid date input.
+            }
+        }
+
+        $sort = (string) $request->query('sort', '');
+        if (! in_array($sort, ['', 'created_desc', 'updated_desc', 'created_asc'], true)) {
+            $sort = '';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
         | PAGINATION
         |--------------------------------------------------------------------------
         */
@@ -5425,13 +5507,33 @@ class MaintenanceController extends Controller
         }
 
         if ($isStockPage) {
+            if ($sort === 'updated_desc') {
+                $query->orderByRaw($editedExpr.' DESC')->orderByDesc('equipment_table.equipment_id');
+            } elseif ($sort === 'created_asc') {
+                $query->orderBy('equipment_table.equipment_created_at', 'asc')->orderBy('equipment_table.equipment_id', 'asc');
+            } elseif ($sort === 'created_desc') {
+                $query->orderBy('equipment_table.equipment_created_at', 'desc')->orderByDesc('equipment_table.equipment_id');
+            } else {
+                // Default inventory ordering strictly prioritizes recently returned borrowed equipment at the top.
+                if ($hasBorrowingTable) {
+                    $query->orderByRaw(
+                        'CASE WHEN eq_returns.latest_returned_at IS NOT NULL AND eq_returns.latest_returned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 0 ELSE 1 END ASC'
+                    )->orderByRaw(
+                        "GREATEST(COALESCE(eq_returns.latest_returned_at, '1970-01-01 00:00:00'), COALESCE(equipment_table.equipment_created_at, '1970-01-01 00:00:00')) DESC"
+                    );
+                } else {
+                    $query->orderBy('equipment_table.equipment_created_at', 'desc');
+                }
+                $query->orderByDesc('equipment_table.equipment_id');
+            }
+
             $equipment = $query
-                ->orderBy('equipment_table.equipment_created_at', 'desc')
                 ->paginate(10)
                 ->withQueryString();
         } else {
             $grouped = \App\Support\EquipmentIdentity::presentAllEquipment(
-                (clone $query)->orderBy('equipment_table.equipment_asset_tag')->get()
+                (clone $query)->orderBy('equipment_table.equipment_asset_tag')->get(),
+                $sort !== '' ? $sort : 'created_desc'
             );
             $perPage = 10;
             $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
@@ -5701,21 +5803,41 @@ class MaintenanceController extends Controller
                 ->addSelect('unit_dept.department_name as unit_department_name');
         }
 
+        $hasTransferHistory = Schema::hasTable('equipment_transfer_history_table');
+        $fallbackTimestamp = Schema::hasColumn('equipment_table', 'equipment_created_at')
+            ? 'equipment_table.equipment_created_at'
+            : (Schema::hasColumn('equipment_table', 'created_at') ? 'equipment_table.created_at' : 'equipment_table.equipment_acquired_date');
+
+        if ($hasTransferHistory) {
+            $unitQuery->selectRaw(
+                '(SELECT MAX(created_at) FROM equipment_transfer_history_table
+                  WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id) as last_deployed_at'
+            );
+            $unitQuery
+                ->orderByRaw("COALESCE((SELECT MAX(created_at) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), {$fallbackTimestamp}) DESC")
+                ->orderByRaw('COALESCE((SELECT MAX(transfer_id) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), 0) DESC')
+                ->orderByDesc('equipment_table.equipment_id');
+        } else {
+            $unitQuery
+                ->orderByDesc($fallbackTimestamp)
+                ->orderByDesc('equipment_table.equipment_id');
+        }
+
         $equipment = $unitQuery
-            ->orderBy('rooms_table.room_name')
-            ->orderBy('equipment_table.equipment_name')
-            ->orderBy('equipment_table.equipment_asset_tag')
             ->paginate(15)
             ->withQueryString();
 
         $pendingTransferIds = TransferRequests::pendingEquipmentIds();
         $pendingDisposalIds = DisposalRequests::pendingEquipmentIds();
-        $openLoans = TransferLocks::openLoans($equipment->pluck('equipment_id')->all());
+        $pageEquipmentIds = $equipment->pluck('equipment_id')->all();
+        $openLoans = TransferLocks::openLoans($pageEquipmentIds);
+        $activeAssignments = PropertyAssignments::activeByEquipment($pageEquipmentIds);
         foreach ($equipment as $row) {
             $row->transfer_pending = isset($pendingTransferIds[(int) $row->equipment_id]);
             $row->disposal_pending = isset($pendingDisposalIds[(int) $row->equipment_id]);
             $row->open_loan = $openLoans->get((int) $row->equipment_id);
             $row->transfer_lock = TransferLocks::reason($row, $openLoans);
+            $row->active_assignment = $activeAssignments[(int) $row->equipment_id] ?? null;
         }
 
         $filteredDeployedIds = (clone $base)
@@ -5852,6 +5974,30 @@ class MaintenanceController extends Controller
             $query->where('equipment_table.equipment_condition_status', $request->condition);
         }
 
+        if ($request->filled('date_from')) {
+            try {
+                $query->where(
+                    'equipment_table.equipment_created_at',
+                    '>=',
+                    \Carbon\Carbon::parse((string) $request->date_from)->startOfDay()
+                );
+            } catch (\Throwable $e) {
+                // Ignore invalid date input.
+            }
+        }
+
+        if ($request->filled('date_to')) {
+            try {
+                $query->where(
+                    'equipment_table.equipment_created_at',
+                    '<=',
+                    \Carbon\Carbon::parse((string) $request->date_to)->endOfDay()
+                );
+            } catch (\Throwable $e) {
+                // Ignore invalid date input.
+            }
+        }
+
         $rows = $query
             ->select(
                 'equipment_table.equipment_name',
@@ -5886,6 +6032,9 @@ class MaintenanceController extends Controller
             $request->filled('category') ? 'classification' : null,
             $request->filled('condition') ? 'condition '.$request->condition : null,
             $request->filled('status') ? 'status '.EquipmentInventoryStatuses::display((string) $request->status, true) : null,
+            ($request->filled('date_from') || $request->filled('date_to'))
+                ? 'date '.($request->filled('date_from') ? $request->date_from : '…').' to '.($request->filled('date_to') ? $request->date_to : '…')
+                : null,
         ]);
 
         $pdf = Pdf::loadView('maintenance-personnel.equipment.table-export-pdf', [
@@ -5994,10 +6143,22 @@ class MaintenanceController extends Controller
                 ->addSelect('unit_dept.department_name as unit_department_name');
         }
 
+        $fallbackTimestamp = Schema::hasColumn('equipment_table', 'equipment_created_at')
+            ? 'equipment_table.equipment_created_at'
+            : (Schema::hasColumn('equipment_table', 'created_at') ? 'equipment_table.created_at' : 'equipment_table.equipment_acquired_date');
+
+        if (Schema::hasTable('equipment_transfer_history_table')) {
+            $unitQuery
+                ->orderByRaw("COALESCE((SELECT MAX(created_at) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), {$fallbackTimestamp}) DESC")
+                ->orderByRaw('COALESCE((SELECT MAX(transfer_id) FROM equipment_transfer_history_table WHERE equipment_transfer_history_table.equipment_id = equipment_table.equipment_id), 0) DESC')
+                ->orderByDesc('equipment_table.equipment_id');
+        } else {
+            $unitQuery
+                ->orderByDesc($fallbackTimestamp)
+                ->orderByDesc('equipment_table.equipment_id');
+        }
+
         $rows = $unitQuery
-            ->orderBy('rooms_table.room_name')
-            ->orderBy('equipment_table.equipment_name')
-            ->orderBy('equipment_table.equipment_asset_tag')
             ->limit(2000)
             ->get()
             ->map(function ($row) use ($hasDepartment) {
@@ -8493,7 +8654,9 @@ class MaintenanceController extends Controller
 
                 'equipment_categories_table.equipment_category_name',
 
-                'rooms_table.room_name'
+                'rooms_table.room_name',
+
+                'rooms_table.room_type'
 
             )
 
@@ -8541,6 +8704,47 @@ class MaintenanceController extends Controller
             ? \App\Support\Custodians::assignable()
             : collect();
 
+        $isAdminPortal = RoleAccess::hasRole(RoleAccess::ADMIN);
+        $canMaintainRole = RoleAccess::hasRole(RoleAccess::MAINTENANCE);
+        $isStorageItem = RoomCategories::isStorageType($equipment->room_type ?? null);
+        $transferLockReason = TransferLocks::reason($equipment);
+        $isDisposalStatus = in_array($equipment->equipment_inventory_status ?? '', [
+            EquipmentInventoryStatuses::DISPOSED,
+            EquipmentInventoryStatuses::PENDING_DISPOSAL,
+        ], true);
+        $canTransferItem = ($isAdminPortal || $canMaintainRole) && $transferLockReason === null && ! $isDisposalStatus;
+        $hasPendingTransfer = ($isAdminPortal || $canMaintainRole)
+            && isset(TransferRequests::pendingEquipmentIds()[(int) $equipment->equipment_id]);
+        $transferNeedsApproval = $canTransferItem && TransferRequests::requiresApproval();
+        $transferActionUrl = $isAdminPortal
+            ? url('/admin/inventory/transfer')
+            : url('/maintenance/equipment/transfer');
+        $transferRequestsUrl = $isAdminPortal
+            ? url('/admin/inventory/transfer-requests')
+            : url('/maintenance/equipment/transfer-requests');
+
+        $allActiveRooms = $canTransferItem
+            ? DB::table('rooms_table')
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where('room_is_archived', false)
+                )
+                ->orderByRaw(
+                    'CASE WHEN room_type = ? THEN 1 ELSE 0 END',
+                    [RoomCategories::STORAGE_TYPE]
+                )
+                ->orderBy('room_name')
+                ->get()
+            : collect();
+
+        $deployRooms = $allActiveRooms
+            ->reject(fn ($room) => RoomCategories::isStorageType($room->room_type ?? null))
+            ->values();
+
+        $transferRoomOptions = $isStorageItem ? $deployRooms : $allActiveRooms;
+        $transferPeople = $canTransferItem ? \App\Support\Custodians::assignable() : collect();
+        $transferDepartments = $canTransferItem ? Departments::options() : collect();
+
         return view(
             'maintenance-personnel.equipment.view',
             compact(
@@ -8555,7 +8759,17 @@ class MaintenanceController extends Controller
                 'assignmentHistory',
                 'assignmentBlocker',
                 'assignablePeople',
-                'stockMovements'
+                'stockMovements',
+                'isStorageItem',
+                'canTransferItem',
+                'hasPendingTransfer',
+                'transferNeedsApproval',
+                'transferActionUrl',
+                'transferRequestsUrl',
+                'deployRooms',
+                'transferRoomOptions',
+                'transferPeople',
+                'transferDepartments'
             ) + ['reportSummary' => $lifecycle['report_summary'] ?? null]
         );
     }
@@ -8568,26 +8782,13 @@ class MaintenanceController extends Controller
     */
     public function createEquipment()
     {
-        $categories = DB::table(
-            'equipment_categories_table'
-        )->get();
+        $inventoryUrl = request()->is('admin/*')
+            ? url('/admin/inventory')
+            : url('/maintenance/equipment/inventory');
 
-        $rooms = DB::table(
-            'rooms_table'
-        )
-            ->when(
-                Schema::hasColumn('rooms_table', 'room_is_archived'),
-                fn ($query) => $query->where('room_is_archived', false)
-            )
-            ->get();
+        $query = array_merge(request()->query(), ['add' => 1]);
 
-        return view(
-            'maintenance-personnel.equipment.create',
-            compact(
-                'categories',
-                'rooms'
-            )
-        );
+        return redirect()->to($inventoryUrl . '?' . http_build_query($query));
     }
 
 
@@ -8711,9 +8912,19 @@ class MaintenanceController extends Controller
                 'max:'.\App\Support\InputLimits::ASSET_TAG,
             ],
 
-            'equipment_brand_name' => 'required|string|'.\App\Support\InputLimits::name(),
+            'equipment_brand_name' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'string',
+                \App\Support\InputLimits::name(),
+            ],
 
-            'equipment_model' => 'required|string|'.\App\Support\InputLimits::name(),
+            'equipment_model' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'string',
+                \App\Support\InputLimits::name(),
+            ],
 
             'equipment_serial_number' => [
                 \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
@@ -8731,11 +8942,27 @@ class MaintenanceController extends Controller
                 $request->filled('equipment_purchase_date') ? 'after_or_equal:equipment_purchase_date' : null,
             ])),
 
-            'equipment_purchase_cost' => 'required|numeric|min:0|max:'.\App\Support\InputLimits::COST,
+            'equipment_purchase_cost' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:'.\App\Support\InputLimits::COST,
+            ],
 
-            'equipment_warranty_expiration' => 'required|date',
+            'equipment_warranty_expiration' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'date',
+            ],
 
-            'equipment_useful_life_years' => 'required|integer|min:1|max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
+            'equipment_useful_life_years' => [
+                \Illuminate\Validation\Rule::requiredIf(fn () => blank($request->input('items'))),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.\App\Support\EquipmentLifecycle::MAX_USEFUL_LIFE_YEARS,
+            ],
 
             'receiving_report_item_id' => 'nullable|integer|min:1',
 
@@ -8769,6 +8996,8 @@ class MaintenanceController extends Controller
 
             'deploy_room_id' => 'nullable|integer|min:1',
             'items.*.deploy_room_id' => 'nullable|integer|min:0',
+            'items.*.custodian_id' => 'nullable|integer|min:0',
+            'items.*.replaces_equipment_id' => 'nullable|integer|min:0',
 
             'custodian_id' => 'nullable|integer|min:1',
 
@@ -8828,13 +9057,16 @@ class MaintenanceController extends Controller
                         ->withInput();
                 }
 
-                if ($quantity > (int) $rrLine->quantity) {
+                $rrAvailableQty = max(1, (int) ($rrLine->remaining_qty ?? $rrLine->quantity ?? 1));
+                if ($quantity !== $rrAvailableQty) {
                     return back()
                         ->withErrors([
-                            'equipment_quantity' => 'Quantity cannot exceed the quantity still available to add ('.$rrLine->quantity.') on '.$rrLine->rr_number.'.',
+                            'equipment_quantity' => 'Quantity must match the remaining available quantity ('.$rrAvailableQty.') on '.$rrLine->rr_number.'.',
                         ])
                         ->withInput();
                 }
+                $quantity = $rrAvailableQty;
+                $validated['equipment_quantity'] = $rrAvailableQty;
 
                 $validated['equipment_condition_status'] = 'Good';
                 foreach ($items as $index => $item) {
@@ -8976,7 +9208,7 @@ class MaintenanceController extends Controller
         }
 
         $itemRooms = collect();
-        if ($deployRoom && $trackingMode === 'Individual' && count($items) > 0) {
+        if ($trackingMode === 'Individual' && count($items) > 0) {
             $itemRooms = \App\Support\RrLineIntake::deployRooms(array_column($items, 'deploy_room_id'));
         }
 
@@ -8996,6 +9228,8 @@ class MaintenanceController extends Controller
 
         $createdIds = [];
         $createdRooms = [];
+        $createdCustodians = [];
+        $createdReplaces = [];
         $deployedRoomNames = [];
 
         // Shared photo applies to Bulk / single Individual units only.
@@ -9030,6 +9264,8 @@ class MaintenanceController extends Controller
             $custodianId,
             &$createdIds,
             &$createdRooms,
+            &$createdCustodians,
+            &$createdReplaces,
             &$deployedRoomNames
         ) {
 
@@ -9166,6 +9402,8 @@ class MaintenanceController extends Controller
                     );
                     $createdIds[] = (int) $equipmentId;
                     $createdRooms[(int) $equipmentId] = $itemRooms->get((int) ($item['deploy_room_id'] ?? 0)) ?? $deployRoom;
+                    $createdCustodians[(int) $equipmentId] = (int) ($item['custodian_id'] ?? 0);
+                    $createdReplaces[(int) $equipmentId] = (int) ($item['replaces_equipment_id'] ?? 0);
                 }
             }
 
@@ -9189,28 +9427,36 @@ class MaintenanceController extends Controller
             if ($replacesId < 1 && $rrLine) {
                 $replacesId = $this->resolveReplacedEquipmentIdFromRr((int) $rrLine->receiving_report_id);
             }
-            if (
-                $replacesId > 0
-                && ! empty($createdIds)
-                && Schema::hasColumn('equipment_table', 'equipment_replaces_id')
-            ) {
+            if (! empty($createdIds) && Schema::hasColumn('equipment_table', 'equipment_replaces_id')) {
+                $linkedOldIds = [];
                 foreach ($createdIds as $newId) {
-                    DB::table('equipment_table')
-                        ->where('equipment_id', $newId)
-                        ->update(['equipment_replaces_id' => $replacesId]);
+                    $targetReplace = ($createdReplaces[$newId] ?? 0) > 0 ? (int) $createdReplaces[$newId] : $replacesId;
+                    if ($targetReplace > 0) {
+                        DB::table('equipment_table')
+                            ->where('equipment_id', $newId)
+                            ->update(['equipment_replaces_id' => $targetReplace]);
+                        if (! isset($linkedOldIds[$targetReplace])) {
+                            $linkedOldIds[$targetReplace] = $newId;
+                        }
+                    }
                 }
                 if (Schema::hasColumn('equipment_table', 'equipment_replaced_by_id')) {
-                    DB::table('equipment_table')
-                        ->where('equipment_id', $replacesId)
-                        ->update(['equipment_replaced_by_id' => (int) $createdIds[0]]);
+                    foreach ($linkedOldIds as $oldId => $firstNewId) {
+                        DB::table('equipment_table')
+                            ->where('equipment_id', $oldId)
+                            ->update(['equipment_replaced_by_id' => $firstNewId]);
+                    }
                 }
             }
 
-            if ($deployRoom && ! empty($createdIds)) {
+            if (! empty($createdIds)) {
                 $storageRoomId = (int) $validated['equipment_room_id'];
                 $hasTransferHistory = Schema::hasTable('equipment_transfer_history_table');
                 foreach ($createdIds as $newId) {
                     $toRoom = $createdRooms[$newId] ?? $deployRoom;
+                    if (! $toRoom) {
+                        continue;
+                    }
                     if ($hasTransferHistory) {
                         DB::table('equipment_transfer_history_table')->insert([
                             'equipment_id' => $newId,
@@ -9228,10 +9474,22 @@ class MaintenanceController extends Controller
                 }
             }
 
-            if ($custodianId > 0 && ! empty($createdIds)) {
-                PropertyAssignments::issueMany($createdIds, $custodianId, [
-                    'notes' => 'Issued on intake',
-                ]);
+            if (! empty($createdIds)) {
+                $byCustodian = [];
+                foreach ($createdIds as $newId) {
+                    $toRoom = $createdRooms[$newId] ?? $deployRoom;
+                    $unitCustodian = ($createdCustodians[$newId] ?? 0) > 0
+                        ? (int) $createdCustodians[$newId]
+                        : $custodianId;
+                    if ($unitCustodian > 0 && $toRoom) {
+                        $byCustodian[$unitCustodian][] = $newId;
+                    }
+                }
+                foreach ($byCustodian as $cId => $idsForCustodian) {
+                    PropertyAssignments::issueMany($idsForCustodian, (int) $cId, [
+                        'notes' => 'Issued on intake',
+                    ]);
+                }
             }
 
             $count = count($createdIds);
@@ -11185,6 +11443,7 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_brand_name',
                 'equipment_table.equipment_model',
                 'equipment_table.equipment_tracking_mode',
+                'equipment_table.equipment_purchase_cost',
                 'borrow_from_room.room_name as borrowed_from_room_name',
                 'borrow_return_room.room_name as returned_to_room_name',
                 'borrow_returned_by.user_full_name as returned_by_name'
@@ -11742,6 +12001,32 @@ class MaintenanceController extends Controller
         $eventTypes = \App\Support\EventTypes::options();
         $eventNames = \App\Support\EventNames::options();
 
+        $activeView = $request->query('view') === 'borrowers' && ! $showArchived ? 'borrowers' : 'records';
+        $borrowerDirectoryStats = \App\Support\Borrowers::stats();
+        $borrowerDirFilter = (string) $request->query('borrower_filter', 'all');
+        if (! in_array($borrowerDirFilter, ['all', 'registered', 'history'], true)) {
+            $borrowerDirFilter = 'all';
+        }
+        $borrowerDirQuery = trim((string) $request->query('borrower_q', ''));
+        if ($activeView === 'borrowers') {
+            $allDirectoryRows = \App\Support\Borrowers::directory($borrowerDirQuery !== '' ? $borrowerDirQuery : null, $borrowerDirFilter);
+            $dirPage = max(1, (int) $request->query('borrowers_page', 1));
+            $dirPerPage = 15;
+            $borrowerDirectory = new \Illuminate\Pagination\LengthAwarePaginator(
+                $allDirectoryRows->forPage($dirPage, $dirPerPage)->values(),
+                $allDirectoryRows->count(),
+                $dirPerPage,
+                $dirPage,
+                [
+                    'path' => $request->url(),
+                    'pageName' => 'borrowers_page',
+                    'query' => $request->query(),
+                ]
+            );
+        } else {
+            $borrowerDirectory = collect();
+        }
+
         return view(
             'admin.borrowing.index',
 
@@ -11759,6 +12044,11 @@ class MaintenanceController extends Controller
                 'dateFrom',
                 'dateTo',
                 'showArchived',
+                'activeView',
+                'borrowerDirectory',
+                'borrowerDirectoryStats',
+                'borrowerDirFilter',
+                'borrowerDirQuery',
 
                 // =================================================
                 // BORROWING DASHBOARD VARIABLES
@@ -11795,33 +12085,17 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Borrowers directory from External registry + real borrow history (not campus staff list).
+     * Redirect legacy /admin/borrowing/borrowers URL into Borrowing's integrated Borrowers List view.
      */
     public function borrowers(Request $request)
     {
-        $filter = (string) $request->query('filter', 'all');
-        if (! in_array($filter, ['all', 'registered', 'history'], true)) {
-            $filter = 'all';
-        }
-        $q = trim((string) $request->query('q', ''));
+        $query = array_filter([
+            'view' => 'borrowers',
+            'borrower_q' => trim((string) $request->query('q', $request->query('borrower_q', ''))),
+            'borrower_filter' => (string) $request->query('filter', $request->query('borrower_filter', '')),
+        ], fn ($value) => $value !== '');
 
-        $all = \App\Support\Borrowers::directory($q !== '' ? $q : null, $filter);
-        $stats = \App\Support\Borrowers::stats();
-
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = 20;
-        $borrowers = new \Illuminate\Pagination\LengthAwarePaginator(
-            $all->forPage($page, $perPage)->values(),
-            $all->count(),
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
-
-        return view('admin.borrowing.borrowers', compact('borrowers', 'filter', 'q', 'stats'));
+        return redirect()->route('admin.borrowing.index', $query);
     }
 
     /**
@@ -12093,9 +12367,9 @@ class MaintenanceController extends Controller
             ]);
         }
 
-        if ($request->input('redirect_to') === 'borrowers' || str_contains((string) $request->headers->get('referer'), '/borrowing/borrowers')) {
+        if ($request->input('redirect_to') === 'borrowers' || str_contains((string) $request->headers->get('referer'), 'view=borrowers') || str_contains((string) $request->headers->get('referer'), '/borrowing/borrowers')) {
             return redirect()
-                ->route('admin.borrowing.borrowers', ['affiliation' => 'External'])
+                ->route('admin.borrowing.index', ['view' => 'borrowers'])
                 ->with('success', 'External borrower registered: '.$payload['name'].'.');
         }
 
@@ -12185,57 +12459,73 @@ class MaintenanceController extends Controller
             'borrowing_record_id' => 'required|integer',
             'return_quantity' => 'required|integer|min:1|max:5000',
             'damaged_quantity' => 'nullable|integer|min:0|max:5000',
+            'missing_quantity' => 'nullable|integer|min:0|max:5000',
+            'damaged_units' => 'nullable|array',
+            'damaged_units.*' => 'string|max:80',
+            'missing_units' => 'nullable|array',
+            'missing_units.*' => 'string|max:80',
             'remarks' => 'nullable|string|max:1000',
             'return_room_id' => 'nullable|integer',
         ]);
 
-        // =====================================================
-        // FIND BORROWING RECORD
-        // A grouped borrow is several lines on one slip.
-        // Returning any of them returns every line still out.
-        // =====================================================
-
         $record = DB::table('borrowing_records_table')
-
-            ->where(
-                'borrowing_record_id',
-                $request->borrowing_record_id
-            )
-
+            ->where('borrowing_record_id', $request->borrowing_record_id)
             ->first();
 
-
-        // =====================================================
-        // BORROWING RECORD NOT FOUND
-        // =====================================================
-
-        if (!$record) {
-
-            return back()->with(
-                'error',
-                'Borrowing record not found.'
-            );
+        if (! $record) {
+            return back()->with('error', 'Borrowing record not found.');
         }
 
         $slipNo = trim((string) ($record->borrowing_transaction_no ?? ''));
-        $storageRoom = $this->borrowReturnStorageRoom((int) $request->input('return_room_id', 0));
+        $targetRoom = $this->borrowReturnTargetRoom((int) $request->input('return_room_id', 0));
         $returnMessage = 'Equipment returned successfully.';
         $alreadyReturned = false;
         $quantityError = null;
         $returnQty = (int) $request->input('return_quantity');
-        $damagedQty = (int) $request->input('damaged_quantity', 0);
 
-        // =====================================================
-        // START TRANSACTION
-        // =====================================================
+        // Parse explicitly checked unit keys ("recordId:unitIdx") when provided by the checkbox dropdowns.
+        $damagedUnitKeys = collect($request->input('damaged_units', []))
+            ->map(fn ($v) => trim((string) $v))
+            ->filter()
+            ->unique()
+            ->values();
+        $missingUnitKeys = collect($request->input('missing_units', []))
+            ->map(fn ($v) => trim((string) $v))
+            ->filter()
+            ->reject(fn ($v) => $damagedUnitKeys->contains($v))
+            ->unique()
+            ->values();
+
+        $hasExplicitUnits = $damagedUnitKeys->isNotEmpty() || $missingUnitKeys->isNotEmpty();
+        $damagedQty = $hasExplicitUnits ? $damagedUnitKeys->count() : (int) $request->input('damaged_quantity', 0);
+        $missingQty = $hasExplicitUnits ? $missingUnitKeys->count() : (int) $request->input('missing_quantity', 0);
+
+        $damagedByRecord = [];
+        foreach ($damagedUnitKeys as $key) {
+            $rid = (int) explode(':', $key)[0];
+            if ($rid > 0) {
+                $damagedByRecord[$rid] = ($damagedByRecord[$rid] ?? 0) + 1;
+            }
+        }
+        $missingByRecord = [];
+        foreach ($missingUnitKeys as $key) {
+            $rid = (int) explode(':', $key)[0];
+            if ($rid > 0) {
+                $missingByRecord[$rid] = ($missingByRecord[$rid] ?? 0) + 1;
+            }
+        }
 
         DB::transaction(function () use (
             $request,
             $record,
             $slipNo,
-            $storageRoom,
+            $targetRoom,
             $returnQty,
             $damagedQty,
+            $missingQty,
+            $hasExplicitUnits,
+            $damagedByRecord,
+            $missingByRecord,
             &$returnMessage,
             &$alreadyReturned,
             &$quantityError
@@ -12263,8 +12553,8 @@ class MaintenanceController extends Controller
 
                 return;
             }
-            if ($damagedQty > $returnQty) {
-                $quantityError = 'Damaged quantity cannot be more than the quantity returned.';
+            if (($damagedQty + $missingQty) > $returnQty) {
+                $quantityError = 'Damaged and missing items combined cannot exceed the quantity processed.';
 
                 return;
             }
@@ -12275,12 +12565,25 @@ class MaintenanceController extends Controller
             $damagePerUnit = $rates['damage_fee'];
             $remainingToReturn = $returnQty;
             $remainingDamaged = $damagedQty;
+            $remainingMissing = $missingQty;
             $returnedUnits = 0;
+            $damagedTotalCount = 0;
+            $missingTotalCount = 0;
+            $missingFineTotal = 0.0;
             $primaryName = 'Equipment';
             $borrowerName = '';
             $primaryId = 0;
 
-            foreach ($openLines as $index => $line) {
+            // When explicit checkboxes are used, process lines with checked units first so partial returns hit checked items.
+            $orderedLines = $hasExplicitUnits
+                ? $openLines->sortByDesc(function ($line) use ($damagedByRecord, $missingByRecord) {
+                    $rid = (int) $line->borrowing_record_id;
+
+                    return ($damagedByRecord[$rid] ?? 0) + ($missingByRecord[$rid] ?? 0);
+                })->values()
+                : $openLines;
+
+            foreach ($orderedLines as $index => $line) {
                 if ($remainingToReturn <= 0) {
                     break;
                 }
@@ -12290,34 +12593,53 @@ class MaintenanceController extends Controller
                     ->lockForUpdate()
                     ->first();
 
+                $lineId = (int) $line->borrowing_record_id;
                 $lineQty = max(1, (int) ($line->borrowing_quantity ?? 1));
                 $take = min($lineQty, $remainingToReturn);
-                $damageTake = min($take, $remainingDamaged);
-                $goodTake = $take - $damageTake;
-                $lineFees = [
-                    'days' => $lateDays,
-                    'late_fee' => round($latePerUnit * $take, 2),
-                    'damage_fee' => round($damagePerUnit * $damageTake, 2),
-                ];
 
-                if ($take === $lineQty && ($damageTake === 0 || $goodTake === 0)) {
+                if ($hasExplicitUnits) {
+                    $damageTake = min($take, (int) ($damagedByRecord[$lineId] ?? 0));
+                    $missingTake = min(max(0, $take - $damageTake), (int) ($missingByRecord[$lineId] ?? 0));
+                } else {
+                    $damageTake = min($take, $remainingDamaged);
+                    $missingTake = min(max(0, $take - $damageTake), $remainingMissing);
+                }
+                $goodTake = max(0, $take - $damageTake - $missingTake);
+
+                $unitCost = $this->resolveEquipmentUnitCost($equipment);
+                $lineMissingFine = round($unitCost * $missingTake, 2);
+
+                $singleConditionCount = ($goodTake > 0 ? 1 : 0) + ($damageTake > 0 ? 1 : 0) + ($missingTake > 0 ? 1 : 0);
+                if ($take === $lineQty && $singleConditionCount === 1) {
+                    $cond = $missingTake > 0 ? 'Missing' : ($damageTake > 0 ? 'Damaged' : 'Good');
+                    $lineFees = [
+                        'days' => $lateDays,
+                        'late_fee' => round($latePerUnit * $take, 2),
+                        'damage_fee' => $missingTake > 0
+                            ? $lineMissingFine
+                            : round($damagePerUnit * $damageTake, 2),
+                    ];
                     $this->returnBorrowedLine(
                         $request,
                         $line,
                         $equipment,
-                        $storageRoom,
-                        $damageTake > 0,
+                        $targetRoom,
+                        $damageTake,
+                        $missingTake,
+                        $unitCost,
                         $lineFees,
-                        $damageTake > 0 ? 'Damaged' : 'Good'
+                        $cond
                     );
                 } else {
                     $this->returnPartialQuantity(
                         $request,
                         $line,
                         $equipment,
-                        $storageRoom,
+                        $targetRoom,
                         $goodTake,
                         $damageTake,
+                        $missingTake,
+                        $unitCost,
                         $lateDays,
                         $latePerUnit,
                         $damagePerUnit
@@ -12327,26 +12649,32 @@ class MaintenanceController extends Controller
                 if ($index === 0) {
                     $primaryName = $equipment?->equipment_name ?? 'Equipment';
                     $borrowerName = (string) ($line->borrowing_borrower_name ?? '');
-                    $primaryId = (int) $line->borrowing_record_id;
+                    $primaryId = $lineId;
                 }
 
                 $remainingToReturn -= $take;
-                $remainingDamaged -= $damageTake;
+                $remainingDamaged = max(0, $remainingDamaged - $damageTake);
+                $remainingMissing = max(0, $remainingMissing - $missingTake);
                 $returnedUnits += $take;
+                $damagedTotalCount += $damageTake;
+                $missingTotalCount += $missingTake;
+                $missingFineTotal = round($missingFineTotal + $lineMissingFine, 2);
             }
 
-            $feeTotal = round(($latePerUnit * $returnedUnits) + ($damagePerUnit * ($damagedQty - $remainingDamaged)), 2);
-            $roomName = $storageRoom->room_name ?? null;
-            $returnMessage = 'Returned '.$returnedUnits.' of '.$outstanding.' '
+            $feeTotal = round(($latePerUnit * $returnedUnits) + ($damagePerUnit * $damagedTotalCount) + $missingFineTotal, 2);
+            $roomName = $targetRoom->room_name ?? null;
+            $returnMessage = 'Processed '.$returnedUnits.' of '.$outstanding.' '
                 .($outstanding === 1 ? 'item' : 'items')
-                .($roomName ? ' to '.$roomName.' (Inventory)' : '')
+                .($roomName ? ' to '.$roomName : '')
                 .'.';
-            $damagedReturned = $damagedQty - $remainingDamaged;
-            if ($damagedReturned > 0) {
-                $returnMessage .= ' '.$damagedReturned.' marked damaged.';
+            if ($damagedTotalCount > 0) {
+                $returnMessage .= ' '.$damagedTotalCount.' marked damaged.';
+            }
+            if ($missingTotalCount > 0) {
+                $returnMessage .= ' '.$missingTotalCount.' marked missing (fine: '.BorrowingFees::money($missingFineTotal).').';
             }
             if ($feeTotal > 0) {
-                $returnMessage .= ' Amount due: '.BorrowingFees::money($feeTotal).'.';
+                $returnMessage .= ' Total amount due: '.BorrowingFees::money($feeTotal).'.';
             }
 
             DB::table('notifications_table')->insertOrIgnore([
@@ -12354,7 +12682,10 @@ class MaintenanceController extends Controller
                 'notification_target_role' => WorkflowNotifier::ROLE_ADMIN,
                 'notification_title' => 'Equipment Returned',
                 'notification_message' => $returnedUnits.' '.($returnedUnits === 1 ? 'item' : 'items')
-                    .' ('.$primaryName.') '.($returnedUnits === 1 ? 'was' : 'were').' returned by '.$borrowerName.'.',
+                    .' ('.$primaryName.') processed for '.$borrowerName
+                    .($damagedTotalCount > 0 ? ' · '.$damagedTotalCount.' damaged' : '')
+                    .($missingTotalCount > 0 ? ' · '.$missingTotalCount.' missing ('.BorrowingFees::money($missingFineTotal).' fine)' : '')
+                    .'.',
                 'notification_type' => 'equipment_returned',
                 'notification_category' => 'Equipment',
                 'notification_reference_type' => 'borrowing_record',
@@ -12370,12 +12701,13 @@ class MaintenanceController extends Controller
                 'audit_log_module' => 'Borrowing',
                 'audit_log_table_name' => 'borrowing_records_table',
                 'audit_log_reference_id' => $primaryId,
-                'audit_log_description' => 'Returned '
+                'audit_log_description' => 'Processed '
                     .$returnedUnits.' of '.$outstanding.' '
                     .$primaryName
                     .' from '
                     .$borrowerName
-                    .($damagedReturned > 0 ? ' ('.$damagedReturned.' damaged)' : '')
+                    .($damagedTotalCount > 0 ? ' ('.$damagedTotalCount.' damaged)' : '')
+                    .($missingTotalCount > 0 ? ' ('.$missingTotalCount.' missing · fine '.BorrowingFees::money($missingFineTotal).')' : '')
                     .'.',
                 'audit_log_ip_address' => $request->ip(),
                 'audit_log_created_at' => now(),
@@ -12383,24 +12715,40 @@ class MaintenanceController extends Controller
         });
 
         if ($alreadyReturned) {
-            return back()->with(
-                'error',
-                'This equipment has already been returned.'
-            );
+            return back()->with('error', 'This equipment has already been returned.');
         }
 
         if ($quantityError) {
             return back()->with('error', $quantityError);
         }
 
-        return back()->with(
-            'success',
-            $returnMessage
-        );
+        return back()->with('success', $returnMessage);
+    }
+
+    private function resolveEquipmentUnitCost(?object $equipment): float
+    {
+        if (! $equipment) {
+            return 0.0;
+        }
+        $cost = (float) ($equipment->equipment_purchase_cost ?? 0);
+        if ($cost > 0) {
+            return round($cost, 2);
+        }
+        $rrItemId = (int) ($equipment->equipment_receiving_report_item_id ?? 0);
+        if ($rrItemId > 0 && Schema::hasTable('receiving_report_items_table')) {
+            $rrCost = DB::table('receiving_report_items_table')
+                ->where('receiving_report_item_id', $rrItemId)
+                ->value('unit_cost');
+            if ($rrCost !== null && (float) $rrCost > 0) {
+                return round((float) $rrCost, 2);
+            }
+        }
+
+        return 0.0;
     }
 
     /**
-     * Mark one open borrow line returned and send its equipment back to stock.
+     * Mark one open borrow line returned and send its equipment back to the chosen destination.
      *
      * @param  array{days:int,late_fee:float,damage_fee:float}  $fees
      */
@@ -12408,40 +12756,65 @@ class MaintenanceController extends Controller
         Request $request,
         object $record,
         ?object $equipment,
-        ?object $storageRoom,
-        bool $chargeDamage,
+        ?object $targetRoom,
+        int $damageTake,
+        int $missingTake,
+        float $unitCost,
         array $fees,
         string $returnCondition
     ): void {
-        $returnedToRoomId = $this->syncEquipmentAfterReturn(
+        $lineQty = max(1, (int) ($record->borrowing_quantity ?? 1));
+        $goodTake = max(0, $lineQty - $damageTake - $missingTake);
+        $sync = $this->syncEquipmentAfterReturn(
             $request,
             $record,
             $equipment,
-            $storageRoom,
-            $chargeDamage,
+            $targetRoom,
+            $goodTake,
+            $damageTake,
+            $missingTake,
+            $unitCost,
             $returnCondition,
             0
         );
 
-        $this->markBorrowLineReturned($request, (int) $record->borrowing_record_id, $returnCondition, $fees, $returnedToRoomId);
+        $overrideId = $missingTake > 0
+            ? ($sync['missing_equipment_id'] ?? null)
+            : ($damageTake > 0 ? ($sync['damaged_equipment_id'] ?? null) : null);
+
+        $extraNote = $missingTake > 0
+            ? 'Missing '.$missingTake.' unit(s) · Borrower fine: '.BorrowingFees::money(round($unitCost * $missingTake, 2))
+            : null;
+
+        $this->markBorrowLineReturned(
+            $request,
+            (int) $record->borrowing_record_id,
+            $returnCondition,
+            $fees,
+            $sync['room_id'],
+            $overrideId,
+            $extraNote
+        );
     }
 
     /**
-     * Return part of a line and leave the rest out. A mixed condition is stored as separate returned rows.
+     * Return part of a line and leave the rest out. Mixed Good / Damaged / Missing conditions are stored as separate returned rows.
      */
     private function returnPartialQuantity(
         Request $request,
         object $record,
         ?object $equipment,
-        ?object $storageRoom,
+        ?object $targetRoom,
         int $goodTake,
         int $damageTake,
+        int $missingTake,
+        float $unitCost,
         int $lateDays,
         float $latePerUnit,
         float $damagePerUnit
     ): void {
         $lineQty = max(1, (int) ($record->borrowing_quantity ?? 1));
-        $take = $goodTake + $damageTake;
+        $take = $goodTake + $damageTake + $missingTake;
         $stillOut = max(0, $lineQty - $take);
 
         if ($stillOut > 0) {
@@ -12450,22 +12823,32 @@ class MaintenanceController extends Controller
                 ->update(['borrowing_quantity' => $stillOut]);
         }
 
-        $returnedToRoomId = $this->syncEquipmentAfterReturn(
+        $primaryCondition = $missingTake > 0 ? 'Missing' : ($damageTake > 0 ? 'Damaged' : 'Good');
+        $sync = $this->syncEquipmentAfterReturn(
             $request,
             $record,
             $equipment,
-            $storageRoom,
-            $damageTake > 0,
-            $damageTake > 0 ? 'Damaged' : 'Good',
+            $targetRoom,
+            $goodTake,
+            $damageTake,
+            $missingTake,
+            $unitCost,
+            $primaryCondition,
             $stillOut
         );
 
-        $writeReturned = function (int $qty, string $condition, float $damageFee, ?int $existingId) use (
+        $returnedToRoomId = $sync['room_id'];
+        $damagedEquipmentId = $sync['damaged_equipment_id'];
+        $missingEquipmentId = $sync['missing_equipment_id'];
+
+        $usedExisting = $stillOut > 0;
+        $writeReturned = function (int $qty, string $condition, float $chargeFee, ?int $overrideEquipmentId = null, ?string $extraNote = null) use (
             $request,
             $record,
             $lateDays,
             $latePerUnit,
-            &$returnedToRoomId
+            &$returnedToRoomId,
+            &$usedExisting
         ) {
             if ($qty <= 0) {
                 return;
@@ -12473,28 +12856,34 @@ class MaintenanceController extends Controller
             $fees = [
                 'days' => $lateDays,
                 'late_fee' => round($latePerUnit * $qty, 2),
-                'damage_fee' => $damageFee,
+                'damage_fee' => $chargeFee,
             ];
-            if ($existingId) {
+            if (! $usedExisting) {
+                $usedExisting = true;
                 DB::table('borrowing_records_table')
-                    ->where('borrowing_record_id', $existingId)
+                    ->where('borrowing_record_id', $record->borrowing_record_id)
                     ->update(['borrowing_quantity' => $qty]);
-                $this->markBorrowLineReturned($request, $existingId, $condition, $fees, $returnedToRoomId);
+                $this->markBorrowLineReturned(
+                    $request,
+                    (int) $record->borrowing_record_id,
+                    $condition,
+                    $fees,
+                    $returnedToRoomId,
+                    $overrideEquipmentId,
+                    $extraNote
+                );
 
                 return;
             }
-            $this->insertReturnedCopy($request, $record, $qty, $condition, $fees, $returnedToRoomId);
+            $this->insertReturnedCopy($request, $record, $qty, $condition, $fees, $returnedToRoomId, $overrideEquipmentId, $extraNote);
         };
 
-        if ($stillOut > 0) {
-            $writeReturned($damageTake, 'Damaged', round($damagePerUnit * $damageTake, 2), null);
-            $writeReturned($goodTake, 'Good', 0, null);
-        } elseif ($damageTake > 0) {
-            $writeReturned($damageTake, 'Damaged', round($damagePerUnit * $damageTake, 2), (int) $record->borrowing_record_id);
-            $writeReturned($goodTake, 'Good', 0, null);
-        } else {
-            $writeReturned($goodTake, 'Good', 0, (int) $record->borrowing_record_id);
-        }
+        $missingNote = $missingTake > 0
+            ? 'Missing '.$missingTake.' unit(s) · Borrower fine: '.BorrowingFees::money(round($unitCost * $missingTake, 2))
+            : null;
+        $writeReturned($missingTake, 'Missing', round($unitCost * $missingTake, 2), $missingEquipmentId, $missingNote);
+        $writeReturned($damageTake, 'Damaged', round($damagePerUnit * $damageTake, 2), $damagedEquipmentId);
+        $writeReturned($goodTake, 'Good', 0);
     }
 
     /**
@@ -12505,16 +12894,23 @@ class MaintenanceController extends Controller
         int $recordId,
         string $returnCondition,
         array $fees,
-        mixed $returnedToRoomId
+        mixed $returnedToRoomId,
+        ?int $overrideEquipmentId = null,
+        ?string $extraRemarks = null
     ): void {
+        $baseRemarks = trim((string) $request->input('remarks', ''));
+        $mergedRemarks = implode(' · ', array_filter([$baseRemarks, $extraRemarks]));
         $borrowReturn = [
             'borrowing_status' => 'Returned',
             'borrowing_actual_return_date' => now(),
             'borrowing_return_condition' => $returnCondition,
-            'borrowing_return_remarks' => $request->input('remarks'),
+            'borrowing_return_remarks' => $mergedRemarks !== '' ? $mergedRemarks : null,
             'borrowing_returned_by' => Auth::id(),
             'borrowing_returned_to_room_id' => $returnedToRoomId,
         ];
+        if ($overrideEquipmentId && $overrideEquipmentId > 0) {
+            $borrowReturn['borrowing_equipment_id'] = $overrideEquipmentId;
+        }
         if (Schema::hasColumn('borrowing_records_table', 'borrowing_late_days')) {
             $borrowReturn['borrowing_late_days'] = $fees['days'];
         }
@@ -12539,15 +12935,22 @@ class MaintenanceController extends Controller
         int $qty,
         string $returnCondition,
         array $fees,
-        mixed $returnedToRoomId
+        mixed $returnedToRoomId,
+        ?int $overrideEquipmentId = null,
+        ?string $extraRemarks = null
     ): void {
+        $baseRemarks = trim((string) $request->input('remarks', ''));
+        $mergedRemarks = implode(' · ', array_filter([$baseRemarks, $extraRemarks]));
         $copy = (array) $record;
         unset($copy['borrowing_record_id']);
+        if ($overrideEquipmentId && $overrideEquipmentId > 0) {
+            $copy['borrowing_equipment_id'] = $overrideEquipmentId;
+        }
         $copy['borrowing_quantity'] = $qty;
         $copy['borrowing_status'] = 'Returned';
         $copy['borrowing_actual_return_date'] = now();
         $copy['borrowing_return_condition'] = $returnCondition;
-        $copy['borrowing_return_remarks'] = $request->input('remarks');
+        $copy['borrowing_return_remarks'] = $mergedRemarks !== '' ? $mergedRemarks : null;
         $copy['borrowing_returned_by'] = Auth::id();
         $copy['borrowing_returned_to_room_id'] = $returnedToRoomId;
         if (array_key_exists('borrowing_late_days', $copy)) {
@@ -12564,20 +12967,27 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Put returned equipment back in stock. Units still on this line stay out.
+     * Put returned equipment back in stock (Storage Room or borrowed room).
+     * Splits partial Damaged units (Damaged + Under Maintenance) and Missing units (For Replacement)
+     * so good units remain accurately tracked.
+     *
+     * @return array{room_id: mixed, damaged_equipment_id: ?int, missing_equipment_id: ?int}
      */
     private function syncEquipmentAfterReturn(
         Request $request,
         object $record,
         ?object $equipment,
-        ?object $storageRoom,
-        bool $chargeDamage,
+        ?object $targetRoom,
+        int $goodTake,
+        int $damageTake,
+        int $missingTake,
+        float $unitCost,
         string $returnCondition,
         int $stillOnThisLine
-    ): mixed {
+    ): array {
         $returnedToRoomId = $equipment->equipment_room_id ?? null;
         if (! $equipment) {
-            return $returnedToRoomId;
+            return ['room_id' => $returnedToRoomId, 'damaged_equipment_id' => null, 'missing_equipment_id' => null];
         }
 
         $stock = max(1, (int) ($equipment->equipment_quantity ?? 1));
@@ -12588,65 +12998,236 @@ class MaintenanceController extends Controller
             ->sum('borrowing_quantity')
             + max(0, $stillOnThisLine);
 
-        $equipmentUpdate = [
-            'equipment_inventory_status' => $remainingOnLoan >= $stock ? 'Borrowed' : 'Active',
-        ];
-        if ($chargeDamage) {
-            $equipmentUpdate['equipment_condition_status'] = 'Damaged';
-        }
-        DB::table('equipment_table')
-            ->where('equipment_id', $record->borrowing_equipment_id)
-            ->update($equipmentUpdate);
-
-        if ($chargeDamage) {
-            EquipmentConditionHistory::record(
-                (int) $record->borrowing_equipment_id,
-                $equipment->equipment_condition_status ?? null,
-                'Damaged',
-                'borrow_return',
-                'Damage found when the borrowed item was returned'
-            );
-        }
-
         $currentRoom = DB::table('rooms_table')->where('room_id', $equipment->equipment_room_id)->first();
         $isSingle = ($equipment->equipment_tracking_mode ?? 'Individual') !== 'Bulk' || $stock <= 1;
         $wholeRowWasOut = ($equipment->equipment_inventory_status ?? '') === 'Borrowed';
-        $alreadyInStorage = $currentRoom && RoomCategories::isStorageType($currentRoom->room_type ?? null);
+        $destRoomId = ($targetRoom && (int) $targetRoom->room_id > 0)
+            ? (int) $targetRoom->room_id
+            : (int) ($equipment->equipment_room_id ?? 0);
+        $damagedEquipmentId = null;
+        $missingEquipmentId = null;
+        $borrowerName = (string) ($record->borrowing_borrower_name ?? 'borrower');
 
-        if ($storageRoom && ! $alreadyInStorage && $remainingOnLoan === 0 && ($isSingle || $wholeRowWasOut)) {
-            $assignment = PropertyAssignments::current((int) $record->borrowing_equipment_id);
-            if ($assignment) {
-                PropertyAssignments::returnAssignment(
-                    (int) $assignment->assignment_id,
-                    $returnCondition === 'Good' ? 'Good' : 'Damaged',
-                    'Returned to storage after borrowing.'
-                );
+        $splitOffUnits = function (int $qty, string $condition, string $invStatus, int $roomId, string $ledgerRemark) use ($equipment, $record): int {
+            $copy = (array) $equipment;
+            $insert = [];
+            foreach ($copy as $key => $value) {
+                if (! is_string($key) || ! str_starts_with($key, 'equipment_') || $key === 'equipment_id') {
+                    continue;
+                }
+                $insert[$key] = $value;
             }
+            $insert['equipment_quantity'] = $qty;
+            $insert['equipment_tracking_mode'] = $qty > 1 ? EquipmentTrackingModes::BULK : EquipmentTrackingModes::INDIVIDUAL;
+            $insert['equipment_condition_status'] = $condition;
+            $insert['equipment_inventory_status'] = $invStatus;
+            $insert['equipment_room_id'] = $roomId ?: $equipment->equipment_room_id;
+            $insert['equipment_placement_zone'] = 'Holding';
+            $insert['equipment_current_location'] = 'Holding';
+            $insert['equipment_position_x'] = 50;
+            $insert['equipment_position_y'] = 90;
+            $insert['equipment_created_at'] = now();
+
+            foreach (['workstation_slot_id', 'workstation_id', 'workstation_template_slot_id'] as $slotCol) {
+                if (Schema::hasColumn('equipment_table', $slotCol)) {
+                    $insert[$slotCol] = null;
+                }
+            }
+            foreach (['equipment_asset_tag', 'equipment_qr_code', 'equipment_serial_number'] as $uniqueCol) {
+                if (array_key_exists($uniqueCol, $insert)) {
+                    $insert[$uniqueCol] = null;
+                }
+            }
+            $insert = collect($insert)
+                ->filter(fn ($value, $key) => Schema::hasColumn('equipment_table', (string) $key))
+                ->all();
+
+            $newId = (int) DB::table('equipment_table')->insertGetId($insert);
+
+            if (EquipmentStockLedger::enabled()) {
+                EquipmentStockLedger::post((int) $record->borrowing_equipment_id, EquipmentStockLedger::ADJUSTMENT, -$qty, [
+                    'room_id' => (int) ($equipment->equipment_room_id ?? 0) ?: null,
+                    'reference_type' => 'borrowing_record',
+                    'reference_id' => (int) $record->borrowing_record_id,
+                    'remarks' => $ledgerRemark.' (split into #'.$newId.')',
+                ]);
+                EquipmentStockLedger::post($newId, EquipmentStockLedger::ADJUSTMENT, $qty, [
+                    'room_id' => $roomId ?: null,
+                    'reference_type' => 'borrowing_record',
+                    'reference_id' => (int) $record->borrowing_record_id,
+                    'remarks' => 'Split from equipment #'.$record->borrowing_equipment_id.' — '.$ledgerRemark,
+                ]);
+            }
+
+            return $newId;
+        };
+
+        $specialTotal = $damageTake + $missingTake;
+        if ($specialTotal > 0 && ! $isSingle && $specialTotal < $stock) {
+            $remainingGoodStock = max(1, $stock - $specialTotal);
+            $sourceStatus = $remainingOnLoan >= $remainingGoodStock
+                ? EquipmentInventoryStatuses::BORROWED
+                : EquipmentInventoryStatuses::ACTIVE;
 
             DB::table('equipment_table')
                 ->where('equipment_id', $record->borrowing_equipment_id)
                 ->update([
-                    'workstation_slot_id' => null,
-                    'workstation_id' => null,
-                    'workstation_template_slot_id' => null,
+                    'equipment_quantity' => $remainingGoodStock,
+                    'equipment_inventory_status' => $sourceStatus,
                 ]);
+
+            if ($damageTake > 0) {
+                $damagedEquipmentId = $splitOffUnits(
+                    $damageTake,
+                    'Damaged',
+                    EquipmentInventoryStatuses::UNDER_MAINTENANCE,
+                    $destRoomId,
+                    $damageTake.' unit(s) returned damaged by '.$borrowerName
+                );
+                EquipmentConditionHistory::record(
+                    $damagedEquipmentId,
+                    $equipment->equipment_condition_status ?? 'Good',
+                    'Damaged',
+                    'borrow_return',
+                    $damageTake.' unit(s) returned damaged by '.$borrowerName
+                );
+                $this->logActivity(
+                    'Returned damaged equipment',
+                    'Equipment',
+                    'equipment_table',
+                    (int) $record->borrowing_equipment_id,
+                    'Split '.$damageTake.' damaged unit(s) from '.$equipment->equipment_name.' on borrow return.'
+                );
+            }
+
+            if ($missingTake > 0) {
+                $fineStr = BorrowingFees::money(round($unitCost * $missingTake, 2));
+                $missingEquipmentId = $splitOffUnits(
+                    $missingTake,
+                    'Damaged',
+                    EquipmentInventoryStatuses::FOR_REPLACEMENT,
+                    (int) ($equipment->equipment_room_id ?? 0),
+                    $missingTake.' unit(s) marked missing by '.$borrowerName.' (fine '.$fineStr.')'
+                );
+                $this->logActivity(
+                    'Marked borrowed equipment missing',
+                    'Equipment',
+                    'equipment_table',
+                    $missingEquipmentId,
+                    $missingTake.' × '.$equipment->equipment_name.' marked missing on return from '.$borrowerName.'. Fine obligated: '.$fineStr.'.'
+                );
+            }
+        } elseif ($missingTake > 0 && $damageTake === 0) {
+            $fineStr = BorrowingFees::money(round($unitCost * $missingTake, 2));
+            DB::table('equipment_table')
+                ->where('equipment_id', $record->borrowing_equipment_id)
+                ->update([
+                    'equipment_inventory_status' => $remainingOnLoan >= $stock
+                        ? EquipmentInventoryStatuses::BORROWED
+                        : EquipmentInventoryStatuses::FOR_REPLACEMENT,
+                ]);
+            $this->logActivity(
+                'Marked borrowed equipment missing',
+                'Equipment',
+                'equipment_table',
+                (int) $record->borrowing_equipment_id,
+                $equipment->equipment_name.' marked missing on return from '.$borrowerName.' and set to For Replacement. Fine obligated: '.$fineStr.'.'
+            );
+
+            // Missing items do not physically return to storage.
+            return ['room_id' => $returnedToRoomId, 'damaged_equipment_id' => null, 'missing_equipment_id' => (int) $record->borrowing_equipment_id];
+        } else {
+            $allDamaged = $damageTake > 0;
+            $nextStatus = $remainingOnLoan >= $stock
+                ? EquipmentInventoryStatuses::BORROWED
+                : ($allDamaged ? EquipmentInventoryStatuses::UNDER_MAINTENANCE : EquipmentInventoryStatuses::ACTIVE);
+
+            $equipmentUpdate = [
+                'equipment_inventory_status' => $nextStatus,
+            ];
+            if ($allDamaged) {
+                $equipmentUpdate['equipment_condition_status'] = 'Damaged';
+            }
+            DB::table('equipment_table')
+                ->where('equipment_id', $record->borrowing_equipment_id)
+                ->update($equipmentUpdate);
+
+            if ($allDamaged) {
+                EquipmentConditionHistory::record(
+                    (int) $record->borrowing_equipment_id,
+                    $equipment->equipment_condition_status ?? null,
+                    'Damaged',
+                    'borrow_return',
+                    'Damage found when the borrowed item was returned by '.$borrowerName
+                );
+                $this->logActivity(
+                    'Returned damaged equipment',
+                    'Equipment',
+                    'equipment_table',
+                    (int) $record->borrowing_equipment_id,
+                    $equipment->equipment_name.' was returned damaged by '.$borrowerName.' and set to Under Maintenance.'
+                );
+            } else {
+                $this->logActivity(
+                    'Returned borrowed equipment',
+                    'Equipment',
+                    'equipment_table',
+                    (int) $record->borrowing_equipment_id,
+                    $equipment->equipment_name.' was returned in good condition by '.$borrowerName.'.'
+                );
+            }
+        }
+
+        // Move the returned item to the chosen Return To destination (Storage Room or borrowed room) if different.
+        $needsRoomMove = $targetRoom
+            && (int) $targetRoom->room_id !== (int) ($equipment->equipment_room_id ?? 0)
+            && $remainingOnLoan === 0
+            && ($isSingle || $wholeRowWasOut);
+
+        if ($needsRoomMove) {
+            if (RoomCategories::isStorageType($targetRoom->room_type ?? null)) {
+                $assignment = PropertyAssignments::current((int) $record->borrowing_equipment_id);
+                if ($assignment) {
+                    PropertyAssignments::returnAssignment(
+                        (int) $assignment->assignment_id,
+                        $returnCondition === 'Good' ? 'Good' : 'Damaged',
+                        'Returned to storage after borrowing.'
+                    );
+                }
+
+                DB::table('equipment_table')
+                    ->where('equipment_id', $record->borrowing_equipment_id)
+                    ->update([
+                        'workstation_slot_id' => null,
+                        'workstation_id' => null,
+                        'workstation_template_slot_id' => null,
+                    ]);
+            }
 
             $this->recordInventoryTransfer(
                 $request,
                 DB::table('equipment_table')->where('equipment_id', $record->borrowing_equipment_id)->first(),
                 $currentRoom,
-                $storageRoom,
+                $targetRoom,
                 ['type' => null, 'department_id' => null, 'custodian_id' => null, 'label' => null, 'error' => null],
                 false,
-                'Returned from borrowing by '.$record->borrowing_borrower_name.'.',
+                'Returned from borrowing by '.$borrowerName.'.',
                 Auth::id(),
                 Auth::id()
             );
 
-            return $storageRoom->room_id;
+            return [
+                'room_id' => $targetRoom->room_id,
+                'damaged_equipment_id' => $damagedEquipmentId,
+                'missing_equipment_id' => $missingEquipmentId,
+            ];
         }
 
-        return $returnedToRoomId;
+        return [
+            'room_id' => $targetRoom ? $targetRoom->room_id : $returnedToRoomId,
+            'damaged_equipment_id' => $damagedEquipmentId,
+            'missing_equipment_id' => $missingEquipmentId,
+        ];
     }
 
     public function archiveBorrowing(Request $request, int $id)
@@ -12725,6 +13306,28 @@ class MaintenanceController extends Controller
         ]);
 
         return back()->with('success', 'Borrowing record restored from archive.');
+    }
+
+    /**
+     * Destination room picked on the return form (Storage Room or the room it was borrowed from),
+     * falling back to the first active storage room.
+     */
+    private function borrowReturnTargetRoom(int $roomId): ?object
+    {
+        if ($roomId > 0) {
+            $picked = DB::table('rooms_table')
+                ->where('room_id', $roomId)
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) => $query->where(fn ($q) => $q->whereNull('room_is_archived')->orWhere('room_is_archived', false))
+                )
+                ->first();
+            if ($picked) {
+                return $picked;
+            }
+        }
+
+        return $this->borrowReturnStorageRoom(0);
     }
 
     /**

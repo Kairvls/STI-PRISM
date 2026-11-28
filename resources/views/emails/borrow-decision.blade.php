@@ -13,17 +13,27 @@
                         <td style="padding:28px 28px 8px;">
                             <div style="font-weight:800;letter-spacing:.08em;font-size:13px;color:#0025cc;">PAAYO</div>
                             <h1 style="margin:12px 0 8px;font-size:22px;line-height:1.3;">
-                                Borrow request {{ strtolower($statusLabel) }}
+                                @if ($decision === 'submitted')
+                                    Borrow request received
+                                @else
+                                    Borrow request {{ strtolower($statusLabel) }}
+                                @endif
                             </h1>
                             <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b7280;">
-                                Hi {{ $name }}, your online borrow request under employee ID
-                                <strong style="color:#1a1a2e;">{{ $employeeId }}</strong>
-                                was
-                                <strong style="color:#1a1a2e;">{{ strtolower($statusLabel) }}</strong>.
+                                @if ($decision === 'submitted')
+                                    Hi {{ $name }}, we received your online borrow request under employee ID
+                                    <strong style="color:#1a1a2e;">{{ $employeeId }}</strong>.
+                                    It is currently <strong style="color:#1a1a2e;">pending approval</strong>.
+                                @else
+                                    Hi {{ $name }}, your online borrow request under employee ID
+                                    <strong style="color:#1a1a2e;">{{ $employeeId }}</strong>
+                                    was
+                                    <strong style="color:#1a1a2e;">{{ strtolower($statusLabel) }}</strong>.
+                                @endif
                             </p>
 
                             <div style="margin:0 0 16px;padding:16px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e8ecf4;">
-                                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Slip</p>
+                                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Reference #</p>
                                 <p style="margin:0;font-size:18px;font-weight:800;color:#0025cc;letter-spacing:.02em;">{{ $slipNo }}</p>
                                 <p style="margin:12px 0 0;font-size:13px;color:#6b7280;">
                                     <strong style="color:#1a1a2e;">Status:</strong> {{ $statusLabel }}
